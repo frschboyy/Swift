@@ -32,14 +32,14 @@ Findings:
 - `notFound` also covers an address that doesn't exist, so Swift can't tell "not shared" from "no such account". The spoken message should say "I can't see their calendar" and not claim to know why.
 - Not tested: Google Workspace (e.g. university) addresses, where admin policy can change sharing behaviour.
 
-## Still to decide: publishing status
+## Publishing status
 
 | Option | Effect |
 |---|---|
 | Testing | Refresh tokens expire after 7 days; weekly re-sign-in |
 | In production (unverified) | No 7-day expiry; one "unverified app" warning |
 
-Choice: **not yet recorded.** It becomes part of ADR-004.
+Choice: **In production (unverified)**, decided by the owner 2026-10-16. Goes into ADR-004. Consequence: the refresh token issued while the app was still in Testing expires in 7 days, so `oauth_probe.py` must be re-run after the app is published to get a token without that limit.
 
 ## Implications for the spec
 

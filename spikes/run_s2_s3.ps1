@@ -5,6 +5,8 @@ param(
     [switch]$SkipAudio
 )
 $ErrorActionPreference = "Continue"
+# -File passes "a,b" as one string; split it.
+$Models = @($Models | ForEach-Object { $_ -split "," } | Where-Object { $_ })
 $uv = "C:\Users\frchi\AppData\Roaming\Python\Python313\Scripts\uv.exe"
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $clip = "spikes\latency\results\clips\clip_10s.wav"
@@ -12,6 +14,7 @@ $clip = "spikes\latency\results\clips\clip_10s.wav"
 if (-not $SkipAudio) {
     while (-not (Test-Path $clip)) { Start-Sleep -Seconds 10 }
     Start-Sleep -Seconds 20  # let piper_bench finish writing its result
+    $env:OPENBLAS_NUM_THREADS = "1"  # see S2 report: avoids ~235 MB OpenBLAS commit
     "== stt_bench $(Get-Date -Format T)"
     & $uv run --group spikes python spikes/latency/stt_bench.py --reps 10 2>&1 | ForEach-Object { "$_" }
     "== ram_probe $(Get-Date -Format T)"

@@ -60,6 +60,22 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def download(url: str, target: Path, attempts: int = 5) -> None:
+    """Download to <target>.part and rename only when complete, so a truncated file is never used."""
+    part = target.with_name(target.name + ".part")
+    for attempt in range(1, attempts + 1):
+        print(f"downloading {target.name} (attempt {attempt}) ...")
+        try:
+            urllib.request.urlretrieve(url, part)
+            part.replace(target)
+            return
+        except (urllib.error.ContentTooShortError, OSError) as exc:
+            print(f"  incomplete: {exc}")
+            part.unlink(missing_ok=True)
+            time.sleep(5 * attempt)
+    raise SystemExit(f"could not download {url}")
+
+
 def ensure_voice() -> tuple[Path, dict[str, str]]:
     d = models_dir() / "piper" / VOICE
     d.mkdir(parents=True, exist_ok=True)
@@ -67,8 +83,7 @@ def ensure_voice() -> tuple[Path, dict[str, str]]:
     for name in FILES:
         target = d / name
         if not target.exists():
-            print(f"downloading {name} ...")
-            urllib.request.urlretrieve(f"{HF_BASE}/{name}", target)
+            download(f"{HF_BASE}/{name}", target)
         manifest[name] = sha256(target)
     return d / f"{VOICE}.onnx", manifest
 

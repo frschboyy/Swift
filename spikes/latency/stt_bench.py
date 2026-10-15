@@ -25,6 +25,41 @@ MODELS = ["base.en", "small.en"]
 BEAMS = [1, 5]
 
 
+def load_16k(path: Path):
+    """Read a mono int16 WAV and resample to 16 kHz float32 (linear interpolation).
+
+    faster_whisper.audio.decode_audio is not used: faster-whisper 1.2.1 passes
+    metadata_errors= to av.open, which PyAV 19 rejects (Phase 2 note).
+    """
+    import wave
+
+    import numpy as np
+
+    with wave.open(str(path), "rb") as w:
+        rate = w.getframerate()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+    if rate == 16000:
+        return x
+    n = int(round(len(x) * 16000 / rate))
+    return np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x).astype(np.float32)
+
+
+def download(name: str, root: Path, attempts: int = 8) -> None:
+    """Fetch the model (resumable) with retries; the network here drops intermittently."""
+    import time
+
+    from faster_whisper import WhisperModel
+
+    for i in range(1, attempts + 1):
+        try:
+            WhisperModel(name, device="cpu", compute_type="int8", download_root=str(root))
+            return
+        except Exception as exc:  # noqa: BLE001
+            print(f"download {name} attempt {i} failed: {type(exc).__name__}")
+            time.sleep(15 * i)
+    raise SystemExit(f"could not download {name}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reps", type=int, default=10)
@@ -32,17 +67,16 @@ def main() -> None:
     args = ap.parse_args()
 
     from faster_whisper import WhisperModel
-    from faster_whisper.audio import decode_audio
 
     clip_dir = SPIKES_DIR / "latency" / "results" / "clips"
-    clips = {p.stem: decode_audio(str(p), sampling_rate=16000) for p in sorted(clip_dir.glob("clip_*s.wav"))}
+    clips = {p.stem: load_16k(p) for p in sorted(clip_dir.glob("clip_*s.wav"))}
     if not clips:
         sys.exit("no clips found; run piper_bench.py first")
 
     root = models_dir() / "whisper"
     out: dict[str, dict] = {}
     for name in MODELS:
-        WhisperModel(name, device="cpu", compute_type="int8", download_root=str(root))  # download only
+        download(name, root)
         before = private_mb()
         with Timer() as load:
             model = WhisperModel(name, device="cpu", compute_type="int8", cpu_threads=args.threads, download_root=str(root))

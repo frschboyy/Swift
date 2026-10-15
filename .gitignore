@@ -22,3 +22,6 @@ client_secret*.json
 models/
 corpus/
 spikes/**/results/
+
+# Spike run logs
+*.log

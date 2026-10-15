@@ -1,0 +1,160 @@
+{"id": "de01", "text": "Draft an email to my dean explaining this situation.", "intent": "draft_email", "slots": {"recipient": "dean", "topic": "this situation"}, "tags": ["E1", "canonical"]}
+{"id": "de02", "text": "draft an email to my dean explaining this situation", "intent": "draft_email", "slots": {"recipient": "dean", "topic": "this situation"}, "tags": ["E1", "stt"]}
+{"id": "de03", "text": "Write an email to my supervisor about the delayed lab results.", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "the delayed lab results"}, "tags": ["E1"]}
+{"id": "de04", "text": "Can you draft a message to Bob Lee saying I'll be late tomorrow?", "intent": "draft_email", "slots": {"recipient": "Bob Lee", "topic": "I'll be late tomorrow"}, "tags": ["E1"]}
+{"id": "de05", "text": "compose an email to my dean", "intent": "draft_email", "slots": {"recipient": "dean", "topic": null}, "tags": ["E1", "stt"]}
+{"id": "de06", "text": "Hey Swift, email my supervisor that the chapter draft is ready for review.", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "the chapter draft is ready for review"}, "tags": ["E1", "wake-prefix"]}
+{"id": "de07", "text": "Start an email to Professor Adams asking for an extension on the essay.", "intent": "draft_email", "slots": {"recipient": "Professor Adams", "topic": "asking for an extension on the essay"}, "tags": ["E1"]}
+{"id": "de08", "text": "um draft an email to my dean uh explaining why I missed the meeting", "intent": "draft_email", "slots": {"recipient": "dean", "topic": "why I missed the meeting"}, "tags": ["E1", "disfluent"]}
+{"id": "de09", "text": "I need to write to my supervisor about the conference budget.", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "the conference budget"}, "tags": ["E1", "paraphrase"]}
+{"id": "de10", "text": "Prepare an email for Sarah thanking her for the feedback.", "intent": "draft_email", "slots": {"recipient": "Sarah", "topic": "thanking her for the feedback"}, "tags": ["E1"]}
+{"id": "de11", "text": "Draft a reply to my dean.", "intent": "draft_email", "slots": {"recipient": "dean", "topic": null}, "tags": ["E1"]}
+{"id": "de12", "text": "Send an email to my supervisor about next week's progress.", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "next week's progress"}, "tags": ["E1", "send-verb-new-email"]}
+{"id": "de13", "text": "Email Bob that the server is back up.", "intent": "draft_email", "slots": {"recipient": "Bob", "topic": "the server is back up"}, "tags": ["E1"]}
+{"id": "de14", "text": "Could you put together an email to the department head about room bookings", "intent": "draft_email", "slots": {"recipient": "department head", "topic": "room bookings"}, "tags": ["E1", "paraphrase"]}
+{"id": "de15", "text": "Write my dean a quick note explaining the situation with the exam.", "intent": "draft_email", "slots": {"recipient": "dean", "topic": "the situation with the exam"}, "tags": ["E1"]}
+{"id": "de16", "text": "draft email to supervisor re thesis timeline", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "thesis timeline"}, "tags": ["E1", "terse"]}
+{"id": "de17", "text": "Let my supervisor know by email that I'm sick today.", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "I'm sick today"}, "tags": ["E1", "paraphrase"]}
+{"id": "de18", "text": "Draft an email to Maria Gonzalez about the shared dataset.", "intent": "draft_email", "slots": {"recipient": "Maria Gonzalez", "topic": "the shared dataset"}, "tags": ["E1"]}
+{"id": "de19", "text": "Hey Swift draft an email to my dean", "intent": "draft_email", "slots": {"recipient": "dean", "topic": null}, "tags": ["E1", "wake-prefix", "stt"]}
+{"id": "de20", "text": "New email to my supervisor explaining the results are delayed.", "intent": "draft_email", "slots": {"recipient": "supervisor", "topic": "the results are delayed"}, "tags": ["E1", "terse"]}
+{"id": "rv01", "text": "Make that email shorter.", "intent": "revise_draft", "slots": {"instruction": "shorter"}, "tags": ["E1b", "canonical"]}
+{"id": "rv02", "text": "make it shorter", "intent": "revise_draft", "slots": {"instruction": "shorter"}, "tags": ["E1b", "stt"]}
+{"id": "rv03", "text": "Make the email more formal.", "intent": "revise_draft", "slots": {"instruction": "more formal"}, "tags": ["E1b"]}
+{"id": "rv04", "text": "Can you make it a bit friendlier?", "intent": "revise_draft", "slots": {"instruction": "a bit friendlier"}, "tags": ["E1b"]}
+{"id": "rv05", "text": "Add that I can meet on Thursday.", "intent": "revise_draft", "slots": {"instruction": "add that I can meet on Thursday"}, "tags": ["E1b"]}
+{"id": "rv06", "text": "Shorten the draft to two sentences.", "intent": "revise_draft", "slots": {"instruction": "two sentences"}, "tags": ["E1b"]}
+{"id": "rv07", "text": "Remove the last paragraph.", "intent": "revise_draft", "slots": {"instruction": "remove the last paragraph"}, "tags": ["E1b"]}
+{"id": "rv08", "text": "change the subject to weekly update", "intent": "revise_draft", "slots": {"instruction": "change the subject to weekly update"}, "tags": ["E1b", "stt"]}
+{"id": "rv09", "text": "Tone it down a little.", "intent": "revise_draft", "slots": {"instruction": "tone it down a little"}, "tags": ["E1b", "paraphrase"]}
+{"id": "rv10", "text": "Rewrite that so it sounds less apologetic.", "intent": "revise_draft", "slots": {"instruction": "less apologetic"}, "tags": ["E1b"]}
+{"id": "sd01", "text": "Send it.", "intent": "send_draft", "slots": {}, "tags": ["E1b", "canonical"]}
+{"id": "sd02", "text": "send that email", "intent": "send_draft", "slots": {}, "tags": ["E1b", "stt"]}
+{"id": "sd03", "text": "Okay, send the draft now.", "intent": "send_draft", "slots": {}, "tags": ["E1b"]}
+{"id": "sd04", "text": "Go ahead and send the email to my dean.", "intent": "send_draft", "slots": {}, "tags": ["E1b"]}
+{"id": "sd05", "text": "That looks good, send it off.", "intent": "send_draft", "slots": {}, "tags": ["E1b", "paraphrase"]}
+{"id": "sd06", "text": "Send the email.", "intent": "send_draft", "slots": {}, "tags": ["E1b"]}
+{"id": "sd07", "text": "send the draft", "intent": "send_draft", "slots": {}, "tags": ["E1b", "stt"]}
+{"id": "sd08", "text": "Hey Swift, send that email I drafted earlier.", "intent": "send_draft", "slots": {}, "tags": ["E1b", "wake-prefix"]}
+{"id": "sm01", "text": "Find a free 30-minute slot with my supervisor next Tuesday and schedule a meeting.", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": 30, "when": "next Tuesday"}, "tags": ["E2", "canonical"]}
+{"id": "sm02", "text": "find a free thirty minute slot with my supervisor next tuesday and schedule a meeting", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": 30, "when": "next tuesday"}, "tags": ["E2", "stt"]}
+{"id": "sm03", "text": "Set up a one hour meeting with Bob on Friday.", "intent": "schedule_meeting", "slots": {"attendee": "Bob", "duration_min": 60, "when": "Friday"}, "tags": ["E2"]}
+{"id": "sm04", "text": "Book 45 minutes with my dean sometime this week.", "intent": "schedule_meeting", "slots": {"attendee": "dean", "duration_min": 45, "when": "this week"}, "tags": ["E2"]}
+{"id": "sm05", "text": "Schedule a meeting with Sarah tomorrow afternoon.", "intent": "schedule_meeting", "slots": {"attendee": "Sarah", "duration_min": null, "when": "tomorrow afternoon"}, "tags": ["E2"]}
+{"id": "sm06", "text": "When are my supervisor and I both free next Monday? Book half an hour.", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": 30, "when": "next Monday"}, "tags": ["E2", "paraphrase"]}
+{"id": "sm07", "text": "Put a 15 minute call with Maria on my calendar for Wednesday morning.", "intent": "schedule_meeting", "slots": {"attendee": "Maria", "duration_min": 15, "when": "Wednesday morning"}, "tags": ["E2"]}
+{"id": "sm08", "text": "Arrange a meeting with my supervisor next week.", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": null, "when": "next week"}, "tags": ["E2"]}
+{"id": "sm09", "text": "Hey Swift find time with my dean on the twenty first for an hour", "intent": "schedule_meeting", "slots": {"attendee": "dean", "duration_min": 60, "when": "the twenty first"}, "tags": ["E2", "wake-prefix", "stt"]}
+{"id": "sm10", "text": "Can you get me thirty minutes with Professor Adams on Thursday?", "intent": "schedule_meeting", "slots": {"attendee": "Professor Adams", "duration_min": 30, "when": "Thursday"}, "tags": ["E2"]}
+{"id": "sm11", "text": "Schedule a 2 hour working session with Bob Lee next Tuesday afternoon.", "intent": "schedule_meeting", "slots": {"attendee": "Bob Lee", "duration_min": 120, "when": "next Tuesday afternoon"}, "tags": ["E2"]}
+{"id": "sm12", "text": "find a slot with my supervisor", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": null, "when": null}, "tags": ["E2", "stt", "missing-slots"]}
+{"id": "sm13", "text": "I need to meet my supervisor for 20 minutes before Friday.", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": 20, "when": "before Friday"}, "tags": ["E2", "paraphrase"]}
+{"id": "sm14", "text": "Organise a meeting with the department head on October 21st at 2pm.", "intent": "schedule_meeting", "slots": {"attendee": "department head", "duration_min": null, "when": "October 21st at 2pm"}, "tags": ["E2"]}
+{"id": "sm15", "text": "book a meeting with sarah next tuesday thirty minutes", "intent": "schedule_meeting", "slots": {"attendee": "sarah", "duration_min": 30, "when": "next tuesday"}, "tags": ["E2", "stt", "terse"]}
+{"id": "sm16", "text": "Is there a free half hour with Bob tomorrow? If so, schedule it.", "intent": "schedule_meeting", "slots": {"attendee": "Bob", "duration_min": 30, "when": "tomorrow"}, "tags": ["E2", "paraphrase"]}
+{"id": "sm17", "text": "Set up a meeting with my supervisor to discuss chapter three next Tuesday.", "intent": "schedule_meeting", "slots": {"attendee": "supervisor", "duration_min": null, "when": "next Tuesday"}, "tags": ["E2"]}
+{"id": "sm18", "text": "Invite my dean to a 30 minute meeting on Monday at 10.", "intent": "schedule_meeting", "slots": {"attendee": "dean", "duration_min": 30, "when": "Monday at 10"}, "tags": ["E2"]}
+{"id": "su01", "text": "Find the latest report in my project folder and summarize the outstanding issues.", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "canonical"]}
+{"id": "su02", "text": "find the latest report in my project folder and summarize the outstanding issues", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "stt"]}
+{"id": "su03", "text": "Summarize the most recent status report for the thesis project.", "intent": "summarize_latest_document", "slots": {"project": "thesis"}, "tags": ["E3"]}
+{"id": "su04", "text": "What are the open issues in the newest report?", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "paraphrase"]}
+{"id": "su05", "text": "Give me a summary of the latest report.", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3"]}
+{"id": "su06", "text": "Read the latest report in the thesis folder and tell me what's outstanding.", "intent": "summarize_latest_document", "slots": {"project": "thesis"}, "tags": ["E3"]}
+{"id": "su07", "text": "Hey Swift what does the last report say we still need to fix", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "wake-prefix", "stt"]}
+{"id": "su08", "text": "Summarize the outstanding issues from the most recent document in my project.", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3"]}
+{"id": "su09", "text": "Check the newest issues report for the robotics project and summarize it.", "intent": "summarize_latest_document", "slots": {"project": "robotics"}, "tags": ["E3"]}
+{"id": "su10", "text": "latest report summary please", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "terse"]}
+{"id": "su11", "text": "Find my most recent project report and list the remaining problems.", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "paraphrase"]}
+{"id": "su12", "text": "Look through the latest status update and tell me the blockers.", "intent": "summarize_latest_document", "slots": {"project": null}, "tags": ["E3", "paraphrase"]}
+{"id": "dt01", "text": "Open my development environment and run the tests.", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "canonical"]}
+{"id": "dt02", "text": "open my development environment and run the tests", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "stt"]}
+{"id": "dt03", "text": "Open the thesis project in VS Code and run its tests.", "intent": "open_dev_env_and_test", "slots": {"project": "thesis"}, "tags": ["E4"]}
+{"id": "dt04", "text": "Fire up my IDE and kick off the test suite.", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "paraphrase"]}
+{"id": "dt05", "text": "Hey Swift open my project and run the tests", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "wake-prefix", "stt"]}
+{"id": "dt06", "text": "Load up the robotics project and test it.", "intent": "open_dev_env_and_test", "slots": {"project": "robotics"}, "tags": ["E4"]}
+{"id": "dt07", "text": "Get my dev environment going and run all the tests.", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "paraphrase"]}
+{"id": "dt08", "text": "open the editor and run pytest", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "stt"]}
+{"id": "dt09", "text": "Open my development environment, then run the tests for thesis.", "intent": "open_dev_env_and_test", "slots": {"project": "thesis"}, "tags": ["E4"]}
+{"id": "dt10", "text": "Set up my workspace and run the unit tests.", "intent": "open_dev_env_and_test", "slots": {"project": null}, "tags": ["E4", "paraphrase"]}
+{"id": "od01", "text": "Open my development environment.", "intent": "open_dev_env", "slots": {"project": null}, "tags": ["E4"]}
+{"id": "od02", "text": "open my project", "intent": "open_dev_env", "slots": {"project": null}, "tags": ["E4", "stt"]}
+{"id": "od03", "text": "Open the thesis project.", "intent": "open_dev_env", "slots": {"project": "thesis"}, "tags": ["E4"]}
+{"id": "od04", "text": "Launch my IDE.", "intent": "open_dev_env", "slots": {"project": null}, "tags": ["E4"]}
+{"id": "od05", "text": "Hey Swift open the robotics project", "intent": "open_dev_env", "slots": {"project": "robotics"}, "tags": ["E4", "wake-prefix"]}
+{"id": "od06", "text": "Bring up VS Code for my project.", "intent": "open_dev_env", "slots": {"project": null}, "tags": ["E4", "paraphrase"]}
+{"id": "rt01", "text": "Run the tests.", "intent": "run_tests", "slots": {"project": null}, "tags": ["E4"]}
+{"id": "rt02", "text": "run the tests", "intent": "run_tests", "slots": {"project": null}, "tags": ["E4", "stt"]}
+{"id": "rt03", "text": "Run the thesis tests.", "intent": "run_tests", "slots": {"project": "thesis"}, "tags": ["E4"]}
+{"id": "rt04", "text": "Kick off the test suite for robotics.", "intent": "run_tests", "slots": {"project": "robotics"}, "tags": ["E4", "paraphrase"]}
+{"id": "rt05", "text": "Can you run my tests again?", "intent": "run_tests", "slots": {"project": null}, "tags": ["E4"]}
+{"id": "rt06", "text": "test my project", "intent": "run_tests", "slots": {"project": null}, "tags": ["E4", "terse"]}
+{"id": "cr01", "text": "Remind me every Friday to send my supervisor a weekly update.", "intent": "create_reminder", "slots": {"text": "send my supervisor a weekly update", "schedule": "every Friday"}, "tags": ["E5", "canonical"]}
+{"id": "cr02", "text": "remind me every friday to send my supervisor a weekly update", "intent": "create_reminder", "slots": {"text": "send my supervisor a weekly update", "schedule": "every friday"}, "tags": ["E5", "stt"]}
+{"id": "cr03", "text": "Remind me tomorrow at 3pm to call the bank.", "intent": "create_reminder", "slots": {"text": "call the bank", "schedule": "tomorrow at 3pm"}, "tags": ["E5"]}
+{"id": "cr04", "text": "Set a reminder for Monday morning to submit the timesheet.", "intent": "create_reminder", "slots": {"text": "submit the timesheet", "schedule": "Monday morning"}, "tags": ["E5"]}
+{"id": "cr05", "text": "In two hours remind me to take a break.", "intent": "create_reminder", "slots": {"text": "take a break", "schedule": "in two hours"}, "tags": ["E5"]}
+{"id": "cr06", "text": "Remind me every weekday at 9 to check the lab bookings.", "intent": "create_reminder", "slots": {"text": "check the lab bookings", "schedule": "every weekday at 9"}, "tags": ["E5"]}
+{"id": "cr07", "text": "Don't let me forget to pay rent on the first of every month.", "intent": "create_reminder", "slots": {"text": "pay rent", "schedule": "the first of every month"}, "tags": ["E5", "paraphrase"]}
+{"id": "cr08", "text": "Hey Swift remind me at five to leave for the station", "intent": "create_reminder", "slots": {"text": "leave for the station", "schedule": "at five"}, "tags": ["E5", "wake-prefix", "stt"]}
+{"id": "cr09", "text": "Every Friday remind me to back up my thesis.", "intent": "create_reminder", "slots": {"text": "back up my thesis", "schedule": "every Friday"}, "tags": ["E5"]}
+{"id": "cr10", "text": "Remind me to water the plants.", "intent": "create_reminder", "slots": {"text": "water the plants", "schedule": null}, "tags": ["E5", "missing-slots"]}
+{"id": "cr11", "text": "Set a weekly reminder on Sundays to plan the week.", "intent": "create_reminder", "slots": {"text": "plan the week", "schedule": "weekly on Sundays"}, "tags": ["E5"]}
+{"id": "cr12", "text": "remind me in 20 minutes to check the oven", "intent": "create_reminder", "slots": {"text": "check the oven", "schedule": "in 20 minutes"}, "tags": ["E5", "stt"]}
+{"id": "cr13", "text": "Can you remind me next Tuesday to email Sarah about the dataset?", "intent": "create_reminder", "slots": {"text": "email Sarah about the dataset", "schedule": "next Tuesday"}, "tags": ["E5", "near-miss-email"]}
+{"id": "cr14", "text": "Remind me every other Wednesday to renew the parking permit.", "intent": "create_reminder", "slots": {"text": "renew the parking permit", "schedule": "every other Wednesday"}, "tags": ["E5"]}
+{"id": "cr15", "text": "Add a reminder for 8am tomorrow: bring the poster.", "intent": "create_reminder", "slots": {"text": "bring the poster", "schedule": "8am tomorrow"}, "tags": ["E5", "paraphrase"]}
+{"id": "cr16", "text": "Remind me on Friday to schedule a meeting with my supervisor.", "intent": "create_reminder", "slots": {"text": "schedule a meeting with my supervisor", "schedule": "Friday"}, "tags": ["E5", "near-miss-meeting"]}
+{"id": "cr17", "text": "Every morning at 7 remind me to take my medication.", "intent": "create_reminder", "slots": {"text": "take my medication", "schedule": "every morning at 7"}, "tags": ["E5"]}
+{"id": "cr18", "text": "Remind me tonight to run the tests before I leave.", "intent": "create_reminder", "slots": {"text": "run the tests before I leave", "schedule": "tonight"}, "tags": ["E5", "near-miss-tests"]}
+{"id": "lr01", "text": "What reminders do I have?", "intent": "list_reminders", "slots": {}, "tags": ["E5"]}
+{"id": "lr02", "text": "list my reminders", "intent": "list_reminders", "slots": {}, "tags": ["E5", "stt"]}
+{"id": "lr03", "text": "Show me all my reminders.", "intent": "list_reminders", "slots": {}, "tags": ["E5"]}
+{"id": "lr04", "text": "Do I have any reminders set for Friday?", "intent": "list_reminders", "slots": {}, "tags": ["E5"]}
+{"id": "lr05", "text": "Read out my reminders.", "intent": "list_reminders", "slots": {}, "tags": ["E5"]}
+{"id": "lr06", "text": "Hey Swift which reminders are active", "intent": "list_reminders", "slots": {}, "tags": ["E5", "wake-prefix"]}
+{"id": "cc01", "text": "Cancel the Friday reminder.", "intent": "cancel_reminder", "slots": {"target": "Friday reminder"}, "tags": ["E5"]}
+{"id": "cc02", "text": "delete the reminder about the weekly update", "intent": "cancel_reminder", "slots": {"target": "weekly update"}, "tags": ["E5", "stt"]}
+{"id": "cc03", "text": "Stop reminding me to take a break.", "intent": "cancel_reminder", "slots": {"target": "take a break"}, "tags": ["E5", "near-miss-stop"]}
+{"id": "cc04", "text": "Remove the rent reminder.", "intent": "cancel_reminder", "slots": {"target": "rent"}, "tags": ["E5"]}
+{"id": "cc05", "text": "Cancel my reminder about the parking permit.", "intent": "cancel_reminder", "slots": {"target": "parking permit"}, "tags": ["E5"]}
+{"id": "cc06", "text": "Get rid of the second reminder.", "intent": "cancel_reminder", "slots": {"target": "second reminder"}, "tags": ["E5", "referent"]}
+{"id": "ct01", "text": "Stop.", "intent": "control", "slots": {"action": "stop"}, "tags": ["control"]}
+{"id": "ct02", "text": "stop", "intent": "control", "slots": {"action": "stop"}, "tags": ["control", "stt"]}
+{"id": "ct03", "text": "Cancel.", "intent": "control", "slots": {"action": "cancel"}, "tags": ["control"]}
+{"id": "ct04", "text": "cancel that", "intent": "control", "slots": {"action": "cancel"}, "tags": ["control", "stt"]}
+{"id": "ct05", "text": "Yes.", "intent": "control", "slots": {"action": "yes"}, "tags": ["control"]}
+{"id": "ct06", "text": "Yeah, go ahead.", "intent": "control", "slots": {"action": "yes"}, "tags": ["control"]}
+{"id": "ct07", "text": "No.", "intent": "control", "slots": {"action": "no"}, "tags": ["control"]}
+{"id": "ct08", "text": "no thanks", "intent": "control", "slots": {"action": "no"}, "tags": ["control", "stt"]}
+{"id": "ct09", "text": "Mute.", "intent": "control", "slots": {"action": "mute"}, "tags": ["control"]}
+{"id": "ct10", "text": "Stop listening for a while.", "intent": "control", "slots": {"action": "mute"}, "tags": ["control", "paraphrase"]}
+{"id": "ct11", "text": "Forget that.", "intent": "control", "slots": {"action": "forget"}, "tags": ["control"]}
+{"id": "ct12", "text": "What can you do?", "intent": "control", "slots": {"action": "help"}, "tags": ["control"]}
+{"id": "ct13", "text": "never mind", "intent": "control", "slots": {"action": "cancel"}, "tags": ["control", "stt", "paraphrase"]}
+{"id": "ct14", "text": "Hey Swift stop talking", "intent": "control", "slots": {"action": "stop"}, "tags": ["control", "wake-prefix"]}
+{"id": "tm01", "text": "What time is it?", "intent": "get_time", "slots": {}, "tags": ["info"]}
+{"id": "tm02", "text": "what's the time", "intent": "get_time", "slots": {}, "tags": ["info", "stt"]}
+{"id": "tm03", "text": "Tell me the time.", "intent": "get_time", "slots": {}, "tags": ["info"]}
+{"id": "tm04", "text": "Hey Swift what time is it", "intent": "get_time", "slots": {}, "tags": ["info", "wake-prefix"]}
+{"id": "dd01", "text": "What's the date today?", "intent": "get_date", "slots": {}, "tags": ["info"]}
+{"id": "dd02", "text": "what day is it", "intent": "get_date", "slots": {}, "tags": ["info", "stt"]}
+{"id": "dd03", "text": "What's today's date?", "intent": "get_date", "slots": {}, "tags": ["info"]}
+{"id": "dd04", "text": "Which day of the week is it?", "intent": "get_date", "slots": {}, "tags": ["info"]}
+{"id": "ge01", "text": "How many files are in my Documents folder?", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge02", "text": "What's on my calendar tomorrow?", "intent": "generic", "slots": {}, "tags": ["generic", "near-miss-meeting"]}
+{"id": "ge03", "text": "Open Notepad.", "intent": "generic", "slots": {}, "tags": ["generic", "app-launch"]}
+{"id": "ge04", "text": "Find the PDF I downloaded yesterday.", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge05", "text": "Who is my supervisor?", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge06", "text": "Translate good morning into French.", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge07", "text": "What's the weather like?", "intent": "generic", "slots": {}, "tags": ["generic", "unsupported"]}
+{"id": "ge08", "text": "Play some music.", "intent": "generic", "slots": {}, "tags": ["generic", "unsupported"]}
+{"id": "ge09", "text": "How long until my next meeting?", "intent": "generic", "slots": {}, "tags": ["generic", "near-miss-meeting"]}
+{"id": "ge10", "text": "Find all Word documents in my thesis folder.", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge11", "text": "Did my dean reply to my email?", "intent": "generic", "slots": {}, "tags": ["generic", "near-miss-email"]}
+{"id": "ge12", "text": "Delete the old drafts folder.", "intent": "generic", "slots": {}, "tags": ["generic", "destructive"]}
+{"id": "ge13", "text": "Run git pull in my project.", "intent": "generic", "slots": {}, "tags": ["generic", "shell"]}
+{"id": "ge14", "text": "What did the last test run say?", "intent": "generic", "slots": {}, "tags": ["generic", "near-miss-tests"]}
+{"id": "ge15", "text": "Explain what a p-value is in one sentence.", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge16", "text": "Open the folder with my lecture notes.", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge17", "text": "How much free disk space do I have?", "intent": "generic", "slots": {}, "tags": ["generic"]}
+{"id": "ge18", "text": "Summarize this webpage for me.", "intent": "generic", "slots": {}, "tags": ["generic", "unsupported"]}

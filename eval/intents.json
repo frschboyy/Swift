@@ -1,0 +1,22 @@
+{
+  "_doc": "Phase 0 intent inventory for spike S3. Slots: free-text values are as spoken, without leading 'my'/'the'; project is null unless a project is named explicitly; duration_min is an integer.",
+  "intents": {
+    "draft_email": ["recipient", "topic"],
+    "revise_draft": ["instruction"],
+    "send_draft": [],
+    "schedule_meeting": ["attendee", "duration_min", "when"],
+    "summarize_latest_document": ["project"],
+    "open_dev_env_and_test": ["project"],
+    "open_dev_env": ["project"],
+    "run_tests": ["project"],
+    "create_reminder": ["text", "schedule"],
+    "list_reminders": [],
+    "cancel_reminder": ["target"],
+    "control": ["action"],
+    "get_time": [],
+    "get_date": [],
+    "generic": []
+  },
+  "control_actions": ["stop", "cancel", "yes", "no", "mute", "forget", "help"],
+  "free_text_slots": ["topic", "instruction", "text", "target"]
+}

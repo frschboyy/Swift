@@ -1,0 +1,72 @@
+# Architecture
+
+This document summarises §4 of the spec and the decisions recorded since. The spec remains authoritative.
+
+## Process model
+
+- **One Swift process** (`pythonw -m swift`). A named mutex `Local\Swift-<user SID>` enforces a single instance: a second launch logs a message and exits.
+- **Child processes** (project tasks, IDE launch helpers) run inside a Job Object with kill-on-close.
+  - Exception: user-facing apps launched for the user (IDE, Notepad) are deliberately **outside** the job, so they outlive Swift.
+- **Ollama** is an external local service. Swift refuses any LLM endpoint that is not loopback while cloud mode is off.
+
+## Threads
+
+| Thread | Owns | Talks to the core via |
+|---|---|---|
+| Main | Tk overlay mainloop only. No business logic | Reads `StatusEvent`s from a `queue.Queue`, polled with `root.after()` |
+| Core | One asyncio loop: SessionManager, Executor, ActionGateway, integrations, scheduler, storage. **All state mutation happens here** | n/a |
+| PortAudio callback | Copies samples into the RingBuffer and counts overflows. Never blocks or logs | RingBuffer (lock-free single writer) |
+| Wake | Reads 1280-sample frames and scores them | `loop.call_soon_threadsafe(WakeDetected)` |
+| Tray (pystray) | Icon and menu | `UserCommand` into the core |
+| Platform (pywin32) | Hidden message window: power, lock/unlock, hotkeys | `PlatformEvent` into the core |
+| Worker pool (2–3) | STT, Piper synthesis, text extraction | Futures. Each job takes a cancellation token checked between chunks |
+
+Rules:
+- Messages into the core go only through `call_soon_threadsafe` or `asyncio.Queue`.
+- Messages out of the core go only as immutable `StatusEvent` objects.
+
+## State
+
+There are two independent dimensions (§5):
+- **Availability:** `ACTIVE`, `MUTED`, `SUSPENDED_LOCKED`, `SUSPENDED_SLEEP`, `DND`, `MIC_UNAVAILABLE`.
+- **Interaction:** `STANDBY` → … → `STANDBY`, validated against an explicit transition table.
+
+Wake detection runs, and actions execute, only while availability is `ACTIVE`.
+
+## Trust boundary
+
+Every side effect goes through `security/gateway.py`. The full sequence is:
+
+1. validate
+2. resolve targets
+3. evaluate policy
+4. confirm
+5. journal `PENDING`
+6. execute
+7. verify
+8. journal `DONE`/`FAILED`
+9. audit
+
+`tests/test_architecture.py` (Phase 3) enforces by AST scan that nothing else calls `ToolSpec.execute`.
+
+## Connectors (ADR-005)
+
+Integrations sit behind a connector boundary:
+- A connector contributes `ToolSpec`s to the registry.
+- **Swift's own code or config** assigns each tool's capability, side-effect class, and target extraction. A connector's self-description is never trusted.
+- Connector output is `UNTRUSTED_EXTERNAL`.
+- Connector tools execute only through the gateway, like every other tool.
+
+The MVP ships only the built-in Google connector. A plugin/MCP host is Phase 7.
+
+## Configuration and logging (Phase 0)
+
+- `config/paths.py` places config in `%APPDATA%\Swift`, and data, logs, and models in `%LOCALAPPDATA%\Swift`.
+- `config/loader.py`:
+  - writes commented defaults on first run;
+  - falls back per section for `config.toml`;
+  - **fails closed** for `permissions.toml`;
+  - drops invalid projects from `profiles.toml`;
+  - reports every problem as a `ConfigIssue`.
+- `logging_setup.py` runs every record through a redaction patcher before any sink sees it. Tracebacks are formatted and redacted by the patcher, and loguru's `diagnose`/`backtrace` are off, so local variables are never rendered.
+- Importing `swift` forces `HF_HUB_OFFLINE=1` and the related offline/telemetry switches.

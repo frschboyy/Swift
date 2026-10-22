@@ -64,6 +64,8 @@ Hold **Ctrl+Shift+Space** (configurable: `hotkeys.push_to_talk`), speak, and rel
 
 - **Wait for the orb before speaking.** The microphone opens only while the key is held. On the development laptop, audio starts 0.35–0.6 s after the key goes down; anything said before that is lost.
 - **Hotkey conflicts.** If another app already owns the hotkey, Swift shows an error card naming it. Pick another key in `config.yaml`. The default used to be Ctrl+Alt+Space, but another app owned it on the development laptop.
+- **The mic stays open 0.3 s after you release,** so the last word isn't cut off.
+- **Silence is skipped.** If the loudest 32 ms of a recording is below -50 dBFS, Swift says "I didn't catch that" without running Whisper. The interaction log records each recording's `peak_db`, so you can check your mic level.
 - **Esc** after releasing cancels the transcription. A tap shorter than 0.3 s is ignored.
 
 ### Sending requests to Claude Code
@@ -112,12 +114,16 @@ Every decision is recorded in the interaction log's `approvals`. Paths inside th
 
 ### Speech model
 
-- **Where it lives:** `%LOCALAPPDATA%\Swift\models\whisper` (faster-whisper format: `base.en` by default, `small.en` optional).
+- **Where it lives:** `%LOCALAPPDATA%\Swift\models\whisper` (faster-whisper format: `small.en` by default, `base.en` optional).
 - **Offline only:** the backend never downloads it. To fetch it once:
 
 ```powershell
-.venv\Scripts\python.exe -c "from faster_whisper import WhisperModel; import os; WhisperModel('base.en', device='cpu', compute_type='int8', download_root=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\whisper'))"
+.venv\Scripts\python.exe -c "from faster_whisper import WhisperModel; import os; WhisperModel('small.en', device='cpu', compute_type='int8', download_root=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\whisper'))"
 ```
+
+- **Accuracy vs. speed** (`stt` in `config.yaml`): `small.en` with `beam_size: 5` is the default. `base.en` with `beam_size: 1` is about 2.5× faster but much less accurate.
+- **Vocabulary:** put names and jargon you say often in `initial_prompt`. Whisper follows its spelling.
+- **Hearing what Whisper heard:** set `save_audio: true` and each push-to-talk is saved as `<interaction id>.wav` in `audio_dir` (default `%LOCALAPPDATA%\Swift\audio`). The interaction log's `audio_file` names it. The files stay on this PC; delete them whenever you like, and turn this off when you're done.
 
 ## Performance
 
@@ -180,6 +186,7 @@ Everything stays on this machine:
 - **Interaction log:** `%LOCALAPPDATA%\Swift\interactions.jsonl` (path: `logging.interactions`). One JSON line per interaction:
   - `ts` and `id`; `source` is `voice`, `debug.run` or `debug.ask`
   - `transcript` (in full), `audio_s`, `first_audio_ms`, `stt_ms`, `stt_model`
+  - `peak_db` (loudest 32 ms, dBFS) and `audio_file` (only with `stt.save_audio: true`)
   - `executor`, `run_ms` (the agent's run) and `interaction_ms` (key-down to result)
   - `steps`: `[{t_ms, text}]`
   - `status`: `done`, `cancelled`, `error` or `rejected`, with `error` (a code) and `reason`

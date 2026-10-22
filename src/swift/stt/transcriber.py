@@ -9,6 +9,7 @@ inference in a worker thread so the event loop keeps serving the overlay.
 from __future__ import annotations
 
 import asyncio
+import math
 import threading
 import time
 from dataclasses import dataclass
@@ -19,6 +20,11 @@ import numpy as np
 from loguru import logger
 
 SAMPLE_RATE = 16_000
+# Loudest 32 ms block below this is treated as silence and never reaches Whisper,
+# which otherwise invents text ("Thank you.") for room noise. Room noise here is
+# about -60 dBFS; quiet speech is around -40.
+SILENCE_DB = -50.0
+_GATE_BLOCK = 512
 
 
 class SttUnavailable(RuntimeError):
@@ -32,6 +38,7 @@ class Transcription:
     text: str
     stt_ms: int
     audio_s: float
+    peak_db: float | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +52,16 @@ class Transcriber(Protocol):
     async def transcribe(self, audio: np.ndarray) -> Transcription: ...
 
 
+def loudest_db(samples: np.ndarray) -> float:
+    """RMS level of the loudest 32 ms block, in dBFS (float samples in -1..1)."""
+    n = len(samples) // _GATE_BLOCK * _GATE_BLOCK
+    if n == 0:
+        return -120.0
+    blocks = samples[:n].reshape(-1, _GATE_BLOCK)
+    rms = float(np.sqrt(np.mean(blocks * blocks, axis=1)).max())
+    return 20.0 * math.log10(rms) if rms > 1e-6 else -120.0
+
+
 def _private_mb() -> float:
     import psutil
 
@@ -53,10 +70,13 @@ def _private_mb() -> float:
 
 
 class WhisperTranscriber:
-    def __init__(self, model: str, models_dir: Path, cpu_threads: int = 4, initial_prompt: str = "") -> None:
+    def __init__(
+        self, model: str, models_dir: Path, cpu_threads: int = 4, initial_prompt: str = "", beam_size: int = 5
+    ) -> None:
         self.model_name = model
         self.models_dir = models_dir
         self.cpu_threads = cpu_threads
+        self.beam_size = beam_size
         self.initial_prompt = initial_prompt or None
         self.stats: ModelStats | None = None
         self._model = None
@@ -112,13 +132,19 @@ class WhisperTranscriber:
     def _transcribe_sync(self, audio: np.ndarray) -> Transcription:
         assert self._model is not None
         samples = audio.astype(np.float32).reshape(-1) / 32768.0
+        audio_s = round(len(samples) / SAMPLE_RATE, 2)
+        peak_db = round(loudest_db(samples), 1)
+        if peak_db < SILENCE_DB:
+            return Transcription("", 0, audio_s, peak_db)
         with self._busy:
             t0 = time.perf_counter()
             segments, _info = self._model.transcribe(
                 samples,
                 language="en",
-                beam_size=1,
-                vad_filter=True,
+                beam_size=self.beam_size,
+                # No VAD: push-to-talk already bounds the speech, and Silero VAD
+                # dropped short or quiet requests whole. Silence is gated above.
+                vad_filter=False,
                 # One greedy pass. The default temperature fallback re-decodes up to 6 times
                 # on unclear audio (12.5 s for 2.7 s of room noise on this laptop).
                 temperature=0.0,
@@ -127,4 +153,4 @@ class WhisperTranscriber:
             )
             text = " ".join(s.text.strip() for s in segments).strip()
             ms = int((time.perf_counter() - t0) * 1000)
-        return Transcription(text, ms, round(len(samples) / SAMPLE_RATE, 2))
+        return Transcription(text, ms, audio_s, peak_db)

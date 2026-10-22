@@ -32,9 +32,18 @@ class Hotkeys(_Section):
 
 
 class SttSettings(_Section):
-    model: Literal["base.en", "small.en"] = "base.en"
+    model: Literal["base.en", "small.en"] = "small.en"
     cpu_threads: int = Field(4, ge=1, le=32)
+    beam_size: int = Field(5, ge=1, le=10)
     initial_prompt: str = ""
+    # Debug: keep every push-to-talk recording as a WAV file in audio_dir.
+    save_audio: bool = False
+    audio_dir: str = "%LOCALAPPDATA%/Swift/audio"
+
+    @field_validator("audio_dir")
+    @classmethod
+    def _expand(cls, v: str) -> str:
+        return expand(v)
 
 
 class ExecutorSettings(_Section):

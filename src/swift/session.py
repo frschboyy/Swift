@@ -22,11 +22,12 @@ import time
 import uuid
 from datetime import datetime
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
-from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder
+from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
 from swift.executors.base import ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
 from swift.ipc.protocol import Message, outbound
@@ -50,6 +51,9 @@ ERROR_HINTS = {
 DEFAULT_ERROR_HINT = "Try again. Details are in swift.log."
 
 MIN_SPEECH_S = 0.3
+# The mic stays open this long after the hotkey is released: people let go
+# while still saying the last word.
+TAIL_S = 0.3
 
 
 class UserFacingError(Exception):
@@ -74,6 +78,8 @@ class Session:
         ptt_label: str = "the push-to-talk hotkey",
         demo_speed: float = 1.0,
         max_record_s: float = MAX_SECONDS,
+        tail_s: float = TAIL_S,
+        audio_dir: Path | None = None,
         on_finish: OnFinish | None = None,
     ) -> None:
         self._send = send
@@ -84,6 +90,9 @@ class Session:
         self.ptt_label = ptt_label
         self.demo_speed = demo_speed
         self.max_record_s = max_record_s
+        self.tail_s = tail_s
+        # Debug only: every recording is saved here as <interaction id>.wav.
+        self.audio_dir = audio_dir
         self.on_finish = on_finish
         self._released: asyncio.Event | None = None
         self.state = "idle"
@@ -209,6 +218,7 @@ class Session:
         try:
             try:
                 await asyncio.wait_for(self._released.wait(), self.max_record_s)
+                await asyncio.sleep(self.tail_s)
             except TimeoutError:
                 logger.info("recording reached the time limit")
         finally:
@@ -217,6 +227,13 @@ class Session:
 
         record["audio_s"] = round(len(audio) / SAMPLE_RATE, 2)
         record["first_audio_ms"] = getattr(self.recorder, "first_audio_ms", None)
+        if self.audio_dir is not None and len(audio):
+            path = self.audio_dir / f"{record['id']}.wav"
+            try:
+                save_wav(path, audio)
+                record["audio_file"] = str(path)
+            except OSError as exc:
+                logger.warning("could not save the recording", error=str(exc))
         if record["audio_s"] < MIN_SPEECH_S:
             record["reason"] = "too_short"
             await self._set_state("idle")
@@ -228,6 +245,8 @@ class Session:
         except SttUnavailable as exc:
             raise UserFacingError("stt_unavailable", str(exc), exc.hint) from None
         record["stt_ms"] = result.stt_ms
+        if result.peak_db is not None:
+            record["peak_db"] = result.peak_db
         if not result.text:
             raise UserFacingError(
                 "no_speech",

@@ -184,7 +184,7 @@ cwd = config.working_dir (one of the configured directories)
   - The level is the RMS of each block, compressed with a square root for the orb and throttled to about 30 Hz.
   - Recordings are capped at 60 s, and anything under 0.3 s is discarded as an accidental tap.
 - **STT:** `WhisperModel(cfg.model, device="cpu", compute_type="int8", cpu_threads=4)`, created once at startup.
-  - `transcribe()` receives a float32 numpy array (its docstring, installed version 1.2.1, says it accepts "the audio waveform"), with `beam_size=1`, `language="en"`, `vad_filter=True`, and `initial_prompt` from config.
+  - `transcribe()` receives a float32 numpy array (its docstring, installed version 1.2.1, says it accepts "the audio waveform"), with `language="en"` and `initial_prompt` from config. Since the accuracy fix (2026-10-23): `small.en`, `beam_size=5` (configurable), `vad_filter=False`, plus an energy gate (loudest 32 ms block below -50 dBFS skips Whisper) and 0.3 s of recording after key release.
   - It runs in a worker thread so the event loop stays responsive.
 - **Expected cost (from the earlier spike on this laptop, `spikes/latency/results/stt-20261015-231942.json`):**
   - base.en int8 loads in about 1.3 s.

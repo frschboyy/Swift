@@ -11,7 +11,9 @@ import asyncio
 import math
 import threading
 import time
+import wave
 from collections.abc import Callable
+from pathlib import Path
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TypeVar
 from typing import Protocol
@@ -47,6 +49,16 @@ def level_from_block(block: np.ndarray) -> float:
         return 0.0
     db = 20.0 * math.log10(rms)
     return max(0.0, min(1.0, (db - FLOOR_DB) / (CEIL_DB - FLOOR_DB)))
+
+
+def save_wav(path: Path, audio: np.ndarray) -> None:
+    """Write 16 kHz mono int16 audio as a WAV file (debug recordings)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(SAMPLE_RATE)
+        f.writeframes(audio.astype(np.int16).tobytes())
 
 
 def warm_up() -> None:

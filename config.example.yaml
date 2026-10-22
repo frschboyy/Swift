@@ -6,9 +6,13 @@ hotkeys:
   debug: "Ctrl+Alt+F12"            # cycles MockExecutor scenarios when debug: true
 
 stt:
-  model: "base.en"                 # or "small.en" (slower, more accurate)
+  model: "small.en"                # or "base.en" (faster, less accurate)
   cpu_threads: 4
-  initial_prompt: ""               # names and jargon that help transcription
+  beam_size: 5                     # 1 is fastest; 5 is more accurate
+  # Names and jargon you say often. Whisper follows its spelling and style.
+  initial_prompt: "Swift, Claude Code, README, PLAN.md, config.yaml, Python, Rust, Tauri, TypeScript, pytest, git commit."
+  save_audio: false                # debug: keep each recording as a WAV in audio_dir
+  audio_dir: "%LOCALAPPDATA%/Swift/audio"
 
 executor:
   kind: "echo"                     # "claude_code" runs Claude Code; "echo" only shows the transcript; "mock" plays fake steps

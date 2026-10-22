@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import wave
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -13,7 +15,7 @@ from swift.audio.recorder import SAMPLE_RATE, MicError, level_from_block
 from swift.executors.echo import EchoExecutor
 from swift.ipc.protocol import Message
 from swift.session import Session
-from swift.stt.transcriber import SttUnavailable, Transcription
+from swift.stt.transcriber import SILENCE_DB, SttUnavailable, Transcription, WhisperTranscriber, loudest_db
 
 from test_session import Recorder as Outbox
 
@@ -61,6 +63,7 @@ def make(
     records: list[dict[str, Any]] = []
     rec = recorder or FakeRecorder()
     stt = transcriber or FakeTranscriber()
+    kw.setdefault("tail_s", 0.0)
     session = Session(
         out, EchoExecutor(), recorder=rec, transcriber=stt, ptt_label="Ctrl+Shift+Space", on_finish=records.append, **kw
     )
@@ -198,3 +201,48 @@ async def test_echo_executor_contract() -> None:
     result = await ex.result(run_id)
     assert result.status == "done" and "hello there" in result.summary
     assert result.details and "nothing was sent" in result.details["text"]
+
+
+async def test_mic_stays_open_briefly_after_release() -> None:
+    session, _, _, rec, _ = make(tail_s=0.1)
+    await down(session)
+    await session.handle(Message("ptt", {"state": "up"}))
+    await asyncio.sleep(0.03)
+    assert rec.recording  # still catching the last word
+    assert session._task is not None
+    await asyncio.wait_for(session._task, 2)
+    assert not rec.recording
+
+
+async def test_save_audio_writes_a_wav_per_interaction(tmp_path: Path) -> None:
+    session, _, records, _, _ = make(audio_dir=tmp_path)
+    await down(session)
+    await up_and_wait(session)
+    path = Path(records[0]["audio_file"])
+    assert path.parent == tmp_path and path.stem == records[0]["id"]
+    with wave.open(str(path)) as f:
+        assert f.getframerate() == SAMPLE_RATE and f.getnchannels() == 1
+        assert f.getnframes() == int(1.5 * SAMPLE_RATE)
+
+
+async def test_audio_is_not_saved_by_default() -> None:
+    session, _, records, _, _ = make()
+    await down(session)
+    await up_and_wait(session)
+    assert "audio_file" not in records[0]
+
+
+def test_loudest_db_finds_the_loudest_block() -> None:
+    samples = np.zeros(SAMPLE_RATE, dtype=np.float32)
+    samples[8192:8704] = 0.1  # one 32 ms block at -20 dBFS
+    assert loudest_db(samples) == pytest.approx(-20.0, abs=0.1)
+    assert loudest_db(np.zeros(100, dtype=np.float32)) == -120.0
+
+
+def test_silence_never_reaches_whisper(tmp_path: Path) -> None:
+    stt = WhisperTranscriber("small.en", tmp_path)
+    stt._model = object()  # would fail if Whisper were called
+    noise = (np.random.default_rng(0).normal(0, 10, SAMPLE_RATE * 2)).astype(np.int16)  # about -70 dBFS
+    result = stt._transcribe_sync(noise)
+    assert result.text == "" and result.audio_s == 2.0
+    assert result.peak_db is not None and result.peak_db < SILENCE_DB

@@ -18,7 +18,7 @@ def test_missing_file_gives_defaults(tmp_path: Path) -> None:
 
 def test_example_file_is_valid() -> None:
     s = load_settings(EXAMPLE)
-    assert s.stt.model == "base.en"
+    assert s.stt.model == "small.en"
 
 
 def test_env_refs_expand(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

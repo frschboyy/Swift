@@ -88,6 +88,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         app_paths().models_dir / "whisper",
         cpu_threads=settings.stt.cpu_threads,
         initial_prompt=settings.stt.initial_prompt,
+        beam_size=settings.stt.beam_size,
     )
     recorder = MicRecorder(asyncio.get_running_loop())
 
@@ -99,6 +100,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         recorder=recorder,
         transcriber=transcriber,
         ptt_label=settings.hotkeys.push_to_talk,
+        audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model)),
     )
     server.set_handler(session.handle)

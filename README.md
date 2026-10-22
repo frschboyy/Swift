@@ -66,7 +66,7 @@ Hold **Ctrl+Shift+Space** (configurable: `hotkeys.push_to_talk`), speak, and rel
 - **Hotkey conflicts.** If another app already owns the hotkey, Swift shows an error card naming it. Pick another key in `config.yaml`. The default used to be Ctrl+Alt+Space, but another app owned it on the development laptop.
 - **Esc** after releasing cancels the transcription. A tap shorter than 0.3 s is ignored.
 
-### Sending requests to Claude Code (Milestone 3)
+### Sending requests to Claude Code
 
 Set this in `config.yaml`:
 
@@ -74,23 +74,41 @@ Set this in `config.yaml`:
 executor:
   kind: "claude_code"
   working_dirs: ["C:/Users/me/Projects/thesis"]   # Claude Code runs here; trusted folders only
-  allowed_tools: ["Read", "Glob", "Grep"]         # read-only by default
+  allowed_tools: ["Read", "Glob", "Grep"]         # run without asking (keep these read-only)
+  confirm_tools: ["Edit", "Write", "Bash"]        # each call asks on the overlay first
   max_budget_usd: 1.0                             # per request
+  confirm_timeout_s: 120                          # no answer = rejected
 ```
 
 Then hold the hotkey and ask, for example, "What's in the executors folder?". Steps stream into the overlay as Claude Code works, and the result card shows its answer. **Esc** stops the run.
 
-**How Swift runs it:**
-- `claude -p --output-format stream-json`, with the request on stdin, never on the command line.
-- Only `allowed_tools` exist, and in `dontAsk` mode anything else is denied (shown as "Blocked: …"). Approving other actions from the overlay arrives in Milestone 5.
-- MCP servers from the project are not loaded (`--strict-mcp-config`), and sessions are not saved (`--no-session-persistence`).
-- Uses your normal Claude Code login. Swift never sees credentials.
+### Approving actions (Milestone 5)
+
+When Claude Code wants to use one of the `confirm_tools`, the overlay shows a card saying exactly what will happen. For example, "Create or overwrite notes.md: 3 lines into docs\notes.md", "Edit a.py: replace … with …", or "Run a command: git commit -m …".
+
+- **Approve** lets that one call run.
+- **Reject**, or no answer within `confirm_timeout_s`, denies it, and Claude Code **stops** (status `rejected`).
+- **Esc** cancels the whole run.
+
+Every decision is recorded in the interaction log's `approvals`. Paths inside the working folder are shown relative to it; a path **outside** it is shown in full, so it stands out.
+
+**How Swift runs it.** Swift uses the Python Agent SDK (`claude-agent-sdk`), with your installed `claude` CLI:
+- `allowed_tools` are pre-approved. `confirm_tools` exist, but each call goes to the overlay first. No other tool exists.
+- **Settings files are not loaded** (`setting_sources=[]`), so an "allow" rule in your Claude settings can't skip the card.
+- MCP servers from the project are not loaded (`--strict-mcp-config`), and sessions are not saved.
+- Claude Code's `AskUserQuestion` is answered automatically with "make an assumption and say so". There is no way to answer it by voice yet.
+- It uses your normal Claude Code login. Swift never sees credentials.
 
 **Things to know:**
+- **Read-only shell commands skip the card.** Claude Code auto-approves its built-in set of read-only commands (such as `ls` or `git status`) even when `Bash` needs confirmation. Anything that changes files or state still asks.
 - **This sends your transcript to Anthropic,** as any Claude Code request does. Transcription itself stays on this PC.
-- **Only add folders you trust.** Without `--bare`, `claude -p` still runs the project's hooks and reads its `CLAUDE.md`, with no trust prompt.
+- **Only add folders you trust.** Claude Code reads and may act on what's there.
 - **Esc kills the run** and everything it started. `claude` ignores Ctrl+Break on Windows, so there is no gentler stop.
-- **Measured on the development laptop:** a small read-only question took about 7 s and $0.04; Esc stopped a run within 0.4 s.
+- **Measured on the development laptop:**
+  - a read-only question took 7–8 s
+  - a file write with approval took 5–7 s
+  - Reject stopped the run 0.2 s after the click, and Esc 0.4–0.5 s after
+  - each request cost $0.005–0.05
 
 ### Speech model
 
@@ -147,7 +165,7 @@ With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays th
 ## Tests
 
 ```powershell
-uv run pytest                     # Python: protocol, executors (incl. a fake claude CLI), session, server, settings, push-to-talk
+uv run pytest                     # Python: protocol, executors and the approval bridge, session, server, settings, push-to-talk, log
 cd overlay; npm run typecheck     # TypeScript
 cd overlay/src-tauri; cargo test  # Rust: hit-testing and multi-monitor/DPI placement
 ```

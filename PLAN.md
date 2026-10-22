@@ -329,6 +329,29 @@ Corrections to earlier findings:
 - **OpenBLAS.** `OPENBLAS_NUM_THREADS=1` is now set in `swift/__init__.py`: −225 MB commit, no USS or speed change.
 - **Audio thread.** PortAudio calls now run on one dedicated audio thread, so warm-up no longer blocks the event loop. First audio arrived at 244 ms in a check.
 
+## 10e. Milestone 5 findings (2026-10-22/23, agent-run, claude-agent-sdk 0.2.172, Claude Code 2.1.307)
+
+| Check (real backend + SDK + CLI in a scratch sandbox, driven over the overlay protocol) | Result |
+|---|---|
+| Write request, then Reject on the card | PASSED. Status `rejected`, the run stopped 0.2 s after the click, **no file created**. |
+| Write request, then Approve on the card | PASSED. Status `done`, the file was created with the right content. |
+| Esc while the card is up | PASSED. Status `cancelled`, no file, no `claude` process left, approval logged as `cancelled`. |
+| Read-only question | PASSED. No card. |
+| Interaction log | PASSED. Each approval is logged with tool, decision and timing, plus cost and `stopped_by`. |
+| Clicking Approve or Reject on the real overlay | REQUIRES-HW (owner-run). |
+
+Findings:
+- **`can_use_tool` needs no workaround in this SDK version.** The documented dummy-hook workaround isn't needed: SDK 0.2.172 keeps stdin open while the callback is set.
+- **Read-only shell commands bypass the card.** Claude Code auto-approves its built-in read-only commands (`ls -A` here) even with `Bash` in `confirm_tools`. Mutating commands still reach the card. This is documented in the README.
+- **Reject stops the run.** Reject and no-answer use `interrupt=True`, so the run stops instead of trying another route.
+- **Settings are not loaded.** `setting_sources=[]` means global allow rules can't bypass the card.
+- **SDK warning silenced on purpose.** The SDK's `CanUseToolShadowedWarning` about the pre-approved read-only tools is expected and filtered.
+- **SDK import cost.** Importing the SDK takes about 3 s cold, so it's now done in the background after the backend is ready.
+- **Fixed during the live test:**
+  - a cancelled approval had no decision in the log
+  - absolute temp paths made the cards hard to read
+  - the SDK warning was still printed
+
 ## 11. Assumptions I could not verify yet (each gets checked in the milestone named)
 
 M1 status of the first four:

@@ -62,7 +62,13 @@ def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
         case "claude_code":
             # An unset or out-of-range folder is reported on the first request, as an error card.
             cwd = cfg.working_dirs[cfg.default_dir] if cfg.default_dir < len(cfg.working_dirs) else None
-            return ClaudeCodeExecutor(cwd=expand(cwd) if cwd else None, allowed_tools=cfg.allowed_tools, max_budget_usd=cfg.max_budget_usd)
+            return ClaudeCodeExecutor(
+                cwd=expand(cwd) if cwd else None,
+                allowed_tools=cfg.allowed_tools,
+                confirm_tools=cfg.confirm_tools,
+                max_budget_usd=cfg.max_budget_usd,
+                confirm_timeout_s=cfg.confirm_timeout_s,
+            )
         case _:
             return EchoExecutor()
 
@@ -103,6 +109,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     # these finish just waits for them.
     recorder.prepare()
     transcriber.start_loading()
+    if isinstance(session.executor, ClaudeCodeExecutor):
+        session.executor.prepare()
     logger.info("backend ready", port=bound, debug=settings.debug)
 
     # Exit when Tauri closes our stdin (normal quit). The Job Object covers crashes.

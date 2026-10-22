@@ -1,52 +1,86 @@
-"""Runs Claude Code headless and streams its progress (PLAN.md §4).
+"""Runs Claude Code headless through the Python Agent SDK (PLAN.md §4, §7 option B).
 
-Per request::
-
-    claude -p --output-format stream-json --verbose
-           --tools <allowed> --allowedTools <allowed>
-           --permission-mode dontAsk --permission-prompts none
-           --strict-mcp-config --no-session-persistence [--max-budget-usd N]
-
-- The request goes in on **stdin**, never argv: no Windows quoting issues, and a
-  transcript starting with "-" can't be read as a flag. (With no stdin the CLI
-  also waits 3 s for one.)
-- ``--tools`` limits which tools exist and ``--allowedTools`` pre-approves them;
-  in ``dontAsk`` mode anything else is denied instead of prompting. Milestone 5
-  replaces this with real approvals on the overlay.
-- Cancel kills the process tree (``taskkill /T /F``): ``claude`` ignores
-  CTRL_BREAK on Windows (measured), and nothing is persisted per session anyway.
+- **Tools.** ``allowed_tools`` (read-only by default) run without asking.
+  ``confirm_tools`` exist but each call goes to ``can_use_tool``, which shows the
+  overlay's confirm card and waits for Approve / Reject. No other tool exists.
+- **Settings files are ignored** (``setting_sources=[]``): an "allow" rule in the
+  owner's Claude settings must not bypass the overlay. ``--strict-mcp-config``
+  keeps project MCP servers out; sessions are not persisted.
+- **Reject or no answer** within ``confirm_timeout`` denies the call with
+  ``interrupt=True``: the run stops and reports ``rejected``.
+- ``AskUserQuestion`` is denied (no way to answer it by voice yet).
+- **Cancel** stops the SDK query and kills the CLI's process tree: ``claude``
+  ignores CTRL_BREAK on Windows (measured), and nothing is persisted anyway.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import itertools
-import json
 import os
 import shutil
 import subprocess
+import threading
+import warnings
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any
 
+import psutil
 from loguru import logger
 
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
-from swift.executors.claude_mapping import Outcome, outcome_for, steps_for
+from swift.executors.claude_mapping import Outcome, confirm_card, outcome_for, steps_for
 
-LINE_LIMIT = 16 * 1024 * 1024  # tool results can carry whole files on one line
 _DONE = object()
+
+# Read-only tools are pre-approved on purpose, so can_use_tool never sees them. The SDK
+# warns about that when the query starts; match by message so the SDK needn't be imported.
+warnings.filterwarnings("ignore", message=r"can_use_tool will not be invoked")
+
+REJECTED_MESSAGE = (
+    "The user rejected this action in Swift's voice overlay. Stop here; don't retry it or try a workaround."
+)
+NO_QUESTIONS_MESSAGE = (
+    "The user can't answer questions in this mode. Make a reasonable assumption, "
+    "say what you assumed in your final answer, and continue."
+)
 
 
 @dataclass
 class _Run:
-    proc: asyncio.subprocess.Process
     queue: asyncio.Queue[Any] = field(default_factory=asyncio.Queue)
     task: asyncio.Task[None] | None = None
     result: ExecResult | None = None
-    cancelled: bool = False
     finished: asyncio.Event = field(default_factory=asyncio.Event)
+    cli_pid: int | None = None
+    cancelled: bool = False
+    # Set when the user rejects (or doesn't answer) a confirm request.
+    stopped_by: tuple[str, str] | None = None  # (decision, title)
+    pending: dict[str, asyncio.Future[bool]] = field(default_factory=dict)
+    ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
+
+
+def as_event(message: Any) -> dict[str, Any] | None:
+    """An SDK message as the stream-json dict the mapping understands (None: not needed)."""
+    kind = type(message).__name__
+    if kind == "SystemMessage":
+        return {"type": "system", **message.data, "subtype": message.subtype}
+    if kind == "AssistantMessage":
+        content = []
+        for block in message.content:
+            block_kind = type(block).__name__
+            if block_kind == "ToolUseBlock":
+                content.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
+            elif block_kind == "TextBlock":
+                content.append({"type": "text", "text": block.text})
+        return {"type": "assistant", "parent_tool_use_id": message.parent_tool_use_id, "message": {"content": content}}
+    if kind == "ResultMessage":
+        data = asdict(message) if is_dataclass(message) else dict(vars(message))
+        return {"type": "result", **data}
+    return None
 
 
 class ClaudeCodeExecutor:
@@ -56,35 +90,25 @@ class ClaudeCodeExecutor:
         self,
         cwd: str | None,
         allowed_tools: Sequence[str] = ("Read", "Glob", "Grep"),
+        confirm_tools: Sequence[str] = ("Edit", "Write", "Bash"),
         max_budget_usd: float | None = 1.0,
+        confirm_timeout_s: float = 120.0,
         claude: str | None = None,
-        extra_args: Sequence[str] = (),
     ) -> None:
         self.cwd = cwd
         self.allowed_tools = list(allowed_tools)
+        self.confirm_tools = [t for t in confirm_tools if t not in self.allowed_tools]
         self.max_budget_usd = max_budget_usd
+        self.confirm_timeout_s = confirm_timeout_s
         self._claude = claude
-        self.extra_args = list(extra_args)
         self._runs: dict[str, _Run] = {}
         self._ids = itertools.count(1)
 
-    def argv(self) -> list[str]:
-        tools = ",".join(self.allowed_tools)
-        args = [
-            self._resolve_claude(),
-            "-p",
-            "--output-format", "stream-json",
-            "--verbose",
-            "--tools", tools,
-            "--allowedTools", tools,
-            "--permission-mode", "dontAsk",
-            "--permission-prompts", "none",
-            "--strict-mcp-config",
-            "--no-session-persistence",
-        ]
-        if self.max_budget_usd is not None:
-            args += ["--max-budget-usd", f"{self.max_budget_usd:g}"]
-        return args + self.extra_args
+    def prepare(self) -> None:
+        """Import the SDK in the background (about 3 s cold), so the first request doesn't pay for it."""
+        threading.Thread(target=lambda: __import__("claude_agent_sdk"), name="sdk-import", daemon=True).start()
+
+    # ---- setup checks --------------------------------------------------------
 
     def _resolve_claude(self) -> str:
         path = self._claude or shutil.which("claude")
@@ -108,28 +132,34 @@ class ClaudeCodeExecutor:
             )
         return self.cwd
 
-    async def start(self, request: str) -> str:
-        cwd = self._check_cwd()
-        argv = self.argv()
-        proc = await asyncio.create_subprocess_exec(
-            *argv,
-            cwd=cwd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            limit=LINE_LIMIT,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        )
-        assert proc.stdin is not None
-        proc.stdin.write(request.encode("utf-8"))
-        await proc.stdin.drain()
-        proc.stdin.close()
+    def options(self, run: _Run, run_id: str) -> Any:
+        from claude_agent_sdk import ClaudeAgentOptions
 
+        async def can_use_tool(name: str, args: dict[str, Any], context: Any) -> Any:
+            return await self._ask(run, run_id, name, args)
+
+        return ClaudeAgentOptions(
+            cwd=self._check_cwd(),
+            cli_path=self._resolve_claude(),
+            tools=[*self.allowed_tools, *self.confirm_tools],
+            allowed_tools=list(self.allowed_tools),
+            permission_mode="default",
+            can_use_tool=can_use_tool,
+            setting_sources=[],
+            strict_mcp_config=True,
+            max_budget_usd=self.max_budget_usd,
+            extra_args={"no-session-persistence": None},
+        )
+
+    # ---- Executor interface ---------------------------------------------------
+
+    async def start(self, request: str) -> str:
         run_id = f"cc-{next(self._ids)}"
-        run = _Run(proc)
+        run = _Run()
+        options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
         self._runs[run_id] = run
-        run.task = asyncio.create_task(self._pump(run))
-        logger.info("claude started", run_id=run_id, pid=proc.pid, cwd=cwd)
+        run.task = asyncio.create_task(self._pump(run, request, options))
+        logger.info("claude started", run_id=run_id, cwd=self.cwd)
         return run_id
 
     async def events(self, run_id: str) -> AsyncIterator[ExecEvent]:
@@ -145,7 +175,13 @@ class ClaudeCodeExecutor:
         if run.finished.is_set():
             return
         run.cancelled = True
-        await _kill_tree(run.proc)
+        for future in run.pending.values():
+            if not future.done():
+                future.set_result(False)
+        if run.cli_pid is not None:
+            await _kill_tree(run.cli_pid)
+        if run.task is not None:
+            run.task.cancel()
         await run.finished.wait()
 
     async def result(self, run_id: str) -> ExecResult:
@@ -155,8 +191,11 @@ class ClaudeCodeExecutor:
         return run.result
 
     async def reply(self, request_id: str, approve: bool) -> None:
-        # No approvals in dontAsk mode; Milestone 5 routes them to the overlay.
-        return None
+        run_id = request_id.split(":", 1)[0]
+        run = self._runs.get(run_id)
+        future = run.pending.get(request_id) if run else None
+        if future is not None and not future.done():
+            future.set_result(approve)
 
     def _get(self, run_id: str) -> _Run:
         try:
@@ -164,61 +203,94 @@ class ClaudeCodeExecutor:
         except KeyError:
             raise UnknownRun(run_id) from None
 
-    async def _pump(self, run: _Run) -> None:
-        proc = run.proc
-        assert proc.stdout is not None and proc.stderr is not None
-        stderr_task = asyncio.create_task(proc.stderr.read())
-        outcome: Outcome | None = None
+    # ---- permission bridge ----------------------------------------------------
+
+    async def _ask(self, run: _Run, run_id: str, name: str, args: dict[str, Any]) -> Any:
+        from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
+
+        if name == "AskUserQuestion":
+            return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
+        title, detail = confirm_card(name, args, cwd=self.cwd)
+        request_id = f"{run_id}:{next(run.ids)}"
+        future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        run.pending[request_id] = future
+        run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=name))
         try:
-            while line := await proc.stdout.readline():
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(event, dict):
+            approved = await asyncio.wait_for(future, self.confirm_timeout_s)
+            decision = "approve" if approved else "reject"
+        except TimeoutError:
+            approved, decision = False, "no_answer"
+        finally:
+            run.pending.pop(request_id, None)
+        if approved:
+            return PermissionResultAllow(updated_input=args)
+        if run.stopped_by is None and not run.cancelled:
+            run.stopped_by = (decision, title)
+        return PermissionResultDeny(message=REJECTED_MESSAGE, interrupt=True)
+
+    # ---- the run --------------------------------------------------------------
+
+    async def _pump(self, run: _Run, request: str, options: Any) -> None:
+        from claude_agent_sdk import query
+
+        outcome: Outcome | None = None
+        known = _claude_children()
+        try:
+            async for message in query(prompt=request, options=options):
+                if run.cli_pid is None:
+                    run.cli_pid = next(iter(_claude_children() - known), None)
+                event = as_event(message)
+                if event is None:
                     continue
                 for step in steps_for(event):
                     run.queue.put_nowait(ExecEvent("step", step.text))
                 outcome = outcome_for(event) or outcome
-            code = await proc.wait()
-            stderr = (await stderr_task).decode("utf-8", "replace").strip()
-            run.result = self._final(run, outcome, code, stderr)
-        except Exception as exc:  # noqa: BLE001 - surface any reader failure as a failed run
-            logger.exception("claude output reader failed")
-            await _kill_tree(proc)
-            run.result = ExecResult("error", f"Swift couldn't read Claude Code's output ({type(exc).__name__}).")
+            run.result = self._final(run, outcome, None)
+        except asyncio.CancelledError:
+            run.result = ExecResult("cancelled", "Cancelled.")
+        except Exception as exc:  # noqa: BLE001 - any SDK/CLI failure ends the run with a card
+            logger.warning("claude run failed", error=type(exc).__name__, detail=str(exc)[:300])
+            run.result = self._final(run, outcome, exc)
         finally:
-            if not stderr_task.done():
-                stderr_task.cancel()
+            if run.cli_pid is not None and psutil.pid_exists(run.cli_pid):
+                with contextlib.suppress(Exception):
+                    await _kill_tree(run.cli_pid)
             run.finished.set()
             run.queue.put_nowait(_DONE)
 
     @staticmethod
-    def _final(run: _Run, outcome: Outcome | None, code: int, stderr: str) -> ExecResult:
+    def _final(run: _Run, outcome: Outcome | None, error: Exception | None) -> ExecResult:
+        meta = outcome.meta if outcome else {}
         if run.cancelled:
-            return ExecResult("cancelled", "Cancelled.")
+            return ExecResult("cancelled", "Cancelled.", meta=meta)
+        if run.stopped_by is not None:
+            decision, title = run.stopped_by
+            why = "No answer in time" if decision == "no_answer" else "Rejected"
+            return ExecResult("rejected", f"{why}: {title}. Claude Code stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
             status = "done" if outcome.status == "done" else "error"
-            return ExecResult(status, outcome.summary, outcome.details, outcome.meta | {"exit_code": code})
-        last = stderr.splitlines()[-1] if stderr else f"exit code {code}"
-        logger.warning("claude ended without a result", exit_code=code)
-        return ExecResult("error", f"Claude Code stopped without an answer ({last[:160]}).", meta={"exit_code": code})
+            return ExecResult(status, outcome.summary, outcome.details, meta)
+        detail = f" ({str(error).splitlines()[0][:160]})" if error else ""
+        return ExecResult("error", f"Claude Code stopped without an answer{detail}.", meta=meta)
 
 
-async def _kill_tree(proc: asyncio.subprocess.Process) -> None:
-    if proc.returncode is not None:
-        return
+def _claude_children() -> set[int]:
+    """PIDs of `claude` processes started by this process (the SDK spawns the CLI)."""
+    try:
+        return {p.pid for p in psutil.Process().children(recursive=True) if p.name().lower().startswith("claude")}
+    except psutil.Error:
+        return set()
+
+
+async def _kill_tree(pid: int) -> None:
     if os.name == "nt":
         killer = await asyncio.create_subprocess_exec(
-            "taskkill", "/T", "/F", "/PID", str(proc.pid),
+            "taskkill", "/T", "/F", "/PID", str(pid),
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
         await killer.wait()
     else:  # pragma: no cover - Swift targets Windows
-        proc.kill()
-    try:
-        await asyncio.wait_for(proc.wait(), 5)
-    except TimeoutError:
-        proc.kill()
+        with contextlib.suppress(psutil.Error):
+            psutil.Process(pid).kill()

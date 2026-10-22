@@ -39,7 +39,10 @@ class SttSettings(_Section):
 
 class ExecutorSettings(_Section):
     kind: Literal["echo", "mock", "claude_code"] = "echo"
+    # Run without asking. Keep these read-only.
     allowed_tools: list[str] = Field(default_factory=lambda: ["Read", "Glob", "Grep"])
+    # Available, but every call shows the overlay's confirm card first.
+    confirm_tools: list[str] = Field(default_factory=lambda: ["Edit", "Write", "Bash"])
     working_dirs: list[str] = Field(default_factory=list)
     default_dir: int = Field(0, ge=0)
     max_budget_usd: float | None = Field(1.0, gt=0)

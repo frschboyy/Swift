@@ -78,6 +78,43 @@ def describe_tool(name: str, args: dict[str, Any]) -> str:
             return f"Using {name.removeprefix('mcp__').replace('__', ': ')}"
 
 
+def _shown_path(path: str, cwd: str | None) -> str:
+    """Relative to the working folder when inside it (shorter on the card), else in full."""
+    if cwd and path:
+        try:
+            return str(PureWindowsPath(path).relative_to(PureWindowsPath(cwd)))
+        except ValueError:
+            pass
+    return path
+
+
+def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tuple[str, str]:
+    """Title and detail for the overlay's confirm card: exactly what will happen."""
+    path = _shown_path(str(args.get("file_path") or args.get("notebook_path") or ""), cwd)
+    match name:
+        case "Write":
+            content = str(args.get("content", ""))
+            lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+            first = _short(content.splitlines()[0], 60) if content.strip() else "(empty)"
+            return f"Create or overwrite {_base(path)}", f"{lines} line{'s' if lines != 1 else ''} into {path}. Starts: {first}"
+        case "Edit" | "MultiEdit":
+            old = _short(str(args.get("old_string", "")), 70)
+            new = _short(str(args.get("new_string", "")), 70)
+            return f"Edit {_base(path)}", f"In {path}: replace “{old}” with “{new}”"
+        case "NotebookEdit":
+            return f"Edit notebook {_base(path)}", path
+        case "Bash" | "PowerShell":
+            return "Run a command", _short(str(args.get("command", "")), 300)
+        case "WebFetch":
+            url = str(args.get("url", ""))
+            return f"Fetch {urlparse(url).netloc or 'a web page'}", _short(url, 300)
+        case "WebSearch":
+            return "Search the web", _short(str(args.get("query", "")), 300)
+        case _:
+            detail = ", ".join(f"{k}={_short(str(v), 60)}" for k, v in args.items())
+            return describe_tool(name, args), _short(detail, 300)
+
+
 def _first_sentence(text: str) -> str:
     text = _plain(text).strip()
     match = re.search(r"(.+?[.!?:])(\s|$)", text)

@@ -297,6 +297,9 @@ class Session:
             self._confirm_ids.clear()
             record["interaction_ms"] = int((time.monotonic() - started) * 1000)
             record.setdefault("status", "error")
+            unanswered = "cancelled" if record["status"] == "cancelled" else "no_answer"
+            for approval in record["approvals"]:
+                approval.setdefault("decision", unanswered)
             if self.on_finish is not None:
                 self.on_finish(record)
 

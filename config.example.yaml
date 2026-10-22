@@ -12,7 +12,8 @@ stt:
 
 executor:
   kind: "echo"                     # "claude_code" runs Claude Code; "echo" only shows the transcript; "mock" plays fake steps
-  allowed_tools: ["Read", "Glob", "Grep"]
+  allowed_tools: ["Read", "Glob", "Grep"]   # run without asking (keep read-only)
+  confirm_tools: ["Edit", "Write", "Bash"]  # each call asks on the overlay first; anything else doesn't exist
   working_dirs: []                 # e.g. ["C:/Users/me/Projects/thesis"]; trusted folders only
   default_dir: 0
   max_budget_usd: 1.0

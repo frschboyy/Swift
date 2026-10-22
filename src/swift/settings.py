@@ -27,7 +27,7 @@ class _Section(BaseModel):
 
 
 class Hotkeys(_Section):
-    push_to_talk: str = "Ctrl+Alt+Space"
+    push_to_talk: str = "Ctrl+Shift+Space"
     debug: str = "Ctrl+Alt+F12"
 
 
@@ -38,7 +38,7 @@ class SttSettings(_Section):
 
 
 class ExecutorSettings(_Section):
-    kind: Literal["mock", "claude_code"] = "mock"
+    kind: Literal["echo", "mock", "claude_code"] = "echo"
     allowed_tools: list[str] = Field(default_factory=lambda: ["Read", "Glob", "Grep"])
     working_dirs: list[str] = Field(default_factory=list)
     default_dir: int = Field(0, ge=0)

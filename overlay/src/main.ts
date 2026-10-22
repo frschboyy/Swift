@@ -286,8 +286,8 @@ function onStatus(status: ConnectionStatus): void {
 }
 
 async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
-  // Milestone 1: only the debug key. Push-to-talk is registered from Milestone 2.
   const wanted: Record<string, string> = {};
+  if (hotkeys.push_to_talk) wanted.push_to_talk = hotkeys.push_to_talk;
   if (debugEnabled && hotkeys.debug) wanted.debug = hotkeys.debug;
   const problems = await invoke<string[]>("register_hotkeys", { hotkeys: wanted });
   if (problems.length) renderError(`Hotkey problem: ${problems.join("; ")}`, "Change the hotkey in config.yaml and restart Swift.");

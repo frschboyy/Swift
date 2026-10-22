@@ -171,7 +171,7 @@ cwd = config.working_dir (one of the configured directories)
 - When idle, nothing polls.
 
 **Hotkeys** (`tauri-plugin-global-shortcut`, which uses `RegisterHotKey` with `MOD_NOREPEAT`):
-- **Push-to-talk (Ctrl+Alt+Space).**
+- **Push-to-talk (Ctrl+Shift+Space; Ctrl+Alt+Space until M2, see §10b).**
   - `Pressed` starts recording.
   - `Released` is detected by the plugin polling `GetAsyncKeyState` every 50 ms on the **non-modifier key** (Space). This adds up to about 50 ms of release latency.
   - Releasing Ctrl or Alt first does not end the recording; releasing Space does.
@@ -227,7 +227,7 @@ Under both options:
 ## 8. Config (`config.yaml`, gitignored; `config.example.yaml` committed)
 
 ```yaml
-hotkeys: { push_to_talk: "Ctrl+Alt+Space", debug: "Ctrl+Alt+F12" }
+hotkeys: { push_to_talk: "Ctrl+Shift+Space", debug: "Ctrl+Alt+F12" }
 stt: { model: "base.en", cpu_threads: 4, initial_prompt: "" }
 executor: { kind: "claude_code", allowed_tools: ["Read", "Glob", "Grep"],
             working_dirs: ["C:/Users/frchi/Documents/Swift"], default_dir: 0,
@@ -279,6 +279,23 @@ Defects found and fixed during these checks:
 - **The window was hidden after the first click-through toggle.** tao re-hides any window it believes is hidden whenever it applies a style flag, and its `show()` activates the window after creation. The window is now created visible with `focus: false`, which tao shows with `SW_SHOWNOACTIVATE`.
 - **The window got a taskbar and Alt+Tab entry.** tao rewrote the extended style asynchronously after `set_ignore_cursor_events`, restoring APPWINDOW and dropping TOOLWINDOW. The extended style is now enforced in the subclass's `WM_STYLECHANGING` handler, and click-through is toggled directly through Win32.
 - **Vite crashed during rebuilds.** It watched `src-tauri/target` and crashed with EBUSY; Vite now ignores `src-tauri/`.
+
+## 10b. Milestone 2 findings (2026-10-22, agent-run, debug build)
+
+| Check | Result |
+|---|---|
+| Push-to-talk to transcript | PASSED (agent-run) with synthetic key holds and room audio. Real speech is owner-run. |
+| Too-short tap, silence, Esc after release | PASSED (agent-run). A tap is ignored; silence gives "I didn't catch that"; Esc cancels transcription. |
+| Mic start latency (key-down to first audio) | 0.35–0.6 s with WASAPI. A cold first open without warm-up was about 1.5 s. |
+| Focus while recording | PASSED. Swift was never foreground. |
+| Memory | The model adds about 1,012 MB. The rest of the tree is about 570 MB, so the 300 MB target is **not met** (README). Deferred to M4. |
+
+Defects found and fixed:
+- **WASAPI failed when PortAudio was set up on another thread** (error -9999, which was misreported as a privacy block). PortAudio is now warmed up on the event-loop thread, and the error message no longer claims a privacy block.
+- **Transcription took 12.5 s on 2.7 s of noise.** faster-whisper's temperature fallback decoded the audio up to 6 times; it now does one greedy pass (`temperature=0`).
+- **Ctrl+Alt+Space is owned by another app on this PC** (`RegisterHotKey` error 1409). The owner chose Ctrl+Shift+Space as the new default.
+
+Open decision: keeping the mic stream open between presses would remove the 0.35–0.6 s start delay, but Windows would show the mic-in-use indicator all the time.
 
 ## 11. Assumptions I could not verify yet (each gets checked in the milestone named)
 

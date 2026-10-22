@@ -58,6 +58,36 @@ npm --prefix overlay run dev
 
 It tests rendering and the protocol only. Window behavior (focus, click-through, capture exclusion) needs the real Tauri build.
 
+## Push-to-talk (Milestone 2)
+
+Hold **Ctrl+Shift+Space** (configurable: `hotkeys.push_to_talk`), speak, and release. The orb reacts to your voice. After release Swift transcribes on this PC and shows what it heard. Until Claude Code is wired in (Milestone 3), the default `executor.kind: "echo"` only displays the transcript; nothing leaves the machine.
+
+- **Wait for the orb before speaking.** The microphone opens only while the key is held. On the development laptop, audio starts 0.35–0.6 s after the key goes down; anything said before that is lost.
+- **Hotkey conflicts.** If another app already owns the hotkey, Swift shows an error card naming it. Pick another key in `config.yaml`. The default used to be Ctrl+Alt+Space, but another app owned it on the development laptop.
+- **Esc** after releasing cancels the transcription. A tap shorter than 0.3 s is ignored.
+
+### Speech model
+
+- **Where it lives:** `%LOCALAPPDATA%\Swift\models\whisper` (faster-whisper format: `base.en` by default, `small.en` optional).
+- **Offline only:** the backend never downloads it. To fetch it once:
+
+```powershell
+.venv\Scripts\python.exe -c "from faster_whisper import WhisperModel; import os; WhisperModel('base.en', device='cpu', compute_type='int8', download_root=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\whisper'))"
+```
+
+**Measured on the development laptop** (i5, 4 cores / 8 threads, 16 GB, CPU only, debug build):
+
+| | base.en, int8 |
+|---|---|
+| Model load (background, after the backend is ready) | 2.4–7.5 s; slower when the overlay is starting at the same moment |
+| Model memory (private bytes added by loading) | 1,012–1,019 MB |
+| Backend total with model loaded, after transcribing | 1,422 MB private |
+| Overlay + WebView2 | about 160 MB private |
+| Transcription, 5 s recorded clip | 1.15 s once warm |
+| Transcription, 2 s push-to-talk | 0.4–2.8 s (depends on CPU load) |
+
+The 300 MB idle target is **not met yet**. Excluding the model's own 1,012 MB, the whole tree uses about 570 MB: 160 MB for the overlay, and about 410 MB in the backend for faster-whisper's libraries (CTranslate2, onnxruntime for its voice filter, PyAV) and inference buffers. Reducing this is Milestone 4 work.
+
 ## Milestone 1: what to try
 
 With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays the next scenario: `happy` → `confirm` → `error` → `long`. Each one shows the listening orb with a fake mic level, then the transcript and the working steps, and ends on a result or error card.
@@ -70,7 +100,7 @@ With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays th
 ## Tests
 
 ```powershell
-uv run pytest                     # Python: protocol, executor contract, session, server, settings
+uv run pytest                     # Python: protocol, executor contract, session, server, settings, push-to-talk
 cd overlay; npm run typecheck     # TypeScript
 cd overlay/src-tauri; cargo test  # Rust: hit-testing geometry
 ```

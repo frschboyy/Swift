@@ -1,0 +1,200 @@
+"""Push-to-talk pipeline with a fake recorder and transcriber (no mic, no model)."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Callable
+from typing import Any
+
+import numpy as np
+import pytest
+
+from swift.audio.recorder import SAMPLE_RATE, MicError, level_from_block
+from swift.executors.echo import EchoExecutor
+from swift.ipc.protocol import Message
+from swift.session import Session
+from swift.stt.transcriber import SttUnavailable, Transcription
+
+from test_session import Recorder as Outbox
+
+
+class FakeRecorder:
+    def __init__(self, seconds: float = 1.5, fail: MicError | None = None) -> None:
+        self.seconds = seconds
+        self.fail = fail
+        self.recording = False
+        self.capped = False
+        self.on_level: Callable[[float], None] | None = None
+
+    def start(self, on_level: Callable[[float], None]) -> None:
+        if self.fail:
+            raise self.fail
+        self.recording = True
+        self.on_level = on_level
+        on_level(0.4)
+        on_level(0.7)
+
+    def stop(self) -> np.ndarray:
+        self.recording = False
+        return np.zeros(int(self.seconds * SAMPLE_RATE), dtype=np.int16)
+
+
+class FakeTranscriber:
+    def __init__(self, text: str = "open my project", delay: float = 0.0, fail: SttUnavailable | None = None) -> None:
+        self.text = text
+        self.delay = delay
+        self.fail = fail
+        self.calls = 0
+
+    async def transcribe(self, audio: np.ndarray) -> Transcription:
+        self.calls += 1
+        await asyncio.sleep(self.delay)
+        if self.fail:
+            raise self.fail
+        return Transcription(self.text, 420, len(audio) / SAMPLE_RATE)
+
+
+def make(
+    recorder: FakeRecorder | None = None, transcriber: FakeTranscriber | None = None, **kw: Any
+) -> tuple[Session, Outbox, list[dict[str, Any]], FakeRecorder, FakeTranscriber]:
+    out = Outbox()
+    records: list[dict[str, Any]] = []
+    rec = recorder or FakeRecorder()
+    stt = transcriber or FakeTranscriber()
+    session = Session(
+        out, EchoExecutor(), recorder=rec, transcriber=stt, ptt_label="Ctrl+Shift+Space", on_finish=records.append, **kw
+    )
+    return session, out, records, rec, stt
+
+
+async def down(session: Session) -> None:
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0)  # let the interaction reach "listening"
+
+
+async def up_and_wait(session: Session) -> None:
+    await session.handle(Message("ptt", {"state": "up"}))
+    assert session._task is not None
+    await asyncio.wait_for(session._task, 2)
+
+
+async def test_hold_and_release_transcribes_and_shows_result() -> None:
+    session, out, records, rec, stt = make()
+    await down(session)
+    assert rec.recording and session.state == "listening"
+    await asyncio.sleep(0.01)
+    await up_and_wait(session)
+
+    assert out.states() == ["listening", "transcribing", "working", "result"]
+    assert [m.data["rms"] for m in out.messages if m.type == "level"] == [0.4, 0.7]
+    assert out.last("transcript") == {"text": "open my project", "final": True}
+    assert "open my project" in out.last("result")["summary"]
+    assert not rec.recording
+    assert records[0]["status"] == "done" and records[0]["stt_ms"] == 420 and records[0]["audio_s"] == 1.5
+    assert records[0]["transcript"] == "open my project" and records[0]["executor"] == "echo"
+
+
+async def test_quick_tap_is_ignored_without_transcribing() -> None:
+    session, out, records, _, stt = make(recorder=FakeRecorder(seconds=0.1))
+    await down(session)
+    await up_and_wait(session)
+    assert out.states() == ["listening", "idle"]
+    assert stt.calls == 0
+    assert records[0]["status"] == "cancelled" and records[0]["reason"] == "too_short"
+
+
+async def test_silence_shows_didnt_catch_that_with_hotkey_hint() -> None:
+    session, out, records, _, _ = make(transcriber=FakeTranscriber(text=""))
+    await down(session)
+    await up_and_wait(session)
+    assert out.states()[-1] == "error"
+    err = out.last("error")
+    assert err["code"] == "no_speech" and "Ctrl+Shift+Space" in err["hint"]
+    assert records[0]["status"] == "error" and records[0]["error"] == "no_speech"
+
+
+async def test_blocked_mic_shows_privacy_hint() -> None:
+    blocked = MicError("Windows blocked access to the microphone.", "Open Settings > Privacy & security > Microphone")
+    session, out, _, _, _ = make(recorder=FakeRecorder(fail=blocked))
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    err = out.last("error")
+    assert err["code"] == "mic_unavailable" and "Privacy" in err["hint"]
+
+
+async def test_missing_model_shows_error() -> None:
+    missing = SttUnavailable("The speech model 'base.en' couldn't be loaded.", "Download it, then restart Swift.")
+    session, out, _, _, _ = make(transcriber=FakeTranscriber(fail=missing))
+    await down(session)
+    await up_and_wait(session)
+    assert out.last("error")["code"] == "stt_unavailable"
+
+
+async def test_escape_while_listening_stops_mic_and_returns_to_idle() -> None:
+    session, out, records, rec, stt = make()
+    await down(session)
+    await session.handle(Message("cancel", {}))
+    assert out.states()[-1] == "idle"
+    assert not rec.recording and stt.calls == 0
+    assert records[0]["status"] == "cancelled"
+
+
+async def test_escape_while_transcribing_discards_result() -> None:
+    session, out, records, _, _ = make(transcriber=FakeTranscriber(delay=0.5))
+    await down(session)
+    await session.handle(Message("ptt", {"state": "up"}))
+    for _ in range(50):
+        if session.state == "transcribing":
+            break
+        await asyncio.sleep(0.01)
+    await session.handle(Message("cancel", {}))
+    assert out.states()[-1] == "idle"
+    assert not any(m.type == "result" for m in out.messages)
+    assert records[0]["status"] == "cancelled"
+
+
+async def test_recording_stops_itself_at_the_cap() -> None:
+    session, out, _, rec, _ = make(max_record_s=0.05)
+    await down(session)
+    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    assert not rec.recording
+    assert out.states()[-1] == "result"
+
+
+async def test_ptt_while_busy_is_ignored_and_stray_release_is_harmless() -> None:
+    session, out, _, _, _ = make(transcriber=FakeTranscriber(delay=0.2))
+    await session.handle(Message("ptt", {"state": "up"}))  # release with nothing held
+    assert out.messages == []
+    await down(session)
+    first = session._task
+    await session.handle(Message("ptt", {"state": "up"}))
+    await asyncio.sleep(0.01)
+    await session.handle(Message("ptt", {"state": "down"}))  # while transcribing
+    assert session._task is first
+    await asyncio.wait_for(first, 2)  # type: ignore[arg-type]
+
+
+async def test_ptt_without_audio_components_is_ignored() -> None:
+    out = Outbox()
+    session = Session(out, EchoExecutor())
+    await session.handle(Message("ptt", {"state": "down"}))
+    assert session._task is None and out.messages == []
+
+
+@pytest.mark.parametrize(
+    ("amplitude", "expected"),
+    [(0, 0.0), (32767, 1.0), (int(32768 * 10 ** (-36 / 20) * 2**0.5), 0.5)],
+)
+def test_level_mapping(amplitude: int, expected: float) -> None:
+    t = np.arange(1600)
+    block = (amplitude * np.sin(2 * np.pi * 440 * t / SAMPLE_RATE)).astype(np.int16)
+    assert level_from_block(block) == pytest.approx(expected, abs=0.02)
+
+
+async def test_echo_executor_contract() -> None:
+    ex = EchoExecutor()
+    run_id = await ex.start("hello there")
+    assert [e async for e in ex.events(run_id)] == []
+    result = await ex.result(run_id)
+    assert result.status == "done" and "hello there" in result.summary
+    assert result.details and "nothing was sent" in result.details["text"]

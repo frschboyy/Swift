@@ -115,6 +115,12 @@ html, body {
 
 .transcript:empty { visibility: hidden; }
 
+/* Push-to-talk transcribes after release, so the pill shows what's happening until then. */
+#stage[data-state="listening"] .transcript:empty,
+#stage[data-state="transcribing"] .transcript:empty { visibility: visible; color: var(--muted); }
+#stage[data-state="listening"] .transcript:empty::before { content: "Listening"; }
+#stage[data-state="transcribing"] .transcript:empty::before { content: "Transcribing"; }
+
 .transcript[data-pending]::after {
   content: "";
   display: inline-block;

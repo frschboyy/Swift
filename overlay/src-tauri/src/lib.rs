@@ -154,6 +154,7 @@ async fn register_hotkeys(app: AppHandle, hotkeys: HashMap<String, String>) -> R
             continue;
         }
         if let Err(e) = register(&app, name, spec) {
+            eprintln!("[overlay] hotkey problem: {e}");
             problems.push(e);
         }
     }

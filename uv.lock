@@ -1003,9 +1003,13 @@ name = "swift-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "faster-whisper" },
     { name = "loguru" },
+    { name = "numpy" },
+    { name = "psutil" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "sounddevice" },
     { name = "websockets" },
 ]
 
@@ -1031,9 +1035,13 @@ spikes = [
 
 [package.metadata]
 requires-dist = [
+    { name = "faster-whisper", specifier = ">=1.2" },
     { name = "loguru", specifier = ">=0.7" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "psutil", specifier = ">=6" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pyyaml", specifier = ">=6" },
+    { name = "sounddevice", specifier = ">=0.5" },
     { name = "websockets", specifier = ">=15" },
 ]
 

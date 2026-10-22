@@ -13,12 +13,17 @@ import dataclasses
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
 from swift import __version__
 from swift.config.paths import app_paths
+from swift.audio.recorder import MicRecorder, warm_up
+from swift.executors.base import Executor
+from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
+from swift.stt.transcriber import WhisperTranscriber
 from swift.ipc.server import OverlayServer
 from swift.logging_setup import setup_logging
 from swift.session import Session
@@ -36,6 +41,24 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _log_interaction(record: dict[str, Any]) -> None:
+    """One summary line per interaction. The transcript is redacted to its length by the log filter."""
+    summary = {k: v for k, v in record.items() if k not in ("steps", "confirmations")}
+    logger.bind(**summary, steps=len(record.get("steps", []))).info("interaction finished")
+
+
+def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
+    match settings.executor.kind:
+        case "mock":
+            return mock
+        case "claude_code":
+            # ClaudeCodeExecutor arrives in Milestone 3.
+            logger.warning("executor 'claude_code' is not available yet; using 'echo'")
+            return EchoExecutor()
+        case _:
+            return EchoExecutor()
+
+
 async def _serve(settings: Settings, token: str, port: int) -> None:
     server = OverlayServer(
         token,
@@ -45,9 +68,29 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             "hotkeys": settings.hotkeys.model_dump(),
         },
     )
+    # Load the speech model in the background: the overlay can connect meanwhile,
+    # and a push-to-talk before it finishes simply waits for it.
+    transcriber = WhisperTranscriber(
+        settings.stt.model,
+        app_paths().models_dir / "whisper",
+        cpu_threads=settings.stt.cpu_threads,
+        initial_prompt=settings.stt.initial_prompt,
+    )
+    transcriber.start_loading()
+    # On this (event-loop) thread: streams are opened here, and PortAudio's WASAPI
+    # backend fails to open a stream on a thread other than the one that initialized it.
+    warm_up()
+
     mock = MockExecutor()
-    # Milestone 1: the only executor is the mock. ClaudeCodeExecutor arrives in Milestone 3.
-    session = Session(server.send, mock, debug_executor=mock if settings.debug else None)
+    session = Session(
+        server.send,
+        _make_executor(settings, mock),
+        debug_executor=mock if settings.debug else None,
+        recorder=MicRecorder(asyncio.get_running_loop()),
+        transcriber=transcriber,
+        ptt_label=settings.hotkeys.push_to_talk,
+        on_finish=_log_interaction,
+    )
     server.set_handler(session.handle)
 
     bound = await server.start(port)

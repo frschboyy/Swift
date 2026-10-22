@@ -2,7 +2,7 @@
 # No secrets belong here: Claude Code uses its own login.
 
 hotkeys:
-  push_to_talk: "Ctrl+Alt+Space"   # hold to talk, release to stop (Milestone 2)
+  push_to_talk: "Ctrl+Shift+Space" # hold to talk, release to stop
   debug: "Ctrl+Alt+F12"            # cycles MockExecutor scenarios when debug: true
 
 stt:
@@ -11,7 +11,7 @@ stt:
   initial_prompt: ""               # names and jargon that help transcription
 
 executor:
-  kind: "mock"                     # "claude_code" from Milestone 3
+  kind: "echo"                     # "echo" shows the transcript; "mock" plays fake steps; "claude_code" from Milestone 3
   allowed_tools: ["Read", "Glob", "Grep"]
   working_dirs: []                 # e.g. ["C:/Users/me/Projects/thesis"]; trusted folders only
   default_dir: 0

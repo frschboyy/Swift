@@ -13,7 +13,7 @@ def test_missing_file_gives_defaults(tmp_path: Path) -> None:
     s = load_settings(tmp_path / "nope.yaml")
     assert s == Settings()
     assert s.executor.allowed_tools == ["Read", "Glob", "Grep"]
-    assert s.hotkeys.push_to_talk == "Ctrl+Alt+Space"
+    assert s.hotkeys.push_to_talk == "Ctrl+Shift+Space"
 
 
 def test_example_file_is_valid() -> None:

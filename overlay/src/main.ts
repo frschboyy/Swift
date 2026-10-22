@@ -27,6 +27,7 @@ let fadeMs = 0;
 let hovering = false;
 let escapeActive = false;
 let debugEnabled = false;
+let pttLabel = "the push-to-talk hotkey";
 let scenarioIndex = 0;
 let lastRegions = "";
 let readyReported = false;
@@ -152,6 +153,24 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   startFade(RESULT_FADE_MS);
 }
 
+// Shown when Swift is launched again while already running (single-instance plugin).
+function renderAlreadyRunning(): void {
+  if (ACTIVE.has(state)) return; // mid-interaction: don't cover the run
+  state = "result";
+  stage.dataset.state = "result";
+  showCard(
+    el(
+      "div",
+      { "data-hit": true, class: "hit-area", onclick: () => setStage("idle") },
+      el("header", { class: "card-head" }, icon("check"), el("span", { class: "card-title" }, "Swift is already running")),
+      el("p", { class: "summary" }, `Hold ${pttLabel} and speak.`),
+      el("p", { class: "muted" }, "Only one copy of Swift runs at a time. Quit it from the tray icon."),
+    ),
+    "result card--done",
+  );
+  startFade(RESULT_FADE_MS);
+}
+
 function renderError(message: string, hint: string, fade = true): void {
   showCard(
     el(
@@ -241,6 +260,7 @@ function onMessage(msg: Inbound): void {
   switch (msg.type) {
     case "hello.ok":
       debugEnabled = msg.data.debug;
+      if (msg.data.hotkeys.push_to_talk) pttLabel = msg.data.hotkeys.push_to_talk;
       void registerHotkeys(msg.data.hotkeys);
       break;
     case "state":
@@ -315,5 +335,6 @@ void listen<{ name: string; state: "down" | "up" }>("hotkey", ({ payload }) => {
 });
 
 void listen<{ inside: boolean }>("hover", ({ payload }) => setHover(payload.inside));
+void listen("already-running", () => renderAlreadyRunning());
 
 client.start();

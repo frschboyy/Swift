@@ -150,6 +150,8 @@ Task Manager's "Commit size" (private bytes) is much larger, about 1.3 GB for th
 
 ## Tray menu
 
+Only one copy of Swift runs at a time. Launching it again while it's running shows "Swift is already running" on the overlay, and the new copy exits.
+
 - **Open logs folder:** opens `%LOCALAPPDATA%\Swift`, where the interaction log and the app log live.
 - **Quit Swift:** closes the overlay and the backend, and any Claude Code run with them.
 

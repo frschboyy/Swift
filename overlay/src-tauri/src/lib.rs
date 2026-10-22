@@ -241,6 +241,14 @@ pub fn run() {
     let shared_hit: SharedHit = Arc::new((Mutex::new(HitState::default()), Condvar::new()));
 
     let app = tauri::Builder::default()
+        // Must be the first plugin. A second launch exits right away; the running
+        // overlay says so instead of failing to register the hotkeys. No set_focus():
+        // Swift must never take focus.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            eprintln!("[overlay] second launch blocked: Swift is already running");
+            place_on_main(app);
+            let _ = app.emit("already-running", ());
+        }))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| on_shortcut(app, shortcut, event.state()))

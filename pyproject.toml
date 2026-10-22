@@ -7,6 +7,8 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "pydantic>=2.9",
     "loguru>=0.7",
+    "websockets>=15",
+    "pyyaml>=6",
 ]
 
 [dependency-groups]
@@ -14,6 +16,7 @@ dev = [
     "pytest>=8",
     "hypothesis>=6",
     "pip-licenses>=5",
+    "pytest-asyncio>=0.24",
 ]
 # Phase 0 spikes only (§17). Never imported by src/swift.
 spikes = [
@@ -38,6 +41,7 @@ packages = ["src/swift"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 addopts = "-ra --strict-markers"
 markers = [
     "replay: WAV corpus replay; needs models",

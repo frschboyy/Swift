@@ -25,3 +25,12 @@ spikes/**/results/
 
 # Spike run logs
 *.log
+
+# MVP local config
+config.yaml
+
+# Tauri / frontend build output
+overlay/node_modules/
+overlay/dist/
+overlay/src-tauri/target/
+overlay/src-tauri/gen/

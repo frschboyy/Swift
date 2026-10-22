@@ -1,3 +1,5 @@
+> **Paused (2026-10-22).** The MVP now follows [`PLAN.md`](PLAN.md): a voice overlay that sends requests to Claude Code. See [ADR-006](docs/decisions/ADR-006-voice-overlay-mvp.md). This document is kept for reference and is not the current authority.
+
 # Swift — Build Specification (v2.0)
 
 **A passive, voice-activated desktop agent for Windows**

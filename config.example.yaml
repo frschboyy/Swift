@@ -1,0 +1,26 @@
+# Swift MVP configuration. Copy to config.yaml (gitignored) and edit.
+# No secrets belong here: Claude Code uses its own login.
+
+hotkeys:
+  push_to_talk: "Ctrl+Alt+Space"   # hold to talk, release to stop (Milestone 2)
+  debug: "Ctrl+Alt+F12"            # cycles MockExecutor scenarios when debug: true
+
+stt:
+  model: "base.en"                 # or "small.en" (slower, more accurate)
+  cpu_threads: 4
+  initial_prompt: ""               # names and jargon that help transcription
+
+executor:
+  kind: "mock"                     # "claude_code" from Milestone 3
+  allowed_tools: ["Read", "Glob", "Grep"]
+  working_dirs: []                 # e.g. ["C:/Users/me/Projects/thesis"]; trusted folders only
+  default_dir: 0
+  max_budget_usd: 1.0
+  confirm_timeout_s: 120
+
+logging:
+  interactions: "%LOCALAPPDATA%/Swift/interactions.jsonl"
+  app_log_dir: "%LOCALAPPDATA%/Swift/logs"
+  level: "INFO"
+
+debug: true

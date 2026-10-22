@@ -19,6 +19,8 @@ from __future__ import annotations
 import asyncio
 import math
 import time
+import uuid
+from datetime import datetime
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -89,6 +91,7 @@ class Session:
         self._active: tuple[Executor, str] | None = None
         self._confirm_ids: set[str] = set()
         self._record: dict[str, Any] | None = None
+        self._run_started: float | None = None
 
     @property
     def busy(self) -> bool:
@@ -103,6 +106,8 @@ class Session:
                 await self._start_demo(msg.data["scenario"])
             case "debug.ask":
                 await self._start_text(msg.data["text"])
+            case "ready":
+                logger.info("overlay ready", startup_ms=msg.data["startup_ms"], backend_ms=msg.data.get("backend_ms"))
             case "cancel":
                 await self.cancel()
             case "confirm.reply":
@@ -141,7 +146,7 @@ class Session:
             logger.info("debug.run ignored: busy", state=self.state)
             return
         transcript = DEMO_TRANSCRIPTS[scenario]
-        record: dict[str, Any] = {"executor": "mock", "scenario": scenario}
+        record: dict[str, Any] = {"source": "debug.run", "executor": "mock", "scenario": scenario}
 
         async def capture(rec: dict[str, Any]) -> str:
             await self._set_state("listening")
@@ -181,7 +186,7 @@ class Session:
             return
         # Created before the task so a quick release can't be missed.
         self._released = asyncio.Event()
-        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?")}
+        record: dict[str, Any] = {"source": "voice", "executor": getattr(self.executor, "name", "?")}
         self._task = asyncio.create_task(
             self._interaction(record, self._capture_voice, self.executor, self.executor.start)
         )
@@ -238,7 +243,13 @@ class Session:
         executor: Executor,
         start: Callable[[str], Awaitable[str]],
     ) -> None:
-        record.update(steps=[], confirmations=[])
+        record = {
+            "ts": datetime.now().astimezone().isoformat(timespec="milliseconds"),
+            "id": uuid.uuid4().hex,
+            **record,
+            "steps": [],
+            "approvals": [],
+        }
         self._record = record
         started = time.monotonic()
         try:
@@ -277,11 +288,14 @@ class Session:
                 outbound("error", code="internal", message="Swift hit an internal error.", hint="Details are in swift.log.")
             )
         finally:
+            if self._run_started is not None and "run_ms" not in record:
+                record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
+            self._run_started = None
             self._active = None
             self._record = None
             self._released = None
             self._confirm_ids.clear()
-            record["run_ms"] = int((time.monotonic() - started) * 1000)
+            record["interaction_ms"] = int((time.monotonic() - started) * 1000)
             record.setdefault("status", "error")
             if self.on_finish is not None:
                 self.on_finish(record)
@@ -302,7 +316,7 @@ class Session:
     async def _run(self, executor: Executor, run_id: str, record: dict[str, Any]) -> ExecResult:
         self._active = (executor, run_id)
         await self._set_state("working", run_id=run_id)
-        started = time.monotonic()
+        started = self._run_started = time.monotonic()
         async for event in executor.events(run_id):
             t_ms = int((time.monotonic() - started) * 1000)
             if event.type == "step":
@@ -310,7 +324,7 @@ class Session:
                 await self._send(outbound("step", run_id=run_id, text=event.text, kind="tool", ts=event.ts))
             elif event.type == "confirm" and event.request_id is not None:
                 self._confirm_ids.add(event.request_id)
-                record["confirmations"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms})
+                record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms})
                 await self._set_state("confirm", run_id=run_id)
                 await self._send(
                     outbound(
@@ -322,7 +336,9 @@ class Session:
                         tool=event.tool or "",
                     )
                 )
-        return await executor.result(run_id)
+        result = await executor.result(run_id)
+        record["run_ms"] = int((time.monotonic() - started) * 1000)
+        return result
 
     async def _confirm_reply(self, request_id: str, approve: bool) -> None:
         if self._active is None or request_id not in self._confirm_ids:
@@ -331,9 +347,11 @@ class Session:
         self._confirm_ids.discard(request_id)
         executor, run_id = self._active
         if self._record is not None:
-            for c in self._record["confirmations"]:
+            answered = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
+            for c in self._record["approvals"]:
                 if c["request_id"] == request_id:
                     c["decision"] = "approve" if approve else "reject"
+                    c["answered_ms"] = answered
         await executor.reply(request_id, approve)
         if approve:
             await self._set_state("working", run_id=run_id)

@@ -29,6 +29,7 @@ let escapeActive = false;
 let debugEnabled = false;
 let scenarioIndex = 0;
 let lastRegions = "";
+let readyReported = false;
 
 const client = new BackendClient(onMessage, onStatus);
 
@@ -291,6 +292,12 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
   if (debugEnabled && hotkeys.debug) wanted.debug = hotkeys.debug;
   const problems = await invoke<string[]>("register_hotkeys", { hotkeys: wanted });
   if (problems.length) renderError(`Hotkey problem: ${problems.join("; ")}`, "Change the hotkey in config.yaml and restart Swift.");
+  if (!readyReported) {
+    // Startup time, once per launch: process start to "usable".
+    readyReported = true;
+    const t = await invoke<{ startup_ms: number; backend_ms: number | null }>("overlay_ready");
+    client.send({ type: "ready", data: { startup_ms: Number(t.startup_ms), backend_ms: t.backend_ms === null ? null : Number(t.backend_ms) } });
+  }
 }
 
 // ---- hotkeys from Rust -----------------------------------------------------------

@@ -101,18 +101,39 @@ Then hold the hotkey and ask, for example, "What's in the executors folder?". St
 .venv\Scripts\python.exe -c "from faster_whisper import WhisperModel; import os; WhisperModel('base.en', device='cpu', compute_type='int8', download_root=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\whisper'))"
 ```
 
-**Measured on the development laptop** (i5, 4 cores / 8 threads, 16 GB, CPU only, debug build):
+## Performance
 
-| | base.en, int8 |
+Measured on the development laptop (i5, 4 cores / 8 threads, 16 GB RAM, CPU only), release build, `base.en` int8.
+
+**Memory.** These figures are USS: memory only this process holds, which is what is freed if it exits.
+
+| Process | USS |
 |---|---|
-| Model load (background, after the backend is ready) | 2.4–7.5 s; slower when the overlay is starting at the same moment |
-| Model memory (private bytes added by loading) | 1,012–1,019 MB |
-| Backend total with model loaded, after transcribing | 1,422 MB private |
-| Overlay + WebView2 | about 160 MB private |
-| Transcription, 5 s recorded clip | 1.15 s once warm |
-| Transcription, 2 s push-to-talk | 0.4–2.8 s (depends on CPU load) |
+| Backend (Python) before the model loads | 38 MB |
+| Speech model, loaded and used (weights plus inference buffers) | about 143 MB |
+| Backend total, model loaded | 168–170 MB |
+| WebView2 (6 processes) | 75–76 MB |
+| Overlay (`swift-overlay.exe`) | 6.6 MB |
+| **Whole tree, idle, model loaded** | **250–254 MB** |
 
-The 300 MB idle target is **not met yet**. Excluding the model's own 1,012 MB, the whole tree uses about 570 MB: 160 MB for the overlay, and about 410 MB in the backend for faster-whisper's libraries (CTranslate2, onnxruntime for its voice filter, PyAV) and inference buffers. Reducing this is Milestone 4 work.
+Excluding the model, the tree uses about 110 MB, inside the 300 MB target.
+
+Task Manager's "Commit size" (private bytes) is much larger, about 1.3 GB for the backend. That's memory the libraries reserve but don't touch; CTranslate2 alone commits about 1 GB when the model loads. Swift sets `OPENBLAS_NUM_THREADS=1`, which removes another 225 MB that numpy would reserve. Earlier milestones reported private bytes, which overstated the real footprint.
+
+**Speed.**
+
+| | |
+|---|---|
+| Launch to usable (overlay connected, hotkeys registered) | 2.2–2.3 s (logged as `overlay ready startup_ms=` in `swift.log`) |
+| Model ready | about 1.3 s after that, in the background; a push-to-talk before then waits |
+| Key-down to first audio | 0.24–0.6 s |
+| Transcription of a 2 s push-to-talk | 0.4–2.8 s, depending on CPU load |
+| Small read-only Claude Code request | about 7 s |
+
+## Tray menu
+
+- **Open logs folder:** opens `%LOCALAPPDATA%\Swift`, where the interaction log and the app log live.
+- **Quit Swift:** closes the overlay and the backend, and any Claude Code run with them.
 
 ## Milestone 1: what to try
 
@@ -128,7 +149,7 @@ With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays th
 ```powershell
 uv run pytest                     # Python: protocol, executors (incl. a fake claude CLI), session, server, settings, push-to-talk
 cd overlay; npm run typecheck     # TypeScript
-cd overlay/src-tauri; cargo test  # Rust: hit-testing geometry
+cd overlay/src-tauri; cargo test  # Rust: hit-testing and multi-monitor/DPI placement
 ```
 
 ## Logs and data
@@ -136,13 +157,22 @@ cd overlay/src-tauri; cargo test  # Rust: hit-testing geometry
 Everything stays on this machine:
 
 - **App log:** `%LOCALAPPDATA%\Swift\logs\swift.log`, with secrets and transcripts redacted.
-- **Interaction log (JSONL, from Milestone 4):** `%LOCALAPPDATA%\Swift\interactions.jsonl`.
+- **Interaction log:** `%LOCALAPPDATA%\Swift\interactions.jsonl` (path: `logging.interactions`). One JSON line per interaction:
+  - `ts` and `id`; `source` is `voice`, `debug.run` or `debug.ask`
+  - `transcript` (in full), `audio_s`, `first_audio_ms`, `stt_ms`, `stt_model`
+  - `executor`, `run_ms` (the agent's run) and `interaction_ms` (key-down to result)
+  - `steps`: `[{t_ms, text}]`
+  - `status`: `done`, `cancelled`, `error` or `rejected`, with `error` (a code) and `reason`
+  - `approvals`: `[{tool, decision, asked_ms, answered_ms}]`
+  - `cost_usd`, `turns`, `denied` and `exit_code` for Claude Code runs
+
+  It is never uploaded. Delete it whenever you like.
 
 ## Layout
 
 ```
 overlay/             Tauri v2 shell (Rust in src-tauri/, TypeScript in src/)
-src/swift/           Python backend: ipc/, executors/, session.py, settings.py
+src/swift/           Python backend: ipc/, audio/, stt/, executors/, session.py, runlog.py, settings.py
 tests/unit/          Python unit tests
 spikes/              Phase 0 measurements (reference only)
 docs/decisions/      Architecture decision records

@@ -32,6 +32,7 @@ def frame(kind: str, **data: object) -> str:
         (frame("confirm.reply", request_id="r1", decision="reject"), "confirm.reply"),
         (frame("debug.run", scenario="long"), "debug.run"),
         (frame("debug.ask", text="list the files"), "debug.ask"),
+        (frame("ready", startup_ms=1840, backend_ms=950), "ready"),
     ],
 )
 def test_valid_inbound(raw: str, kind: str) -> None:

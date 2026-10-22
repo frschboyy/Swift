@@ -74,7 +74,7 @@ async def test_confirm_approve() -> None:
     await answer_confirm(session, rec, "approve")
     await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
     assert rec.states() == ["listening", "transcribing", "working", "confirm", "working", "result"]
-    assert records[0]["confirmations"][0]["decision"] == "approve"
+    assert records[0]["approvals"][0]["decision"] == "approve"
 
 
 async def test_confirm_reject() -> None:
@@ -85,7 +85,7 @@ async def test_confirm_reject() -> None:
     assert rec.states()[-1] == "result"
     assert rec.last("result")["status"] == "rejected"
     assert records[0]["status"] == "rejected"
-    assert records[0]["confirmations"][0]["decision"] == "reject"
+    assert records[0]["approvals"][0]["decision"] == "reject"
 
 
 async def test_unknown_confirm_reply_is_ignored() -> None:

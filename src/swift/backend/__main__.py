@@ -12,23 +12,25 @@ import asyncio
 import dataclasses
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
 from swift import __version__
+from swift.audio.recorder import MicRecorder
 from swift.config.paths import app_paths
-from swift.audio.recorder import MicRecorder, warm_up
 from swift.executors.base import Executor
 from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
-from swift.stt.transcriber import WhisperTranscriber
 from swift.ipc.server import OverlayServer
 from swift.logging_setup import setup_logging
+from swift.runlog import InteractionLog
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
+from swift.stt.transcriber import WhisperTranscriber
 
 READY_PREFIX = "SWIFT_BACKEND_READY"
 
@@ -42,10 +44,14 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _log_interaction(record: dict[str, Any]) -> None:
-    """One summary line per interaction. The transcript is redacted to its length by the log filter."""
-    summary = {k: v for k, v in record.items() if k not in ("steps", "confirmations")}
-    logger.bind(**summary, steps=len(record.get("steps", []))).info("interaction finished")
+def _on_finish(runlog: InteractionLog) -> Callable[[dict[str, Any]], None]:
+    def finish(record: dict[str, Any]) -> None:
+        # Full record to the local interaction log; a redacted one-line summary to swift.log.
+        runlog.append(record)
+        summary = {k: v for k, v in record.items() if k not in ("steps", "approvals", "ts", "id")}
+        logger.bind(**summary, steps=len(record.get("steps", []))).info("interaction finished")
+
+    return finish
 
 
 def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
@@ -70,33 +76,33 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             "hotkeys": settings.hotkeys.model_dump(),
         },
     )
-    # Load the speech model in the background: the overlay can connect meanwhile,
-    # and a push-to-talk before it finishes simply waits for it.
+    # Both warm up in the background once the ready line is out (below).
     transcriber = WhisperTranscriber(
         settings.stt.model,
         app_paths().models_dir / "whisper",
         cpu_threads=settings.stt.cpu_threads,
         initial_prompt=settings.stt.initial_prompt,
     )
-    transcriber.start_loading()
-    # On this (event-loop) thread: streams are opened here, and PortAudio's WASAPI
-    # backend fails to open a stream on a thread other than the one that initialized it.
-    warm_up()
+    recorder = MicRecorder(asyncio.get_running_loop())
 
     mock = MockExecutor()
     session = Session(
         server.send,
         _make_executor(settings, mock),
         debug_executor=mock if settings.debug else None,
-        recorder=MicRecorder(asyncio.get_running_loop()),
+        recorder=recorder,
         transcriber=transcriber,
         ptt_label=settings.hotkeys.push_to_talk,
-        on_finish=_log_interaction,
+        on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model)),
     )
     server.set_handler(session.handle)
 
     bound = await server.start(port)
     print(f"{READY_PREFIX} port={bound}", flush=True)
+    # After the ready line, so the overlay is usable sooner. A push-to-talk before
+    # these finish just waits for them.
+    recorder.prepare()
+    transcriber.start_loading()
     logger.info("backend ready", port=bound, debug=settings.debug)
 
     # Exit when Tauri closes our stdin (normal quit). The Job Object covers crashes.

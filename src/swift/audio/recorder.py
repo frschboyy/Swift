@@ -12,6 +12,8 @@ import math
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import TypeVar
 from typing import Protocol
 
 import numpy as np
@@ -78,10 +80,19 @@ class Recorder(Protocol):
     def capped(self) -> bool: ...
 
 
+T = TypeVar("T")
+
+
 class MicRecorder:
-    """Records 16 kHz mono int16 from the default input device."""
+    """Records 16 kHz mono int16 from the default input device.
+
+    Every PortAudio call (warm-up, open, close) runs on one dedicated thread:
+    WASAPI fails with -9999 on a stream opened from a thread other than the one
+    that initialized PortAudio, and warming up there keeps the event loop free.
+    """
 
     def __init__(self, loop: asyncio.AbstractEventLoop, max_seconds: float = MAX_SECONDS) -> None:
+        self._audio = ThreadPoolExecutor(max_workers=1, thread_name_prefix="audio")
         self._loop = loop
         self._max_blocks = int(max_seconds * SAMPLE_RATE / BLOCK)
         self._blocks: list[np.ndarray] = []
@@ -94,7 +105,20 @@ class MicRecorder:
         self.first_audio_ms: int | None = None
         self._t_start = 0.0
 
+    def prepare(self) -> Future[None]:
+        """Warm PortAudio up in the background. A start() queues behind it."""
+        return self._audio.submit(warm_up)
+
+    def _on_audio_thread(self, fn: Callable[[], T]) -> T:
+        return self._audio.submit(fn).result()
+
     def start(self, on_level: Callable[[float], None]) -> None:
+        self._on_audio_thread(lambda: self._start(on_level))
+
+    def stop(self) -> np.ndarray:
+        return self._on_audio_thread(self._stop)
+
+    def _start(self, on_level: Callable[[float], None]) -> None:
         import sounddevice as sd
 
         self._blocks = []
@@ -124,7 +148,7 @@ class MicRecorder:
             self._stream = None
             raise MicError(f"No microphone found ({exc}).", "Connect a microphone or enable one in Windows Sound settings.") from None
 
-    def stop(self) -> np.ndarray:
+    def _stop(self) -> np.ndarray:
         stream, self._stream = self._stream, None
         if stream is not None:
             stream.stop()

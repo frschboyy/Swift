@@ -4,10 +4,12 @@
 
 mod backend;
 mod hit;
+mod placement;
 mod win;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Condvar, Mutex};
+use std::time::Instant;
 
 use serde::Serialize;
 use tauri::menu::{Menu, MenuItem};
@@ -18,15 +20,13 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use backend::{BackendInfo, SharedBackend};
 use hit::{Geometry, HitState, Rect, SharedHit};
 
-/// Overlay size in CSS px. The window sits bottom-centre on the cursor's monitor.
-const OVERLAY_W: f64 = 720.0;
-const OVERLAY_H: f64 = 560.0;
-const BOTTOM_MARGIN: f64 = 12.0;
-
 struct Overlay {
     hwnd: isize,
     capture_excluded: bool,
 }
+
+/// When this process started, for the startup-time measurement.
+struct Started(Instant);
 
 /// Registered shortcut id -> logical name ("push_to_talk", "debug", "escape").
 #[derive(Default)]
@@ -54,11 +54,9 @@ fn place_on_cursor_monitor(window: &WebviewWindow, hwnd: isize, hit: &SharedHit)
     };
 
     let scale = monitor.scale_factor();
-    let area = monitor.work_area();
-    let w = (OVERLAY_W * scale).round() as i32;
-    let h = (OVERLAY_H * scale).round() as i32;
-    let x = area.position.x + (area.size.width as i32 - w) / 2;
-    let y = area.position.y + area.size.height as i32 - h - (BOTTOM_MARGIN * scale).round() as i32;
+    let wa = monitor.work_area();
+    let area = placement::Area { x: wa.position.x, y: wa.position.y, w: wa.size.width, h: wa.size.height };
+    let (x, y, w, h) = placement::overlay_rect(area, scale);
 
     // Twice: crossing into a monitor with a different DPI makes Windows resize
     // the window during the first call (WM_DPICHANGED); the second restores our rect.
@@ -181,6 +179,23 @@ async fn set_hit_regions(hit: State<'_, SharedHit>, rects: Vec<Rect>) -> Result<
 }
 
 #[derive(Serialize)]
+struct Startup {
+    /// Process start to this call (the overlay connected and hotkeys registered).
+    startup_ms: u128,
+    /// Process start to the backend's ready line, if it has been seen.
+    backend_ms: Option<u128>,
+}
+
+/// Called once by the overlay when it's fully ready.
+#[tauri::command]
+async fn overlay_ready(started: State<'_, Started>, backend: State<'_, SharedBackend>) -> Result<Startup, String> {
+    let startup_ms = started.0.elapsed().as_millis();
+    let backend_ms = backend.lock().unwrap().ready_at.map(|t| t.duration_since(started.0).as_millis());
+    eprintln!("[overlay] ready in {startup_ms} ms (backend ready at {backend_ms:?} ms)");
+    Ok(Startup { startup_ms, backend_ms })
+}
+
+#[derive(Serialize)]
 struct Diagnostics {
     ex_style: String,
     no_activate: bool,
@@ -207,12 +222,21 @@ async fn diagnostics(overlay: State<'_, Overlay>) -> Result<Diagnostics, String>
 
 // ---- app --------------------------------------------------------------------
 
+fn open_logs_folder() {
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        let dir = std::path::Path::new(&local).join("Swift");
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::process::Command::new("explorer.exe").arg(dir).spawn();
+    }
+}
+
 fn quit(app: &AppHandle) {
     backend::stop(&app.state::<SharedBackend>());
     app.exit(0);
 }
 
 pub fn run() {
+    let started = Started(Instant::now());
     let shared_backend: SharedBackend = Arc::new(Mutex::new(backend::Backend::default()));
     let shared_hit: SharedHit = Arc::new((Mutex::new(HitState::default()), Condvar::new()));
 
@@ -225,11 +249,13 @@ pub fn run() {
         .manage(shared_backend.clone())
         .manage(shared_hit.clone())
         .manage(Hotkeys::default())
+        .manage(started)
         .invoke_handler(tauri::generate_handler![
             backend_info,
             register_hotkeys,
             set_escape,
             set_hit_regions,
+            overlay_ready,
             diagnostics
         ])
         // The window is created visible (tauri.conf.json): tao shows a window
@@ -251,16 +277,17 @@ pub fn run() {
             place_on_cursor_monitor(&window, hwnd, &shared_hit);
             hit::spawn(window.clone(), hwnd, shared_hit.clone());
 
+            let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit Swift", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&quit_item])?;
+            let menu = Menu::with_items(app, &[&logs_item, &quit_item])?;
             let mut tray = TrayIconBuilder::with_id("swift")
                 .tooltip("Swift")
                 .menu(&menu)
                 .show_menu_on_left_click(true)
-                .on_menu_event(|app, event| {
-                    if event.id.as_ref() == "quit" {
-                        quit(app);
-                    }
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "logs" => open_logs_folder(),
+                    "quit" => quit(app),
+                    _ => {}
                 });
             if let Some(icon) = app.default_window_icon() {
                 tray = tray.icon(icon.clone());

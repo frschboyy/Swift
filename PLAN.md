@@ -313,6 +313,22 @@ Verified CLI behaviour (resolves the M3 assumptions in §11):
 - **Undocumented events:** `rate_limit_event`, `system/task_summary`, `system/thinking_tokens` and `system/post_turn_summary` appear in the stream (one even after `result`). The mapper ignores unknown events.
 - **Denials:** `dontAsk` denials arrive as `system/permission_denied` events and in `result.permission_denials`.
 
+## 10d. Milestone 4 findings (2026-10-22, agent-run, release build)
+
+| Check | Result |
+|---|---|
+| Startup to usable (overlay connected, hotkeys registered) | PASSED (agent-run): 2.16 / 2.32 / 2.32 s. Before moving PortAudio warm-up and model load after the ready line it was 2.5–3.7 s. |
+| Idle memory excluding the model (< 300 MB) | PASSED (agent-run): 250–254 MB USS for the whole tree **including** the model (backend 170, WebView2 76, overlay 7). |
+| Cleanup when the overlay is killed | PASSED (agent-run): 0 of 10 processes left, 3 times out of 3. |
+| Multi-monitor and DPI placement | PASSED (unit tests: 100/125/150/200%, monitors left of / above / right of the primary, small work areas). On real hardware: REQUIRES-HW (owner-run; this laptop has one monitor). |
+| JSONL interaction log | PASSED (unit tests: every field in the brief, ordering, a write failure never breaks an interaction). |
+| Tray Open logs folder and Quit | REQUIRES-HW (owner-run). |
+
+Corrections to earlier findings:
+- **Memory (M2).** The M2 "570 MB excluding the model" was private bytes (commit), not RAM. CTranslate2 commits about 1 GB at model load and numpy's OpenBLAS 225 MB, almost none of it resident. The meaningful figure is USS.
+- **OpenBLAS.** `OPENBLAS_NUM_THREADS=1` is now set in `swift/__init__.py`: −225 MB commit, no USS or speed change.
+- **Audio thread.** PortAudio calls now run on one dedicated audio thread, so warm-up no longer blocks the event loop. First audio arrived at 244 ms in a check.
+
 ## 11. Assumptions I could not verify yet (each gets checked in the milestone named)
 
 M1 status of the first four:

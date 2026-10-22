@@ -30,6 +30,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "debug.run": {"scenario": (str, SCENARIOS)},
     # Debug mode only: send typed text through the real executor, skipping mic and STT.
     "debug.ask": {"text": (str, None)},
+    # Sent once when the overlay is fully up; ``backend_ms`` is optional.
+    "ready": {"startup_ms": (int, None)},
 }
 
 OUTBOUND_TYPES = frozenset(

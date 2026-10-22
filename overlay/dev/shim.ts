@@ -34,6 +34,8 @@ const internals = {
       case "set_escape":
       case "set_hit_regions":
         return null;
+      case "overlay_ready":
+        return { startup_ms: Math.round(performance.now()), backend_ms: null };
       case "plugin:event|listen": {
         const event = String(args.event);
         listeners.set(event, [...(listeners.get(event) ?? []), Number(args.handler)]);

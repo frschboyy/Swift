@@ -36,6 +36,8 @@ pub struct BackendInfo {
 #[derive(Default)]
 pub struct Backend {
     pub info: Option<BackendInfo>,
+    /// When the backend's ready line arrived.
+    pub ready_at: Option<std::time::Instant>,
     pub error: Option<String>,
     child: Option<Child>,
     _stdin: Option<ChildStdin>,
@@ -135,7 +137,10 @@ pub fn start(app: &AppHandle, shared: SharedBackend) {
             if let Some(rest) = line.strip_prefix("SWIFT_BACKEND_READY port=") {
                 let port = rest.trim().parse().unwrap_or(0);
                 let info = BackendInfo { port, token: token.clone() };
-                shared.lock().unwrap().info = Some(info);
+                let mut b = shared.lock().unwrap();
+                b.info = Some(info);
+                b.ready_at = Some(std::time::Instant::now());
+                drop(b);
                 let _ = app.emit("backend-ready", ());
             } else if let Some(rest) = line.strip_prefix("SWIFT_BACKEND_ERROR ") {
                 shared.lock().unwrap().error = Some(rest.to_string());

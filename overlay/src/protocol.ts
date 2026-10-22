@@ -35,7 +35,8 @@ export type Outbound =
   | { type: "cancel"; data: Record<string, never> }
   | { type: "confirm.reply"; data: { request_id: string; decision: "approve" | "reject" } }
   | { type: "debug.run"; data: { scenario: Scenario } }
-  | { type: "debug.ask"; data: { text: string } };
+  | { type: "debug.ask"; data: { text: string } }
+  | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });

@@ -17,3 +17,8 @@ OFFLINE_ENV: dict[str, str] = {
     "DO_NOT_TRACK": "1",
 }
 os.environ.update(OFFLINE_ENV)
+
+# numpy's OpenBLAS commits ~225 MB of per-thread buffers at import. Swift does no heavy
+# numpy maths (CTranslate2 has its own threads), so one thread costs nothing. Must be
+# set before numpy is first imported; setdefault leaves an explicit override alone.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")

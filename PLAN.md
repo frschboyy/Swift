@@ -297,6 +297,22 @@ Defects found and fixed:
 
 Open decision: keeping the mic stream open between presses would remove the 0.35–0.6 s start delay, but Windows would show the mic-in-use indicator all the time.
 
+## 10c. Milestone 3 findings (2026-10-22, agent-run, Claude Code 2.1.307)
+
+| Check | Result |
+|---|---|
+| Typed request (`debug.ask`) to result through the real backend and `claude` | PASSED (agent-run). Steps streamed; the result card arrived at 7.0 s (≈ $0.04). |
+| Esc mid-run | PASSED (agent-run). "Cancelled" 0.4 s after cancel; no `claude.exe` left behind. |
+| Tree kill on cancel | PASSED (unit test with a fake CLI): its grandchild process is gone after cancel. |
+| Spoken request to Claude Code | REQUIRES-HW (owner-run): needs a real voice. |
+
+Verified CLI behaviour (resolves the M3 assumptions in §11):
+- **stream-json and `--verbose`:** the documented examples always pass `--verbose` with `-p --output-format stream-json`, and Swift always does too. Running without it was not tried.
+- **No stdin:** with no stdin, `claude -p` waits 3 s for one. The request is now sent on stdin, which also avoids argv quoting and "-"-prefixed transcripts.
+- **Ctrl+Break is ignored:** the run continued 55 s to completion. Cancel uses `taskkill /T /F`.
+- **Undocumented events:** `rate_limit_event`, `system/task_summary`, `system/thinking_tokens` and `system/post_turn_summary` appear in the stream (one even after `result`). The mapper ignores unknown events.
+- **Denials:** `dontAsk` denials arrive as `system/permission_denied` events and in `result.permission_denials`.
+
 ## 11. Assumptions I could not verify yet (each gets checked in the milestone named)
 
 M1 status of the first four:

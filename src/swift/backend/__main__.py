@@ -21,13 +21,14 @@ from swift import __version__
 from swift.config.paths import app_paths
 from swift.audio.recorder import MicRecorder, warm_up
 from swift.executors.base import Executor
+from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
 from swift.stt.transcriber import WhisperTranscriber
 from swift.ipc.server import OverlayServer
 from swift.logging_setup import setup_logging
 from swift.session import Session
-from swift.settings import Settings, SettingsError, load_settings
+from swift.settings import Settings, SettingsError, expand, load_settings
 
 READY_PREFIX = "SWIFT_BACKEND_READY"
 
@@ -48,13 +49,14 @@ def _log_interaction(record: dict[str, Any]) -> None:
 
 
 def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
-    match settings.executor.kind:
+    cfg = settings.executor
+    match cfg.kind:
         case "mock":
             return mock
         case "claude_code":
-            # ClaudeCodeExecutor arrives in Milestone 3.
-            logger.warning("executor 'claude_code' is not available yet; using 'echo'")
-            return EchoExecutor()
+            # An unset or out-of-range folder is reported on the first request, as an error card.
+            cwd = cfg.working_dirs[cfg.default_dir] if cfg.default_dir < len(cfg.working_dirs) else None
+            return ClaudeCodeExecutor(cwd=expand(cwd) if cwd else None, allowed_tools=cfg.allowed_tools, max_budget_usd=cfg.max_budget_usd)
         case _:
             return EchoExecutor()
 

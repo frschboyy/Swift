@@ -44,10 +44,20 @@ class ExecResult:
     summary: str
     # Optional structured payload for the result card: {"kind": "text"|"list"|"table", ...}.
     details: dict[str, Any] | None = None
+    # For the interaction log only (cost, turns, ...); never shown on the card.
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 class UnknownRun(KeyError):
     pass
+
+
+class ExecutorUnavailable(RuntimeError):
+    """The executor can't run at all (not installed, not configured). ``hint`` says how to fix it."""
+
+    def __init__(self, message: str, hint: str) -> None:
+        super().__init__(message)
+        self.hint = hint
 
 
 class Executor(Protocol):

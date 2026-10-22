@@ -25,7 +25,7 @@ from typing import Any
 from loguru import logger
 
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder
-from swift.executors.base import ExecResult, Executor
+from swift.executors.base import ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
 from swift.ipc.protocol import Message, outbound
 from swift.stt.transcriber import SttUnavailable, Transcriber
@@ -40,9 +40,12 @@ DEMO_TRANSCRIPTS = {
     "long": "Run the tests and tell me how it went.",
 }
 
+# Hint on the error card when a run fails, by executor name.
 ERROR_HINTS = {
-    "error": "Check that Claude Code is installed and signed in, then try again.",
+    "claude_code": "Try again. If it keeps failing, run `claude` in a terminal to check it's signed in.",
+    "mock": "This is a scripted failure from the debug scenarios.",
 }
+DEFAULT_ERROR_HINT = "Try again. Details are in swift.log."
 
 MIN_SPEECH_S = 0.3
 
@@ -98,6 +101,8 @@ class Session:
         match msg.type:
             case "debug.run":
                 await self._start_demo(msg.data["scenario"])
+            case "debug.ask":
+                await self._start_text(msg.data["text"])
             case "cancel":
                 await self.cancel()
             case "confirm.reply":
@@ -152,6 +157,20 @@ class Session:
             return await self.debug_executor.start(text, scenario=scenario)
 
         self._task = asyncio.create_task(self._interaction(record, capture, self.debug_executor, start))
+
+    async def _start_text(self, text: str) -> None:
+        """Debug mode only: run the configured executor on typed text."""
+        if self.debug_executor is None:
+            logger.warning("debug.ask ignored: debug mode is off")
+            return
+        if self.busy or not text.strip():
+            return
+        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "debug.ask"}
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return text.strip()
+
+        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
 
     async def _start_voice(self) -> None:
         if self.recorder is None or self.transcriber is None:
@@ -230,7 +249,10 @@ class Session:
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            run_id = await start(transcript)
+            try:
+                run_id = await start(transcript)
+            except ExecutorUnavailable as exc:
+                raise UserFacingError("executor_unavailable", str(exc), exc.hint) from None
             result = await self._run(executor, run_id, record)
             await self._finish(result, record)
         except asyncio.CancelledError:
@@ -318,14 +340,21 @@ class Session:
 
     async def _finish(self, result: ExecResult, record: dict[str, Any]) -> None:
         record["status"] = result.status
+        record.update(result.meta)
         assert self._active is not None
         await self._send_result(self._active[1], result)
 
     async def _send_result(self, run_id: str, result: ExecResult) -> None:
         if result.status == "error":
+            name = getattr(self._active[0], "name", "") if self._active else ""
             await self._set_state("error", run_id=run_id)
             await self._send(
-                outbound("error", code="executor_failed", message=result.summary, hint=ERROR_HINTS["error"])
+                outbound(
+                    "error",
+                    code="executor_failed",
+                    message=result.summary,
+                    hint=ERROR_HINTS.get(name, DEFAULT_ERROR_HINT),
+                )
             )
             return
         await self._set_state("result", run_id=run_id)

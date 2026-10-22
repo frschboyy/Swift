@@ -11,7 +11,7 @@ stt:
   initial_prompt: ""               # names and jargon that help transcription
 
 executor:
-  kind: "echo"                     # "echo" shows the transcript; "mock" plays fake steps; "claude_code" from Milestone 3
+  kind: "echo"                     # "claude_code" runs Claude Code; "echo" only shows the transcript; "mock" plays fake steps
   allowed_tools: ["Read", "Glob", "Grep"]
   working_dirs: []                 # e.g. ["C:/Users/me/Projects/thesis"]; trusted folders only
   default_dir: 0

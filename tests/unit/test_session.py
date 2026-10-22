@@ -146,6 +146,39 @@ async def test_executor_crash_shows_error_instead_of_hanging() -> None:
     assert records[0]["status"] == "error"
 
 
+async def test_debug_ask_runs_the_real_executor_on_typed_text() -> None:
+    from swift.executors.echo import EchoExecutor
+
+    rec = Recorder()
+    records: list[dict[str, Any]] = []
+    session = Session(rec, EchoExecutor(), debug_executor=MockExecutor(speed=0), on_finish=records.append)
+    await session.handle(Message("debug.ask", {"text": "  what is in this folder?  "}))
+    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    assert rec.states() == ["working", "result"]
+    assert "what is in this folder?" in rec.last("result")["summary"]
+    assert records[0]["source"] == "debug.ask" and records[0]["executor"] == "echo"
+
+
+async def test_debug_ask_is_ignored_outside_debug_mode() -> None:
+    from swift.executors.echo import EchoExecutor
+
+    rec = Recorder()
+    session = Session(rec, EchoExecutor())
+    await session.handle(Message("debug.ask", {"text": "hello"}))
+    assert session._task is None and rec.messages == []
+
+
+async def test_unavailable_executor_shows_its_hint() -> None:
+    from swift.executors.claude_code import ClaudeCodeExecutor
+
+    rec = Recorder()
+    session = Session(rec, ClaudeCodeExecutor(cwd=None), debug_executor=MockExecutor(speed=0))
+    await session.handle(Message("debug.ask", {"text": "hello"}))
+    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    err = rec.last("error")
+    assert err["code"] == "executor_unavailable" and "working_dirs" in err["hint"]
+
+
 async def test_debug_run_ignored_without_debug_executor() -> None:
     rec = Recorder()
     session = Session(rec, MockExecutor(speed=0))

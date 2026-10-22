@@ -28,6 +28,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "cancel": {},
     "confirm.reply": {"request_id": (str, None), "decision": (str, ("approve", "reject"))},
     "debug.run": {"scenario": (str, SCENARIOS)},
+    # Debug mode only: send typed text through the real executor, skipping mic and STT.
+    "debug.ask": {"text": (str, None)},
 }
 
 OUTBOUND_TYPES = frozenset(

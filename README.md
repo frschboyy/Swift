@@ -66,6 +66,32 @@ Hold **Ctrl+Shift+Space** (configurable: `hotkeys.push_to_talk`), speak, and rel
 - **Hotkey conflicts.** If another app already owns the hotkey, Swift shows an error card naming it. Pick another key in `config.yaml`. The default used to be Ctrl+Alt+Space, but another app owned it on the development laptop.
 - **Esc** after releasing cancels the transcription. A tap shorter than 0.3 s is ignored.
 
+### Sending requests to Claude Code (Milestone 3)
+
+Set this in `config.yaml`:
+
+```yaml
+executor:
+  kind: "claude_code"
+  working_dirs: ["C:/Users/me/Projects/thesis"]   # Claude Code runs here; trusted folders only
+  allowed_tools: ["Read", "Glob", "Grep"]         # read-only by default
+  max_budget_usd: 1.0                             # per request
+```
+
+Then hold the hotkey and ask, for example, "What's in the executors folder?". Steps stream into the overlay as Claude Code works, and the result card shows its answer. **Esc** stops the run.
+
+**How Swift runs it:**
+- `claude -p --output-format stream-json`, with the request on stdin, never on the command line.
+- Only `allowed_tools` exist, and in `dontAsk` mode anything else is denied (shown as "Blocked: …"). Approving other actions from the overlay arrives in Milestone 5.
+- MCP servers from the project are not loaded (`--strict-mcp-config`), and sessions are not saved (`--no-session-persistence`).
+- Uses your normal Claude Code login. Swift never sees credentials.
+
+**Things to know:**
+- **This sends your transcript to Anthropic,** as any Claude Code request does. Transcription itself stays on this PC.
+- **Only add folders you trust.** Without `--bare`, `claude -p` still runs the project's hooks and reads its `CLAUDE.md`, with no trust prompt.
+- **Esc kills the run** and everything it started. `claude` ignores Ctrl+Break on Windows, so there is no gentler stop.
+- **Measured on the development laptop:** a small read-only question took about 7 s and $0.04; Esc stopped a run within 0.4 s.
+
 ### Speech model
 
 - **Where it lives:** `%LOCALAPPDATA%\Swift\models\whisper` (faster-whisper format: `base.en` by default, `small.en` optional).
@@ -100,7 +126,7 @@ With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays th
 ## Tests
 
 ```powershell
-uv run pytest                     # Python: protocol, executor contract, session, server, settings, push-to-talk
+uv run pytest                     # Python: protocol, executors (incl. a fake claude CLI), session, server, settings, push-to-talk
 cd overlay; npm run typecheck     # TypeScript
 cd overlay/src-tauri; cargo test  # Rust: hit-testing geometry
 ```

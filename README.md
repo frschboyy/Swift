@@ -99,6 +99,7 @@ Swift decides where each transcript goes before anything leaves the PC:
   - Swift sees it struggling: more than `turn_limits` steps on one model, or tool calls failing twice in a row
 
   The overlay shows "Switching to Sonnet: …". `confirm_strong: true` asks before Opus.
+- **Follow-ups:** each request is a fresh Claude Code process, so Swift itself passes on the last exchange. A request within `followup_context_s` (default 300 s, 0 = off) of the previous Claude answer is sent with that request, its answer and any approved actions, clipped. This makes "now commit it" or "how many functions are in it?" work. Only one exchange is kept. An error, a cancelled run, or saying "new topic" / "start over" clears it. The interaction log records `context: {previous, age_s}`.
 - **Settings** (`config.yaml`): `routing`, `executor.models`, `executor.escalation`, `executor.confirm_strong`, `executor.turn_limits`. The interaction log records `route`, `demand`, `start_model`, `models` and `escalations`.
 - **Measured** (`spikes/routing/live_escalation.py`):
   - a light question on Haiku cost $0.0013, against about $0.03 on Sonnet
@@ -112,8 +113,9 @@ When Claude Code wants to use one of the `confirm_tools`, the overlay shows a ca
 - **Approve** lets that one call run.
 - **Reject**, or no answer within `confirm_timeout_s`, denies it, and Claude Code **stops** (status `rejected`).
 - **Esc** cancels the whole run.
+- **By voice:** while the card is open, hold the hotkey and say "approve" (or "yes", "go ahead") or "reject" (or "no"). "Stop" or "cancel" cancels the run like Esc. Anything else shows a hint on the card and leaves it open. Push-to-talk is only accepted on an open card; at other times during a run it is still ignored. If you click while a spoken answer is being transcribed, the click wins.
 
-Every decision is recorded in the interaction log's `approvals`. Paths inside the working folder are shown relative to it; a path **outside** it is shown in full, so it stands out.
+Every decision is recorded in the interaction log's `approvals`, with `source` (`voice` or `click`) and `heard` (what was said on the card). Paths inside the working folder are shown relative to it; a path **outside** it is shown in full, so it stands out.
 
 **How Swift runs it.** Swift uses the Python Agent SDK (`claude-agent-sdk`), with your installed `claude` CLI:
 - `allowed_tools` are pre-approved. `confirm_tools` exist, but each call goes to the overlay first. No other tool exists.

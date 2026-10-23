@@ -140,6 +140,9 @@ class Settings(_Section):
     # Route transcripts (ADR-007): commands and time/date handled by Swift, the rest to the
     # executor with a demand estimate. False sends every transcript to the executor as before.
     routing: bool = True
+    # A request within this many seconds of the previous Claude answer is sent with that
+    # exchange as context, so "now commit it" works (ADR-007 §9). 0 turns it off.
+    followup_context_s: float = Field(300.0, ge=0)
     debug: bool = False
 
 

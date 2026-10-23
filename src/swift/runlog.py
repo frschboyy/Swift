@@ -12,7 +12,8 @@ Fields (absent when they don't apply):
 - ``executor``, ``run_ms`` (the executor's run), ``interaction_ms`` (key-down to result)
 - ``steps``: ``[{t_ms, text}]``
 - ``status``: done, cancelled, error or rejected, with ``error`` (a code) and ``reason``
-- ``approvals``: ``[{tool, decision, asked_ms, answered_ms}]``
+- ``approvals``: ``[{tool, decision, asked_ms, answered_ms, source, heard}]`` (``source``: voice or click)
+- ``context``: ``{previous, age_s}`` when the previous exchange was sent along (follow-ups)
 - ``cost_usd``, ``turns``, ``denied``, ``exit_code`` (Claude Code runs)
 
 The transcript is written in full: this file is the owner's own data and never

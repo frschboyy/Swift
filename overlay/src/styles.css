@@ -241,6 +241,10 @@ html, body {
 
 .card--confirm .card-head { color: var(--accent); }
 .confirm-title { margin: 0; font-size: 16px; font-weight: 600; }
+.voice-hint { margin: 10px 0 0; font-size: 13px; color: var(--faint); }
+.voice-hint[data-phase="listening"],
+.voice-hint[data-phase="transcribing"] { color: var(--accent); }
+.voice-hint[data-phase="hint"] { color: var(--text); }
 
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 

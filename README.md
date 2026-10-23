@@ -90,6 +90,7 @@ Swift decides where each transcript goes before anything leaves the PC:
 
 - **Commands to Swift** are handled at once, with no model. These are "stop", "cancel", "never mind", "repeat that", and "what can you do". Only the whole utterance counts: "stop reminding me…" is a request.
 - **Time and date** are answered on this PC.
+- **Opening things** ("open my downloads folder", "launch Chrome", "open the Swift project in VS Code") is done by Swift, with no model. Only names in the `local` section of `config.yaml` are opened: apps (default VS Code, Chrome, Notepad, Explorer), folders (Documents, Downloads, Desktop plus your own), and projects (`executor.working_dirs` by folder name plus `local.projects`). Unknown names ("open the thesis project") and compound requests ("open it and run the tests") go to Claude Code. The log records `route: local`, `action: open`, `target`.
 - **Everything else goes to Claude Code**, on a model chosen by how demanding the request looks:
   - **light** (questions, lookups, short drafts, single commands) starts on **Haiku**
   - **standard** (changes, investigations, and anything unclear) starts on **Sonnet**
@@ -99,7 +100,7 @@ Swift decides where each transcript goes before anything leaves the PC:
   - Swift sees it struggling: more than `turn_limits` steps on one model, or tool calls failing twice in a row
 
   The overlay shows "Switching to Sonnet: …". `confirm_strong: true` asks before Opus.
-- **Settings** (`config.yaml`): `routing`, `executor.models`, `executor.escalation`, `executor.confirm_strong`, `executor.turn_limits`. The interaction log records `route`, `demand`, `start_model`, `models` and `escalations`.
+- **Settings** (`config.yaml`): `routing`, `local`, `executor.models`, `executor.escalation`, `executor.confirm_strong`, `executor.turn_limits`. The interaction log records `route`, `demand`, `start_model`, `models` and `escalations`.
 - **Measured** (`spikes/routing/live_escalation.py`):
   - a light question on Haiku cost $0.0013, against about $0.03 on Sonnet
   - Haiku asked for Sonnet by itself 5.5 s into a refactoring request

@@ -3,7 +3,10 @@
 - **control**: the whole utterance is a command to Swift ("stop", "never mind",
   "approve"). Matching is on the whole utterance only, so "stop reminding me
   to take a break" is a request, not a stop.
-- **local**: Swift answers itself (time, date).
+- **local**: Swift answers itself (time, date) or opens an app, folder or project. "Open ..."
+  is matched loosely here (a short phrase with no conjunction or verb in it); the session
+  resolves the phrase against the ``local`` settings and sends it on to Claude Code when
+  the target isn't a configured name, so only known names are ever opened.
 - **claude**: everything else. A leading "use opus / use haiku" picks the model
   and is removed; "think hard about ..." asks for the strongest model and is kept.
   Demand (light or standard) comes from ``demand.estimate`` until the local
@@ -55,10 +58,38 @@ class Route:
     route: RouteName
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
-    # control: stop | cancel | mute | approve | reject | repeat | help; local: time | date.
+    # control: stop | cancel | mute | approve | reject | repeat | help; local: time | date | open.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None
+    # local "open": what was asked for ("downloads folder") and the app it should open in, if said.
+    target: str | None = None
+    app: str | None = None
+
+
+# Words that make an "open ..." request something more than opening: it goes to Claude Code.
+_NOT_OPEN = frozenset(
+    "and then also so that which where who run fix edit find show tell read search check list create write add make build "
+    "test tests explain what how why if when because but or after before while until once to from at about".split()
+)
+_OPEN = re.compile(r"(?:open|launch|bring up|pull up)(?: up)? (?P<rest>[\w' ]+)")
+_OPEN_IN = re.compile(r"(?P<target>.+?) (?:in|with|using|on) (?P<app>.+)")
+_OPEN_FOR = re.compile(r"(?P<app>.+?) for (?P<target>.+)")
+
+
+def _open_request(norm: str) -> tuple[str, str | None] | None:
+    m = _OPEN.fullmatch(norm)
+    if m is None:
+        return None
+    rest = m.group("rest").strip()
+    words = rest.split()
+    if not 1 <= len(words) <= 8 or any(w in _NOT_OPEN for w in words):
+        return None
+    if m := _OPEN_IN.fullmatch(rest):
+        return m.group("target"), m.group("app")
+    if m := _OPEN_FOR.fullmatch(rest):
+        return m.group("target"), m.group("app")
+    return rest, None
 
 
 def _normalize(text: str) -> str:
@@ -80,6 +111,9 @@ def route(text: str, default_demand: Demand = "standard") -> Route:
     for action, pattern in _LOCAL:
         if pattern.fullmatch(norm):
             return Route("local", text.strip(), action=action)
+
+    if (opened := _open_request(norm)) is not None:
+        return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])
 
     request = strip_wake(text) or text.strip()
     if m := _USE_MODEL.match(request):

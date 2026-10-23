@@ -37,6 +37,14 @@ executor:
   confirm_strong: false            # ask on the overlay before switching to the strong model
   turn_limits: {light: 8, standard: 25}  # steps on one model before Swift moves the run up
 
+local:                             # "open ..." handled by Swift, by spoken name only (ADR-007)
+  enabled: true
+  editor: "vs code"                # app a project opens in unless you say "in Chrome" etc.
+  # apps defaults to VS Code, Chrome, Notepad, Explorer; setting it replaces that list.
+  # apps: {"vs code": "code", "chrome": "chrome"}
+  folders: {}                      # e.g. {"lecture notes": "C:/Users/me/Documents/Lectures"}; Documents, Downloads, Desktop are built in
+  projects: {}                     # e.g. {"thesis": "C:/Users/me/Projects/thesis"}; executor.working_dirs are added by folder name
+
 logging:
   interactions: "%LOCALAPPDATA%/Swift/interactions.jsonl"
   app_log_dir: "%LOCALAPPDATA%/Swift/logs"

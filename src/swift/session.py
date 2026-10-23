@@ -22,6 +22,7 @@ import asyncio
 import math
 import time
 import uuid
+from dataclasses import replace
 from datetime import datetime
 from itertools import count
 from collections.abc import Awaitable, Callable
@@ -36,6 +37,9 @@ from swift.executors.mock import MockExecutor
 from swift.ipc.protocol import Message, outbound
 from swift.routing import Route
 from swift.routing import route as default_router
+from swift.routing.demand import estimate
+from swift.routing.local import LocalOpener, OpenTarget
+from swift.routing.rules import strip_wake
 from swift.stt.transcriber import SttUnavailable, Transcriber
 
 Send = Callable[[Message], Awaitable[None]]
@@ -93,6 +97,7 @@ class Session:
         audio_dir: Path | None = None,
         on_finish: OnFinish | None = None,
         router: Callable[[str], Route] | None = default_router,
+        opener: LocalOpener | None = None,
     ) -> None:
         self._send = send
         self.executor = executor
@@ -108,6 +113,8 @@ class Session:
         self.on_finish = on_finish
         # None sends every transcript to the executor unchanged (tests, demos).
         self.router = router
+        # Resolves and starts "open ..." requests; None sends them to the executor.
+        self.opener = opener
         self._last_result: tuple[str, ExecResult] | None = None
         self._local_ids = count(1)
         self._released: asyncio.Event | None = None
@@ -299,11 +306,22 @@ class Session:
 
             routed = self.router is not None and record.get("source") in ("voice", "debug.ask")
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
+            target: OpenTarget | None = None
+            if decision is not None and decision.action == "open":
+                target = self.opener.resolve(decision) if self.opener is not None else None
+                if target is None:  # not a configured name: Claude Code decides
+                    request = strip_wake(decision.text) or decision.text
+                    decision = replace(
+                        decision, route="claude", action=None, target=None, app=None, text=request,
+                        demand=estimate(request) or "standard",
+                    )
             if decision is not None:
                 record["route"] = decision.route
                 if decision.route != "claude":
                     record["action"] = decision.action
-                    await self._handle_here(decision, record)
+                    if target is not None:
+                        record["target"] = target.name
+                    await self._handle_here(decision, record, target)
                     return
                 record["demand"] = decision.demand
                 if decision.override:
@@ -355,9 +373,24 @@ class Session:
             if self.on_finish is not None:
                 self.on_finish(record)
 
-    async def _handle_here(self, decision: Route, record: dict[str, Any]) -> None:
+    async def _handle_here(self, decision: Route, record: dict[str, Any], target: OpenTarget | None = None) -> None:
         """Commands and questions Swift answers itself: no executor, no network."""
         action = decision.action
+        if action == "open" and target is not None and self.opener is not None:
+            try:
+                await asyncio.to_thread(self.opener.launch, target)
+            except OSError as exc:
+                logger.warning("open failed", target=target.name, error=str(exc))
+                record["status"] = "error"
+                record["error"] = "open_failed"
+                await self._set_state("error")
+                await self._send(
+                    outbound("error", code="open_failed", message=f"Couldn't open {target.name}.", hint="Check the path in config.yaml's local section.")
+                )
+                return
+            record["status"] = "done"
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", f"Opened {target.name.title()}."))
+            return
         if action in ("stop", "cancel", "mute"):
             record["status"] = "cancelled"
             await self._set_state("idle")

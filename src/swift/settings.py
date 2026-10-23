@@ -82,6 +82,37 @@ class ExecutorSettings(_Section):
     turn_limits: dict[Literal["light", "standard"], int] = Field(default_factory=lambda: {"light": 8, "standard": 25})
 
 
+class LocalSettings(_Section):
+    """What "open ..." may open (ADR-007). Spoken names only; nothing else is ever started."""
+
+    enabled: bool = True
+    # Spoken name -> command or registered app name. Chrome and Notepad resolve through Windows.
+    apps: dict[str, str] = Field(
+        default_factory=lambda: {
+            "vs code": "code",
+            "vscode": "code",
+            "visual studio code": "code",
+            "code": "code",
+            "chrome": "chrome",
+            "google chrome": "chrome",
+            "notepad": "notepad",
+            "explorer": "explorer",
+            "file explorer": "explorer",
+        }
+    )
+    # Spoken name -> folder, added to Documents, Downloads and Desktop (these names win).
+    folders: dict[str, str] = Field(default_factory=dict)
+    # Spoken name -> project folder, added to executor.working_dirs (named by folder name).
+    projects: dict[str, str] = Field(default_factory=dict)
+    # The app a project opens in unless the request names one (a key of apps).
+    editor: str = "vs code"
+
+    @field_validator("folders", "projects")
+    @classmethod
+    def _expand(cls, v: dict[str, str]) -> dict[str, str]:
+        return {k: expand(p) for k, p in v.items()}
+
+
 class LoggingSettings(_Section):
     interactions: str = "%LOCALAPPDATA%/Swift/interactions.jsonl"
     app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
@@ -98,6 +129,7 @@ class Settings(_Section):
     stt: SttSettings = Field(default_factory=SttSettings)
     executor: ExecutorSettings = Field(default_factory=ExecutorSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    local: LocalSettings = Field(default_factory=LocalSettings)
     # Route transcripts (ADR-007): commands and time/date handled by Swift, the rest to the
     # executor with a demand estimate. False sends every transcript to the executor as before.
     routing: bool = True

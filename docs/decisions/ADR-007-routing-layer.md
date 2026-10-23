@@ -139,7 +139,8 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
    - cost and latency on light requests: Haiku against Sonnet
 3. **Local classifier.** Embedding model plus examples. Ship only if under-estimates stay low enough that escalations are rare, measured on the eval set.
 4. **Learning loop.** Interaction records carry `start_model`, `escalations` and `turns`. A script, like `learn_fixes.py`, proposes new demand examples for the owner to approve.
-5. **Later:** the Hermes spike, scheduled jobs, follow-up context, voice approve/reject.
+5. **Local open handlers.** *Done 2026-10-23:* "open my downloads folder", "launch Chrome", "open the Swift project in VS Code" are handled by Swift (`swift/routing/local.py`, `local` settings). The rule matches loosely ("open/launch/bring up" plus a short phrase with no conjunction or verb in it), but only a phrase that names a configured app, folder or project is opened; anything else, and any compound request, goes to Claude Code. Launching is `os.startfile`, or the editor with the folder as its only argument, without a console window. On the test split the 8 `planned` detours became correct: 0 dropped, 0 detoured, route accuracy 100%. Tests mock the launcher.
+6. **Later:** the Hermes spike, scheduled jobs, follow-up context, voice approve/reject.
 
 ## 9. Owner decisions (2026-10-23)
 

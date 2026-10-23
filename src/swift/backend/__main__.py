@@ -28,6 +28,7 @@ from swift.executors.mock import MockExecutor
 from swift.ipc.server import OverlayServer
 from swift.logging_setup import setup_logging
 from swift.routing import route
+from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
@@ -118,6 +119,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         ptt_label=settings.hotkeys.push_to_talk,
         audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
         router=route if settings.routing else None,
+        opener=LocalOpener(settings),
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)

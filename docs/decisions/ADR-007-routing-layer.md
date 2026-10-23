@@ -138,7 +138,30 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
    - a live run where Haiku escalates (extend `spikes/latency/model_switch.py`)
    - cost and latency on light requests: Haiku against Sonnet
 3. **Local classifier.** Embedding model plus examples. Ship only if under-estimates stay low enough that escalations are rare, measured on the eval set.
+   *Done 2026-10-23:* `swift/routing/classifier.py`, on by default (`demand_classifier.enabled`).
+   - **How it works:** `bge-small-en-v1.5`, int8 ONNX (34 MB), CLS embedding. A weighted 7-nearest-neighbor vote runs over the 180 train-split examples (`swift/routing/examples.jsonl`) plus the owner's learned ones. Light needs at least 70% of the vote; otherwise the request goes to the default, standard. It loads in a background thread after the ready line, and the keyword estimate answers until it is ready or if the model is missing.
+   - **Classifier alone was not good enough.** The train split has only 31 standard examples. On the test split, with k from 3 to 9 and a threshold from 0.5 to 0.8, it under-estimated 5 to 15 of the 13 standard requests. So the keyword estimate goes first, and the classifier decides only the requests the keywords can't place. Those used to default to Sonnet.
+   - **Test split, 94 requests** (`spikes/routing/eval_classifier.py`; with the keywords alone in brackets):
+     - dropped 0 (0)
+     - under-estimates 1 of 13 (0)
+     - over-estimates 1 of 55 (4)
+     - demand accuracy 97.3% (94.5%)
+     - route accuracy 91.5%, unchanged
+   - **The one under-estimate** is nw14, "tell me which strategy is most promising and why": a judgment call that reads like a lookup. The keywords had sent it to Sonnet only because they abstained. We did not add a phrase for it, because that would be tuning on the test split. Escalation is the backstop. It ships as the default because it is near 0 on under-estimates and better on everything else, but the test set has only 13 standard requests. `enabled: false` restores the keywords alone.
+   - **Route:** the classifier's route vote is logged as `route_hint` only. Control and local need an action that only the rules supply, so acting on the vote could drop a request.
+   - **Cost** on the i7-10610U, measured with other sessions keeping the CPU about 80% busy:
+     - 14–18 ms per request (median), p95 35 ms, 2 threads
+     - load about 5 s, in the background
+     - about 97 MB more memory
+     - the fp32 model gives the same accuracy at about 20 ms and 183 MB, so int8 is the default
 4. **Learning loop.** Interaction records carry `start_model`, `escalations` and `turns`. A script, like `learn_fixes.py`, proposes new demand examples for the owner to approve.
+   *Done 2026-10-23:* `spikes/routing/learn_demand.py`.
+   - **What it proposes:**
+     - a light request that escalated becomes a standard example
+     - a standard request that finished done in at most 2 turns, with no escalation and no Edit/Write approval, becomes a light candidate
+     - runs with a model override are skipped
+   - The owner answers y/n/s/q for each. Kept examples are appended to `demand_classifier.examples_file` (`%LOCALAPPDATA%\Swift\demand_examples.jsonl`). Rejected ones go there too, marked so they are never asked again and never loaded. The classifier loads the file at startup.
+   - The log had no routed runs yet at the time of writing, so the first real review is still to come. Read the log from a normal terminal, or pass `--log`.
 5. **Later:** the Hermes spike, scheduled jobs, follow-up context, voice approve/reject.
 
 ## 9. Owner decisions (2026-10-23)

@@ -44,4 +44,8 @@ logging:
 
 routing: true                      # stop/cancel/repeat and time/date handled by Swift; the rest by demand
 
+demand_classifier:                 # local classifier picks Haiku vs Sonnet where keywords can't (ADR-007 §4)
+  enabled: true                    # needs the bge-small model (README); without it, keywords alone
+  threshold: 0.7                   # how sure it must be that a request is light
+
 debug: true

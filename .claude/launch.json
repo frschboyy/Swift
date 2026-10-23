@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "overlay-vite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "overlay", "run", "dev"],
+      "port": 1420
+    }
+  ]
+}

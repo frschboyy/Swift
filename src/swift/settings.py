@@ -32,18 +32,29 @@ class Hotkeys(_Section):
 
 
 class SttSettings(_Section):
-    model: Literal["base.en", "small.en"] = "small.en"
+    # parakeet: Parakeet-TDT 0.6B v2 int8 (fast, accurate). whisper: faster-whisper `model`.
+    engine: Literal["parakeet", "whisper"] = "parakeet"
     cpu_threads: int = Field(4, ge=1, le=32)
+    # Whisper only.
+    model: Literal["base.en", "small.en"] = "small.en"
     beam_size: int = Field(5, ge=1, le=10)
     initial_prompt: str = ""
+    # Heard phrase -> meant phrase, e.g. {"tori": "Tauri"}. Both engines. Merged
+    # over the learned fixes in word_fixes_file (these win).
+    word_fixes: dict[str, str] = Field(default_factory=dict)
+    word_fixes_file: str = "%LOCALAPPDATA%/Swift/word_fixes.json"
     # Debug: keep every push-to-talk recording as a WAV file in audio_dir.
     save_audio: bool = False
     audio_dir: str = "%LOCALAPPDATA%/Swift/audio"
 
-    @field_validator("audio_dir")
+    @field_validator("audio_dir", "word_fixes_file")
     @classmethod
     def _expand(cls, v: str) -> str:
         return expand(v)
+
+    @property
+    def model_label(self) -> str:
+        return "parakeet-tdt-0.6b-v2-int8" if self.engine == "parakeet" else self.model
 
 
 class ExecutorSettings(_Section):

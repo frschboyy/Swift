@@ -247,6 +247,8 @@ class Session:
         record["stt_ms"] = result.stt_ms
         if result.peak_db is not None:
             record["peak_db"] = result.peak_db
+        if result.raw_text is not None:
+            record["transcript_raw"] = result.raw_text
         if not result.text:
             raise UserFacingError(
                 "no_speech",

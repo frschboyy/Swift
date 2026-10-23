@@ -114,16 +114,29 @@ Every decision is recorded in the interaction log's `approvals`. Paths inside th
 
 ### Speech model
 
-- **Where it lives:** `%LOCALAPPDATA%\Swift\models\whisper` (faster-whisper format: `small.en` by default, `base.en` optional).
-- **Offline only:** the backend never downloads it. To fetch it once:
+Two engines, picked with `stt.engine` in `config.yaml`:
+
+| Engine | Model | Accuracy on the owner's voice | Typical request | Memory |
+|---|---|---|---|---|
+| `parakeet` (default) | NVIDIA Parakeet-TDT 0.6B v2, int8, via `onnx-asr` | 5.2% character errors | 0.6–1.2 s | about 780 MB |
+| `whisper` | faster-whisper `small.en`, beam 5 | 4.9% character errors | 4.3–4.8 s | about 340 MB |
+
+Accuracy and speed are from `spikes/stt` on 40 read requests, plugged in. Memory is weights plus inference buffers (USS). Whisper's `model: "base.en"` with `beam_size: 1` uses less memory but makes about twice as many errors.
+
+- **Offline only:** the backend never downloads a model. Fetch the one you use once:
 
 ```powershell
+# Parakeet -> %LOCALAPPDATA%\Swift\models\parakeet-tdt-0.6b-v2 (about 630 MB)
+.venv\Scripts\python.exe -c "import os; from huggingface_hub import snapshot_download; snapshot_download('istupakov/parakeet-tdt-0.6b-v2-onnx', local_dir=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\parakeet-tdt-0.6b-v2'), allow_patterns=['config.json', 'vocab.txt', '*.int8.onnx'])"
+# Whisper -> %LOCALAPPDATA%\Swift\models\whisper
 .venv\Scripts\python.exe -c "from faster_whisper import WhisperModel; import os; WhisperModel('small.en', device='cpu', compute_type='int8', download_root=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\whisper'))"
 ```
 
-- **Accuracy vs. speed** (`stt` in `config.yaml`): `small.en` with `beam_size: 5` is the default. `base.en` with `beam_size: 1` is about 2.5× faster but much less accurate.
-- **Vocabulary:** put names and jargon you say often in `initial_prompt`. Whisper follows its spelling.
-- **Hearing what Whisper heard:** set `save_audio: true` and each push-to-talk is saved as `<interaction id>.wav` in `audio_dir` (default `%LOCALAPPDATA%\Swift\audio`). The interaction log's `audio_file` names it. The files stay on this PC; delete them whenever you like, and turn this off when you're done.
+- **Silence:** both engines skip near-silent recordings and trim silence at the start and end before transcribing.
+- **Word fixes (both engines):** a phrase the model keeps mishearing can be corrected after transcription, for example `word_fixes: {"tori": "Tauri"}` in `config.yaml`. Matching ignores case, only whole words match, and spaces and hyphens are treated alike. When a fix changes a transcript, the interaction log keeps the original as `transcript_raw`.
+- **Learned word fixes:** `spikes/stt/learn_fixes.py` transcribes your test set (below), finds the phrases the engine got wrong, and asks you about each one. The ones you keep go to `%LOCALAPPDATA%\Swift\word_fixes.json` (`stt.word_fixes_file`), loaded at startup. Fixes in `config.yaml` win over learned ones. Reject fixes that would change a real word, such as "deadlock" → "git log". Rerun it as you label more recordings.
+- **Vocabulary (Whisper only):** put names and jargon you say often in `initial_prompt`. Whisper follows its spelling. Parakeet has no prompt, so use word fixes instead.
+- **Hearing what the model heard:** set `save_audio: true` and each push-to-talk is saved as `<interaction id>.wav` in `audio_dir` (default `%LOCALAPPDATA%\Swift\audio`). The interaction log's `audio_file` names it. The files stay on this PC; delete them whenever you like, and turn this off when you're done.
 
 ### Comparing speech models on your voice
 
@@ -135,6 +148,7 @@ uv run --group sttbench python spikes/stt/corpus.py read        # read ~40 sente
 uv run --group sttbench python spikes/stt/corpus.py label       # correct transcripts of Swift's saved recordings
 uv run --group sttbench python spikes/stt/bench.py --download   # fetch every model once (~1.5 GB)
 uv run --group sttbench python spikes/stt/bench.py              # WER and speed per model
+uv run --group sttbench python spikes/stt/learn_fixes.py        # review word fixes for Swift's engine
 ```
 
 - **The test set** lives in `%LOCALAPPDATA%\Swift\stt_corpus`, never in git. `read` records you reading `spikes/stt/prompts.txt`. Recording starts before you speak, so nothing is clipped. `label` works through push-to-talk clips Swift saved (`stt.save_audio: true`), which are closer to real use.
@@ -162,6 +176,8 @@ Measured on the development laptop (i5, 4 cores / 8 threads, 16 GB RAM, CPU only
 | **Whole tree, idle, model loaded** | **250–254 MB** |
 
 Excluding the model, the tree uses about 110 MB, inside the 300 MB target.
+
+**Since the switch to Parakeet (2026-10-23, i7-10610U, plugged in):** the speech model takes about 780 MB once loaded and used (685 MB of weights plus about 90 MB of inference buffers). Whisper `small.en` took about 340 MB. With Parakeet the whole tree is therefore around 880 MB. Loading takes about 6.7 s for either model, in the background; the backend's ready line still comes in about 1 s.
 
 Task Manager's "Commit size" (private bytes) is much larger, about 1.3 GB for the backend. That's memory the libraries reserve but don't touch; CTranslate2 alone commits about 1 GB when the model loads. Swift sets `OPENBLAS_NUM_THREADS=1`, which removes another 225 MB that numpy would reserve. Earlier milestones reported private bytes, which overstated the real footprint.
 

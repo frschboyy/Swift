@@ -30,7 +30,8 @@ from swift.logging_setup import setup_logging
 from swift.runlog import InteractionLog
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
-from swift.stt.transcriber import WhisperTranscriber
+from swift.stt.fixes import WordFixes
+from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
 
 READY_PREFIX = "SWIFT_BACKEND_READY"
 
@@ -52,6 +53,21 @@ def _on_finish(runlog: InteractionLog) -> Callable[[dict[str, Any]], None]:
         logger.bind(**summary, steps=len(record.get("steps", []))).info("interaction finished")
 
     return finish
+
+
+def _make_transcriber(settings: Settings) -> LocalTranscriber:
+    cfg = settings.stt
+    fixes = WordFixes.load(Path(cfg.word_fixes_file), cfg.word_fixes)
+    if cfg.engine == "parakeet":
+        return ParakeetTranscriber(app_paths().models_dir, cpu_threads=cfg.cpu_threads, fixes=fixes)
+    return WhisperTranscriber(
+        cfg.model,
+        app_paths().models_dir / "whisper",
+        cpu_threads=cfg.cpu_threads,
+        initial_prompt=cfg.initial_prompt,
+        beam_size=cfg.beam_size,
+        fixes=fixes,
+    )
 
 
 def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
@@ -83,13 +99,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         },
     )
     # Both warm up in the background once the ready line is out (below).
-    transcriber = WhisperTranscriber(
-        settings.stt.model,
-        app_paths().models_dir / "whisper",
-        cpu_threads=settings.stt.cpu_threads,
-        initial_prompt=settings.stt.initial_prompt,
-        beam_size=settings.stt.beam_size,
-    )
+    transcriber = _make_transcriber(settings)
     recorder = MicRecorder(asyncio.get_running_loop())
 
     mock = MockExecutor()
@@ -101,7 +111,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         transcriber=transcriber,
         ptt_label=settings.hotkeys.push_to_talk,
         audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
-        on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model)),
+        on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)
 

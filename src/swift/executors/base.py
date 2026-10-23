@@ -63,7 +63,10 @@ class ExecutorUnavailable(RuntimeError):
 class Executor(Protocol):
     name: str
 
-    async def start(self, request: str) -> str: ...
+    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+        """``demand`` ("light"/"standard") and ``override`` ("opus"/"sonnet"/"haiku") come from the
+        router (ADR-007); executors with a single model ignore them."""
+        ...
 
     def events(self, run_id: str) -> AsyncIterator[ExecEvent]: ...
 

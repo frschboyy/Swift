@@ -29,10 +29,19 @@ executor:
   max_budget_usd: 1.0
   confirm_timeout_s: 120
   prewarm: true                    # keep one Claude Code started and waiting (saves 5-13 s per request)
+  models:                          # starting model by how demanding a request looks (ADR-007)
+    light: "claude-haiku-5-5"      # questions, lookups, short drafts, single commands
+    standard: "claude-sonnet-5-5"  # changes, investigations; also when unsure
+    strong: "claude-opus-5-5"      # only by escalation or "use opus ..."
+  escalation: true                 # move up mid-request when Claude asks or keeps struggling
+  confirm_strong: false            # ask on the overlay before switching to the strong model
+  turn_limits: {light: 8, standard: 25}  # steps on one model before Swift moves the run up
 
 logging:
   interactions: "%LOCALAPPDATA%/Swift/interactions.jsonl"
   app_log_dir: "%LOCALAPPDATA%/Swift/logs"
   level: "INFO"
+
+routing: true                      # stop/cancel/repeat and time/date handled by Swift; the rest by demand
 
 debug: true

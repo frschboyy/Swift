@@ -9,7 +9,9 @@ content messages sent from here. One interaction runs at a time:
 them, and the overlay fades the card on its own timer.
 
 Push-to-talk (``ptt`` down/up) records from the microphone, transcribes
-locally and hands the transcript to the configured executor. ``debug.run``
+locally and routes the transcript (ADR-007): commands to Swift ("stop",
+"repeat that") and time/date are handled here; everything else goes to the
+configured executor with a demand estimate that picks its starting model. ``debug.run``
 plays a scripted interaction (fake mic level, canned transcript) through
 ``MockExecutor`` instead.
 """
@@ -21,6 +23,7 @@ import math
 import time
 import uuid
 from datetime import datetime
+from itertools import count
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -31,6 +34,8 @@ from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, s
 from swift.executors.base import ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
 from swift.ipc.protocol import Message, outbound
+from swift.routing import Route
+from swift.routing import route as default_router
 from swift.stt.transcriber import SttUnavailable, Transcriber
 
 Send = Callable[[Message], Awaitable[None]]
@@ -51,6 +56,12 @@ ERROR_HINTS = {
 DEFAULT_ERROR_HINT = "Try again. Details are in swift.log."
 
 MIN_SPEECH_S = 0.3
+
+HELP_TEXT = (
+    "Hold the hotkey and ask for anything in your project: questions, changes, commands. "
+    "Say \u201cstop\u201d or press Esc to cancel, \u201crepeat that\u201d to see the last answer, "
+    "and \u201cuse opus\u201d at the start to ask for the strongest model."
+)
 # The mic stays open this long after the hotkey is released: people let go
 # while still saying the last word.
 TAIL_S = 0.3
@@ -81,6 +92,7 @@ class Session:
         tail_s: float = TAIL_S,
         audio_dir: Path | None = None,
         on_finish: OnFinish | None = None,
+        router: Callable[[str], Route] | None = default_router,
     ) -> None:
         self._send = send
         self.executor = executor
@@ -94,6 +106,10 @@ class Session:
         # Debug only: every recording is saved here as <interaction id>.wav.
         self.audio_dir = audio_dir
         self.on_finish = on_finish
+        # None sends every transcript to the executor unchanged (tests, demos).
+        self.router = router
+        self._last_result: tuple[str, ExecResult] | None = None
+        self._local_ids = count(1)
         self._released: asyncio.Event | None = None
         self.state = "idle"
         self._task: asyncio.Task[None] | None = None
@@ -281,8 +297,23 @@ class Session:
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
+            routed = self.router is not None and record.get("source") in ("voice", "debug.ask")
+            decision = self.router(transcript) if routed else None  # type: ignore[misc]
+            if decision is not None:
+                record["route"] = decision.route
+                if decision.route != "claude":
+                    record["action"] = decision.action
+                    await self._handle_here(decision, record)
+                    return
+                record["demand"] = decision.demand
+                if decision.override:
+                    record["override"] = decision.override
+
             try:
-                run_id = await start(transcript)
+                if decision is not None:
+                    run_id = await executor.start(decision.text, demand=decision.demand, override=decision.override)
+                else:
+                    run_id = await start(transcript)
             except ExecutorUnavailable as exc:
                 raise UserFacingError("executor_unavailable", str(exc), exc.hint) from None
             result = await self._run(executor, run_id, record)
@@ -323,6 +354,29 @@ class Session:
                 approval.setdefault("decision", unanswered)
             if self.on_finish is not None:
                 self.on_finish(record)
+
+    async def _handle_here(self, decision: Route, record: dict[str, Any]) -> None:
+        """Commands and questions Swift answers itself: no executor, no network."""
+        action = decision.action
+        if action in ("stop", "cancel", "mute"):
+            record["status"] = "cancelled"
+            await self._set_state("idle")
+            return
+        if action == "repeat" and self._last_result is not None:
+            record["status"] = "done"
+            await self._send_result(*self._last_result)
+            return
+        now = datetime.now()
+        answers = {
+            "time": f"It's {now.strftime('%H:%M')}.",
+            "date": f"It's {now.strftime('%A')}, {now.day} {now.strftime('%B %Y')}.",
+            "help": HELP_TEXT,
+            "repeat": "There's nothing to repeat yet.",
+            "approve": "There's nothing waiting for approval.",
+            "reject": "There's nothing waiting for approval.",
+        }
+        record["status"] = "done"
+        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answers.get(action or "", "Done.")))
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""
@@ -399,6 +453,8 @@ class Session:
                 )
             )
             return
+        if result.status == "done":
+            self._last_result = (run_id, result)
         await self._set_state("result", run_id=run_id)
         await self._send(
             outbound("result", run_id=run_id, status=result.status, summary=result.summary, details=result.details)

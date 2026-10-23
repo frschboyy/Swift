@@ -17,8 +17,10 @@ class FakeClient:
     """Stands in for ClaudeSDKClient: replays a recorded run for whatever it's asked."""
 
     made: list[FakeClient] = []
-    fail_connect = False
+    fail_connect = 0  # how many connects fail before they start working
     ask_tool: str | None = None  # call can_use_tool for this tool before answering
+    escalate: str | None = None  # ask the executor for a stronger model, with this reason
+    executor: Any = None
 
     def __init__(self, options: Any) -> None:
         self.options = options
@@ -26,10 +28,15 @@ class FakeClient:
         self.connected = False
         self.disconnected = False
         self.permission: Any = None
+        self.models: list[str] = []
         FakeClient.made.append(self)
+
+    async def set_model(self, model: str) -> None:
+        self.models.append(model)
 
     async def connect(self) -> None:
         if FakeClient.fail_connect:
+            FakeClient.fail_connect -= 1
             raise ConnectionError("CLI exited")
         self.connected = True
 
@@ -37,6 +44,10 @@ class FakeClient:
         self.prompt = prompt
 
     async def receive_response(self):
+        if FakeClient.escalate:
+            ex = FakeClient.executor
+            run_id, run = next((rid, r) for rid, r in ex._runs.items() if r.client is self)
+            self.escalation_reply = await ex._escalate(run, run_id, FakeClient.escalate, by="model")
         if FakeClient.ask_tool:
             self.permission = await self.options.can_use_tool(FakeClient.ask_tool, {"file_path": "C:\\p\\a.txt", "content": "x"}, None)
         for message in sdk_messages("claude_read_only.jsonl"):
@@ -49,12 +60,14 @@ class FakeClient:
 @pytest.fixture(autouse=True)
 def reset_fake() -> None:
     FakeClient.made = []
-    FakeClient.fail_connect = False
+    FakeClient.fail_connect = 0
     FakeClient.ask_tool = None
+    FakeClient.escalate = None
 
 
 def make(tmp_path: Path, **kw: Any) -> ClaudeCodeExecutor:
-    return ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=FakeClient, **kw)
+    FakeClient.executor = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=FakeClient, **kw)
+    return FakeClient.executor
 
 
 async def run_to_end(ex: ClaudeCodeExecutor, text: str) -> tuple[str, list[str]]:
@@ -106,34 +119,23 @@ async def test_permission_requests_reach_the_run_the_spare_was_given(tmp_path: P
     await ex.close()
 
 
-async def test_failed_warm_up_falls_back_to_a_cold_start(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    FakeClient.fail_connect = True
-    cold_prompts: list[str] = []
-
-    async def fake_query(prompt: str, options: Any):
-        cold_prompts.append(prompt)
-        for message in sdk_messages("claude_read_only.jsonl"):
-            yield message
-
-    monkeypatch.setattr("claude_agent_sdk.query", fake_query)
+async def test_failed_warm_up_falls_back_to_a_cold_start(tmp_path: Path) -> None:
+    FakeClient.fail_connect = 1  # the spare fails; the request's own connect works
     ex = make(tmp_path)
     ex.prepare()
     await run_to_end(ex, "hello")
-    assert cold_prompts == ["hello"]
+    assert [c.prompt for c in FakeClient.made[:2]] == [None, "hello"]
     await ex.close()
 
 
-async def test_prewarm_off_never_connects_ahead(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_query(prompt: str, options: Any):
-        for message in sdk_messages("claude_read_only.jsonl"):
-            yield message
-
-    monkeypatch.setattr("claude_agent_sdk.query", fake_query)
+async def test_prewarm_off_never_connects_ahead(tmp_path: Path) -> None:
     ex = make(tmp_path, prewarm=False)
     ex.prepare()
-    await run_to_end(ex, "hello")
     await asyncio.sleep(0.05)
     assert FakeClient.made == []
+    await run_to_end(ex, "hello")
+    await asyncio.sleep(0.05)
+    assert len(FakeClient.made) == 1  # the request's own client, nothing spare
 
 
 async def test_close_disconnects_the_waiting_spare(tmp_path: Path) -> None:
@@ -144,3 +146,88 @@ async def test_close_disconnects_the_waiting_spare(tmp_path: Path) -> None:
     assert FakeClient.made[0].disconnected
     ex._refill()  # after close, nothing new is started
     assert ex._spare is None
+
+
+# ---- starting model and escalation (ADR-007) ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("demand", "override", "model"),
+    [
+        ("light", None, "claude-haiku-5-5"),
+        ("standard", None, "claude-sonnet-5-5"),
+        (None, None, "claude-sonnet-5-5"),
+        ("light", "opus", "claude-opus-5-5"),
+        ("standard", "haiku", "claude-haiku-5-5"),
+    ],
+)
+async def test_run_starts_on_the_model_for_its_demand(tmp_path: Path, demand: str | None, override: str | None, model: str) -> None:
+    ex = make(tmp_path)
+    run_id = await ex.start("hello", demand=demand, override=override)
+    [_ async for _ in ex.events(run_id)]
+    result = await ex.result(run_id)
+    assert FakeClient.made[-1].models == [model]
+    assert result.meta["start_model"] == model and result.meta["models"] == [model]
+    assert "escalations" not in result.meta
+    await ex.close()
+
+
+async def test_model_asking_for_more_moves_the_run_up_one_step(tmp_path: Path) -> None:
+    FakeClient.escalate = "needs edits in three files"
+    ex = make(tmp_path)
+    run_id = await ex.start("refactor it", demand="light")
+    steps = [e.text async for e in ex.events(run_id) if e.type == "step"]
+    result = await ex.result(run_id)
+    client = FakeClient.made[-1]
+    assert client.models == ["claude-haiku-5-5", "claude-sonnet-5-5"]
+    assert client.escalation_reply.startswith("Switched to Sonnet")
+    assert "Switching to Sonnet: needs edits in three files" in steps
+    assert result.meta["models"] == ["claude-haiku-5-5", "claude-sonnet-5-5"]
+    [esc] = result.meta["escalations"]
+    assert esc["to"] == "claude-sonnet-5-5" and esc["by"] == "model" and esc["reason"] == "needs edits in three files"
+    await ex.close()
+
+
+async def test_nothing_above_the_strongest_model(tmp_path: Path) -> None:
+    FakeClient.escalate = "harder"
+    ex = make(tmp_path)
+    run_id = await ex.start("x", override="opus")
+    [_ async for _ in ex.events(run_id)]
+    assert FakeClient.made[-1].models == ["claude-opus-5-5"]
+    assert FakeClient.made[-1].escalation_reply.startswith("You're already on the most capable model")
+    await ex.close()
+
+
+async def test_escalation_off_keeps_the_model(tmp_path: Path) -> None:
+    FakeClient.escalate = "harder"
+    ex = make(tmp_path, escalation=False)
+    run_id = await ex.start("x", demand="light")
+    [_ async for _ in ex.events(run_id)]
+    assert FakeClient.made[-1].models == ["claude-haiku-5-5"]
+    await ex.close()
+
+
+async def test_confirm_strong_asks_before_opus(tmp_path: Path) -> None:
+    FakeClient.escalate = "design decision"
+    ex = make(tmp_path, confirm_strong=True)
+    run_id = await ex.start("x", demand="standard")
+    asked = None
+    async for event in ex.events(run_id):
+        if event.type == "confirm":
+            asked = event
+            await ex.reply(event.request_id, False)
+    assert asked is not None and asked.text == "Switch to Opus" and asked.tool == "SwitchModel"
+    assert FakeClient.made[-1].models == ["claude-sonnet-5-5"]  # declined: stays
+    assert (await ex.result(run_id)).status == "done"  # declining a model doesn't stop the run
+    await ex.close()
+
+
+async def test_swift_moves_a_run_up_after_too_many_steps(tmp_path: Path) -> None:
+    ex = make(tmp_path, turn_limits={"light": 2})
+    run_id = await ex.start("x", demand="light")
+    steps = [e.text async for e in ex.events(run_id) if e.type == "step"]
+    result = await ex.result(run_id)  # the recorded run makes 5 tool-using steps
+    [esc] = result.meta["escalations"]
+    assert esc["by"] == "swift" and esc["to"] == "claude-sonnet-5-5" and "more than 2 steps" in esc["reason"]
+    assert any(s.startswith("Switching to Sonnet") for s in steps)
+    await ex.close()

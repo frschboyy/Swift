@@ -84,6 +84,27 @@ executor:
 
 Then hold the hotkey and ask, for example, "What's in the executors folder?". Steps stream into the overlay as Claude Code works, and the result card shows its answer. **Esc** stops the run.
 
+### Routing and models (ADR-007)
+
+Swift decides where each transcript goes before anything leaves the PC:
+
+- **Commands to Swift** are handled at once, with no model. These are "stop", "cancel", "never mind", "repeat that", and "what can you do". Only the whole utterance counts: "stop reminding me…" is a request.
+- **Time and date** are answered on this PC.
+- **Everything else goes to Claude Code**, on a model chosen by how demanding the request looks:
+  - **light** (questions, lookups, short drafts, single commands) starts on **Haiku**
+  - **standard** (changes, investigations, and anything unclear) starts on **Sonnet**
+  - **"use opus …"** or **"use haiku …"** at the start picks the model, and **"think hard about …"** asks for Opus.
+- **Escalation:** a run moves up mid-request (Haiku → Sonnet → Opus, never down) and keeps its context. It moves when:
+  - Claude calls `request_stronger_model`
+  - Swift sees it struggling: more than `turn_limits` steps on one model, or tool calls failing twice in a row
+
+  The overlay shows "Switching to Sonnet: …". `confirm_strong: true` asks before Opus.
+- **Settings** (`config.yaml`): `routing`, `executor.models`, `executor.escalation`, `executor.confirm_strong`, `executor.turn_limits`. The interaction log records `route`, `demand`, `start_model`, `models` and `escalations`.
+- **Measured** (`spikes/routing/live_escalation.py`):
+  - a light question on Haiku cost $0.0013, against about $0.03 on Sonnet
+  - Haiku asked for Sonnet by itself 5.5 s into a refactoring request
+  - on the 94 held-out requests in `eval/routes.jsonl`, the rules dropped none and never started standard work on Haiku
+
 ### Approving actions (Milestone 5)
 
 When Claude Code wants to use one of the `confirm_tools`, the overlay shows a card saying exactly what will happen. For example, "Create or overwrite notes.md: 3 lines into docs\notes.md", "Edit a.py: replace … with …", or "Run a command: git commit -m …".

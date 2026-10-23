@@ -69,6 +69,17 @@ class ExecutorSettings(_Section):
     confirm_timeout_s: float = Field(120.0, gt=0)
     # Keep one Claude Code process started and waiting, so a request skips its 5-13 s startup.
     prewarm: bool = True
+    # Model per demand (ADR-007): light requests start on Haiku, the rest on Sonnet; strong is
+    # reached only by escalation or "use opus".
+    models: dict[Literal["light", "standard", "strong"], str] = Field(
+        default_factory=lambda: {"light": "claude-haiku-5-5", "standard": "claude-sonnet-5-5", "strong": "claude-opus-5-5"}
+    )
+    # Move a run to a stronger model mid-request when Claude asks or keeps struggling.
+    escalation: bool = True
+    # Ask on the overlay before switching a run to the strong model.
+    confirm_strong: bool = False
+    # Tool-using steps on one model before Swift moves the run up.
+    turn_limits: dict[Literal["light", "standard"], int] = Field(default_factory=lambda: {"light": 8, "standard": 25})
 
 
 class LoggingSettings(_Section):
@@ -87,6 +98,9 @@ class Settings(_Section):
     stt: SttSettings = Field(default_factory=SttSettings)
     executor: ExecutorSettings = Field(default_factory=ExecutorSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
+    # Route transcripts (ADR-007): commands and time/date handled by Swift, the rest to the
+    # executor with a demand estimate. False sends every transcript to the executor as before.
+    routing: bool = True
     debug: bool = False
 
 

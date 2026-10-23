@@ -7,6 +7,8 @@ Fields (absent when they don't apply):
 - ``transcript``, ``audio_s``, ``first_audio_ms`` (key-down to first audio), ``stt_ms`` and ``stt_model``
 - ``peak_db`` (loudest 32 ms of the recording, dBFS) and ``audio_file`` (when ``stt.save_audio`` is on)
 - ``transcript_raw``: what the model heard, when word fixes changed it
+- ``route`` (control, local, claude), ``action`` (control/local), ``demand`` and ``override`` (claude)
+- ``start_model``, ``models`` (every model that ran) and ``escalations``: ``[{to, by, reason, t_ms}]`` (Claude Code)
 - ``executor``, ``run_ms`` (the executor's run), ``interaction_ms`` (key-down to result)
 - ``steps``: ``[{t_ms, text}]``
 - ``status``: done, cancelled, error or rejected, with ``error`` (a code) and ``reason``
@@ -31,6 +33,7 @@ from swift import __version__
 FIELD_ORDER = (
     "ts", "id", "source", "transcript", "transcript_raw", "audio_s", "first_audio_ms", "stt_ms", "stt_model",
     "peak_db", "audio_file",
+    "route", "action", "demand", "override", "start_model", "models", "escalations",
     "executor", "run_ms", "interaction_ms", "steps", "status", "error", "reason", "approvals",
     "cost_usd", "turns", "denied", "exit_code", "scenario",
 )

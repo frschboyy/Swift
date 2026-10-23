@@ -19,7 +19,7 @@ class EchoExecutor:
         self._results: dict[str, ExecResult] = {}
         self._ids = itertools.count(1)
 
-    async def start(self, request: str) -> str:
+    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
         run_id = f"echo-{next(self._ids)}"
         self._results[run_id] = ExecResult(
             "done",

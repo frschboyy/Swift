@@ -16,6 +16,11 @@
   ``prewarm`` on, one CLI is connected ahead of time and waits; a request is sent
   to it, and a fresh one is connected after every run, so requests stay as
   independent as before. If the spare isn't usable, the run starts cold.
+- **Models (ADR-007).** A run starts on the model for its demand (light: Haiku,
+  standard: Sonnet, or an explicit override) and can move up mid-run, keeping
+  its context: Claude calls ``request_stronger_model``, or Swift notices it
+  struggling (too many steps on one model, tool calls failing). Haiku -> Sonnet
+  -> Opus, never down.
 """
 
 from __future__ import annotations
@@ -45,6 +50,21 @@ _DONE = object()
 # Read-only tools are pre-approved on purpose, so can_use_tool never sees them. The SDK
 # warns about that when the query starts; match by message so the SDK needn't be imported.
 warnings.filterwarnings("ignore", message=r"can_use_tool will not be invoked")
+
+LEVELS = ("light", "standard", "strong")
+DEFAULT_MODELS = {"light": "claude-haiku-5-5", "standard": "claude-sonnet-5-5", "strong": "claude-opus-5-5"}
+OVERRIDE_LEVEL = {"haiku": "light", "sonnet": "standard", "opus": "strong"}
+# Steps (assistant messages that use a tool) on one model before Swift moves the run up.
+DEFAULT_TURN_LIMITS = {"light": 8, "standard": 25}
+ESCALATE_TOOL = "mcp__swift__request_stronger_model"
+SYSTEM_PROMPT = (
+    "The user spoke this request to a voice assistant and it was transcribed, so it may contain "
+    "recognition errors: read it for what was meant. Keep the final answer short; it is shown on a small card."
+)
+ESCALATE_PROMPT = (
+    " If the request needs more capability than you have (multi-step changes, debugging, design or "
+    "judgment calls), call request_stronger_model before attempting it, with a reason of a few words."
+)
 
 REJECTED_MESSAGE = (
     "The user rejected this action in Swift's voice overlay. Stop here; don't retry it or try a workaround."
@@ -77,6 +97,14 @@ class _Run:
     stopped_by: tuple[str, str] | None = None  # (decision, title)
     pending: dict[str, asyncio.Future[bool]] = field(default_factory=dict)
     ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
+    # Model state (ADR-007): current level, the connected client, and what happened.
+    level: str = "standard"
+    client: Any = None
+    started: float = field(default_factory=time.monotonic)
+    models: list[str] = field(default_factory=list)
+    escalations: list[dict[str, Any]] = field(default_factory=list)
+    steps_at_level: int = 0
+    failures: int = 0
 
 
 def as_event(message: Any) -> dict[str, Any] | None:
@@ -112,6 +140,10 @@ class ClaudeCodeExecutor:
         claude: str | None = None,
         prewarm: bool = True,
         client_factory: Any = None,
+        models: dict[str, str] | None = None,
+        escalation: bool = True,
+        confirm_strong: bool = False,
+        turn_limits: dict[str, int] | None = None,
     ) -> None:
         self.cwd = cwd
         self.allowed_tools = list(allowed_tools)
@@ -123,6 +155,10 @@ class ClaudeCodeExecutor:
         self._ids = itertools.count(1)
         self.prewarm = prewarm
         self._client_factory = client_factory
+        self.models = DEFAULT_MODELS | (models or {})
+        self.escalation = escalation
+        self.confirm_strong = confirm_strong
+        self.turn_limits = DEFAULT_TURN_LIMITS | (turn_limits or {})
         self._spare: asyncio.Task[_Spare | None] | None = None
         self._closed = False
 
@@ -156,13 +192,8 @@ class ClaudeCodeExecutor:
             await asyncio.to_thread(__import__, "claude_agent_sdk")
             binding: list[tuple[_Run, str]] = []
             options = self._options(lambda: binding[0])
-            factory = self._client_factory
-            if factory is None:
-                from claude_agent_sdk import ClaudeSDKClient as factory
-            known = _claude_children()
-            client = factory(options)
-            await client.connect()
-            spare = _Spare(client, next(iter(_claude_children() - known), None), binding)
+            client, pid = await self._connect(options)
+            spare = _Spare(client, pid, binding)
         except ExecutorUnavailable:
             return None  # reported on the first request, as an error card
         except Exception as exc:  # noqa: BLE001 - a failed warm-up only costs speed
@@ -170,6 +201,16 @@ class ClaudeCodeExecutor:
             return None
         logger.info("claude ready", connect_s=round(time.perf_counter() - t0, 2), pid=spare.pid)
         return spare
+
+    async def _connect(self, options: Any) -> tuple[Any, int | None]:
+        """Start a CLI and connect a client to it. Returns the client and the CLI's PID."""
+        factory = self._client_factory
+        if factory is None:
+            from claude_agent_sdk import ClaudeSDKClient as factory
+        known = _claude_children()
+        client = factory(options)
+        await client.connect()
+        return client, next(iter(_claude_children() - known), None)
 
     async def _take_spare(self, wait: bool = True) -> _Spare | None:
         """The connected spare, if there is one (waiting for one still connecting if ``wait``)."""
@@ -231,31 +272,54 @@ class ClaudeCodeExecutor:
             run, run_id = current()
             return await self._ask(run, run_id, name, args)
 
+        extra_tools: list[str] = []
+        mcp_servers: dict[str, Any] = {}
+        system_prompt = SYSTEM_PROMPT
+        if self.escalation:
+            from claude_agent_sdk import create_sdk_mcp_server, tool
+
+            @tool(
+                "request_stronger_model",
+                "Continue this request on a more capable model. reason: a few words, e.g. 'multi-file refactor'.",
+                {"reason": str},
+            )
+            async def request_stronger_model(args: dict[str, Any]) -> dict[str, Any]:
+                run, run_id = current()
+                text = await self._escalate(run, run_id, str(args.get("reason", "")).strip(), by="model")
+                return {"content": [{"type": "text", "text": text}]}
+
+            mcp_servers = {"swift": create_sdk_mcp_server("swift", tools=[request_stronger_model])}
+            extra_tools = [ESCALATE_TOOL]
+            system_prompt += ESCALATE_PROMPT
+
         return ClaudeAgentOptions(
             cwd=self._check_cwd(),
             cli_path=self._resolve_claude(),
-            tools=[*self.allowed_tools, *self.confirm_tools],
-            allowed_tools=list(self.allowed_tools),
+            tools=[*self.allowed_tools, *self.confirm_tools, *extra_tools],
+            allowed_tools=[*self.allowed_tools, *extra_tools],
             permission_mode="default",
             can_use_tool=can_use_tool,
             setting_sources=[],
             strict_mcp_config=True,
+            mcp_servers=mcp_servers,
+            system_prompt=system_prompt,
             max_budget_usd=self.max_budget_usd,
             extra_args={"no-session-persistence": None},
         )
 
     # ---- Executor interface ---------------------------------------------------
 
-    async def start(self, request: str) -> str:
+    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
         run_id = f"cc-{next(self._ids)}"
-        run = _Run()
+        level = OVERRIDE_LEVEL.get(override or "") or (demand if demand in LEVELS else "standard")
+        run = _Run(level=level)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
         spare = await self._take_spare()
         if spare is not None:
             spare.binding.append((run, run_id))
         self._runs[run_id] = run
         run.task = asyncio.create_task(self._pump(run, request, options, spare))
-        logger.info("claude started", run_id=run_id, cwd=self.cwd, warm=spare is not None)
+        logger.info("claude started", run_id=run_id, cwd=self.cwd, warm=spare is not None, model=self.models[level])
         return run_id
 
     async def events(self, run_id: str) -> AsyncIterator[ExecEvent]:
@@ -307,40 +371,90 @@ class ClaudeCodeExecutor:
         if name == "AskUserQuestion":
             return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
         title, detail = confirm_card(name, args, cwd=self.cwd)
-        request_id = f"{run_id}:{next(run.ids)}"
-        future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
-        run.pending[request_id] = future
-        run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=name))
-        try:
-            approved = await asyncio.wait_for(future, self.confirm_timeout_s)
-            decision = "approve" if approved else "reject"
-        except TimeoutError:
-            approved, decision = False, "no_answer"
-        finally:
-            run.pending.pop(request_id, None)
-        if approved:
+        decision = await self._decide(run, run_id, title, detail, name)
+        if decision == "approve":
             return PermissionResultAllow(updated_input=args)
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)
         return PermissionResultDeny(message=REJECTED_MESSAGE, interrupt=True)
 
+    async def _confirm(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> bool:
+        return await self._decide(run, run_id, title, detail, tool) == "approve"
+
+    async def _decide(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> str:
+        """Show a confirm card and wait: "approve", "reject" or "no_answer"."""
+        request_id = f"{run_id}:{next(run.ids)}"
+        future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        run.pending[request_id] = future
+        run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool))
+        try:
+            return "approve" if await asyncio.wait_for(future, self.confirm_timeout_s) else "reject"
+        except TimeoutError:
+            return "no_answer"
+        finally:
+            run.pending.pop(request_id, None)
+
+    # ---- escalation (ADR-007 §6) -----------------------------------------------
+
+    async def _escalate(self, run: _Run, run_id: str, reason: str, by: str) -> str:
+        """Move the run one model up. Returns what to tell Claude."""
+        if not self.escalation or run.cancelled:
+            return "Stay on the current model and do your best."
+        index = LEVELS.index(run.level)
+        if index + 1 >= len(LEVELS):
+            return "You're already on the most capable model. Continue."
+        target = LEVELS[index + 1]
+        model = self.models[target]
+        label = _model_label(model)
+        if target == "strong" and self.confirm_strong:
+            if not await self._confirm(run, run_id, f"Switch to {label}", reason or "Claude asked for a stronger model.", "SwitchModel"):
+                return "The user declined a stronger model. Continue on this one and do your best."
+        if run.client is None:
+            return "Stay on the current model and do your best."
+        await run.client.set_model(model)
+        run.level = target
+        run.steps_at_level = run.failures = 0
+        run.models.append(model)
+        run.escalations.append(
+            {"to": model, "by": by, "reason": reason[:200], "t_ms": int((time.monotonic() - run.started) * 1000)}
+        )
+        shown = reason if len(reason) <= 60 else reason[:59].rsplit(" ", 1)[0] + "…"
+        run.queue.put_nowait(ExecEvent("step", f"Switching to {label}" + (f": {shown}" if shown else "")))
+        logger.info("claude escalated", run_id=run_id, to=model, by=by)
+        return f"Switched to {label}. Continue the request."
+
+    async def _watch(self, run: _Run, message: Any) -> None:
+        """Swift's own escalation signals: many steps on one model, or tool calls failing twice in a row."""
+        kind = type(message).__name__
+        if kind == "AssistantMessage":
+            if any(type(b).__name__ == "ToolUseBlock" for b in message.content):
+                run.steps_at_level += 1
+        elif kind == "UserMessage" and isinstance(message.content, list):
+            for block in message.content:
+                if type(block).__name__ == "ToolResultBlock":
+                    run.failures = run.failures + 1 if block.is_error else 0
+        limit = self.turn_limits.get(run.level)
+        run_id = next((rid for rid, r in self._runs.items() if r is run), "?")
+        if limit is not None and run.steps_at_level > limit:
+            await self._escalate(run, run_id, f"more than {limit} steps on {_model_label(self.models[run.level])}", by="swift")
+        elif run.failures >= 2 and run.level != "strong":
+            await self._escalate(run, run_id, "tool calls kept failing", by="swift")
+
     # ---- the run --------------------------------------------------------------
 
     async def _pump(self, run: _Run, request: str, options: Any, spare: _Spare | None = None) -> None:
-        from claude_agent_sdk import query
-
         outcome: Outcome | None = None
-        known = _claude_children()
         try:
             if spare is not None:
-                run.cli_pid = spare.pid
-                await spare.client.query(request)
-                stream = spare.client.receive_response()
+                run.client, run.cli_pid = spare.client, spare.pid
             else:
-                stream = query(prompt=request, options=options)
-            async for message in stream:
-                if run.cli_pid is None:
-                    run.cli_pid = next(iter(_claude_children() - known), None)
+                run.client, run.cli_pid = await self._connect(options)
+            model = self.models[run.level]
+            await run.client.set_model(model)
+            run.models.append(model)
+            await run.client.query(request)
+            async for message in run.client.receive_response():
+                await self._watch(run, message)
                 event = as_event(message)
                 if event is None:
                     continue
@@ -354,9 +468,9 @@ class ClaudeCodeExecutor:
             logger.warning("claude run failed", error=type(exc).__name__, detail=str(exc)[:300])
             run.result = self._final(run, outcome, exc)
         finally:
-            if spare is not None:
+            if run.client is not None:
                 with contextlib.suppress(Exception):
-                    await asyncio.wait_for(spare.client.disconnect(), 5)
+                    await asyncio.wait_for(run.client.disconnect(), 5)
             if run.cli_pid is not None and psutil.pid_exists(run.cli_pid):
                 with contextlib.suppress(Exception):
                     await _kill_tree(run.cli_pid)
@@ -367,7 +481,11 @@ class ClaudeCodeExecutor:
 
     @staticmethod
     def _final(run: _Run, outcome: Outcome | None, error: Exception | None) -> ExecResult:
-        meta = outcome.meta if outcome else {}
+        meta = dict(outcome.meta) if outcome else {}
+        if run.models:
+            meta |= {"start_model": run.models[0], "models": list(run.models)}
+        if run.escalations:
+            meta["escalations"] = list(run.escalations)
         if run.cancelled:
             return ExecResult("cancelled", "Cancelled.", meta=meta)
         if run.stopped_by is not None:
@@ -379,6 +497,14 @@ class ClaudeCodeExecutor:
             return ExecResult(status, outcome.summary, outcome.details, meta)
         detail = f" ({str(error).splitlines()[0][:160]})" if error else ""
         return ExecResult("error", f"Claude Code stopped without an answer{detail}.", meta=meta)
+
+
+def _model_label(model: str) -> str:
+    """"claude-sonnet-5-5" -> "Sonnet"."""
+    for name in ("Opus", "Sonnet", "Haiku", "Fable"):
+        if name.lower() in model:
+            return name
+    return model
 
 
 def _claude_children() -> set[int]:

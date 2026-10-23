@@ -27,6 +27,7 @@ from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
 from swift.ipc.server import OverlayServer
 from swift.logging_setup import setup_logging
+from swift.routing import route
 from swift.runlog import InteractionLog
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
@@ -85,6 +86,10 @@ def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
                 max_budget_usd=cfg.max_budget_usd,
                 confirm_timeout_s=cfg.confirm_timeout_s,
                 prewarm=cfg.prewarm,
+                models=dict(cfg.models),
+                escalation=cfg.escalation,
+                confirm_strong=cfg.confirm_strong,
+                turn_limits=dict(cfg.turn_limits),
             )
         case _:
             return EchoExecutor()
@@ -112,6 +117,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         transcriber=transcriber,
         ptt_label=settings.hotkeys.push_to_talk,
         audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
+        router=route if settings.routing else None,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)

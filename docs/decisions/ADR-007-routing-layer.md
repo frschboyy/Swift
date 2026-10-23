@@ -133,7 +133,7 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
    - route accuracy
    - demand accuracy
    - **under-estimates**: requests labeled `light` that need `standard`. These cost an escalation, but they must not produce bad answers.
-2. **Rules, a starting model per request, and escalation in the executor.** No new dependencies. Tests:
+2. **Rules, a starting model per request, and escalation in the executor.** *Done 2026-10-23:* `swift/routing` (rules plus an interim keyword demand estimate in `demand.py`, tuned on the train split only). On the test split it had 0 dropped, 0 under-estimates, 4 of 55 light over-estimated, and demand right 94.5% of the time. Escalation lives in `ClaudeCodeExecutor`. Live, a light question ran on Haiku for $0.0013, and Haiku escalated a refactor to Sonnet by itself at 5.5 s. No new dependencies. Tests:
    - unit tests for the rules and the escalation policy
    - a live run where Haiku escalates (extend `spikes/latency/model_switch.py`)
    - cost and latency on light requests: Haiku against Sonnet

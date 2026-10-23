@@ -84,6 +84,7 @@ def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
                 confirm_tools=cfg.confirm_tools,
                 max_budget_usd=cfg.max_budget_usd,
                 confirm_timeout_s=cfg.confirm_timeout_s,
+                prewarm=cfg.prewarm,
             )
         case _:
             return EchoExecutor()
@@ -132,6 +133,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         await stdin_closed
     finally:
         await session.close()
+        if isinstance(session.executor, ClaudeCodeExecutor):
+            await session.executor.close()
         await server.stop()
         logger.info("backend stopped")
 

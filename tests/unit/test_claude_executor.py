@@ -198,7 +198,7 @@ class ScriptedRun(ClaudeCodeExecutor):
     def options(self, run: _Run, run_id: str) -> Any:
         return None
 
-    async def _pump(self, run: _Run, request: str, options: Any) -> None:
+    async def _pump(self, run: _Run, request: str, options: Any, spare: Any = None) -> None:
         run_id = next(rid for rid, r in self._runs.items() if r is run)
         try:
             run.queue.put_nowait(ExecEvent("step", "Writing notes.md"))

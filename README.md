@@ -106,7 +106,8 @@ Every decision is recorded in the interaction log's `approvals`. Paths inside th
 - **This sends your transcript to Anthropic,** as any Claude Code request does. Transcription itself stays on this PC.
 - **Only add folders you trust.** Claude Code reads and may act on what's there.
 - **Esc kills the run** and everything it started. `claude` ignores Ctrl+Break on Windows, so there is no gentler stop.
-- **Measured on the development laptop:**
+- **Claude Code is started ahead of time** (`executor.prewarm: true`, the default). Starting `claude` takes 5–13 s on this laptop before the model is even called. So Swift keeps one started and waiting (about 96 MB), sends your request to it, and starts a fresh one after every request, so requests stay independent. With it, Claude Code's first step shows 0.2–0.4 s after the transcript, and a one-word answer arrives in 2–2.6 s instead of about 9 s. A request made within about 5 s of the previous answer waits for the next one to finish starting. Measure it with `spikes/latency/claude_startup.py`.
+- **Measured on the development laptop (before pre-warming):**
   - a read-only question took 7–8 s
   - a file write with approval took 5–7 s
   - Reject stopped the run 0.2 s after the click, and Esc 0.4–0.5 s after
@@ -189,7 +190,7 @@ Task Manager's "Commit size" (private bytes) is much larger, about 1.3 GB for th
 | Model ready | about 1.3 s after that, in the background; a push-to-talk before then waits |
 | Key-down to first audio | 0.24–0.6 s |
 | Transcription of a 2 s push-to-talk | 0.4–2.8 s, depending on CPU load |
-| Small read-only Claude Code request | about 7 s |
+| Small read-only Claude Code request | about 7 s (2–5 s with `prewarm`, since 2026-10-23) |
 
 ## Tray menu
 

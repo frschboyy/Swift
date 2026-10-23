@@ -28,6 +28,7 @@ executor:
   default_dir: 0
   max_budget_usd: 1.0
   confirm_timeout_s: 120
+  prewarm: true                    # keep one Claude Code started and waiting (saves 5-13 s per request)
 
 logging:
   interactions: "%LOCALAPPDATA%/Swift/interactions.jsonl"

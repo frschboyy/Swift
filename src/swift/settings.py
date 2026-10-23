@@ -67,6 +67,8 @@ class ExecutorSettings(_Section):
     default_dir: int = Field(0, ge=0)
     max_budget_usd: float | None = Field(1.0, gt=0)
     confirm_timeout_s: float = Field(120.0, gt=0)
+    # Keep one Claude Code process started and waiting, so a request skips its 5-13 s startup.
+    prewarm: bool = True
 
 
 class LoggingSettings(_Section):

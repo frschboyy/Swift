@@ -11,6 +11,11 @@
 - ``AskUserQuestion`` is denied (no way to answer it by voice yet).
 - **Cancel** stops the SDK query and kills the CLI's process tree: ``claude``
   ignores CTRL_BREAK on Windows (measured), and nothing is persisted anyway.
+- **Pre-warming.** Starting ``claude`` takes 5-13 s on the development laptop
+  (spikes/latency/claude_startup.py) before the model is even called. With
+  ``prewarm`` on, one CLI is connected ahead of time and waits; a request is sent
+  to it, and a fresh one is connected after every run, so requests stay as
+  independent as before. If the spare isn't usable, the run starts cold.
 """
 
 from __future__ import annotations
@@ -22,8 +27,9 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 import warnings
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -47,6 +53,16 @@ NO_QUESTIONS_MESSAGE = (
     "The user can't answer questions in this mode. Make a reasonable assumption, "
     "say what you assumed in your final answer, and continue."
 )
+
+
+@dataclass
+class _Spare:
+    """A ``claude`` CLI connected ahead of time, waiting for its one request."""
+
+    client: Any
+    pid: int | None
+    # Filled in when the spare is handed a run, so can_use_tool reaches the right one.
+    binding: list[tuple[_Run, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -94,6 +110,8 @@ class ClaudeCodeExecutor:
         max_budget_usd: float | None = 1.0,
         confirm_timeout_s: float = 120.0,
         claude: str | None = None,
+        prewarm: bool = True,
+        client_factory: Any = None,
     ) -> None:
         self.cwd = cwd
         self.allowed_tools = list(allowed_tools)
@@ -103,10 +121,81 @@ class ClaudeCodeExecutor:
         self._claude = claude
         self._runs: dict[str, _Run] = {}
         self._ids = itertools.count(1)
+        self.prewarm = prewarm
+        self._client_factory = client_factory
+        self._spare: asyncio.Task[_Spare | None] | None = None
+        self._closed = False
 
     def prepare(self) -> None:
-        """Import the SDK in the background (about 3 s cold), so the first request doesn't pay for it."""
-        threading.Thread(target=lambda: __import__("claude_agent_sdk"), name="sdk-import", daemon=True).start()
+        """Import the SDK in the background (about 3 s cold), then connect a spare CLI.
+
+        Call from the event loop. Neither blocks it.
+        """
+        if not self.prewarm:
+            threading.Thread(target=lambda: __import__("claude_agent_sdk"), name="sdk-import", daemon=True).start()
+            return
+        self._refill()
+
+    async def close(self) -> None:
+        """Disconnect the spare CLI (quitting Swift)."""
+        self._closed = True
+        spare = await self._take_spare(wait=False)
+        if spare is not None:
+            await self._discard(spare)
+
+    # ---- the spare CLI --------------------------------------------------------
+
+    def _refill(self) -> None:
+        if self.prewarm and not self._closed and self._spare is None:
+            self._spare = asyncio.create_task(self._connect_spare())
+
+    async def _connect_spare(self) -> _Spare | None:
+        """Start and connect a CLI. None if that fails: requests then start cold."""
+        t0 = time.perf_counter()
+        try:
+            await asyncio.to_thread(__import__, "claude_agent_sdk")
+            binding: list[tuple[_Run, str]] = []
+            options = self._options(lambda: binding[0])
+            factory = self._client_factory
+            if factory is None:
+                from claude_agent_sdk import ClaudeSDKClient as factory
+            known = _claude_children()
+            client = factory(options)
+            await client.connect()
+            spare = _Spare(client, next(iter(_claude_children() - known), None), binding)
+        except ExecutorUnavailable:
+            return None  # reported on the first request, as an error card
+        except Exception as exc:  # noqa: BLE001 - a failed warm-up only costs speed
+            logger.warning("claude warm-up failed", error=type(exc).__name__, detail=str(exc)[:200])
+            return None
+        logger.info("claude ready", connect_s=round(time.perf_counter() - t0, 2), pid=spare.pid)
+        return spare
+
+    async def _take_spare(self, wait: bool = True) -> _Spare | None:
+        """The connected spare, if there is one (waiting for one still connecting if ``wait``)."""
+        task, self._spare = self._spare, None
+        if task is None:
+            return None
+        if not task.done() and not wait:
+            task.cancel()
+            with contextlib.suppress(BaseException):
+                await task
+            return None
+        try:
+            spare = await task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            return None
+        if spare is not None and spare.pid is not None and not psutil.pid_exists(spare.pid):
+            logger.warning("spare claude exited while idle; starting cold")
+            return None
+        return spare
+
+    async def _discard(self, spare: _Spare) -> None:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(spare.client.disconnect(), 5)
+        if spare.pid is not None and psutil.pid_exists(spare.pid):
+            with contextlib.suppress(Exception):
+                await _kill_tree(spare.pid)
 
     # ---- setup checks --------------------------------------------------------
 
@@ -133,9 +222,13 @@ class ClaudeCodeExecutor:
         return self.cwd
 
     def options(self, run: _Run, run_id: str) -> Any:
+        return self._options(lambda: (run, run_id))
+
+    def _options(self, current: Callable[[], tuple[_Run, str]]) -> Any:
         from claude_agent_sdk import ClaudeAgentOptions
 
         async def can_use_tool(name: str, args: dict[str, Any], context: Any) -> Any:
+            run, run_id = current()
             return await self._ask(run, run_id, name, args)
 
         return ClaudeAgentOptions(
@@ -157,9 +250,12 @@ class ClaudeCodeExecutor:
         run_id = f"cc-{next(self._ids)}"
         run = _Run()
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
+        spare = await self._take_spare()
+        if spare is not None:
+            spare.binding.append((run, run_id))
         self._runs[run_id] = run
-        run.task = asyncio.create_task(self._pump(run, request, options))
-        logger.info("claude started", run_id=run_id, cwd=self.cwd)
+        run.task = asyncio.create_task(self._pump(run, request, options, spare))
+        logger.info("claude started", run_id=run_id, cwd=self.cwd, warm=spare is not None)
         return run_id
 
     async def events(self, run_id: str) -> AsyncIterator[ExecEvent]:
@@ -230,13 +326,19 @@ class ClaudeCodeExecutor:
 
     # ---- the run --------------------------------------------------------------
 
-    async def _pump(self, run: _Run, request: str, options: Any) -> None:
+    async def _pump(self, run: _Run, request: str, options: Any, spare: _Spare | None = None) -> None:
         from claude_agent_sdk import query
 
         outcome: Outcome | None = None
         known = _claude_children()
         try:
-            async for message in query(prompt=request, options=options):
+            if spare is not None:
+                run.cli_pid = spare.pid
+                await spare.client.query(request)
+                stream = spare.client.receive_response()
+            else:
+                stream = query(prompt=request, options=options)
+            async for message in stream:
                 if run.cli_pid is None:
                     run.cli_pid = next(iter(_claude_children() - known), None)
                 event = as_event(message)
@@ -252,11 +354,16 @@ class ClaudeCodeExecutor:
             logger.warning("claude run failed", error=type(exc).__name__, detail=str(exc)[:300])
             run.result = self._final(run, outcome, exc)
         finally:
+            if spare is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(spare.client.disconnect(), 5)
             if run.cli_pid is not None and psutil.pid_exists(run.cli_pid):
                 with contextlib.suppress(Exception):
                     await _kill_tree(run.cli_pid)
             run.finished.set()
             run.queue.put_nowait(_DONE)
+            # One CLI per request: connect the next one now, while the owner reads the result.
+            self._refill()
 
     @staticmethod
     def _final(run: _Run, outcome: Outcome | None, error: Exception | None) -> ExecResult:

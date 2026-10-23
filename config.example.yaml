@@ -5,6 +5,10 @@ hotkeys:
   push_to_talk: "Ctrl+Shift+Space" # hold to talk, release to stop
   debug: "Ctrl+Alt+F12"            # cycles MockExecutor scenarios when debug: true
 
+audio:
+  preroll_s: 0                     # >0 keeps the mic open and prepends this much audio from before the key-down
+                                   # (try 0.5). Windows then shows the mic-in-use indicator whenever Swift runs.
+
 stt:
   engine: "parakeet"               # "parakeet" (fast, accurate) or "whisper"
   cpu_threads: 4

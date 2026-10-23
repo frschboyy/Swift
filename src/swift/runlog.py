@@ -4,7 +4,7 @@ Fields (absent when they don't apply):
 
 - ``ts`` (start, local time with offset) and ``id``
 - ``source``: "voice", "debug.run" or "debug.ask"
-- ``transcript``, ``audio_s``, ``first_audio_ms`` (key-down to first audio), ``stt_ms`` and ``stt_model``
+- ``transcript``, ``audio_s``, ``first_audio_ms`` (key-down to first audio), ``preroll_ms`` (audio from before the key-down), ``stt_ms`` and ``stt_model``
 - ``peak_db`` (loudest 32 ms of the recording, dBFS) and ``audio_file`` (when ``stt.save_audio`` is on)
 - ``transcript_raw``: what the model heard, when word fixes changed it
 - ``route`` (control, local, claude), ``action`` (control/local), ``demand`` and ``override`` (claude)
@@ -31,7 +31,7 @@ from loguru import logger
 from swift import __version__
 
 FIELD_ORDER = (
-    "ts", "id", "source", "transcript", "transcript_raw", "audio_s", "first_audio_ms", "stt_ms", "stt_model",
+    "ts", "id", "source", "transcript", "transcript_raw", "audio_s", "first_audio_ms", "preroll_ms", "stt_ms", "stt_model",
     "peak_db", "audio_file",
     "route", "action", "demand", "override", "start_model", "models", "escalations",
     "executor", "run_ms", "interaction_ms", "steps", "status", "error", "reason", "approvals",

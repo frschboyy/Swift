@@ -243,6 +243,7 @@ class Session:
 
         record["audio_s"] = round(len(audio) / SAMPLE_RATE, 2)
         record["first_audio_ms"] = getattr(self.recorder, "first_audio_ms", None)
+        record["preroll_ms"] = getattr(self.recorder, "preroll_ms", None)
         if self.audio_dir is not None and len(audio):
             path = self.audio_dir / f"{record['id']}.wav"
             try:

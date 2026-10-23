@@ -106,7 +106,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     )
     # Both warm up in the background once the ready line is out (below).
     transcriber = _make_transcriber(settings)
-    recorder = MicRecorder(asyncio.get_running_loop())
+    recorder = MicRecorder(asyncio.get_running_loop(), preroll_s=settings.audio.preroll_s)
 
     mock = MockExecutor()
     session = Session(

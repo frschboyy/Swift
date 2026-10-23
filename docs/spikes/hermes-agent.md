@@ -1,8 +1,22 @@
-# Hermes Agent viability trial (partial, 2026-10-23)
+# Hermes Agent viability trial (2026-10-23)
 
-**Status: documentation review done; hands-on measurements NOT done.** `pip install hermes-agent==0.19.0` (PyPI, Python 3.13 venv) failed twice with network read timeouts and a connection reset (10054) while downloading. Nothing was installed system-wide, no installer EXE or `install.ps1` was run, and no account or key was created. Q2 (time to first step, idle memory) is unmeasured. The venv was deleted.
+**Status: installed and probed headless; no model call made.** The second install attempt (`pip install --default-timeout 120 --retries 10 hermes-agent==0.19.0` into `spikes/hermes/.venv`, Python 3.13) worked; the first two failed on network resets. Isolated `HERMES_HOME`; no system-wide install, no installer EXE, no account, no owner credentials. A model-backed first step is unmeasured because no provider key is configured: `hermes chat -q "say hi"` stops with "No inference provider configured" (needs `hermes model` or an `OPENROUTER_API_KEY`/`OPENAI_API_KEY`). The owner must choose a provider before that can be done.
 
-## Findings from the official docs (hermes-agent.nousresearch.com), not yet verified by running
+## Measurements (i7-10610U, 16 GB, Windows 11, no model call)
+
+| Measure | Result |
+|---|---|
+| Install | pip install works though the docs call it unsupported; `hermes --version` reports "Install method: pip". About 60 packages; `aiohttp` must be added by hand or the API server won't start. |
+| `hermes --version` | 3.3 s cold, 1.7 s warm. |
+| `hermes chat -q` to the "no provider" error | one run took 91 s (first run, with `HERMES_HOME` empty; likely first-run setup or gateway attach; not re-run). Treat as unexplained, not representative. |
+| `hermes gateway` with the API server enabled: `/health` answers | 10.8 s after launch. |
+| Idle memory of that gateway (no chat platforms) | about 116 MB (a 101 MB Python process plus launcher stubs). |
+
+## Interception check (run: `probe_hook.py`, no model needed)
+
+A plugin in `HERMES_HOME/plugins/swift_gate/` (`plugin.yaml` plus `register(ctx)`; `ctx.register_hook("pre_tool_call", fn)`; enabled via `plugins.enabled` in `config.yaml`) returned `{"action": "block", "message": ...}` for `write_file`/`patch`. Hermes' own dispatcher `model_tools.handle_function_call("write_file", ...)` then returned the block message and the file was **not written**; the same call without the plugin wrote the file. So a hook can stop every file-changing tool call before it runs. An `approve` action escalates to Hermes' human gate (not exercised: it needs a live run). The API server's `/v1/capabilities` confirms `run_approval_response` and `approval_events`. Not tested end to end: a real run emitting `approval.request` to a client, and subagent calls through the hook (dispatch passes `task_id`, but not verified).
+
+## Findings from the official docs (hermes-agent.nousresearch.com); interception and the API server were confirmed by running
 
 | Question | Finding |
 |---|---|
@@ -22,12 +36,12 @@
 
 ## Recommendation: **not now**, with one revision to ADR-007
 
-- Revision: the "no documented embedding API" objection no longer holds. Hermes has an HTTP/SSE run API with a per-action approval endpoint, and a hook that can gate file changes. Interception is feasible, so the deciding criterion is plausibly satisfiable, but only by writing a plugin that routes `write_file`/`patch` to the gate. That is untested.
-- Still against it as a front door: second runtime and permission system, latency unmeasured, Python 3.14/Node/Chromium footprint, an unsupported pip path.
+- Revision: the "no documented embedding API" objection no longer holds. Hermes has an HTTP/SSE run API with a per-action approval endpoint, and a hook that can gate file changes. Interception is feasible: the deciding criterion is met for file writes through a `pre_tool_call` plugin (proved by `probe_hook.py`); the live approval round trip to the overlay is still untested.
+- Still against it as a front door: second runtime and permission system, about 116 MB idle for a resident gateway, startup 2–3 s for the CLI and about 11 s for the API server, model-call latency unmeasured, Python 3.14/Node/Chromium footprint, an unsupported pip path.
 - Possible later role: an executor for scheduled local jobs, once a resident daemon is acceptable.
 
-## To finish the trial
+## Still open
 
-1. Retry the install on a stable network (`pip install hermes-agent==0.19.0` in a venv, or the owner's OK for `install.ps1 -SkipBrowser -SkipComputerUse -NonInteractive`).
-2. Owner decision: which provider key to use (no credentials were entered).
-3. Measure launch to first step and idle RSS of the gateway; probe `/v1/runs` plus the approval event with a `write_file` call; write a minimal `pre_tool_call` plugin and confirm it blocks a file write.
+1. Owner chooses a provider and supplies a key (nothing was entered). Then measure launch to first step with a model, and run `/v1/runs` with a `write_file` call to watch `approval.request` and `POST /v1/runs/{id}/approval`.
+2. Confirm subagent (`delegate_task`) calls go through the same hook.
+3. Compare cron against Claude Code routines and Managed Agents with real runs.

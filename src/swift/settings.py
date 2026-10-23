@@ -57,6 +57,12 @@ class SttSettings(_Section):
         return "parakeet-tdt-0.6b-v2-int8" if self.engine == "parakeet" else self.model
 
 
+class AudioSettings(_Section):
+    # Seconds of audio kept from before the key goes down (0 = off). Above 0 the microphone
+    # stays open while Swift runs, so Windows' mic-in-use indicator is on all the time.
+    preroll_s: float = Field(0.0, ge=0.0, le=2.0)
+
+
 class ExecutorSettings(_Section):
     kind: Literal["echo", "mock", "claude_code"] = "echo"
     # Run without asking. Keep these read-only.
@@ -126,6 +132,7 @@ class LoggingSettings(_Section):
 
 class Settings(_Section):
     hotkeys: Hotkeys = Field(default_factory=Hotkeys)
+    audio: AudioSettings = Field(default_factory=AudioSettings)
     stt: SttSettings = Field(default_factory=SttSettings)
     executor: ExecutorSettings = Field(default_factory=ExecutorSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)

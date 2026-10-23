@@ -1,8 +1,11 @@
 """Push-to-talk capture (PLAN.md §6).
 
-The microphone is opened only while the hotkey is held, so Windows' mic
-indicator is on only then. Blocks arrive on PortAudio's thread; levels are
-handed to the asyncio loop at most ``LEVEL_HZ`` times a second.
+By default the microphone is opened only while the hotkey is held, so Windows'
+mic indicator is on only then. With ``preroll_s > 0`` a stream stays open and the
+last ``preroll_s`` seconds are kept in a ring, so words spoken as the key goes
+down are not lost (the indicator is then on whenever Swift runs). Blocks arrive
+on PortAudio's thread; levels are handed to the asyncio loop at most ``LEVEL_HZ``
+times a second.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ import math
 import threading
 import time
 import wave
+from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -101,25 +105,49 @@ class MicRecorder:
     Every PortAudio call (warm-up, open, close) runs on one dedicated thread:
     WASAPI fails with -9999 on a stream opened from a thread other than the one
     that initialized PortAudio, and warming up there keeps the event loop free.
+
+    With ``preroll_s > 0`` the stream is opened by ``prepare()`` and stays open;
+    until ``start()`` its blocks only feed a ring of the last ``preroll_s`` seconds,
+    which ``start()`` prepends to the recording. If that stream cannot be opened
+    (or dies), ``start()`` falls back to opening the mic on demand.
     """
 
-    def __init__(self, loop: asyncio.AbstractEventLoop, max_seconds: float = MAX_SECONDS) -> None:
+    def __init__(
+        self, loop: asyncio.AbstractEventLoop, max_seconds: float = MAX_SECONDS, preroll_s: float = 0.0
+    ) -> None:
         self._audio = ThreadPoolExecutor(max_workers=1, thread_name_prefix="audio")
         self._loop = loop
         self._max_blocks = int(max_seconds * SAMPLE_RATE / BLOCK)
+        self._preroll_blocks = math.ceil(preroll_s * SAMPLE_RATE / BLOCK) if preroll_s > 0 else 0
         self._blocks: list[np.ndarray] = []
+        self._ring: deque[np.ndarray] = deque(maxlen=max(self._preroll_blocks, 1))
+        self._recording = False
         self._lock = threading.Lock()
         self._stream = None
         self._last_level = 0.0
         self._on_level: Callable[[float], None] | None = None
         self.capped = False
-        # Key-down to first audio block: speech before this is lost.
+        # Key-down to first audio block: speech before this is lost. With pre-roll the stream
+        # is already running, so this is just the wait for the next block (under one block).
         self.first_audio_ms: int | None = None
+        # Audio from before the key-down that was prepended (0 without pre-roll).
+        self.preroll_ms = 0
         self._t_start = 0.0
 
     def prepare(self) -> Future[None]:
-        """Warm PortAudio up in the background. A start() queues behind it."""
-        return self._audio.submit(warm_up)
+        """Warm PortAudio up in the background, and open the pre-roll stream if enabled.
+
+        A start() queues behind it.
+        """
+        return self._audio.submit(self._prepare)
+
+    def _prepare(self) -> None:
+        warm_up()
+        if self._preroll_blocks:
+            try:
+                self._open_stream()
+            except MicError as exc:
+                logger.warning("pre-roll stream not opened; opening the mic per request", error=str(exc))
 
     def _on_audio_thread(self, fn: Callable[[], T]) -> T:
         return self._audio.submit(fn).result()
@@ -130,14 +158,10 @@ class MicRecorder:
     def stop(self) -> np.ndarray:
         return self._on_audio_thread(self._stop)
 
-    def _start(self, on_level: Callable[[float], None]) -> None:
+    def _open_stream(self) -> None:
+        """Open and start the input stream. Audio thread only."""
         import sounddevice as sd
 
-        self._blocks = []
-        self.capped = False
-        self.first_audio_ms = None
-        self._on_level = on_level
-        self._t_start = time.perf_counter()
         device, extra = _input_device()
         try:
             try:
@@ -160,11 +184,46 @@ class MicRecorder:
             self._stream = None
             raise MicError(f"No microphone found ({exc}).", "Connect a microphone or enable one in Windows Sound settings.") from None
 
-    def _stop(self) -> np.ndarray:
+    def _close_stream(self) -> None:
         stream, self._stream = self._stream, None
         if stream is not None:
-            stream.stop()
-            stream.close()
+            try:
+                stream.stop()
+                stream.close()
+            except Exception as exc:  # a dead device must not break the next request
+                logger.warning("closing the microphone stream failed", error=str(exc))
+
+    def _start(self, on_level: Callable[[float], None]) -> None:
+        self.capped = False
+        self.first_audio_ms = None
+        self.preroll_ms = 0
+        self._on_level = on_level
+        self._t_start = time.perf_counter()
+        if self._preroll_blocks and self._stream is not None and not self._stream.active:
+            self._close_stream()  # the pre-roll stream died (device removed, ...): reopen below
+        if self._stream is None:
+            with self._lock:
+                self._blocks = []
+                self._ring.clear()
+                self._recording = True
+            try:
+                self._open_stream()
+            except MicError:
+                with self._lock:
+                    self._recording = False
+                raise
+            return
+        with self._lock:
+            self._blocks = list(self._ring)
+            self._ring.clear()
+            self.preroll_ms = int(sum(len(b) for b in self._blocks) * 1000 / SAMPLE_RATE)
+            self._recording = True
+
+    def _stop(self) -> np.ndarray:
+        with self._lock:
+            self._recording = False
+        if not self._preroll_blocks:
+            self._close_stream()
         with self._lock:
             blocks, self._blocks = self._blocks, []
         if not blocks:
@@ -172,9 +231,13 @@ class MicRecorder:
         return np.concatenate(blocks).reshape(-1)
 
     def _callback(self, indata: np.ndarray, frames: int, _time: object, _status: object) -> None:
-        if self.first_audio_ms is None:
-            self.first_audio_ms = int((time.perf_counter() - self._t_start) * 1000)
         with self._lock:
+            if not self._recording:
+                if self._preroll_blocks:
+                    self._ring.append(indata.copy())
+                return
+            if self.first_audio_ms is None:
+                self.first_audio_ms = int((time.perf_counter() - self._t_start) * 1000)
             if len(self._blocks) >= self._max_blocks:
                 self.capped = True
                 return

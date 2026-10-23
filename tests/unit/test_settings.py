@@ -43,3 +43,13 @@ def test_invalid_file_refuses_to_start(tmp_path: Path, text: str) -> None:
     f.write_text(text, encoding="utf-8")
     with pytest.raises(SettingsError):
         load_settings(f)
+
+
+def test_audio_preroll_defaults_off_and_is_bounded(tmp_path: Path) -> None:
+    assert Settings().audio.preroll_s == 0.0
+    f = tmp_path / "config.yaml"
+    f.write_text("audio:\n  preroll_s: 0.5\n", encoding="utf-8")
+    assert load_settings(f).audio.preroll_s == 0.5
+    f.write_text("audio:\n  preroll_s: 30\n", encoding="utf-8")
+    with pytest.raises(SettingsError):
+        load_settings(f)

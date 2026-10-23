@@ -62,7 +62,18 @@ It tests rendering and the protocol only. Window behavior (focus, click-through,
 
 Hold **Ctrl+Shift+Space** (configurable: `hotkeys.push_to_talk`), speak, and release. The orb reacts to your voice. After release Swift transcribes on this PC and shows what it heard. Until Claude Code is wired in (Milestone 3), the default `executor.kind: "echo"` only displays the transcript; nothing leaves the machine.
 
-- **Wait for the orb before speaking.** The microphone opens only while the key is held. On the development laptop, audio starts 0.35–0.6 s after the key goes down; anything said before that is lost.
+- **Wait for the orb before speaking.** By default the microphone opens only while the key is held. On the development laptop, audio starts 0.35–0.6 s after the key goes down; anything said before that is lost.
+- **Pre-roll (optional, off by default).** Set `audio.preroll_s: 0.5` in `config.yaml` and Swift keeps the microphone stream open, holds the last 0.5 s in memory, and prepends it when you press the key, so the first word is no longer clipped. **Privacy trade-off:** the microphone is then open whenever Swift runs, so Windows shows its mic-in-use indicator all the time. Nothing is recorded or stored while the key is up: the buffer is RAM only and is overwritten every half second; it leaves the process only if you press the key. Each interaction-log line records `preroll_ms` (audio prepended) and `first_audio_ms` (key-down to the first live block, about 10 ms with pre-roll). If the stream can't be opened, Swift opens the mic per request as before.
+
+  Measured on the development laptop (`spikes/latency/preroll_probe.py`, 8 reps, WASAPI 16 kHz, Intel SST mic array):
+
+  | Approach | Key-down to first audio | Idle cost |
+  |---|---|---|
+  | Open on key-down (default) | 335–430 ms median (290–885 ms range) | none |
+  | Stream kept open but stopped, `start()` on key-down | 43–63 ms median (up to 260 ms) | 0.0% CPU, RSS unchanged (44-45 MB) |
+  | Stream running (pre-roll) | next block, 4–35 ms; 0.5 s of audio already buffered | 1.4–4.4% of one core (varies between runs), RSS 45 MB, ring 16 KB |
+
+  A stopped-but-open stream restarts quickly, but it still leaves ~45–60 ms unrecorded and holds the device, and I could not confirm from the development session whether Windows shows the mic indicator for a stopped stream, so it isn't implemented. Check by eye (open a stopped stream, look at the tray) before building on it.
 - **Hotkey conflicts.** If another app already owns the hotkey, Swift shows an error card naming it. Pick another key in `config.yaml`. The default used to be Ctrl+Alt+Space, but another app owned it on the development laptop.
 - **The mic stays open 0.3 s after you release,** so the last word isn't cut off.
 - **Silence is skipped.** If the loudest 32 ms of a recording is below -50 dBFS, Swift says "I didn't catch that" without running Whisper. The interaction log records each recording's `peak_db`, so you can check your mic level.

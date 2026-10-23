@@ -1,0 +1,163 @@
+"""Answering a confirm card by voice while the run waits (ADR-007 §8)."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+from typing import Any
+
+from test_session import Recorder as Outbox
+from test_voice import FakeRecorder, FakeTranscriber
+
+from swift.executors.mock import MockExecutor
+from swift.ipc.protocol import Message
+from swift.session import Session
+
+
+def make(**kw: Any) -> tuple[Session, Outbox, list[dict[str, Any]], FakeRecorder, FakeTranscriber]:
+    out, records = Outbox(), []
+    rec, stt = FakeRecorder(), FakeTranscriber("add a next steps section to my notes")
+    session = Session(
+        out, MockExecutor(speed=0, default_scenario="confirm"), recorder=rec, transcriber=stt, tail_s=0.0,
+        on_finish=records.append, **kw,
+    )
+    return session, out, records, rec, stt
+
+
+async def ptt(session: Session, state: str) -> None:
+    await session.handle(Message("ptt", {"state": state}))
+    await asyncio.sleep(0)
+
+
+async def until_confirm(session: Session, out: Outbox) -> str:
+    """Speak the request and wait for its confirm card."""
+    await ptt(session, "down")
+    await ptt(session, "up")
+    await asyncio.wait_for(out.confirm.wait(), 2)
+    assert session.state == "confirm"
+    return out.last("confirm.request")["request_id"]
+
+
+async def say(session: Session, stt: FakeTranscriber, text: str) -> None:
+    """Hold push-to-talk on the open card and say ``text``."""
+    stt.text = text
+    await ptt(session, "down")
+    await ptt(session, "up")
+    assert session._confirm_voice is not None
+    await asyncio.wait_for(asyncio.shield(session._confirm_voice), 2)
+
+
+def phases(out: Outbox) -> list[str]:
+    return [m.data["phase"] for m in out.messages if m.type == "confirm.voice"]
+
+
+async def finish(session: Session) -> None:
+    assert session._task is not None
+    await asyncio.wait_for(session._task, 2)
+
+
+async def test_saying_yes_approves_the_open_card() -> None:
+    session, out, records, rec, _ = make()
+    stt = session.transcriber
+    assert isinstance(stt, FakeTranscriber)
+    await until_confirm(session, out)
+    await ptt(session, "down")
+    assert rec.recording and session.state == "confirm"  # no "listening": the card stays up
+    stt.text = "Yes, go ahead."
+    await ptt(session, "up")
+    await finish(session)
+
+    assert out.states() == ["listening", "transcribing", "working", "confirm", "working", "result"]
+    assert phases(out) == ["listening", "transcribing"]
+    assert out.last("result")["status"] == "done"
+    approval = records[0]["approvals"][0]
+    assert approval["decision"] == "approve" and approval["source"] == "voice"
+    assert approval["heard"] == ["Yes, go ahead."]
+    assert records[0]["transcript"] == "add a next steps section to my notes"  # the request, not the answer
+
+
+async def test_saying_no_rejects_it() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    await say(session, stt, "No, don't do that.")
+    await finish(session)
+    assert out.last("result")["status"] == "rejected"
+    approval = records[0]["approvals"][0]
+    assert (approval["tool"], approval["decision"], approval["source"]) == ("Edit", "reject", "voice")
+    assert approval["heard"] == ["No, don't do that."] and approval["answered_ms"] is not None
+
+
+async def test_saying_stop_cancels_the_run_like_escape() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    await say(session, stt, "never mind")
+    with contextlib.suppress(asyncio.CancelledError):
+        await finish(session)
+    assert out.last("result")["status"] == "cancelled"
+    assert records[0]["status"] == "cancelled"
+    assert records[0]["approvals"][0]["decision"] == "cancelled" and records[0]["approvals"][0]["source"] == "voice"
+
+
+async def test_anything_else_shows_a_hint_and_leaves_the_card_open() -> None:
+    session, out, records, _, stt = make()
+    request_id = await until_confirm(session, out)
+    await say(session, stt, "what does that change exactly")
+    assert session.state == "confirm" and not session._task.done()  # type: ignore[union-attr]
+    hint = [m.data for m in out.messages if m.type == "confirm.voice"][-1]
+    assert hint["phase"] == "hint" and hint["request_id"] == request_id
+    assert "what does that change exactly" in hint["text"] and "approve" in hint["text"]
+
+    await session.handle(Message("confirm.reply", {"request_id": request_id, "decision": "approve"}))
+    await finish(session)
+    approval = records[0]["approvals"][0]
+    assert approval["source"] == "click" and approval["heard"] == ["what does that change exactly"]
+
+
+async def test_a_click_while_transcribing_wins_over_the_voice_answer() -> None:
+    session, out, records, _, stt = make()
+    request_id = await until_confirm(session, out)
+    stt.text, stt.delay = "reject", 0.2
+    await ptt(session, "down")
+    await ptt(session, "up")
+    await session.handle(Message("confirm.reply", {"request_id": request_id, "decision": "approve"}))
+    await finish(session)
+    assert out.last("result")["status"] == "done"
+    assert records[0]["approvals"][0]["source"] == "click"
+
+
+async def test_escape_while_answering_stops_the_mic_and_the_run() -> None:
+    session, out, records, rec, _ = make()
+    await until_confirm(session, out)
+    await ptt(session, "down")
+    assert rec.recording
+    await session.handle(Message("cancel", {}))
+    assert not rec.recording
+    assert out.last("result")["status"] == "cancelled" and records[0]["status"] == "cancelled"
+    assert session._confirm_voice is None
+
+
+async def test_a_quick_tap_on_the_card_does_nothing() -> None:
+    session, out, _, rec, stt = make()
+    await until_confirm(session, out)
+    rec.seconds = 0.1
+    await say(session, stt, "yes")
+    assert phases(out) == ["listening", "idle"] and session.state == "confirm"
+    assert stt.calls == 1  # only the request was transcribed
+
+
+async def test_ptt_while_working_is_still_ignored() -> None:
+    out = Outbox()
+    session = Session(
+        out, MockExecutor(speed=1, default_scenario="long"), recorder=FakeRecorder(), transcriber=FakeTranscriber(),
+        tail_s=0.0,
+    )
+    await ptt(session, "down")
+    await ptt(session, "up")
+    for _ in range(100):
+        if session.state == "working":
+            break
+        await asyncio.sleep(0.01)
+    first = session._task
+    await ptt(session, "down")
+    assert session._task is first and session._confirm_voice is None
+    await session.cancel()

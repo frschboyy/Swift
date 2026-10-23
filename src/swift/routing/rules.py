@@ -37,6 +37,7 @@ CONTROL: dict[str, str] = {
     "reject": r"no|nope|no thanks|no thank you|reject|reject (it|that)|deny( it)?|don'?t|(no,? )?don'?t do (it|that)",
     "repeat": r"repeat|repeat (it|that)|say (it|that) again|come again|what did you say",
     "help": r"help|what can you do",
+    "new_topic": r"new topic|(let'?s )?(start over|start fresh)|fresh start|different topic",
 }
 LOCAL: dict[str, str] = {
     "time": r"what time is it( now)?|what'?s the time( now| right now)?|what is the time( now)?|tell me the time",
@@ -55,7 +56,7 @@ class Route:
     route: RouteName
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
-    # control: stop | cancel | mute | approve | reject | repeat | help; local: time | date.
+    # control: stop | cancel | mute | approve | reject | repeat | help | new_topic; local: time | date.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None

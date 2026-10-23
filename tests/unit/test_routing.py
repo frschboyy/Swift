@@ -148,8 +148,9 @@ async def ask(text: str, session: Session | None = None) -> tuple[Session, Recor
 async def test_claude_requests_carry_their_demand_and_override() -> None:
     session, _, spy, records = await ask("Fix the failing test.")
     await ask("Use haiku to list the docs folder.", session)
-    assert spy.calls == [("Fix the failing test.", {"demand": "standard", "override": None}),
-                         ("List the docs folder.", {"demand": "light", "override": "haiku"})]
+    assert spy.calls[0] == ("Fix the failing test.", {"demand": "standard", "override": None})
+    # The second request also carries the first as follow-up context (test_followup.py).
+    assert spy.calls[1][0].endswith("\nList the docs folder.") and spy.calls[1][1] == {"demand": "light", "override": "haiku"}
     assert records[0]["route"] == "claude" and records[0]["demand"] == "standard"
     assert records[1]["override"] == "haiku" and records[1]["start_model"] == "m"
 

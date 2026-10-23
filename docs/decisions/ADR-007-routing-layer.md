@@ -154,3 +154,9 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
 - Swift gains a "little brain" (rules plus a classifier), which reverses part of ADR-006's "mostly face" stance. Claude Code still does all model work, and its permission system is still the control.
 - Simple requests run on Haiku. Model choice becomes measurable and self-correcting through escalations.
 - Routing and demand quality become things to measure, so an eval set joins the STT test set.
+
+## Step 5 notes (voice approvals, follow-up context)
+
+- **§8 Voice approvals.** Push-to-talk is accepted while the state is `confirm` (only then). The backend state stays `confirm`; `confirm.voice` messages (`listening`, `transcribing`, `idle`, `hint`) update a line on the confirm card instead of the orb, which would clear the card. "approve"/"reject" answer the card like a click, "stop"/"cancel" cancel the run like Esc, anything else shows a hint and leaves the card open. A click while the voice answer is still transcribing wins. `approvals[]` in the interaction log gains `source` (`voice` | `click`) and `heard` (what was said on the card).
+- **§9 Follow-up context.** `resume` was not used: with `--no-session-persistence` there is nothing to resume, and resuming needs the session id at connect time, which breaks the pre-warmed CLI. Instead the session keeps one previous exchange (request, answer summary, approved action titles) and prepends it, clipped, to the next Claude request within `followup_context_s` (default 300 s, 0 = off). An error or cancelled run, or saying "new topic" / "start over", clears it. Time/date and commands in between keep it.
+- Live check (2026-10-23): the context block reached the real executor as designed; the second request then failed on the account's usage limit, so a full two-request live answer is still to be confirmed.

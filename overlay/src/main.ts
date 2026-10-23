@@ -108,6 +108,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       el("header", { class: "card-head" }, icon("shield"), el("span", { class: "card-title" }, "Approval needed"), data.tool ? el("span", { class: "chip" }, data.tool) : null),
       el("p", { class: "confirm-title" }, data.title),
       data.detail ? el("p", { class: "muted" }, data.detail) : null,
+      el("p", { class: "voice-hint", "data-request": data.request_id }, `Or hold ${pttLabel} and say “approve” or “reject”.`),
       el(
         "div",
         { class: "actions" },
@@ -117,6 +118,18 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     ),
     "confirm",
   );
+}
+
+// The owner is answering the confirm card by voice: show it on the card, not as the
+// listening orb (which would cover the card and clear it).
+function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["data"]): void {
+  const hint = card.querySelector<HTMLElement>(".voice-hint");
+  if (state !== "confirm" || !hint || hint.dataset.request !== data.request_id) return;
+  hint.dataset.phase = data.phase;
+  if (data.phase === "listening") hint.textContent = "Listening…";
+  else if (data.phase === "transcribing") hint.textContent = "Transcribing…";
+  else if (data.phase === "hint") hint.textContent = data.text;
+  else hint.textContent = `Or hold ${pttLabel} and say “approve” or “reject”.`;
 }
 
 function renderDetails(details: ResultDetails | null | undefined): HTMLElement | null {
@@ -282,6 +295,9 @@ function onMessage(msg: Inbound): void {
       break;
     case "confirm.request":
       renderConfirm(msg.data);
+      break;
+    case "confirm.voice":
+      renderConfirmVoice(msg.data);
       break;
     case "result":
       renderResult(msg.data);

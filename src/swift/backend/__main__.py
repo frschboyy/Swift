@@ -118,6 +118,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         ptt_label=settings.hotkeys.push_to_talk,
         audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
         router=route if settings.routing else None,
+        followup_s=settings.followup_context_s,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)

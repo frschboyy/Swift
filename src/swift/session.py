@@ -8,6 +8,17 @@ content messages sent from here. One interaction runs at a time:
 ``result`` and ``error`` count as at rest: a new interaction may start from
 them, and the overlay fades the card on its own timer.
 
+Push-to-talk is ignored while an interaction runs, except in ``confirm``: then
+the owner may answer the card by voice (ADR-007 §8). The state stays
+``confirm``; ``confirm.voice`` messages tell the card it is listening,
+transcribing, or didn't understand. "approve"/"reject" answer the card like a
+click, "stop"/"cancel" cancel the run like Esc, anything else leaves it open.
+
+A request to Claude within ``followup_s`` of the previous answer carries that
+exchange (request, answer, approved actions) as context, so "now commit it"
+works although every run is a fresh Claude Code process (ADR-007 §9). Only
+one exchange is kept; an error, a cancelled run or "new topic" clears it.
+
 Push-to-talk (``ptt`` down/up) records from the microphone, transcribes
 locally and routes the transcript (ADR-007): commands to Swift ("stop",
 "repeat that") and time/date are handled here; everything else goes to the
@@ -19,12 +30,14 @@ plays a scripted interaction (fake mic level, canned transcript) through
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import time
 import uuid
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime
 from itertools import count
-from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +78,36 @@ HELP_TEXT = (
 # The mic stays open this long after the hotkey is released: people let go
 # while still saying the last word.
 TAIL_S = 0.3
+# A request this soon after the previous Claude answer carries that exchange as context.
+FOLLOWUP_S = 300.0
+CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
+
+
+@dataclass(frozen=True)
+class Exchange:
+    """The previous request to the executor, kept for one follow-up (ADR-007 §9)."""
+
+    id: str
+    request: str
+    answer: str
+    approved: tuple[str, ...]
+    at: float
+
+    def as_context(self, now: float) -> str:
+        lines = [
+            f"[Context: the previous voice request, {int(now - self.at)} s ago. "
+            "Use it only if the current request refers to it.]",
+            f"Previous request: {_clip(self.request, 300)}",
+            f"Previous answer: {_clip(self.answer, 800)}",
+        ]
+        if self.approved:
+            lines.append("Actions the user approved: " + "; ".join(_clip(a, 120) for a in self.approved[-5:]))
+        return "\n".join(lines) + "\n\n[Current request]\n"
+
+
+def _clip(text: str, limit: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
 class UserFacingError(Exception):
@@ -93,6 +136,7 @@ class Session:
         audio_dir: Path | None = None,
         on_finish: OnFinish | None = None,
         router: Callable[[str], Route] | None = default_router,
+        followup_s: float = FOLLOWUP_S,
     ) -> None:
         self._send = send
         self.executor = executor
@@ -108,6 +152,9 @@ class Session:
         self.on_finish = on_finish
         # None sends every transcript to the executor unchanged (tests, demos).
         self.router = router
+        # 0 turns follow-up context off.
+        self.followup_s = followup_s
+        self._last_exchange: Exchange | None = None
         self._last_result: tuple[str, ExecResult] | None = None
         self._local_ids = count(1)
         self._released: asyncio.Event | None = None
@@ -115,6 +162,10 @@ class Session:
         self._task: asyncio.Task[None] | None = None
         self._active: tuple[Executor, str] | None = None
         self._confirm_ids: set[str] = set()
+        # Confirm card titles by request id, and the ones approved in this run.
+        self._confirm_titles: dict[str, str] = {}
+        self._approved: list[str] = []
+        self._confirm_voice: asyncio.Task[None] | None = None
         self._record: dict[str, Any] | None = None
         self._run_started: float | None = None
 
@@ -207,7 +258,12 @@ class Session:
             logger.warning("ptt ignored: no recorder or transcriber")
             return
         if self.busy:
-            logger.info("ptt ignored: busy", state=self.state)
+            open_request = self._open_confirm()
+            if open_request is not None and (self._confirm_voice is None or self._confirm_voice.done()):
+                self._released = asyncio.Event()
+                self._confirm_voice = asyncio.create_task(self._answer_by_voice(open_request))
+            else:
+                logger.info("ptt ignored: busy", state=self.state)
             return
         # Created before the task so a quick release can't be missed.
         self._released = asyncio.Event()
@@ -216,10 +272,16 @@ class Session:
             self._interaction(record, self._capture_voice, self.executor, self.executor.start)
         )
 
-    async def _capture_voice(self, record: dict[str, Any]) -> str | None:
-        """Record while the hotkey is held, then transcribe. None means 'nothing to do'."""
+    async def _capture_voice(
+        self, record: dict[str, Any], phase: Callable[[str], Awaitable[None]] | None = None
+    ) -> str | None:
+        """Record while the hotkey is held, then transcribe. None means 'nothing to do'.
+
+        ``phase`` reports listening / transcribing / idle (default: the interaction state).
+        """
         assert self.recorder is not None and self.transcriber is not None and self._released is not None
-        await self._set_state("listening")
+        phase = phase or self._set_state
+        await phase("listening")
         levels: asyncio.Queue[float] = asyncio.Queue()
         try:
             self.recorder.start(levels.put_nowait)
@@ -252,10 +314,10 @@ class Session:
                 logger.warning("could not save the recording", error=str(exc))
         if record["audio_s"] < MIN_SPEECH_S:
             record["reason"] = "too_short"
-            await self._set_state("idle")
+            await phase("idle")
             return None
 
-        await self._set_state("transcribing")
+        await phase("transcribing")
         try:
             result = await self.transcriber.transcribe(audio)
         except SttUnavailable as exc:
@@ -311,15 +373,21 @@ class Session:
 
             try:
                 if decision is not None:
-                    run_id = await executor.start(decision.text, demand=decision.demand, override=decision.override)
+                    run_id = await executor.start(
+                        self._with_context(decision.text, record), demand=decision.demand, override=decision.override
+                    )
                 else:
                     run_id = await start(transcript)
             except ExecutorUnavailable as exc:
                 raise UserFacingError("executor_unavailable", str(exc), exc.hint) from None
             result = await self._run(executor, run_id, record)
             await self._finish(result, record)
+            if decision is not None:
+                self._remember(record, decision.text, result)
         except asyncio.CancelledError:
             record["status"] = "cancelled"
+            if self._active is not None:
+                self._last_exchange = None
             if self._active is not None:
                 active_executor, run_id = self._active
                 await active_executor.cancel(run_id)
@@ -330,16 +398,24 @@ class Session:
         except UserFacingError as exc:
             record["status"] = "error"
             record["error"] = exc.code
+            self._last_exchange = None
             await self._set_state("error")
             await self._send(outbound("error", code=exc.code, message=exc.message, hint=exc.hint))
         except Exception:
             logger.exception("interaction failed")
             record["status"] = "error"
+            self._last_exchange = None
             await self._set_state("error")
             await self._send(
                 outbound("error", code="internal", message="Swift hit an internal error.", hint="Details are in swift.log.")
             )
         finally:
+            voice = self._confirm_voice
+            if voice is not None and not voice.done() and voice is not asyncio.current_task():
+                voice.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await voice
+            self._confirm_voice = None
             if self._run_started is not None and "run_ms" not in record:
                 record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
             self._run_started = None
@@ -347,6 +423,8 @@ class Session:
             self._record = None
             self._released = None
             self._confirm_ids.clear()
+            self._confirm_titles.clear()
+            self._approved = []
             record["interaction_ms"] = int((time.monotonic() - started) * 1000)
             record.setdefault("status", "error")
             unanswered = "cancelled" if record["status"] == "cancelled" else "no_answer"
@@ -362,6 +440,8 @@ class Session:
             record["status"] = "cancelled"
             await self._set_state("idle")
             return
+        if action == "new_topic":
+            self._last_exchange = None
         if action == "repeat" and self._last_result is not None:
             record["status"] = "done"
             await self._send_result(*self._last_result)
@@ -374,6 +454,7 @@ class Session:
             "repeat": "There's nothing to repeat yet.",
             "approve": "There's nothing waiting for approval.",
             "reject": "There's nothing waiting for approval.",
+            "new_topic": "Okay, starting fresh: the next request won't see the last one.",
         }
         record["status"] = "done"
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answers.get(action or "", "Done.")))
@@ -402,6 +483,7 @@ class Session:
                 await self._send(outbound("step", run_id=run_id, text=event.text, kind="tool", ts=event.ts))
             elif event.type == "confirm" and event.request_id is not None:
                 self._confirm_ids.add(event.request_id)
+                self._confirm_titles[event.request_id] = event.text
                 record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms})
                 await self._set_state("confirm", run_id=run_id)
                 await self._send(
@@ -418,21 +500,78 @@ class Session:
         record["run_ms"] = int((time.monotonic() - started) * 1000)
         return result
 
-    async def _confirm_reply(self, request_id: str, approve: bool) -> None:
+    async def _confirm_reply(self, request_id: str, approve: bool, source: str = "click") -> None:
         if self._active is None or request_id not in self._confirm_ids:
             logger.warning("confirm.reply for an unknown request ignored")
             return
         self._confirm_ids.discard(request_id)
         executor, run_id = self._active
-        if self._record is not None:
-            answered = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
-            for c in self._record["approvals"]:
-                if c["request_id"] == request_id:
-                    c["decision"] = "approve" if approve else "reject"
-                    c["answered_ms"] = answered
+        if approve and request_id in self._confirm_titles:
+            self._approved.append(self._confirm_titles[request_id])
+        if (entry := self._approval(request_id)) is not None:
+            entry["decision"] = "approve" if approve else "reject"
+            entry["answered_ms"] = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
+            entry["source"] = source
         await executor.reply(request_id, approve)
         if approve:
             await self._set_state("working", run_id=run_id)
+
+    def _approval(self, request_id: str) -> dict[str, Any] | None:
+        if self._record is None:
+            return None
+        return next((c for c in self._record["approvals"] if c["request_id"] == request_id), None)
+
+    def _open_confirm(self) -> str | None:
+        """The request id of the confirm card on screen, if any."""
+        if self.state != "confirm" or self._record is None:
+            return None
+        pending = [c["request_id"] for c in self._record["approvals"] if c["request_id"] in self._confirm_ids]
+        return pending[-1] if pending else None
+
+    async def _answer_by_voice(self, request_id: str) -> None:
+        """Push-to-talk on an open confirm card: approve, reject, or stop the run."""
+        entry = self._approval(request_id)
+        assert entry is not None and self._record is not None
+        heard: list[str] = entry.setdefault("heard", [])
+        capture: dict[str, Any] = {"id": f"{self._record['id']}-c{len(heard) + 1}"}
+
+        async def phase(name: str, text: str = "") -> None:
+            await self._send(outbound("confirm.voice", request_id=request_id, phase=name, text=text))
+
+        try:
+            text = await self._capture_voice(capture, phase)
+        except UserFacingError as exc:
+            await phase("hint", f"{exc.message} {CONFIRM_VOICE_HINT}")
+            return
+        if text is None:
+            return
+        heard.append(text)
+        if request_id not in self._confirm_ids:  # answered by click meanwhile
+            return
+        decision = (self.router or default_router)(text)
+        if decision.route == "control" and decision.action in ("approve", "reject"):
+            logger.info("confirm answered by voice", decision=decision.action)
+            await self._confirm_reply(request_id, decision.action == "approve", source="voice")
+        elif decision.route == "control" and decision.action in ("stop", "cancel", "mute"):
+            entry["source"] = "voice"
+            if self._task is not None:
+                self._task.cancel()  # like Esc; the interaction cleans up
+        else:
+            await phase("hint", f"Heard “{_clip(text, 60)}”. {CONFIRM_VOICE_HINT}")
+
+    def _with_context(self, request: str, record: dict[str, Any]) -> str:
+        """Prepend the previous exchange when it is recent enough (ADR-007 §9)."""
+        last, now = self._last_exchange, time.monotonic()
+        if last is None or self.followup_s <= 0 or now - last.at > self.followup_s:
+            return request
+        record["context"] = {"previous": last.id, "age_s": int(now - last.at)}
+        return last.as_context(now) + request
+
+    def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
+        if result.status in ("done", "rejected"):
+            self._last_exchange = Exchange(record["id"], request, result.summary, tuple(self._approved), time.monotonic())
+        else:
+            self._last_exchange = None
 
     async def _finish(self, result: ExecResult, record: dict[str, Any]) -> None:
         record["status"] = result.status

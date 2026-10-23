@@ -26,6 +26,8 @@ export type Inbound =
   | { type: "transcript"; data: { text: string; final: boolean } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number } }
   | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string } }
+  // Push-to-talk on an open confirm card; the state stays "confirm".
+  | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } }
   | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null } }
   | { type: "error"; data: { code: string; message: string; hint: string } };
 

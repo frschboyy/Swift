@@ -129,7 +129,7 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
 
 ## 8. Plan and how each step is tested
 
-1. **Route and demand eval set.** Relabel `eval/utterances.jsonl`, and add the 40 MVP prompts and about 40 new requests. Metrics:
+1. **Route and demand eval set.** *Done 2026-10-23:* `eval/routes.jsonl` (274 requests; labeling rules in `eval/routes.md`), scored by `spikes/routing/eval_routes.py`. Relabel `eval/utterances.jsonl`, and add the 40 MVP prompts and about 40 new requests. Metrics:
    - route accuracy
    - demand accuracy
    - **under-estimates**: requests labeled `light` that need `standard`. These cost an escalation, but they must not produce bad answers.

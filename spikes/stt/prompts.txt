@@ -1,0 +1,42 @@
+# Sentences to read aloud for the STT test set (spikes/stt/corpus.py read).
+# One per line; '#' lines are ignored. Write numbers as words so the reference is unambiguous.
+What's in the executors folder?
+Find the open to-dos in this project.
+Run the tests and tell me how it went.
+Open the README and summarize the setup section.
+Which files changed since the last commit?
+Add a next steps section to my notes.
+Check which packages are out of date.
+Explain what session dot py does.
+Show me the last five lines of the interaction log.
+Rename the variable tail s to tail seconds in the session file.
+Search the codebase for every place we call transcribe.
+Create a new branch called fix overlay focus.
+Commit these changes with the message improve transcription accuracy.
+What does the Tauri config set for the window size?
+Is the Rust code in the overlay folder using any unsafe blocks?
+List the TypeScript files in the overlay source directory.
+How many tests are in the unit folder?
+Summarize PLAN dot md in three bullet points.
+Draft an email to my supervisor about the delayed lab results.
+Remind me what we decided in ADR six.
+Why is the backend using so much memory?
+Update config dot yaml so the beam size is three.
+Compare small dot en with distil small dot en on speed.
+Read the threat model and list the top risks.
+Write a short note to Bob Lee saying I'll be late tomorrow.
+Delete the temporary files in the spikes results folder.
+What's the difference between faster whisper and whisper dot cpp?
+Show the git log for the last two days.
+Fix the failing test in test voice dot py.
+Explain the confirm flow in plain English.
+Move the debug hotkey to control alt F eleven.
+How long did the last Claude Code request take?
+Open the Trading project and check the latest backtest results.
+In the Jarvis folder, find where the wake word is configured.
+Clean up the downloads folder in the Cleaner project.
+Translate this paragraph into French and keep the formatting.
+What's the weather like in Bucharest this weekend?
+Schedule a meeting with the team next Thursday at three p m.
+Make the orb a little smaller and move it to the bottom right corner.
+Stop.

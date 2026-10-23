@@ -125,6 +125,27 @@ Every decision is recorded in the interaction log's `approvals`. Paths inside th
 - **Vocabulary:** put names and jargon you say often in `initial_prompt`. Whisper follows its spelling.
 - **Hearing what Whisper heard:** set `save_audio: true` and each push-to-talk is saved as `<interaction id>.wav` in `audio_dir` (default `%LOCALAPPDATA%\Swift\audio`). The interaction log's `audio_file` names it. The files stay on this PC; delete them whenever you like, and turn this off when you're done.
 
+### Comparing speech models on your voice
+
+`spikes/stt/` measures how accurate and how fast each candidate model is on **your** recordings. It's a separate dependency group: Swift itself doesn't use it.
+
+```powershell
+uv sync --group sttbench
+uv run --group sttbench python spikes/stt/corpus.py read        # read ~40 sentences aloud (about 10 min)
+uv run --group sttbench python spikes/stt/corpus.py label       # correct transcripts of Swift's saved recordings
+uv run --group sttbench python spikes/stt/bench.py --download   # fetch every model once (~1.5 GB)
+uv run --group sttbench python spikes/stt/bench.py              # WER and speed per model
+```
+
+- **The test set** lives in `%LOCALAPPDATA%\Swift\stt_corpus`, never in git. `read` records you reading `spikes/stt/prompts.txt`. Recording starts before you speak, so nothing is clipped. `label` works through push-to-talk clips Swift saved (`stt.save_audio: true`), which are closer to real use.
+- **Models compared:**
+  - faster-whisper `small.en` (beam 5 and beam 1), `base.en` and `distil-small.en`
+  - Moonshine base and tiny
+  - NVIDIA Parakeet-TDT 0.6B v2, int8 via `onnx-asr`
+- **For fair timings,** run plugged in, with Windows power mode on "Best performance". This laptop's CPU slows down on battery and when hot.
+- **Results** are written to `spikes/stt/results/`, which is gitignored because it contains your transcripts.
+- **Note:** `uv sync --group sttbench` removes the Phase 0 `spikes` group packages from `.venv`. `uv sync` restores the normal setup.
+
 ## Performance
 
 Measured on the development laptop (i5, 4 cores / 8 threads, 16 GB RAM, CPU only), release build, `base.en` int8.

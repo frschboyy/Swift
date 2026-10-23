@@ -36,6 +36,11 @@ spikes = [
     "google-auth>=2.35",
     "google-auth-oauthlib>=1.2",
 ]
+sttbench = [
+    "jiwer>=3",
+    "onnx-asr[cpu,hub]>=0.12",
+    "useful-moonshine-onnx>=20251121",
+]
 
 [build-system]
 requires = ["hatchling"]

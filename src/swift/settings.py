@@ -119,6 +119,25 @@ class LocalSettings(_Section):
         return {k: expand(p) for k, p in v.items()}
 
 
+class DemandClassifierSettings(_Section):
+    # Local demand classifier (ADR-007 §4). Off, or with the model missing, the keyword estimate answers alone.
+    # Off by default (owner decision 2026-10-23): on the test split it under-estimated 1 of 13 standard
+    # requests, where the keywords had 0. Turn on once that is back to 0 (more examples, learn_demand.py).
+    enabled: bool = False
+    model_dir: str = "%LOCALAPPDATA%/Swift/models/bge-small-en-v1.5"
+    # int8 model (34 MB, ~14 ms); false uses the fp32 one (133 MB, ~20 ms), same accuracy on the eval set.
+    quantized: bool = True
+    # Share of the nearest examples' weight that must say light; below it the request starts on Sonnet.
+    threshold: float = Field(0.7, gt=0, le=1)
+    # Examples you approved with spikes/routing/learn_demand.py, added to the built-in ones.
+    examples_file: str = "%LOCALAPPDATA%/Swift/demand_examples.jsonl"
+
+    @field_validator("model_dir", "examples_file")
+    @classmethod
+    def _expand(cls, v: str) -> str:
+        return expand(v)
+
+
 class LoggingSettings(_Section):
     interactions: str = "%LOCALAPPDATA%/Swift/interactions.jsonl"
     app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
@@ -143,6 +162,7 @@ class Settings(_Section):
     # A request within this many seconds of the previous Claude answer is sent with that
     # exchange as context, so "now commit it" works (ADR-007 §9). 0 turns it off.
     followup_context_s: float = Field(300.0, ge=0)
+    demand_classifier: DemandClassifierSettings = Field(default_factory=DemandClassifierSettings)
     debug: bool = False
 
 

@@ -1,4 +1,5 @@
-"""Interim demand estimate (ADR-007 §4) until the local classifier exists.
+"""Keyword demand estimate (ADR-007 §4): the first word on demand, and the whole
+answer when the local classifier (``classifier.py``) is off or still loading.
 
 ``estimate`` returns "standard" when a request asks for changes, investigation
 or judgment, "light" when it reads as a question, lookup, short draft or single
@@ -42,9 +43,19 @@ _LIGHT = re.compile(
 _LEAD = re.compile(r"^((um+|uh+|er+|ok|okay|so|right|alright)[\s,.]+)+", re.IGNORECASE)
 
 
+def strip_lead(request: str) -> str:
+    """Drop leading fillers ("um, ok so ...")."""
+    return _LEAD.sub("", request.strip())
+
+
+def standard(request: str) -> bool:
+    """The request asks for change, investigation or judgment."""
+    return bool(_STANDARD.search(request))
+
+
 def estimate(request: str) -> str | None:
-    if _STANDARD.search(request):
+    if standard(request):
         return "standard"
-    if _LIGHT.match(_LEAD.sub("", request.strip())):
+    if _LIGHT.match(strip_lead(request)):
         return "light"
     return None

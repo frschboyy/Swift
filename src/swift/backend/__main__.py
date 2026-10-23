@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import dataclasses
+import functools
 import os
 import sys
 from collections.abc import Callable
@@ -27,7 +28,8 @@ from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
 from swift.ipc.server import OverlayServer
 from swift.logging_setup import setup_logging
-from swift.routing import route
+from swift.routing import Route, route
+from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
 from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog
 from swift.session import Session
@@ -96,6 +98,18 @@ def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
             return EchoExecutor()
 
 
+def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, ClassifierEstimate | None]:
+    if not settings.routing:
+        return None, None
+    cfg = settings.demand_classifier
+    if not cfg.enabled:
+        return route, None
+    estimate = ClassifierEstimate(
+        Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized
+    )
+    return functools.partial(route, demand_fn=estimate), estimate
+
+
 async def _serve(settings: Settings, token: str, port: int) -> None:
     server = OverlayServer(
         token,
@@ -109,6 +123,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     transcriber = _make_transcriber(settings)
     recorder = MicRecorder(asyncio.get_running_loop(), preroll_s=settings.audio.preroll_s)
 
+    router, classifier = _make_router(settings)
     mock = MockExecutor()
     session = Session(
         server.send,
@@ -118,7 +133,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         transcriber=transcriber,
         ptt_label=settings.hotkeys.push_to_talk,
         audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
-        router=route if settings.routing else None,
+        router=router,
         opener=LocalOpener(settings),
         followup_s=settings.followup_context_s,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
@@ -131,6 +146,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     # these finish just waits for them.
     recorder.prepare()
     transcriber.start_loading()
+    if classifier is not None:
+        classifier.start_loading()
     if isinstance(session.executor, ClaudeCodeExecutor):
         session.executor.prepare()
     logger.info("backend ready", port=bound, debug=settings.debug)

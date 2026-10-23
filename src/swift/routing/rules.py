@@ -9,8 +9,8 @@
   the target isn't a configured name, so only known names are ever opened.
 - **claude**: everything else. A leading "use opus / use haiku" picks the model
   and is removed; "think hard about ..." asks for the strongest model and is kept.
-  Demand (light or standard) comes from ``demand.estimate`` until the local
-  classifier (ADR-007 §4) replaces it.
+  Demand (light or standard) comes from ``demand_fn``: by default the keyword
+  ``demand.estimate``; the backend passes the local classifier (ADR-007 §4).
 
 Mis-taking a request for a command loses it, so control and local patterns are
 deliberately narrow: an unmatched command still reaches Claude Code, just slower.
@@ -19,6 +19,7 @@ deliberately narrow: an unmatched command still reaches Claude Code, just slower
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -103,8 +104,9 @@ def strip_wake(text: str) -> str:
     return _WAKE.sub("", text).strip()
 
 
-def route(text: str, default_demand: Demand = "standard") -> Route:
-    """Route a transcript. ``default_demand`` applies when the estimate isn't sure."""
+def route(text: str, default_demand: Demand = "standard",
+          demand_fn: Callable[[str], str | None] = estimate) -> Route:
+    """Route a transcript. ``default_demand`` applies when ``demand_fn`` isn't sure (returns None)."""
     norm = _normalize(text)
     for action, pattern in _CONTROL:
         if pattern.fullmatch(norm):
@@ -123,7 +125,7 @@ def route(text: str, default_demand: Demand = "standard") -> Route:
         return Route("claude", rest[:1].upper() + rest[1:], demand="light" if model == "haiku" else "standard", override=override)
     if _THINK_HARD.match(request):
         return Route("claude", request, demand="standard", override="opus")
-    return Route("claude", request, demand=estimate(request) or default_demand)
+    return Route("claude", request, demand=demand_fn(request) or default_demand)  # type: ignore[arg-type]
 
 
 def route_for_eval(text: str) -> tuple[str, str | None]:

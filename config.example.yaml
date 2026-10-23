@@ -57,4 +57,8 @@ logging:
 routing: true                      # stop/cancel/repeat and time/date handled by Swift; the rest by demand
 followup_context_s: 300            # a request this soon after the last answer sees it ("now commit it"); 0 = off
 
+demand_classifier:                 # local classifier picks Haiku vs Sonnet where keywords can't (ADR-007 §4)
+  enabled: false                   # off until it stops under-estimating (ADR-007 step 3); needs the bge-small model (README)
+  threshold: 0.7                   # how sure it must be that a request is light
+
 debug: true

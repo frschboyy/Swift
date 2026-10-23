@@ -105,6 +105,7 @@ Swift decides where each transcript goes before anything leaves the PC:
 - **Everything else goes to Claude Code**, on a model chosen by how demanding the request looks:
   - **light** (questions, lookups, short drafts, single commands) starts on **Haiku**
   - **standard** (changes, investigations, and anything unclear) starts on **Sonnet**
+  - how demanding: keyword phrases first ("fix", "why does…", "what's in…"); where they can't tell, Sonnet, or a small local classifier (below) when `demand_classifier.enabled` is on
   - **"use opus …"** or **"use haiku …"** at the start picks the model, and **"think hard about …"** asks for Opus.
 - **Escalation:** a run moves up mid-request (Haiku → Sonnet → Opus, never down) and keeps its context. It moves when:
   - Claude calls `request_stronger_model`
@@ -112,11 +113,34 @@ Swift decides where each transcript goes before anything leaves the PC:
 
   The overlay shows "Switching to Sonnet: …". `confirm_strong: true` asks before Opus.
 - **Follow-ups:** each request is a fresh Claude Code process, so Swift itself passes on the last exchange. A request within `followup_context_s` (default 300 s, 0 = off) of the previous Claude answer is sent with that request, its answer and any approved actions, clipped. This makes "now commit it" or "how many functions are in it?" work. Only one exchange is kept. An error, a cancelled run, or saying "new topic" / "start over" clears it. The interaction log records `context: {previous, age_s}`.
-- **Settings** (`config.yaml`): `routing`, `local`, `executor.models`, `executor.escalation`, `executor.confirm_strong`, `executor.turn_limits`. The interaction log records `route`, `demand`, `start_model`, `models` and `escalations`.
+- **Settings** (`config.yaml`): `routing`, `local`, `demand_classifier`, `executor.models`, `executor.escalation`, `executor.confirm_strong`, `executor.turn_limits`. The interaction log records `route`, `demand`, `start_model`, `models` and `escalations`.
 - **Measured** (`spikes/routing/live_escalation.py`):
   - a light question on Haiku cost $0.0013, against about $0.03 on Sonnet
   - Haiku asked for Sonnet by itself 5.5 s into a refactoring request
   - on the 94 held-out requests in `eval/routes.jsonl`, the rules dropped none and never started standard work on Haiku
+
+#### Demand classifier (ADR-007 §4)
+
+A sentence-embedding model (`bge-small-en-v1.5`, int8 ONNX, 34 MB) compares the request with labeled examples and votes light or standard. It answers only where the keyword phrases can't place a request, and says light only when at least 70% of the nearest examples' weight agrees (`demand_classifier.threshold`). It loads in the background (about 5 s); until then, or without the model, the keywords answer alone.
+
+```powershell
+# bge-small -> %LOCALAPPDATA%\Swift\models\bge-small-en-v1.5 (about 35 MB; add 'onnx/model.onnx' for the 133 MB fp32 model)
+.venv\Scripts\python.exe -c "import os; from huggingface_hub import snapshot_download; snapshot_download('Xenova/bge-small-en-v1.5', local_dir=os.path.expandvars(r'%LOCALAPPDATA%\Swift\models\bge-small-en-v1.5'), allow_patterns=['config.json', 'tokenizer.json', 'onnx/model_int8.onnx'])"
+```
+
+- **Measured** on the 94 held-out requests (`spikes/routing/eval_classifier.py`), against the keywords alone:
+  - demand right 97.3% of the time (keywords: 94.5%)
+  - Sonnet used for light work 1 time out of 55 light requests (keywords: 4)
+  - Haiku given standard work 1 time out of 13 standard requests (keywords: 0). The miss: "tell me which strategy is most promising and why", a judgment call that reads like a lookup. Escalation (above) is the backstop.
+  - no requests dropped, so route accuracy is unchanged
+  - 14–18 ms per request (p95 35 ms, with other work running), about 97 MB more memory
+- **Settings:** `demand_classifier.enabled` (default `false`: on the test split it started 1 of 13 standard requests on Haiku, where the keywords alone started none; turn it on to try it), `threshold`, `quantized` (`false` uses the fp32 model: same accuracy, about 20 ms, 183 MB), `model_dir`, `examples_file`.
+- **Learning from use:** `spikes/routing/learn_demand.py` reads the interaction log and proposes examples. A light request that escalated becomes a standard example. A standard request that finished in one or two turns, with no escalation and no file edits, becomes a light candidate. You answer y/n for each. Kept examples go to `%LOCALAPPDATA%\Swift\demand_examples.jsonl` and load at startup, after the built-in ones (the train split of `eval/routes.jsonl`). Rerun it every week or so.
+
+```powershell
+uv run python spikes/routing/learn_demand.py          # review proposed examples
+uv run python spikes/routing/learn_demand.py --list   # show the ones you kept
+```
 
 ### Approving actions (Milestone 5)
 

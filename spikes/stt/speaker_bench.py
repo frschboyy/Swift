@@ -11,9 +11,10 @@ of their WeSpeaker embeddings, then scores (cosine similarity) the rest:
   other          one other speaker alone
   voices         two to four other speakers at once, nobody addressing Swift
 
-DIR holds 16 kHz mono WAVs of people who are not the owner. With no real
-recordings, Windows' TTS voices at several pitches and rates stand in for them,
-which makes "other" easier to reject than real people would be.
+DIR holds 16 kHz mono WAVs of people who are not the owner, named
+<speaker>-<anything>.wav. Real voices: spikes/stt/librispeech_others.py makes
+them from Mini LibriSpeech. Synthetic voices (Windows TTS) are far easier to
+reject than real people and only good for a smoke test.
 
 Model: WeSpeaker ResNet34-LM (VoxCeleb, CC-BY-4.0), 26.5 MB, in
 %LOCALAPPDATA%\\Swift\\models\\wespeaker-resnet34. Results go to spikes/stt/results/.
@@ -72,7 +73,8 @@ def main() -> None:
     args = ap.parse_args()
 
     owner = [read(CORPUS_DIR / r["wav"]) for r in load_refs() if r.get("ref")]
-    others = [read(p) for p in sorted(args.others.glob("*.wav"))]
+    other_paths = sorted(args.others.glob("*.wav"))
+    others = [read(p) for p in other_paths]
     enroll_clips = owner[::4][: args.enroll or None]
     test = [c for i, c in enumerate(owner) if i % 4]
     se = load_se()
@@ -93,8 +95,8 @@ def main() -> None:
         score("owner", c)
         for snr in (10, 5, 0):
             score("owner+voices", mix(c, voices(others, 2, len(c), rng), snr), snr=snr)
-    for o in others:
-        score("other", o)
+    for path, o in zip(other_paths, others):
+        score("other", o, speaker=path.stem.split("-")[0])
     for _ in range(60):
         n = int(rng.integers(2, 5))
         length = int(rng.uniform(1.5, 4.0) * SAMPLE_RATE)
@@ -119,6 +121,14 @@ def main() -> None:
         ov = " / ".join(f"{rate('owner+voices', True, s):.2f}" for s in (10, 5, 0))
         print(f"   {t:.2f}   |      {rate('owner', True):.2f}      |        {ov}         |"
               f"      {rate('other', False):.2f}      |      {rate('voices', False):.2f}")
+    # Per other speaker (file name prefix before the first "-"): the closest any clip came.
+    by_spk: dict[str, list[float]] = {}
+    for r in rows:
+        if r["kind"] == "other":
+            by_spk.setdefault(r["speaker"], []).append(r["score"])
+    top = sorted(((max(v), k, len(v)) for k, v in by_spk.items()), reverse=True)[:8]
+    print(f"\nclosest other speakers ({len(by_spk)} in all), best clip score: "
+          + ", ".join(f"{k} {s:.2f} (n={n})" for s, k, n in top))
     ms = [r["ms"] for r in rows if r["kind"] == "owner"]
     print(f"\nembedding time on owner clips: median {int(np.median(ms))} ms")
 

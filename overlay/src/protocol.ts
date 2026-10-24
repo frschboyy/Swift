@@ -14,6 +14,13 @@ export type UiState =
 export type Scenario = "happy" | "confirm" | "error" | "long";
 export const SCENARIOS: Scenario[] = ["happy", "confirm", "error", "long"];
 
+// Who is doing the work (ADR-008): a provider working for Swift. Absent or null: Swift itself.
+export type Agent = { id: string; name: string };
+// Normalized by the backend from each provider's own events (executors/base.py Activity).
+export type Activity =
+  | "starting" | "reading" | "searching" | "editing" | "running" | "browsing"
+  | "delegating" | "planning" | "thinking" | "waiting" | "switching" | "blocked" | "working";
+
 export type ResultDetails =
   | { kind: "text"; text: string }
   | { kind: "list"; items: string[] }
@@ -21,15 +28,16 @@ export type ResultDetails =
 
 export type Inbound =
   | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string> } }
-  | { type: "state"; data: { state: UiState; run_id?: string } }
+  | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null } }
   | { type: "level"; data: { rms: number } }
   | { type: "transcript"; data: { text: string; final: boolean } }
-  | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number } }
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string } }
+  | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; agent?: Agent | null } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } }
-  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null } }
-  | { type: "error"; data: { code: string; message: string; hint: string } };
+  // note: Swift's own aside above the answer ("No, I'm Swift. ...").
+  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null } }
+  | { type: "error"; data: { code: string; message: string; hint: string; agent?: Agent | null } };
 
 export type Outbound =
   | { type: "hello"; data: { token: string; client: string } }

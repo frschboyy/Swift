@@ -25,6 +25,14 @@ locally and routes the transcript (ADR-007): commands to Swift ("stop",
 configured executor with a demand estimate that picks its starting model. ``debug.run``
 plays a scripted interaction (fake mic level, canned transcript) through
 ``MockExecutor`` instead.
+
+The owner talks to Swift; executors are providers working for it (ADR-008).
+Every ``state``/``step``/``confirm.request``/``result``/``error`` sent for a run
+carries ``agent`` (the provider's id and name, from ``ProviderInfo``) so the
+overlay can say "Claude Code is reading" without knowing any provider. Results
+Swift produced itself carry ``agent: null``. Requests start on the first
+available provider (``Providers``); a skipped one is reported as a hand-off step.
+Called by an agent's name ("hey Claude"), Swift says who it is, at most once an hour.
 """
 
 from __future__ import annotations
@@ -43,10 +51,12 @@ from typing import Any
 
 from loguru import logger
 
+from swift import identity
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
-from swift.executors.base import ExecResult, Executor, ExecutorUnavailable
+from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
-from swift.ipc.protocol import Message, outbound
+from swift.executors.providers import Providers, Started, provider_of
+from swift.ipc.protocol import Message, now_ms, outbound
 from swift.routing import Route
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
@@ -64,14 +74,9 @@ DEMO_TRANSCRIPTS = {
     "long": "Run the tests and tell me how it went.",
 }
 
-# Hint on the error card when a run fails, by executor name.
-ERROR_HINTS = {
-    "claude_code": "Try again. If it keeps failing, run `claude` in a terminal to check it's signed in.",
-    "mock": "This is a scripted failure from the debug scenarios.",
-}
-DEFAULT_ERROR_HINT = "Try again. Details are in swift.log."
-
 MIN_SPEECH_S = 0.3
+# After saying "No, I'm Swift" once, don't say it again for this long.
+CLARIFY_EVERY_S = 3600.0
 
 HELP_TEXT = (
     "Hold the hotkey and ask for anything in your project: questions, changes, commands. "
@@ -141,9 +146,14 @@ class Session:
         router: Callable[[str], Route] | None = default_router,
         opener: LocalOpener | None = None,
         followup_s: float = FOLLOWUP_S,
+        fallbacks: tuple[Executor, ...] = (),
     ) -> None:
         self._send = send
         self.executor = executor
+        # The default provider first, then the ones tried when it's unavailable.
+        self.providers = Providers([executor, *fallbacks])
+        self._clarified_at: float | None = None
+        self._note: str | None = None
         self.debug_executor = debug_executor
         self.recorder = recorder
         self.transcriber = transcriber
@@ -161,7 +171,8 @@ class Session:
         # 0 turns follow-up context off.
         self.followup_s = followup_s
         self._last_exchange: Exchange | None = None
-        self._last_result: tuple[str, ExecResult] | None = None
+        # The last answer, with the agent that produced it (None: Swift), for "repeat that".
+        self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
         self._local_ids = count(1)
         self._released: asyncio.Event | None = None
         self.state = "idle"
@@ -379,6 +390,9 @@ class Session:
                     )
             if decision is not None:
                 record["route"] = decision.route
+                if decision.addressed_as:
+                    record["addressed_as"] = decision.addressed_as
+                    self._note = self._clarify(decision.addressed_as)
                 if decision.route != "claude":
                     record["action"] = decision.action
                     if target is not None:
@@ -391,14 +405,14 @@ class Session:
 
             try:
                 if decision is not None:
-                    run_id = await executor.start(
+                    launch = await self.providers.start(
                         self._with_context(decision.text, record), demand=decision.demand, override=decision.override
                     )
                 else:
-                    run_id = await start(transcript)
+                    launch = Started(executor, await start(transcript))
             except ExecutorUnavailable as exc:
                 raise UserFacingError("executor_unavailable", str(exc), exc.hint) from None
-            result = await self._run(executor, run_id, record)
+            result = await self._run(launch, record)
             await self._finish(result, record)
             if decision is not None:
                 self._remember(record, decision.text, result)
@@ -409,7 +423,7 @@ class Session:
             if self._active is not None:
                 active_executor, run_id = self._active
                 await active_executor.cancel(run_id)
-                await self._send_result(run_id, ExecResult("cancelled", "Cancelled."))
+                await self._send_result(run_id, ExecResult("cancelled", "Cancelled."), self._agent())
             else:
                 await self._set_state("idle")
             raise
@@ -434,6 +448,7 @@ class Session:
                 with contextlib.suppress(asyncio.CancelledError):
                     await voice
             self._confirm_voice = None
+            self._note = None
             if self._run_started is not None and "run_ms" not in record:
                 record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
             self._run_started = None
@@ -479,6 +494,16 @@ class Session:
             record["status"] = "done"
             await self._send_result(*self._last_result)
             return
+        if action == "identity":
+            # The answer is the clarification itself: no note under it.
+            answer = self._note or (
+                identity.clarification(decision.addressed_as, self.providers.agents())
+                if decision.addressed_as else identity.introduction(self.providers.agents())
+            )
+            self._note = None
+            record["status"] = "done"
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            return
         now = datetime.now()
         answers = {
             "time": f"It's {now.strftime('%H:%M')}.",
@@ -505,20 +530,54 @@ class Session:
                 await self._send(outbound("transcript", text=" ".join(shown), final=False))
             await asyncio.sleep(self.demo_speed / 30)
 
-    async def _run(self, executor: Executor, run_id: str, record: dict[str, Any]) -> ExecResult:
+    def _agent(self) -> dict[str, str] | None:
+        """The provider of the active run as the overlay's ``agent``; None when it is Swift itself."""
+        if self._active is None:
+            return None
+        provider = provider_of(self._active[0])
+        return None if provider.is_swift else provider.as_agent()
+
+    def _clarify(self, called: str) -> str | None:
+        """"No, I'm Swift." for being called by an agent's name; None if said within the last hour."""
+        now = time.monotonic()
+        if self._clarified_at is not None and now - self._clarified_at < CLARIFY_EVERY_S:
+            return None
+        self._clarified_at = now
+        return identity.clarification(called, self.providers.agents())
+
+    async def _run(self, started: Started, record: dict[str, Any]) -> ExecResult:
+        executor, run_id = started.executor, started.run_id
         self._active = (executor, run_id)
-        await self._set_state("working", run_id=run_id)
-        started = self._run_started = time.monotonic()
+        provider = started.provider
+        agent = self._agent()
+        record["provider"] = provider.id
+        if started.skipped:
+            record["skipped"] = [p.id for p, _ in started.skipped]
+        await self._set_state("working", run_id=run_id, agent=agent)
+        t0 = self._run_started = time.monotonic()
+        for skipped, _ in started.skipped:
+            # Swift's own step: who couldn't take the request and who did.
+            await self._send(
+                outbound(
+                    "step", run_id=run_id, text=f"{skipped.name} isn't available, so {provider.name} is taking this",
+                    kind="handoff", ts=now_ms(), activity="starting", agent=SWIFT.as_agent(), subagent=False,
+                )
+            )
         async for event in executor.events(run_id):
-            t_ms = int((time.monotonic() - started) * 1000)
+            t_ms = int((time.monotonic() - t0) * 1000)
             if event.type == "step":
-                record["steps"].append({"t_ms": t_ms, "text": event.text})
-                await self._send(outbound("step", run_id=run_id, text=event.text, kind="tool", ts=event.ts))
+                record["steps"].append({"t_ms": t_ms, "text": event.text, "activity": event.activity})
+                await self._send(
+                    outbound(
+                        "step", run_id=run_id, text=event.text, kind="tool", ts=event.ts,
+                        activity=event.activity, agent=agent, subagent=event.subagent,
+                    )
+                )
             elif event.type == "confirm" and event.request_id is not None:
                 self._confirm_ids.add(event.request_id)
                 self._confirm_titles[event.request_id] = event.text
                 record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms})
-                await self._set_state("confirm", run_id=run_id)
+                await self._set_state("confirm", run_id=run_id, agent=agent)
                 await self._send(
                     outbound(
                         "confirm.request",
@@ -527,10 +586,11 @@ class Session:
                         title=event.text,
                         detail=event.detail or "",
                         tool=event.tool or "",
+                        agent=agent,
                     )
                 )
         result = await executor.result(run_id)
-        record["run_ms"] = int((time.monotonic() - started) * 1000)
+        record["run_ms"] = int((time.monotonic() - t0) * 1000)
         return result
 
     async def _confirm_reply(self, request_id: str, approve: bool, source: str = "click") -> None:
@@ -547,7 +607,7 @@ class Session:
             entry["source"] = source
         await executor.reply(request_id, approve)
         if approve:
-            await self._set_state("working", run_id=run_id)
+            await self._set_state("working", run_id=run_id, agent=self._agent())
 
     def _approval(self, request_id: str) -> dict[str, Any] | None:
         if self._record is None:
@@ -610,24 +670,24 @@ class Session:
         record["status"] = result.status
         record.update(result.meta)
         assert self._active is not None
-        await self._send_result(self._active[1], result)
+        await self._send_result(self._active[1], result, self._agent())
 
-    async def _send_result(self, run_id: str, result: ExecResult) -> None:
+    async def _send_result(self, run_id: str, result: ExecResult, agent: dict[str, str] | None = None) -> None:
+        """Swift presents the outcome; ``agent`` says who did the work (None: Swift itself)."""
         if result.status == "error":
-            name = getattr(self._active[0], "name", "") if self._active else ""
-            await self._set_state("error", run_id=run_id)
+            hint = provider_of(self._active[0]).error_hint if self._active else SWIFT.error_hint
+            await self._set_state("error", run_id=run_id, agent=agent)
             await self._send(
-                outbound(
-                    "error",
-                    code="executor_failed",
-                    message=result.summary,
-                    hint=ERROR_HINTS.get(name, DEFAULT_ERROR_HINT),
-                )
+                outbound("error", code="executor_failed", message=result.summary, hint=hint, agent=agent)
             )
             return
         if result.status == "done":
-            self._last_result = (run_id, result)
-        await self._set_state("result", run_id=run_id)
+            self._last_result = (run_id, result, agent)
+        note, self._note = self._note, None
+        await self._set_state("result", run_id=run_id, agent=agent)
         await self._send(
-            outbound("result", run_id=run_id, status=result.status, summary=result.summary, details=result.details)
+            outbound(
+                "result", run_id=run_id, status=result.status, summary=result.summary, details=result.details,
+                agent=agent, note=note,
+            )
         )

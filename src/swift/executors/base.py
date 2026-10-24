@@ -10,6 +10,11 @@ A run is driven as::
 
 ``events()`` ends once the run has finished, been cancelled or failed;
 ``result()`` then returns immediately.
+
+Swift is the assistant the owner talks to; an executor is a *provider* that does
+the work for it (ADR-008). Each one describes itself with a ``ProviderInfo`` and
+reports progress as normalized ``ExecEvent``s (an ``activity`` from a fixed
+vocabulary), so the session and the overlay never need provider-specific code.
 """
 
 from __future__ import annotations
@@ -17,10 +22,41 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, get_args
 
 EventType = Literal["step", "confirm", "log"]
 Status = Literal["done", "cancelled", "error", "rejected"]
+# What a provider is doing, whatever its own event format. The overlay turns it into
+# "<provider> is reading"; anything a provider can't classify is "working".
+Activity = Literal[
+    "starting", "reading", "searching", "editing", "running", "browsing",
+    "delegating", "planning", "thinking", "waiting", "switching", "blocked", "working",
+]
+ACTIVITIES: tuple[str, ...] = get_args(Activity)
+
+
+@dataclass(frozen=True)
+class ProviderInfo:
+    """Who does the work for Swift: shown to the owner, never a separate identity (ADR-008)."""
+
+    # Stable id for logs and config ("claude_code").
+    id: str
+    # What the owner reads: "Claude Code is reading".
+    name: str
+    # What it can do, so routing can choose without knowing the provider: "files", "commands",
+    # "confirm" (asks before side effects), "escalation" (moves to a stronger model), "subagents".
+    capabilities: frozenset[str] = frozenset()
+    # Shown on the error card when a run fails.
+    error_hint: str = "Try again. Details are in swift.log."
+    # Swift itself (local answers, the echo stand-in): no hand-off is shown.
+    is_swift: bool = False
+
+    def as_agent(self) -> dict[str, str]:
+        """The overlay's attribution object (``agent`` in the protocol)."""
+        return {"id": self.id, "name": self.name}
+
+
+SWIFT = ProviderInfo("swift", "Swift", is_swift=True)
 
 
 def now_ms() -> int:
@@ -36,6 +72,9 @@ class ExecEvent:
     request_id: str | None = None
     detail: str | None = None
     tool: str | None = None
+    activity: Activity = "working"
+    # True when a sub-agent the provider started did this step ("Claude Code's helper is reading").
+    subagent: bool = False
 
 
 @dataclass(frozen=True)
@@ -62,6 +101,7 @@ class ExecutorUnavailable(RuntimeError):
 
 class Executor(Protocol):
     name: str
+    provider: ProviderInfo
 
     async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
         """``demand`` ("light"/"standard") and ``override`` ("opus"/"sonnet"/"haiku") come from the

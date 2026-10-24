@@ -3,10 +3,11 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { activityLabel, byline, handoffLabel } from "./agents";
 import { el, icon } from "./dom";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
-import { SCENARIOS, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 
 const RESULT_FADE_MS = 6000;
 const ERROR_FADE_MS = 8000;
@@ -22,6 +23,9 @@ const orb = new Orb(document.getElementById("orb")!);
 let state: UiState = "idle";
 let steps: string[] = [];
 let request = "";
+// The provider working on the current run, and what it last reported doing.
+let agent: Agent | null = null;
+let current: { activity?: Activity; agent: Agent | null; subagent: boolean } | null = null;
 let fadeTimer = 0;
 let fadeMs = 0;
 let hovering = false;
@@ -48,6 +52,8 @@ function setStage(next: UiState): void {
   if (next === "listening") {
     steps = [];
     request = "";
+    agent = null;
+    current = null;
     transcriptEl.textContent = "";
     card.replaceChildren();
     clearFade();
@@ -88,7 +94,13 @@ function renderWorking(): void {
     el(
       "div",
       {},
-      el("header", { class: "card-head" }, el("span", { class: "spinner" }), el("span", { class: "card-title" }, "Working"), el("kbd", { class: "hint" }, "Esc to cancel")),
+      el(
+        "header",
+        { class: "card-head" },
+        el("span", { class: "spinner" }),
+        el("span", { class: "card-title card-title--live" }, current ? activityLabel(current.agent, current.activity, current.subagent) : handoffLabel(agent)),
+        el("kbd", { class: "hint" }, "Esc to cancel"),
+      ),
       request ? el("p", { class: "request" }, request) : null,
       steps.length ? list : el("p", { class: "muted" }, "Starting…"),
     ),
@@ -106,6 +118,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       "div",
       {},
       el("header", { class: "card-head" }, icon("shield"), el("span", { class: "card-title" }, "Approval needed"), data.tool ? el("span", { class: "chip" }, data.tool) : null),
+      data.agent ? el("p", { class: "asker" }, `${data.agent.name} wants to:`) : null,
       el("p", { class: "confirm-title" }, data.title),
       data.detail ? el("p", { class: "muted" }, data.detail) : null,
       el("p", { class: "voice-hint", "data-request": data.request_id }, `Or hold ${pttLabel} and say “approve” or “reject”.`),
@@ -158,8 +171,10 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
       "div",
       { "data-hit": true, class: "hit-area", onclick: () => setStage("idle") },
       el("header", { class: "card-head" }, icon(glyph), el("span", { class: "card-title" }, label)),
+      data.note ? el("p", { class: "note" }, data.note) : null,
       el("p", { class: "summary" }, data.summary),
       renderDetails(data.details),
+      el("p", { class: "byline" }, byline(data.agent)),
     ),
     `result card--${variant}`,
   );
@@ -184,14 +199,17 @@ function renderAlreadyRunning(): void {
   startFade(RESULT_FADE_MS);
 }
 
-function renderError(message: string, hint: string, fade = true): void {
+function renderError(message: string, hint: string, fade = true, from: Agent | null = null): void {
+  // Swift reports the failure either way; the title says whose it was.
+  const title = from ? `${from.name} ran into a problem` : "Something went wrong";
   showCard(
     el(
       "div",
       { "data-hit": true, class: "hit-area", onclick: () => setStage("idle") },
-      el("header", { class: "card-head" }, icon("alert"), el("span", { class: "card-title" }, "Something went wrong")),
+      el("header", { class: "card-head" }, icon("alert"), el("span", { class: "card-title" }, title)),
       el("p", { class: "summary" }, message),
       hint ? el("p", { class: "muted" }, hint) : null,
+      from ? el("p", { class: "byline" }, byline(from)) : null,
     ),
     "error",
   );
@@ -277,6 +295,7 @@ function onMessage(msg: Inbound): void {
       void registerHotkeys(msg.data.hotkeys);
       break;
     case "state":
+      if (msg.data.agent !== undefined) agent = msg.data.agent;
       setStage(msg.data.state);
       break;
     case "level":
@@ -291,6 +310,7 @@ function onMessage(msg: Inbound): void {
       break;
     case "step":
       steps = [...steps, msg.data.text].slice(-MAX_STEPS);
+      current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false };
       if (state === "working") renderWorking();
       break;
     case "confirm.request":
@@ -303,7 +323,7 @@ function onMessage(msg: Inbound): void {
       renderResult(msg.data);
       break;
     case "error":
-      renderError(msg.data.message, msg.data.hint);
+      renderError(msg.data.message, msg.data.hint, true, msg.data.agent ?? null);
       break;
   }
 }

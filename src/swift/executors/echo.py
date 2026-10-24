@@ -9,11 +9,13 @@ from __future__ import annotations
 import itertools
 from collections.abc import AsyncIterator
 
-from swift.executors.base import ExecEvent, ExecResult, UnknownRun
+from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun
 
 
 class EchoExecutor:
     name = "echo"
+    # No agent does anything: Swift itself shows the transcript.
+    provider = SWIFT
 
     def __init__(self) -> None:
         self._results: dict[str, ExecResult] = {}

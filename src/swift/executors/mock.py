@@ -1,7 +1,8 @@
 """Scripted fake executor for UI development and tests.
 
 Each scenario is a list of script items. ``speed`` scales every delay, so
-tests run with ``speed=0``.
+tests run with ``speed=0``. It presents itself as "Demo agent", never as a real
+provider, so the overlay doesn't claim Claude Code is working when it isn't.
 """
 
 from __future__ import annotations
@@ -13,12 +14,24 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from swift.executors.base import ExecEvent, ExecResult, UnknownRun
+from swift.executors.providers import MOCK
+
+
+# First word of a scripted step -> normalized activity.
+_ACTIVITY = {
+    "Starting…": "starting", "Reading": "reading", "Listing": "reading", "Searching": "searching",
+    "Editing": "editing", "Running": "running", "Verifying": "reading", "Comparing": "thinking",
+}
 
 
 @dataclass(frozen=True)
 class Step:
     text: str
     delay: float = 0.7
+
+    @property
+    def activity(self) -> str:
+        return _ACTIVITY.get(self.text.split(" ", 1)[0], "working")
 
 
 @dataclass(frozen=True)
@@ -47,7 +60,7 @@ ScriptItem = Step | Confirm | Fail | Finish
 
 SCENARIOS: dict[str, tuple[ScriptItem, ...]] = {
     "happy": (
-        Step("Starting Claude Code…", 0.4),
+        Step("Starting…", 0.4),
         Step("Reading README.md"),
         Step("Searching for 'TODO'"),
         Step("Reading src/swift/session.py"),
@@ -57,7 +70,7 @@ SCENARIOS: dict[str, tuple[ScriptItem, ...]] = {
         ),
     ),
     "confirm": (
-        Step("Starting Claude Code…", 0.4),
+        Step("Starting…", 0.4),
         Step("Reading notes.md"),
         Confirm(
             title="Edit notes.md",
@@ -68,12 +81,12 @@ SCENARIOS: dict[str, tuple[ScriptItem, ...]] = {
         Finish("Added a 'Next steps' section to notes.md."),
     ),
     "error": (
-        Step("Starting Claude Code…", 0.4),
+        Step("Starting…", 0.4),
         Step("Reading package.json"),
-        Fail("Claude Code exited with code 1."),
+        Fail("The demo agent exited with code 1."),
     ),
     "long": (
-        Step("Starting Claude Code…", 0.4),
+        Step("Starting…", 0.4),
         *(Step(text, 0.9) for text in (
             "Listing files in src/",
             "Reading config.yaml",
@@ -106,6 +119,7 @@ class _Run:
 
 class MockExecutor:
     name = "mock"
+    provider = MOCK
 
     def __init__(self, speed: float = 1.0, default_scenario: str = "happy") -> None:
         self.speed = speed
@@ -178,7 +192,7 @@ class MockExecutor:
             await self._sleep(item.delay)
             match item:
                 case Step(text=text):
-                    run.queue.put_nowait(ExecEvent("step", text))
+                    run.queue.put_nowait(ExecEvent("step", text, activity=item.activity))  # type: ignore[arg-type]
                 case Confirm():
                     request_id = f"{run_id}:{n}"
                     future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
@@ -192,7 +206,7 @@ class MockExecutor:
                         return ExecResult("rejected", f"Rejected: {item.title}. Nothing was changed.")
                     for step in item.on_approve:
                         await self._sleep(step.delay)
-                        run.queue.put_nowait(ExecEvent("step", step.text))
+                        run.queue.put_nowait(ExecEvent("step", step.text, activity=step.activity))  # type: ignore[arg-type]
                 case Fail(message=message):
                     return ExecResult("error", message)
                 case Finish(summary=summary, details=details):

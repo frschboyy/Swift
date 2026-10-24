@@ -30,6 +30,22 @@ STOP_REASONS = {
 class Step:
     text: str
     kind: str = "tool"  # "tool" | "text" | "info"
+    # Normalized for the overlay (``executors.base.Activity``).
+    activity: str = "working"
+    # Done by a helper agent Claude Code started (Task/Agent tool).
+    subagent: bool = False
+
+
+# Claude Code tool -> normalized activity.
+TOOL_ACTIVITY = {
+    "Read": "reading", "NotebookRead": "reading",
+    "Glob": "searching", "Grep": "searching", "WebSearch": "searching",
+    "Edit": "editing", "MultiEdit": "editing", "Write": "editing", "NotebookEdit": "editing",
+    "Bash": "running", "PowerShell": "running",
+    "WebFetch": "browsing",
+    "Task": "delegating", "Agent": "delegating",
+    "TodoWrite": "planning",
+}
 
 
 @dataclass
@@ -131,21 +147,22 @@ def _plain(text: str) -> str:
 def steps_for(event: dict[str, Any]) -> list[Step]:
     kind, sub = event.get("type"), event.get("subtype")
     if kind == "system" and sub == "init":
-        return [Step("Starting Claude Code…", "info")]
+        return [Step("Starting Claude Code…", "info", "starting")]
     if kind == "system" and sub == "permission_denied":
-        return [Step(f"Blocked: {event.get('tool_name', 'a tool')} isn't allowed", "info")]
+        return [Step(f"Blocked: {event.get('tool_name', 'a tool')} isn't allowed", "info", "blocked")]
     if kind == "system" and sub == "api_retry":
-        return [Step(f"Retrying ({event.get('error', 'API error').replace('_', ' ')})…", "info")]
+        return [Step(f"Retrying ({event.get('error', 'API error').replace('_', ' ')})…", "info", "waiting")]
     if kind != "assistant":
         return []
     helper = event.get("parent_tool_use_id") is not None
     out: list[Step] = []
     for block in event.get("message", {}).get("content", []):
         if block.get("type") == "tool_use":
-            text = describe_tool(block.get("name", "?"), block.get("input") or {})
-            out.append(Step(_short(("Helper: " if helper else "") + text)))
+            name = block.get("name", "?")
+            text = describe_tool(name, block.get("input") or {})
+            out.append(Step(_short(("Helper: " if helper else "") + text), "tool", TOOL_ACTIVITY.get(name, "working"), helper))
         elif block.get("type") == "text" and block.get("text", "").strip() and not helper:
-            out.append(Step(_first_sentence(block["text"]), "text"))
+            out.append(Step(_first_sentence(block["text"]), "text", "thinking"))
     return out
 
 

@@ -12,6 +12,11 @@
   Demand (light or standard) comes from ``demand_fn``: by default the keyword
   ``demand.estimate``; the backend passes the local classifier (ADR-007 §4).
 
+Swift is the name the owner uses. A leading "hey Claude" / "ok Codex" (an agent's
+name, ``executors.providers.AGENT_NAMES``) is removed like the wake word and kept
+in ``addressed_as``, so the session can say once who it is (ADR-008). Alone, or as
+"who are you?", it is the local ``identity`` answer.
+
 Mis-taking a request for a command loses it, so control and local patterns are
 deliberately narrow: an unmatched command still reaches Claude Code, just slower.
 """
@@ -20,9 +25,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
+from swift.executors.providers import AGENT_NAMES
 from swift.routing.demand import estimate
 
 RouteName = Literal["control", "local", "claude"]
@@ -31,6 +37,10 @@ Override = Literal["opus", "sonnet", "haiku"]
 
 _WAKE = re.compile(r"^\s*(hey|hi|ok|okay)?\s*swift\b[\s,.:!-]*", re.IGNORECASE)
 _FILLER = re.compile(r"\b(um+|uh+|er+|please)\b")
+_AGENT = r"claude(?: code)?|codex|hermes|chat ?gpt|gpt"
+# Swift greeted by an agent's name. Only with a greeting, so "Claude Code is slow" stays a request.
+_MISNAMED = re.compile(rf"^\s*(?:hey|hi|hello|ok|okay)\s+({_AGENT})\b[\s,.:!?-]*", re.IGNORECASE)
+_AGENT_WORD = re.compile(rf"\b({_AGENT})\b")
 
 CONTROL: dict[str, str] = {
     "stop": r"stop|stop (it|that|talking)|quiet|be quiet|shut up|hush|enough",
@@ -44,6 +54,8 @@ CONTROL: dict[str, str] = {
     "new_topic": r"new topic|(let'?s )?(start over|start fresh)|fresh start|different topic",
 }
 LOCAL: dict[str, str] = {
+    "identity": r"who are you|what are you|what'?s your name|what is your name|who am i (talking|speaking) (to|with)"
+    rf"|are you ({_AGENT}|swift)|is (this|that) ({_AGENT})",
     "time": r"what time is it( now)?|what'?s the time( now| right now)?|what is the time( now)?|tell me the time",
     "date": r"what'?s the date( today)?|what is the date( today)?|what'?s today'?s date|what is today'?s date"
     r"|what day is it( today)?|(which|what) day of the week is it( today)?|what'?s the day today",
@@ -60,13 +72,21 @@ class Route:
     route: RouteName
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
-    # control: stop | cancel | mute | approve | reject | repeat | help | new_topic; local: time | date | open.
+    # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
+    # local: time | date | identity | open.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None
     # local "open": what was asked for ("downloads folder") and the app it should open in, if said.
     target: str | None = None
     app: str | None = None
+    # The agent name Swift was called by ("claude"), a key of AGENT_NAMES.
+    addressed_as: str | None = None
+
+
+def _agent_key(name: str) -> str:
+    key = " ".join(name.lower().split()).replace("chat gpt", "chatgpt")
+    return key if key in AGENT_NAMES else "claude"
 
 
 # Words that make an "open ..." request something more than opening: it goes to Claude Code.
@@ -107,13 +127,24 @@ def strip_wake(text: str) -> str:
 def route(text: str, default_demand: Demand = "standard",
           demand_fn: Callable[[str], str | None] = estimate) -> Route:
     """Route a transcript. ``default_demand`` applies when ``demand_fn`` isn't sure (returns None)."""
+    if m := _MISNAMED.match(text):
+        called = _agent_key(m.group(1))
+        rest = text[m.end():].strip()
+        if not rest:
+            return Route("local", text.strip(), action="identity", addressed_as=called)
+        return replace(_route(rest, default_demand, demand_fn), addressed_as=called)
+    return _route(text, default_demand, demand_fn)
+
+
+def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | None]) -> Route:
     norm = _normalize(text)
     for action, pattern in _CONTROL:
         if pattern.fullmatch(norm):
             return Route("control", text.strip(), action=action)
     for action, pattern in _LOCAL:
         if pattern.fullmatch(norm):
-            return Route("local", text.strip(), action=action)
+            called = _AGENT_WORD.search(norm) if action == "identity" else None
+            return Route("local", text.strip(), action=action, addressed_as=_agent_key(called.group(1)) if called else None)
 
     if (opened := _open_request(norm)) is not None:
         return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])

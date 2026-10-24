@@ -70,3 +70,12 @@ The MVP ships only the built-in Google connector. A plugin/MCP host is Phase 7.
   - reports every problem as a `ConfigIssue`.
 - `logging_setup.py` runs every record through a redaction patcher before any sink sees it. Tracebacks are formatted and redacted by the patcher, and loguru's `diagnose`/`backtrace` are off, so local variables are never rendered.
 - Importing `swift` forces `HF_HUB_OFFLINE=1` and the related offline/telemetry switches.
+
+## Swift and its providers (ADR-008)
+
+- **Swift** owns the conversation: routing, approvals, follow-up context, presenting results, and its own name.
+- **Providers** are executors that work for Swift. Today that is Claude Code; the demo executor appears as "Demo agent".
+- Each provider declares a `ProviderInfo` and reports normalized `activity` steps.
+- The session attaches `agent` to every run message.
+- The overlay renders "Claude Code is reading", "Swift · via Claude Code", and so on from that normalized data, in `overlay/src/agents.ts`.
+- When the owner calls Swift "Claude" or "Codex", Swift says who it is, at most once an hour.

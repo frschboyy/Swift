@@ -168,6 +168,20 @@ def _swift_transcripts() -> dict[str, str]:
     return out
 
 
+def _fresh_transcriber():
+    """Swift's configured engine, for recordings with no transcript in the log."""
+    repo = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(repo / "src"))
+    from swift.backend.__main__ import _make_transcriber
+    from swift.settings import load_settings
+
+    stt = _make_transcriber(load_settings(repo / "config.yaml"))
+    stt._load()
+    if stt._error is not None:
+        raise SystemExit(str(stt._error))
+    return stt
+
+
 def cmd_label(args: argparse.Namespace) -> None:
     audio_dir = Path(args.audio_dir)
     seen = {r["id"] for r in load_refs()}
@@ -176,12 +190,16 @@ def cmd_label(args: argparse.Namespace) -> None:
         print(f"No new recordings in {audio_dir}. Turn on stt.save_audio in config.yaml and use Swift for a while.")
         return
     transcripts = _swift_transcripts()
+    stt = None
     print(f"{len(wavs)} new recordings. For each one, after it plays:")
     print("  Enter = Swift's transcript was right; type the correct text otherwise;")
     print("  p = play again, x = not speech (drop), s = skip for now, q = quit.\n")
     for i, path in enumerate(wavs, 1):
         audio = read_wav(path)
         hyp = transcripts.get(path.stem, "")
+        if not hyp:  # not in the interactions log (rotated, or another run's log): transcribe it now
+            stt = stt or _fresh_transcriber()
+            hyp = stt._transcribe_sync(audio).text
         print(f"[{i}/{len(wavs)}] {len(audio) / SAMPLE_RATE:.1f} s   Swift heard: {hyp or '(nothing)'}")
         play(audio)
         while True:
@@ -195,13 +213,12 @@ def cmd_label(args: argparse.Namespace) -> None:
         if answer.lower() == "s":
             continue
         clip_id = f"swift-{path.stem}"
-        if answer.lower() == "x":
+        if answer.lower() == "x" or not (answer or hyp):
+            if answer.lower() != "x":
+                print("  No text given and Swift heard nothing; dropped as not speech.")
             append_ref({"id": clip_id, "wav": str(path), "ref": None, "source": "swift", "swift_hyp": hyp})
             continue
         ref = answer or hyp
-        if not ref:
-            print("  No text given and Swift heard nothing; skipped.")
-            continue
         dest = CORPUS_DIR / "clips" / f"{clip_id}.wav"
         write_wav(dest, audio)
         append_ref({"id": clip_id, "wav": f"clips/{clip_id}.wav", "ref": ref, "source": "swift", "swift_hyp": hyp})

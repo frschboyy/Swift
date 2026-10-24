@@ -31,7 +31,7 @@ PROTOCOL_VERSION = 1
 MAX_FRAME_BYTES = 64 * 1024
 
 STATES = ("idle", "listening", "transcribing", "working", "confirm", "result", "error")
-SCENARIOS = ("happy", "confirm", "error", "long")
+SCENARIOS = ("happy", "confirm", "error", "long", "email")
 RESULT_STATUSES = ("done", "cancelled", "error", "rejected")
 ARTIFACT_KINDS = ("email_draft", "recipient", "send_status", "text", "list", "table")
 PHASES = ("resolving", "drafting", "confirming", "sending", "done", "failed")

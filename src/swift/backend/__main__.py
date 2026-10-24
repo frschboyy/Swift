@@ -22,6 +22,8 @@ from loguru import logger
 from swift import __version__
 from swift.audio.recorder import MicRecorder
 from swift.config.paths import app_paths
+from swift.connectors.base import EmailConnector
+from swift.connectors.fake import FakeMailConnector
 from swift.executors.base import Executor
 from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
@@ -32,11 +34,14 @@ from swift.routing import Route, route
 from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
 from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog
+from swift.security.gateway import ActionGateway
+from swift.security.journal import Journal
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
 from swift.stt.fixes import WordFixes
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
 from swift.wake import WakeListener
+from swift.workflows.tools import KnownContact, ToolHost
 
 READY_PREFIX = "SWIFT_BACKEND_READY"
 
@@ -75,7 +80,29 @@ def _make_transcriber(settings: Settings) -> LocalTranscriber:
     )
 
 
-def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
+DEMO_LECTURER = KnownContact("Dr Ada Lovelace", "ada.lovelace@example.edu", ("lecturer", "professor"))
+
+
+def _make_tools(settings: Settings) -> ToolHost:
+    """Swift's workflow tools (ADR-010). Debug mode always uses the fake connector: a demo never touches Google."""
+    kind = "fake" if settings.debug else settings.connectors.email
+    connector: EmailConnector | None = None
+    if kind == "fake":
+        connector = FakeMailConnector()
+    elif kind == "gmail":
+        from swift.connectors.gmail import GmailConnector
+
+        connector = GmailConnector()
+    contacts = tuple(KnownContact(c.name, c.email, tuple(c.aliases)) for c in settings.contacts)
+    if kind == "fake" and not contacts:
+        contacts = (DEMO_LECTURER,)
+    journal = Journal(Path(settings.logging.journal))
+    journal.report_unfinished()
+    logger.info("workflow tools", email=kind, contacts=len(contacts))
+    return ToolHost(connector, contacts, ActionGateway(journal))
+
+
+def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | None = None) -> Executor:
     cfg = settings.executor
     match cfg.kind:
         case "mock":
@@ -94,6 +121,7 @@ def _make_executor(settings: Settings, mock: MockExecutor) -> Executor:
                 escalation=cfg.escalation,
                 confirm_strong=cfg.confirm_strong,
                 turn_limits=dict(cfg.turn_limits),
+                tools=tools,
             )
         case _:
             return EchoExecutor()
@@ -131,10 +159,13 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     )
 
     router, classifier = _make_router(settings)
-    mock = MockExecutor()
+    tools = _make_tools(settings)
+    mock = MockExecutor(tools=tools)
     session = Session(
         server.send,
-        _make_executor(settings, mock),
+        _make_executor(settings, mock, tools),
+        tools=tools,
+        confirm_timeout_s=settings.executor.confirm_timeout_s,
         debug_executor=mock if settings.debug else None,
         recorder=recorder,
         transcriber=transcriber,

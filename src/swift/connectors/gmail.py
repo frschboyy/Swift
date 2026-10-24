@@ -10,8 +10,8 @@
 
 Signing in is the owner's job, in their own browser::
 
-    uv run --group google python -m swift.connectors.gmail signin
-    uv run --group google python -m swift.connectors.gmail signout
+    uv run --group spikes python -m swift.connectors.gmail signin
+    uv run --group spikes python -m swift.connectors.gmail signout
 
 The Google libraries are imported only when the connector is used, so Swift
 runs without them while ``connectors.email`` isn't ``gmail``.
@@ -36,7 +36,7 @@ SCOPES = [
 KEYRING_SERVICE = "Swift/Google"
 KEYRING_USER = "refresh_token"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
-SIGNIN_HINT = "Run `uv run --group google python -m swift.connectors.gmail signin` and sign in, then try again."
+SIGNIN_HINT = "Run `uv run --group spikes python -m swift.connectors.gmail signin` and sign in, then try again."
 
 
 def client_secret_path() -> Path:
@@ -78,7 +78,7 @@ class GmailConnector:
             from google.oauth2.credentials import Credentials
         except ImportError:
             raise ConnectorError(
-                "The Google libraries aren't installed.", "Run `uv sync --group google`, then restart Swift.",
+                "The Google libraries aren't installed.", "Run `uv sync --group spikes`, then restart Swift.",
                 code="not_connected",
             ) from None
         token = keyring.get_password(KEYRING_SERVICE, KEYRING_USER)

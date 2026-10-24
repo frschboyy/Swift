@@ -267,11 +267,11 @@ B and C each need the owner's go-ahead.
   - Connectors have a manifest (id, name, auth) per ADR-005; Swift, not the manifest, assigns side effects.
 - `connectors/fake.py`: an in-memory `FakeMailConnector` for tests and debug mode. It records sends and can be told to fail.
 - `connectors/gmail.py`:
-  - Uses Gmail REST through `google-api-python-client`, imported lazily. It moves from the `spikes` group to an optional `google` group.
+  - Uses Gmail REST through `google-api-python-client`, imported lazily. The libraries stay in the `spikes` dependency group for now; a separate `google` group needs `uv lock` on the owner's machine (follow-up).
   - Sends with `drafts.create` then `drafts.send` under `gmail.compose`, the scope S4 verified. No `gmail.readonly` and no mail search, unchanged.
   - Uses `people.searchContacts` / `otherContacts` under `contacts.readonly` for the directory.
 - **Sign-in is the owner's.**
-  - `uv run --group google python -m swift.connectors.gmail signin` opens the browser through `InstalledAppFlow`, as `spikes/google/oauth_probe.py` does, and stores **only the refresh token** in Credential Manager (`Swift/Google`) (T9).
+  - `uv run --group spikes python -m swift.connectors.gmail signin` opens the browser through `InstalledAppFlow`, as `spikes/google/oauth_probe.py` does, and stores **only the refresh token** in Credential Manager (`Swift/Google`) (T9).
   - Claude never enters credentials. Swift starts without it and says "Gmail isn't connected" with that command as the hint.
 - **Config** (`config.yaml`): `connectors.email: none | fake | gmail` (default `none`) and `contacts: [{name, email, aliases}]`.
 

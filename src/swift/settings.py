@@ -182,12 +182,28 @@ class DemandClassifierSettings(_Section):
         return expand(v)
 
 
+class ContactSettings(_Section):
+    """Someone Swift may email (ADR-010): "my lecturer" finds them through ``aliases``."""
+
+    name: str = Field(min_length=1)
+    email: str = Field(pattern=r"^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$")
+    aliases: list[str] = Field(default_factory=list)
+
+
+class ConnectorSettings(_Section):
+    # Which email service Swift's tools use (ADR-010 §9). gmail needs signing in first:
+    # uv run --group spikes python -m swift.connectors.gmail signin. Debug mode always uses fake.
+    email: Literal["none", "fake", "gmail"] = "none"
+
+
 class LoggingSettings(_Section):
     interactions: str = "%LOCALAPPDATA%/Swift/interactions.jsonl"
     app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
+    # Every side effect (a sent email), before and after; metadata only (ADR-010 §4).
+    journal: str = "%LOCALAPPDATA%/Swift/journal.jsonl"
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
-    @field_validator("interactions", "app_log_dir")
+    @field_validator("interactions", "app_log_dir", "journal")
     @classmethod
     def _expand(cls, v: str) -> str:
         return expand(v)
@@ -208,6 +224,10 @@ class Settings(_Section):
     # exchange as context, so "now commit it" works (ADR-007 §9). 0 turns it off.
     followup_context_s: float = Field(300.0, ge=0)
     demand_classifier: DemandClassifierSettings = Field(default_factory=DemandClassifierSettings)
+    connectors: ConnectorSettings = Field(default_factory=ConnectorSettings)
+    # The only people Swift resolves besides your Google contacts (ADR-010 §4: addresses never
+    # come from the model or from speech alone).
+    contacts: list[ContactSettings] = Field(default_factory=list)
     debug: bool = False
 
 

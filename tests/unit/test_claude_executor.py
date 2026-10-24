@@ -109,6 +109,40 @@ def test_options_split_auto_and_confirm_tools_and_ignore_settings(tmp_path: Path
     assert opts.max_budget_usd == 1.0 and opts.cwd == str(tmp_path)
 
 
+async def test_swift_tools_are_offered_without_a_claude_prompt(tmp_path: Path) -> None:
+    """ADR-010 §3.5: Swift's tools are allowed outright; the gateway's card is the one approval."""
+    from claude_agent_sdk import tool
+
+    from swift.connectors.fake import FakeMailConnector
+    from swift.workflows.tools import KnownContact, ToolHost
+
+    host = ToolHost(FakeMailConnector(contacts=()), (KnownContact("Dr Ada Lovelace", "ada@example.edu", ("lecturer",)),))
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host)
+    opts = ex.options(_Run(), "cc-1")
+    swift_tools = ["mcp__swift__find_contact", "mcp__swift__draft_email", "mcp__swift__send_email", "mcp__swift__present"]
+    for name in swift_tools:
+        assert name in opts.allowed_tools and name in opts.tools
+    assert "mcp__swift__request_stronger_model" in opts.allowed_tools
+    assert "never type one yourself" in opts.system_prompt
+    no_escalation = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host, escalation=False)
+    assert list(no_escalation.options(_Run(), "cc-1").mcp_servers) == ["swift"]
+
+    # The SDK tool runs the host's tool inside the session's run scope.
+    published: list[Any] = []
+
+    async def publish(artifact: Any) -> None:
+        published.append(artifact)
+
+    async def confirm(*_: Any) -> str:
+        return "approve"
+
+    host.open(publish, confirm)
+    find = ex._sdk_tool(tool, host.tools["find_contact"])
+    out = await find.handler({"query": "my lecturer"})
+    assert out["is_error"] is False and "ada@example.edu" in out["content"][0]["text"]
+    assert published[0].kind == "recipient"
+
+
 def test_setup_problems_are_reported_before_anything_starts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ExecutorUnavailable, match="No working folder"):
         ClaudeCodeExecutor(cwd=None, claude="c").options(_Run(), "cc-1")

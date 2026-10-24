@@ -17,6 +17,9 @@ name, ``executors.providers.AGENT_NAMES``) is removed like the wake word and kep
 in ``addressed_as``, so the session can say once who it is (ADR-008). Alone, or as
 "who are you?", it is the local ``identity`` answer.
 
+During a run, ``route_midrun`` is the only grammar (ADR-010 §6): "show me", "show the
+draft", "hide that" and the stop words. It never starts a run; anything else is None.
+
 Mis-taking a request for a command loses it, so control and local patterns are
 deliberately narrow: an unmatched command still reaches Claude Code, just slower.
 """
@@ -159,6 +162,37 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     if _THINK_HARD.match(request):
         return Route("agent", request, demand="standard", override="opus")
     return Route("agent", request, demand=demand_fn(request) or default_demand)  # type: ignore[arg-type]
+
+
+# Mid-run grammar (ADR-010 §6): what the owner may say while a run works. Whole utterance only.
+_SHOW_WHAT = {
+    "draft": "email_draft", "email": "email_draft", "message": "email_draft", "mail": "email_draft",
+    "recipient": "recipient", "contact": "recipient", "who": "recipient",
+    "progress": "send_status", "status": "send_status",
+    "steps": "steps", "step": "steps",
+}
+_SHOW = re.compile(
+    r"(?:(?:can you |could you )?show me|let me see|show|what are you doing|what'?s happening|what'?s going on)"
+    r"(?: (?:it|that|this|the (?P<what>\w+)(?: you'?re writing| so far)?|what you'?re doing|your progress))?"
+)
+_HIDE = re.compile(r"(?:hide|close)(?: (?:it|that|this|the \w+))?|go back|back")
+
+
+def route_midrun(text: str) -> Route | None:
+    """A mid-run command: ``show`` (``target``: an artifact kind, "steps", or None), ``hide``,
+    or a control action (stop / cancel / approve / reject ...). None for anything else."""
+    norm = _normalize(text)
+    if m := _SHOW.fullmatch(norm):
+        what = m.group("what")
+        if what is not None and what not in _SHOW_WHAT:
+            return None
+        return Route("control", text.strip(), action="show", target=_SHOW_WHAT.get(what or ""))
+    if _HIDE.fullmatch(norm):
+        return Route("control", text.strip(), action="hide")
+    for action, pattern in _CONTROL:
+        if pattern.fullmatch(norm):
+            return Route("control", text.strip(), action=action)
+    return None
 
 
 def route_for_eval(text: str) -> tuple[str, str | None]:

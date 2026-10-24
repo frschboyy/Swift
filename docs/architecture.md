@@ -35,7 +35,7 @@ Wake detection runs, and actions execute, only while availability is `ACTIVE`.
 
 ## Trust boundary
 
-Every side effect goes through `security/gateway.py`. The full sequence is:
+Every side effect goes through `security/gateway.py` (built in ADR-010 for email; more workflows reuse it). The full sequence is:
 
 1. validate
 2. resolve targets
@@ -47,7 +47,19 @@ Every side effect goes through `security/gateway.py`. The full sequence is:
 8. journal `DONE`/`FAILED`
 9. audit
 
-`tests/test_architecture.py` (Phase 3) enforces by AST scan that nothing else calls `ToolSpec.execute`.
+What exists today (ADR-010):
+
+- `ActionGateway.execute` runs those steps for `send_email`. Policy is a fixed table: external side effects always need the confirm card; there is no "auto". The approval is bound to the draft's digest, used once, and voided if the draft changes.
+- The journal (`%LOCALAPPDATA%\Swift\journal.jsonl`) holds metadata only; an action still `PENDING` at startup is logged and never resumed.
+- `tests/unit/test_architecture.py` checks by AST scan that a connector's `send` is reached only through the gateway's `Action.perform`.
+
+## Workflows and "show me" (ADR-010)
+
+- **Swift's tools** (`swift/workflows/tools.py`): `find_contact`, `draft_email`, `send_email`, `present`, one `ToolHost` with one open `RunScope` per run. Claude Code gets them in its in-process `swift` MCP server; Codex and Hermes will get them over a loopback HTTP MCP server (phase B).
+- **Recipients** come only from `contacts` in config or the connector's directory, through `find_contact`; an address from the model or from speech alone is refused.
+- **Artifacts**: the tools publish typed, versioned snapshots (`email_draft`, `recipient`, `send_status`, `text`, `list`, `table`) as `artifact` messages. The session keeps the latest of each for the current run.
+- **Voice mid-run**: push-to-talk while working goes to `rules.route_midrun` ("show me", "show the draft", "hide that", "stop"). Swift answers in milliseconds, without a model or a new run.
+- **"Show me"**: the session picks the artifact for the run's phase (`ArtifactStore.pick`) and sends `view`; the overlay swaps the working card's body for it in place.
 
 ## Connectors (ADR-005)
 
@@ -57,7 +69,7 @@ Integrations sit behind a connector boundary:
 - Connector output is `UNTRUSTED_EXTERNAL`.
 - Connector tools execute only through the gateway, like every other tool.
 
-The MVP ships only the built-in Google connector. A plugin/MCP host is Phase 7.
+Built so far: `connectors/fake.py` (tests, debug mode) and `connectors/gmail.py` (`drafts.create` + `drafts.send` under `gmail.compose`; People search under `contacts.readonly`; refresh token only, in Credential Manager). A plugin/MCP host for third-party connectors is Phase 7.
 
 ## Configuration and logging (Phase 0)
 

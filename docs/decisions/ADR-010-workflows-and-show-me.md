@@ -303,3 +303,24 @@ These can't be verified in tests or the dev harness:
   - one new optional field, `artifact_id` on `confirm.request`.
 - **`docs/architecture.md`** is updated so the trust-boundary section describes what exists, not only the plan.
 - **`ExecResult` doesn't change.** Artifacts travel beside the run, not inside the result.
+
+## 13. Implementation status (phase A, 2026-10-24, branch `claude/workflow-foundations-eaf9e4`)
+
+Built as decided. Verified by unit tests with the fake connector and by the dev harness (§11 still applies).
+
+| Part | Where | Tests |
+|---|---|---|
+| Protocol additions | `ipc/protocol.py`, `overlay/src/protocol.ts` | `test_protocol.py` |
+| Connectors | `connectors/base.py`, `fake.py`, `gmail.py` | Gmail only by the owner (REQUIRES-GOOGLE) |
+| Gateway and journal | `security/gateway.py`, `security/journal.py` | `test_workflows.py`, `test_architecture.py` |
+| Tools and artifacts | `workflows/tools.py`, `scope.py`, `artifacts.py` | `test_workflows.py` |
+| Session: scope, Swift confirm cards, show me, mid-run voice | `session.py`, `routing/rules.py` (`route_midrun`) | `test_show_me.py`, `test_voice_confirm.py` |
+| Claude Code gets the tools | `executors/claude_code.py` | `test_claude_executor.py` |
+| Demo and harness | `executors/mock.py` (`email` scenario, `Call` items), `overlay/dev/` | `test_show_me.py`; harness run in a browser |
+| Settings | `contacts`, `connectors.email`, `logging.journal` | `test_settings.py` |
+
+Differences from the text above:
+
+- The Google libraries stay in the `spikes` dependency group (§9). A separate `google` group needs `uv lock`, which wasn't available where this was built.
+- Push-to-talk while working replaces ADR-009's "Swift is still busy" nudge: the working card now shows Listening / Transcribing and the hint instead.
+- On Swift's send card, "show me" expands the clipped draft in place, rather than opening a separate view.

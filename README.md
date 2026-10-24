@@ -56,6 +56,8 @@ npm --prefix overlay run dev
 # in the browser console: __shim.emit("hotkey", {name: "debug", state: "down"})
 ```
 
+**Email workflow and "show me" (ADR-010), no microphone or Google account:** start the backend from the `backend-harness` entry in `.claude/launch.json` (or `--config overlay/dev/harness-config.yaml`: debug on, the fake email connector, logs in `%TEMP%\swift-harness`). The harness then shows buttons: **Email demo** runs find_contact → draft_email → send_email through Swift's real tools and gateway; **Say “show me”**, **“hide that”**, **“approve”** and **“stop”** send typed text as if spoken mid-run (`debug.say`). Nothing is ever sent: debug mode always uses the fake connector.
+
 It tests rendering and the protocol only. Window behavior (focus, click-through, capture exclusion, dragging) needs the real Tauri build. Add `&anchor=top-right` (or any other anchor) to the URL to check a placement, or call `__shim.emit("placement", {anchor: "top-left"})`.
 
 ### Moving the overlay
@@ -264,7 +266,7 @@ Only one copy of Swift runs at a time. Launching it again while it's running sho
 
 ## Milestone 1: what to try
 
-With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays the next scenario: `happy` → `confirm` → `error` → `long`. Each one shows the listening orb with a fake mic level, then the transcript and the working steps, and ends on a result or error card.
+With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays the next scenario: `happy` → `confirm` → `error` → `long` → `email`. Each one shows the listening orb with a fake mic level, then the transcript and the working steps, and ends on a result or error card.
 
 - **Esc** cancels while Swift is listening, working or waiting for approval. Swift only claims Esc during those states.
 - On the confirm card, **Approve** and **Reject** are clickable. Everywhere else, clicks pass through to the window below.

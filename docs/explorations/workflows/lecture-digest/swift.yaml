@@ -1,0 +1,17 @@
+schema: swift.workflow/v0
+name: lecture-digest
+version: 1.0.0
+title: Weekly lecture digest
+triggers:
+  - say: ["what did I cover this week", "lecture digest", "catch me up on lectures"]
+  - schedule: {cron: "0 18 * * FRI", notify: card}   # Friday 18:00; shows a card, never acts unasked
+settings:
+  notes_folder: {type: folder, default: "%USERPROFILE%/Documents/Lectures"}  # the "lecture notes" folder in local.folders
+needs:
+  - files.list: {within: "{settings.notes_folder}"}
+  - files.read: {within: "{settings.notes_folder}", max_mb: 20}             # output tainted
+  - swift.present
+run:
+  recipe: recipe.yaml
+  playbook: SKILL.md
+shows: [list, text]

@@ -1,0 +1,48 @@
+# Steps Swift runs itself (ADR-011 §5). Each step is one of:
+#   tool:  a capability (Swift's own or an approved MCP server's), checked by the gateway
+#   agent: a bounded task for a provider, returning structured output (a JSON schema)
+#   ask:   a confirm card (the gateway also adds one for any step whose risk needs it)
+#   show:  an artifact for the overlay
+# Expressions are ${ ... } over inputs, settings and earlier steps' outputs (a small, sandboxed language).
+schema: swift.recipe/v0
+vars:
+  folders:
+    documents: "%USERPROFILE%/Documents/From downloads"
+    pictures: "%USERPROFILE%/Pictures/From downloads"
+    installers: "%USERPROFILE%/Downloads/Old installers"
+    archives: "%USERPROFILE%/Downloads/Archives"
+steps:
+  - id: files
+    tool: files.list
+    with: {folder: "%USERPROFILE%/Downloads", changed_before: "${now - hours(24)}"}
+
+  - id: by_type
+    tool: swift.classify          # deterministic: extension rules, no model
+    with:
+      items: ${steps.files.out}
+      rules:
+        - {match: [pdf, docx, xlsx, pptx, txt, md], group: documents}
+        - {match: [png, jpg, jpeg, gif, webp, heic], group: pictures}
+        - {match: [exe, msi], older_than_days: 30, group: installers}
+        - {match: [zip, 7z, rar], group: archives}
+
+  - id: unknown
+    when: ${len(steps.by_type.out.unmatched) > 0}
+    agent:
+      task: "Decide which group each file belongs to from its name alone, or 'leave' if unsure."
+      input: ${names(steps.by_type.out.unmatched)}  # file names only; never contents
+      output_schema:
+        type: array
+        items: {type: object, properties: {file: {type: string}, group: {enum: [documents, pictures, installers, archives, leave]}}}
+      tools: []                                      # judgment only: no tools
+      model: light
+
+  - id: moves
+    let: '${[{file: m.file, to: vars.folders[m.group]} for m in steps.by_type.out.matched + steps.unknown.out if m.group != "leave"]}'
+
+  - id: plan
+    show: {kind: table, title: "Tidy Downloads: ${len(steps.moves.out)} files", columns: [File, To], rows: '${steps.moves.out}'}
+
+  - id: move
+    tool: files.move               # reversible: the gateway confirms the whole batch once, showing the plan
+    with: {moves: '${steps.moves.out}'}

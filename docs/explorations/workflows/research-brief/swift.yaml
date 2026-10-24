@@ -1,0 +1,24 @@
+# Swift's manifest for research-brief (ADR-011 §4). A playbook only: an agent does the work.
+schema: swift.workflow/v0
+name: research-brief
+version: 1.0.0
+title: Research brief
+triggers:
+  - say: ["research {topic}", "look into {topic}", "give me a brief on {topic}"]
+inputs:
+  topic: {type: text}
+  depth: {type: choice, of: [quick, normal, thorough], default: normal}
+settings:
+  research_folder: {type: folder, default: "%USERPROFILE%/Documents/Research"}
+# What it may use. Swift assigns the risk, never the workflow (ADR-005).
+needs:
+  - web.search              # read
+  - web.fetch               # read; output tainted (untrusted)
+  - files.write:            # reversible; confined to the setting below
+      within: "{settings.research_folder}"
+  - swift.present           # none
+run:
+  playbook: SKILL.md
+  provider: any             # any provider with web access; Swift prefers the configured default
+  budget: {minutes: 15, usd: 1.00}
+shows: [text]               # the brief, as an artifact "show me" can open

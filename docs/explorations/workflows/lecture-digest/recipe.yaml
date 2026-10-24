@@ -1,0 +1,28 @@
+schema: swift.recipe/v0
+steps:
+  - id: new
+    tool: files.list
+    with: {folder: "${settings.notes_folder}", recursive: true, changed_after: "${now - days(7)}", types: [pdf, docx, md, pptx]}
+
+  - id: nothing
+    when: ${len(steps.new.out) == 0}
+    finish: "No new lecture files this week."
+
+  - id: text
+    for_each: ${steps.new.out}        # in parallel, capped by the runtime
+    tool: files.extract_text          # local extraction, no model
+    with: {path: "${item.path}", max_chars: 40000}
+
+  - id: digest
+    agent:
+      task: "Write the weekly digest described in SKILL.md from these extracts, grouped by course (the subfolder)."
+      input: ${steps.text.out}         # tainted: the agent gets no tools in this step
+      tools: []
+      output_schema:
+        type: object
+        properties:
+          courses: {type: array, items: {type: object, properties: {course: {type: string}, ideas: {type: array}, terms: {type: array}, questions: {type: array}, sources: {type: array}}}}
+      model: standard
+
+  - id: show
+    show: {kind: text, title: "This week's lectures", text: "${markdown(steps.digest.out)}"}

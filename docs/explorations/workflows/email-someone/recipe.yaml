@@ -1,0 +1,28 @@
+# ADR-010's email flow as a recipe: the same Swift tools, with the model used only to write.
+schema: swift.recipe/v0
+steps:
+  - id: who
+    tool: email.find_contact
+    with: {query: "${inputs.person}"}
+
+  - id: pick
+    when: ${len(steps.who.out.candidates) != 1}
+    ask:                                   # Swift asks; no model guesses who was meant
+      title: "Which ${inputs.person}?"
+      choose_from: ${steps.who.out.candidates}
+
+  - id: words
+    agent:
+      task: "Write the email described in SKILL.md, step 2."
+      input: {to: "${steps.pick.out ?? steps.who.out.candidates[0]}", message: "${inputs.message}"}
+      tools: []
+      output_schema: {type: object, properties: {subject: {type: string}, body: {type: string}}, required: [subject, body]}
+      model: light
+
+  - id: draft
+    tool: email.draft
+    with: {to: ["${(steps.pick.out ?? steps.who.out.candidates[0]).email}"], subject: "${steps.words.out.subject}", body: "${steps.words.out.body}"}
+
+  - id: send
+    tool: email.send                       # external: the gateway shows the draft and waits for approval
+    with: {draft_id: "${steps.draft.out.draft_id}"}

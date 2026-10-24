@@ -1,0 +1,21 @@
+schema: swift.workflow/v0
+name: tidy-downloads
+version: 2.1.0
+title: Tidy my downloads
+triggers:
+  - say: ["tidy my downloads", "clean up downloads", "sort my downloads folder"]
+needs:
+  - files.list:  {within: "%USERPROFILE%/Downloads"}                       # read
+  - files.move:                                                              # reversible: journal + undo
+      from: "%USERPROFILE%/Downloads"
+      to: ["%USERPROFILE%/Documents/From downloads", "%USERPROFILE%/Pictures/From downloads", "%USERPROFILE%/Downloads"]
+  - swift.present
+run:
+  recipe: recipe.yaml       # hardened from the playbook after it ran the same way several times (ADR-011 §5.3)
+  playbook: SKILL.md        # fallback, and what other agents use
+shows: [table, list]
+undo: true                  # "undo that" reverses the last run's moves from the journal
+history:
+  - {version: 1.0.0, note: "playbook only"}
+  - {version: 2.0.0, note: "hardened into a recipe from 6 runs; agent only for unknown extensions"}
+  - {version: 2.1.0, note: "skip files changed in the last 24 h (one run moved a file still downloading)"}

@@ -265,6 +265,8 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
   if (data.phase === "listening") hint.replaceChildren(icon("mic"), "Listening…");
   else if (data.phase === "transcribing") hint.textContent = "Transcribing…";
   else if (data.phase === "hint") hint.textContent = data.text;
+  // A voice approval Swift held back (noise, or not sure what it heard): it needs one more.
+  else if (data.phase === "again") hint.replaceChildren(icon("alert"), data.text);
   else hint.replaceChildren("Or hold ", pttKeys(), " and say “approve” or “reject”.");
 }
 

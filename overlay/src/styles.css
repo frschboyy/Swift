@@ -347,6 +347,7 @@ code {
 .voice-hint[data-phase="listening"],
 .voice-hint[data-phase="transcribing"] { color: var(--accent); }
 .voice-hint[data-phase="hint"] { color: var(--text); }
+.voice-hint[data-phase="again"] { color: var(--warn); }
 .countdown { margin: 6px 0 0; font-size: 12.5px; color: var(--warn); }
 .countdown:empty { display: none; }
 

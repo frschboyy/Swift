@@ -166,19 +166,41 @@ not a calibration.
    with p 0.71. "Sure" is an *approve* command, and single words are never
    refused. On an open confirm card, that would approve the action. Confidence
    doesn't separate these cases: the owner's clean "Stop." scored 0.46.
+   *Fixed:* see "Approving by voice in noise" below.
 4. **The speaker check would reject the owner in TV noise.** The owner's median
    score was 0.28, and 5 of 8 clips fell below 0.35. The TV-only clips scored 0.07
    and 0.12, but the lowest owner clip scored 0.15, so no threshold separates them.
    This is harsher than the synthetic 10 dB mix suggested. The check can't be a
    hard gate in this room.
 
+## Approving by voice in noise
+
+When the room is noisy, a voice "approve" on a confirm card no longer counts on its own.
+The card says "Heard “Sure.”, but it's noisy here. Say “approve” again to go ahead, or
+click." A second "approve" or a click goes ahead. "Reject", "stop" and Esc still
+take effect at once. Anything else said in between starts the check over.
+
+* **Noisy** means the room between words is louder than `stt.noisy_db` (−50 dBFS).
+  This is measured as the 10th percentile of the 32 ms blocks in the recording,
+  skipping the digital silence at the start of the stream (`Transcription.noise_db`).
+  * The owner's clean clips measured −72 to −45: 2 of 40 counted as noisy.
+  * The TV clips measured −49 to −31: all 8 spoken ones counted as noisy, including
+    the "Stop." heard as "Sure.".
+  * A false "noisy" costs one more word. A missed one could approve an action
+    nobody asked for.
+* **Word confidence is not used.** At 0.9 it would have held 35 of the owner's 40
+  clean clips: "Stop." scored 0.46, lower than the misheard "Sure." at 0.71.
+* The interaction log records `noise_db` for every voice request. A held approval
+  records `held_for: "noise"` and, when it went through, `confirmed_twice`.
+* Steady noise such as a fan counts too: the floor can't tell voices from other sound.
+
 ## Not done / next
 
 * More real conditions: music with vocals, fan or street noise, speaking from 2 m.
   Re-run `real_noise.py --speaker` after each. In particular, measure how often
-  `reject_p` refuses a correct request in noise.
-* Voice approval in noise (finding 3): an approve heard by voice could need
-  a second confirmation, or a click, when there is background speech.
+  `reject_p` refuses a correct request in noise, and check `noisy_db` against them.
+* No recordings yet of the owner saying "approve" or "yes" in noise: the threshold
+  was checked on whole requests, whose pauses look the same to the floor measure.
 * Larger models are the main reason cloud transcription holds up better in
   noise. Running one locally costs memory Swift doesn't have (see PLAN.md M2).
 * Windows "Voice clarity" processing applies to the communications capture

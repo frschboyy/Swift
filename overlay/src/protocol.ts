@@ -35,7 +35,7 @@ export type Inbound =
   // timeout_s: how long the card waits before the run stops without an answer.
   | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; agent?: Agent | null; timeout_s?: number | null } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
-  | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } }
+  | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
   | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.

@@ -168,3 +168,21 @@ async def test_word_probabilities_reach_the_transcription() -> None:
     stt._load()
     result = await stt.transcribe(speech(1.0))
     assert [w.text for w in result.words] == ["run", "the", "tests"] and result.confidence == 0.9
+
+
+def test_noise_floor_tells_a_quiet_room_from_a_noisy_one() -> None:
+    import numpy as np
+
+    from swift.stt.transcriber import noise_floor_db
+
+    rng = np.random.default_rng(0)
+    speech = 0.2 * np.sin(np.arange(16_000) * 0.05)
+
+    def clip(room: float) -> np.ndarray:
+        gap = room * rng.standard_normal(8_000)
+        return np.concatenate([np.zeros(8_000), gap, speech + room * rng.standard_normal(16_000), gap])
+
+    quiet, noisy = noise_floor_db(clip(10 ** (-65 / 20))), noise_floor_db(clip(10 ** (-35 / 20)))
+    assert quiet is not None and noisy is not None
+    assert quiet < -55 and noisy > -45  # digital silence at the start is not the room
+    assert noise_floor_db(np.full(2_000, 0.1)) is None  # too short to say

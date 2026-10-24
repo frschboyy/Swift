@@ -138,6 +138,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         followup_s=settings.followup_context_s,
         unclear_p=settings.stt.unclear_p,
         reject_p=settings.stt.reject_p,
+        noisy_db=settings.stt.noisy_db,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)

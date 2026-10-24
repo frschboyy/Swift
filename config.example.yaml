@@ -26,6 +26,9 @@ stt:
   # a transcript averaging below reject_p isn't acted on. 0 turns a check off.
   unclear_p: 0.4
   reject_p: 0.7
+  # Approving by voice in a noisy room (between words louder than noisy_db dBFS) takes a
+  # second "approve" or a click. Rejecting never waits.
+  noisy_db: -50
   save_audio: false                # debug: keep each recording as a WAV in audio_dir
   audio_dir: "%LOCALAPPDATA%/Swift/audio"
 

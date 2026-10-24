@@ -69,7 +69,7 @@ from swift.routing import route as default_router
 from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import strip_wake
-from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, assess
+from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, Transcription, assess
 
 Send = Callable[[Message], Awaitable[None]]
 OnFinish = Callable[[dict[str, Any]], None]
@@ -96,6 +96,12 @@ TAIL_S = 0.3
 # A request this soon after the previous Claude answer carries that exchange as context.
 FOLLOWUP_S = 300.0
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
+# A voice approval in a noisy room needs a second one (docs/stt-noise.md). The room
+# between words measured -72 to -45 dBFS quiet and -49 to -31 with a TV talking. Word
+# confidence doesn't help here: a clean "Stop." scored 0.46, a misheard "Sure." 0.71.
+NOISY_DB = -50.0
+DOUBT_TEXT = {"noise": "it's noisy here"}
+CONFIRM_AGAIN_HINT = "Say “approve” again to go ahead, or click."
 
 
 @dataclass(frozen=True)
@@ -166,6 +172,7 @@ class Session:
         fallbacks: tuple[Executor, ...] = (),
         unclear_p: float = UNCLEAR_P,
         reject_p: float = REJECT_P,
+        noisy_db: float = NOISY_DB,
     ) -> None:
         self._send = send
         self.executor = executor
@@ -193,6 +200,10 @@ class Session:
         # transcript averaging below reject_p is not acted on. 0 turns either off.
         self.unclear_p = unclear_p
         self.reject_p = reject_p
+        # A voice "approve" in a room louder than noisy_db needs a second "approve" or a click.
+        self.noisy_db = noisy_db
+        # The last voice capture's transcription, for the checks above.
+        self._heard: Transcription | None = None
         self._last_exchange: Exchange | None = None
         # The last answer, with the agent that produced it (None: Swift), for "repeat that".
         self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
@@ -369,9 +380,12 @@ class Session:
             raise UserFacingError(
                 "stt_unavailable", str(exc), exc.hint, title="Speech recognition isn't ready", retry=True
             ) from None
+        self._heard = result
         record["stt_ms"] = result.stt_ms
         if result.peak_db is not None:
             record["peak_db"] = result.peak_db
+        if result.noise_db is not None:
+            record["noise_db"] = result.noise_db
         if result.raw_text is not None:
             record["transcript_raw"] = result.raw_text
         if not result.text:
@@ -709,8 +723,19 @@ class Session:
         if request_id not in self._confirm_ids:  # answered by click meanwhile
             return
         decision = (self.router or default_router)(text)
+        held = entry.pop("held", None)
+        if decision.route == "control" and decision.action == "approve" and held is None:
+            if (doubt := self._approval_doubt(self._heard)) is not None:
+                # Approving is the one answer a mishearing can't undo: ask once more. Rejecting,
+                # stopping or clicking still works at once.
+                entry["held"] = entry.setdefault("held_for", doubt)
+                logger.info("voice approval held for a second confirmation", reason=doubt)
+                await phase("again", f"Heard “{_clip(text, 40)}”, but {DOUBT_TEXT[doubt]}. {CONFIRM_AGAIN_HINT}")
+                return
         if decision.route == "control" and decision.action in ("approve", "reject"):
-            logger.info("confirm answered by voice", decision=decision.action)
+            logger.info("confirm answered by voice", decision=decision.action, second=held is not None)
+            if held is not None and decision.action == "approve":
+                entry["confirmed_twice"] = True
             await self._confirm_reply(request_id, decision.action == "approve", source="voice")
         elif decision.route == "control" and decision.action in ("stop", "cancel", "mute"):
             entry["source"] = "voice"
@@ -718,6 +743,12 @@ class Session:
                 self._task.cancel()  # like Esc; the interaction cleans up
         else:
             await phase("hint", f"Heard “{_clip(text, 60)}”. {CONFIRM_VOICE_HINT}")
+
+    def _approval_doubt(self, heard: Transcription | None) -> str | None:
+        """Why a voice "approve" shouldn't count on its own: "noise", or None."""
+        if heard is not None and heard.noise_db is not None and heard.noise_db > self.noisy_db:
+            return "noise"
+        return None
 
     @staticmethod
     def _with_unclear(request: str, record: dict[str, Any]) -> str:

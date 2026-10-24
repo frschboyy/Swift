@@ -36,6 +36,10 @@ SILENCE_DB = -50.0
 TRIM_DB = -45.0
 TRIM_PAD_S = 0.2
 _GATE_BLOCK = 512
+# Blocks at or below this are digital silence (the stream starting up), not the room.
+_DEAD_DB = -85.0
+# Fewer live blocks than this and the room level isn't measured.
+_MIN_FLOOR_BLOCKS = 8
 
 PARAKEET_DIR = "parakeet-tdt-0.6b-v2"
 PARAKEET_REPO = "istupakov/parakeet-tdt-0.6b-v2-onnx"
@@ -83,6 +87,8 @@ class Transcription:
     raw_text: str | None = None
     # Words as the model heard them (before fixes), with their probabilities.
     words: tuple[Word, ...] | None = None
+    # How loud the room was between words (dBFS), or None if the clip was too short to say.
+    noise_db: float | None = None
 
     @property
     def confidence(self) -> float | None:
@@ -159,6 +165,19 @@ def loudest_db(samples: np.ndarray) -> float:
     """RMS level of the loudest 32 ms block, in dBFS (float samples in -1..1)."""
     db = _block_db(samples)
     return float(db.max()) if len(db) and db.max() > -120.0 else -120.0
+
+
+def noise_floor_db(samples: np.ndarray) -> float | None:
+    """The room's level between words: the 10th percentile of the 32 ms blocks, in dBFS.
+
+    On the owner's recordings (docs/stt-noise.md) a quiet room measured -72 to -45 and a
+    room with a TV talking -49 to -31. Digital silence at the start of a stream is skipped.
+    """
+    db = _block_db(samples)
+    live = db[db > _DEAD_DB]
+    if len(live) < _MIN_FLOOR_BLOCKS:
+        return None
+    return round(float(np.percentile(live, 10)), 1)
 
 
 def trim_silence(samples: np.ndarray) -> np.ndarray:
@@ -248,6 +267,7 @@ class LocalTranscriber:
         peak_db = round(loudest_db(samples), 1)
         if peak_db < SILENCE_DB:
             return Transcription("", 0, audio_s, peak_db)
+        noise_db = noise_floor_db(samples)  # before trimming: the gaps are what it measures
         samples = trim_silence(samples)
         with self._busy:
             t0 = time.perf_counter()
@@ -255,7 +275,9 @@ class LocalTranscriber:
             ms = int((time.perf_counter() - t0) * 1000)
         raw = heard.text.strip()
         text = self.fixes.apply(raw)
-        return Transcription(text, ms, audio_s, peak_db, raw if text != raw else None, heard.words if raw else None)
+        return Transcription(
+            text, ms, audio_s, peak_db, raw if text != raw else None, heard.words if raw else None, noise_db
+        )
 
 
 class WhisperTranscriber(LocalTranscriber):

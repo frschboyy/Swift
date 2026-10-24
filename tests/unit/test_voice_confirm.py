@@ -161,3 +161,81 @@ async def test_ptt_while_working_is_still_ignored() -> None:
     await ptt(session, "down")
     assert session._task is first and session._confirm_voice is None
     await session.cancel()
+
+
+# ---- approving in noise (docs/stt-noise.md: "stop" heard as "sure" with a TV on) ------------
+
+
+async def test_a_noisy_approve_waits_for_a_second_one() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    stt.noise_db = -38.0
+    await say(session, stt, "Sure.")
+    assert session.state == "confirm"  # not approved yet
+    again = [m.data for m in out.messages if m.type == "confirm.voice"][-1]
+    assert again["phase"] == "again" and "noisy" in again["text"]
+    await say(session, stt, "Approve.")
+    await finish(session)
+    assert out.last("result")["status"] == "done"
+    approval = records[0]["approvals"][0]
+    assert approval["decision"] == "approve" and approval["held_for"] == "noise" and approval["confirmed_twice"]
+    assert approval["heard"] == ["Sure.", "Approve."]
+
+
+async def test_low_confidence_alone_does_not_hold_an_approve() -> None:
+    # The owner's clean "Stop." scored 0.46: confidence can't tell a mishearing from a short word.
+    session, out, _, _, stt = make()
+    await until_confirm(session, out)
+    stt.noise_db, stt.probs = -62.0, {"Approve.": 0.5}
+    await say(session, stt, "Approve.")
+    await finish(session)
+    assert out.last("result")["status"] == "done" and "again" not in phases(out)
+
+
+async def test_a_clear_approve_in_a_quiet_room_goes_through_at_once() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    stt.noise_db, stt.probs = -62.0, {}
+    await say(session, stt, "Approve.")
+    await finish(session)
+    assert "again" not in phases(out) and "held_for" not in records[0]["approvals"][0]
+
+
+async def test_rejecting_in_noise_is_never_held() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    stt.noise_db = -30.0
+    await say(session, stt, "No.")
+    await finish(session)
+    assert out.last("result")["status"] == "rejected" and "again" not in phases(out)
+
+
+async def test_a_held_approve_then_a_reject_rejects() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    stt.noise_db = -30.0
+    await say(session, stt, "Yes.")
+    await say(session, stt, "No.")
+    await finish(session)
+    assert out.last("result")["status"] == "rejected"
+
+
+async def test_something_else_in_between_starts_over() -> None:
+    session, out, _, _, stt = make()
+    await until_confirm(session, out)
+    stt.noise_db = -30.0
+    await say(session, stt, "Yes.")
+    await say(session, stt, "what was that")
+    await say(session, stt, "Yes.")
+    assert session.state == "confirm" and phases(out).count("again") == 2
+    await session.cancel()
+
+
+async def test_a_click_still_approves_a_held_card() -> None:
+    session, out, _, _, stt = make()
+    request_id = await until_confirm(session, out)
+    stt.noise_db = -30.0
+    await say(session, stt, "Yes.")
+    await session.handle(Message("confirm.reply", {"request_id": request_id, "decision": "approve"}))
+    await finish(session)
+    assert out.last("result")["status"] == "done"

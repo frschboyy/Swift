@@ -49,6 +49,10 @@ class SttSettings(_Section):
     # 0 turns either check off.
     unclear_p: float = Field(0.4, ge=0.0, le=1.0)
     reject_p: float = Field(0.7, ge=0.0, le=1.0)
+    # Approving an action by voice in a noisy room (the room between words louder than
+    # noisy_db dBFS) takes a second "approve" or a click: with a TV on, "stop" was once
+    # heard as "sure". Rejecting is never held up.
+    noisy_db: float = Field(-50.0, le=0.0)
     # Debug: keep every push-to-talk recording as a WAV file in audio_dir.
     save_audio: bool = False
     audio_dir: str = "%LOCALAPPDATA%/Swift/audio"

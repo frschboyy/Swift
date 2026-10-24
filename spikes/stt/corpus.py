@@ -7,6 +7,11 @@ Usage (from the repo root):
 
 read   Shows each sentence in prompts.txt; you read it aloud. Recording starts
        before you speak and stops when you press Enter, so nothing is clipped.
+       --condition NAME tags every clip with the room it was recorded in ("tv",
+       "fan", ...); each condition records the whole list again. A "[quiet]"
+       prompt records the room with nobody speaking (reference: empty).
+       Set SWIFT_STT_CORPUS to keep noisy clips apart from the clean set
+       (real_noise.py reads %LOCALAPPDATA%\\Swift\\stt_noisy by default).
 label  Goes through push-to-talk recordings Swift saved (stt.save_audio: true),
        plays each one with Swift's transcript, and asks for the correct text.
 list   Counts what's in the test set.
@@ -31,6 +36,8 @@ SWIFT_DIR = Path(os.environ["LOCALAPPDATA"]) / "Swift"
 CORPUS_DIR = Path(os.environ.get("SWIFT_STT_CORPUS") or SWIFT_DIR / "stt_corpus")
 REFS = CORPUS_DIR / "refs.jsonl"
 DEFAULT_PROMPTS = Path(__file__).resolve().parent / "prompts.txt"
+# A prompt line meaning "record the room with nobody speaking".
+QUIET = "[quiet]"
 
 
 def load_refs() -> list[dict]:
@@ -106,12 +113,18 @@ def cmd_read(args: argparse.Namespace) -> None:
         line.strip() for line in Path(args.prompts).read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    done = {r["ref"] for r in load_refs() if r["source"] == "read"}
-    todo = [p for p in prompts if p not in done]
+    condition = args.condition
+    done = {r.get("take") or r["ref"] for r in load_refs() if r["source"] == "read" and r.get("condition") == condition}
+    # Repeated "[quiet]" lines are separate takes: number them so each counts once.
+    keyed = [(f"{p}#{n}" if p == QUIET else p, p) for n, p in enumerate(prompts)]
+    todo = [(key, p) for key, p in keyed if key not in done]
     print(f"{len(prompts) - len(todo)} of {len(prompts)} already recorded. Speak at your normal pace and volume.")
+    if condition:
+        print(f"Condition: {condition}. Keep the noise going the whole time, as it really is in this room.")
     print("For each sentence: Enter = start recording, s = skip, q = quit.\n")
-    for i, text in enumerate(todo, 1):
-        print(f"[{i}/{len(todo)}] {text}")
+    for i, (key, text) in enumerate(todo, 1):
+        quiet = text == QUIET
+        print(f"[{i}/{len(todo)}] " + ("Say nothing: record about four seconds of the room as it is." if quiet else text))
         while True:
             choice = input("  Enter to record> ").strip().lower()
             if choice == "q":
@@ -121,7 +134,7 @@ def cmd_read(args: argparse.Namespace) -> None:
             audio = record_until_enter()
             level = peak_db(audio)
             print(f"  {len(audio) / SAMPLE_RATE:.1f} s, peak {level} dBFS")
-            if level < -50:
+            if level < -50 and not quiet:
                 print("  That was nearly silent; check the mic and try again.")
                 continue
             keep = input("  Enter = keep, p = play back, r = redo> ").strip().lower()
@@ -132,7 +145,12 @@ def cmd_read(args: argparse.Namespace) -> None:
                 continue
             clip_id = f"read-{len(load_refs()) + 1:04d}"
             write_wav(CORPUS_DIR / "clips" / f"{clip_id}.wav", audio)
-            append_ref({"id": clip_id, "wav": f"clips/{clip_id}.wav", "ref": text, "source": "read"})
+            row = {"id": clip_id, "wav": f"clips/{clip_id}.wav", "ref": "" if quiet else text, "source": "read"}
+            if quiet:
+                row["take"] = key
+            if condition:
+                row["condition"] = condition
+            append_ref(row)
             break
     print(f"\nDone. {len(load_refs())} clips in {CORPUS_DIR}")
 
@@ -208,6 +226,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p_read = sub.add_parser("read", help="record yourself reading prompts")
     p_read.add_argument("--prompts", default=str(DEFAULT_PROMPTS))
+    p_read.add_argument("--condition", default=None, help='where it was recorded, e.g. "tv" or "fan"')
     p_read.set_defaults(fn=cmd_read)
     p_label = sub.add_parser("label", help="correct transcripts of Swift's saved recordings")
     p_label.add_argument("--audio-dir", default=str(SWIFT_DIR / "audio"))

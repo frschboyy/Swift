@@ -1,0 +1,12 @@
+# Short list for real-noise sessions (corpus.py read --condition NAME --prompts this file).
+# Read once per noise condition. [quiet] = record the room with nobody speaking.
+What's in the executors folder?
+Find the open to-dos in this project.
+Run the tests and tell me how it went.
+Which files changed since the last commit?
+Rename the variable tail s to tail seconds in the session file.
+Create a new branch called fix overlay focus.
+Show the git log for the last two days.
+Stop.
+[quiet]
+[quiet]

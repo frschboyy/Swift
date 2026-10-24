@@ -100,15 +100,85 @@ nothing. Enrolling on 3 clips instead of 10 gave nearly the same numbers. The
 lowest clean score (0.43) was the shortest clip (0.85 s). An embedding takes
 about 120–200 ms on this laptop.
 
-**Caveat:** synthetic voices are far easier to tell apart than real people.
-"Other accepted 0%" is optimistic, and the threshold must be set on recordings of
-real other people before this ships.
+Synthetic voices are far easier to tell apart than real people, so the bench was
+re-run with real ones: Mini LibriSpeech dev-clean-2 (OpenSLR 31, CC BY 4.0,
+126 MB). That gave 208 clips of 2–5 s from 26 volunteer readers
+(`spikes/stt/librispeech_others.py`). The background voices in "owner over other
+voices" were drawn from the same set.
+
+| Audio (real other voices) | Median (range) |
+|---|---|
+| owner, clean | 0.82 (0.43–0.91) |
+| owner over 2 other voices, 10 dB | 0.72 (0.21–0.84) |
+| owner over 2 other voices, 5 dB | 0.52 (0.11–0.76) |
+| owner over 2 other voices, 0 dB | 0.30 (0.08–0.58) |
+| one other speaker | 0.04 (−0.23–0.36) |
+| 2–4 other speakers, no owner | 0.03 (−0.21–0.23) |
+
+| Threshold | owner rejected | owner over voices rejected (10 / 5 / 0 dB) | other speaker accepted | voices accepted |
+|---|---|---|---|---|
+| 0.30 | 0% | 3% / 17% / 47% | 3% (2 speakers) | 0% |
+| 0.35 | 0% | 7% / 30% / 50% | 0% | 0% |
+| 0.40 | 0% | 10% / 30% / 60% | 0% | 0% |
+| 0.45 | 3% | 13% / 30% / 70% | 0% | 0% |
+
+The closest other speakers peaked at 0.36 and 0.30; the other 24 stayed below
+0.20. A threshold of **0.35–0.40** rejected none of the 208 other-speaker clips and
+none of the owner's clean clips. The margin is narrow, though: 0.36 against the
+owner's lowest 0.43.
+
+**Limits of this test:** 26 speakers is a small sample, and the LibriSpeech
+readers used other microphones and rooms. Microphone and room differences push
+scores apart, so someone talking in the owner's own room, into the same mic,
+will score higher than these did. The owner's clips are all read prompts from
+one session. Before shipping, record a few minutes of real use with other people
+in the room and re-check the threshold. Short clips score lower, so very short
+requests may need a lower threshold or no check.
+
+## Real room recordings (2026-10-24)
+
+`spikes/stt/real_noise.py` runs real noisy clips through Swift's own transcriber
+and thresholds (`config.yaml`). The clips come from `corpus.py read --condition NAME`
+with `prompts_noisy.txt`, which holds 8 sentences and 2 takes with nobody speaking.
+The same sentences from the clean corpus are the baseline. So far there is one
+condition: **tv**, a TV with people talking, in the owner's room, at normal
+volume. Eight clips is a small sample, so read these numbers as a first check,
+not a calibration.
+
+| | WER | acted | noted | refused | mean p (p10 / p50) | speaker (p10 / p50) |
+|---|---|---|---|---|---|---|
+| clean (same sentences) | 0.136 | 88% | 12% | 0% | 0.46 / 0.89 | 0.43 / 0.82 |
+| tv | 0.475 | 38% | 25% | 38% | 0.32 / 0.71 | 0.15 / 0.28 |
+
+1. **`reject_p` 0.7 holds.**
+   - It refused all 3 badly wrong transcripts. "Which files changed since the last
+     commit?" was heard as "Which balance John suits the left?", with p 0.53.
+   - It also refused the sentence invented from the TV with nobody speaking (p 0.57).
+   - The other quiet take came back empty.
+   - It refused no clean clip, and no nearly right noisy one: those scored p 0.81–0.98.
+   - 0.65 would have refused the same clips. No noisy multi-word clip was fully
+     correct, so how often 0.7 refuses a correct request in noise is still unmeasured.
+2. **`unclear_p` 0.4 flagged real mistakes.** It named "Overlinger" (for "overlay
+   focus") and "deadlock" (for "git log"). It missed a confident substitution:
+   "**Remove** the variable … to assessment file" for "**Rename** … in the session
+   file" was acted on at p 0.74, with no word below 0.4.
+3. **Single words are the weak spot.** "Stop." over the TV was heard as "Sure."
+   with p 0.71. "Sure" is an *approve* command, and single words are never
+   refused. On an open confirm card, that would approve the action. Confidence
+   doesn't separate these cases: the owner's clean "Stop." scored 0.46.
+4. **The speaker check would reject the owner in TV noise.** The owner's median
+   score was 0.28, and 5 of 8 clips fell below 0.35. The TV-only clips scored 0.07
+   and 0.12, but the lowest owner clip scored 0.15, so no threshold separates them.
+   This is harsher than the synthetic 10 dB mix suggested. The check can't be a
+   hard gate in this room.
 
 ## Not done / next
 
-* Real room recordings. Synthetic noise is a proxy, and real reverb and distance
-  hurt more. Recording a few noisy clips with `corpus.py read` and re-running both
-  benches would confirm the thresholds.
+* More real conditions: music with vocals, fan or street noise, speaking from 2 m.
+  Re-run `real_noise.py --speaker` after each. In particular, measure how often
+  `reject_p` refuses a correct request in noise.
+* Voice approval in noise (finding 3): an approve heard by voice could need
+  a second confirmation, or a click, when there is background speech.
 * Larger models are the main reason cloud transcription holds up better in
   noise. Running one locally costs memory Swift doesn't have (see PLAN.md M2).
 * Windows "Voice clarity" processing applies to the communications capture

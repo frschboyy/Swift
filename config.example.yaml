@@ -9,6 +9,14 @@ audio:
   preroll_s: 0                     # >0 keeps the mic open and prepends this much audio from before the key-down
                                    # (try 0.5). Windows then shows the mic-in-use indicator whenever Swift runs.
 
+wake:                              # start by voice: "hey / hello / good afternoon Swift" (swift/wake.py)
+  enabled: false                   # on keeps the mic open (Windows' mic indicator stays on) and
+                                   # transcribes each short utterance locally to look for the phrase
+  greetings: []                    # extra greetings to accept, e.g. ["wakey wakey", "wake up"]
+  min_p: 0.5                       # ignore a phrase the model was this unsure of; 0 = off
+  end_silence_s: 0.9               # after a bare "hey Swift", the request ends this long after you stop
+  start_timeout_s: 5               # ...and Swift stops listening if you say nothing for this long
+
 stt:
   engine: "parakeet"               # "parakeet" (fast, accurate) or "whisper"
   cpu_threads: 4

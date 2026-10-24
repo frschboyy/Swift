@@ -88,6 +88,25 @@ class AudioSettings(_Section):
     preroll_s: float = Field(0.0, ge=0.0, le=2.0)
 
 
+class WakeSettings(_Section):
+    """Say "hey / hello / good afternoon Swift" instead of holding the hotkey (swift/wake.py).
+
+    Off by default: it keeps the microphone open, so Windows' mic-in-use indicator is on
+    whenever Swift runs, and it runs the speech model on every short utterance it hears
+    (on this machine, never sent anywhere).
+    """
+
+    enabled: bool = False
+    # Greetings to accept besides hey / hi / hello / ok / good morning|afternoon|evening.
+    greetings: list[str] = Field(default_factory=list)
+    # A wake phrase whose words averaged below this probability is ignored (0 = off).
+    min_p: float = Field(0.5, ge=0.0, le=1.0)
+    # After a bare "hey Swift", the request ends this long after you stop talking...
+    end_silence_s: float = Field(0.9, gt=0)
+    # ...and Swift stops listening if you say nothing for this long.
+    start_timeout_s: float = Field(5.0, gt=0)
+
+
 class ExecutorSettings(_Section):
     kind: Literal["echo", "mock", "claude_code"] = "echo"
     # Run without asking. Keep these read-only.
@@ -177,6 +196,7 @@ class LoggingSettings(_Section):
 class Settings(_Section):
     hotkeys: Hotkeys = Field(default_factory=Hotkeys)
     audio: AudioSettings = Field(default_factory=AudioSettings)
+    wake: WakeSettings = Field(default_factory=WakeSettings)
     stt: SttSettings = Field(default_factory=SttSettings)
     executor: ExecutorSettings = Field(default_factory=ExecutorSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)

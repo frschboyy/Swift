@@ -35,7 +35,9 @@ RouteName = Literal["control", "local", "agent"]
 Demand = Literal["light", "standard"]
 Override = Literal["opus", "sonnet", "haiku"]
 
-_WAKE = re.compile(r"^\s*(hey|hi|ok|okay)?\s*swift\b[\s,.:!-]*", re.IGNORECASE)
+_WAKE = re.compile(
+    r"^\s*(?:(?:hey|hi|hello|ok|okay)|good\s+(?:morning|afternoon|evening))?\s*swift\b[\s,.:!-]*", re.IGNORECASE
+)
 _FILLER = re.compile(r"\b(um+|uh+|er+|please)\b")
 _AGENT = r"claude(?: code)?|codex|hermes|chat ?gpt|gpt"
 # Swift greeted by an agent's name. Only with a greeting, so "Claude Code is slow" stays a request.

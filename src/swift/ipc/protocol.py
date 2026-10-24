@@ -9,7 +9,9 @@ one encoder.
 Run messages (``state``, ``step``, ``confirm.request``, ``result``, ``error``) carry
 ``agent``: ``{"id", "name"}`` of the provider doing the work, or null when Swift did
 it itself. ``step`` also carries a normalized ``activity`` and ``subagent``;
-``result`` may carry Swift's own ``note`` (ADR-008). Mirrored in overlay/src/protocol.ts.
+``result`` may carry Swift's own ``note`` (ADR-008). ``error`` carries a ``title``,
+``severity``, ``retry`` and the raw ``detail`` (``swift.failures``, ADR-009).
+Mirrored in overlay/src/protocol.ts.
 """
 
 from __future__ import annotations
@@ -31,6 +33,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "hello": {"token": (str, None), "client": (str, None)},
     "ptt": {"state": (str, ("down", "up"))},
     "cancel": {},
+    # "Try again" on an error card: re-run the request that failed (ADR-009).
+    "retry": {},
     "confirm.reply": {"request_id": (str, None), "decision": (str, ("approve", "reject"))},
     "debug.run": {"scenario": (str, SCENARIOS)},
     # Debug mode only: send typed text through the real executor, skipping mic and STT.

@@ -21,6 +21,11 @@ stt:
   # (spikes/stt/learn_fixes.py) live in word_fixes_file; these win over them.
   word_fixes: {}
   word_fixes_file: "%LOCALAPPDATA%/Swift/word_fixes.json"
+  # Noise checks, Parakeet only (docs/stt-noise.md). Words heard with less than
+  # unclear_p probability are named to the agent so it asks instead of guessing;
+  # a transcript averaging below reject_p isn't acted on. 0 turns a check off.
+  unclear_p: 0.4
+  reject_p: 0.7
   save_audio: false                # debug: keep each recording as a WAV in audio_dir
   audio_dir: "%LOCALAPPDATA%/Swift/audio"
 

@@ -26,7 +26,8 @@ CLAUDE_CODE = ProviderInfo(
     "claude_code",
     "Claude Code",
     frozenset({"files", "commands", "confirm", "escalation", "subagents"}),
-    error_hint="Try again. If it keeps failing, run `claude` in a terminal to check it's signed in.",
+    error_hint="Try again. If it keeps failing, run `claude` in a terminal to check it starts and is signed in.",
+    signin_hint="Open a terminal, run `claude`, and sign in. Then try again.",
 )
 MOCK = ProviderInfo(
     "mock",

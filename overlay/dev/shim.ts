@@ -1,6 +1,6 @@
 // Dev-only stand-in for Tauri's injected internals, so the overlay UI can be
 // developed in a plain browser against a backend started by hand.
-// Usage: http://localhost:1420/dev/harness.html?port=<n>&token=<token>
+// Usage: http://localhost:1420/dev/harness.html?port=<n>&token=<token>[&anchor=top-right]
 // Never loaded by index.html or the production build.
 
 export {};
@@ -13,6 +13,7 @@ const listeners = new Map<string, number[]>();
 let nextId = 1;
 
 const log: { cmd: string; args: unknown }[] = [];
+const copied: string[] = [];
 
 const internals = {
   metadata: { currentWindow: { label: "overlay" }, currentWebview: { label: "overlay", windowLabel: "overlay" } },
@@ -33,7 +34,15 @@ const internals = {
         return [];
       case "set_escape":
       case "set_hit_regions":
+      case "begin_drag":
+      case "open_logs":
+      case "set_status":
         return null;
+      case "copy_text":
+        copied.push(String(args.text));
+        return null;
+      case "get_placement":
+        return { anchor: params.get("anchor") ?? "bottom-center", flipped: false };
       case "overlay_ready":
         return { startup_ms: Math.round(performance.now()), backend_ms: null };
       case "plugin:event|listen": {
@@ -66,6 +75,7 @@ window.WebSocket = class extends NativeWebSocket {
 (window as unknown as Record<string, unknown>).__shim = {
   log,
   frames,
+  copied,
   /** Simulate a Rust-side event, e.g. emit("hotkey", {name: "debug", state: "down"}). */
   emit(event: string, payload: unknown): void {
     for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload });

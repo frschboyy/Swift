@@ -35,7 +35,7 @@ import threading
 import time
 import warnings
 from collections.abc import AsyncIterator, Callable, Sequence
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +45,7 @@ from loguru import logger
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
 from swift.executors.claude_mapping import Outcome, confirm_card, outcome_for, steps_for
 from swift.executors.providers import CLAUDE_CODE
+from swift.failures import classify, clean_detail
 
 _DONE = object()
 
@@ -502,9 +503,16 @@ class ClaudeCodeExecutor:
             return ExecResult("rejected", f"{why}: {title}. Claude Code stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
             status = "done" if outcome.status == "done" else "error"
-            return ExecResult(status, outcome.summary, outcome.details, meta)
+            return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
         detail = f" ({str(error).splitlines()[0][:160]})" if error else ""
-        return ExecResult("error", f"Claude Code stopped without an answer{detail}.", meta=meta)
+        summary = f"Claude Code stopped without an answer{detail}."
+        # The exception's type often names the cause (CLIConnectionError, TimeoutError).
+        raw = f"{type(error).__name__}: {error}" if error else summary
+        hints = {"fallback_hint": CLAUDE_CODE.error_hint, "signin_hint": CLAUDE_CODE.signin_hint}
+        failure = classify(raw, CLAUDE_CODE.name, **hints)
+        if failure.code == "executor_failed":  # no known cause: the CLI went away
+            failure = replace(classify(summary, CLAUDE_CODE.name, **hints), detail=clean_detail(raw))
+        return ExecResult("error", summary, meta=meta, failure=failure)
 
 
 def _model_label(model: str) -> str:

@@ -1,18 +1,23 @@
 /* Swift overlay. The window is transparent; only the orb and cards paint.
-   Always dark: the overlay floats over arbitrary content and must stay legible. */
+   Always dark: the overlay floats over arbitrary content and must stay legible.
+   Text colours keep at least 4.5:1 against the panel (ADR-009). */
 
 :root {
-  --panel: rgba(20, 21, 27, 0.9);
-  --panel-edge: rgba(255, 255, 255, 0.09);
+  --panel: rgba(18, 19, 25, 0.95);
+  --panel-edge: rgba(255, 255, 255, 0.1);
+  --raise: rgba(255, 255, 255, 0.06);
   --text: #eeeef3;
-  --muted: #a3a5b3;
-  --faint: #6c6f7d;
+  --muted: #b0b2bf;
+  --faint: #8e91a0;
   --accent: #8ab4ff;
   --accent-2: #b59cff;
   --ok: #7fd8a4;
   --bad: #ff8a80;
+  --warn: #f5c26b;
   --radius: 16px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Cards slide in from the anchored edge: down from the top, up from the bottom. */
+  --enter: 10px;
   color-scheme: dark;
   font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   font-size: 14px;
@@ -42,9 +47,15 @@ html, body {
   color: var(--text);
 }
 
+/* ---- placement: the window sits at one of six anchors; cards hug that edge ---- */
+
+#stage[data-anchor^="top"] { justify-content: flex-start; padding: 20px 16px 16px; --enter: -10px; }
+#stage[data-anchor$="left"] { align-items: flex-start; }
+#stage[data-anchor$="right"] { align-items: flex-end; }
+
 /* ---- voice: orb + live transcript ---------------------------------------- */
 
-/* Out of the layout flow, so hidden it takes no space and cards sit at the bottom. */
+/* Out of the layout flow, so hidden it takes no space and cards sit at the edge. */
 .voice {
   position: absolute;
   left: 16px;
@@ -60,6 +71,10 @@ html, body {
   pointer-events: none;
 }
 
+#stage[data-anchor^="top"] .voice { top: 20px; bottom: auto; flex-direction: column-reverse; transform: translateY(-12px) scale(0.92); }
+#stage[data-anchor$="left"] .voice { align-items: flex-start; }
+#stage[data-anchor$="right"] .voice { align-items: flex-end; }
+
 #stage[data-state="listening"] .voice,
 #stage[data-state="transcribing"] .voice {
   opacity: 1;
@@ -72,6 +87,7 @@ html, body {
   position: relative;
   width: 84px;
   height: 84px;
+  margin: 10px;
 }
 
 .orb-core {
@@ -105,7 +121,7 @@ html, body {
   min-height: 1.4em;
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(20, 21, 27, 0.72);
+  background: rgba(18, 19, 25, 0.86);
   color: var(--text);
   font-size: 15px;
   line-height: 1.4;
@@ -120,8 +136,13 @@ html, body {
 #stage[data-state="transcribing"] .transcript:empty { visibility: visible; color: var(--muted); }
 #stage[data-state="listening"] .transcript:empty::before { content: "Listening"; }
 #stage[data-state="transcribing"] .transcript:empty::before { content: "Transcribing"; }
+/* Nothing louder than room noise for a while: the mic may be muted or the wrong one. */
+#stage[data-state="listening"] .transcript[data-quiet]:empty { color: var(--warn); }
+#stage[data-state="listening"] .transcript[data-quiet]:empty::before { content: "Can't hear you. Check your microphone"; }
+#stage[data-state="listening"] .transcript[data-quiet]::after { display: none; }
 
-.transcript[data-pending]::after {
+.transcript[data-pending]::after,
+#stage[data-state="listening"] .transcript:empty::after {
   content: "";
   display: inline-block;
   width: 1.2em;
@@ -144,23 +165,28 @@ html, body {
   background: var(--panel);
   border: 1px solid var(--panel-edge);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
-  padding: 14px 16px;
+  padding: 12px 14px 14px 16px;
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
-  transition: opacity 200ms var(--ease), transform 240ms var(--ease);
+  transform: translateY(var(--enter)) scale(0.98);
+  transition: opacity 200ms var(--ease), transform 240ms var(--ease), box-shadow 160ms;
   pointer-events: none;
 }
 
 .card:empty { display: none; }
 
 .card--in { opacity: 1; transform: none; pointer-events: auto; }
-.card--out { opacity: 0; transform: translateY(6px) scale(0.98); }
+.card--out { opacity: 0; transform: translateY(calc(var(--enter) * 0.6)) scale(0.98); }
+
+#stage[data-dragging="true"] .card { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(138, 180, 255, 0.45); }
+#stage[data-dragging="true"] .card-head { cursor: grabbing; }
 
 .card-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  min-height: 28px;
+  margin: 0 -4px 6px 0;
+  cursor: grab;
 }
 
 .card-title {
@@ -170,6 +196,12 @@ html, body {
   color: var(--muted);
   text-transform: uppercase;
 }
+
+/* "Claude Code is reading", "Can't reach Claude Code": sentences keep their own casing. */
+.card-title--live,
+.card-title--sentence { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--text); }
+
+.head-extra { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
 .icon {
   width: 18px;
@@ -182,15 +214,57 @@ html, body {
   flex: none;
 }
 
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+
+.icon-btn:hover { background: var(--raise); color: var(--text); }
+.icon-btn .icon { width: 16px; height: 16px; }
+
 .hint {
-  margin-left: auto;
-  font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--faint);
 }
 
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86em;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.keys { white-space: nowrap; }
+.keys kbd { margin: 0 2px; }
+
+code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 0.9em;
+  color: var(--text);
+}
+
 .chip {
-  margin-left: auto;
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(138, 180, 255, 0.14);
@@ -199,21 +273,32 @@ html, body {
   font-weight: 600;
 }
 
-/* "Claude Code is reading": names keep their own casing. */
-.card-title--live { text-transform: none; letter-spacing: 0; font-size: 13.5px; color: var(--text); }
-
 .muted { color: var(--muted); margin: 6px 0 0; line-height: 1.45; }
 .asker { margin: 0 0 2px; color: var(--muted); font-size: 12.5px; }
 .note { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
-.byline { margin: 10px 0 0; color: var(--faint); font-size: 11.5px; letter-spacing: 0.02em; }
+.note--soft { margin: 10px 0 0; color: var(--faint); }
+.note--warn { margin: 10px 0 0; color: var(--warn); }
+.byline { color: var(--faint); font-size: 12px; letter-spacing: 0.02em; }
 .request { margin: 0 0 10px; color: var(--muted); font-style: italic; }
 .summary { margin: 0; font-size: 15px; line-height: 1.45; }
+.more { margin: 4px 0 0; color: var(--faint); font-size: 12.5px; }
+.detail-text { overflow-wrap: anywhere; }
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  min-height: 28px;
+}
 
 /* working */
 
 .spinner {
   width: 14px;
   height: 14px;
+  flex: none;
   border-radius: 50%;
   border: 2px solid rgba(138, 180, 255, 0.25);
   border-top-color: var(--accent);
@@ -221,6 +306,8 @@ html, body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.elapsed { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 
@@ -230,6 +317,7 @@ html, body {
   gap: 10px;
   color: var(--faint);
   line-height: 1.4;
+  min-width: 0;
   animation: step-in 240ms var(--ease);
 }
 
@@ -243,41 +331,91 @@ html, body {
   to { opacity: 1; transform: none; }
 }
 
+/* Compact: one line, for long runs over content the owner wants to see. */
+.card--compact { width: auto; max-width: min(480px, 100%); padding: 6px 8px 6px 14px; }
+.card--compact .card-head { margin: 0; }
+.card--compact .card-foot { display: none; }
+.card--working.card--compact .card-head { gap: 10px; }
+.card--compact-body .summary { font-size: 14px; }
+
 /* confirm */
 
 .card--confirm .card-head { color: var(--accent); }
-.confirm-title { margin: 0; font-size: 16px; font-weight: 600; }
-.voice-hint { margin: 10px 0 0; font-size: 13px; color: var(--faint); }
+.confirm-title { margin: 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.voice-hint { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 10px 0 0; font-size: 13px; color: var(--faint); }
+.voice-hint .icon { width: 15px; height: 15px; }
 .voice-hint[data-phase="listening"],
 .voice-hint[data-phase="transcribing"] { color: var(--accent); }
 .voice-hint[data-phase="hint"] { color: var(--text); }
+.countdown { margin: 6px 0 0; font-size: 12.5px; color: var(--warn); }
+.countdown:empty { display: none; }
 
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.actions--inline { margin: 0 0 0 auto; }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: inherit;
   font-weight: 600;
-  padding: 8px 16px;
+  min-height: 34px;
+  padding: 7px 16px;
   border-radius: 10px;
   border: 1px solid transparent;
   cursor: pointer;
   transition: background 120ms, transform 80ms;
 }
 
+.btn .icon { width: 15px; height: 15px; }
+.btn--small { min-height: 28px; padding: 3px 12px; font-size: 13px; border-radius: 8px; }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .btn--primary { background: var(--accent); color: #0d1424; }
-.btn--primary:hover { background: #a6c6ff; }
-.btn--ghost { background: rgba(255, 255, 255, 0.06); color: var(--text); border-color: var(--panel-edge); }
-.btn--ghost:hover { background: rgba(255, 255, 255, 0.12); }
+.btn--primary:hover:not(:disabled) { background: #a6c6ff; }
+.btn--ghost { background: var(--raise); color: var(--text); border-color: var(--panel-edge); }
+.btn--ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
 
-/* result + error: a thin bar shows the remaining time; hovering pauses it */
+.link {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link:hover { color: var(--text); }
+
+.detail {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  max-height: 96px;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--muted);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
+}
+
+/* result + error + timed confirm: a thin bar shows the remaining time; hovering pauses it */
 
 .card--result,
-.card--error { position: relative; overflow: hidden; }
+.card--error,
+.card--timed { position: relative; overflow: hidden; }
 
 .card--result::after,
-.card--error::after {
+.card--error::after,
+.card--timed::after {
   content: "";
   position: absolute;
   left: 0;
@@ -291,6 +429,8 @@ html, body {
 }
 
 .card--paused::after { animation-play-state: paused; opacity: 0.15; }
+.card--sticky::after { display: none; }
+.card--timed::after { color: var(--accent); }
 
 @keyframes drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
@@ -299,16 +439,27 @@ html, body {
 .card--neutral .card-head { color: var(--muted); }
 .card--error .card-head { color: var(--bad); }
 .card--error::after { color: var(--bad); }
-.card--hover { border-color: rgba(255, 255, 255, 0.18); }
+.card--info .card-head { color: var(--accent); }
+.card--info::after { color: var(--accent); }
+.card--error .card-head .card-title--sentence { color: var(--text); }
+.card--hover { border-color: rgba(255, 255, 255, 0.2); }
 
 .hit-area { cursor: pointer; }
 
 .result-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.5; }
+.result-list li { overflow-wrap: anywhere; }
 
+.table-wrap { overflow-x: auto; }
 .result-table { margin-top: 10px; width: 100%; border-collapse: collapse; font-size: 13px; }
 .result-table th { text-align: left; color: var(--faint); font-weight: 600; padding: 4px 8px 4px 0; }
 .result-table td { padding: 4px 8px 4px 0; border-top: 1px solid var(--panel-edge); font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  .spinner { animation: none; border-top-color: var(--accent); }
+}
+
+@media (forced-colors: active) {
+  .card { border: 1px solid CanvasText; background: Canvas; }
+  .btn, .icon-btn { border: 1px solid ButtonText; }
 }

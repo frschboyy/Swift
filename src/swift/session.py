@@ -19,6 +19,12 @@ exchange (request, answer, approved actions) as context, so "now commit it"
 works although every run is a fresh Claude Code process (ADR-007 §9). Only
 one exchange is kept; an error, a cancelled run or "new topic" clears it.
 
+Failures reach the overlay as ``error`` messages built from a ``Failure``
+(ADR-009): a plain title, what it means, what to do, and the raw text only as
+``detail``. When trying the same request again could help (``retry``), the
+overlay offers "Try again", which sends ``retry``: the last failed transcript runs
+again without being spoken again.
+
 Push-to-talk (``ptt`` down/up) records from the microphone, transcribes
 locally and routes the transcript (ADR-007): commands to Swift ("stop",
 "repeat that") and time/date are handled here; everything else goes to the
@@ -56,13 +62,14 @@ from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, s
 from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
+from swift.failures import Failure, Severity, classify
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.routing import Route
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import strip_wake
-from swift.stt.transcriber import SttUnavailable, Transcriber
+from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, assess
 
 Send = Callable[[Message], Awaitable[None]]
 OnFinish = Callable[[dict[str, Any]], None]
@@ -121,11 +128,21 @@ def _clip(text: str, limit: int) -> str:
 class UserFacingError(Exception):
     """A failure the owner can act on: shown as an error card with a hint."""
 
-    def __init__(self, code: str, message: str, hint: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        hint: str,
+        *,
+        title: str = "Something went wrong",
+        retry: bool = False,
+        severity: Severity = "error",
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.hint = hint
+        self.failure = Failure(code, title, message, hint, retry=retry, severity=severity)
 
 
 class Session:
@@ -147,6 +164,8 @@ class Session:
         opener: LocalOpener | None = None,
         followup_s: float = FOLLOWUP_S,
         fallbacks: tuple[Executor, ...] = (),
+        unclear_p: float = UNCLEAR_P,
+        reject_p: float = REJECT_P,
     ) -> None:
         self._send = send
         self.executor = executor
@@ -170,6 +189,10 @@ class Session:
         self.opener = opener
         # 0 turns follow-up context off.
         self.followup_s = followup_s
+        # Words the model was less sure of than unclear_p are named to the agent; a
+        # transcript averaging below reject_p is not acted on. 0 turns either off.
+        self.unclear_p = unclear_p
+        self.reject_p = reject_p
         self._last_exchange: Exchange | None = None
         # The last answer, with the agent that produced it (None: Swift), for "repeat that".
         self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
@@ -185,6 +208,8 @@ class Session:
         self._confirm_voice: asyncio.Task[None] | None = None
         self._record: dict[str, Any] | None = None
         self._run_started: float | None = None
+        # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
+        self._retry: tuple[str, str] | None = None
 
     @property
     def busy(self) -> bool:
@@ -203,6 +228,8 @@ class Session:
                 logger.info("overlay ready", startup_ms=msg.data["startup_ms"], backend_ms=msg.data.get("backend_ms"))
             case "cancel":
                 await self.cancel()
+            case "retry":
+                await self._start_retry()
             case "confirm.reply":
                 await self._confirm_reply(msg.data["request_id"], msg.data["decision"] == "approve")
             case "ptt" if msg.data["state"] == "down":
@@ -303,7 +330,7 @@ class Session:
         try:
             self.recorder.start(levels.put_nowait)
         except MicError as exc:
-            raise UserFacingError("mic_unavailable", str(exc), exc.hint) from None
+            raise UserFacingError("mic_unavailable", str(exc), exc.hint, title="Microphone unavailable") from None
 
         async def forward_levels() -> None:
             while True:
@@ -339,7 +366,9 @@ class Session:
         try:
             result = await self.transcriber.transcribe(audio)
         except SttUnavailable as exc:
-            raise UserFacingError("stt_unavailable", str(exc), exc.hint) from None
+            raise UserFacingError(
+                "stt_unavailable", str(exc), exc.hint, title="Speech recognition isn't ready", retry=True
+            ) from None
         record["stt_ms"] = result.stt_ms
         if result.peak_db is not None:
             record["peak_db"] = result.peak_db
@@ -348,8 +377,25 @@ class Session:
         if not result.text:
             raise UserFacingError(
                 "no_speech",
-                "I didn't catch that.",
+                "No words came through in that recording.",
                 f"Hold {self.ptt_label} while you speak, and release when you're done.",
+                title="I didn't catch that",
+                severity="info",
+            )
+        if result.confidence is not None:
+            record["stt_confidence"] = result.confidence
+        clarity = assess(result, self.unclear_p, self.reject_p)
+        if clarity != "clear":
+            record["unclear"] = result.unclear(self.unclear_p)
+        if clarity == "unclear":
+            # Acting on a guess is worse than asking again: say what it sounded like, do nothing.
+            record["transcript_heard"] = result.text
+            raise UserFacingError(
+                "unclear_speech",
+                f"It sounded like “{_clip(result.text, 80)}”, but too much of it was a guess to act on.",
+                "Try again closer to the mic, or somewhere quieter.",
+                title="I couldn't make that out",
+                severity="info",
             )
         return result.text
 
@@ -373,11 +419,18 @@ class Session:
             transcript = await capture(record)
             if transcript is None:
                 record["status"] = "cancelled"
+                if record.get("reason") == "too_short":
+                    # A tap, not a hold: say how push-to-talk works instead of doing nothing.
+                    tap = Failure(
+                        "too_short", "Hold to talk", f"Keep {self.ptt_label} held while you speak, then let go.", "",
+                        severity="info",
+                    )
+                    await self._send(outbound("error", **tap.as_message()))
                 return
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            routed = self.router is not None and record.get("source") in ("voice", "debug.ask")
+            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry")
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             target: OpenTarget | None = None
             if decision is not None and decision.action == "open":
@@ -406,12 +459,16 @@ class Session:
             try:
                 if decision is not None:
                     launch = await self.providers.start(
-                        self._with_context(decision.text, record), demand=decision.demand, override=decision.override
+                        self._with_context(self._with_unclear(decision.text, record), record),
+                        demand=decision.demand,
+                        override=decision.override,
                     )
                 else:
                     launch = Started(executor, await start(transcript))
             except ExecutorUnavailable as exc:
-                raise UserFacingError("executor_unavailable", str(exc), exc.hint) from None
+                raise UserFacingError(
+                    "executor_unavailable", str(exc), exc.hint, title="Can't hand this off yet"
+                ) from None
             result = await self._run(launch, record)
             await self._finish(result, record)
             if decision is not None:
@@ -431,15 +488,19 @@ class Session:
             record["status"] = "error"
             record["error"] = exc.code
             self._last_exchange = None
-            await self._set_state("error")
-            await self._send(outbound("error", code=exc.code, message=exc.message, hint=exc.hint))
+            await self._send_failure(exc.failure, record)
         except Exception:
             logger.exception("interaction failed")
             record["status"] = "error"
             self._last_exchange = None
-            await self._set_state("error")
-            await self._send(
-                outbound("error", code="internal", message="Swift hit an internal error.", hint="Details are in swift.log.")
+            await self._send_failure(
+                Failure(
+                    "internal", "Something went wrong in Swift",
+                    "Swift hit an unexpected problem and stopped this request.",
+                    "Try again. If it keeps happening, open the logs from Swift's tray menu.",
+                    retry=True,
+                ),
+                record,
             )
         finally:
             voice = self._confirm_voice
@@ -476,9 +537,13 @@ class Session:
                 logger.warning("open failed", target=target.name, error=str(exc))
                 record["status"] = "error"
                 record["error"] = "open_failed"
-                await self._set_state("error")
-                await self._send(
-                    outbound("error", code="open_failed", message=f"Couldn't open {target.name}.", hint="Check the path in config.yaml's local section.")
+                await self._send_failure(
+                    Failure(
+                        "open_failed", f"Couldn't open {target.name.title()}",
+                        "Windows couldn't start it from the path Swift has.",
+                        "Check its path in the local section of config.yaml.", detail=str(exc)[:240],
+                    ),
+                    record,
                 )
                 return
             record["status"] = "done"
@@ -587,6 +652,8 @@ class Session:
                         detail=event.detail or "",
                         tool=event.tool or "",
                         agent=agent,
+                        # How long the card waits before the run stops ("No answer in time").
+                        timeout_s=getattr(executor, "confirm_timeout_s", None),
                     )
                 )
         result = await executor.result(run_id)
@@ -652,6 +719,18 @@ class Session:
         else:
             await phase("hint", f"Heard “{_clip(text, 60)}”. {CONFIRM_VOICE_HINT}")
 
+    @staticmethod
+    def _with_unclear(request: str, record: dict[str, Any]) -> str:
+        """Name the words speech recognition was unsure of, so the agent asks instead of guessing."""
+        unclear = record.get("unclear")
+        if not unclear:
+            return request
+        words = ", ".join(f"“{w}”" for w in unclear[:6])
+        return (
+            f"{request}\n\n[Note: this request was spoken, and speech recognition was unsure of {words}. "
+            "If the request depends on those words, ask what was meant rather than guessing.]"
+        )
+
     def _with_context(self, request: str, record: dict[str, Any]) -> str:
         """Prepend the previous exchange when it is recent enough (ADR-007 §9)."""
         last, now = self._last_exchange, time.monotonic()
@@ -672,14 +751,50 @@ class Session:
         assert self._active is not None
         await self._send_result(self._active[1], result, self._agent())
 
+    async def _send_failure(
+        self,
+        failure: Failure,
+        record: dict[str, Any] | None,
+        *,
+        run_id: str | None = None,
+        agent: dict[str, str] | None = None,
+    ) -> None:
+        """The error card. "Try again" is offered only when there is a request to repeat."""
+        source = (record or {}).get("source")
+        again = (record or {}).get("scenario" if source == "debug.run" else "transcript")
+        self._retry = (source, again) if failure.retry and source and again else None
+        if failure.detail:
+            logger.info("failure shown", code=failure.code, detail=failure.detail)
+        await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
+        message = failure.as_message() | {"retry": self._retry is not None}
+        await self._send(outbound("error", **message, agent=agent))
+
+    async def _start_retry(self) -> None:
+        """"Try again" on an error card: the same request, without speaking it again."""
+        pending, self._retry = self._retry, None
+        if pending is None or self.busy:
+            return
+        source, again = pending
+        if source == "debug.run":
+            await self._start_demo(again)
+            return
+        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "retry", "retry_of": source}
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return again
+
+        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+
     async def _send_result(self, run_id: str, result: ExecResult, agent: dict[str, str] | None = None) -> None:
         """Swift presents the outcome; ``agent`` says who did the work (None: Swift itself)."""
         if result.status == "error":
-            hint = provider_of(self._active[0]).error_hint if self._active else SWIFT.error_hint
-            await self._set_state("error", run_id=run_id, agent=agent)
-            await self._send(
-                outbound("error", code="executor_failed", message=result.summary, hint=hint, agent=agent)
+            provider = provider_of(self._active[0]) if self._active else SWIFT
+            failure = result.failure or classify(
+                result.summary, provider.name, fallback_hint=provider.error_hint, signin_hint=provider.signin_hint
             )
+            if self._record is not None:
+                self._record["error"] = failure.code
+            await self._send_failure(failure, self._record, run_id=run_id, agent=agent)
             return
         if result.status == "done":
             self._last_result = (run_id, result, agent)

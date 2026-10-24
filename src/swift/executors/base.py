@@ -24,6 +24,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, get_args
 
+from swift.failures import Failure
+
 EventType = Literal["step", "confirm", "log"]
 Status = Literal["done", "cancelled", "error", "rejected"]
 # What a provider is doing, whatever its own event format. The overlay turns it into
@@ -47,7 +49,9 @@ class ProviderInfo:
     # "confirm" (asks before side effects), "escalation" (moves to a stronger model), "subagents".
     capabilities: frozenset[str] = frozenset()
     # Shown on the error card when a run fails.
-    error_hint: str = "Try again. Details are in swift.log."
+    error_hint: str = "Try again. If it keeps happening, open the logs from Swift's tray menu."
+    # Shown when it fails because it isn't signed in: how to sign in to this provider.
+    signin_hint: str = ""
     # Swift itself (local answers, the echo stand-in): no hand-off is shown.
     is_swift: bool = False
 
@@ -85,6 +89,9 @@ class ExecResult:
     details: dict[str, Any] | None = None
     # For the interaction log only (cost, turns, ...); never shown on the card.
     meta: dict[str, Any] = field(default_factory=dict)
+    # Status "error" only: the provider's own reading of what went wrong. When None,
+    # the session classifies ``summary`` (``swift.failures.classify``).
+    failure: Failure | None = None
 
 
 class UnknownRun(KeyError):

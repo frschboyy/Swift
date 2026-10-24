@@ -143,7 +143,7 @@ async def test_a_rejected_run_is_still_context() -> None:
 def test_new_topic_is_a_whole_utterance_command() -> None:
     for text in ("New topic.", "Let's start over", "Hey Swift, fresh start"):
         assert (route(text).route, route(text).action) == ("control", "new_topic")
-    assert route("Start over the migration with the new schema.").route == "claude"
+    assert route("Start over the migration with the new schema.").route == "agent"
 
 
 def test_context_is_clipped() -> None:

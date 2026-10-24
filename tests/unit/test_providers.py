@@ -171,10 +171,10 @@ async def test_fallback_is_shown_as_a_swift_handoff_step() -> None:
     ("text", "route_name", "called", "sent"),
     [
         ("Hey Claude", "local", "claude", None),
-        ("hey claude, review this code", "claude", "claude", "review this code"),
-        ("Hey Swift, can you review this code?", "claude", None, "can you review this code?"),
+        ("hey claude, review this code", "agent", "claude", "review this code"),
+        ("Hey Swift, can you review this code?", "agent", None, "can you review this code?"),
         ("ok codex stop", "control", "codex", None),
-        ("Claude Code is slow today", "claude", None, "Claude Code is slow today"),
+        ("Claude Code is slow today", "agent", None, "Claude Code is slow today"),
         ("are you codex?", "local", "codex", None),
         ("who are you", "local", None, None),
     ],

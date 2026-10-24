@@ -19,8 +19,8 @@ _spec.loader.exec_module(eval_routes)  # type: ignore[union-attr]
 def test_every_row_follows_the_schema() -> None:
     for r in ROWS:
         assert set(r) <= {"id", "text", "route", "demand", "override", "tags", "split", "source"}, r["id"]
-        assert r["route"] in ("control", "local", "claude"), r["id"]
-        assert (r["demand"] in ("light", "standard")) if r["route"] == "claude" else r["demand"] is None, r["id"]
+        assert r["route"] in ("control", "local", "agent"), r["id"]
+        assert (r["demand"] in ("light", "standard")) if r["route"] == "agent" else r["demand"] is None, r["id"]
         assert r.get("override") in (None, "opus", "haiku"), r["id"]
         assert r["split"] in ("train", "test") and r["source"] in ("v2", "prompts", "new"), r["id"]
         assert r["text"].strip() and isinstance(r["tags"], list), r["id"]
@@ -42,22 +42,22 @@ def test_same_request_never_lands_in_both_splits() -> None:
 
 def test_test_split_covers_every_label() -> None:
     labels = {(r["route"], r["demand"]) for r in ROWS if r["split"] == "test"}
-    assert {("claude", "light"), ("claude", "standard"), ("control", None), ("local", None)} <= labels
+    assert {("agent", "light"), ("agent", "standard"), ("control", None), ("local", None)} <= labels
 
 
 def test_scorer_separates_the_error_kinds() -> None:
     rows = [
         {"id": "a", "text": "stop", "route": "control", "demand": None},
-        {"id": "b", "text": "fix the bug", "route": "claude", "demand": "standard"},
+        {"id": "b", "text": "fix the bug", "route": "agent", "demand": "standard"},
         {"id": "c", "text": "what time is it", "route": "local", "demand": None},
-        {"id": "d", "text": "list the files", "route": "claude", "demand": "light"},
-        {"id": "e", "text": "refactor it", "route": "claude", "demand": "standard"},
+        {"id": "d", "text": "list the files", "route": "agent", "demand": "light"},
+        {"id": "e", "text": "refactor it", "route": "agent", "demand": "standard"},
     ]
     answers = {
         "stop": ("control", None),            # right
-        "fix the bug": ("claude", "light"),   # under-estimate
-        "what time is it": ("claude", "light"),  # detoured
-        "list the files": ("claude", "standard"),  # over-estimate
+        "fix the bug": ("agent", "light"),   # under-estimate
+        "what time is it": ("agent", "light"),  # detoured
+        "list the files": ("agent", "standard"),  # over-estimate
         "refactor it": ("local", None),       # dropped
     }
     s = eval_routes.score(lambda t: answers[t], rows)

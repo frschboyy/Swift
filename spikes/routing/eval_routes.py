@@ -43,14 +43,14 @@ def score(router: Router, rows: list[dict]) -> dict:
         route, demand = router(r["text"])
         if route == r["route"]:
             route_ok += 1
-        elif r["route"] == "claude":
+        elif r["route"] == "agent":
             dropped += 1
             mistakes.append(("dropped", r, route, demand))
         else:
-            if route == "claude":
+            if route == "agent":
                 detoured += 1
             mistakes.append(("route", r, route, demand))
-        if r["route"] == "claude" and route == "claude":
+        if r["route"] == "agent" and route == "agent":
             demand_n += 1
             if demand == r["demand"]:
                 demand_ok += 1
@@ -60,8 +60,8 @@ def score(router: Router, rows: list[dict]) -> dict:
             else:
                 over += 1
                 mistakes.append(("over", r, route, demand))
-    standard_n = sum(1 for r in rows if r["route"] == "claude" and r["demand"] == "standard")
-    light_n = sum(1 for r in rows if r["route"] == "claude" and r["demand"] == "light")
+    standard_n = sum(1 for r in rows if r["route"] == "agent" and r["demand"] == "standard")
+    light_n = sum(1 for r in rows if r["route"] == "agent" and r["demand"] == "light")
     return {
         "n": n,
         "route_acc": route_ok / n if n else 0.0,
@@ -81,12 +81,12 @@ def score(router: Router, rows: list[dict]) -> dict:
 
 def everything_standard(text: str) -> tuple[str, str | None]:
     """Swift before ADR-007: every request to Claude Code, on one strong model."""
-    return "claude", "standard"
+    return "agent", "standard"
 
 
 def everything_light(text: str) -> tuple[str, str | None]:
     """Start everything on Haiku and rely on escalation."""
-    return "claude", "light"
+    return "agent", "light"
 
 
 BASELINES: dict[str, Router] = {"everything-standard": everything_standard, "everything-light": everything_light}

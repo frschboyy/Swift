@@ -7,7 +7,7 @@
   is matched loosely here (a short phrase with no conjunction or verb in it); the session
   resolves the phrase against the ``local`` settings and sends it on to Claude Code when
   the target isn't a configured name, so only known names are ever opened.
-- **claude**: everything else. A leading "use opus / use haiku" picks the model
+- **agent**: everything else, sent to the provider (Claude Code today, ADR-008). A leading "use opus / use haiku" picks the model
   and is removed; "think hard about ..." asks for the strongest model and is kept.
   Demand (light or standard) comes from ``demand_fn``: by default the keyword
   ``demand.estimate``; the backend passes the local classifier (ADR-007 §4).
@@ -31,7 +31,7 @@ from typing import Literal
 from swift.executors.providers import AGENT_NAMES
 from swift.routing.demand import estimate
 
-RouteName = Literal["control", "local", "claude"]
+RouteName = Literal["control", "local", "agent"]
 Demand = Literal["light", "standard"]
 Override = Literal["opus", "sonnet", "haiku"]
 
@@ -153,10 +153,10 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     if m := _USE_MODEL.match(request):
         model, rest = m.group(1).lower(), m.group(2).strip()
         override: Override = model  # type: ignore[assignment]
-        return Route("claude", rest[:1].upper() + rest[1:], demand="light" if model == "haiku" else "standard", override=override)
+        return Route("agent", rest[:1].upper() + rest[1:], demand="light" if model == "haiku" else "standard", override=override)
     if _THINK_HARD.match(request):
-        return Route("claude", request, demand="standard", override="opus")
-    return Route("claude", request, demand=demand_fn(request) or default_demand)  # type: ignore[arg-type]
+        return Route("agent", request, demand="standard", override="opus")
+    return Route("agent", request, demand=demand_fn(request) or default_demand)  # type: ignore[arg-type]
 
 
 def route_for_eval(text: str) -> tuple[str, str | None]:

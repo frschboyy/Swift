@@ -1,123 +1,123 @@
-{"id": "de01", "text": "Draft an email to my dean explaining this situation.", "route": "claude", "demand": "light", "tags": ["E1", "canonical"], "split": "train", "source": "v2"}
-{"id": "de02", "text": "draft an email to my dean explaining this situation", "route": "claude", "demand": "light", "tags": ["E1", "stt"], "split": "train", "source": "v2"}
-{"id": "de03", "text": "Write an email to my supervisor about the delayed lab results.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
-{"id": "de04", "text": "Can you draft a message to Bob Lee saying I'll be late tomorrow?", "route": "claude", "demand": "light", "tags": ["E1"], "split": "test", "source": "v2"}
-{"id": "de05", "text": "compose an email to my dean", "route": "claude", "demand": "light", "tags": ["E1", "stt"], "split": "train", "source": "v2"}
-{"id": "de06", "text": "Hey Swift, email my supervisor that the chapter draft is ready for review.", "route": "claude", "demand": "light", "tags": ["E1", "wake-prefix"], "split": "test", "source": "v2"}
-{"id": "de07", "text": "Start an email to Professor Adams asking for an extension on the essay.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "test", "source": "v2"}
-{"id": "de08", "text": "um draft an email to my dean uh explaining why I missed the meeting", "route": "claude", "demand": "light", "tags": ["E1", "disfluent"], "split": "test", "source": "v2"}
-{"id": "de09", "text": "I need to write to my supervisor about the conference budget.", "route": "claude", "demand": "light", "tags": ["E1", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "de10", "text": "Prepare an email for Sarah thanking her for the feedback.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
-{"id": "de11", "text": "Draft a reply to my dean.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
-{"id": "de12", "text": "Send an email to my supervisor about next week's progress.", "route": "claude", "demand": "light", "tags": ["E1", "send-verb-new-email"], "split": "train", "source": "v2"}
-{"id": "de13", "text": "Email Bob that the server is back up.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "test", "source": "v2"}
-{"id": "de14", "text": "Could you put together an email to the department head about room bookings", "route": "claude", "demand": "light", "tags": ["E1", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "de15", "text": "Write my dean a quick note explaining the situation with the exam.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
-{"id": "de16", "text": "draft email to supervisor re thesis timeline", "route": "claude", "demand": "light", "tags": ["E1", "terse"], "split": "train", "source": "v2"}
-{"id": "de17", "text": "Let my supervisor know by email that I'm sick today.", "route": "claude", "demand": "light", "tags": ["E1", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "de18", "text": "Draft an email to Maria Gonzalez about the shared dataset.", "route": "claude", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
-{"id": "de19", "text": "Hey Swift draft an email to my dean", "route": "claude", "demand": "light", "tags": ["E1", "wake-prefix", "stt"], "split": "train", "source": "v2"}
-{"id": "de20", "text": "New email to my supervisor explaining the results are delayed.", "route": "claude", "demand": "light", "tags": ["E1", "terse"], "split": "test", "source": "v2"}
-{"id": "rv01", "text": "Make that email shorter.", "route": "claude", "demand": "light", "tags": ["E1b", "canonical", "followup"], "split": "train", "source": "v2"}
-{"id": "rv02", "text": "make it shorter", "route": "claude", "demand": "light", "tags": ["E1b", "stt", "followup"], "split": "train", "source": "v2"}
-{"id": "rv03", "text": "Make the email more formal.", "route": "claude", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
-{"id": "rv04", "text": "Can you make it a bit friendlier?", "route": "claude", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
-{"id": "rv05", "text": "Add that I can meet on Thursday.", "route": "claude", "demand": "light", "tags": ["E1b", "followup"], "split": "test", "source": "v2"}
-{"id": "rv06", "text": "Shorten the draft to two sentences.", "route": "claude", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
-{"id": "rv07", "text": "Remove the last paragraph.", "route": "claude", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
-{"id": "rv08", "text": "change the subject to weekly update", "route": "claude", "demand": "light", "tags": ["E1b", "stt", "followup"], "split": "train", "source": "v2"}
-{"id": "rv09", "text": "Tone it down a little.", "route": "claude", "demand": "light", "tags": ["E1b", "paraphrase", "followup"], "split": "test", "source": "v2"}
-{"id": "rv10", "text": "Rewrite that so it sounds less apologetic.", "route": "claude", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
-{"id": "sd01", "text": "Send it.", "route": "claude", "demand": "light", "tags": ["E1b", "canonical", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd02", "text": "send that email", "route": "claude", "demand": "light", "tags": ["E1b", "stt", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd03", "text": "Okay, send the draft now.", "route": "claude", "demand": "light", "tags": ["E1b", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd04", "text": "Go ahead and send the email to my dean.", "route": "claude", "demand": "light", "tags": ["E1b", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd05", "text": "That looks good, send it off.", "route": "claude", "demand": "light", "tags": ["E1b", "paraphrase", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd06", "text": "Send the email.", "route": "claude", "demand": "light", "tags": ["E1b", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd07", "text": "send the draft", "route": "claude", "demand": "light", "tags": ["E1b", "stt", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sd08", "text": "Hey Swift, send that email I drafted earlier.", "route": "claude", "demand": "light", "tags": ["E1b", "wake-prefix", "no-tool", "followup"], "split": "test", "source": "v2"}
-{"id": "sm01", "text": "Find a free 30-minute slot with my supervisor next Tuesday and schedule a meeting.", "route": "claude", "demand": "light", "tags": ["E2", "canonical", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm02", "text": "find a free thirty minute slot with my supervisor next tuesday and schedule a meeting", "route": "claude", "demand": "light", "tags": ["E2", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm03", "text": "Set up a one hour meeting with Bob on Friday.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm04", "text": "Book 45 minutes with my dean sometime this week.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm05", "text": "Schedule a meeting with Sarah tomorrow afternoon.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "test", "source": "v2"}
-{"id": "sm06", "text": "When are my supervisor and I both free next Monday? Book half an hour.", "route": "claude", "demand": "light", "tags": ["E2", "paraphrase", "no-tool"], "split": "test", "source": "v2"}
-{"id": "sm07", "text": "Put a 15 minute call with Maria on my calendar for Wednesday morning.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "test", "source": "v2"}
-{"id": "sm08", "text": "Arrange a meeting with my supervisor next week.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm09", "text": "Hey Swift find time with my dean on the twenty first for an hour", "route": "claude", "demand": "light", "tags": ["E2", "wake-prefix", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm10", "text": "Can you get me thirty minutes with Professor Adams on Thursday?", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm11", "text": "Schedule a 2 hour working session with Bob Lee next Tuesday afternoon.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "test", "source": "v2"}
-{"id": "sm12", "text": "find a slot with my supervisor", "route": "claude", "demand": "light", "tags": ["E2", "stt", "missing-slots", "no-tool"], "split": "test", "source": "v2"}
-{"id": "sm13", "text": "I need to meet my supervisor for 20 minutes before Friday.", "route": "claude", "demand": "light", "tags": ["E2", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm14", "text": "Organise a meeting with the department head on October 21st at 2pm.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm15", "text": "book a meeting with sarah next tuesday thirty minutes", "route": "claude", "demand": "light", "tags": ["E2", "stt", "terse", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm16", "text": "Is there a free half hour with Bob tomorrow? If so, schedule it.", "route": "claude", "demand": "light", "tags": ["E2", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm17", "text": "Set up a meeting with my supervisor to discuss chapter three next Tuesday.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "sm18", "text": "Invite my dean to a 30 minute meeting on Monday at 10.", "route": "claude", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
-{"id": "su01", "text": "Find the latest report in my project folder and summarize the outstanding issues.", "route": "claude", "demand": "light", "tags": ["E3", "canonical"], "split": "train", "source": "v2"}
-{"id": "su02", "text": "find the latest report in my project folder and summarize the outstanding issues", "route": "claude", "demand": "light", "tags": ["E3", "stt"], "split": "train", "source": "v2"}
-{"id": "su03", "text": "Summarize the most recent status report for the thesis project.", "route": "claude", "demand": "light", "tags": ["E3"], "split": "test", "source": "v2"}
-{"id": "su04", "text": "What are the open issues in the newest report?", "route": "claude", "demand": "light", "tags": ["E3", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "su05", "text": "Give me a summary of the latest report.", "route": "claude", "demand": "light", "tags": ["E3"], "split": "train", "source": "v2"}
-{"id": "su06", "text": "Read the latest report in the thesis folder and tell me what's outstanding.", "route": "claude", "demand": "light", "tags": ["E3"], "split": "test", "source": "v2"}
-{"id": "su07", "text": "Hey Swift what does the last report say we still need to fix", "route": "claude", "demand": "light", "tags": ["E3", "wake-prefix", "stt"], "split": "train", "source": "v2"}
-{"id": "su08", "text": "Summarize the outstanding issues from the most recent document in my project.", "route": "claude", "demand": "light", "tags": ["E3"], "split": "train", "source": "v2"}
-{"id": "su09", "text": "Check the newest issues report for the robotics project and summarize it.", "route": "claude", "demand": "light", "tags": ["E3"], "split": "test", "source": "v2"}
-{"id": "su10", "text": "latest report summary please", "route": "claude", "demand": "light", "tags": ["E3", "terse"], "split": "train", "source": "v2"}
-{"id": "su11", "text": "Find my most recent project report and list the remaining problems.", "route": "claude", "demand": "light", "tags": ["E3", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "su12", "text": "Look through the latest status update and tell me the blockers.", "route": "claude", "demand": "light", "tags": ["E3", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "dt01", "text": "Open my development environment and run the tests.", "route": "claude", "demand": "light", "tags": ["E4", "canonical", "compound"], "split": "train", "source": "v2"}
-{"id": "dt02", "text": "open my development environment and run the tests", "route": "claude", "demand": "light", "tags": ["E4", "stt", "compound"], "split": "train", "source": "v2"}
-{"id": "dt03", "text": "Open the thesis project in VS Code and run its tests.", "route": "claude", "demand": "light", "tags": ["E4", "compound"], "split": "test", "source": "v2"}
-{"id": "dt04", "text": "Fire up my IDE and kick off the test suite.", "route": "claude", "demand": "light", "tags": ["E4", "paraphrase", "compound"], "split": "train", "source": "v2"}
-{"id": "dt05", "text": "Hey Swift open my project and run the tests", "route": "claude", "demand": "light", "tags": ["E4", "wake-prefix", "stt", "compound"], "split": "train", "source": "v2"}
-{"id": "dt06", "text": "Load up the robotics project and test it.", "route": "claude", "demand": "light", "tags": ["E4", "compound"], "split": "test", "source": "v2"}
-{"id": "dt07", "text": "Get my dev environment going and run all the tests.", "route": "claude", "demand": "light", "tags": ["E4", "paraphrase", "compound"], "split": "train", "source": "v2"}
-{"id": "dt08", "text": "open the editor and run pytest", "route": "claude", "demand": "light", "tags": ["E4", "stt", "compound"], "split": "train", "source": "v2"}
-{"id": "dt09", "text": "Open my development environment, then run the tests for thesis.", "route": "claude", "demand": "light", "tags": ["E4", "compound"], "split": "test", "source": "v2"}
-{"id": "dt10", "text": "Set up my workspace and run the unit tests.", "route": "claude", "demand": "light", "tags": ["E4", "paraphrase", "compound"], "split": "train", "source": "v2"}
+{"id": "de01", "text": "Draft an email to my dean explaining this situation.", "route": "agent", "demand": "light", "tags": ["E1", "canonical"], "split": "train", "source": "v2"}
+{"id": "de02", "text": "draft an email to my dean explaining this situation", "route": "agent", "demand": "light", "tags": ["E1", "stt"], "split": "train", "source": "v2"}
+{"id": "de03", "text": "Write an email to my supervisor about the delayed lab results.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
+{"id": "de04", "text": "Can you draft a message to Bob Lee saying I'll be late tomorrow?", "route": "agent", "demand": "light", "tags": ["E1"], "split": "test", "source": "v2"}
+{"id": "de05", "text": "compose an email to my dean", "route": "agent", "demand": "light", "tags": ["E1", "stt"], "split": "train", "source": "v2"}
+{"id": "de06", "text": "Hey Swift, email my supervisor that the chapter draft is ready for review.", "route": "agent", "demand": "light", "tags": ["E1", "wake-prefix"], "split": "test", "source": "v2"}
+{"id": "de07", "text": "Start an email to Professor Adams asking for an extension on the essay.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "test", "source": "v2"}
+{"id": "de08", "text": "um draft an email to my dean uh explaining why I missed the meeting", "route": "agent", "demand": "light", "tags": ["E1", "disfluent"], "split": "test", "source": "v2"}
+{"id": "de09", "text": "I need to write to my supervisor about the conference budget.", "route": "agent", "demand": "light", "tags": ["E1", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "de10", "text": "Prepare an email for Sarah thanking her for the feedback.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
+{"id": "de11", "text": "Draft a reply to my dean.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
+{"id": "de12", "text": "Send an email to my supervisor about next week's progress.", "route": "agent", "demand": "light", "tags": ["E1", "send-verb-new-email"], "split": "train", "source": "v2"}
+{"id": "de13", "text": "Email Bob that the server is back up.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "test", "source": "v2"}
+{"id": "de14", "text": "Could you put together an email to the department head about room bookings", "route": "agent", "demand": "light", "tags": ["E1", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "de15", "text": "Write my dean a quick note explaining the situation with the exam.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
+{"id": "de16", "text": "draft email to supervisor re thesis timeline", "route": "agent", "demand": "light", "tags": ["E1", "terse"], "split": "train", "source": "v2"}
+{"id": "de17", "text": "Let my supervisor know by email that I'm sick today.", "route": "agent", "demand": "light", "tags": ["E1", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "de18", "text": "Draft an email to Maria Gonzalez about the shared dataset.", "route": "agent", "demand": "light", "tags": ["E1"], "split": "train", "source": "v2"}
+{"id": "de19", "text": "Hey Swift draft an email to my dean", "route": "agent", "demand": "light", "tags": ["E1", "wake-prefix", "stt"], "split": "train", "source": "v2"}
+{"id": "de20", "text": "New email to my supervisor explaining the results are delayed.", "route": "agent", "demand": "light", "tags": ["E1", "terse"], "split": "test", "source": "v2"}
+{"id": "rv01", "text": "Make that email shorter.", "route": "agent", "demand": "light", "tags": ["E1b", "canonical", "followup"], "split": "train", "source": "v2"}
+{"id": "rv02", "text": "make it shorter", "route": "agent", "demand": "light", "tags": ["E1b", "stt", "followup"], "split": "train", "source": "v2"}
+{"id": "rv03", "text": "Make the email more formal.", "route": "agent", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
+{"id": "rv04", "text": "Can you make it a bit friendlier?", "route": "agent", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
+{"id": "rv05", "text": "Add that I can meet on Thursday.", "route": "agent", "demand": "light", "tags": ["E1b", "followup"], "split": "test", "source": "v2"}
+{"id": "rv06", "text": "Shorten the draft to two sentences.", "route": "agent", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
+{"id": "rv07", "text": "Remove the last paragraph.", "route": "agent", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
+{"id": "rv08", "text": "change the subject to weekly update", "route": "agent", "demand": "light", "tags": ["E1b", "stt", "followup"], "split": "train", "source": "v2"}
+{"id": "rv09", "text": "Tone it down a little.", "route": "agent", "demand": "light", "tags": ["E1b", "paraphrase", "followup"], "split": "test", "source": "v2"}
+{"id": "rv10", "text": "Rewrite that so it sounds less apologetic.", "route": "agent", "demand": "light", "tags": ["E1b", "followup"], "split": "train", "source": "v2"}
+{"id": "sd01", "text": "Send it.", "route": "agent", "demand": "light", "tags": ["E1b", "canonical", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd02", "text": "send that email", "route": "agent", "demand": "light", "tags": ["E1b", "stt", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd03", "text": "Okay, send the draft now.", "route": "agent", "demand": "light", "tags": ["E1b", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd04", "text": "Go ahead and send the email to my dean.", "route": "agent", "demand": "light", "tags": ["E1b", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd05", "text": "That looks good, send it off.", "route": "agent", "demand": "light", "tags": ["E1b", "paraphrase", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd06", "text": "Send the email.", "route": "agent", "demand": "light", "tags": ["E1b", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd07", "text": "send the draft", "route": "agent", "demand": "light", "tags": ["E1b", "stt", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sd08", "text": "Hey Swift, send that email I drafted earlier.", "route": "agent", "demand": "light", "tags": ["E1b", "wake-prefix", "no-tool", "followup"], "split": "test", "source": "v2"}
+{"id": "sm01", "text": "Find a free 30-minute slot with my supervisor next Tuesday and schedule a meeting.", "route": "agent", "demand": "light", "tags": ["E2", "canonical", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm02", "text": "find a free thirty minute slot with my supervisor next tuesday and schedule a meeting", "route": "agent", "demand": "light", "tags": ["E2", "stt", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm03", "text": "Set up a one hour meeting with Bob on Friday.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm04", "text": "Book 45 minutes with my dean sometime this week.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm05", "text": "Schedule a meeting with Sarah tomorrow afternoon.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "test", "source": "v2"}
+{"id": "sm06", "text": "When are my supervisor and I both free next Monday? Book half an hour.", "route": "agent", "demand": "light", "tags": ["E2", "paraphrase", "no-tool"], "split": "test", "source": "v2"}
+{"id": "sm07", "text": "Put a 15 minute call with Maria on my calendar for Wednesday morning.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "test", "source": "v2"}
+{"id": "sm08", "text": "Arrange a meeting with my supervisor next week.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm09", "text": "Hey Swift find time with my dean on the twenty first for an hour", "route": "agent", "demand": "light", "tags": ["E2", "wake-prefix", "stt", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm10", "text": "Can you get me thirty minutes with Professor Adams on Thursday?", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm11", "text": "Schedule a 2 hour working session with Bob Lee next Tuesday afternoon.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "test", "source": "v2"}
+{"id": "sm12", "text": "find a slot with my supervisor", "route": "agent", "demand": "light", "tags": ["E2", "stt", "missing-slots", "no-tool"], "split": "test", "source": "v2"}
+{"id": "sm13", "text": "I need to meet my supervisor for 20 minutes before Friday.", "route": "agent", "demand": "light", "tags": ["E2", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm14", "text": "Organise a meeting with the department head on October 21st at 2pm.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm15", "text": "book a meeting with sarah next tuesday thirty minutes", "route": "agent", "demand": "light", "tags": ["E2", "stt", "terse", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm16", "text": "Is there a free half hour with Bob tomorrow? If so, schedule it.", "route": "agent", "demand": "light", "tags": ["E2", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm17", "text": "Set up a meeting with my supervisor to discuss chapter three next Tuesday.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "sm18", "text": "Invite my dean to a 30 minute meeting on Monday at 10.", "route": "agent", "demand": "light", "tags": ["E2", "no-tool"], "split": "train", "source": "v2"}
+{"id": "su01", "text": "Find the latest report in my project folder and summarize the outstanding issues.", "route": "agent", "demand": "light", "tags": ["E3", "canonical"], "split": "train", "source": "v2"}
+{"id": "su02", "text": "find the latest report in my project folder and summarize the outstanding issues", "route": "agent", "demand": "light", "tags": ["E3", "stt"], "split": "train", "source": "v2"}
+{"id": "su03", "text": "Summarize the most recent status report for the thesis project.", "route": "agent", "demand": "light", "tags": ["E3"], "split": "test", "source": "v2"}
+{"id": "su04", "text": "What are the open issues in the newest report?", "route": "agent", "demand": "light", "tags": ["E3", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "su05", "text": "Give me a summary of the latest report.", "route": "agent", "demand": "light", "tags": ["E3"], "split": "train", "source": "v2"}
+{"id": "su06", "text": "Read the latest report in the thesis folder and tell me what's outstanding.", "route": "agent", "demand": "light", "tags": ["E3"], "split": "test", "source": "v2"}
+{"id": "su07", "text": "Hey Swift what does the last report say we still need to fix", "route": "agent", "demand": "light", "tags": ["E3", "wake-prefix", "stt"], "split": "train", "source": "v2"}
+{"id": "su08", "text": "Summarize the outstanding issues from the most recent document in my project.", "route": "agent", "demand": "light", "tags": ["E3"], "split": "train", "source": "v2"}
+{"id": "su09", "text": "Check the newest issues report for the robotics project and summarize it.", "route": "agent", "demand": "light", "tags": ["E3"], "split": "test", "source": "v2"}
+{"id": "su10", "text": "latest report summary please", "route": "agent", "demand": "light", "tags": ["E3", "terse"], "split": "train", "source": "v2"}
+{"id": "su11", "text": "Find my most recent project report and list the remaining problems.", "route": "agent", "demand": "light", "tags": ["E3", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "su12", "text": "Look through the latest status update and tell me the blockers.", "route": "agent", "demand": "light", "tags": ["E3", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "dt01", "text": "Open my development environment and run the tests.", "route": "agent", "demand": "light", "tags": ["E4", "canonical", "compound"], "split": "train", "source": "v2"}
+{"id": "dt02", "text": "open my development environment and run the tests", "route": "agent", "demand": "light", "tags": ["E4", "stt", "compound"], "split": "train", "source": "v2"}
+{"id": "dt03", "text": "Open the thesis project in VS Code and run its tests.", "route": "agent", "demand": "light", "tags": ["E4", "compound"], "split": "test", "source": "v2"}
+{"id": "dt04", "text": "Fire up my IDE and kick off the test suite.", "route": "agent", "demand": "light", "tags": ["E4", "paraphrase", "compound"], "split": "train", "source": "v2"}
+{"id": "dt05", "text": "Hey Swift open my project and run the tests", "route": "agent", "demand": "light", "tags": ["E4", "wake-prefix", "stt", "compound"], "split": "train", "source": "v2"}
+{"id": "dt06", "text": "Load up the robotics project and test it.", "route": "agent", "demand": "light", "tags": ["E4", "compound"], "split": "test", "source": "v2"}
+{"id": "dt07", "text": "Get my dev environment going and run all the tests.", "route": "agent", "demand": "light", "tags": ["E4", "paraphrase", "compound"], "split": "train", "source": "v2"}
+{"id": "dt08", "text": "open the editor and run pytest", "route": "agent", "demand": "light", "tags": ["E4", "stt", "compound"], "split": "train", "source": "v2"}
+{"id": "dt09", "text": "Open my development environment, then run the tests for thesis.", "route": "agent", "demand": "light", "tags": ["E4", "compound"], "split": "test", "source": "v2"}
+{"id": "dt10", "text": "Set up my workspace and run the unit tests.", "route": "agent", "demand": "light", "tags": ["E4", "paraphrase", "compound"], "split": "train", "source": "v2"}
 {"id": "od01", "text": "Open my development environment.", "route": "local", "demand": null, "tags": ["E4", "planned"], "split": "test", "source": "v2"}
 {"id": "od02", "text": "open my project", "route": "local", "demand": null, "tags": ["E4", "stt", "planned"], "split": "test", "source": "v2"}
 {"id": "od03", "text": "Open the thesis project.", "route": "local", "demand": null, "tags": ["E4", "planned"], "split": "test", "source": "v2"}
 {"id": "od04", "text": "Launch my IDE.", "route": "local", "demand": null, "tags": ["E4", "planned"], "split": "test", "source": "v2"}
 {"id": "od05", "text": "Hey Swift open the robotics project", "route": "local", "demand": null, "tags": ["E4", "wake-prefix", "planned"], "split": "train", "source": "v2"}
 {"id": "od06", "text": "Bring up VS Code for my project.", "route": "local", "demand": null, "tags": ["E4", "paraphrase", "planned"], "split": "test", "source": "v2"}
-{"id": "rt01", "text": "Run the tests.", "route": "claude", "demand": "light", "tags": ["E4"], "split": "test", "source": "v2"}
-{"id": "rt02", "text": "run the tests", "route": "claude", "demand": "light", "tags": ["E4", "stt"], "split": "test", "source": "v2"}
-{"id": "rt03", "text": "Run the thesis tests.", "route": "claude", "demand": "light", "tags": ["E4"], "split": "test", "source": "v2"}
-{"id": "rt04", "text": "Kick off the test suite for robotics.", "route": "claude", "demand": "light", "tags": ["E4", "paraphrase"], "split": "train", "source": "v2"}
-{"id": "rt05", "text": "Can you run my tests again?", "route": "claude", "demand": "light", "tags": ["E4"], "split": "test", "source": "v2"}
-{"id": "rt06", "text": "test my project", "route": "claude", "demand": "light", "tags": ["E4", "terse"], "split": "test", "source": "v2"}
-{"id": "cr01", "text": "Remind me every Friday to send my supervisor a weekly update.", "route": "claude", "demand": "light", "tags": ["E5", "canonical", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr02", "text": "remind me every friday to send my supervisor a weekly update", "route": "claude", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr03", "text": "Remind me tomorrow at 3pm to call the bank.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr04", "text": "Set a reminder for Monday morning to submit the timesheet.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr05", "text": "In two hours remind me to take a break.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cr06", "text": "Remind me every weekday at 9 to check the lab bookings.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr07", "text": "Don't let me forget to pay rent on the first of every month.", "route": "claude", "demand": "light", "tags": ["E5", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr08", "text": "Hey Swift remind me at five to leave for the station", "route": "claude", "demand": "light", "tags": ["E5", "wake-prefix", "stt", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cr09", "text": "Every Friday remind me to back up my thesis.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr10", "text": "Remind me to water the plants.", "route": "claude", "demand": "light", "tags": ["E5", "missing-slots", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr11", "text": "Set a weekly reminder on Sundays to plan the week.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr12", "text": "remind me in 20 minutes to check the oven", "route": "claude", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr13", "text": "Can you remind me next Tuesday to email Sarah about the dataset?", "route": "claude", "demand": "light", "tags": ["E5", "near-miss-email", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cr14", "text": "Remind me every other Wednesday to renew the parking permit.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr15", "text": "Add a reminder for 8am tomorrow: bring the poster.", "route": "claude", "demand": "light", "tags": ["E5", "paraphrase", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cr16", "text": "Remind me on Friday to schedule a meeting with my supervisor.", "route": "claude", "demand": "light", "tags": ["E5", "near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr17", "text": "Every morning at 7 remind me to take my medication.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr18", "text": "Remind me tonight to run the tests before I leave.", "route": "claude", "demand": "light", "tags": ["E5", "near-miss-tests", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr01", "text": "What reminders do I have?", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr02", "text": "list my reminders", "route": "claude", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr03", "text": "Show me all my reminders.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr04", "text": "Do I have any reminders set for Friday?", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr05", "text": "Read out my reminders.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr06", "text": "Hey Swift which reminders are active", "route": "claude", "demand": "light", "tags": ["E5", "wake-prefix", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cc01", "text": "Cancel the Friday reminder.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cc02", "text": "delete the reminder about the weekly update", "route": "claude", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cc03", "text": "Stop reminding me to take a break.", "route": "claude", "demand": "light", "tags": ["E5", "near-miss-stop", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cc04", "text": "Remove the rent reminder.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cc05", "text": "Cancel my reminder about the parking permit.", "route": "claude", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cc06", "text": "Get rid of the second reminder.", "route": "claude", "demand": "light", "tags": ["E5", "referent", "no-tool"], "split": "test", "source": "v2"}
+{"id": "rt01", "text": "Run the tests.", "route": "agent", "demand": "light", "tags": ["E4"], "split": "test", "source": "v2"}
+{"id": "rt02", "text": "run the tests", "route": "agent", "demand": "light", "tags": ["E4", "stt"], "split": "test", "source": "v2"}
+{"id": "rt03", "text": "Run the thesis tests.", "route": "agent", "demand": "light", "tags": ["E4"], "split": "test", "source": "v2"}
+{"id": "rt04", "text": "Kick off the test suite for robotics.", "route": "agent", "demand": "light", "tags": ["E4", "paraphrase"], "split": "train", "source": "v2"}
+{"id": "rt05", "text": "Can you run my tests again?", "route": "agent", "demand": "light", "tags": ["E4"], "split": "test", "source": "v2"}
+{"id": "rt06", "text": "test my project", "route": "agent", "demand": "light", "tags": ["E4", "terse"], "split": "test", "source": "v2"}
+{"id": "cr01", "text": "Remind me every Friday to send my supervisor a weekly update.", "route": "agent", "demand": "light", "tags": ["E5", "canonical", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr02", "text": "remind me every friday to send my supervisor a weekly update", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr03", "text": "Remind me tomorrow at 3pm to call the bank.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr04", "text": "Set a reminder for Monday morning to submit the timesheet.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr05", "text": "In two hours remind me to take a break.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cr06", "text": "Remind me every weekday at 9 to check the lab bookings.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr07", "text": "Don't let me forget to pay rent on the first of every month.", "route": "agent", "demand": "light", "tags": ["E5", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr08", "text": "Hey Swift remind me at five to leave for the station", "route": "agent", "demand": "light", "tags": ["E5", "wake-prefix", "stt", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cr09", "text": "Every Friday remind me to back up my thesis.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr10", "text": "Remind me to water the plants.", "route": "agent", "demand": "light", "tags": ["E5", "missing-slots", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr11", "text": "Set a weekly reminder on Sundays to plan the week.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr12", "text": "remind me in 20 minutes to check the oven", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr13", "text": "Can you remind me next Tuesday to email Sarah about the dataset?", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-email", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cr14", "text": "Remind me every other Wednesday to renew the parking permit.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr15", "text": "Add a reminder for 8am tomorrow: bring the poster.", "route": "agent", "demand": "light", "tags": ["E5", "paraphrase", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cr16", "text": "Remind me on Friday to schedule a meeting with my supervisor.", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr17", "text": "Every morning at 7 remind me to take my medication.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr18", "text": "Remind me tonight to run the tests before I leave.", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-tests", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr01", "text": "What reminders do I have?", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr02", "text": "list my reminders", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr03", "text": "Show me all my reminders.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr04", "text": "Do I have any reminders set for Friday?", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr05", "text": "Read out my reminders.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr06", "text": "Hey Swift which reminders are active", "route": "agent", "demand": "light", "tags": ["E5", "wake-prefix", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cc01", "text": "Cancel the Friday reminder.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cc02", "text": "delete the reminder about the weekly update", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cc03", "text": "Stop reminding me to take a break.", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-stop", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cc04", "text": "Remove the rent reminder.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cc05", "text": "Cancel my reminder about the parking permit.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cc06", "text": "Get rid of the second reminder.", "route": "agent", "demand": "light", "tags": ["E5", "referent", "no-tool"], "split": "test", "source": "v2"}
 {"id": "ct01", "text": "Stop.", "route": "control", "demand": null, "tags": ["control"], "split": "train", "source": "v2"}
 {"id": "ct02", "text": "stop", "route": "control", "demand": null, "tags": ["control", "stt"], "split": "train", "source": "v2"}
 {"id": "ct03", "text": "Cancel.", "route": "control", "demand": null, "tags": ["control"], "split": "test", "source": "v2"}
@@ -140,122 +140,122 @@
 {"id": "dd02", "text": "what day is it", "route": "local", "demand": null, "tags": ["info", "stt"], "split": "test", "source": "v2"}
 {"id": "dd03", "text": "What's today's date?", "route": "local", "demand": null, "tags": ["info"], "split": "test", "source": "v2"}
 {"id": "dd04", "text": "Which day of the week is it?", "route": "local", "demand": null, "tags": ["info"], "split": "test", "source": "v2"}
-{"id": "ge01", "text": "How many files are in my Documents folder?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "v2"}
-{"id": "ge02", "text": "What's on my calendar tomorrow?", "route": "claude", "demand": "light", "tags": ["near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
+{"id": "ge01", "text": "How many files are in my Documents folder?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
+{"id": "ge02", "text": "What's on my calendar tomorrow?", "route": "agent", "demand": "light", "tags": ["near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
 {"id": "ge03", "text": "Open Notepad.", "route": "local", "demand": null, "tags": ["app-launch", "planned"], "split": "test", "source": "v2"}
-{"id": "ge04", "text": "Find the PDF I downloaded yesterday.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "v2"}
-{"id": "ge05", "text": "Who is my supervisor?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "v2"}
-{"id": "ge06", "text": "Translate good morning into French.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "v2"}
-{"id": "ge07", "text": "What's the weather like?", "route": "claude", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "train", "source": "v2"}
-{"id": "ge08", "text": "Play some music.", "route": "claude", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "test", "source": "v2"}
-{"id": "ge09", "text": "How long until my next meeting?", "route": "claude", "demand": "light", "tags": ["near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
-{"id": "ge10", "text": "Find all Word documents in my thesis folder.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "v2"}
-{"id": "ge11", "text": "Did my dean reply to my email?", "route": "claude", "demand": "light", "tags": ["near-miss-email", "no-tool"], "split": "train", "source": "v2"}
-{"id": "ge12", "text": "Delete the old drafts folder.", "route": "claude", "demand": "light", "tags": ["destructive", "destructive"], "split": "train", "source": "v2"}
-{"id": "ge13", "text": "Run git pull in my project.", "route": "claude", "demand": "light", "tags": ["shell"], "split": "train", "source": "v2"}
-{"id": "ge14", "text": "What did the last test run say?", "route": "claude", "demand": "light", "tags": ["near-miss-tests"], "split": "test", "source": "v2"}
-{"id": "ge15", "text": "Explain what a p-value is in one sentence.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "v2"}
+{"id": "ge04", "text": "Find the PDF I downloaded yesterday.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
+{"id": "ge05", "text": "Who is my supervisor?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
+{"id": "ge06", "text": "Translate good morning into French.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
+{"id": "ge07", "text": "What's the weather like?", "route": "agent", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "train", "source": "v2"}
+{"id": "ge08", "text": "Play some music.", "route": "agent", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "test", "source": "v2"}
+{"id": "ge09", "text": "How long until my next meeting?", "route": "agent", "demand": "light", "tags": ["near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
+{"id": "ge10", "text": "Find all Word documents in my thesis folder.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
+{"id": "ge11", "text": "Did my dean reply to my email?", "route": "agent", "demand": "light", "tags": ["near-miss-email", "no-tool"], "split": "train", "source": "v2"}
+{"id": "ge12", "text": "Delete the old drafts folder.", "route": "agent", "demand": "light", "tags": ["destructive", "destructive"], "split": "train", "source": "v2"}
+{"id": "ge13", "text": "Run git pull in my project.", "route": "agent", "demand": "light", "tags": ["shell"], "split": "train", "source": "v2"}
+{"id": "ge14", "text": "What did the last test run say?", "route": "agent", "demand": "light", "tags": ["near-miss-tests"], "split": "test", "source": "v2"}
+{"id": "ge15", "text": "Explain what a p-value is in one sentence.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
 {"id": "ge16", "text": "Open the folder with my lecture notes.", "route": "local", "demand": null, "tags": ["planned"], "split": "test", "source": "v2"}
-{"id": "ge17", "text": "How much free disk space do I have?", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "v2"}
-{"id": "ge18", "text": "Summarize this webpage for me.", "route": "claude", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "train", "source": "v2"}
-{"id": "rq01", "text": "What's in the executors folder?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq02", "text": "Find the open to-dos in this project.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq03", "text": "Run the tests and tell me how it went.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq04", "text": "Open the README and summarize the setup section.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq05", "text": "Which files changed since the last commit?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq06", "text": "Add a next steps section to my notes.", "route": "claude", "demand": "light", "tags": ["edit"], "split": "test", "source": "prompts"}
-{"id": "rq07", "text": "Check which packages are out of date.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq08", "text": "Explain what session dot py does.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq09", "text": "Show me the last five lines of the interaction log.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq10", "text": "Rename the variable tail s to tail seconds in the session file.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "test", "source": "prompts"}
-{"id": "rq11", "text": "Search the codebase for every place we call transcribe.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq12", "text": "Create a new branch called fix overlay focus.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq13", "text": "Commit these changes with the message improve transcription accuracy.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq14", "text": "What does the Tauri config set for the window size?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq15", "text": "Is the Rust code in the overlay folder using any unsafe blocks?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq16", "text": "List the TypeScript files in the overlay source directory.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq17", "text": "How many tests are in the unit folder?", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq18", "text": "Summarize PLAN dot md in three bullet points.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq19", "text": "Draft an email to my supervisor about the delayed lab results.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq20", "text": "Remind me what we decided in ADR six.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq21", "text": "Why is the backend using so much memory?", "route": "claude", "demand": "standard", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq22", "text": "Update config dot yaml so the beam size is three.", "route": "claude", "demand": "light", "tags": ["edit"], "split": "train", "source": "prompts"}
-{"id": "rq23", "text": "Compare small dot en with distil small dot en on speed.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq24", "text": "Read the threat model and list the top risks.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq25", "text": "Write a short note to Bob Lee saying I'll be late tomorrow.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq26", "text": "Delete the temporary files in the spikes results folder.", "route": "claude", "demand": "light", "tags": ["destructive"], "split": "train", "source": "prompts"}
-{"id": "rq27", "text": "What's the difference between faster whisper and whisper dot cpp?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq28", "text": "Show the git log for the last two days.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq29", "text": "Fix the failing test in test voice dot py.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "test", "source": "prompts"}
-{"id": "rq30", "text": "Explain the confirm flow in plain English.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq31", "text": "Move the debug hotkey to control alt F eleven.", "route": "claude", "demand": "light", "tags": ["edit"], "split": "train", "source": "prompts"}
-{"id": "rq32", "text": "How long did the last Claude Code request take?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq33", "text": "Open the Trading project and check the latest backtest results.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
-{"id": "rq34", "text": "In the Jarvis folder, find where the wake word is configured.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq35", "text": "Clean up the downloads folder in the Cleaner project.", "route": "claude", "demand": "standard", "tags": ["destructive"], "split": "test", "source": "prompts"}
-{"id": "rq36", "text": "Translate this paragraph into French and keep the formatting.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
-{"id": "rq37", "text": "What's the weather like in Bucharest this weekend?", "route": "claude", "demand": "light", "tags": ["no-tool"], "split": "test", "source": "prompts"}
-{"id": "rq38", "text": "Schedule a meeting with the team next Thursday at three p m.", "route": "claude", "demand": "light", "tags": ["no-tool"], "split": "test", "source": "prompts"}
-{"id": "rq39", "text": "Make the orb a little smaller and move it to the bottom right corner.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "test", "source": "prompts"}
+{"id": "ge17", "text": "How much free disk space do I have?", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "v2"}
+{"id": "ge18", "text": "Summarize this webpage for me.", "route": "agent", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "train", "source": "v2"}
+{"id": "rq01", "text": "What's in the executors folder?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq02", "text": "Find the open to-dos in this project.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq03", "text": "Run the tests and tell me how it went.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq04", "text": "Open the README and summarize the setup section.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq05", "text": "Which files changed since the last commit?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq06", "text": "Add a next steps section to my notes.", "route": "agent", "demand": "light", "tags": ["edit"], "split": "test", "source": "prompts"}
+{"id": "rq07", "text": "Check which packages are out of date.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq08", "text": "Explain what session dot py does.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq09", "text": "Show me the last five lines of the interaction log.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq10", "text": "Rename the variable tail s to tail seconds in the session file.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "test", "source": "prompts"}
+{"id": "rq11", "text": "Search the codebase for every place we call transcribe.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq12", "text": "Create a new branch called fix overlay focus.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq13", "text": "Commit these changes with the message improve transcription accuracy.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq14", "text": "What does the Tauri config set for the window size?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq15", "text": "Is the Rust code in the overlay folder using any unsafe blocks?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq16", "text": "List the TypeScript files in the overlay source directory.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq17", "text": "How many tests are in the unit folder?", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq18", "text": "Summarize PLAN dot md in three bullet points.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq19", "text": "Draft an email to my supervisor about the delayed lab results.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq20", "text": "Remind me what we decided in ADR six.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq21", "text": "Why is the backend using so much memory?", "route": "agent", "demand": "standard", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq22", "text": "Update config dot yaml so the beam size is three.", "route": "agent", "demand": "light", "tags": ["edit"], "split": "train", "source": "prompts"}
+{"id": "rq23", "text": "Compare small dot en with distil small dot en on speed.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq24", "text": "Read the threat model and list the top risks.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq25", "text": "Write a short note to Bob Lee saying I'll be late tomorrow.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq26", "text": "Delete the temporary files in the spikes results folder.", "route": "agent", "demand": "light", "tags": ["destructive"], "split": "train", "source": "prompts"}
+{"id": "rq27", "text": "What's the difference between faster whisper and whisper dot cpp?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq28", "text": "Show the git log for the last two days.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq29", "text": "Fix the failing test in test voice dot py.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "test", "source": "prompts"}
+{"id": "rq30", "text": "Explain the confirm flow in plain English.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq31", "text": "Move the debug hotkey to control alt F eleven.", "route": "agent", "demand": "light", "tags": ["edit"], "split": "train", "source": "prompts"}
+{"id": "rq32", "text": "How long did the last Claude Code request take?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq33", "text": "Open the Trading project and check the latest backtest results.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "prompts"}
+{"id": "rq34", "text": "In the Jarvis folder, find where the wake word is configured.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq35", "text": "Clean up the downloads folder in the Cleaner project.", "route": "agent", "demand": "standard", "tags": ["destructive"], "split": "test", "source": "prompts"}
+{"id": "rq36", "text": "Translate this paragraph into French and keep the formatting.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
+{"id": "rq37", "text": "What's the weather like in Bucharest this weekend?", "route": "agent", "demand": "light", "tags": ["no-tool"], "split": "test", "source": "prompts"}
+{"id": "rq38", "text": "Schedule a meeting with the team next Thursday at three p m.", "route": "agent", "demand": "light", "tags": ["no-tool"], "split": "test", "source": "prompts"}
+{"id": "rq39", "text": "Make the orb a little smaller and move it to the bottom right corner.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "test", "source": "prompts"}
 {"id": "rq40", "text": "Stop.", "route": "control", "demand": null, "tags": [], "split": "train", "source": "prompts"}
-{"id": "nw01", "text": "Add a command line flag to the benchmark script that skips the Whisper models.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw02", "text": "Refactor the transcriber so the silence check lives in its own module.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw03", "text": "Write unit tests for the word fixes loader.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw04", "text": "Add a setting to turn off saving recordings after thirty days.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw05", "text": "Make the result card stay on screen longer when the answer is long.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw06", "text": "Implement the voice approve and reject commands from ADR seven.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw07", "text": "Change the overlay so it shows which model answered.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw08", "text": "Port the corpus recorder to use the same device selection as Swift.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "test", "source": "new"}
-{"id": "nw09", "text": "Update the README to describe the new routing layer.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw10", "text": "Add type hints to the session module and fix whatever mypy complains about.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw11", "text": "Find out why the first push to talk after startup is so slow.", "route": "claude", "demand": "standard", "tags": [], "split": "train", "source": "new"}
-{"id": "nw12", "text": "The tests are failing on the Rust side, figure out what broke.", "route": "claude", "demand": "standard", "tags": [], "split": "train", "source": "new"}
-{"id": "nw13", "text": "Why does Claude Code sometimes take ten seconds to start?", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw14", "text": "Look through the Trading project and tell me which strategy is most promising and why.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw15", "text": "Go through my Jarvis code and suggest how to merge it into Swift.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw16", "text": "Review the changes on this branch and point out anything risky.", "route": "claude", "demand": "standard", "tags": [], "split": "train", "source": "new"}
-{"id": "nw17", "text": "Profile the backend startup and tell me where the time goes.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw18", "text": "Organise my Documents folder into sensible subfolders.", "route": "claude", "demand": "standard", "tags": ["destructive"], "split": "train", "source": "new"}
-{"id": "nw19", "text": "Plan how we should add a calendar connector, step by step.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw20", "text": "Benchmark Parakeet against Whisper on my latest recordings and summarize.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw21", "text": "Speed up the model loading, it takes too long.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw22", "text": "Add logging around the escalation so I can see why it switched models.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw23", "text": "Migrate the config loader from YAML to TOML.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "test", "source": "new"}
-{"id": "nw24", "text": "Set up a GitHub Actions workflow that runs the Python tests.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "test", "source": "new"}
-{"id": "nw25", "text": "Fix the bug where the overlay steals focus after an error.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw26", "text": "Split the README into a user guide and a developer guide.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw27", "text": "Make the learner skip fixes that change real English words.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw28", "text": "Write a script that cleans up recordings older than a month.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw29", "text": "Check the whole repo for secrets that shouldn't be committed and remove them.", "route": "claude", "demand": "standard", "tags": ["destructive"], "split": "train", "source": "new"}
-{"id": "nw30", "text": "Work out why Parakeet uses more memory than its model file and reduce it.", "route": "claude", "demand": "standard", "tags": [], "split": "train", "source": "new"}
-{"id": "nw31", "text": "Compare the Jarvis and Swift architectures and write up the differences.", "route": "claude", "demand": "standard", "tags": [], "split": "train", "source": "new"}
-{"id": "nw32", "text": "Figure out which of my projects haven't been touched in six months and archive them.", "route": "claude", "demand": "standard", "tags": ["destructive"], "split": "test", "source": "new"}
-{"id": "nw33", "text": "Design a data model for storing escalation history.", "route": "claude", "demand": "standard", "tags": [], "split": "test", "source": "new"}
-{"id": "nw34", "text": "Go through the open TODOs and fix the easy ones.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw35", "text": "Upgrade the Tauri dependencies and make sure the build still works.", "route": "claude", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw36", "text": "Now commit it.", "route": "claude", "demand": "standard", "tags": ["followup"], "split": "test", "source": "new"}
-{"id": "nw37", "text": "Do the same for the other file.", "route": "claude", "demand": "standard", "tags": ["followup", "edit"], "split": "train", "source": "new"}
-{"id": "nw38", "text": "That didn't work, try again.", "route": "claude", "demand": "standard", "tags": ["followup"], "split": "test", "source": "new"}
-{"id": "nw39", "text": "Undo what you just did.", "route": "claude", "demand": "standard", "tags": ["followup", "edit"], "split": "train", "source": "new"}
-{"id": "nw40", "text": "Can you explain that last change?", "route": "claude", "demand": "standard", "tags": ["followup"], "split": "train", "source": "new"}
-{"id": "nw41", "text": "What's the difference between a process and a thread?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw42", "text": "Show me the diff of the last commit.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw43", "text": "Which branch am I on?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw44", "text": "What does the error in the last log line mean?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw45", "text": "How big is the Parakeet model folder?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw46", "text": "Read me the first section of ADR seven.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw47", "text": "Is there a TODO in the overlay source?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw48", "text": "Write a haiku about debugging.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "new"}
-{"id": "nw49", "text": "Summarize the commits from this week.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "new"}
-{"id": "nw50", "text": "Set the push to talk hotkey to control shift S in the config.", "route": "claude", "demand": "light", "tags": ["edit"], "split": "train", "source": "new"}
-{"id": "nw51", "text": "Count the lines of Python in the source folder.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "new"}
-{"id": "nw52", "text": "What's two hundred and forty times seventeen?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw53", "text": "Convert thirty degrees Celsius to Fahrenheit.", "route": "claude", "demand": "light", "tags": [], "split": "test", "source": "new"}
-{"id": "nw54", "text": "Draft a polite reply declining the meeting.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw55", "text": "Pull the latest changes in the Swift repo.", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw56", "text": "Use opus to review the routing design for gaps.", "route": "claude", "demand": "standard", "override": "opus", "tags": [], "split": "train", "source": "new"}
-{"id": "nw57", "text": "Think hard about whether we should keep Whisper as an option.", "route": "claude", "demand": "standard", "override": "opus", "tags": [], "split": "train", "source": "new"}
-{"id": "nw58", "text": "Use haiku to list the files in the docs folder.", "route": "claude", "demand": "light", "override": "haiku", "tags": [], "split": "train", "source": "new"}
+{"id": "nw01", "text": "Add a command line flag to the benchmark script that skips the Whisper models.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw02", "text": "Refactor the transcriber so the silence check lives in its own module.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw03", "text": "Write unit tests for the word fixes loader.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw04", "text": "Add a setting to turn off saving recordings after thirty days.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw05", "text": "Make the result card stay on screen longer when the answer is long.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw06", "text": "Implement the voice approve and reject commands from ADR seven.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw07", "text": "Change the overlay so it shows which model answered.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw08", "text": "Port the corpus recorder to use the same device selection as Swift.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "test", "source": "new"}
+{"id": "nw09", "text": "Update the README to describe the new routing layer.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw10", "text": "Add type hints to the session module and fix whatever mypy complains about.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw11", "text": "Find out why the first push to talk after startup is so slow.", "route": "agent", "demand": "standard", "tags": [], "split": "train", "source": "new"}
+{"id": "nw12", "text": "The tests are failing on the Rust side, figure out what broke.", "route": "agent", "demand": "standard", "tags": [], "split": "train", "source": "new"}
+{"id": "nw13", "text": "Why does Claude Code sometimes take ten seconds to start?", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw14", "text": "Look through the Trading project and tell me which strategy is most promising and why.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw15", "text": "Go through my Jarvis code and suggest how to merge it into Swift.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw16", "text": "Review the changes on this branch and point out anything risky.", "route": "agent", "demand": "standard", "tags": [], "split": "train", "source": "new"}
+{"id": "nw17", "text": "Profile the backend startup and tell me where the time goes.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw18", "text": "Organise my Documents folder into sensible subfolders.", "route": "agent", "demand": "standard", "tags": ["destructive"], "split": "train", "source": "new"}
+{"id": "nw19", "text": "Plan how we should add a calendar connector, step by step.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw20", "text": "Benchmark Parakeet against Whisper on my latest recordings and summarize.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw21", "text": "Speed up the model loading, it takes too long.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw22", "text": "Add logging around the escalation so I can see why it switched models.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw23", "text": "Migrate the config loader from YAML to TOML.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "test", "source": "new"}
+{"id": "nw24", "text": "Set up a GitHub Actions workflow that runs the Python tests.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "test", "source": "new"}
+{"id": "nw25", "text": "Fix the bug where the overlay steals focus after an error.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw26", "text": "Split the README into a user guide and a developer guide.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw27", "text": "Make the learner skip fixes that change real English words.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw28", "text": "Write a script that cleans up recordings older than a month.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw29", "text": "Check the whole repo for secrets that shouldn't be committed and remove them.", "route": "agent", "demand": "standard", "tags": ["destructive"], "split": "train", "source": "new"}
+{"id": "nw30", "text": "Work out why Parakeet uses more memory than its model file and reduce it.", "route": "agent", "demand": "standard", "tags": [], "split": "train", "source": "new"}
+{"id": "nw31", "text": "Compare the Jarvis and Swift architectures and write up the differences.", "route": "agent", "demand": "standard", "tags": [], "split": "train", "source": "new"}
+{"id": "nw32", "text": "Figure out which of my projects haven't been touched in six months and archive them.", "route": "agent", "demand": "standard", "tags": ["destructive"], "split": "test", "source": "new"}
+{"id": "nw33", "text": "Design a data model for storing escalation history.", "route": "agent", "demand": "standard", "tags": [], "split": "test", "source": "new"}
+{"id": "nw34", "text": "Go through the open TODOs and fix the easy ones.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw35", "text": "Upgrade the Tauri dependencies and make sure the build still works.", "route": "agent", "demand": "standard", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw36", "text": "Now commit it.", "route": "agent", "demand": "standard", "tags": ["followup"], "split": "test", "source": "new"}
+{"id": "nw37", "text": "Do the same for the other file.", "route": "agent", "demand": "standard", "tags": ["followup", "edit"], "split": "train", "source": "new"}
+{"id": "nw38", "text": "That didn't work, try again.", "route": "agent", "demand": "standard", "tags": ["followup"], "split": "test", "source": "new"}
+{"id": "nw39", "text": "Undo what you just did.", "route": "agent", "demand": "standard", "tags": ["followup", "edit"], "split": "train", "source": "new"}
+{"id": "nw40", "text": "Can you explain that last change?", "route": "agent", "demand": "standard", "tags": ["followup"], "split": "train", "source": "new"}
+{"id": "nw41", "text": "What's the difference between a process and a thread?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw42", "text": "Show me the diff of the last commit.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw43", "text": "Which branch am I on?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw44", "text": "What does the error in the last log line mean?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw45", "text": "How big is the Parakeet model folder?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw46", "text": "Read me the first section of ADR seven.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw47", "text": "Is there a TODO in the overlay source?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw48", "text": "Write a haiku about debugging.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
+{"id": "nw49", "text": "Summarize the commits from this week.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
+{"id": "nw50", "text": "Set the push to talk hotkey to control shift S in the config.", "route": "agent", "demand": "light", "tags": ["edit"], "split": "train", "source": "new"}
+{"id": "nw51", "text": "Count the lines of Python in the source folder.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
+{"id": "nw52", "text": "What's two hundred and forty times seventeen?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw53", "text": "Convert thirty degrees Celsius to Fahrenheit.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
+{"id": "nw54", "text": "Draft a polite reply declining the meeting.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw55", "text": "Pull the latest changes in the Swift repo.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw56", "text": "Use opus to review the routing design for gaps.", "route": "agent", "demand": "standard", "override": "opus", "tags": [], "split": "train", "source": "new"}
+{"id": "nw57", "text": "Think hard about whether we should keep Whisper as an option.", "route": "agent", "demand": "standard", "override": "opus", "tags": [], "split": "train", "source": "new"}
+{"id": "nw58", "text": "Use haiku to list the files in the docs folder.", "route": "agent", "demand": "light", "override": "haiku", "tags": [], "split": "train", "source": "new"}
 {"id": "nw59", "text": "Approve.", "route": "control", "demand": null, "tags": [], "split": "test", "source": "new"}
 {"id": "nw60", "text": "approve it", "route": "control", "demand": null, "tags": ["stt"], "split": "test", "source": "new"}
 {"id": "nw61", "text": "Reject that.", "route": "control", "demand": null, "tags": [], "split": "train", "source": "new"}
@@ -265,10 +265,10 @@
 {"id": "nw65", "text": "say that again", "route": "control", "demand": null, "tags": ["stt"], "split": "train", "source": "new"}
 {"id": "nw66", "text": "Hey Swift cancel", "route": "control", "demand": null, "tags": ["wake-prefix"], "split": "test", "source": "new"}
 {"id": "nw67", "text": "Quiet.", "route": "control", "demand": null, "tags": [], "split": "train", "source": "new"}
-{"id": "nw68", "text": "What's the time in Bucharest?", "route": "claude", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw68", "text": "What's the time in Bucharest?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
 {"id": "nw69", "text": "Open the Swift project in VS Code.", "route": "local", "demand": null, "tags": ["planned"], "split": "train", "source": "new"}
 {"id": "nw70", "text": "Open my downloads folder.", "route": "local", "demand": null, "tags": ["planned"], "split": "test", "source": "new"}
 {"id": "nw71", "text": "Launch Chrome.", "route": "local", "demand": null, "tags": ["planned"], "split": "train", "source": "new"}
 {"id": "nw72", "text": "what's the date", "route": "local", "demand": null, "tags": ["stt"], "split": "train", "source": "new"}
 {"id": "nw73", "text": "Hey Swift what day is it today", "route": "local", "demand": null, "tags": ["wake-prefix"], "split": "train", "source": "new"}
-{"id": "nw74", "text": "Open the Trading project and run the backtest.", "route": "claude", "demand": "light", "tags": ["compound"], "split": "train", "source": "new"}
+{"id": "nw74", "text": "Open the Trading project and run the backtest.", "route": "agent", "demand": "light", "tags": ["compound"], "split": "train", "source": "new"}

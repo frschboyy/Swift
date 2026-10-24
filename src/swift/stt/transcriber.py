@@ -7,17 +7,20 @@ inference in a worker thread so the event loop keeps serving the overlay.
 
 Both engines share the same front end: near-silent recordings are skipped,
 leading and trailing silence is trimmed, and word fixes are applied to the text.
+Both also say how sure they were of each word (``Transcription.words``), so the
+session can refuse to act on speech that noise made unclear (``assess``).
 """
 
 from __future__ import annotations
 
 import asyncio
 import math
+import re
 import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 import numpy as np
 from loguru import logger
@@ -39,10 +42,35 @@ PARAKEET_REPO = "istupakov/parakeet-tdt-0.6b-v2-onnx"
 PARAKEET_FILES = ["config.json", "vocab.txt", "encoder-model.int8.onnx", "decoder_joint-model.int8.onnx"]
 
 
+# Calibrated on the owner's 40 clips mixed with noise (spikes/stt/noise_bench.py,
+# docs/stt-noise.md). A word less likely than UNCLEAR_P counts as unclear: on clean
+# speech those were mostly real mistakes ("Kick the failing test").
+UNCLEAR_P = 0.4
+# A transcript whose words average below REJECT_P is not acted on. Text invented from
+# background voices averaged about 0.5; correct transcripts about 0.95. At 0.7 this
+# caught 90% of invented text and 78% of badly wrong transcripts, and 3% of right ones.
+REJECT_P = 0.7
+_PUNCT = re.compile(r"^[\W_]*$")
+
+
 class SttUnavailable(RuntimeError):
     def __init__(self, message: str, hint: str) -> None:
         super().__init__(message)
         self.hint = hint
+
+
+@dataclass(frozen=True)
+class Word:
+    text: str
+    p: float  # the model's probability for its least likely token
+
+
+@dataclass(frozen=True)
+class Heard:
+    """What an engine recognized; ``words`` is None when it can't say how sure it is."""
+
+    text: str
+    words: tuple[Word, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +81,19 @@ class Transcription:
     peak_db: float | None = None
     # What the model said before word fixes, when they changed anything.
     raw_text: str | None = None
+    # Words as the model heard them (before fixes), with their probabilities.
+    words: tuple[Word, ...] | None = None
+
+    @property
+    def confidence(self) -> float | None:
+        """Probability of the least likely word, or None if the engine didn't say."""
+        if not self.words:
+            return None
+        return min(w.p for w in self.words)
+
+    def unclear(self, unclear_p: float = UNCLEAR_P) -> list[str]:
+        """Words heard with less than ``unclear_p`` probability."""
+        return [w.text for w in self.words or () if w.p < unclear_p]
 
 
 @dataclass(frozen=True)
@@ -60,6 +101,45 @@ class ModelStats:
     model: str
     load_s: float
     private_mb_delta: float
+
+
+def words_from_tokens(tokens: list[str], logprobs: list[float]) -> tuple[Word, ...]:
+    """Group sub-word tokens into words (a leading space starts one).
+
+    A word's probability is that of its least likely token; punctuation tokens
+    join the word before them without counting, since "?" vs "." is not a
+    misheard word.
+    """
+    words: list[list[Any]] = []
+    for tok, lp in zip(tokens, logprobs, strict=False):
+        punct = bool(_PUNCT.match(tok.strip()))
+        if tok.startswith((" ", "▁")) and not punct or not words:
+            words.append([tok.strip(" ▁"), None if punct else lp])
+        else:
+            words[-1][0] += tok
+            if not punct:
+                words[-1][1] = lp if words[-1][1] is None else min(words[-1][1], lp)
+    return tuple(Word(t, round(math.exp(lp), 3)) for t, lp in words if lp is not None)
+
+
+Clarity = Literal["clear", "partly", "unclear"]
+
+
+def assess(t: Transcription, unclear_p: float = UNCLEAR_P, reject_p: float = REJECT_P) -> Clarity:
+    """How far to trust a transcript.
+
+    unclear: too much of it was a guess to act on (background voices heard as
+    words, speech buried in noise). partly: some words were guessed. A single word
+    is never unclear: "stop" must work, and a lone misheard word does little harm.
+    A threshold of 0 turns its check off; engines that report no probabilities
+    are always trusted.
+    """
+    if not t.words:
+        return "clear"
+    mean_p = sum(w.p for w in t.words) / len(t.words)
+    if len(t.words) > 1 and mean_p < reject_p:
+        return "unclear"
+    return "partly" if t.unclear(unclear_p) else "clear"
 
 
 class Transcriber(Protocol):
@@ -122,7 +202,7 @@ class LocalTranscriber:
     def _load_model(self) -> Any:
         raise NotImplementedError
 
-    def _recognize(self, samples: np.ndarray) -> str:
+    def _recognize(self, samples: np.ndarray) -> Heard:
         raise NotImplementedError
 
     def _missing_hint(self) -> str:
@@ -171,10 +251,11 @@ class LocalTranscriber:
         samples = trim_silence(samples)
         with self._busy:
             t0 = time.perf_counter()
-            raw = self._recognize(samples).strip()
+            heard = self._recognize(samples)
             ms = int((time.perf_counter() - t0) * 1000)
+        raw = heard.text.strip()
         text = self.fixes.apply(raw)
-        return Transcription(text, ms, audio_s, peak_db, raw if text != raw else None)
+        return Transcription(text, ms, audio_s, peak_db, raw if text != raw else None, heard.words if raw else None)
 
 
 class WhisperTranscriber(LocalTranscriber):
@@ -204,7 +285,7 @@ class WhisperTranscriber(LocalTranscriber):
             local_files_only=True,
         )
 
-    def _recognize(self, samples: np.ndarray) -> str:
+    def _recognize(self, samples: np.ndarray) -> Heard:
         segments, _info = self._model.transcribe(
             samples,
             language="en",
@@ -218,7 +299,9 @@ class WhisperTranscriber(LocalTranscriber):
             condition_on_previous_text=False,
             initial_prompt=self.initial_prompt,
         )
-        return " ".join(s.text.strip() for s in segments)
+        # No word probabilities: the noise thresholds were calibrated on Parakeet only,
+        # so Whisper transcripts are trusted as before.
+        return Heard(" ".join(s.text.strip() for s in segments))
 
 
 class ParakeetTranscriber(LocalTranscriber):
@@ -249,7 +332,8 @@ class ParakeetTranscriber(LocalTranscriber):
         opts.inter_op_num_threads = 1
         return onnx_asr.load_model(
             "nemo-parakeet-tdt-0.6b-v2", self._model_dir(), quantization="int8", sess_options=opts
-        )
+        ).with_timestamps()  # adds tokens and their log-probabilities to the text
 
-    def _recognize(self, samples: np.ndarray) -> str:
-        return str(self._model.recognize(samples, sample_rate=SAMPLE_RATE))
+    def _recognize(self, samples: np.ndarray) -> Heard:
+        result = self._model.recognize(samples, sample_rate=SAMPLE_RATE)
+        return Heard(result.text, words_from_tokens(result.tokens or [], result.logprobs or []))

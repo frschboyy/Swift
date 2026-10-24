@@ -56,7 +56,11 @@ npm --prefix overlay run dev
 # in the browser console: __shim.emit("hotkey", {name: "debug", state: "down"})
 ```
 
-It tests rendering and the protocol only. Window behavior (focus, click-through, capture exclusion) needs the real Tauri build.
+It tests rendering and the protocol only. Window behavior (focus, click-through, capture exclusion, dragging) needs the real Tauri build. Add `&anchor=top-right` (or any other anchor) to the URL to check a placement, or call `__shim.emit("placement", {anchor: "top-left"})`.
+
+### Moving the overlay
+
+Drag any card by its header: the overlay snaps to the nearest of six spots (top or bottom; left, centre or right) and remembers it. The tray menu's **Position** submenu offers the same choices. With **Move away from where I'm typing** on (the default), Swift opens at the opposite edge when its cards would cover the text caret of the app you're typing in. The choice is saved in `%LOCALAPPDATA%\Swift\overlay.json`. See [ADR-009](docs/decisions/ADR-009-overlay-ux.md).
 
 ## Push-to-talk (Milestone 2)
 

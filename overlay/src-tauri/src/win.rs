@@ -10,19 +10,27 @@
 //!   even though WebView2 hosts its own child windows.
 //! - `WDA_EXCLUDEFROMCAPTURE`: invisible to screen capture (Windows 10 2004+).
 //! - Placement with `SWP_NOACTIVATE`, so moving between monitors never takes focus.
+//! - Smart placement reads the foreground thread's text caret (`GetGUIThreadInfo`);
+//!   apps that draw their own caret (most browsers) report none, and nothing moves.
+//! - Copy goes through the Win32 clipboard: the overlay never has focus, which the
+//!   web Clipboard API requires.
 //!
 //! Handles are passed around as `isize` because `HWND` is a raw pointer and not `Send`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Foundation::{GlobalFree, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+use windows_sys::Win32::System::DataExchange::{CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData};
+use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetWindowLongPtrW, SetWindowDisplayAffinity, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, GWL_EXSTYLE, HWND_TOPMOST, MA_NOACTIVATE, STYLESTRUCT, SWP_NOACTIVATE,
-    SWP_SHOWWINDOW, SW_SHOWNOACTIVATE, WDA_EXCLUDEFROMCAPTURE, WM_MOUSEACTIVATE,
-    WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_TOPMOST, WS_EX_TRANSPARENT,
+    GetCursorPos, GetGUIThreadInfo, GetWindowLongPtrW, SetWindowDisplayAffinity, SetWindowLongPtrW,
+    SetWindowPos, ShowWindow, GUITHREADINFO, GWL_EXSTYLE, HWND_TOPMOST, MA_NOACTIVATE, STYLESTRUCT,
+    SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOWNOACTIVATE,
+    WDA_EXCLUDEFROMCAPTURE, WM_MOUSEACTIVATE, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
 };
 
 const SUBCLASS_ID: usize = 0x5357_4654; // "SWFT"
@@ -119,4 +127,65 @@ pub fn cursor_pos() -> Option<(i32, i32)> {
     let mut p = POINT { x: 0, y: 0 };
     let ok = unsafe { GetCursorPos(&mut p) };
     (ok != 0).then_some((p.x, p.y))
+}
+
+/// Move without resizing, activating or changing the z-order (dragging a card).
+pub fn move_to(raw: isize, x: i32, y: i32) {
+    unsafe {
+        SetWindowPos(hwnd(raw), std::ptr::null_mut(), x, y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
+    }
+}
+
+/// Whether the (logical) left mouse button is held right now.
+pub fn left_button_down() -> bool {
+    unsafe { GetAsyncKeyState(VK_LBUTTON as i32) as u16 & 0x8000 != 0 }
+}
+
+/// The foreground app's text caret in screen pixels, if it has a system caret.
+pub fn caret_pos() -> Option<(i32, i32)> {
+    unsafe {
+        let mut info: GUITHREADINFO = std::mem::zeroed();
+        info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+        if GetGUIThreadInfo(0, &mut info) == 0 || info.hwndCaret.is_null() {
+            return None;
+        }
+        let r = info.rcCaret;
+        let mut p = POINT { x: r.left, y: r.bottom };
+        (ClientToScreen(info.hwndCaret, &mut p) != 0).then_some((p.x, p.y))
+    }
+}
+
+const CF_UNICODETEXT: u32 = 13;
+
+/// Put `text` on the clipboard. Doesn't need (or take) focus.
+pub fn copy_text(text: &str) -> Result<(), String> {
+    let wide: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
+    let bytes = wide.len() * std::mem::size_of::<u16>();
+    unsafe {
+        if OpenClipboard(std::ptr::null_mut()) == 0 {
+            return Err("the clipboard is busy".into());
+        }
+        let result = (|| {
+            EmptyClipboard();
+            let mem = GlobalAlloc(GMEM_MOVEABLE, bytes);
+            if mem.is_null() {
+                return Err("out of memory".to_string());
+            }
+            let dst = GlobalLock(mem) as *mut u16;
+            if dst.is_null() {
+                GlobalFree(mem);
+                return Err("could not lock clipboard memory".to_string());
+            }
+            std::ptr::copy_nonoverlapping(wide.as_ptr(), dst, wide.len());
+            GlobalUnlock(mem);
+            // On success the clipboard owns the memory.
+            if SetClipboardData(CF_UNICODETEXT, mem as _).is_null() {
+                GlobalFree(mem);
+                return Err("the clipboard refused the text".to_string());
+            }
+            Ok(())
+        })();
+        CloseClipboard();
+        result
+    }
 }

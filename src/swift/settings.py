@@ -43,6 +43,12 @@ class SttSettings(_Section):
     # over the learned fixes in word_fixes_file (these win).
     word_fixes: dict[str, str] = Field(default_factory=dict)
     word_fixes_file: str = "%LOCALAPPDATA%/Swift/word_fixes.json"
+    # Noise checks (docs/stt-noise.md). The agent is told which words the model was
+    # less sure of than unclear_p, so it asks instead of guessing. A transcript whose
+    # words average below reject_p isn't acted on ("I couldn't make that out").
+    # 0 turns either check off.
+    unclear_p: float = Field(0.4, ge=0.0, le=1.0)
+    reject_p: float = Field(0.7, ge=0.0, le=1.0)
     # Debug: keep every push-to-talk recording as a WAV file in audio_dir.
     save_audio: bool = False
     audio_dir: str = "%LOCALAPPDATA%/Swift/audio"

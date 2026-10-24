@@ -35,7 +35,7 @@ import threading
 import time
 import warnings
 from collections.abc import AsyncIterator, Callable, Sequence
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,8 @@ from loguru import logger
 
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
 from swift.executors.claude_mapping import Outcome, confirm_card, outcome_for, steps_for
+from swift.executors.providers import CLAUDE_CODE
+from swift.failures import classify, clean_detail
 
 _DONE = object()
 
@@ -58,7 +60,10 @@ OVERRIDE_LEVEL = {"haiku": "light", "sonnet": "standard", "opus": "strong"}
 DEFAULT_TURN_LIMITS = {"light": 8, "standard": 25}
 ESCALATE_TOOL = "mcp__swift__request_stronger_model"
 SYSTEM_PROMPT = (
-    "The user spoke this request to a voice assistant and it was transcribed, so it may contain "
+    "You are working for Swift, the user's voice assistant: the user talks to Swift, Swift handed you this "
+    "request, and Swift shows your final answer to the user. Answer the request directly; don't introduce "
+    "yourself or sign the answer. "
+    "The user spoke this request and it was transcribed, so it may contain "
     "recognition errors: read it for what was meant. Keep the final answer short; it is shown on a small card."
 )
 ESCALATE_PROMPT = (
@@ -129,6 +134,7 @@ def as_event(message: Any) -> dict[str, Any] | None:
 
 class ClaudeCodeExecutor:
     name = "claude_code"
+    provider = CLAUDE_CODE
 
     def __init__(
         self,
@@ -419,7 +425,8 @@ class ClaudeCodeExecutor:
             {"to": model, "by": by, "reason": reason[:200], "t_ms": int((time.monotonic() - run.started) * 1000)}
         )
         shown = reason if len(reason) <= 60 else reason[:59].rsplit(" ", 1)[0] + "…"
-        run.queue.put_nowait(ExecEvent("step", f"Switching to {label}" + (f": {shown}" if shown else "")))
+        text = f"Switching to {label}" + (f": {shown}" if shown else "")
+        run.queue.put_nowait(ExecEvent("step", text, activity="switching"))
         logger.info("claude escalated", run_id=run_id, to=model, by=by)
         return f"Switched to {label}. Continue the request."
 
@@ -459,7 +466,9 @@ class ClaudeCodeExecutor:
                 if event is None:
                     continue
                 for step in steps_for(event):
-                    run.queue.put_nowait(ExecEvent("step", step.text))
+                    run.queue.put_nowait(
+                        ExecEvent("step", step.text, activity=step.activity, subagent=step.subagent)  # type: ignore[arg-type]
+                    )
                 outcome = outcome_for(event) or outcome
             run.result = self._final(run, outcome, None)
         except asyncio.CancelledError:
@@ -494,9 +503,16 @@ class ClaudeCodeExecutor:
             return ExecResult("rejected", f"{why}: {title}. Claude Code stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
             status = "done" if outcome.status == "done" else "error"
-            return ExecResult(status, outcome.summary, outcome.details, meta)
+            return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
         detail = f" ({str(error).splitlines()[0][:160]})" if error else ""
-        return ExecResult("error", f"Claude Code stopped without an answer{detail}.", meta=meta)
+        summary = f"Claude Code stopped without an answer{detail}."
+        # The exception's type often names the cause (CLIConnectionError, TimeoutError).
+        raw = f"{type(error).__name__}: {error}" if error else summary
+        hints = {"fallback_hint": CLAUDE_CODE.error_hint, "signin_hint": CLAUDE_CODE.signin_hint}
+        failure = classify(raw, CLAUDE_CODE.name, **hints)
+        if failure.code == "executor_failed":  # no known cause: the CLI went away
+            failure = replace(classify(summary, CLAUDE_CODE.name, **hints), detail=clean_detail(raw))
+        return ExecResult("error", summary, meta=meta, failure=failure)
 
 
 def _model_label(model: str) -> str:

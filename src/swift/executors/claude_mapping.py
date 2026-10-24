@@ -9,14 +9,18 @@ CLI versions add events (``rate_limit_event``, ``system/task_summary``,
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import PureWindowsPath
 from typing import Any
 from urllib.parse import urlparse
 
+from swift.executors.providers import CLAUDE_CODE
+from swift.failures import Failure, classify, clean_detail
+
 STEP_MAX = 80
 SUMMARY_MAX = 300
 LIST_MAX = 6
+
 
 # Result subtypes the CLI uses when it stops without finishing.
 STOP_REASONS = {
@@ -24,12 +28,48 @@ STOP_REASONS = {
     "error_max_turns": "Stopped: it reached the turn limit.",
     "error_during_execution": "Claude Code hit an error while working.",
 }
+# The same, as cards the owner can act on. error_during_execution carries no cause: classified.
+STOP_FAILURES = {
+    "error_max_budget_usd": Failure(
+        "budget", "Spending limit reached",
+        "Claude Code stopped because this request reached its spending limit.",
+        "Ask for something smaller, or raise executor.max_budget_usd in config.yaml.",
+    ),
+    "error_max_turns": Failure(
+        "max_turns", "Too many steps",
+        "Claude Code stopped because the request took more steps than allowed.",
+        "Split it into smaller requests, or raise the turn limit in config.yaml.",
+    ),
+}
+# api_retry "error" values -> what the working card says while the CLI retries.
+RETRY_STEPS = {
+    "rate_limit": "Hit a usage limit, retrying…",
+    "overloaded": "Claude is busy, retrying…",
+    "authentication_failed": "Sign-in problem, retrying…",
+    "server_error": "Service hiccup, retrying…",
+}
 
 
 @dataclass(frozen=True)
 class Step:
     text: str
     kind: str = "tool"  # "tool" | "text" | "info"
+    # Normalized for the overlay (``executors.base.Activity``).
+    activity: str = "working"
+    # Done by a helper agent Claude Code started (Task/Agent tool).
+    subagent: bool = False
+
+
+# Claude Code tool -> normalized activity.
+TOOL_ACTIVITY = {
+    "Read": "reading", "NotebookRead": "reading",
+    "Glob": "searching", "Grep": "searching", "WebSearch": "searching",
+    "Edit": "editing", "MultiEdit": "editing", "Write": "editing", "NotebookEdit": "editing",
+    "Bash": "running", "PowerShell": "running",
+    "WebFetch": "browsing",
+    "Task": "delegating", "Agent": "delegating",
+    "TodoWrite": "planning",
+}
 
 
 @dataclass
@@ -38,6 +78,8 @@ class Outcome:
     summary: str
     details: dict[str, Any] | None = None
     meta: dict[str, Any] = field(default_factory=dict)
+    # Set when status is "error": what the owner sees instead of the raw summary.
+    failure: Failure | None = None
 
 
 def _short(text: str, limit: int = STEP_MAX) -> str:
@@ -131,21 +173,23 @@ def _plain(text: str) -> str:
 def steps_for(event: dict[str, Any]) -> list[Step]:
     kind, sub = event.get("type"), event.get("subtype")
     if kind == "system" and sub == "init":
-        return [Step("Starting Claude Code…", "info")]
+        return [Step("Starting Claude Code…", "info", "starting")]
     if kind == "system" and sub == "permission_denied":
-        return [Step(f"Blocked: {event.get('tool_name', 'a tool')} isn't allowed", "info")]
+        return [Step(f"Blocked: {event.get('tool_name', 'a tool')} isn't allowed", "info", "blocked")]
     if kind == "system" and sub == "api_retry":
-        return [Step(f"Retrying ({event.get('error', 'API error').replace('_', ' ')})…", "info")]
+        error = str(event.get("error") or "")
+        return [Step(RETRY_STEPS.get(error, "Connection hiccup, retrying…"), "info", "waiting")]
     if kind != "assistant":
         return []
     helper = event.get("parent_tool_use_id") is not None
     out: list[Step] = []
     for block in event.get("message", {}).get("content", []):
         if block.get("type") == "tool_use":
-            text = describe_tool(block.get("name", "?"), block.get("input") or {})
-            out.append(Step(_short(("Helper: " if helper else "") + text)))
+            name = block.get("name", "?")
+            text = describe_tool(name, block.get("input") or {})
+            out.append(Step(_short(("Helper: " if helper else "") + text), "tool", TOOL_ACTIVITY.get(name, "working"), helper))
         elif block.get("type") == "text" and block.get("text", "").strip() and not helper:
-            out.append(Step(_first_sentence(block["text"]), "text"))
+            out.append(Step(_first_sentence(block["text"]), "text", "thinking"))
     return out
 
 
@@ -163,7 +207,14 @@ def outcome_for(event: dict[str, Any]) -> Outcome | None:
     text = (event.get("result") or "").strip()
     if event.get("is_error") or sub != "success":
         message = STOP_REASONS.get(str(sub)) or _short(_plain(text), SUMMARY_MAX) or "Claude Code failed."
-        return Outcome("error", message, None, meta)
+        failure = STOP_FAILURES.get(str(sub))
+        if failure is None:
+            failure = classify(
+                text or message, CLAUDE_CODE.name, fallback_hint=CLAUDE_CODE.error_hint, signin_hint=CLAUDE_CODE.signin_hint
+            )
+        elif text:
+            failure = replace(failure, detail=clean_detail(text))
+        return Outcome("error", message, None, meta, failure)
 
     summary, details = split_answer(text)
     if meta["denied"]:

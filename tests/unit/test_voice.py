@@ -15,7 +15,14 @@ from swift.audio.recorder import SAMPLE_RATE, MicError, level_from_block
 from swift.executors.echo import EchoExecutor
 from swift.ipc.protocol import Message
 from swift.session import Session
-from swift.stt.transcriber import SILENCE_DB, SttUnavailable, Transcription, WhisperTranscriber, loudest_db
+from swift.stt.transcriber import (
+    SILENCE_DB,
+    SttUnavailable,
+    Transcription,
+    WhisperTranscriber,
+    Word,
+    loudest_db,
+)
 
 from test_session import Recorder as Outbox
 
@@ -42,8 +49,16 @@ class FakeRecorder:
 
 
 class FakeTranscriber:
-    def __init__(self, text: str = "open my project", delay: float = 0.0, fail: SttUnavailable | None = None) -> None:
+    def __init__(
+        self,
+        text: str = "open my project",
+        delay: float = 0.0,
+        fail: SttUnavailable | None = None,
+        probs: dict[str, float] | None = None,
+    ) -> None:
         self.text = text
+        # Word -> probability for words the model was unsure of; the rest are 0.99.
+        self.probs = probs
         self.delay = delay
         self.fail = fail
         self.calls = 0
@@ -53,7 +68,10 @@ class FakeTranscriber:
         await asyncio.sleep(self.delay)
         if self.fail:
             raise self.fail
-        return Transcription(self.text, 420, len(audio) / SAMPLE_RATE)
+        words = None
+        if self.probs is not None:
+            words = tuple(Word(w, self.probs.get(w, 0.99)) for w in self.text.split())
+        return Transcription(self.text, 420, len(audio) / SAMPLE_RATE, words=words)
 
 
 def make(
@@ -114,6 +132,37 @@ async def test_silence_shows_didnt_catch_that_with_hotkey_hint() -> None:
     err = out.last("error")
     assert err["code"] == "no_speech" and "Ctrl+Shift+Space" in err["hint"]
     assert records[0]["status"] == "error" and records[0]["error"] == "no_speech"
+
+
+async def test_mostly_unclear_speech_is_not_acted_on() -> None:
+    stt = FakeTranscriber(text="Thank you.", probs={"Thank": 0.2, "you.": 0.3})
+    session, out, records, _, _ = make(transcriber=stt)
+    await down(session)
+    await up_and_wait(session)
+    assert out.states()[-1] == "error"
+    err = out.last("error")
+    assert err["code"] == "unclear_speech" and "Thank you." in err["message"]
+    assert not [m for m in out.messages if m.type == "result"]
+    assert records[0]["error"] == "unclear_speech" and records[0]["unclear"] == ["Thank", "you."]
+    assert records[0]["stt_confidence"] == 0.2
+
+
+async def test_a_few_unclear_words_are_named_to_the_agent() -> None:
+    stt = FakeTranscriber(text="explain the tori config file", probs={"tori": 0.3})
+    session, out, records, _, _ = make(transcriber=stt)
+    await down(session)
+    await up_and_wait(session)
+    summary = out.last("result")["summary"]
+    assert "explain the tori config file" in summary and "“tori”" in summary
+    assert records[0]["status"] == "done" and records[0]["unclear"] == ["tori"]
+
+
+async def test_unclear_check_can_be_turned_off() -> None:
+    stt = FakeTranscriber(text="Thank you.", probs={"Thank": 0.2, "you.": 0.3})
+    session, out, records, _, _ = make(transcriber=stt, unclear_p=0.0, reject_p=0.0)
+    await down(session)
+    await up_and_wait(session)
+    assert records[0]["status"] == "done" and "unclear" not in records[0]
 
 
 async def test_blocked_mic_shows_privacy_hint() -> None:

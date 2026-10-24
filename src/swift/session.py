@@ -19,12 +19,26 @@ exchange (request, answer, approved actions) as context, so "now commit it"
 works although every run is a fresh Claude Code process (ADR-007 §9). Only
 one exchange is kept; an error, a cancelled run or "new topic" clears it.
 
+Failures reach the overlay as ``error`` messages built from a ``Failure``
+(ADR-009): a plain title, what it means, what to do, and the raw text only as
+``detail``. When trying the same request again could help (``retry``), the
+overlay offers "Try again", which sends ``retry``: the last failed transcript runs
+again without being spoken again.
+
 Push-to-talk (``ptt`` down/up) records from the microphone, transcribes
 locally and routes the transcript (ADR-007): commands to Swift ("stop",
 "repeat that") and time/date are handled here; everything else goes to the
 configured executor with a demand estimate that picks its starting model. ``debug.run``
 plays a scripted interaction (fake mic level, canned transcript) through
 ``MockExecutor`` instead.
+
+The owner talks to Swift; executors are providers working for it (ADR-008).
+Every ``state``/``step``/``confirm.request``/``result``/``error`` sent for a run
+carries ``agent`` (the provider's id and name, from ``ProviderInfo``) so the
+overlay can say "Claude Code is reading" without knowing any provider. Results
+Swift produced itself carry ``agent: null``. Requests start on the first
+available provider (``Providers``); a skipped one is reported as a hand-off step.
+Called by an agent's name ("hey Claude"), Swift says who it is, at most once an hour.
 """
 
 from __future__ import annotations
@@ -43,16 +57,19 @@ from typing import Any
 
 from loguru import logger
 
+from swift import identity
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
-from swift.executors.base import ExecResult, Executor, ExecutorUnavailable
+from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
-from swift.ipc.protocol import Message, outbound
+from swift.executors.providers import Providers, Started, provider_of
+from swift.failures import Failure, Severity, classify
+from swift.ipc.protocol import Message, now_ms, outbound
 from swift.routing import Route
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import strip_wake
-from swift.stt.transcriber import SttUnavailable, Transcriber
+from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, assess
 
 Send = Callable[[Message], Awaitable[None]]
 OnFinish = Callable[[dict[str, Any]], None]
@@ -64,14 +81,9 @@ DEMO_TRANSCRIPTS = {
     "long": "Run the tests and tell me how it went.",
 }
 
-# Hint on the error card when a run fails, by executor name.
-ERROR_HINTS = {
-    "claude_code": "Try again. If it keeps failing, run `claude` in a terminal to check it's signed in.",
-    "mock": "This is a scripted failure from the debug scenarios.",
-}
-DEFAULT_ERROR_HINT = "Try again. Details are in swift.log."
-
 MIN_SPEECH_S = 0.3
+# After saying "No, I'm Swift" once, don't say it again for this long.
+CLARIFY_EVERY_S = 3600.0
 
 HELP_TEXT = (
     "Hold the hotkey and ask for anything in your project: questions, changes, commands. "
@@ -116,11 +128,21 @@ def _clip(text: str, limit: int) -> str:
 class UserFacingError(Exception):
     """A failure the owner can act on: shown as an error card with a hint."""
 
-    def __init__(self, code: str, message: str, hint: str) -> None:
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        hint: str,
+        *,
+        title: str = "Something went wrong",
+        retry: bool = False,
+        severity: Severity = "error",
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
         self.hint = hint
+        self.failure = Failure(code, title, message, hint, retry=retry, severity=severity)
 
 
 class Session:
@@ -141,9 +163,16 @@ class Session:
         router: Callable[[str], Route] | None = default_router,
         opener: LocalOpener | None = None,
         followup_s: float = FOLLOWUP_S,
+        fallbacks: tuple[Executor, ...] = (),
+        unclear_p: float = UNCLEAR_P,
+        reject_p: float = REJECT_P,
     ) -> None:
         self._send = send
         self.executor = executor
+        # The default provider first, then the ones tried when it's unavailable.
+        self.providers = Providers([executor, *fallbacks])
+        self._clarified_at: float | None = None
+        self._note: str | None = None
         self.debug_executor = debug_executor
         self.recorder = recorder
         self.transcriber = transcriber
@@ -160,8 +189,13 @@ class Session:
         self.opener = opener
         # 0 turns follow-up context off.
         self.followup_s = followup_s
+        # Words the model was less sure of than unclear_p are named to the agent; a
+        # transcript averaging below reject_p is not acted on. 0 turns either off.
+        self.unclear_p = unclear_p
+        self.reject_p = reject_p
         self._last_exchange: Exchange | None = None
-        self._last_result: tuple[str, ExecResult] | None = None
+        # The last answer, with the agent that produced it (None: Swift), for "repeat that".
+        self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
         self._local_ids = count(1)
         self._released: asyncio.Event | None = None
         self.state = "idle"
@@ -174,6 +208,8 @@ class Session:
         self._confirm_voice: asyncio.Task[None] | None = None
         self._record: dict[str, Any] | None = None
         self._run_started: float | None = None
+        # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
+        self._retry: tuple[str, str] | None = None
 
     @property
     def busy(self) -> bool:
@@ -192,6 +228,8 @@ class Session:
                 logger.info("overlay ready", startup_ms=msg.data["startup_ms"], backend_ms=msg.data.get("backend_ms"))
             case "cancel":
                 await self.cancel()
+            case "retry":
+                await self._start_retry()
             case "confirm.reply":
                 await self._confirm_reply(msg.data["request_id"], msg.data["decision"] == "approve")
             case "ptt" if msg.data["state"] == "down":
@@ -292,7 +330,7 @@ class Session:
         try:
             self.recorder.start(levels.put_nowait)
         except MicError as exc:
-            raise UserFacingError("mic_unavailable", str(exc), exc.hint) from None
+            raise UserFacingError("mic_unavailable", str(exc), exc.hint, title="Microphone unavailable") from None
 
         async def forward_levels() -> None:
             while True:
@@ -328,7 +366,9 @@ class Session:
         try:
             result = await self.transcriber.transcribe(audio)
         except SttUnavailable as exc:
-            raise UserFacingError("stt_unavailable", str(exc), exc.hint) from None
+            raise UserFacingError(
+                "stt_unavailable", str(exc), exc.hint, title="Speech recognition isn't ready", retry=True
+            ) from None
         record["stt_ms"] = result.stt_ms
         if result.peak_db is not None:
             record["peak_db"] = result.peak_db
@@ -337,8 +377,25 @@ class Session:
         if not result.text:
             raise UserFacingError(
                 "no_speech",
-                "I didn't catch that.",
+                "No words came through in that recording.",
                 f"Hold {self.ptt_label} while you speak, and release when you're done.",
+                title="I didn't catch that",
+                severity="info",
+            )
+        if result.confidence is not None:
+            record["stt_confidence"] = result.confidence
+        clarity = assess(result, self.unclear_p, self.reject_p)
+        if clarity != "clear":
+            record["unclear"] = result.unclear(self.unclear_p)
+        if clarity == "unclear":
+            # Acting on a guess is worse than asking again: say what it sounded like, do nothing.
+            record["transcript_heard"] = result.text
+            raise UserFacingError(
+                "unclear_speech",
+                f"It sounded like “{_clip(result.text, 80)}”, but too much of it was a guess to act on.",
+                "Try again closer to the mic, or somewhere quieter.",
+                title="I couldn't make that out",
+                severity="info",
             )
         return result.text
 
@@ -362,11 +419,18 @@ class Session:
             transcript = await capture(record)
             if transcript is None:
                 record["status"] = "cancelled"
+                if record.get("reason") == "too_short":
+                    # A tap, not a hold: say how push-to-talk works instead of doing nothing.
+                    tap = Failure(
+                        "too_short", "Hold to talk", f"Keep {self.ptt_label} held while you speak, then let go.", "",
+                        severity="info",
+                    )
+                    await self._send(outbound("error", **tap.as_message()))
                 return
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            routed = self.router is not None and record.get("source") in ("voice", "debug.ask")
+            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry")
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             target: OpenTarget | None = None
             if decision is not None and decision.action == "open":
@@ -379,6 +443,9 @@ class Session:
                     )
             if decision is not None:
                 record["route"] = decision.route
+                if decision.addressed_as:
+                    record["addressed_as"] = decision.addressed_as
+                    self._note = self._clarify(decision.addressed_as)
                 if decision.route != "claude":
                     record["action"] = decision.action
                     if target is not None:
@@ -391,14 +458,18 @@ class Session:
 
             try:
                 if decision is not None:
-                    run_id = await executor.start(
-                        self._with_context(decision.text, record), demand=decision.demand, override=decision.override
+                    launch = await self.providers.start(
+                        self._with_context(self._with_unclear(decision.text, record), record),
+                        demand=decision.demand,
+                        override=decision.override,
                     )
                 else:
-                    run_id = await start(transcript)
+                    launch = Started(executor, await start(transcript))
             except ExecutorUnavailable as exc:
-                raise UserFacingError("executor_unavailable", str(exc), exc.hint) from None
-            result = await self._run(executor, run_id, record)
+                raise UserFacingError(
+                    "executor_unavailable", str(exc), exc.hint, title="Can't hand this off yet"
+                ) from None
+            result = await self._run(launch, record)
             await self._finish(result, record)
             if decision is not None:
                 self._remember(record, decision.text, result)
@@ -409,7 +480,7 @@ class Session:
             if self._active is not None:
                 active_executor, run_id = self._active
                 await active_executor.cancel(run_id)
-                await self._send_result(run_id, ExecResult("cancelled", "Cancelled."))
+                await self._send_result(run_id, ExecResult("cancelled", "Cancelled."), self._agent())
             else:
                 await self._set_state("idle")
             raise
@@ -417,15 +488,19 @@ class Session:
             record["status"] = "error"
             record["error"] = exc.code
             self._last_exchange = None
-            await self._set_state("error")
-            await self._send(outbound("error", code=exc.code, message=exc.message, hint=exc.hint))
+            await self._send_failure(exc.failure, record)
         except Exception:
             logger.exception("interaction failed")
             record["status"] = "error"
             self._last_exchange = None
-            await self._set_state("error")
-            await self._send(
-                outbound("error", code="internal", message="Swift hit an internal error.", hint="Details are in swift.log.")
+            await self._send_failure(
+                Failure(
+                    "internal", "Something went wrong in Swift",
+                    "Swift hit an unexpected problem and stopped this request.",
+                    "Try again. If it keeps happening, open the logs from Swift's tray menu.",
+                    retry=True,
+                ),
+                record,
             )
         finally:
             voice = self._confirm_voice
@@ -434,6 +509,7 @@ class Session:
                 with contextlib.suppress(asyncio.CancelledError):
                     await voice
             self._confirm_voice = None
+            self._note = None
             if self._run_started is not None and "run_ms" not in record:
                 record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
             self._run_started = None
@@ -461,9 +537,13 @@ class Session:
                 logger.warning("open failed", target=target.name, error=str(exc))
                 record["status"] = "error"
                 record["error"] = "open_failed"
-                await self._set_state("error")
-                await self._send(
-                    outbound("error", code="open_failed", message=f"Couldn't open {target.name}.", hint="Check the path in config.yaml's local section.")
+                await self._send_failure(
+                    Failure(
+                        "open_failed", f"Couldn't open {target.name.title()}",
+                        "Windows couldn't start it from the path Swift has.",
+                        "Check its path in the local section of config.yaml.", detail=str(exc)[:240],
+                    ),
+                    record,
                 )
                 return
             record["status"] = "done"
@@ -478,6 +558,16 @@ class Session:
         if action == "repeat" and self._last_result is not None:
             record["status"] = "done"
             await self._send_result(*self._last_result)
+            return
+        if action == "identity":
+            # The answer is the clarification itself: no note under it.
+            answer = self._note or (
+                identity.clarification(decision.addressed_as, self.providers.agents())
+                if decision.addressed_as else identity.introduction(self.providers.agents())
+            )
+            self._note = None
+            record["status"] = "done"
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
             return
         now = datetime.now()
         answers = {
@@ -505,20 +595,54 @@ class Session:
                 await self._send(outbound("transcript", text=" ".join(shown), final=False))
             await asyncio.sleep(self.demo_speed / 30)
 
-    async def _run(self, executor: Executor, run_id: str, record: dict[str, Any]) -> ExecResult:
+    def _agent(self) -> dict[str, str] | None:
+        """The provider of the active run as the overlay's ``agent``; None when it is Swift itself."""
+        if self._active is None:
+            return None
+        provider = provider_of(self._active[0])
+        return None if provider.is_swift else provider.as_agent()
+
+    def _clarify(self, called: str) -> str | None:
+        """"No, I'm Swift." for being called by an agent's name; None if said within the last hour."""
+        now = time.monotonic()
+        if self._clarified_at is not None and now - self._clarified_at < CLARIFY_EVERY_S:
+            return None
+        self._clarified_at = now
+        return identity.clarification(called, self.providers.agents())
+
+    async def _run(self, started: Started, record: dict[str, Any]) -> ExecResult:
+        executor, run_id = started.executor, started.run_id
         self._active = (executor, run_id)
-        await self._set_state("working", run_id=run_id)
-        started = self._run_started = time.monotonic()
+        provider = started.provider
+        agent = self._agent()
+        record["provider"] = provider.id
+        if started.skipped:
+            record["skipped"] = [p.id for p, _ in started.skipped]
+        await self._set_state("working", run_id=run_id, agent=agent)
+        t0 = self._run_started = time.monotonic()
+        for skipped, _ in started.skipped:
+            # Swift's own step: who couldn't take the request and who did.
+            await self._send(
+                outbound(
+                    "step", run_id=run_id, text=f"{skipped.name} isn't available, so {provider.name} is taking this",
+                    kind="handoff", ts=now_ms(), activity="starting", agent=SWIFT.as_agent(), subagent=False,
+                )
+            )
         async for event in executor.events(run_id):
-            t_ms = int((time.monotonic() - started) * 1000)
+            t_ms = int((time.monotonic() - t0) * 1000)
             if event.type == "step":
-                record["steps"].append({"t_ms": t_ms, "text": event.text})
-                await self._send(outbound("step", run_id=run_id, text=event.text, kind="tool", ts=event.ts))
+                record["steps"].append({"t_ms": t_ms, "text": event.text, "activity": event.activity})
+                await self._send(
+                    outbound(
+                        "step", run_id=run_id, text=event.text, kind="tool", ts=event.ts,
+                        activity=event.activity, agent=agent, subagent=event.subagent,
+                    )
+                )
             elif event.type == "confirm" and event.request_id is not None:
                 self._confirm_ids.add(event.request_id)
                 self._confirm_titles[event.request_id] = event.text
                 record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms})
-                await self._set_state("confirm", run_id=run_id)
+                await self._set_state("confirm", run_id=run_id, agent=agent)
                 await self._send(
                     outbound(
                         "confirm.request",
@@ -527,10 +651,13 @@ class Session:
                         title=event.text,
                         detail=event.detail or "",
                         tool=event.tool or "",
+                        agent=agent,
+                        # How long the card waits before the run stops ("No answer in time").
+                        timeout_s=getattr(executor, "confirm_timeout_s", None),
                     )
                 )
         result = await executor.result(run_id)
-        record["run_ms"] = int((time.monotonic() - started) * 1000)
+        record["run_ms"] = int((time.monotonic() - t0) * 1000)
         return result
 
     async def _confirm_reply(self, request_id: str, approve: bool, source: str = "click") -> None:
@@ -547,7 +674,7 @@ class Session:
             entry["source"] = source
         await executor.reply(request_id, approve)
         if approve:
-            await self._set_state("working", run_id=run_id)
+            await self._set_state("working", run_id=run_id, agent=self._agent())
 
     def _approval(self, request_id: str) -> dict[str, Any] | None:
         if self._record is None:
@@ -592,6 +719,18 @@ class Session:
         else:
             await phase("hint", f"Heard “{_clip(text, 60)}”. {CONFIRM_VOICE_HINT}")
 
+    @staticmethod
+    def _with_unclear(request: str, record: dict[str, Any]) -> str:
+        """Name the words speech recognition was unsure of, so the agent asks instead of guessing."""
+        unclear = record.get("unclear")
+        if not unclear:
+            return request
+        words = ", ".join(f"“{w}”" for w in unclear[:6])
+        return (
+            f"{request}\n\n[Note: this request was spoken, and speech recognition was unsure of {words}. "
+            "If the request depends on those words, ask what was meant rather than guessing.]"
+        )
+
     def _with_context(self, request: str, record: dict[str, Any]) -> str:
         """Prepend the previous exchange when it is recent enough (ADR-007 §9)."""
         last, now = self._last_exchange, time.monotonic()
@@ -610,24 +749,60 @@ class Session:
         record["status"] = result.status
         record.update(result.meta)
         assert self._active is not None
-        await self._send_result(self._active[1], result)
+        await self._send_result(self._active[1], result, self._agent())
 
-    async def _send_result(self, run_id: str, result: ExecResult) -> None:
+    async def _send_failure(
+        self,
+        failure: Failure,
+        record: dict[str, Any] | None,
+        *,
+        run_id: str | None = None,
+        agent: dict[str, str] | None = None,
+    ) -> None:
+        """The error card. "Try again" is offered only when there is a request to repeat."""
+        source = (record or {}).get("source")
+        again = (record or {}).get("scenario" if source == "debug.run" else "transcript")
+        self._retry = (source, again) if failure.retry and source and again else None
+        if failure.detail:
+            logger.info("failure shown", code=failure.code, detail=failure.detail)
+        await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
+        message = failure.as_message() | {"retry": self._retry is not None}
+        await self._send(outbound("error", **message, agent=agent))
+
+    async def _start_retry(self) -> None:
+        """"Try again" on an error card: the same request, without speaking it again."""
+        pending, self._retry = self._retry, None
+        if pending is None or self.busy:
+            return
+        source, again = pending
+        if source == "debug.run":
+            await self._start_demo(again)
+            return
+        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "retry", "retry_of": source}
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return again
+
+        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+
+    async def _send_result(self, run_id: str, result: ExecResult, agent: dict[str, str] | None = None) -> None:
+        """Swift presents the outcome; ``agent`` says who did the work (None: Swift itself)."""
         if result.status == "error":
-            name = getattr(self._active[0], "name", "") if self._active else ""
-            await self._set_state("error", run_id=run_id)
-            await self._send(
-                outbound(
-                    "error",
-                    code="executor_failed",
-                    message=result.summary,
-                    hint=ERROR_HINTS.get(name, DEFAULT_ERROR_HINT),
-                )
+            provider = provider_of(self._active[0]) if self._active else SWIFT
+            failure = result.failure or classify(
+                result.summary, provider.name, fallback_hint=provider.error_hint, signin_hint=provider.signin_hint
             )
+            if self._record is not None:
+                self._record["error"] = failure.code
+            await self._send_failure(failure, self._record, run_id=run_id, agent=agent)
             return
         if result.status == "done":
-            self._last_result = (run_id, result)
-        await self._set_state("result", run_id=run_id)
+            self._last_result = (run_id, result, agent)
+        note, self._note = self._note, None
+        await self._set_state("result", run_id=run_id, agent=agent)
         await self._send(
-            outbound("result", run_id=run_id, status=result.status, summary=result.summary, details=result.details)
+            outbound(
+                "result", run_id=run_id, status=result.status, summary=result.summary, details=result.details,
+                agent=agent, note=note,
+            )
         )

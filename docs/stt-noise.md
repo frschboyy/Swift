@@ -194,11 +194,43 @@ take effect at once. Anything else said in between starts the check over.
   records `held_for: "noise"` and, when it went through, `confirmed_twice`.
 * Steady noise such as a fan counts too: the floor can't tell voices from other sound.
 
+## More real conditions: music, 2 m (2026-10-24)
+
+Same 8 sentences and 2 quiet takes, same room. **music** is music with vocals at
+normal listening volume. **far** is a quiet room with the owner about 2 m from
+the laptop mic, speaking normally. There was no fan to record.
+
+| | WER | acted | noted | refused | mean p (p10 / p50) | room dB (min / p50 / max) | approve held |
+|---|---|---|---|---|---|---|---|
+| clean | 0.136 | 88% | 12% | 0% | 0.46 / 0.89 | −72 / −69 / −57 | 0% |
+| tv | 0.475 | 38% | 25% | 38% | 0.32 / 0.71 | −46 / −39 / −32 | 100% |
+| music | 0.068 | 88% | 0% | 12% | 0.62 / 0.92 | −51 / −45 / −37 | 88% |
+| far | 0.085 | 100% | 0% | 0% | 0.83 / 0.89 | −67 / −62 / −56 | 0% |
+
+1. **Music and distance are much easier than TV.** Music with vocals barely hurt
+   recognition, and 2 m in a quiet room didn't either. A TV talking (speech
+   *addressed* to the room) is still the hard case.
+2. **`reject_p` 0.7 still holds.** Across all noisy multi-word clips it refused
+   0 of 10 right transcripts and 3 of 3 badly wrong ones. The one music refusal
+   was a real mistake ("Speaker Legal" for "fix overlay focus", p 0.62). No
+   threshold from 0.65 to 0.8 changes this.
+3. **Nothing was invented from music or a quiet room.** All four quiet takes came
+   back empty. Only the TV produced invented text, and that was refused.
+4. **`noisy_db` −50 separates quiet from noisy.** It held approvals on 100% of TV
+   and 88% of music clips, and on none at 2 m or clean. "Stop." was heard
+   correctly with music on. Moving to −54 would also catch the last music clip
+   (−51), but across all 40 clean clips it would hold 9 (22%) instead of 2 (5%).
+   −50 stays.
+5. **`unclear_p` misses confident substitutions at a distance.** "Rename … to
+   **2 seconds** in the session **phone**" and "**Showed the good luck** for the
+   last two days" (for "show the git log") scored p 0.83 with no word below 0.4.
+   These are acted on, with the agent left to notice. "good luck" → "git log" is
+   a candidate for the learned word fixes (`learn_fixes.py`).
+
 ## Not done / next
 
-* More real conditions: music with vocals, fan or street noise, speaking from 2 m.
-  Re-run `real_noise.py --speaker` after each. In particular, measure how often
-  `reject_p` refuses a correct request in noise, and check `noisy_db` against them.
+* A fan or street-noise condition: none recorded yet. `noisy_db` will count
+  steady noise as noisy, which is safe for approvals.
 * No recordings yet of the owner saying "approve" or "yes" in noise: the threshold
   was checked on whole requests, whose pauses look the same to the floor measure.
 * Larger models are the main reason cloud transcription holds up better in

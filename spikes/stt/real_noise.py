@@ -75,7 +75,7 @@ def run(t, stt, folder: Path, rows: list[dict], condition: str | None = None) ->
             "wer": round(wer([normalize(r["ref"])], [normalize(res.text)]), 3) if r["ref"] else None,
             "outcome": OUTCOME[assess(res, stt.unclear_p, stt.reject_p)] if res.text else "empty", "mean_p": mean_p(res),
             "n_words": len(res.words or ()), "unclear": res.unclear(stt.unclear_p),
-            "peak_db": res.peak_db, "audio": audio,
+            "peak_db": res.peak_db, "noise_db": res.noise_db, "audio": audio,
         })
     return out
 
@@ -104,11 +104,13 @@ def pct(values: list[float], q: float) -> float:
 
 def report(results: list[dict], stt, speaker: bool) -> None:
     conditions = list(dict.fromkeys(r["condition"] for r in results))
-    print(f"thresholds from config.yaml: reject_p {stt.reject_p}, unclear_p {stt.unclear_p}\n")
+    print(f"thresholds from config.yaml: reject_p {stt.reject_p}, unclear_p {stt.unclear_p}, "
+          f"noisy_db {stt.noisy_db}\n")
     print("acted: Swift acts; noted: acts and names the guessed words; refused: \"I couldn't make that out\"; "
           "empty: \"I didn't catch that\"\n")
     print(f"{'condition':12} {'n':>3} {'WER':>6}  {'acted':>6} {'noted':>6} {'refused':>8} {'empty':>6}  "
-          f"{'mean p p10/p50':>15}" + ("  speaker p10/p50  <0.3" if speaker else ""))
+          f"{'mean p p10/p50':>15}  {'room dB min/p50/max':>20} {'held':>5}"
+          + ("  speaker p10/p50  <0.3" if speaker else ""))
     for c in conditions:
         rs = [r for r in results if r["condition"] == c and r["ref"]]
         if not rs:
@@ -120,6 +122,10 @@ def report(results: list[dict], stt, speaker: bool) -> None:
                            for o, w in (("acted", 6), ("noted", 6), ("refused", 8), ("empty", 6)))
                 + "  "
                 + f"{(f'{pct(ps, .1):.2f} / {pct(ps, .5):.2f}' if ps else '-'):>15}")
+        # Room level between words: above noisy_db, a voice "approve" asks for a second one.
+        ds = [r["noise_db"] for r in rs if r["noise_db"] is not None]
+        line += (f"  {f'{min(ds):.0f} / {pct(ds, .5):.0f} / {max(ds):.0f}':>20} "
+                 f"{sum(d > stt.noisy_db for d in ds) / len(ds):5.0%}") if ds else f"  {'-':>20} {'-':>5}"
         if speaker:
             ss = [r["speaker"] for r in rs]
             line += f"  {pct(ss, .1):5.2f} / {pct(ss, .5):.2f}  {sum(s < SPEAKER_T for s in ss) / n:4.0%}"

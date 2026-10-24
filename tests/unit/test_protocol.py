@@ -33,6 +33,9 @@ def frame(kind: str, **data: object) -> str:
         (frame("debug.run", scenario="long"), "debug.run"),
         (frame("debug.ask", text="list the files"), "debug.ask"),
         (frame("ready", startup_ms=1840, backend_ms=950), "ready"),
+        (frame("view", action="show"), "view"),
+        (frame("view", action="hide"), "view"),
+        (frame("debug.say", text="show me"), "debug.say"),
     ],
 )
 def test_valid_inbound(raw: str, kind: str) -> None:
@@ -53,6 +56,8 @@ def test_valid_inbound(raw: str, kind: str) -> None:
         (frame("ptt", state=1), "must be str"),
         (frame("confirm.reply", request_id="r1", decision="maybe"), "must be one of"),
         (frame("debug.run", scenario="explode"), "must be one of"),
+        (frame("view", action="zoom"), "must be one of"),
+        (frame("artifact", id="a"), "unknown message type"),  # outbound-only type
         (json.dumps({"v": 1, "type": "cancel", "data": []}), "data must be"),
     ],
 )
@@ -82,6 +87,16 @@ def test_outbound_rejects_unknown_type_and_state() -> None:
         outbound("ptt", state="down")
     with pytest.raises(ValueError):
         outbound("state", state="dancing")
+
+
+def test_artifact_kind_and_phase_are_checked() -> None:
+    msg = outbound("artifact", run_id="r", id="draft-1", kind="email_draft", phase="drafting", version=1,
+                   title="Email", data={}, agent=None)
+    assert msg.data["version"] == 1
+    with pytest.raises(ValueError):
+        outbound("artifact", run_id="r", id="x", kind="video", phase="drafting", version=1, title="", data={})
+    with pytest.raises(ValueError):
+        outbound("artifact", run_id="r", id="x", kind="text", phase="baking", version=1, title="", data={})
 
 
 def test_encode_keeps_unicode() -> None:

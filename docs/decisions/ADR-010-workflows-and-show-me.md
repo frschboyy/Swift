@@ -1,6 +1,7 @@
 # ADR-010: Workflows, the trust boundary, and "show me"
 
-- **Status:** Proposed (needs the owner's decision; open questions in §10)
+- **Status:** Accepted (owner, 2026-10-24: approved as proposed, with the proposed answers in §10)
+- **Decided by:** Owner
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (Swift and its providers), ADR-009 (overlay UX)
 
@@ -274,7 +275,7 @@ B and C each need the owner's go-ahead.
   - Claude never enters credentials. Swift starts without it and says "Gmail isn't connected" with that command as the hint.
 - **Config** (`config.yaml`): `connectors.email: none | fake | gmail` (default `none`) and `contacts: [{name, email, aliases}]`.
 
-## 10. Open questions for the owner
+## 10. Owner's decisions (2026-10-24: the proposed answers, approved)
 
 1. **Approve the design as a whole?** In particular: the confirm card is the only approval for Swift tools (no Claude Code prompt in front of it), and `email.send` can never be set to auto.
 2. **Recipient rule:** is "only addresses from your contacts, config, or `find_contact`" right? It means "email jane@example.com" spoken aloud is **denied** unless Jane is in your contacts or config, because a spoken address can't be trusted from STT. The alternative is to also allow an address that appears literally in the transcript.

@@ -51,7 +51,7 @@ def test_whole_utterance_commands_are_control(text: str, action: str) -> None:
     ],
 )
 def test_requests_that_start_like_commands_still_reach_claude(text: str) -> None:
-    assert route(text).route == "claude"
+    assert route(text).route == "agent"
 
 
 @pytest.mark.parametrize(("text", "action"), [("What time is it?", "time"), ("what's the date today", "date"), ("Hey Swift what day is it", "date")])
@@ -62,7 +62,7 @@ def test_time_and_date_are_answered_locally(text: str, action: str) -> None:
 
 def test_use_model_prefix_is_removed_and_forces_the_model() -> None:
     r = route("Use opus to review the routing design for gaps.")
-    assert (r.route, r.override, r.demand) == ("claude", "opus", "standard")
+    assert (r.route, r.override, r.demand) == ("agent", "opus", "standard")
     assert r.text == "Review the routing design for gaps."
     r = route("hey swift, use haiku to list the files in docs")
     assert (r.override, r.demand, r.text) == ("haiku", "light", "List the files in docs")
@@ -93,14 +93,14 @@ def test_demand_estimate(text: str, demand: str) -> None:
 
 def test_no_request_in_the_eval_set_is_lost_to_a_command() -> None:
     # Taking a request for control/local drops it; the eval set must never show that.
-    dropped = [r["text"] for r in EVAL if r["route"] == "claude" and route(r["text"]).route != "claude"]
+    dropped = [r["text"] for r in EVAL if r["route"] == "agent" and route(r["text"]).route != "agent"]
     assert dropped == []
 
 
 def test_eval_test_split_has_no_demand_under_estimates() -> None:
     under = [
         r["text"] for r in EVAL
-        if r["split"] == "test" and r["route"] == "claude" and r["demand"] == "standard" and route(r["text"]).demand == "light"
+        if r["split"] == "test" and r["route"] == "agent" and r["demand"] == "standard" and route(r["text"]).demand == "light"
     ]
     assert under == []
 
@@ -151,7 +151,7 @@ async def test_claude_requests_carry_their_demand_and_override() -> None:
     assert spy.calls[0] == ("Fix the failing test.", {"demand": "standard", "override": None})
     # The second request also carries the first as follow-up context (test_followup.py).
     assert spy.calls[1][0].endswith("\nList the docs folder.") and spy.calls[1][1] == {"demand": "light", "override": "haiku"}
-    assert records[0]["route"] == "claude" and records[0]["demand"] == "standard"
+    assert records[0]["route"] == "agent" and records[0]["demand"] == "standard"
     assert records[1]["override"] == "haiku" and records[1]["start_model"] == "m"
 
 

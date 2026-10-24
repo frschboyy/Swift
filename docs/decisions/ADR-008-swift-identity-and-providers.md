@@ -65,6 +65,6 @@ Neither the session nor the overlay changes.
 
 ## 4. Not done / known limits
 
-- The router's route is still called `"claude"` (229 rows of `eval/routes.jsonl` use the label). It means "send to the provider", whichever provider that is. Renaming it is a mechanical follow-up.
+- *Done 2026-10-24:* the router's route is now `"agent"` (it was `"claude"`), including the eval labels. Learned examples and interaction logs written with `"claude"` are still read as `"agent"`.
 - Model escalation stays provider-internal: Claude Code reports it as a `switching` step. A cross-provider hand-off mid-run would need a new event type and is not designed yet.
 - Multi-agent runs are covered as far as one provider's own helpers go (`subagent`). Several providers on one request would need one `agent` per step, which the protocol already carries, plus a coordinator in the session.

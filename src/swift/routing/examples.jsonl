@@ -1,79 +1,79 @@
-{"text": "Draft an email to my dean explaining this situation.", "route": "claude", "demand": "light"}
-{"text": "draft an email to my dean explaining this situation", "route": "claude", "demand": "light"}
-{"text": "Write an email to my supervisor about the delayed lab results.", "route": "claude", "demand": "light"}
-{"text": "compose an email to my dean", "route": "claude", "demand": "light"}
-{"text": "I need to write to my supervisor about the conference budget.", "route": "claude", "demand": "light"}
-{"text": "Prepare an email for Sarah thanking her for the feedback.", "route": "claude", "demand": "light"}
-{"text": "Draft a reply to my dean.", "route": "claude", "demand": "light"}
-{"text": "Send an email to my supervisor about next week's progress.", "route": "claude", "demand": "light"}
-{"text": "Could you put together an email to the department head about room bookings", "route": "claude", "demand": "light"}
-{"text": "Write my dean a quick note explaining the situation with the exam.", "route": "claude", "demand": "light"}
-{"text": "draft email to supervisor re thesis timeline", "route": "claude", "demand": "light"}
-{"text": "Let my supervisor know by email that I'm sick today.", "route": "claude", "demand": "light"}
-{"text": "Draft an email to Maria Gonzalez about the shared dataset.", "route": "claude", "demand": "light"}
-{"text": "Hey Swift draft an email to my dean", "route": "claude", "demand": "light"}
-{"text": "Make that email shorter.", "route": "claude", "demand": "light"}
-{"text": "make it shorter", "route": "claude", "demand": "light"}
-{"text": "Make the email more formal.", "route": "claude", "demand": "light"}
-{"text": "Can you make it a bit friendlier?", "route": "claude", "demand": "light"}
-{"text": "Shorten the draft to two sentences.", "route": "claude", "demand": "light"}
-{"text": "Remove the last paragraph.", "route": "claude", "demand": "light"}
-{"text": "change the subject to weekly update", "route": "claude", "demand": "light"}
-{"text": "Rewrite that so it sounds less apologetic.", "route": "claude", "demand": "light"}
-{"text": "Find a free 30-minute slot with my supervisor next Tuesday and schedule a meeting.", "route": "claude", "demand": "light"}
-{"text": "find a free thirty minute slot with my supervisor next tuesday and schedule a meeting", "route": "claude", "demand": "light"}
-{"text": "Set up a one hour meeting with Bob on Friday.", "route": "claude", "demand": "light"}
-{"text": "Book 45 minutes with my dean sometime this week.", "route": "claude", "demand": "light"}
-{"text": "Arrange a meeting with my supervisor next week.", "route": "claude", "demand": "light"}
-{"text": "Hey Swift find time with my dean on the twenty first for an hour", "route": "claude", "demand": "light"}
-{"text": "Can you get me thirty minutes with Professor Adams on Thursday?", "route": "claude", "demand": "light"}
-{"text": "I need to meet my supervisor for 20 minutes before Friday.", "route": "claude", "demand": "light"}
-{"text": "Organise a meeting with the department head on October 21st at 2pm.", "route": "claude", "demand": "light"}
-{"text": "book a meeting with sarah next tuesday thirty minutes", "route": "claude", "demand": "light"}
-{"text": "Is there a free half hour with Bob tomorrow? If so, schedule it.", "route": "claude", "demand": "light"}
-{"text": "Set up a meeting with my supervisor to discuss chapter three next Tuesday.", "route": "claude", "demand": "light"}
-{"text": "Invite my dean to a 30 minute meeting on Monday at 10.", "route": "claude", "demand": "light"}
-{"text": "Find the latest report in my project folder and summarize the outstanding issues.", "route": "claude", "demand": "light"}
-{"text": "find the latest report in my project folder and summarize the outstanding issues", "route": "claude", "demand": "light"}
-{"text": "What are the open issues in the newest report?", "route": "claude", "demand": "light"}
-{"text": "Give me a summary of the latest report.", "route": "claude", "demand": "light"}
-{"text": "Hey Swift what does the last report say we still need to fix", "route": "claude", "demand": "light"}
-{"text": "Summarize the outstanding issues from the most recent document in my project.", "route": "claude", "demand": "light"}
-{"text": "latest report summary please", "route": "claude", "demand": "light"}
-{"text": "Find my most recent project report and list the remaining problems.", "route": "claude", "demand": "light"}
-{"text": "Look through the latest status update and tell me the blockers.", "route": "claude", "demand": "light"}
-{"text": "Open my development environment and run the tests.", "route": "claude", "demand": "light"}
-{"text": "open my development environment and run the tests", "route": "claude", "demand": "light"}
-{"text": "Fire up my IDE and kick off the test suite.", "route": "claude", "demand": "light"}
-{"text": "Hey Swift open my project and run the tests", "route": "claude", "demand": "light"}
-{"text": "Get my dev environment going and run all the tests.", "route": "claude", "demand": "light"}
-{"text": "open the editor and run pytest", "route": "claude", "demand": "light"}
-{"text": "Set up my workspace and run the unit tests.", "route": "claude", "demand": "light"}
+{"text": "Draft an email to my dean explaining this situation.", "route": "agent", "demand": "light"}
+{"text": "draft an email to my dean explaining this situation", "route": "agent", "demand": "light"}
+{"text": "Write an email to my supervisor about the delayed lab results.", "route": "agent", "demand": "light"}
+{"text": "compose an email to my dean", "route": "agent", "demand": "light"}
+{"text": "I need to write to my supervisor about the conference budget.", "route": "agent", "demand": "light"}
+{"text": "Prepare an email for Sarah thanking her for the feedback.", "route": "agent", "demand": "light"}
+{"text": "Draft a reply to my dean.", "route": "agent", "demand": "light"}
+{"text": "Send an email to my supervisor about next week's progress.", "route": "agent", "demand": "light"}
+{"text": "Could you put together an email to the department head about room bookings", "route": "agent", "demand": "light"}
+{"text": "Write my dean a quick note explaining the situation with the exam.", "route": "agent", "demand": "light"}
+{"text": "draft email to supervisor re thesis timeline", "route": "agent", "demand": "light"}
+{"text": "Let my supervisor know by email that I'm sick today.", "route": "agent", "demand": "light"}
+{"text": "Draft an email to Maria Gonzalez about the shared dataset.", "route": "agent", "demand": "light"}
+{"text": "Hey Swift draft an email to my dean", "route": "agent", "demand": "light"}
+{"text": "Make that email shorter.", "route": "agent", "demand": "light"}
+{"text": "make it shorter", "route": "agent", "demand": "light"}
+{"text": "Make the email more formal.", "route": "agent", "demand": "light"}
+{"text": "Can you make it a bit friendlier?", "route": "agent", "demand": "light"}
+{"text": "Shorten the draft to two sentences.", "route": "agent", "demand": "light"}
+{"text": "Remove the last paragraph.", "route": "agent", "demand": "light"}
+{"text": "change the subject to weekly update", "route": "agent", "demand": "light"}
+{"text": "Rewrite that so it sounds less apologetic.", "route": "agent", "demand": "light"}
+{"text": "Find a free 30-minute slot with my supervisor next Tuesday and schedule a meeting.", "route": "agent", "demand": "light"}
+{"text": "find a free thirty minute slot with my supervisor next tuesday and schedule a meeting", "route": "agent", "demand": "light"}
+{"text": "Set up a one hour meeting with Bob on Friday.", "route": "agent", "demand": "light"}
+{"text": "Book 45 minutes with my dean sometime this week.", "route": "agent", "demand": "light"}
+{"text": "Arrange a meeting with my supervisor next week.", "route": "agent", "demand": "light"}
+{"text": "Hey Swift find time with my dean on the twenty first for an hour", "route": "agent", "demand": "light"}
+{"text": "Can you get me thirty minutes with Professor Adams on Thursday?", "route": "agent", "demand": "light"}
+{"text": "I need to meet my supervisor for 20 minutes before Friday.", "route": "agent", "demand": "light"}
+{"text": "Organise a meeting with the department head on October 21st at 2pm.", "route": "agent", "demand": "light"}
+{"text": "book a meeting with sarah next tuesday thirty minutes", "route": "agent", "demand": "light"}
+{"text": "Is there a free half hour with Bob tomorrow? If so, schedule it.", "route": "agent", "demand": "light"}
+{"text": "Set up a meeting with my supervisor to discuss chapter three next Tuesday.", "route": "agent", "demand": "light"}
+{"text": "Invite my dean to a 30 minute meeting on Monday at 10.", "route": "agent", "demand": "light"}
+{"text": "Find the latest report in my project folder and summarize the outstanding issues.", "route": "agent", "demand": "light"}
+{"text": "find the latest report in my project folder and summarize the outstanding issues", "route": "agent", "demand": "light"}
+{"text": "What are the open issues in the newest report?", "route": "agent", "demand": "light"}
+{"text": "Give me a summary of the latest report.", "route": "agent", "demand": "light"}
+{"text": "Hey Swift what does the last report say we still need to fix", "route": "agent", "demand": "light"}
+{"text": "Summarize the outstanding issues from the most recent document in my project.", "route": "agent", "demand": "light"}
+{"text": "latest report summary please", "route": "agent", "demand": "light"}
+{"text": "Find my most recent project report and list the remaining problems.", "route": "agent", "demand": "light"}
+{"text": "Look through the latest status update and tell me the blockers.", "route": "agent", "demand": "light"}
+{"text": "Open my development environment and run the tests.", "route": "agent", "demand": "light"}
+{"text": "open my development environment and run the tests", "route": "agent", "demand": "light"}
+{"text": "Fire up my IDE and kick off the test suite.", "route": "agent", "demand": "light"}
+{"text": "Hey Swift open my project and run the tests", "route": "agent", "demand": "light"}
+{"text": "Get my dev environment going and run all the tests.", "route": "agent", "demand": "light"}
+{"text": "open the editor and run pytest", "route": "agent", "demand": "light"}
+{"text": "Set up my workspace and run the unit tests.", "route": "agent", "demand": "light"}
 {"text": "Hey Swift open the robotics project", "route": "local", "demand": null}
-{"text": "Kick off the test suite for robotics.", "route": "claude", "demand": "light"}
-{"text": "Remind me every Friday to send my supervisor a weekly update.", "route": "claude", "demand": "light"}
-{"text": "remind me every friday to send my supervisor a weekly update", "route": "claude", "demand": "light"}
-{"text": "Remind me tomorrow at 3pm to call the bank.", "route": "claude", "demand": "light"}
-{"text": "Set a reminder for Monday morning to submit the timesheet.", "route": "claude", "demand": "light"}
-{"text": "Remind me every weekday at 9 to check the lab bookings.", "route": "claude", "demand": "light"}
-{"text": "Don't let me forget to pay rent on the first of every month.", "route": "claude", "demand": "light"}
-{"text": "Every Friday remind me to back up my thesis.", "route": "claude", "demand": "light"}
-{"text": "Remind me to water the plants.", "route": "claude", "demand": "light"}
-{"text": "Set a weekly reminder on Sundays to plan the week.", "route": "claude", "demand": "light"}
-{"text": "remind me in 20 minutes to check the oven", "route": "claude", "demand": "light"}
-{"text": "Remind me every other Wednesday to renew the parking permit.", "route": "claude", "demand": "light"}
-{"text": "Remind me on Friday to schedule a meeting with my supervisor.", "route": "claude", "demand": "light"}
-{"text": "Every morning at 7 remind me to take my medication.", "route": "claude", "demand": "light"}
-{"text": "Remind me tonight to run the tests before I leave.", "route": "claude", "demand": "light"}
-{"text": "What reminders do I have?", "route": "claude", "demand": "light"}
-{"text": "list my reminders", "route": "claude", "demand": "light"}
-{"text": "Show me all my reminders.", "route": "claude", "demand": "light"}
-{"text": "Do I have any reminders set for Friday?", "route": "claude", "demand": "light"}
-{"text": "Read out my reminders.", "route": "claude", "demand": "light"}
-{"text": "Hey Swift which reminders are active", "route": "claude", "demand": "light"}
-{"text": "Cancel the Friday reminder.", "route": "claude", "demand": "light"}
-{"text": "Stop reminding me to take a break.", "route": "claude", "demand": "light"}
-{"text": "Cancel my reminder about the parking permit.", "route": "claude", "demand": "light"}
+{"text": "Kick off the test suite for robotics.", "route": "agent", "demand": "light"}
+{"text": "Remind me every Friday to send my supervisor a weekly update.", "route": "agent", "demand": "light"}
+{"text": "remind me every friday to send my supervisor a weekly update", "route": "agent", "demand": "light"}
+{"text": "Remind me tomorrow at 3pm to call the bank.", "route": "agent", "demand": "light"}
+{"text": "Set a reminder for Monday morning to submit the timesheet.", "route": "agent", "demand": "light"}
+{"text": "Remind me every weekday at 9 to check the lab bookings.", "route": "agent", "demand": "light"}
+{"text": "Don't let me forget to pay rent on the first of every month.", "route": "agent", "demand": "light"}
+{"text": "Every Friday remind me to back up my thesis.", "route": "agent", "demand": "light"}
+{"text": "Remind me to water the plants.", "route": "agent", "demand": "light"}
+{"text": "Set a weekly reminder on Sundays to plan the week.", "route": "agent", "demand": "light"}
+{"text": "remind me in 20 minutes to check the oven", "route": "agent", "demand": "light"}
+{"text": "Remind me every other Wednesday to renew the parking permit.", "route": "agent", "demand": "light"}
+{"text": "Remind me on Friday to schedule a meeting with my supervisor.", "route": "agent", "demand": "light"}
+{"text": "Every morning at 7 remind me to take my medication.", "route": "agent", "demand": "light"}
+{"text": "Remind me tonight to run the tests before I leave.", "route": "agent", "demand": "light"}
+{"text": "What reminders do I have?", "route": "agent", "demand": "light"}
+{"text": "list my reminders", "route": "agent", "demand": "light"}
+{"text": "Show me all my reminders.", "route": "agent", "demand": "light"}
+{"text": "Do I have any reminders set for Friday?", "route": "agent", "demand": "light"}
+{"text": "Read out my reminders.", "route": "agent", "demand": "light"}
+{"text": "Hey Swift which reminders are active", "route": "agent", "demand": "light"}
+{"text": "Cancel the Friday reminder.", "route": "agent", "demand": "light"}
+{"text": "Stop reminding me to take a break.", "route": "agent", "demand": "light"}
+{"text": "Cancel my reminder about the parking permit.", "route": "agent", "demand": "light"}
 {"text": "Stop.", "route": "control", "demand": null}
 {"text": "stop", "route": "control", "demand": null}
 {"text": "cancel that", "route": "control", "demand": null}
@@ -88,93 +88,93 @@
 {"text": "what's the time", "route": "local", "demand": null}
 {"text": "Hey Swift what time is it", "route": "local", "demand": null}
 {"text": "What's the date today?", "route": "local", "demand": null}
-{"text": "How many files are in my Documents folder?", "route": "claude", "demand": "light"}
-{"text": "What's on my calendar tomorrow?", "route": "claude", "demand": "light"}
-{"text": "Find the PDF I downloaded yesterday.", "route": "claude", "demand": "light"}
-{"text": "Who is my supervisor?", "route": "claude", "demand": "light"}
-{"text": "Translate good morning into French.", "route": "claude", "demand": "light"}
-{"text": "What's the weather like?", "route": "claude", "demand": "light"}
-{"text": "How long until my next meeting?", "route": "claude", "demand": "light"}
-{"text": "Find all Word documents in my thesis folder.", "route": "claude", "demand": "light"}
-{"text": "Did my dean reply to my email?", "route": "claude", "demand": "light"}
-{"text": "Delete the old drafts folder.", "route": "claude", "demand": "light"}
-{"text": "Run git pull in my project.", "route": "claude", "demand": "light"}
-{"text": "Explain what a p-value is in one sentence.", "route": "claude", "demand": "light"}
-{"text": "Summarize this webpage for me.", "route": "claude", "demand": "light"}
-{"text": "What's in the executors folder?", "route": "claude", "demand": "light"}
-{"text": "Find the open to-dos in this project.", "route": "claude", "demand": "light"}
-{"text": "Run the tests and tell me how it went.", "route": "claude", "demand": "light"}
-{"text": "Which files changed since the last commit?", "route": "claude", "demand": "light"}
-{"text": "Check which packages are out of date.", "route": "claude", "demand": "light"}
-{"text": "Explain what session dot py does.", "route": "claude", "demand": "light"}
-{"text": "Search the codebase for every place we call transcribe.", "route": "claude", "demand": "light"}
-{"text": "Create a new branch called fix overlay focus.", "route": "claude", "demand": "light"}
-{"text": "Commit these changes with the message improve transcription accuracy.", "route": "claude", "demand": "light"}
-{"text": "What does the Tauri config set for the window size?", "route": "claude", "demand": "light"}
-{"text": "Is the Rust code in the overlay folder using any unsafe blocks?", "route": "claude", "demand": "light"}
-{"text": "Summarize PLAN dot md in three bullet points.", "route": "claude", "demand": "light"}
-{"text": "Draft an email to my supervisor about the delayed lab results.", "route": "claude", "demand": "light"}
-{"text": "Remind me what we decided in ADR six.", "route": "claude", "demand": "light"}
-{"text": "Why is the backend using so much memory?", "route": "claude", "demand": "standard"}
-{"text": "Update config dot yaml so the beam size is three.", "route": "claude", "demand": "light"}
-{"text": "Read the threat model and list the top risks.", "route": "claude", "demand": "light"}
-{"text": "Delete the temporary files in the spikes results folder.", "route": "claude", "demand": "light"}
-{"text": "What's the difference between faster whisper and whisper dot cpp?", "route": "claude", "demand": "light"}
-{"text": "Show the git log for the last two days.", "route": "claude", "demand": "light"}
-{"text": "Explain the confirm flow in plain English.", "route": "claude", "demand": "light"}
-{"text": "Move the debug hotkey to control alt F eleven.", "route": "claude", "demand": "light"}
-{"text": "How long did the last Claude Code request take?", "route": "claude", "demand": "light"}
-{"text": "In the Jarvis folder, find where the wake word is configured.", "route": "claude", "demand": "light"}
-{"text": "Translate this paragraph into French and keep the formatting.", "route": "claude", "demand": "light"}
+{"text": "How many files are in my Documents folder?", "route": "agent", "demand": "light"}
+{"text": "What's on my calendar tomorrow?", "route": "agent", "demand": "light"}
+{"text": "Find the PDF I downloaded yesterday.", "route": "agent", "demand": "light"}
+{"text": "Who is my supervisor?", "route": "agent", "demand": "light"}
+{"text": "Translate good morning into French.", "route": "agent", "demand": "light"}
+{"text": "What's the weather like?", "route": "agent", "demand": "light"}
+{"text": "How long until my next meeting?", "route": "agent", "demand": "light"}
+{"text": "Find all Word documents in my thesis folder.", "route": "agent", "demand": "light"}
+{"text": "Did my dean reply to my email?", "route": "agent", "demand": "light"}
+{"text": "Delete the old drafts folder.", "route": "agent", "demand": "light"}
+{"text": "Run git pull in my project.", "route": "agent", "demand": "light"}
+{"text": "Explain what a p-value is in one sentence.", "route": "agent", "demand": "light"}
+{"text": "Summarize this webpage for me.", "route": "agent", "demand": "light"}
+{"text": "What's in the executors folder?", "route": "agent", "demand": "light"}
+{"text": "Find the open to-dos in this project.", "route": "agent", "demand": "light"}
+{"text": "Run the tests and tell me how it went.", "route": "agent", "demand": "light"}
+{"text": "Which files changed since the last commit?", "route": "agent", "demand": "light"}
+{"text": "Check which packages are out of date.", "route": "agent", "demand": "light"}
+{"text": "Explain what session dot py does.", "route": "agent", "demand": "light"}
+{"text": "Search the codebase for every place we call transcribe.", "route": "agent", "demand": "light"}
+{"text": "Create a new branch called fix overlay focus.", "route": "agent", "demand": "light"}
+{"text": "Commit these changes with the message improve transcription accuracy.", "route": "agent", "demand": "light"}
+{"text": "What does the Tauri config set for the window size?", "route": "agent", "demand": "light"}
+{"text": "Is the Rust code in the overlay folder using any unsafe blocks?", "route": "agent", "demand": "light"}
+{"text": "Summarize PLAN dot md in three bullet points.", "route": "agent", "demand": "light"}
+{"text": "Draft an email to my supervisor about the delayed lab results.", "route": "agent", "demand": "light"}
+{"text": "Remind me what we decided in ADR six.", "route": "agent", "demand": "light"}
+{"text": "Why is the backend using so much memory?", "route": "agent", "demand": "standard"}
+{"text": "Update config dot yaml so the beam size is three.", "route": "agent", "demand": "light"}
+{"text": "Read the threat model and list the top risks.", "route": "agent", "demand": "light"}
+{"text": "Delete the temporary files in the spikes results folder.", "route": "agent", "demand": "light"}
+{"text": "What's the difference between faster whisper and whisper dot cpp?", "route": "agent", "demand": "light"}
+{"text": "Show the git log for the last two days.", "route": "agent", "demand": "light"}
+{"text": "Explain the confirm flow in plain English.", "route": "agent", "demand": "light"}
+{"text": "Move the debug hotkey to control alt F eleven.", "route": "agent", "demand": "light"}
+{"text": "How long did the last Claude Code request take?", "route": "agent", "demand": "light"}
+{"text": "In the Jarvis folder, find where the wake word is configured.", "route": "agent", "demand": "light"}
+{"text": "Translate this paragraph into French and keep the formatting.", "route": "agent", "demand": "light"}
 {"text": "Stop.", "route": "control", "demand": null}
-{"text": "Add a command line flag to the benchmark script that skips the Whisper models.", "route": "claude", "demand": "standard"}
-{"text": "Refactor the transcriber so the silence check lives in its own module.", "route": "claude", "demand": "standard"}
-{"text": "Write unit tests for the word fixes loader.", "route": "claude", "demand": "standard"}
-{"text": "Add a setting to turn off saving recordings after thirty days.", "route": "claude", "demand": "standard"}
-{"text": "Make the result card stay on screen longer when the answer is long.", "route": "claude", "demand": "standard"}
-{"text": "Implement the voice approve and reject commands from ADR seven.", "route": "claude", "demand": "standard"}
-{"text": "Change the overlay so it shows which model answered.", "route": "claude", "demand": "standard"}
-{"text": "Update the README to describe the new routing layer.", "route": "claude", "demand": "standard"}
-{"text": "Add type hints to the session module and fix whatever mypy complains about.", "route": "claude", "demand": "standard"}
-{"text": "Find out why the first push to talk after startup is so slow.", "route": "claude", "demand": "standard"}
-{"text": "The tests are failing on the Rust side, figure out what broke.", "route": "claude", "demand": "standard"}
-{"text": "Review the changes on this branch and point out anything risky.", "route": "claude", "demand": "standard"}
-{"text": "Organise my Documents folder into sensible subfolders.", "route": "claude", "demand": "standard"}
-{"text": "Speed up the model loading, it takes too long.", "route": "claude", "demand": "standard"}
-{"text": "Add logging around the escalation so I can see why it switched models.", "route": "claude", "demand": "standard"}
-{"text": "Fix the bug where the overlay steals focus after an error.", "route": "claude", "demand": "standard"}
-{"text": "Split the README into a user guide and a developer guide.", "route": "claude", "demand": "standard"}
-{"text": "Make the learner skip fixes that change real English words.", "route": "claude", "demand": "standard"}
-{"text": "Write a script that cleans up recordings older than a month.", "route": "claude", "demand": "standard"}
-{"text": "Check the whole repo for secrets that shouldn't be committed and remove them.", "route": "claude", "demand": "standard"}
-{"text": "Work out why Parakeet uses more memory than its model file and reduce it.", "route": "claude", "demand": "standard"}
-{"text": "Compare the Jarvis and Swift architectures and write up the differences.", "route": "claude", "demand": "standard"}
-{"text": "Go through the open TODOs and fix the easy ones.", "route": "claude", "demand": "standard"}
-{"text": "Upgrade the Tauri dependencies and make sure the build still works.", "route": "claude", "demand": "standard"}
-{"text": "Do the same for the other file.", "route": "claude", "demand": "standard"}
-{"text": "Undo what you just did.", "route": "claude", "demand": "standard"}
-{"text": "Can you explain that last change?", "route": "claude", "demand": "standard"}
-{"text": "What's the difference between a process and a thread?", "route": "claude", "demand": "light"}
-{"text": "Show me the diff of the last commit.", "route": "claude", "demand": "light"}
-{"text": "Which branch am I on?", "route": "claude", "demand": "light"}
-{"text": "What does the error in the last log line mean?", "route": "claude", "demand": "light"}
-{"text": "How big is the Parakeet model folder?", "route": "claude", "demand": "light"}
-{"text": "Read me the first section of ADR seven.", "route": "claude", "demand": "light"}
-{"text": "Is there a TODO in the overlay source?", "route": "claude", "demand": "light"}
-{"text": "Set the push to talk hotkey to control shift S in the config.", "route": "claude", "demand": "light"}
-{"text": "What's two hundred and forty times seventeen?", "route": "claude", "demand": "light"}
-{"text": "Draft a polite reply declining the meeting.", "route": "claude", "demand": "light"}
-{"text": "Pull the latest changes in the Swift repo.", "route": "claude", "demand": "light"}
-{"text": "Use opus to review the routing design for gaps.", "route": "claude", "demand": "standard"}
-{"text": "Think hard about whether we should keep Whisper as an option.", "route": "claude", "demand": "standard"}
-{"text": "Use haiku to list the files in the docs folder.", "route": "claude", "demand": "light"}
+{"text": "Add a command line flag to the benchmark script that skips the Whisper models.", "route": "agent", "demand": "standard"}
+{"text": "Refactor the transcriber so the silence check lives in its own module.", "route": "agent", "demand": "standard"}
+{"text": "Write unit tests for the word fixes loader.", "route": "agent", "demand": "standard"}
+{"text": "Add a setting to turn off saving recordings after thirty days.", "route": "agent", "demand": "standard"}
+{"text": "Make the result card stay on screen longer when the answer is long.", "route": "agent", "demand": "standard"}
+{"text": "Implement the voice approve and reject commands from ADR seven.", "route": "agent", "demand": "standard"}
+{"text": "Change the overlay so it shows which model answered.", "route": "agent", "demand": "standard"}
+{"text": "Update the README to describe the new routing layer.", "route": "agent", "demand": "standard"}
+{"text": "Add type hints to the session module and fix whatever mypy complains about.", "route": "agent", "demand": "standard"}
+{"text": "Find out why the first push to talk after startup is so slow.", "route": "agent", "demand": "standard"}
+{"text": "The tests are failing on the Rust side, figure out what broke.", "route": "agent", "demand": "standard"}
+{"text": "Review the changes on this branch and point out anything risky.", "route": "agent", "demand": "standard"}
+{"text": "Organise my Documents folder into sensible subfolders.", "route": "agent", "demand": "standard"}
+{"text": "Speed up the model loading, it takes too long.", "route": "agent", "demand": "standard"}
+{"text": "Add logging around the escalation so I can see why it switched models.", "route": "agent", "demand": "standard"}
+{"text": "Fix the bug where the overlay steals focus after an error.", "route": "agent", "demand": "standard"}
+{"text": "Split the README into a user guide and a developer guide.", "route": "agent", "demand": "standard"}
+{"text": "Make the learner skip fixes that change real English words.", "route": "agent", "demand": "standard"}
+{"text": "Write a script that cleans up recordings older than a month.", "route": "agent", "demand": "standard"}
+{"text": "Check the whole repo for secrets that shouldn't be committed and remove them.", "route": "agent", "demand": "standard"}
+{"text": "Work out why Parakeet uses more memory than its model file and reduce it.", "route": "agent", "demand": "standard"}
+{"text": "Compare the Jarvis and Swift architectures and write up the differences.", "route": "agent", "demand": "standard"}
+{"text": "Go through the open TODOs and fix the easy ones.", "route": "agent", "demand": "standard"}
+{"text": "Upgrade the Tauri dependencies and make sure the build still works.", "route": "agent", "demand": "standard"}
+{"text": "Do the same for the other file.", "route": "agent", "demand": "standard"}
+{"text": "Undo what you just did.", "route": "agent", "demand": "standard"}
+{"text": "Can you explain that last change?", "route": "agent", "demand": "standard"}
+{"text": "What's the difference between a process and a thread?", "route": "agent", "demand": "light"}
+{"text": "Show me the diff of the last commit.", "route": "agent", "demand": "light"}
+{"text": "Which branch am I on?", "route": "agent", "demand": "light"}
+{"text": "What does the error in the last log line mean?", "route": "agent", "demand": "light"}
+{"text": "How big is the Parakeet model folder?", "route": "agent", "demand": "light"}
+{"text": "Read me the first section of ADR seven.", "route": "agent", "demand": "light"}
+{"text": "Is there a TODO in the overlay source?", "route": "agent", "demand": "light"}
+{"text": "Set the push to talk hotkey to control shift S in the config.", "route": "agent", "demand": "light"}
+{"text": "What's two hundred and forty times seventeen?", "route": "agent", "demand": "light"}
+{"text": "Draft a polite reply declining the meeting.", "route": "agent", "demand": "light"}
+{"text": "Pull the latest changes in the Swift repo.", "route": "agent", "demand": "light"}
+{"text": "Use opus to review the routing design for gaps.", "route": "agent", "demand": "standard"}
+{"text": "Think hard about whether we should keep Whisper as an option.", "route": "agent", "demand": "standard"}
+{"text": "Use haiku to list the files in the docs folder.", "route": "agent", "demand": "light"}
 {"text": "Reject that.", "route": "control", "demand": null}
 {"text": "Yes, go ahead and run it.", "route": "control", "demand": null}
 {"text": "say that again", "route": "control", "demand": null}
 {"text": "Quiet.", "route": "control", "demand": null}
-{"text": "What's the time in Bucharest?", "route": "claude", "demand": "light"}
+{"text": "What's the time in Bucharest?", "route": "agent", "demand": "light"}
 {"text": "Open the Swift project in VS Code.", "route": "local", "demand": null}
 {"text": "Launch Chrome.", "route": "local", "demand": null}
 {"text": "what's the date", "route": "local", "demand": null}
 {"text": "Hey Swift what day is it today", "route": "local", "demand": null}
-{"text": "Open the Trading project and run the backtest.", "route": "claude", "demand": "light"}
+{"text": "Open the Trading project and run the backtest.", "route": "agent", "demand": "light"}

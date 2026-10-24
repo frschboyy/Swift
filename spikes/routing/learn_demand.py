@@ -60,7 +60,7 @@ def propose(records: list[dict], known: set[str]) -> list[dict]:
     out: dict[str, dict] = {}
     for r in records:
         text = (r.get("transcript") or "").strip()
-        if r.get("route") != "claude" or not text or r.get("override") or key(text) in known:
+        if r.get("route") not in ("agent", "claude") or not text or r.get("override") or key(text) in known:
             continue
         escalations = r.get("escalations") or []
         if r.get("demand") == "light" and escalations:
@@ -121,7 +121,7 @@ def main() -> None:
             answer = input("  keep? [y/n/s/q] ").strip().lower()
             if answer == "q":
                 break
-            row = {"text": ex["text"], "route": "claude", "demand": ex["demand"], "source": "learned",
+            row = {"text": ex["text"], "route": "agent", "demand": ex["demand"], "source": "learned",
                    "added": datetime.now().astimezone().isoformat(timespec="seconds")}
             if answer == "y":
                 append(store, row)

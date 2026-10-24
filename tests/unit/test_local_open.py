@@ -72,7 +72,7 @@ def test_open_requests_route_local(text: str) -> None:
     ],
 )
 def test_compound_requests_stay_with_claude(text: str) -> None:
-    assert route(text).route == "claude"
+    assert route(text).route == "agent"
 
 
 def test_targets_resolve_from_config(settings: Settings, tmp_path: Path) -> None:
@@ -125,7 +125,7 @@ async def test_unknown_target_falls_through_to_claude(settings: Settings) -> Non
     session, _, spy, records = make_session(opener)
     await ask("Hey Swift open the thesis project.", session)
     assert opener.launched == [] and spy.calls and spy.calls[0][0] == "open the thesis project."
-    assert records[0]["route"] == "claude" and "target" not in records[0]
+    assert records[0]["route"] == "agent" and "target" not in records[0]
 
 
 async def test_no_opener_falls_through(settings: Settings) -> None:

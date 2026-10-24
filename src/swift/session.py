@@ -438,7 +438,7 @@ class Session:
                 if target is None:  # not a configured name: Claude Code decides
                     request = strip_wake(decision.text) or decision.text
                     decision = replace(
-                        decision, route="claude", action=None, target=None, app=None, text=request,
+                        decision, route="agent", action=None, target=None, app=None, text=request,
                         demand=estimate(request) or "standard",
                     )
             if decision is not None:
@@ -446,7 +446,7 @@ class Session:
                 if decision.addressed_as:
                     record["addressed_as"] = decision.addressed_as
                     self._note = self._clarify(decision.addressed_as)
-                if decision.route != "claude":
+                if decision.route != "agent":
                     record["action"] = decision.action
                     if target is not None:
                         record["target"] = target.name

@@ -32,11 +32,11 @@ def fake_embed(texts: list[str]) -> np.ndarray:
 
 
 EXAMPLES = [
-    Example("what is the weather like today", "claude", "light"),
-    Example("what is in the notes folder", "claude", "light"),
-    Example("what is the capital of france", "claude", "light"),
-    Example("refactor the session module into smaller pieces", "claude", "standard"),
-    Example("refactor the overlay code and the session module", "claude", "standard"),
+    Example("what is the weather like today", "agent", "light"),
+    Example("what is in the notes folder", "agent", "light"),
+    Example("what is the capital of france", "agent", "light"),
+    Example("refactor the session module into smaller pieces", "agent", "standard"),
+    Example("refactor the overlay code and the session module", "agent", "standard"),
     Example("stop", "control", None),
 ]
 
@@ -47,7 +47,7 @@ def classifier(threshold: float = 0.7) -> DemandClassifier:
 
 def test_light_when_the_nearest_examples_agree() -> None:
     p = classifier().predict("what is the weather in paris")
-    assert p.demand == "light" and p.p_light == pytest.approx(1.0) and p.route == "claude"
+    assert p.demand == "light" and p.p_light == pytest.approx(1.0) and p.route == "agent"
 
 
 def test_abstains_when_neighbors_say_standard() -> None:
@@ -69,7 +69,7 @@ def test_route_vote_is_a_hint_only() -> None:
     estimate = ClassifierEstimate(Path("unused"), [])
     estimate.classifier = classifier()
     # The router still sends it to Claude Code when the rules don't match: a hint never drops a request.
-    assert route("stop the weather", demand_fn=estimate).route == "claude"
+    assert route("stop the weather", demand_fn=estimate).route == "agent"
 
 
 def test_load_examples_skips_rejected_bad_and_missing(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_load_examples_skips_rejected_bad_and_missing(tmp_path: Path) -> None:
         "\n".join([
             json.dumps({"text": "list my files", "demand": "light"}),
             json.dumps({"text": "fix the bug", "demand": "standard", "rejected": True}),
-            json.dumps({"text": "no demand", "route": "claude"}),
+            json.dumps({"text": "no demand", "route": "agent"}),
             "not json",
             json.dumps({"text": "stop", "route": "control", "demand": None}),
             "",
@@ -86,7 +86,7 @@ def test_load_examples_skips_rejected_bad_and_missing(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     got = load_examples([f, tmp_path / "missing.jsonl"])
-    assert got == [Example("list my files", "claude", "light"), Example("stop", "control", None)]
+    assert got == [Example("list my files", "agent", "light"), Example("stop", "control", None)]
 
 
 def test_keywords_answer_until_the_classifier_is_ready() -> None:
@@ -144,7 +144,7 @@ def test_backend_router_uses_the_classifier_when_enabled() -> None:
 
 
 def record(text: str, demand: str, **kw) -> dict:
-    return {"route": "claude", "transcript": text, "demand": demand, "status": "done", "turns": 1, **kw}
+    return {"route": "agent", "transcript": text, "demand": demand, "status": "done", "turns": 1, **kw}
 
 
 def test_escalated_light_requests_become_standard_examples() -> None:

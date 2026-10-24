@@ -33,6 +33,8 @@ from swift.routing import demand as keywords
 
 MODEL_NAME = "bge-small-en-v1.5"
 BASE_EXAMPLES = Path(__file__).with_name("examples.jsonl")
+# Route names from before ADR-008, still found in examples learned earlier.
+LEGACY_ROUTES = {"claude": "agent"}
 MAX_TOKENS = 64
 
 
@@ -77,7 +79,11 @@ class Example:
 
 
 def load_examples(paths: Iterable[Path]) -> list[Example]:
-    """JSON lines with ``text``, ``route`` (default claude) and ``demand``. Missing files are skipped."""
+    """JSON lines with ``text``, ``route`` (default agent) and ``demand``. Missing files are skipped.
+
+    ``"claude"``, the route's name before ADR-008, is read as ``"agent"``: examples learned
+    earlier keep working.
+    """
     out: list[Example] = []
     for path in paths:
         if not path.exists():
@@ -89,9 +95,9 @@ def load_examples(paths: Iterable[Path]) -> list[Example]:
                 row = json.loads(line)
                 if row.get("rejected"):  # the owner said no in learn_demand.py
                     continue
-                route = row.get("route", "claude")
-                demand = row.get("demand") if route == "claude" else None
-                if route not in ("control", "local", "claude") or (route == "claude" and demand not in ("light", "standard")):
+                route = LEGACY_ROUTES.get(row.get("route", "agent"), row.get("route", "agent"))
+                demand = row.get("demand") if route == "agent" else None
+                if route not in ("control", "local", "agent") or (route == "agent" and demand not in ("light", "standard")):
                     raise ValueError(f"bad labels {route}/{demand}")
                 out.append(Example(row["text"], route, demand))
             except (ValueError, KeyError, TypeError) as exc:
@@ -121,7 +127,7 @@ class DemandClassifier:
         self.threshold = threshold
         self.examples = examples
         self.vectors = np.concatenate([embed([e.text for e in examples[i:i + 32]]) for i in range(0, len(examples), 32)])
-        self._claude = np.array([e.route == "claude" for e in examples])
+        self._agent = np.array([e.route == "agent" for e in examples])
         self._light = np.array([e.demand == "light" for e in examples])
 
     def _vote(self, sims: np.ndarray, rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -136,7 +142,7 @@ class DemandClassifier:
         for i, wi in zip(top, w):
             scores[self.examples[i].route] = scores.get(self.examples[i].route, 0.0) + float(wi)
         route = max(scores, key=scores.__getitem__)
-        top, w = self._vote(sims, self._claude)
+        top, w = self._vote(sims, self._agent)
         p_light = float(w[self._light[top]].sum() / w.sum())
         return Prediction(route, scores[route] / sum(scores.values()), "light" if p_light >= self.threshold else None, p_light)
 
@@ -182,7 +188,7 @@ class ClassifierEstimate:
         if classifier is None:
             return None
         p = classifier.predict(request)
-        if p.route != "claude":
+        if p.route != "agent":
             # No transcript here: swift.log stays redacted. A pattern of these means a rule is missing.
             logger.info("classifier thinks a rule missed this", route_hint=p.route, confidence=round(p.route_conf, 2))
         return p.demand

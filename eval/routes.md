@@ -8,8 +8,8 @@
 |---|---|---|
 | `id` | string | Stable id. Items relabeled from `utterances.jsonl` keep their id. New ones use `rq…` (Swift-style requests from `spikes/stt/prompts.txt`) or `nw…` (written for this set). |
 | `text` | string | The request as transcribed: no fixes for disfluency, "Hey Swift" left in. |
-| `route` | `control`, `local`, `claude` | Where it should go (below). |
-| `demand` | `light`, `standard`, or `null` | Only for `route: claude`. What it should start on (below). |
+| `route` | `control`, `local`, `agent` | Where it should go (below). |
+| `demand` | `light`, `standard`, or `null` | Only for `route: agent`. What it should start on (below). |
 | `override` | `opus`, `haiku`, or absent | The request names a model ("use opus …", "think hard …"). The rules strip the prefix and force that model. |
 | `tags` | list | Free-form: `planned` (needs a handler Swift doesn't have yet), `followup`, `no-tool` (Claude Code has no way to do it here), `edit`, `destructive`, `compound`, plus the original v2 tags. |
 | `split` | `train` or `test` | Fixed. Paraphrases of one request (canonical, `stt` lowercase, "Hey Swift" variants) always share a split. |
@@ -21,7 +21,7 @@
 - **`local`**: Swift answers without a model. Time and date now. Opening an app, a folder or a project in VS Code are `local` with the `planned` tag (ADR-007 §3). A request that also asks for more ("open my project **and run the tests**") is `claude`.
 - **`claude`**: everything else, including requests Swift has no tool for (calendar, reminders, sending email, weather, music: tag `no-tool`). Owner decision 3: Claude Code tries them.
 
-## Demand (`route: claude` only)
+## Demand (`route: agent` only)
 
 The question is: **would Haiku do this well without needing to escalate?**
 

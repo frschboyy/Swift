@@ -1,0 +1,25 @@
+# Hand vocabulary for boost_bench.py: project jargon, one phrase per line.
+# Picked from the test sentences (prompts.txt), so results with this list flatter boosting.
+git log
+beam size
+distil
+executors
+overlay
+Tauri
+README
+PLAN.md
+config.yaml
+session.py
+test_voice.py
+pytest
+ADR
+faster whisper
+whisper.cpp
+small.en
+Claude Code
+TypeScript
+backtest
+Jarvis
+to-dos
+spikes
+backend

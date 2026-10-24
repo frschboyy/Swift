@@ -238,3 +238,5 @@ the laptop mic, speaking normally. There was no fan to record.
 * Windows "Voice clarity" processing applies to the communications capture
   path. Swift opens the mic in default mode through PortAudio, which can't
   request it.
+* Vocabulary boosting in the decoder: tried in `docs/stt-vocab.md` (small gain at a low
+  bonus, invented words above it; not wired in).

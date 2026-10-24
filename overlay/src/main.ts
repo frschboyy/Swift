@@ -1,6 +1,8 @@
 // Overlay renderer. The backend owns the state machine; this file draws it,
 // forwards hotkeys, manages Esc registration, fade timers and click-through regions.
 // Failure cards, connection status, placement and dragging: ADR-009.
+// Run artifacts and the "show me" detail view: ADR-010 §7. The detail view replaces the
+// working card's body in place (the card never moves mid-run); Swift picks what it shows.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -8,7 +10,7 @@ import { activityLabel, byline, handoffLabel } from "./agents";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
-import { SCENARIOS, type Activity, type Agent, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 
 const INFO_FADE_MS = 5000;
 const ERROR_FADE_MS = 12000;
@@ -39,7 +41,6 @@ let agent: Agent | null = null;
 let current: { activity?: Activity; agent: Agent | null; subagent: boolean } | null = null;
 let runStarted = 0;
 let lastStepAt = 0;
-let nudgeUntil = 0;
 let confirmDeadline = 0;
 let compact = readPref("swift.compact") === "1";
 let fadeTimer = 0;
@@ -55,6 +56,16 @@ let connection: ConnectionStatus = { phase: "starting" };
 let everConnected = false;
 let listenStarted = 0;
 let loudest = 0;
+// The current run's artifacts (latest version of each), and what the detail view shows:
+// undefined closed, null the steps, else an artifact id.
+let artifacts = new Map<string, Artifact>();
+let viewing: string | null | undefined;
+let lastConfirm: Extract<Inbound, { type: "confirm.request" }>["data"] | null = null;
+let fullDraft = false;
+// Push-to-talk on the working card (mid-run grammar).
+let runVoice: { phase: string; text: string } | null = null;
+let runVoiceTimer = 0;
+const DRAFT_LINES = 8;
 
 const client = new BackendClient(onMessage, onStatus);
 
@@ -97,6 +108,11 @@ function setStage(next: UiState): void {
     runStarted = 0;
     listenStarted = performance.now();
     loudest = 0;
+    artifacts = new Map();
+    viewing = undefined;
+    lastConfirm = null;
+    fullDraft = false;
+    runVoice = null;
     delete transcriptEl.dataset.quiet;
     transcriptEl.textContent = "";
     card.replaceChildren();
@@ -166,6 +182,8 @@ function elapsedText(): string {
 
 function renderWorking(): void {
   const busyAt = Date.now();
+  // A new step re-renders the card: keep the reader's place in an open draft.
+  const scrolled = card.querySelector<HTMLElement>(".draft-body")?.scrollTop ?? 0;
   const list = el("ol", { class: "steps" });
   steps.forEach((text, i) => {
     const latest = i === steps.length - 1;
@@ -188,26 +206,152 @@ function renderWorking(): void {
     icon(compact ? "expand" : "collapse"),
   );
   const elapsed = el("span", { class: "elapsed", "aria-hidden": "true" }, runStarted && busyAt - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "");
-  const stalled = !compact && steps.length > 0 && busyAt - lastStepAt > STALL_MS;
-  const nudging = busyAt < nudgeUntil;
+  // "Show me" on the steps (viewing null) opens them even in compact mode.
+  const shown = viewing ? artifacts.get(viewing) : undefined;
+  const small = compact && viewing === undefined;
+  const stalled = isStalled(busyAt);
+  const showButton = artifacts.size && !shown
+    ? el("button", { class: "btn btn--ghost btn--small", "data-hit": true, title: "Show what Swift is working on", onclick: () => askView("show") }, "Show")
+    : null;
+  const backButton = shown
+    ? el("button", { class: "btn btn--ghost btn--small", "data-hit": true, onclick: () => askView("hide") }, "Back to steps")
+    : null;
   showCard(
     el(
       "div",
       {},
       head(el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "card-title card-title--live" }, title), [elapsed, toggle], false),
-      compact ? null : request ? el("p", { class: "request" }, request) : null,
-      compact ? null : steps.length ? list : el("p", { class: "muted" }, "Starting…"),
+      small || shown ? null : request ? el("p", { class: "request" }, request) : null,
+      shown ? artifactView(shown) : small ? null : steps.length ? list : el("p", { class: "muted" }, "Starting…"),
       stalled ? el("p", { class: "note note--soft" }, "Still working. Bigger requests can take a few minutes.") : null,
-      nudging ? el("p", { class: "note note--warn", role: "alert" }, "Swift is still on this request. Stop it first to ask something new.") : null,
+      runVoice ? runVoiceLine(runVoice) : null,
       el(
         "footer",
         { class: "card-foot" },
         el("span", { class: "hint" }, el("kbd", {}, "Esc"), " to stop"),
-        el("button", { class: "btn btn--ghost btn--small", "data-hit": true, onclick: () => cancelRun() }, "Stop"),
+        el("span", { class: "actions actions--inline" }, backButton ?? showButton, el("button", { class: "btn btn--ghost btn--small", "data-hit": true, onclick: () => cancelRun() }, "Stop")),
       ),
     ),
-    compact ? "working card--compact" : "working",
+    small ? "working card--compact" : "working",
   );
+  const body = card.querySelector<HTMLElement>(".draft-body");
+  if (body && scrolled) body.scrollTop = scrolled;
+}
+
+/** "Still working" shows on the steps only, never over an open artifact or a collapsed card. */
+function isStalled(now: number): boolean {
+  const open = viewing ? artifacts.has(viewing) : false;
+  return !(compact && viewing === undefined) && !open && steps.length > 0 && now - lastStepAt > STALL_MS;
+}
+
+function askView(action: "show" | "hide"): void {
+  client.send({ type: "view", data: { action } });
+}
+
+function runVoiceLine(v: { phase: string; text: string }): HTMLElement {
+  return el(
+    "p",
+    { class: "voice-hint", "data-phase": v.phase, "aria-live": "polite" },
+    v.phase === "listening" ? icon("mic") : null,
+    v.phase === "listening" ? "Listening…" : v.phase === "transcribing" ? "Transcribing…" : v.text,
+  );
+}
+
+// ---- artifacts (ADR-010) ------------------------------------------------------------
+
+const SEND_TEXT: Record<string, string> = {
+  waiting_approval: "Waiting for your approval",
+  sending: "Sending…",
+  sent: "Sent",
+  failed: "Not sent",
+  rejected: "Not sent: you didn't approve it",
+};
+
+/** One artifact, readable at a glance. Bodies scroll inside the card, which stays put. */
+function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
+  const label = a.kind === "email_draft" ? `Draft${a.version > 1 ? ` · v${a.version}` : ""}` : a.title;
+  let body: HTMLElement;
+  switch (a.kind) {
+    case "email_draft": {
+      const to = a.data.to.map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join(", ");
+      const lines = a.data.body.split("\n");
+      const clipped = clipLines > 0 && lines.length > clipLines;
+      body = el(
+        "div",
+        {},
+        el("dl", { class: "kv" }, el("dt", {}, "To"), el("dd", {}, to), el("dt", {}, "Subject"), el("dd", {}, a.data.subject)),
+        el("div", { class: "draft-body", tabindex: "0" }, clipped ? lines.slice(0, clipLines).join("\n") + "\n…" : a.data.body),
+      );
+      break;
+    }
+    case "recipient": {
+      const { candidates, chosen } = a.data;
+      body = candidates.length
+        ? el("ul", { class: "result-list" }, ...candidates.map((p, i) => el("li", { class: i === chosen ? "chosen" : "" }, `${p.name} <${p.email}>`)))
+        : el("p", { class: "muted" }, `No contact matches “${a.data.query}”.`);
+      break;
+    }
+    case "send_status": {
+      // What was (or wasn't) sent, under its status.
+      const draft = a.data.draft_id ? artifacts.get(a.data.draft_id) : undefined;
+      body = el(
+        "div",
+        {},
+        el("p", { class: `summary send-${a.data.state}` }, SEND_TEXT[a.data.state] ?? a.data.state),
+        a.data.reason ? el("p", { class: "muted" }, a.data.reason) : null,
+        draft?.kind === "email_draft"
+          ? el("dl", { class: "kv kv--after" }, el("dt", {}, "To"), el("dd", {}, draft.data.to.map((p) => p.name || p.email).join(", ")), el("dt", {}, "Subject"), el("dd", {}, draft.data.subject))
+          : null,
+      );
+      break;
+    }
+    default:
+      body = renderDetails(a.data) ?? el("p", { class: "muted" }, "");
+  }
+  return el("section", { class: "artifact", role: "region", "aria-label": label, "data-hit": true }, titled ? el("h3", { class: "artifact-title" }, label) : null, body);
+}
+
+/** After the run: "show me" (or Show) on a result opens the artifact as its own card. */
+function renderArtifactCard(a: Artifact): void {
+  rest("result");
+  showCard(
+    el("div", { "data-hit": true, class: "hit-area", onclick: dismissUnlessControl }, head(icon("info"), a.title), artifactView(a, 0, false)),
+    "result card--neutral",
+  );
+  startFade(readingMs(a.kind === "email_draft" ? a.data.body : a.title));
+}
+
+function onArtifact(a: Artifact): void {
+  const known = artifacts.get(a.id);
+  if (known && known.version >= a.version) return; // late or repeated
+  const first = artifacts.size === 0;
+  artifacts.set(a.id, a);
+  if (state === "working" && (first || viewing === a.id)) renderWorking();
+}
+
+function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
+  if (state === "confirm" && lastConfirm) {
+    // On the send card the draft is already there: "show me" opens all of it.
+    fullDraft = v.open;
+    renderConfirm(lastConfirm);
+    return;
+  }
+  if (state === "working") {
+    viewing = v.open ? v.artifact_id : undefined;
+    renderWorking();
+    return;
+  }
+  const a = v.artifact_id ? artifacts.get(v.artifact_id) : undefined;
+  if (v.open && a && (state === "result" || state === "error" || state === "idle")) renderArtifactCard(a);
+  else if (!v.open && card.querySelector(".artifact")) setStage("idle");
+}
+
+function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
+  window.clearTimeout(runVoiceTimer);
+  runVoice = v.phase === "idle" ? null : v;
+  // A hint stays long enough to read, then the card goes back to normal.
+  if (v.phase === "hint") runVoiceTimer = window.setTimeout(() => { runVoice = null; if (state === "working") renderWorking(); }, 4000);
+  if (state === "working") renderWorking();
 }
 
 function cancelRun(): void {
@@ -220,16 +364,26 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     client.send({ type: "confirm.reply", data: { request_id: data.request_id, decision } });
     card.querySelectorAll("button").forEach((b) => (b.disabled = true));
   };
+  // A re-render (show me / hide on the card) keeps the deadline it already had.
+  const again = lastConfirm?.request_id === data.request_id;
+  if (!again) fullDraft = false;
+  lastConfirm = data;
   const timeout = data.timeout_s && data.timeout_s > 0 ? data.timeout_s * 1000 : 0;
-  confirmDeadline = timeout ? Date.now() + timeout : 0;
+  if (!again) confirmDeadline = timeout ? Date.now() + timeout : 0;
+  // Swift's own card (send_email) shows the draft itself (ADR-010 §4).
+  const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
+  const longDraft = shown?.kind === "email_draft" && shown.data.body.split("\n").length > DRAFT_LINES;
   showCard(
     el(
       "div",
       { "data-hit": true },
-      head(icon("shield"), "Approval needed", [data.tool ? el("span", { class: "chip" }, data.tool) : null], false),
+      head(icon("shield"), "Approval needed", [data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null], false),
       data.agent ? el("p", { class: "asker" }, `${data.agent.name} wants to:`) : null,
       el("p", { class: "confirm-title" }, data.title),
-      data.detail ? el("p", { class: "muted detail-text" }, data.detail) : null,
+      shown ? artifactView(shown, fullDraft ? 0 : DRAFT_LINES) : data.detail ? el("p", { class: "muted detail-text" }, data.detail) : null,
+      longDraft
+        ? el("button", { class: "link", "aria-expanded": String(fullDraft), onclick: () => askView(fullDraft ? "hide" : "show") }, fullDraft ? "Show less" : "Show full draft")
+        : null,
       el("p", { class: "voice-hint", "data-request": data.request_id }, "Or hold ", pttKeys(), " and say “approve” or “reject”."),
       el("p", { class: "countdown", "aria-live": "off" }),
       el(
@@ -242,7 +396,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     "confirm",
   );
   if (timeout) {
-    card.style.setProperty("--fade-ms", `${timeout}ms`);
+    card.style.setProperty("--fade-ms", `${Math.max(0, confirmDeadline - Date.now())}ms`);
     card.classList.add("card--timed");
   }
   tickConfirm();
@@ -353,7 +507,18 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
       data.note ? el("p", { class: "note" }, data.note) : null,
       el("p", { class: "summary" }, data.summary),
       renderDetails(data.details),
-      el("footer", { class: "card-foot" }, el("span", { class: "byline" }, byline(data.agent)), data.status === "done" ? copyButton(copyable) : null),
+      el(
+        "footer",
+        { class: "card-foot" },
+        el("span", { class: "byline" }, byline(data.agent)),
+        el(
+          "span",
+          { class: "actions actions--inline" },
+          // What the run produced (the sent email) stays one click (or "show me") away.
+          artifacts.size ? el("button", { class: "btn btn--ghost btn--small", onclick: () => askView("show") }, "Show") : null,
+          data.status === "done" ? copyButton(copyable) : null,
+        ),
+      ),
     ),
     `result card--${variant}`,
   );
@@ -604,12 +769,7 @@ window.setInterval(() => {
   if (state === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
-    const stalled = Date.now() - lastStepAt > STALL_MS;
-    if (stalled !== !!card.querySelector(".note--soft") && !compact) renderWorking();
-    if (nudgeUntil && Date.now() >= nudgeUntil) {
-      nudgeUntil = 0;
-      renderWorking();
-    }
+    if (isStalled(Date.now()) !== !!card.querySelector(".note--soft")) renderWorking();
   } else if (state === "confirm") tickConfirm();
 }, 1000);
 
@@ -669,6 +829,15 @@ function onMessage(msg: Inbound): void {
       break;
     case "error":
       renderError(msg.data);
+      break;
+    case "artifact":
+      onArtifact(msg.data);
+      break;
+    case "view":
+      onView(msg.data);
+      break;
+    case "run.voice":
+      onRunVoice(msg.data);
       break;
   }
 }
@@ -744,11 +913,7 @@ void listen<{ name: string; state: "down" | "up" }>("hotkey", ({ payload }) => {
   } else if (payload.name === "push_to_talk") {
     const sent = client.send({ type: "ptt", data: { state: payload.state } });
     if (!sent && payload.state === "down") renderConnection(true);
-    else if (payload.state === "down" && state === "working") {
-      // The backend ignores push-to-talk mid-run; say why nothing is listening.
-      nudgeUntil = Date.now() + 3500;
-      renderWorking();
-    }
+    // Mid-run, the backend listens for "show me" / "stop" and reports it as run.voice (ADR-010 §6).
   }
 });
 

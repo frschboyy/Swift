@@ -1,0 +1,10 @@
+# Backend settings for the dev harness (overlay/dev/harness.html): debug scenarios on, the
+# fake email connector (debug always uses it), and logs in %TEMP% instead of your profile.
+debug: true
+executor:
+  kind: echo
+  prewarm: false
+logging:
+  interactions: "%TEMP%/swift-harness/interactions.jsonl"
+  app_log_dir: "%TEMP%/swift-harness/logs"
+  journal: "%TEMP%/swift-harness/journal.jsonl"

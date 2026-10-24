@@ -60,10 +60,12 @@ const internals = {
 
 // Record every backend frame (except mic levels) with the time it arrived.
 const frames: { t: number; type: string; data: unknown }[] = [];
+let socket: WebSocket | null = null;
 const NativeWebSocket = window.WebSocket;
 window.WebSocket = class extends NativeWebSocket {
   constructor(url: string | URL, protocols?: string | string[]) {
     super(url, protocols);
+    socket = this;
     this.addEventListener("message", (ev) => {
       const msg = JSON.parse(String(ev.data));
       if (msg.type !== "level") frames.push({ t: Math.round(performance.now()), type: msg.type, data: msg.data });
@@ -76,6 +78,12 @@ window.WebSocket = class extends NativeWebSocket {
   log,
   frames,
   copied,
+  /** Send a frame to the backend as the overlay would, e.g. send("debug.say", {text: "show me"}). */
+  send(type: string, data: Record<string, unknown> = {}): boolean {
+    if (!socket || socket.readyState !== NativeWebSocket.OPEN) return false;
+    socket.send(JSON.stringify({ v: 1, type, ts: Date.now(), data }));
+    return true;
+  },
   /** Simulate a Rust-side event, e.g. emit("hotkey", {name: "debug", state: "down"}). */
   emit(event: string, payload: unknown): void {
     for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload });

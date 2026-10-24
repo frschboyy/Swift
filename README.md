@@ -305,3 +305,9 @@ tests/unit/          Python unit tests
 spikes/              Phase 0 measurements (reference only)
 docs/decisions/      Architecture decision records
 ```
+
+## Wake phrase (hands-free)
+
+Set `wake.enabled: true` in `config.yaml` and say "hey Swift", "hello Swift" or "good afternoon Swift" (also "hi", "ok", "good morning/evening", and sound-alikes such as "hey swiff"). Say the request in the same breath ("hey Swift, what time is it") or wait for the listening card and say it after; it ends when you stop talking. The hotkey keeps working.
+
+There is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`. Swift does not yet pause wake listening when the PC is locked ([threat model](docs/threat_model.md) T7); edits and commands still need your approval on the overlay.

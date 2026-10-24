@@ -36,6 +36,7 @@ from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
 from swift.stt.fixes import WordFixes
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
+from swift.wake import WakeListener
 
 READY_PREFIX = "SWIFT_BACKEND_READY"
 
@@ -121,7 +122,13 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     )
     # Both warm up in the background once the ready line is out (below).
     transcriber = _make_transcriber(settings)
-    recorder = MicRecorder(asyncio.get_running_loop(), preroll_s=settings.audio.preroll_s)
+    loop = asyncio.get_running_loop()
+    wake = settings.wake
+    # Wake listening keeps the stream open and remembers the last few seconds, so a request
+    # spoken while the wake phrase was being transcribed is not lost.
+    recorder = MicRecorder(
+        loop, preroll_s=settings.audio.preroll_s, keep_open=wake.enabled, lookback_s=8.0 if wake.enabled else 0.0
+    )
 
     router, classifier = _make_router(settings)
     mock = MockExecutor()
@@ -139,9 +146,25 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         unclear_p=settings.stt.unclear_p,
         reject_p=settings.stt.reject_p,
         noisy_db=settings.stt.noisy_db,
+        wake_greetings=tuple(wake.greetings),
+        wake_min_p=wake.min_p,
+        wake_end_silence_s=wake.end_silence_s,
+        wake_start_timeout_s=wake.start_timeout_s,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)
+    wake_tasks: set[asyncio.Task[None]] = set()
+    if wake.enabled:
+
+        def heard(audio: Any, ended_at: float) -> None:  # audio thread
+            def start() -> None:
+                task = loop.create_task(session.hear_wake(audio, ended_at))
+                wake_tasks.add(task)
+                task.add_done_callback(wake_tasks.discard)
+
+            loop.call_soon_threadsafe(start)
+
+        recorder.tap = WakeListener(heard).feed
 
     bound = await server.start(port)
     print(f"{READY_PREFIX} port={bound}", flush=True)
@@ -153,10 +176,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         classifier.start_loading()
     if isinstance(session.executor, ClaudeCodeExecutor):
         session.executor.prepare()
-    logger.info("backend ready", port=bound, debug=settings.debug)
+    logger.info("backend ready", port=bound, debug=settings.debug, wake=wake.enabled)
 
     # Exit when Tauri closes our stdin (normal quit). The Job Object covers crashes.
-    loop = asyncio.get_running_loop()
     stdin_closed = loop.run_in_executor(None, sys.stdin.read) if not sys.stdin.isatty() else asyncio.Future()
     try:
         await stdin_closed

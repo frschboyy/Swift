@@ -39,6 +39,11 @@ overlay can say "Claude Code is reading" without knowing any provider. Results
 Swift produced itself carry ``agent: null``. Requests start on the first
 available provider (``Providers``); a skipped one is reported as a hand-off step.
 Called by an agent's name ("hey Claude"), Swift says who it is, at most once an hour.
+
+Wake listening (swift/wake.py) starts the same interaction by voice: ``hear_wake`` gets a
+short utterance from the always-open microphone, transcribes it, and if it opens with
+"hey / hello / good afternoon Swift" either runs what follows in the same breath or, after
+a bare greeting, records the request and ends it when the owner stops talking.
 """
 
 from __future__ import annotations
@@ -50,6 +55,7 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
+from functools import partial
 from datetime import datetime
 from itertools import count
 from pathlib import Path
@@ -70,6 +76,7 @@ from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import strip_wake
 from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, Transcription, assess
+from swift.wake import NoiseGate, match_wake
 
 Send = Callable[[Message], Awaitable[None]]
 OnFinish = Callable[[dict[str, Any]], None]
@@ -102,6 +109,17 @@ CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
 NOISY_DB = -50.0
 DOUBT_TEXT = {"noise": "it's noisy here"}
 CONFIRM_AGAIN_HINT = "Say “approve” again to go ahead, or click."
+
+
+@dataclass(frozen=True)
+class AutoEnd:
+    """A capture that ends by itself, after a wake phrase, instead of when a key is released."""
+
+    # Audio from before the capture started to keep: the wake phrase and what followed it
+    # while the phrase was being transcribed.
+    lead_s: float
+    end_silence_s: float
+    start_timeout_s: float
 
 
 @dataclass(frozen=True)
@@ -173,6 +191,10 @@ class Session:
         unclear_p: float = UNCLEAR_P,
         reject_p: float = REJECT_P,
         noisy_db: float = NOISY_DB,
+        wake_greetings: tuple[str, ...] = (),
+        wake_min_p: float = 0.5,
+        wake_end_silence_s: float = 0.9,
+        wake_start_timeout_s: float = 5.0,
     ) -> None:
         self._send = send
         self.executor = executor
@@ -202,6 +224,12 @@ class Session:
         self.reject_p = reject_p
         # A voice "approve" in a room louder than noisy_db needs a second "approve" or a click.
         self.noisy_db = noisy_db
+        self.wake_greetings = wake_greetings
+        self.wake_min_p = wake_min_p
+        self.wake_end_silence_s = wake_end_silence_s
+        self.wake_start_timeout_s = wake_start_timeout_s
+        self._hearing = False
+        self._wake_warned = False
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
         self._last_exchange: Exchange | None = None
@@ -327,25 +355,90 @@ class Session:
             self._interaction(record, self._capture_voice, self.executor, self.executor.start)
         )
 
+    async def hear_wake(self, audio: Any, ended_at: float) -> None:
+        """An utterance from the open microphone: start an interaction if it is a wake phrase.
+
+        ``ended_at`` is the ``time.monotonic()`` at which the utterance ended. Anything that
+        is not a wake phrase is dropped after it is transcribed, and never logged.
+        """
+        if self.recorder is None or self.transcriber is None or self.busy or self._hearing:
+            return
+        self._hearing = True
+        try:
+            heard = await self.transcriber.transcribe(audio)
+        except SttUnavailable as exc:
+            if not self._wake_warned:
+                self._wake_warned = True
+                logger.warning("wake listening can't transcribe", error=str(exc))
+            return
+        finally:
+            self._hearing = False
+        if self.busy:  # the hotkey was pressed meanwhile
+            return
+        if self.wake_min_p and heard.words and sum(w.p for w in heard.words) / len(heard.words) < self.wake_min_p:
+            return
+        match = match_wake(heard.text, self.wake_greetings)
+        if match is None:
+            return
+        logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms)
+        record: dict[str, Any] = {
+            "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
+        }
+        if match.remainder:
+            # "Hey Swift, what time is it": the request came with the phrase.
+            async def capture(rec: dict[str, Any]) -> str:
+                self._heard = heard
+                return match.remainder
+
+            self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+            return
+        auto = AutoEnd(
+            lead_s=len(audio) / SAMPLE_RATE + max(0.0, time.monotonic() - ended_at),
+            end_silence_s=self.wake_end_silence_s,
+            start_timeout_s=self.wake_start_timeout_s,
+        )
+        self._released = asyncio.Event()
+        self._task = asyncio.create_task(
+            self._interaction(record, partial(self._capture_voice, auto=auto), self.executor, self.executor.start)
+        )
+
     async def _capture_voice(
-        self, record: dict[str, Any], phase: Callable[[str], Awaitable[None]] | None = None
+        self,
+        record: dict[str, Any],
+        phase: Callable[[str], Awaitable[None]] | None = None,
+        auto: AutoEnd | None = None,
     ) -> str | None:
         """Record while the hotkey is held, then transcribe. None means 'nothing to do'.
 
         ``phase`` reports listening / transcribing / idle (default: the interaction state).
+        With ``auto`` there is no key: the capture ends when the owner stops talking, starts
+        with the wake phrase, and says nothing at all if nothing was asked.
         """
         assert self.recorder is not None and self.transcriber is not None and self._released is not None
         phase = phase or self._set_state
         await phase("listening")
         levels: asyncio.Queue[float] = asyncio.Queue()
         try:
-            self.recorder.start(levels.put_nowait)
+            self.recorder.start(levels.put_nowait, *([auto.lead_s] if auto else []))
         except MicError as exc:
             raise UserFacingError("mic_unavailable", str(exc), exc.hint, title="Microphone unavailable") from None
 
+        gate, began, last_speech = NoiseGate(), time.monotonic(), None
+
         async def forward_levels() -> None:
+            nonlocal last_speech
             while True:
-                await self._send(outbound("level", rms=round(await levels.get(), 3)))
+                level = await levels.get()
+                await self._send(outbound("level", rms=round(level, 3)))
+                if auto is None:
+                    continue
+                now = time.monotonic()
+                if gate.speech(level):
+                    last_speech = now
+                elif now - (last_speech if last_speech is not None else began) > (
+                    auto.end_silence_s if last_speech is not None else auto.start_timeout_s
+                ):
+                    self._released.set()
 
         forwarder = asyncio.create_task(forward_levels())
         try:
@@ -369,7 +462,7 @@ class Session:
             except OSError as exc:
                 logger.warning("could not save the recording", error=str(exc))
         if record["audio_s"] < MIN_SPEECH_S:
-            record["reason"] = "too_short"
+            record["reason"] = "silence" if auto else "too_short"
             await phase("idle")
             return None
 
@@ -388,7 +481,15 @@ class Session:
             record["noise_db"] = result.noise_db
         if result.raw_text is not None:
             record["transcript_raw"] = result.raw_text
-        if not result.text:
+        text = result.text
+        if auto:
+            match = match_wake(text, self.wake_greetings)
+            text = match.remainder if match else text
+            if not text:  # a greeting and then nothing: not an error, just no request
+                record["reason"] = "silence"
+                await phase("idle")
+                return None
+        elif not text:
             raise UserFacingError(
                 "no_speech",
                 "No words came through in that recording.",
@@ -403,15 +504,15 @@ class Session:
             record["unclear"] = result.unclear(self.unclear_p)
         if clarity == "unclear":
             # Acting on a guess is worse than asking again: say what it sounded like, do nothing.
-            record["transcript_heard"] = result.text
+            record["transcript_heard"] = text
             raise UserFacingError(
                 "unclear_speech",
-                f"It sounded like “{_clip(result.text, 80)}”, but too much of it was a guess to act on.",
+                f"It sounded like “{_clip(text, 80)}”, but too much of it was a guess to act on.",
                 "Try again closer to the mic, or somewhere quieter.",
                 title="I couldn't make that out",
                 severity="info",
             )
-        return result.text
+        return text
 
     async def _interaction(
         self,
@@ -444,7 +545,7 @@ class Session:
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry")
+            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake")
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             target: OpenTarget | None = None
             if decision is not None and decision.action == "open":

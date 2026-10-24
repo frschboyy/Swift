@@ -3,7 +3,8 @@
 By default the microphone is opened only while the hotkey is held, so Windows'
 mic indicator is on only then. With ``preroll_s > 0`` a stream stays open and the
 last ``preroll_s`` seconds are kept in a ring, so words spoken as the key goes
-down are not lost (the indicator is then on whenever Swift runs). Blocks arrive
+down are not lost (the indicator is then on whenever Swift runs). Wake listening keeps the stream open
+too and gets every block through ``tap``. Blocks arrive
 on PortAudio's thread; levels are handed to the asyncio loop at most ``LEVEL_HZ``
 times a second.
 """
@@ -88,7 +89,7 @@ def _input_device() -> tuple[int | None, object | None]:
 
 
 class Recorder(Protocol):
-    def start(self, on_level: Callable[[float], None]) -> None: ...
+    def start(self, on_level: Callable[[float], None], lead_s: float | None = None) -> None: ...
 
     def stop(self) -> np.ndarray: ...
 
@@ -110,17 +111,30 @@ class MicRecorder:
     until ``start()`` its blocks only feed a ring of the last ``preroll_s`` seconds,
     which ``start()`` prepends to the recording. If that stream cannot be opened
     (or dies), ``start()`` falls back to opening the mic on demand.
+
+    ``keep_open`` does the same without a pre-roll, for wake listening: ``tap`` then
+    receives every block (on the audio thread; keep it quick), and ``start(lead_s=...)``
+    prepends that much of the audio just before it, at most ``lookback_s``.
     """
 
     def __init__(
-        self, loop: asyncio.AbstractEventLoop, max_seconds: float = MAX_SECONDS, preroll_s: float = 0.0
+        self,
+        loop: asyncio.AbstractEventLoop,
+        max_seconds: float = MAX_SECONDS,
+        preroll_s: float = 0.0,
+        *,
+        keep_open: bool = False,
+        lookback_s: float = 0.0,
     ) -> None:
         self._audio = ThreadPoolExecutor(max_workers=1, thread_name_prefix="audio")
         self._loop = loop
         self._max_blocks = int(max_seconds * SAMPLE_RATE / BLOCK)
         self._preroll_blocks = math.ceil(preroll_s * SAMPLE_RATE / BLOCK) if preroll_s > 0 else 0
         self._blocks: list[np.ndarray] = []
-        self._ring: deque[np.ndarray] = deque(maxlen=max(self._preroll_blocks, 1))
+        self._keep_open = keep_open or self._preroll_blocks > 0
+        self._lookback_blocks = math.ceil(lookback_s * SAMPLE_RATE / BLOCK) if lookback_s > 0 else 0
+        self._ring: deque[np.ndarray] = deque(maxlen=max(self._preroll_blocks, self._lookback_blocks, 1))
+        self.tap: Callable[[np.ndarray], None] | None = None
         self._recording = False
         self._lock = threading.Lock()
         self._stream = None
@@ -143,7 +157,7 @@ class MicRecorder:
 
     def _prepare(self) -> None:
         warm_up()
-        if self._preroll_blocks:
+        if self._keep_open:
             try:
                 self._open_stream()
             except MicError as exc:
@@ -152,8 +166,8 @@ class MicRecorder:
     def _on_audio_thread(self, fn: Callable[[], T]) -> T:
         return self._audio.submit(fn).result()
 
-    def start(self, on_level: Callable[[float], None]) -> None:
-        self._on_audio_thread(lambda: self._start(on_level))
+    def start(self, on_level: Callable[[float], None], lead_s: float | None = None) -> None:
+        self._on_audio_thread(lambda: self._start(on_level, lead_s))
 
     def stop(self) -> np.ndarray:
         return self._on_audio_thread(self._stop)
@@ -193,13 +207,13 @@ class MicRecorder:
             except Exception as exc:  # a dead device must not break the next request
                 logger.warning("closing the microphone stream failed", error=str(exc))
 
-    def _start(self, on_level: Callable[[float], None]) -> None:
+    def _start(self, on_level: Callable[[float], None], lead_s: float | None = None) -> None:
         self.capped = False
         self.first_audio_ms = None
         self.preroll_ms = 0
         self._on_level = on_level
         self._t_start = time.perf_counter()
-        if self._preroll_blocks and self._stream is not None and not self._stream.active:
+        if self._keep_open and self._stream is not None and not self._stream.active:
             self._close_stream()  # the pre-roll stream died (device removed, ...): reopen below
         if self._stream is None:
             with self._lock:
@@ -214,7 +228,8 @@ class MicRecorder:
                 raise
             return
         with self._lock:
-            self._blocks = list(self._ring)
+            lead = self._preroll_blocks if lead_s is None else min(math.ceil(lead_s * SAMPLE_RATE / BLOCK), self._lookback_blocks)
+            self._blocks = list(self._ring)[-lead:] if lead else []
             self._ring.clear()
             self.preroll_ms = int(sum(len(b) for b in self._blocks) * 1000 / SAMPLE_RATE)
             self._recording = True
@@ -222,7 +237,7 @@ class MicRecorder:
     def _stop(self) -> np.ndarray:
         with self._lock:
             self._recording = False
-        if not self._preroll_blocks:
+        if not self._keep_open:
             self._close_stream()
         with self._lock:
             blocks, self._blocks = self._blocks, []
@@ -231,9 +246,15 @@ class MicRecorder:
         return np.concatenate(blocks).reshape(-1)
 
     def _callback(self, indata: np.ndarray, frames: int, _time: object, _status: object) -> None:
+        tap = self.tap
+        if tap is not None:
+            try:
+                tap(indata)
+            except Exception as exc:  # a listener bug must not stop the recording
+                logger.warning("audio tap failed", error=str(exc))
         with self._lock:
             if not self._recording:
-                if self._preroll_blocks:
+                if self._keep_open:
                     self._ring.append(indata.copy())
                 return
             if self.first_audio_ms is None:

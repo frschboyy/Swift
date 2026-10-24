@@ -74,6 +74,36 @@ WER raw → after the Wiener denoiser (clean speech: 0.151 → 0.151):
 The check costs nothing noticeable: log-probabilities added 0–60 ms on clips
 that take ~0.7 s.
 
+## Speaker check prototype (spikes/stt/speaker_bench.py)
+
+The idea: before transcribing, check that the voice belongs to the owner. The
+model is WeSpeaker ResNet34-LM (26.5 MB, CC-BY-4.0, loaded through onnx-asr).
+The owner is enrolled as the mean embedding of 10 corpus clips; 30 other clips
+are held out for testing. With no recordings of other real people, Windows' two
+TTS voices at five pitch/rate settings (80 clips) stand in for them.
+
+Cosine similarity to the owner's profile (median, with the range in brackets):
+
+| Audio | Score |
+|---|---|
+| owner, clean | 0.82 (0.43–0.91) |
+| owner over 2 other voices, 10 dB | 0.69 (0.07–0.82) |
+| owner over 2 other voices, 5 dB | 0.52 (−0.09–0.72) |
+| owner over 2 other voices, 0 dB | 0.17 (0.00–0.45) |
+| one other speaker | −0.05 (−0.13–0.10) |
+| 2–4 other speakers, no owner | −0.03 (−0.12–0.16) |
+
+At a threshold of 0.3, no clean owner clip was rejected, and 7% / 10% / 77% were
+rejected at 10 / 5 / 0 dB. No other-speaker clip was accepted. At 0 dB the
+transcript is wrong anyway (WER 1.0 under babble), so refusing there costs
+nothing. Enrolling on 3 clips instead of 10 gave nearly the same numbers. The
+lowest clean score (0.43) was the shortest clip (0.85 s). An embedding takes
+about 120–200 ms on this laptop.
+
+**Caveat:** synthetic voices are far easier to tell apart than real people.
+"Other accepted 0%" is optimistic, and the threshold must be set on recordings of
+real other people before this ships.
+
 ## Not done / next
 
 * Real room recordings. Synthetic noise is a proxy, and real reverb and distance

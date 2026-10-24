@@ -28,6 +28,29 @@ def test_env_refs_expand(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert load_settings(f).logging.interactions == "C:/x/i.jsonl"
 
 
+def test_default_paths_are_expanded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", "C:/la")
+    s = load_settings(None)
+    assert s.logging.interactions == "C:/la/Swift/interactions.jsonl"
+    assert s.stt.audio_dir == "C:/la/Swift/audio"
+    assert s.demand_classifier.model_dir == "C:/la/Swift/models/bge-small-en-v1.5"
+
+
+def test_unset_localappdata_falls_back_to_the_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    s = load_settings(None)
+    assert s.logging.interactions == str(Path.home() / "AppData" / "Local") + "/Swift/interactions.jsonl"
+    assert "%" not in s.logging.app_log_dir
+
+
+def test_unset_other_variable_is_a_settings_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SWIFT_TEST_MISSING", raising=False)
+    f = tmp_path / "c.yaml"
+    f.write_text("logging:\n  interactions: '%SWIFT_TEST_MISSING%/i.jsonl'\n", encoding="utf-8")
+    with pytest.raises(SettingsError, match="SWIFT_TEST_MISSING"):
+        load_settings(f)
+
+
 @pytest.mark.parametrize(
     "text",
     [

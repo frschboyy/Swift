@@ -2,7 +2,10 @@
 
 A missing file gives the defaults. An invalid file is an error: Swift
 refuses to start rather than run with settings the owner didn't intend.
-``%VAR%`` references in paths are expanded from the environment.
+``%VAR%`` references in paths are expanded from the environment, defaults
+included. An unset ``%LOCALAPPDATA%`` or ``%APPDATA%`` falls back to its usual
+place under the user profile; any other unset variable is a settings error, so
+Swift never writes to a folder literally named ``%VAR%``.
 """
 
 from __future__ import annotations
@@ -16,14 +19,26 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 _ENV_REF = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
+# Where Windows puts these when the variable is missing (a process started with a bare environment).
+_PROFILE_DIRS = {"LOCALAPPDATA": ("AppData", "Local"), "APPDATA": ("AppData", "Roaming")}
+
+
+def _env_value(name: str) -> str:
+    if value := os.environ.get(name):
+        return value
+    if name in _PROFILE_DIRS:
+        return str(Path.home().joinpath(*_PROFILE_DIRS[name]))
+    raise ValueError(f"%{name}% is not set in the environment")
 
 
 def expand(value: str) -> str:
-    return _ENV_REF.sub(lambda m: os.environ.get(m.group(1), m.group(0)), value)
+    """Replace ``%VAR%`` references; ValueError names an unset variable."""
+    return _ENV_REF.sub(lambda m: _env_value(m.group(1)), value)
 
 
 class _Section(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # validate_default: the default paths hold %LOCALAPPDATA% too and must be expanded.
+    model_config = ConfigDict(extra="forbid", frozen=True, validate_default=True)
 
 
 class Hotkeys(_Section):

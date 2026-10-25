@@ -256,6 +256,7 @@ if ($Word) {
     $hwnd = [SwiftProbeWin32]::GetForegroundWindow()
   }
   $result.basics = Probe-Basics $hwnd
+  Write-Host ("Measuring: {0}  (if that's not the app you meant, run again and switch to it during the countdown)" -f $result.basics.process) -ForegroundColor Cyan
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
   $root = $AE::FromHandle($hwnd)
   $result.uia_attach_ms = Ms $sw

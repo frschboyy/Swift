@@ -12,7 +12,7 @@ No window title, element name or text is printed or saved. It reads only, except
 
 ## Run it
 
-From the repository root, once per app. Each run gives you 5 seconds to switch to the app:
+From the repository root, once per app. **Open and set up the app yourself first** (see the table); the probe measures whichever window is in front when its 5-second countdown ends, and prints which app that was:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File spikes\desktop\uia_probe.ps1 -Label word

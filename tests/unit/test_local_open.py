@@ -9,12 +9,12 @@ import pytest
 from swift.routing import route
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.settings import Settings
-from tests.unit.test_routing import SpyExecutor, ask  # noqa: F401
+from test_routing import SpyExecutor, ask  # noqa: F401
 from swift.executors.mock import MockExecutor
 from swift.ipc.protocol import Message  # noqa: F401
 from swift.session import Session
 
-from tests.unit.test_routing import Recorder
+from test_routing import Recorder
 
 
 class FakeOpener(LocalOpener):

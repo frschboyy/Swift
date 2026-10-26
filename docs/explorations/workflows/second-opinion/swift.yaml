@@ -1,0 +1,18 @@
+schema: swift.workflow/v0
+name: second-opinion
+version: 0.1.0
+title: Change with a second opinion
+triggers:
+  - say: ["{change} with a second opinion", "{change} and have codex review it"]
+inputs:
+  change: {type: text}
+settings:
+  project: {type: project}            # a name from local.projects / executor.working_dirs
+needs:
+  - agent.code:   {providers: [claude_code, codex], in: "{settings.project}"}   # their own file edits still hit confirm cards
+  - agent.review: {providers: [codex, claude_code, hermes]}                     # read-only
+  - git.diff:     {in: "{settings.project}"}                                    # read
+  - swift.present
+run:
+  recipe: recipe.yaml
+shows: [text, list]

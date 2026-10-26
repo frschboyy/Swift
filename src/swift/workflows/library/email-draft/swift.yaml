@@ -1,0 +1,30 @@
+# Swift's manifest for email-draft (ADR-011 §4; ADR-012 Q3: fill it in, the owner presses Send).
+schema: swift.workflow/v0
+name: email-draft
+version: 1.0.0
+title: Draft an email
+triggers:
+  - say:
+      - "email {person} saying {message}"
+      - "email {person} about {message}"
+      - "email {person} that {message}"
+      - "draft an email to {person} saying {message}"
+      - "draft an email to {person} about {message}"
+      - "write an email to {person} saying {message}"
+      - "write an email to {person} about {message}"
+      - "send an email to {person} saying {message}"
+      - "send an email to {person} about {message}"
+inputs:
+  person: {type: contact}           # resolved by find_contact, never from the model or speech alone
+  message: {type: text}             # what to say, in the owner's words
+settings:
+  app: {type: choice, of: [gmail, outlook], default: gmail}
+needs:
+  - email.find_contact              # read
+  - email.draft                     # none: held by Swift
+  - email.fill_in                   # reversible: a compose window or draft; the owner presses Send
+  - email.send                      # external: only when asked to "just send it"; always the confirm card
+run:
+  playbook: SKILL.md
+  provider: any
+shows: [recipient, email_draft, send_status]

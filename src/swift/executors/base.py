@@ -29,10 +29,11 @@ from swift.failures import Failure
 EventType = Literal["step", "confirm", "log"]
 Status = Literal["done", "cancelled", "error", "rejected"]
 # What a provider is doing, whatever its own event format. The overlay turns it into
-# "<provider> is reading"; anything a provider can't classify is "working".
+# "<provider> is reading"; anything a provider can't classify is "working". "writing" is
+# Swift's own, in the owner's app in front of them ("Swift is writing in Word", ADR-012 §6).
 Activity = Literal[
     "starting", "reading", "searching", "editing", "running", "browsing",
-    "delegating", "planning", "thinking", "waiting", "switching", "blocked", "working",
+    "delegating", "planning", "thinking", "waiting", "switching", "blocked", "working", "writing",
 ]
 ACTIVITIES: tuple[str, ...] = get_args(Activity)
 

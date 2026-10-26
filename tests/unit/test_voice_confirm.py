@@ -145,7 +145,8 @@ async def test_a_quick_tap_on_the_card_does_nothing() -> None:
     assert stt.calls == 1  # only the request was transcribed
 
 
-async def test_ptt_while_working_is_still_ignored() -> None:
+async def test_ptt_while_working_listens_for_midrun_commands_not_a_new_run() -> None:
+    """ADR-010 §6: push-to-talk mid-run goes to the mid-run grammar (test_show_me.py)."""
     out = Outbox()
     session = Session(
         out, MockExecutor(speed=1, default_scenario="long"), recorder=FakeRecorder(), transcriber=FakeTranscriber(),
@@ -159,7 +160,11 @@ async def test_ptt_while_working_is_still_ignored() -> None:
         await asyncio.sleep(0.01)
     first = session._task
     await ptt(session, "down")
-    assert session._task is first and session._confirm_voice is None
+    assert session._task is first and session._confirm_voice is not None
+    await ptt(session, "up")
+    await asyncio.wait_for(asyncio.shield(session._confirm_voice), 2)
+    assert session._task is first and not first.done()  # still the same run
+    assert out.last("run.voice")["phase"] == "hint"
     await session.cancel()
 
 

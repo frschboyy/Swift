@@ -76,3 +76,47 @@ def test_audio_preroll_defaults_off_and_is_bounded(tmp_path: Path) -> None:
     f.write_text("audio:\n  preroll_s: 30\n", encoding="utf-8")
     with pytest.raises(SettingsError):
         load_settings(f)
+
+
+def test_contacts_and_email_connector(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from swift.backend.__main__ import _make_tools
+    from swift.connectors.fake import FakeCalendarConnector, FakeMailConnector
+    from swift.routing.local import LocalOpener
+
+    f = tmp_path / "c.yaml"
+    f.write_text(
+        "connectors:\n  email: none\n"
+        "contacts:\n  - name: Dr Ada Lovelace\n    email: ada@example.edu\n    aliases: [lecturer]\n"
+        f"logging:\n  journal: '{(tmp_path / 'j.jsonl').as_posix()}'\n",
+        encoding="utf-8",
+    )
+    s = load_settings(f)
+    assert s.contacts[0].aliases == ["lecturer"]
+    opener = LocalOpener(s)
+    tools = _make_tools(s, None, opener)
+    assert tools.connector is None and tools.calendar is None and tools.opener is opener
+    assert "create_calendar_event" in tools.tools and "desktop_write" in tools.tools
+    # Debug mode always uses the fake connectors, so a demo never reaches Google.
+    debug = s.model_copy(update={"debug": True})
+    assert isinstance(_make_tools(debug, None, opener).connector, FakeMailConnector)
+    assert isinstance(_make_tools(debug, None, opener).calendar, FakeCalendarConnector)
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("contacts:\n  - name: X\n    email: not-an-address\n", encoding="utf-8")
+    with pytest.raises(SettingsError, match="contacts.0.email"):
+        load_settings(bad)
+
+
+def test_workflow_and_desktop_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from swift.backend.__main__ import _make_library
+
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    s = Settings()
+    assert s.workflows.dir == f"{tmp_path}/Swift/workflows" and s.desktop.enabled
+    assert s.connectors.calendar == "none"
+    library = _make_library(s)
+    assert library is not None and "email-draft" in library.packages
+    assert _make_library(s.model_copy(update={"workflows": s.workflows.model_copy(update={"enabled": False})})) is None
+    f = tmp_path / "c.yaml"
+    f.write_text("desktop:\n  never_read_titles: [payroll]\nconnectors:\n  calendar: google\n", encoding="utf-8")
+    loaded = load_settings(f)
+    assert loaded.desktop.never_read_titles == ["payroll"] and loaded.connectors.calendar == "google"

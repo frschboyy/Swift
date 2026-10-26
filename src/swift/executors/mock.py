@@ -3,18 +3,25 @@
 Each scenario is a list of script items. ``speed`` scales every delay, so
 tests run with ``speed=0``. It presents itself as "Demo agent", never as a real
 provider, so the overlay doesn't claim Claude Code is working when it isn't.
+
+``Call`` items use Swift's own workflow tools (ADR-010) the way a real provider
+does over MCP, so the "email" scenario runs the real tools, gateway and confirm
+card against whatever connector the tool host has (the fake one in debug mode).
 """
 
 from __future__ import annotations
 
 import asyncio
 import itertools
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from swift.executors.base import ExecEvent, ExecResult, UnknownRun
 from swift.executors.providers import MOCK
+
+if TYPE_CHECKING:
+    from swift.workflows.tools import ToolHost, ToolResult
 
 
 # First word of a scripted step -> normalized activity.
@@ -56,7 +63,25 @@ class Finish:
     delay: float = 0.5
 
 
-ScriptItem = Step | Confirm | Fail | Finish
+@dataclass(frozen=True)
+class Call:
+    """A call to one of Swift's tools; ``args`` may be built from earlier results (tool name -> result)."""
+
+    tool: str
+    args: dict[str, Any] | Callable[[dict[str, ToolResult]], dict[str, Any]]
+    text: str
+    activity: str = "working"
+    delay: float = 0.7
+
+
+ScriptItem = Step | Confirm | Fail | Finish | Call
+
+DEMO_EMAIL_BODY = (
+    "Dear Dr Lovelace,\n\n"
+    "I'm sorry, but I won't be able to attend Thursday's lecture. I'll catch up on the "
+    "material from the slides and will come to office hours if I have questions.\n\n"
+    "Kind regards,\nFrancis"
+)
 
 SCENARIOS: dict[str, tuple[ScriptItem, ...]] = {
     "happy": (
@@ -104,6 +129,26 @@ SCENARIOS: dict[str, tuple[ScriptItem, ...]] = {
              "rows": [["protocol", "18", "0"], ["session", "16", "0"], ["mock", "8", "0"]]},
         ),
     ),
+    # ADR-010: the email workflow through Swift's tools. The pause after drafting is
+    # time to say (or type, in the dev harness) "show me".
+    "email": (
+        Step("Starting…", 0.4),
+        Call("find_contact", {"query": "my lecturer"}, "Looking up your lecturer", "searching"),
+        Call(
+            "draft_email",
+            lambda done: {
+                "to": [done["find_contact"].data["candidates"][0]["email"]],
+                "subject": "Missing Thursday's lecture",
+                "body": DEMO_EMAIL_BODY,
+            },
+            "Drafting the email",
+            "editing",
+        ),
+        Step("Reading the draft over", 3.0),
+        Call("send_email", lambda done: {"draft_id": done["draft_email"].data["draft_id"]}, "Asking you before sending",
+             "waiting"),
+        Finish("Sent your email to Dr Ada Lovelace."),
+    ),
 }
 
 _DONE = object()
@@ -121,8 +166,10 @@ class MockExecutor:
     name = "mock"
     provider = MOCK
 
-    def __init__(self, speed: float = 1.0, default_scenario: str = "happy") -> None:
+    def __init__(self, speed: float = 1.0, default_scenario: str = "happy", tools: ToolHost | None = None) -> None:
         self.speed = speed
+        # Swift's tools, for ``Call`` items.
+        self.tools = tools
         self.default_scenario = default_scenario
         self._runs: dict[str, _Run] = {}
         self._pending: dict[str, asyncio.Future[bool]] = {}
@@ -188,6 +235,7 @@ class MockExecutor:
             run.queue.put_nowait(_DONE)
 
     async def _play_items(self, run_id: str, run: _Run, script: tuple[ScriptItem, ...]) -> ExecResult:
+        done: dict[str, ToolResult] = {}
         for n, item in enumerate(script):
             await self._sleep(item.delay)
             match item:
@@ -207,6 +255,19 @@ class MockExecutor:
                     for step in item.on_approve:
                         await self._sleep(step.delay)
                         run.queue.put_nowait(ExecEvent("step", step.text, activity=step.activity))  # type: ignore[arg-type]
+                case Call(tool=tool, args=args, text=text):
+                    run.queue.put_nowait(ExecEvent("step", text, activity=item.activity))  # type: ignore[arg-type]
+                    if self.tools is None:
+                        return ExecResult("error", "Swift's tools aren't available to the demo agent.")
+                    result = await self.tools.call(tool, args(done) if callable(args) else args)
+                    done[tool] = result
+                    if not result.ok:
+                        # Like a real provider: stop and say what happened.
+                        if tool == "send_email" and "NOT sent" in result.text:
+                            return ExecResult("done", "The email wasn't sent.")
+                        if tool == "create_calendar_event" and "NOT added" in result.text:
+                            return ExecResult("done", "The event wasn't added.")
+                        return ExecResult("error", result.text.split("\n", 1)[0])
                 case Fail(message=message):
                     return ExecResult("error", message)
                 case Finish(summary=summary, details=details):

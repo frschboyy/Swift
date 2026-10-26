@@ -11,6 +11,12 @@ Run messages (``state``, ``step``, ``confirm.request``, ``result``, ``error``) c
 it itself. ``step`` also carries a normalized ``activity`` and ``subagent``;
 ``result`` may carry Swift's own ``note`` (ADR-008). ``error`` carries a ``title``,
 ``severity``, ``retry`` and the raw ``detail`` (``swift.failures``, ADR-009).
+
+Workflows (ADR-010): ``artifact`` carries a typed, versioned snapshot of what a run is
+working on (a draft, a recipient, a send status); ``view`` opens or closes the overlay's
+detail view on one; ``run.voice`` is push-to-talk feedback on the working card. Inbound
+``view`` is the Show / Back button, ``debug.say`` typed text treated as speech mid-run.
+``confirm.request`` may carry ``artifact_id``: the card shows that artifact (the draft).
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -25,8 +31,10 @@ PROTOCOL_VERSION = 1
 MAX_FRAME_BYTES = 64 * 1024
 
 STATES = ("idle", "listening", "transcribing", "working", "confirm", "result", "error")
-SCENARIOS = ("happy", "confirm", "error", "long")
+SCENARIOS = ("happy", "confirm", "error", "long", "email")
 RESULT_STATUSES = ("done", "cancelled", "error", "rejected")
+ARTIFACT_KINDS = ("email_draft", "recipient", "send_status", "calendar_event", "text", "list", "table")
+PHASES = ("resolving", "drafting", "confirming", "sending", "done", "failed")
 
 # Inbound message types and their required fields: name -> (type, allowed values or None).
 _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
@@ -39,12 +47,17 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "debug.run": {"scenario": (str, SCENARIOS)},
     # Debug mode only: send typed text through the real executor, skipping mic and STT.
     "debug.ask": {"text": (str, None)},
+    # The card's Show / Back button: same as saying "show me" / "hide that" (ADR-010).
+    "view": {"action": (str, ("show", "hide"))},
+    # Debug mode only: typed text handled as if spoken during a run ("show me").
+    "debug.say": {"text": (str, None)},
     # Sent once when the overlay is fully up; ``backend_ms`` is optional.
     "ready": {"startup_ms": (int, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
-    {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error"}
+    {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
+     "artifact", "view", "run.voice"}
 )
 
 
@@ -112,4 +125,6 @@ def outbound(msg_type: str, /, **data: Any) -> Message:
         raise ValueError(f"not an outbound message type: {msg_type}")
     if msg_type == "state" and data.get("state") not in STATES:
         raise ValueError(f"unknown state {data.get('state')!r}")
+    if msg_type == "artifact" and (data.get("kind") not in ARTIFACT_KINDS or data.get("phase") not in PHASES):
+        raise ValueError(f"bad artifact kind or phase: {data.get('kind')!r}, {data.get('phase')!r}")
     return Message(msg_type, data, now_ms())

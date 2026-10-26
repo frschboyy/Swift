@@ -464,3 +464,34 @@ code {
   .card { border: 1px solid CanvasText; background: Canvas; }
   .btn, .icon-btn { border: 1px solid ButtonText; }
 }
+
+/* run artifacts and the "show me" view (ADR-010 §7): inside the card, never a second panel */
+
+.artifact { margin: 2px 0 0; cursor: auto; }
+.artifact-title { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); text-transform: uppercase; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0 0 8px; font-size: 13px; }
+.kv dt { color: var(--faint); }
+.kv dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.draft-body {
+  max-height: 168px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--raise);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+  font-size: 13.5px;
+}
+.draft-body:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.kv--after { margin: 8px 0 0; }
+.result-list .chosen { color: var(--text); font-weight: 600; }
+.send-sent { color: var(--ok); }
+.send-failed, .send-rejected { color: var(--warn); }
+.send-sending, .send-waiting_approval { color: var(--accent); }
+.card--confirm .artifact { margin-top: 8px; }
+.card--confirm .artifact-title { display: none; }
+
+@media (forced-colors: active) {
+  .draft-body { border: 1px solid CanvasText; }
+}

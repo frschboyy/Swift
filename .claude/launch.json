@@ -4,8 +4,22 @@
     {
       "name": "overlay-vite",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "overlay", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "overlay",
+        "run",
+        "dev"
+      ],
       "port": 1420
+    },
+    {
+      "name": "backend-harness",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-c",
+        "import runpy, sys; sys.path.insert(0, 'src'); sys.argv = ['swift.backend', '--config', 'overlay/dev/harness-config.yaml', '--port', '8765', '--token', 'devharness-token-0123456789abcdef', '--console']; runpy.run_module('swift.backend', run_name='__main__', alter_sys=True)"
+      ],
+      "port": 8765
     }
   ]
 }

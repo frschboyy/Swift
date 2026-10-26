@@ -1,0 +1,33 @@
+# Coordinating two providers (ADR-011 §7.2): each agent step names a role, and Swift picks the provider.
+schema: swift.recipe/v0
+steps:
+  - id: change
+    agent:
+      role: code
+      provider: ${settings.prefer_coder ?? "claude_code"}
+      task: "${inputs.change}. Work on a new branch; run the relevant tests; don't push."
+      cwd: ${settings.project}
+      output_schema: {type: object, properties: {branch: {type: string}, summary: {type: string}, tests: {type: string}}}
+
+  - id: diff
+    tool: git.diff
+    with: {in: "${settings.project}", base: main, head: "${steps.change.out.branch}"}
+
+  - id: review
+    agent:
+      role: review
+      provider: ${first_available(["codex", "hermes", "claude_code"], not=steps.change.provider)}   # a different provider than the author
+      task: "Review this diff for correctness only: bugs, missed cases, broken tests. No style comments."
+      input: ${steps.diff.out}
+      tools: [read]                    # it may read the project, never change it
+      output_schema: {type: object, properties: {verdict: {enum: [ok, problems]}, findings: {type: array, items: {type: string}}}}
+
+  - id: show
+    show:
+      kind: list
+      title: "${steps.review.provider_name}'s review: ${steps.review.out.verdict}"
+      items: ${steps.review.out.findings}
+
+  - id: fix
+    when: ${steps.review.out.verdict == "problems"}
+    ask: {title: "Have ${steps.change.provider_name} fix these?", options: [fix, keep as is]}

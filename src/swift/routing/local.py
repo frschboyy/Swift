@@ -3,6 +3,11 @@
 Targets come only from the ``local`` settings and ``executor.working_dirs``: a spoken
 phrase is looked up, never executed. A phrase that isn't a configured name resolves to
 ``None`` and the request goes to Claude Code instead.
+
+"Open this" (ADR-012 D1) opens what the owner selected in File Explorer: the session reads
+the selection (``Desktop.selected_files``) and ``resolve_files`` turns it into a target. A
+program or script is never opened this way; that request goes on to Claude Code, whose
+``desktop_open`` asks on a confirm card first.
 """
 
 from __future__ import annotations
@@ -15,10 +20,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from swift.routing.rules import Route
+from swift.desktop.base import PROGRAMS
+from swift.routing.rules import DEICTIC, Route
 from swift.settings import Settings
 
-Kind = Literal["app", "folder", "project"]
+Kind = Literal["app", "folder", "project", "file"]
 
 _DETERMINERS = re.compile(r"^(?:(?:my|the|a|an|our|up)\s+)+")
 _KIND_WORDS = {"folder": "folder", "directory": "folder", "project": "project", "repo": "project", "repository": "project"}
@@ -35,6 +41,9 @@ class OpenTarget:
 
 def _key(phrase: str) -> str:
     return " ".join(_DETERMINERS.sub("", phrase.lower().strip()).split())
+
+
+_SELECTED = frozenset(_key(d) for d in DEICTIC)
 
 
 def _split_kind(phrase: str) -> tuple[str, Kind | None]:
@@ -85,6 +94,18 @@ class LocalOpener:
         if kind in (None, "folder") and name in self.folders and Path(self.folders[name]).is_dir():
             return OpenTarget("folder", name, self.folders[name], command)
         return None
+
+    @staticmethod
+    def wants_selection(route: Route) -> bool:
+        """"Open this", "open these files": the target is what the owner selected."""
+        return route.target is not None and route.app is None and _key(route.target) in _SELECTED
+
+    def resolve_files(self, paths: list[str]) -> OpenTarget | None:
+        """The one file or folder selected in File Explorer; None for several, or for a program."""
+        if not self.enabled or len(paths) != 1 or paths[0].lower().endswith(PROGRAMS):
+            return None
+        path = Path(paths[0])
+        return OpenTarget("folder" if path.is_dir() else "file", path.name, str(path))
 
     def launch(self, target: OpenTarget) -> None:
         """Start it without a console window. Raises OSError when it can't be started."""

@@ -1,0 +1,17 @@
+schema: swift.workflow/v0
+name: email-someone
+version: 1.0.0
+title: Email someone
+triggers:
+  - say: ["email {person} {message}", "send an email to {person} {message}", "write to {person} {message}"]
+inputs:
+  person: {type: contact}           # resolved by find_contact, never from the model or speech alone
+  message: {type: text}             # what to say, in the user's words
+needs:
+  - email.find_contact              # read
+  - email.draft                     # none (held by Swift)
+  - email.send                      # external: always the confirm card (ADR-010 §4)
+run:
+  recipe: recipe.yaml
+  playbook: SKILL.md                # what Claude Code follows today, via Swift's tools
+shows: [recipient, email_draft, send_status]

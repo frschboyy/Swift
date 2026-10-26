@@ -3,10 +3,13 @@
 - **control**: the whole utterance is a command to Swift ("stop", "never mind",
   "approve"). Matching is on the whole utterance only, so "stop reminding me
   to take a break" is a request, not a stop.
-- **local**: Swift answers itself (time, date) or opens an app, folder or project. "Open ..."
+- **local**: Swift answers itself (time, date, "what workflows do I have?"), undoes what it
+  wrote in an app ("undo that", ADR-012 §6), or opens an app, folder or project. "Open ..."
   is matched loosely here (a short phrase with no conjunction or verb in it); the session
   resolves the phrase against the ``local`` settings and sends it on to Claude Code when
-  the target isn't a configured name, so only known names are ever opened.
+  the target isn't a configured name, so only known names are ever opened. "Open this"
+  opens the file selected in File Explorer (ADR-012 D1). "Undo that" is Swift's only when
+  Swift wrote something; otherwise it goes on to Claude Code as before.
 - **agent**: everything else, sent to the provider (Claude Code today, ADR-008). A leading "use opus / use haiku" picks the model
   and is removed; "think hard about ..." asks for the strongest model and is kept.
   Demand (light or standard) comes from ``demand_fn``: by default the keyword
@@ -16,6 +19,9 @@ Swift is the name the owner uses. A leading "hey Claude" / "ok Codex" (an agent'
 name, ``executors.providers.AGENT_NAMES``) is removed like the wake word and kept
 in ``addressed_as``, so the session can say once who it is (ADR-008). Alone, or as
 "who are you?", it is the local ``identity`` answer.
+
+During a run, ``route_midrun`` is the only grammar (ADR-010 §6): "show me", "show the
+draft", "hide that" and the stop words. It never starts a run; anything else is None.
 
 Mis-taking a request for a command loses it, so control and local patterns are
 deliberately narrow: an unmatched command still reaches Claude Code, just slower.
@@ -61,6 +67,9 @@ LOCAL: dict[str, str] = {
     "time": r"what time is it( now)?|what'?s the time( now| right now)?|what is the time( now)?|tell me the time",
     "date": r"what'?s the date( today)?|what is the date( today)?|what'?s today'?s date|what is today'?s date"
     r"|what day is it( today)?|(which|what) day of the week is it( today)?|what'?s the day today",
+    "workflows": r"what workflows (do i have|have i got|are there|can you (run|do))|which workflows do (i|you) have"
+    r"|(list|show)( me)? (my |the |all )?workflows|what are my workflows",
+    "undo": r"undo|undo (that|it|this)|undo (what you (just )?(wrote|typed))|undo (the|your) (last )?(writing|typing)",
 }
 _CONTROL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in CONTROL.items()]
 _LOCAL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in LOCAL.items()]
@@ -75,7 +84,7 @@ class Route:
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
     # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
-    # local: time | date | identity | open.
+    # local: time | date | identity | open | workflows | undo.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None
@@ -114,6 +123,21 @@ def _open_request(norm: str) -> tuple[str, str | None] | None:
     if m := _OPEN_FOR.fullmatch(rest):
         return m.group("target"), m.group("app")
     return rest, None
+
+
+# A request about where the owner is (ADR-012 §5.1): "rewrite this", "write here", "open these".
+_HERE = re.compile(r"\b(this|these|here|the selection|selected|highlighted|what i'?ve selected)\b", re.IGNORECASE)
+_SELECTION = re.compile(r"\b(this|these|the selection|selected|highlighted|what i'?ve selected)\b", re.IGNORECASE)
+DEICTIC = frozenset({"this", "that", "it", "these", "this file", "these files", "the selection", "the selected file",
+                     "the selected files", "selected", "the file", "this one"})
+
+
+def refers_here(text: str) -> bool:
+    return bool(_HERE.search(text))
+
+
+def refers_to_selection(text: str) -> bool:
+    return bool(_SELECTION.search(text))
 
 
 def _normalize(text: str) -> str:
@@ -159,6 +183,37 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     if _THINK_HARD.match(request):
         return Route("agent", request, demand="standard", override="opus")
     return Route("agent", request, demand=demand_fn(request) or default_demand)  # type: ignore[arg-type]
+
+
+# Mid-run grammar (ADR-010 §6): what the owner may say while a run works. Whole utterance only.
+_SHOW_WHAT = {
+    "draft": "email_draft", "email": "email_draft", "message": "email_draft", "mail": "email_draft",
+    "recipient": "recipient", "contact": "recipient", "who": "recipient",
+    "progress": "send_status", "status": "send_status",
+    "steps": "steps", "step": "steps",
+}
+_SHOW = re.compile(
+    r"(?:(?:can you |could you )?show me|let me see|show|what are you doing|what'?s happening|what'?s going on)"
+    r"(?: (?:it|that|this|the (?P<what>\w+)(?: you'?re writing| so far)?|what you'?re doing|your progress))?"
+)
+_HIDE = re.compile(r"(?:hide|close)(?: (?:it|that|this|the \w+))?|go back|back")
+
+
+def route_midrun(text: str) -> Route | None:
+    """A mid-run command: ``show`` (``target``: an artifact kind, "steps", or None), ``hide``,
+    or a control action (stop / cancel / approve / reject ...). None for anything else."""
+    norm = _normalize(text)
+    if m := _SHOW.fullmatch(norm):
+        what = m.group("what")
+        if what is not None and what not in _SHOW_WHAT:
+            return None
+        return Route("control", text.strip(), action="show", target=_SHOW_WHAT.get(what or ""))
+    if _HIDE.fullmatch(norm):
+        return Route("control", text.strip(), action="hide")
+    for action, pattern in _CONTROL:
+        if pattern.fullmatch(norm):
+            return Route("control", text.strip(), action=action)
+    return None
 
 
 def route_for_eval(text: str) -> tuple[str, str | None]:

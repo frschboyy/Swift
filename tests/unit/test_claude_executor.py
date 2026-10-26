@@ -109,6 +109,40 @@ def test_options_split_auto_and_confirm_tools_and_ignore_settings(tmp_path: Path
     assert opts.max_budget_usd == 1.0 and opts.cwd == str(tmp_path)
 
 
+async def test_swift_tools_are_offered_without_a_claude_prompt(tmp_path: Path) -> None:
+    """ADR-010 §3.5: Swift's tools are allowed outright; the gateway's card is the one approval."""
+    from claude_agent_sdk import tool
+
+    from swift.connectors.fake import FakeMailConnector
+    from swift.workflows.tools import KnownContact, ToolHost
+
+    host = ToolHost(FakeMailConnector(contacts=()), (KnownContact("Dr Ada Lovelace", "ada@example.edu", ("lecturer",)),))
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host)
+    opts = ex.options(_Run(), "cc-1")
+    swift_tools = ["mcp__swift__find_contact", "mcp__swift__draft_email", "mcp__swift__send_email", "mcp__swift__present"]
+    for name in swift_tools:
+        assert name in opts.allowed_tools and name in opts.tools
+    assert "mcp__swift__request_stronger_model" in opts.allowed_tools
+    assert "never type one yourself" in opts.system_prompt
+    no_escalation = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host, escalation=False)
+    assert list(no_escalation.options(_Run(), "cc-1").mcp_servers) == ["swift"]
+
+    # The SDK tool runs the host's tool inside the session's run scope.
+    published: list[Any] = []
+
+    async def publish(artifact: Any) -> None:
+        published.append(artifact)
+
+    async def confirm(*_: Any) -> str:
+        return "approve"
+
+    host.open(publish, confirm)
+    find = ex._sdk_tool(tool, host.tools["find_contact"])
+    out = await find.handler({"query": "my lecturer"})
+    assert out["is_error"] is False and "ada@example.edu" in out["content"][0]["text"]
+    assert published[0].kind == "recipient"
+
+
 def test_setup_problems_are_reported_before_anything_starts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ExecutorUnavailable, match="No working folder"):
         ClaudeCodeExecutor(cwd=None, claude="c").options(_Run(), "cc-1")
@@ -267,3 +301,30 @@ async def test_esc_on_the_confirm_card_logs_the_approval_as_cancelled() -> None:
     await session.handle(Message("cancel", {}))
     assert out.last("result")["status"] == "cancelled"
     assert records[0]["approvals"][0]["decision"] == "cancelled"
+
+
+async def test_web_and_own_tools_follow_the_workflow_grant(tmp_path: Path) -> None:
+    """ADR-011 W1: web tools only in workflows that declare them; nothing undeclared, not even with a card."""
+    from swift.workflows.scope import Grant
+    from swift.workflows.tools import ToolHost
+
+    host = ToolHost()
+    ex, run = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host), _Run()
+    ex._runs["cc-1"] = run
+    opts = ex.options(run, "cc-1")
+    assert "WebSearch" in opts.tools and "WebSearch" not in opts.allowed_tools  # decided per run in _ask
+
+    async def nothing(*_: Any) -> Any:
+        return None
+
+    host.open(nothing, nothing)  # an ordinary request: no web
+    denied = await ex._ask(run, "cc-1", "WebSearch", {"query": "tea"})
+    assert isinstance(denied, PermissionResultDeny) and "isn't available" in denied.message
+
+    research = Grant("research-into-word", frozenset({"desktop_write"}), frozenset({"web.search", "web.fetch"}))
+    host.open(nothing, nothing, research)
+    assert isinstance(await ex._ask(run, "cc-1", "WebFetch", {"url": "https://example.com"}), PermissionResultAllow)
+    bash = await ex._ask(run, "cc-1", "Bash", {"command": "dir"})
+    assert isinstance(bash, PermissionResultDeny) and "doesn't allow Bash" in bash.message
+    assert run.queue.empty() and run.stopped_by is None  # no card, and the run goes on
+    assert ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe").options(_Run(), "cc-1").tools.count("WebSearch") == 0

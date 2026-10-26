@@ -1,0 +1,18 @@
+# An example run with fake tools (ADR-011 §6.5). Re-run when the recipe or a tool it uses changes.
+schema: swift.test/v0
+given:
+  now: "2026-10-24T10:00:00"
+  tools:
+    files.list:
+      - {name: "setup-7.2.exe", modified: "2026-08-01"}
+      - {name: "lecture-5.pdf", modified: "2026-10-20"}
+      - {name: "draft.tmp", modified: "2026-10-24T09:30:00"}     # changed in the last 24 h: skipped
+      - {name: "receipt", modified: "2026-10-01"}                 # no extension: the agent step decides
+  agent:
+    unknown: [{file: receipt, to: leave}]
+expect:
+  confirm_cards: 1
+  moves:
+    - {file: "setup-7.2.exe", to: "%USERPROFILE%/Downloads/Old installers"}
+    - {file: "lecture-5.pdf", to: "%USERPROFILE%/Documents/From downloads"}
+  untouched: ["draft.tmp", "receipt"]

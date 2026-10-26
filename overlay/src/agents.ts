@@ -18,13 +18,14 @@ const VERBS: Record<Activity, string> = {
   switching: "is switching models",
   blocked: "was blocked",
   working: "is working",
+  writing: "is writing",
 };
 
 const isSwift = (agent: Agent | null | undefined): boolean => !agent || agent.id === "swift";
 
-/** Working-card title: "Claude Code is reading", or Swift's own coordination. */
-export function activityLabel(agent: Agent | null | undefined, activity: Activity | undefined, subagent = false): string {
-  if (isSwift(agent)) return "Swift is coordinating";
+/** Working-card title: "Claude Code is reading", "Swift is writing in Word", or Swift's own coordination. */
+export function activityLabel(agent: Agent | null | undefined, activity: Activity | undefined, subagent = false, app?: string | null): string {
+  if (isSwift(agent)) return activity === "writing" ? `Swift is writing${app ? ` in ${app}` : ""}` : "Swift is coordinating";
   const who = subagent ? `${agent!.name}’s helper` : agent!.name;
   return `${who} ${VERBS[activity ?? "working"] ?? VERBS.working}`;
 }

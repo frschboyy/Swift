@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1, Q2 (2026-10-26).
+- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1, Q2, Q3 (2026-10-26).
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -343,8 +343,8 @@ Each phase is small enough to use before the next, and each needs the owner's go
 1. **The model:** playbooks and recipes as two forms of one workflow, agents as role-based workers, and Swift owning the runtime and trust boundary. Is this the direction?
    - **Decided 2026-10-26 (owner): yes, option A**, built in the order B → A: W1 playbooks first (behaving like option B), desktop D1–D2 alongside (ADR-012), recipes (W3) once there are playbooks or desktop tasks worth hardening. The ADR-012 probe supported this: most of the owner's apps can be operated precisely through their structure, which suits recipe steps, while WhatsApp, PowerPoint slides and VS Code's editor still need agent judgment.
 2. **Format:** Agent Skills plus `swift.yaml`, so playbooks also work directly in Claude Code, Codex and Hermes?
-   - **Decided 2026-10-26 (owner): yes.** A workflow is a folder with `SKILL.md` (Agent Skills format), `swift.yaml` (triggers, inputs, scoped permissions, version, what it shows), and optionally `recipe.yaml` and `tests/` (§4). Swift drafts these files when the owner describes a workflow; hand-editing is the exception.
-3. **Runtime:** a thin runtime in Swift, with n8n reachable as an optional capability over MCP rather than as the engine? Or would you like a short n8n trial first, installing it locally and exposing one workflow over MCP to Swift, before deciding?
+   - **Decided 2026-10-26 (owner): yes.** A workflow is a folder with `SKILL.md` (Agent Skills format), `swift.yaml` (triggers, inputs, scoped permissions, version, what it shows), and optionally `recipe.yaml` and `tests/` (§4). Swift drafts these files when the owner describes a workflow; hand-editing is the excepti3. **Runtime:** a thin runtime in Swift, with n8n reachable as an optional capability over MCP rather than as the engine? Or would you like a short n8n trial first, installing it locally and exposing one workflow over MCP to Swift, before deciding?
+   - **Decided 2026-10-26 (owner): D.** A thin runtime inside Swift (§9) runs every workflow; n8n is at most an optional capability, called through MCP behind Swift's gateway, never the engine. No n8n trial now: it waits until the owner wants an integration Swift doesn't have. Reasons: approvals and "show me" must cover every action; desktop work (ADR-012) happens in local apps, which n8n doesn't operate; the owner's workflows are short.ing?
 4. **Learning:** L0 to L2 only, with desktop observation (L3) out of scope unless decided separately?
 5. **Sharing:** playbooks and recipes only, never bundled scripts, until there's a plugin host with an allowlist (ADR-005 Phase 7)?
 6. **Which first workflows matter to you?** The five examples are guesses from the repo (lectures, downloads, email, coding). The real list should come from your week.

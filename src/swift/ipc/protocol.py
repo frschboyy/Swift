@@ -57,7 +57,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
 
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
-     "artifact", "view", "run.voice", "followup"}
+     "artifact", "view", "run.voice", "followup", "presence"}
 )
 
 

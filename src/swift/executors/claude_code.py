@@ -215,6 +215,26 @@ class ClaudeCodeExecutor:
         if spare is not None:
             await self._discard(spare)
 
+    async def release_spare(self) -> None:
+        """Away for a while (ADR-014 §6): free the warm CLI. ``ensure_spare`` brings one back."""
+        spare = await self._take_spare(wait=False)
+        if spare is not None:
+            await self._discard(spare)
+            logger.info("claude spare released")
+
+    async def ensure_spare(self) -> None:
+        """Have a live warm CLI ready: start one, or replace one that exited while idle."""
+        if not self.prewarm or self._closed:
+            return
+        task = self._spare
+        if task is not None and task.done():
+            spare = None if task.cancelled() or task.exception() else task.result()
+            if spare is None or (spare.pid is not None and not psutil.pid_exists(spare.pid)):
+                self._spare = None
+                if spare is not None:
+                    logger.info("spare claude exited while idle; replacing it")
+        self._refill()
+
     # ---- the spare CLI --------------------------------------------------------
 
     def _refill(self) -> None:

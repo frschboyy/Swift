@@ -64,7 +64,9 @@ export type Inbound =
   // Push-to-talk while working: the mid-run grammar ("show me", "stop").
   | { type: "run.voice"; data: { run_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } }
   // After an answer, the open mic takes a reply without the wake phrase for `seconds` (wake listening on).
-  | { type: "followup"; data: { open: boolean; seconds: number } };
+  | { type: "followup"; data: { open: boolean; seconds: number } }
+  // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
+  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean } };
 
 export type ErrorData = {
   code: string;

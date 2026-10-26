@@ -361,6 +361,10 @@ class Session:
         self._swift_declined: str | None = None
         self._hearing = False
         self._wake_warned = False
+        # Screen locked or PC asleep (ADR-014): the open microphone is ignored (threat model T7).
+        self.listening_paused = False
+        # Called when an overlay says it's ready (the lifecycle announces presence then).
+        self.on_ready: Callable[[], Awaitable[None]] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
             ("heard", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure", "other_speech",
@@ -408,6 +412,8 @@ class Session:
                 await self._start_text(msg.data["text"])
             case "ready":
                 logger.info("overlay ready", startup_ms=msg.data["startup_ms"], backend_ms=msg.data.get("backend_ms"))
+                if self.on_ready is not None:
+                    await self.on_ready()  # e.g. tell the new overlay whether Swift is listening
             case "cancel":
                 await self.cancel()
             case "retry":
@@ -519,7 +525,7 @@ class Session:
         ``time.monotonic()`` at which the utterance ended. Anything else is dropped after it
         is transcribed, and never logged.
         """
-        if self.recorder is None or self.transcriber is None:
+        if self.recorder is None or self.transcriber is None or self.listening_paused:
             return
         self.wake_stats["heard"] += 1
         if self._hearing:

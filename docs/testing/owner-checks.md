@@ -35,6 +35,8 @@ About 15 minutes, in your real Swift with your real microphone. Run them in orde
 | 9 | Check Google Calendar | Exactly one new event: Tuesday 10:00. Nothing for Thursday, Friday or Monday. Delete it afterwards. | (Google Calendar) |
 | 10 | Hold the hotkey: "research the history of tea into Word", with Word open. During the run, say "show me", then "stop" | The run stops, "Cancelled" briefly, and nothing stays stuck on screen | A mid-run "show me" and "stop" |
 | 11 | Put the laptop to sleep for a minute, or plug headphones in or out. Then, without the hotkey: "hey Swift, what time is it" | It answers. If it doesn't within a few seconds, wait 5 s and try once more, then note the time. | A wake request after the pause; microphone reopen events, if any |
+| 12 | Lock the screen (Win + L). Hover the tray icon? You can't while locked, so: wait 10 s, unlock, then hover Swift's tray icon right away | While locked, Windows' microphone indicator goes off. After unlocking, the tooltip says "listening for 'hey Swift'" within a few seconds. | Presence: away (locked), then here (unlocked); microphone paused, then reopened |
+| 13 | Right after unlocking, without the hotkey: "hey Swift, what time is it" | It answers, with no long first-time delay | A wake request soon after unlocking |
 
 ## After the checks: the report
 

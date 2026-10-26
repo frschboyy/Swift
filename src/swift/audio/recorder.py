@@ -165,6 +165,8 @@ class MicRecorder:
         self.on_reopen: Callable[[], None] | None = None
         # The input device of the open stream, for the log.
         self.device_name = ""
+        # Paused (screen locked, asleep: ADR-014): the kept-open stream is closed and stays closed.
+        self.paused = False
         self._recording = False
         self._lock = threading.Lock()
         self._stream = None
@@ -287,8 +289,39 @@ class MicRecorder:
         """
         return self._on_audio_thread(lambda: self._check_stream(stall_s))
 
-    def _check_stream(self, stall_s: float) -> bool:
+    def pause(self) -> None:
+        """Close the kept-open stream until ``resume`` (Windows' microphone indicator goes off)."""
+        self._on_audio_thread(self._pause)
+
+    def resume(self) -> None:
+        """Reopen it with a fresh device list (the owner is back; devices may have changed)."""
+        self._on_audio_thread(self._resume)
+
+    def _pause(self) -> None:
+        self.paused = True
+        if self._keep_open and not self._recording:
+            self._close_stream()
+            logger.info("microphone paused")
+
+    def _resume(self) -> None:
+        self.paused = False
         if not self._keep_open or self._recording:
+            return
+        self._close_stream()
+        _refresh_devices()
+        try:
+            self._open_stream()
+        except MicError as exc:
+            logger.warning("microphone not reopened on return; the watchdog will retry", error=str(exc))
+            return
+        if self.on_reopen is not None:
+            try:
+                self.on_reopen()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("after-reopen hook failed", error=str(exc))
+
+    def _check_stream(self, stall_s: float) -> bool:
+        if not self._keep_open or self._recording or self.paused:
             return False  # a recording reopens a dead stream itself (``_start``)
         stream = self._stream
         quiet_s = time.monotonic() - self._last_block

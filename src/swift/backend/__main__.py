@@ -30,6 +30,8 @@ from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
 from swift.ipc.server import OverlayServer
+from swift.lifecycle import Lifecycle
+from swift.presence import PresenceMonitor, WindowsProbe
 from swift.logging_setup import setup_logging
 from swift.routing import Route, route
 from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
@@ -263,6 +265,19 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     if wake.enabled or settings.audio.preroll_s > 0:
         mic_watch = asyncio.create_task(_watch_microphone(recorder))  # noqa: F841 - lives as long as the backend
     transcriber.start_loading()
+    # ADR-014: here / idle / away, lock and sleep handling, re-warm on return, tray status.
+    lifecycle = Lifecycle(
+        session, server.send, recorder=recorder, transcriber=transcriber, executor=session.executor,
+        wake_enabled=wake.enabled,
+    )
+    session.on_ready = lifecycle.announce
+    try:
+        monitor = PresenceMonitor(WindowsProbe(), lifecycle.on_change)
+    except (AttributeError, OSError) as exc:  # not Windows: no presence, everything stays on
+        logger.warning("presence not available", error=str(exc))
+    else:
+        lifecycle.attach(monitor)
+        presence_tasks = (asyncio.create_task(monitor.run()), asyncio.create_task(lifecycle.run()))  # noqa: F841
     if classifier is not None:
         classifier.start_loading()
     if isinstance(session.executor, ClaudeCodeExecutor):

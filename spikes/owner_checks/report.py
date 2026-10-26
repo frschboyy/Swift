@@ -79,6 +79,10 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     )
     timed_out = [r for r in rows if "no_answer" in decisions(r)]
     reopened = [line for line in log if "microphone stream stopped delivering audio" in line]
+    presence = [line for line in log if "| presence |" in line]
+    locked = any("reason='locked'" in line for line in presence)
+    unlocked = any("reason='unlocked'" in line for line in presence)
+    paused = any("microphone paused" in line for line in log)
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows), ""),
         ("2-3 a conversation in one thread", longest >= 3, f"longest thread: {longest} requests"),
@@ -93,6 +97,8 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          or any(r.get("status") == "cancelled" and r.get("run_ms") for r in rows), ""),
         ("11 microphone reopened after a pause (if it had stopped)", True,
          f"{len(reopened)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
+        ("12 lock: away, microphone paused; unlock: back", locked and unlocked and paused,
+         f"{len(presence)} presence change(s)"),
     ]
 
 

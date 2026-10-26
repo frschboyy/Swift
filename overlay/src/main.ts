@@ -415,6 +415,17 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
   else if (!v.open && card.querySelector(".artifact")) setStage("idle");
 }
 
+// ---- presence: the tray tooltip says whether Swift is listening, and why not (ADR-014 §8) ----
+
+function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
+  const hold = `Hold ${pttText()} to talk.`;
+  let text = `Swift: ready. ${hold}`;
+  if (p.wake && p.listening) text = `Swift: listening for “hey Swift”. Or ${hold.toLowerCase()}`;
+  else if (p.wake && p.reason === "locked") text = "Swift: paused while the screen is locked.";
+  else if (p.wake && p.reason === "asleep") text = "Swift: paused (the PC was asleep).";
+  void invoke("set_status", { text }).catch(() => {});
+}
+
 // ---- follow-up window: reply without the wake phrase, just after an answer ---------------
 
 function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
@@ -946,6 +957,9 @@ function onMessage(msg: Inbound): void {
       break;
     case "followup":
       onFollowup(msg.data);
+      break;
+    case "presence":
+      onPresence(msg.data);
       break;
   }
 }

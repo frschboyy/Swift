@@ -335,4 +335,7 @@ Other speech near the microphone is ignored.
 
 `loudest` and `room` are levels (0–1). A `microphone opened` line names the device each time the stream (re)opens, for example after sleep. Swift reopens the microphone when it stops delivering audio, refreshes Windows' device list when it does, never waits more than 20 s on one transcription, and never stays deaf more than 30 s through continuous sound.
 
-Swift does not yet pause wake listening when the PC is locked ([threat model](docs/threat_model.md) T7); edits and commands still need your approval on the overlay.
+**While you're away** ([ADR-014](docs/decisions/ADR-014-presence-and-lifecycle.md)):
+- When the screen is locked or the PC sleeps, Swift stops listening and closes the microphone ([threat model](docs/threat_model.md) T7). When you're back, it reopens the microphone and gets the speech model and Claude Code ready before you speak.
+- If you only stop typing, it keeps listening, so you can still talk to it from across the room. After 30 minutes away it frees the warm Claude Code, and the speech model too if nothing is listening.
+- Swift's tray tooltip shows which state it's in: listening for "hey Swift", paused while locked, or ready for the hotkey.

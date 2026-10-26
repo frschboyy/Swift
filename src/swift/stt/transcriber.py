@@ -215,6 +215,7 @@ class LocalTranscriber:
         self._model: Any = None
         self._error: SttUnavailable | None = None
         self._loaded = threading.Event()
+        self._loading = False
         # One inference at a time: each engine already uses every configured thread.
         self._busy = threading.Lock()
 
@@ -228,7 +229,24 @@ class LocalTranscriber:
         return f"Make sure it's downloaded to {self.models_dir} (see README), then restart Swift."
 
     def start_loading(self) -> None:
+        if self._loading or (self._loaded.is_set() and self._model is not None):
+            return
+        self._loading = True
         threading.Thread(target=self._load, name="stt-load", daemon=True).start()
+
+    @property
+    def loaded(self) -> bool:
+        return self._loaded.is_set() and self._model is not None
+
+    def release(self) -> None:
+        """Free the model's memory (away for a while, ADR-014 §6). The next use loads it again."""
+        with self._busy:
+            if self._model is None:
+                return
+            self._model = None
+            self._loaded.clear()
+            self._error = None
+        logger.info("speech model released")
 
     def _load(self) -> None:
         before = _private_mb()
@@ -248,10 +266,12 @@ class LocalTranscriber:
                 word_fixes=len(self.fixes),
             )
         finally:
+            self._loading = False
             self._loaded.set()
 
     async def wait_loaded(self) -> None:
         if not self._loaded.is_set():
+            self.start_loading()  # released while away: load again on first use
             await asyncio.to_thread(self._loaded.wait)
         if self._error is not None:
             raise self._error

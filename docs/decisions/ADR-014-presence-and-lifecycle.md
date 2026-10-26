@@ -128,3 +128,23 @@ Returning is a signal too: unlock, resume from sleep, the first input after `awa
    - mid-task redirects together with ADR-013 phase B.
 
    Each phase has the same kind of sequence tests and owner checks as ADR-013.
+
+## 10. Implementation status: L1 (2026-10-27)
+
+| Part | Where | Tests |
+|---|---|---|
+| Presence: here / idle / away (locked, asleep, idle keyboard), with the reason; return detection (unlocked, resumed, first input) | `src/swift/presence.py` (`PresenceMonitor`, `WindowsProbe`: `OpenInputDesktop`, `GetLastInputInfo`, late polls for sleep) | `test_presence.py` |
+| Locked or asleep: hands-free listening off and the open microphone closed; back: reopened with a fresh device list | `lifecycle.py`, `MicRecorder.pause` / `resume`, `Session.listening_paused` | `test_presence.py` |
+| Re-warm on return: speech model, warm Claude Code; a warm Claude Code that exited is replaced every 5 min while here | `lifecycle.py`, `ClaudeCodeExecutor.ensure_spare`, `LocalTranscriber.start_loading` | `test_presence.py` |
+| Away 30 min: warm Claude Code released, and the speech model too unless listening still needs it; the speech model reloads by itself on first use | `Lifecycle.release`, `release_spare`, `LocalTranscriber.release` | `test_presence.py` |
+| Tray status: "listening for 'hey Swift'", "paused while the screen is locked", or ready with the hotkey | `presence` message (new, outbound), `overlay/src/main.ts` `onPresence` | presence message tests; tray by eye (owner checks 12–13) |
+
+**Refinement of §3.2, decided while building:**
+- Away because the screen is locked or the PC slept turns hands-free off (T7).
+- Away only because the keyboard has been idle for 30 minutes keeps hands-free **on**. That's when the owner may talk to Swift from across the room.
+- In that idle case, only the warm Claude Code is released; the speech model stays, because listening needs it.
+
+**Owner-run:** checks 12–13 in `docs/testing/owner-checks.md` (lock, unlock, tray, the first request after unlocking). Sleep and resume are check 11.
+
+**Not in L1:** held confirm cards and resumable conversations (L2); calls, quiet modes and quiet hours (L3).
+

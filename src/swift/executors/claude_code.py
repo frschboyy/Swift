@@ -7,7 +7,8 @@
   owner's Claude settings must not bypass the overlay. ``--strict-mcp-config``
   keeps project MCP servers out; sessions are not persisted.
 - **Reject or no answer** within ``confirm_timeout`` denies the call with
-  ``interrupt=True``: the run stops and reports ``rejected``.
+  ``interrupt=True``: the run stops and reports ``rejected``. With ``attention`` set, the
+  countdown stops while the owner is away (ADR-014 §4, swift/attention.py).
 - ``AskUserQuestion`` is denied (no way to answer it by voice yet).
 - **Cancel** stops the SDK query and kills the CLI's process tree: ``claude``
   ignores CTRL_BREAK on Windows (measured), and nothing is persisted anyway.
@@ -52,6 +53,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
+from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
 from swift.executors.claude_mapping import Outcome, confirm_card, outcome_for, steps_for
 from swift.executors.providers import CLAUDE_CODE
@@ -195,6 +197,8 @@ class ClaudeCodeExecutor:
         self.confirm_strong = confirm_strong
         self.turn_limits = DEFAULT_TURN_LIMITS | (turn_limits or {})
         self.tools = tools
+        # Holds confirm cards while the owner is away (set by the backend); None: plain timeout.
+        self.attention: Attention | None = None
         self._spare: asyncio.Task[_Spare | None] | None = None
         self._closed = False
 
@@ -479,7 +483,7 @@ class ClaudeCodeExecutor:
         run.pending[request_id] = future
         run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool))
         try:
-            answer = await asyncio.wait_for(future, self.confirm_timeout_s)
+            answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
             if isinstance(answer, str):
                 return ("change", answer)
             return "approve" if answer else "reject"

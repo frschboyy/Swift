@@ -83,6 +83,7 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     locked = any("reason='locked'" in line for line in presence)
     unlocked = any("reason='unlocked'" in line for line in presence)
     paused = any("microphone paused" in line for line in log)
+    held = [r for r in rows if any(a.get("held_away") for a in r.get("approvals", []))]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows), ""),
         ("2-3 a conversation in one thread", longest >= 3, f"longest thread: {longest} requests"),
@@ -99,6 +100,12 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(reopened)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
         ("12 lock: away, microphone paused; unlock: back", locked and unlocked and paused,
          f"{len(presence)} presence change(s)"),
+        ("14 a card held while away, answered after", any(
+            a.get("held_away") and a.get("decision") in ("approve", "reject")
+            for r in held for a in r["approvals"]), f"{len(held)} held card(s)"),
+        ("15 a stopped request parked, then offered", any(r.get("parked") == "stopped" for r in rows)
+         and any(r.get("offered_resume") for r in rows), ""),
+        ("16 a parked request resumed", any(r.get("resumed") for r in rows), ""),
     ]
 
 

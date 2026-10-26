@@ -35,8 +35,10 @@ export type Presenter = {
   history: Turn[];
   // The last answer shown, so it can join the history if the thread goes on.
   lastAnswer: Turn | null;
-  // A confirm card waiting for an answer: it must stay on screen (invariant).
+  // A confirm card waiting for an answer: it must stay on screen (invariant)...
   pendingConfirm: string | null;
+  // ...unless the owner is away: then it's put aside, hidden, until they're back (ADR-014 §4).
+  held: string | null;
   // The backend takes a reply without the wake phrase until then (0: not).
   followupUntil: number;
   // Hover or drag holds the card: the time left when it started.
@@ -50,6 +52,7 @@ export const initial: Presenter = {
   history: [],
   lastAnswer: null,
   pendingConfirm: null,
+  held: null,
   followupUntil: 0,
   pausedLeft: null,
 };
@@ -71,7 +74,7 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
   const wasActive = isActive(p);
   const kind = state as CardKind;
   if (state === "idle") {
-    return { p: { ...p, card: { ...initial.card }, pendingConfirm: null }, newRun: false, continued: false, hide: true };
+    return { p: { ...p, card: { ...initial.card }, pendingConfirm: null, held: null }, newRun: false, continued: false, hide: true };
   }
   if (!ACTIVE.has(kind)) {
     // "result" / "error" come with their own message (onAnswer), which sets the card.
@@ -94,6 +97,7 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
       history,
       lastAnswer: newRun ? null : p.lastAnswer,
       pendingConfirm: kind === "confirm" ? p.pendingConfirm : null,
+      held: kind === "confirm" ? p.held : null,
       followupUntil: newRun ? 0 : p.followupUntil,
       pausedLeft: null,
     },
@@ -107,6 +111,15 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
 export function onConfirm(p: Presenter, requestId: string, runId: string | null): Presenter {
   return { ...p, card: { ...p.card, kind: "confirm", runId: runId ?? p.card.runId, fadeAt: null }, pendingConfirm: requestId };
 }
+
+/** The owner left (held) or came back: the waiting card is put aside, or shown again. Other cards are untouched. */
+export function onConfirmHold(p: Presenter, requestId: string, held: boolean): Presenter {
+  if (p.pendingConfirm !== requestId) return p;
+  return { ...p, held: held ? requestId : null };
+}
+
+/** The waiting card is on screen (not put aside while the owner is away). */
+export const confirmVisible = (p: Presenter): boolean => p.pendingConfirm !== null && p.held === null;
 
 export type Answer = {
   kind: "result" | "error" | "notice";
@@ -131,6 +144,7 @@ export function onAnswer(p: Presenter, a: Answer, now: number): { p: Presenter; 
       threadId: a.kind === "notice" ? p.threadId : thread,
       lastAnswer: a.summary && thread ? { threadId: thread, text: a.summary } : p.lastAnswer,
       pendingConfirm: null,
+      held: null,
       pausedLeft: p.pausedLeft !== null && fadeAt !== null ? fadeAt - now : null,
     },
     shown: true,
@@ -174,6 +188,7 @@ export function violations(p: Presenter): string[] {
   const out: string[] = [];
   if (isActive(p) && p.card.fadeAt !== null) out.push(`an active ${p.card.kind} card has a fade deadline`);
   if (p.pendingConfirm && p.card.kind !== "confirm") out.push(`confirm ${p.pendingConfirm} is waiting but not on screen`);
+  if (p.held && p.held !== p.pendingConfirm) out.push(`card ${p.held} is put aside but isn't waiting`);
   if (p.history.length > HISTORY) out.push("too many earlier turns");
   if (p.history.some((t) => t.threadId !== p.threadId)) out.push("an earlier turn from another thread");
   return out;

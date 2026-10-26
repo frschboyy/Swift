@@ -1,4 +1,4 @@
-# Owner checks: the overlay, conversations and corrections (ADR-012, ADR-013 phase A)
+# Owner checks: the overlay, conversations, corrections, stepping away (ADR-012, ADR-013 phase A, ADR-014)
 
 About 15 minutes, in your real Swift with your real microphone. Run them in order.
 
@@ -37,6 +37,9 @@ About 15 minutes, in your real Swift with your real microphone. Run them in orde
 | 11 | Put the laptop to sleep for a minute, or plug headphones in or out. Then, without the hotkey: "hey Swift, what time is it" | It answers. If it doesn't within a few seconds, wait 5 s and try once more, then note the time. | A wake request after the pause; microphone reopen events, if any |
 | 12 | Lock the screen (Win + L). Hover the tray icon? You can't while locked, so: wait 10 s, unlock, then hover Swift's tray icon right away | While locked, Windows' microphone indicator goes off. After unlocking, the tooltip says "listening for 'hey Swift'" within a few seconds. | Presence: away (locked), then here (unlocked); microphone paused, then reopened |
 | 13 | Right after unlocking, without the hotkey: "hey Swift, what time is it" | It answers, with no long first-time delay | A wake request soon after unlocking |
+| 14 | Hold the hotkey: "set up a meeting with Test Me on Friday at four". When the card appears, lock the screen (Win + L) and wait **3 minutes** (longer than the card's 2-minute countdown). Unlock | The card is back, with "1 card waiting, since …" at the top and a fresh countdown. Click **Reject**. | A card held while away, answered after |
+| 15 | Hold the hotkey: "draft an email to Test Me about lunch". While it works, press Esc. Wait a minute, then hold the hotkey: "what time is it" | The time, with one more line: "Unfinished: Draft an email to Test Me about lunch. Say “continue”, or “not now”." | A stopped request parked; the line offered |
+| 16 | Within 8 s (or with the hotkey): "continue" | It picks the email up again, on the same card as before, and shows the draft. Click **Reject**. | A parked request resumed |
 
 ## After the checks: the report
 

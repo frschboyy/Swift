@@ -43,6 +43,8 @@ let current: { activity?: Activity; agent: Agent | null; subagent: boolean; app?
 let runStarted = 0;
 let lastStepAt = 0;
 let confirmDeadline = 0;
+// A card put aside while the owner was away, and since when (ADR-014 §4): it says so when it's back.
+let heldSince: { requestId: string; at: number } | null = null;
 let compact = readPref("swift.compact") === "1";
 let hovering = false;
 let dragging = false;
@@ -109,6 +111,7 @@ function resetRun(keepRequest: boolean): void {
   lastConfirm = null;
   fullDraft = false;
   runVoice = null;
+  heldSince = null;
 }
 
 /** Debug builds: a broken presenter rule is reported with the messages that led to it. */
@@ -481,6 +484,9 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       "div",
       { "data-hit": true },
       head(icon("shield"), "Approval needed", [data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null], false),
+      heldSince?.requestId === data.request_id
+        ? el("p", { class: "voice-hint waiting", "data-phase": "hint" }, icon("info"), `1 card waiting, since ${clock(heldSince.at)}`)
+        : null,
       threadLines(),
       data.agent ? el("p", { class: "asker" }, `${data.agent.name} wants to:`) : null,
       el("p", { class: "confirm-title" }, data.title),
@@ -503,7 +509,35 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     card.style.setProperty("--fade-ms", `${Math.max(0, confirmDeadline - Date.now())}ms`);
     card.classList.add("card--timed");
   }
+  // Redrawn while the owner is away (a new draft version): it stays put aside.
+  if (pres.held === data.request_id) card.classList.add("card--held");
   tickConfirm();
+}
+
+const clock = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+/** The owner left: put the card aside (hidden, no countdown). Back: show it again, saying it waited. */
+function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"]): void {
+  pres = P.onConfirmHold(pres, data.request_id, data.held);
+  checkPresenter();
+  if (!lastConfirm || lastConfirm.request_id !== data.request_id || state !== "confirm") return;
+  if (data.held) {
+    if (heldSince?.requestId !== data.request_id) heldSince = { requestId: data.request_id, at: Date.now() };
+    card.classList.add("card--held");
+  } else {
+    confirmDeadline = data.timeout_s > 0 ? Date.now() + data.timeout_s * 1000 : 0;
+    renderConfirm(lastConfirm);  // the same card, with a fresh countdown and the "waiting" line
+  }
+  scheduleRegions();
+}
+
+/** After an answer: one line naming a conversation left unfinished. */
+function onResumeOffer(data: Extract<Inbound, { type: "resume.offer" }>["data"]): void {
+  if (state !== "result" && state !== "error") return;
+  card.querySelector(".resume")?.remove();
+  const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("info"), `Unfinished: ${data.title}. Say “continue”, or “not now”.`);
+  (card.firstElementChild ?? card).append(line);
+  scheduleRegions();
 }
 
 /** The voice line on a confirm card: any card takes a change ("no, make it Friday"), whichever agent asked. */
@@ -837,7 +871,7 @@ window.setInterval(() => {
 let regionTimers: number[] = [];
 
 function sendRegions(): void {
-  const visible = card.classList.contains("card--in");
+  const visible = card.classList.contains("card--in") && !card.classList.contains("card--held");
   // Outermost hit areas only: a nested one adds nothing.
   const rects = visible
     ? Array.from(document.querySelectorAll<HTMLElement>("[data-hit]"))
@@ -960,6 +994,12 @@ function onMessage(msg: Inbound): void {
       break;
     case "presence":
       onPresence(msg.data);
+      break;
+    case "confirm.hold":
+      onConfirmHold(msg.data);
+      break;
+    case "resume.offer":
+      onResumeOffer(msg.data);
       break;
   }
 }

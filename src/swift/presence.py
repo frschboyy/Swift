@@ -25,7 +25,7 @@ from typing import Literal, Protocol
 from loguru import logger
 
 State = Literal["here", "idle", "away"]
-Reason = Literal["input", "idle", "locked", "asleep", "unlocked", "resumed", "start"]
+Reason = Literal["input", "idle", "locked", "asleep", "unlocked", "resumed", "start", "swift"]
 
 IDLE_S = 10 * 60
 AWAY_S = 30 * 60
@@ -73,6 +73,8 @@ class PresenceMonitor:
         # When the current state started (clock time), e.g. how long the owner has been away.
         self.since = clock()
         self._last_poll: float | None = None
+        # The last time the owner talked to Swift (hotkey or wake phrase): input, as far as idle goes.
+        self._touched: float | None = None
 
     @property
     def listening_allowed(self) -> bool:
@@ -81,6 +83,14 @@ class PresenceMonitor:
 
     def away_for(self) -> float:
         return self.clock() - self.since if self.state == "away" else 0.0
+
+    def touch(self) -> Change | None:
+        """The owner just talked to Swift: they're here, even without touching the keyboard."""
+        now = self.clock()
+        self._touched = now
+        if self.state == "away" and self.reason in ("locked", "asleep"):
+            return None  # the next poll says when they're back
+        return self._set("here", "swift", now)
 
     def poll(self) -> Change | None:
         now = self.clock()
@@ -91,6 +101,8 @@ class PresenceMonitor:
         except Exception as exc:  # noqa: BLE001 - a failed probe keeps the last state
             logger.warning("presence probe failed", error=str(exc))
             return None
+        if self._touched is not None:
+            idle = min(idle, now - self._touched)
         if slept and self.state != "away":
             # Suspended between two polls: report the time away, then whatever is true now.
             self._set("away", "asleep", now)

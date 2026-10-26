@@ -8,6 +8,7 @@
 | Back (unlocked, resumed, first input after being away) | Microphone reopened with a fresh device list, speech model and warm Claude Code made ready, before the owner speaks |
 | Away for ``release_after_s`` (30 min) | Warm Claude Code released. The speech model too, unless hands-free listening still needs it (away only because the keyboard was idle) |
 | Here or idle, every few minutes | A warm Claude Code that exited on its own is replaced, so the first request after a quiet spell isn't slow |
+| Away, for any reason (L2) | An open confirm card is held: hidden, its countdown stopped (``Session.hold_cards``). Back: shown again |
 
 Each change is also announced to the overlay (``presence``) for the tray tooltip.
 """
@@ -71,6 +72,9 @@ class Lifecycle:
     async def handle(self, change: Change) -> None:
         listening = self.listening
         self.session.listening_paused = self.wake_enabled and not listening
+        hold_cards = getattr(self.session, "hold_cards", None)
+        if hold_cards is not None:
+            await hold_cards(change.new == "away")
         if self.wake_enabled and self.recorder is not None:
             if change.locked_or_asleep:
                 await asyncio.to_thread(self.recorder.pause)

@@ -3,7 +3,8 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
-  initial, isActive, onAnswer, onConfirm, onDismiss, onFollowup, onHold, onState, tick, violations, RESUME_MS,
+  confirmVisible, initial, isActive, onAnswer, onConfirm, onConfirmHold, onDismiss, onFollowup, onHold, onState, tick,
+  violations, RESUME_MS,
   type Presenter,
 } from "../src/presenter.ts";
 
@@ -188,3 +189,25 @@ test("the invariants catch a hidden waiting card", () => {
   const broken: Presenter = { ...initial, pendingConfirm: "swift:1", card: { ...initial.card, kind: "result" } };
   assert.match(violations(broken).join(), /waiting but not on screen/);
 });
+
+test("ADR-014 §4: a card put aside while the owner is away waits, then comes back; answering clears it", () => {
+  const o = new Overlay();
+  o.state("working", "cc-1", "t1");
+  o.state("confirm", "cc-1", "t1");
+  o.confirm("swift:1", "cc-1");
+  o.p = onConfirmHold(o.p, "swift:1", true);
+  assert.deepEqual(violations(o.p), []);
+  assert.equal(confirmVisible(o.p), false);
+  o.now += 12 * 3600 * 1000;
+  const r = tick(o.p, o.now);
+  assert.equal(r.hide, false);  // never faded while waiting
+  assert.equal(r.p.pendingConfirm, "swift:1");
+  o.p = onConfirmHold(o.p, "swift:2", false);  // another card's news changes nothing
+  assert.equal(o.p.held, "swift:1");
+  o.p = onConfirmHold(o.p, "swift:1", false);
+  assert.equal(confirmVisible(o.p), true);
+  o.p = onConfirmHold(o.p, "swift:1", true);
+  o.answer("result", 4000, "cc-1", "t1", "Added: Meeting");
+  assert.equal(o.p.held, null);
+});
+

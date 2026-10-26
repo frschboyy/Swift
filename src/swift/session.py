@@ -77,6 +77,12 @@ run is going, the open microphone also takes the mid-run phrases and confirm ans
 without the hotkey (``_hear_busy``): "show me", "stop" and "reject" on their own,
 approving only with Swift's name first. After an answer, a reply needs no wake phrase
 for ``wake_followup_s`` (the card shows "Listening for a reply").
+
+Stepping away (ADR-014 L2): while the owner is away, an open confirm card is held instead of
+timing out (``hold_cards``, swift/attention.py): the overlay hides it and shows it again on
+return. A run that is stopped, or whose card goes unanswered, is parked (swift/parked.py):
+"continue" or "finish the email to Ada" picks it up later in the same thread, and the next
+answer carries one "Unfinished: …" line (``resume.offer``).
 """
 
 from __future__ import annotations
@@ -97,6 +103,7 @@ from typing import Any
 from loguru import logger
 
 from swift import identity
+from swift.attention import Attention, wait_answer
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
 from swift.connectors.base import ConnectorError
 from swift.desktop.base import Desktop, DesktopContext
@@ -104,6 +111,7 @@ from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailabl
 from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
 from swift.failures import Failure, Severity, classify
+from swift.parked import Parked, ParkedThreads
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.routing import Route
 from swift.routing import route as default_router
@@ -296,6 +304,8 @@ class Session:
         confirm_timeout_s: float = CONFIRM_TIMEOUT_S,
         library: Library | None = None,
         desktop: Desktop | None = None,
+        attention: Attention | None = None,
+        parked: ParkedThreads | None = None,
     ) -> None:
         self._raw_send = send
         self.executor = executor
@@ -345,6 +355,16 @@ class Session:
         self.library = library
         # Where the owner is (ADR-012 D1); None: no desktop awareness.
         self.desktop = desktop
+        # Holds confirm cards while the owner is away (ADR-014 §4); None: they time out as before.
+        self.attention = attention
+        # Conversations left unfinished (ADR-014 §5); None: nothing is parked.
+        self.parked = parked
+        # Called when the owner talks to Swift (the hotkey, the wake phrase): they're here.
+        self.on_owner: Callable[[], None] | None = None
+        # The request of the current interaction as sent on (for parking it), and the
+        # "Unfinished: …" line shown last: (thread, when).
+        self._request: str | None = None
+        self._offered: tuple[str, float] | None = None
         # A workflow offered for the last request, its text, and when: (match, text, at).
         self._offer: tuple[Match, str, float] | None = None
         # Read when the current interaction started; this request only, never logged.
@@ -497,6 +517,7 @@ class Session:
         if self.recorder is None or self.transcriber is None:
             logger.warning("ptt ignored: no recorder or transcriber")
             return
+        self._owner_here()
         if self.busy:
             open_request = self._open_confirm()
             idle_voice = self._confirm_voice is None or self._confirm_voice.done()
@@ -558,16 +579,21 @@ class Session:
         if self.busy:
             if self._hands_free():  # not if the hotkey was pressed meanwhile
                 self.wake_stats["hands_free"] += 1
-                await self._hear_busy(heard, match_address(heard.text, self.wake_greetings))
+                addressed = match_address(heard.text, self.wake_greetings)
+                if addressed is not None:
+                    self._owner_here()
+                await self._hear_busy(heard, addressed)
             return
         if match is None:
             if heard.text.strip() and self._in_followup(started_at):
                 self.wake_stats["followup"] += 1
+                self._owner_here()
                 self._start_followup(heard)
             else:
                 self.wake_stats["other_speech"] += 1
             return
         self.wake_stats["wake"] += 1
+        self._owner_here()
         logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms)
         record: dict[str, Any] = {
             "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
@@ -838,7 +864,29 @@ class Session:
                     decision = _to_agent(decision)
             if decision is not None and decision.action == "undo" and not self._can_undo():
                 decision = _to_agent(decision)  # nothing Swift wrote: "undo that" is for Claude Code
-            if decision is not None and decision.route == "agent" and answered is None and self.library is not None:
+            resumed: Parked | None = None
+            if decision is not None and self.parked is not None and answered is None:
+                if decision.action == "resume":
+                    resumed = self.parked.newest()
+                    if resumed is None and self._last_exchange is not None:
+                        decision = _to_agent(decision)  # nothing parked: "go on" with the last answer
+                elif decision.route == "agent":
+                    resumed = self.parked.find(decision.text)  # "finish the email to Ada"
+            elif decision is not None and decision.action == "resume" and self._last_exchange is not None:
+                decision = _to_agent(decision)
+            if resumed is not None:
+                assert self.parked is not None and decision is not None
+                self.parked.drop(resumed.thread)
+                self._thread = record["thread"] = resumed.thread  # the overlay continues its card
+                record["resumed"] = resumed.reason
+                logger.info("conversation resumed", reason=resumed.reason)
+                decision = replace(
+                    _to_agent(decision), text=resumed.request, demand=estimate(resumed.request) or "standard"
+                )
+            if (
+                decision is not None and decision.route == "agent" and answered is None and resumed is None
+                and self.library is not None
+            ):
                 workflow = self.library.match(decision.text)
                 if workflow is not None and workflow.kind == "offer":
                     await self._offer_workflow(workflow, decision.text, record)
@@ -867,9 +915,14 @@ class Session:
                         record["workflow"] = package.name
                         request = package.request(workflow.inputs, decision.text)
                         prefer = None if package.provider == "any" else package.provider
+                    self._request = request
                     request = await self._with_desktop(request, decision.text, record)
+                    if resumed is not None:
+                        request = resumed.as_context(time.time()) + request
+                    else:
+                        request = self._with_context(self._with_unclear(request, record), record)
                     launch = await self.providers.start(
-                        self._with_context(self._with_unclear(request, record), record),
+                        request,
                         demand=decision.demand,
                         override=decision.override,
                         prefer=prefer,
@@ -923,8 +976,13 @@ class Session:
             if self._context is not None:  # the desktop context is for this request only
                 self._context.cancel()
                 self._context = None
+            unanswered = "cancelled" if record.get("status") == "cancelled" else "no_answer"
+            for approval in record["approvals"]:
+                approval.setdefault("decision", unanswered)
+            self._park(record)
             self._close_scope()
             self._note = None
+            self._request = None
             if self._run_started is not None and "run_ms" not in record:
                 record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
             self._run_started = None
@@ -936,9 +994,6 @@ class Session:
             self._approved = []
             record["interaction_ms"] = int((time.monotonic() - started) * 1000)
             record.setdefault("status", "error")
-            unanswered = "cancelled" if record["status"] == "cancelled" else "no_answer"
-            for approval in record["approvals"]:
-                approval.setdefault("decision", unanswered)
             if self.on_finish is not None:
                 self.on_finish(record)
             if self._correction is not None:
@@ -968,9 +1023,25 @@ class Session:
             record["status"] = "done"
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", f"Opened {target.name.title()}."))
             return
+        if action == "cancel" and (shown := self._offer_shown()) is not None and self.parked is not None:
+            # "Forget that" just after "Unfinished: …": let go of that conversation.
+            self._offered = None
+            dropped = self.parked.drop(shown)
+            record["status"] = "done"
+            answer = f"Okay, I've let go of “{dropped.title}”." if dropped else "Okay."
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            return
         if action in ("stop", "cancel", "mute"):
             record["status"] = "cancelled"
             await self._set_state("idle")
+            return
+        if action == "not_now":
+            if (shown := self._offer_shown()) is not None and self.parked is not None:
+                self.parked.dismiss(shown)
+                self._offered = None
+            record["status"] = "done"
+            answer = "Okay. Say “continue” whenever you want to pick it up."
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
             return
         if action == "workflows":
             summary, details = self._workflows_answer()
@@ -1014,6 +1085,8 @@ class Session:
             "approve": "There's nothing waiting for approval.",
             "reject": "There's nothing waiting for approval.",
             "new_topic": "Okay, starting fresh: the next request won't see the last one.",
+            "resume": "There's nothing unfinished to pick up.",
+            "not_now": "Okay.",
         }
         record["status"] = "done"
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answers.get(action or "", "Done.")))
@@ -1263,7 +1336,7 @@ class Session:
         )
         decision: Decision
         try:
-            answer = await asyncio.wait_for(future, self.confirm_timeout_s)
+            answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
             if isinstance(answer, str):
                 decision = "revise"
                 if self._scope is not None:
@@ -1286,6 +1359,65 @@ class Session:
             if self._active is not None:
                 await self._set_state("working", run_id=run_id, agent=self._agent())
         return decision
+
+    # ---- stepping away and coming back (ADR-014 L2) ---------------------------------------------
+
+    def _owner_here(self) -> None:
+        """The owner just talked to Swift: they're here (presence, held cards)."""
+        if self.on_owner is not None:
+            self.on_owner()
+
+    async def hold_cards(self, held: bool) -> None:
+        """The owner left (hide open confirm cards, stop their countdown) or came back (show them again)."""
+        if self.attention is None:
+            return
+        changed = [r for r in self.attention.set_held(held) if r in self._confirm_ids]
+        for request_id in changed:
+            left = self.attention.left(request_id)
+            if (entry := self._approval(request_id)) is not None and held:
+                entry["held_away"] = entry.get("held_away", 0) + 1
+            logger.info("confirm card held while away" if held else "confirm card back")
+            await self._send(
+                outbound("confirm.hold", request_id=request_id, held=held, timeout_s=round(left or 0.0, 1))
+            )
+
+    def _park(self, record: dict[str, Any]) -> None:
+        """A run stopped, or with a card nobody answered: keep it to pick up later (swift/parked.py)."""
+        if self.parked is None or self._request is None or self._run_started is None:
+            return
+        decisions = [a.get("decision") for a in record["approvals"]]
+        if record.get("status") == "cancelled":
+            reason = "stopped"
+        elif "no_answer" in decisions:
+            reason = "unanswered"
+        else:
+            return
+        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
+        self.parked.park(
+            Parked(
+                thread=record["thread"], request=self._request, reason=reason, at=time.time(),
+                progress=progress, proposed=_proposal(self._store()),
+            )
+        )
+        record["parked"] = reason
+
+    def _offer_shown(self) -> str | None:
+        """The thread of the "Unfinished: …" line shown in the last couple of minutes, if any."""
+        if self._offered is None or time.monotonic() - self._offered[1] > OFFER_S:
+            return None
+        return self._offered[0]
+
+    async def _offer_parked(self) -> None:
+        """After an answer: one line naming a conversation left unfinished, if there is one."""
+        if self.parked is None:
+            return
+        offer = self.parked.offer(besides=self._thread)
+        if offer is None:
+            return
+        self._offered = (offer.thread, time.monotonic())
+        if self._record is not None:
+            self._record["offered_resume"] = True
+        await self._send(outbound("resume.offer", thread_id=offer.thread, title=offer.title))
 
     # ---- "show me" (ADR-010 §7) -------------------------------------------------------------
 
@@ -1595,5 +1727,7 @@ class Session:
                 agent=agent, note=note,
             )
         )
+        if result.status in ("done", "rejected"):
+            await self._offer_parked()
         if result.status != "cancelled":
             await self._open_followup()

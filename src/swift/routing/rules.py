@@ -70,6 +70,11 @@ LOCAL: dict[str, str] = {
     "workflows": r"what workflows (do i have|have i got|are there|can you (run|do))|which workflows do (i|you) have"
     r"|(list|show)( me)? (my |the |all )?workflows|what are my workflows",
     "undo": r"undo|undo (that|it|this)|undo (what you (just )?(wrote|typed))|undo (the|your) (last )?(writing|typing)",
+    # ADR-014 §5: pick up a conversation left unfinished, or not now.
+    "resume": r"(let'?s |ok |okay )?(continue|carry on|keep going|go on|resume)( (it|that|where (we|i|you) left off"
+    r"|from where (we|i|you) (left off|stopped)))?|where were we|what was i doing|where did we leave off"
+    r"|pick up where (we|i|you) left off",
+    "not_now": r"not now|not right now|later|maybe later",
 }
 _CONTROL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in CONTROL.items()]
 _LOCAL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in LOCAL.items()]
@@ -84,7 +89,7 @@ class Route:
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
     # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
-    # local: time | date | identity | open | workflows | undo.
+    # local: time | date | identity | open | workflows | undo | resume | not_now.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None

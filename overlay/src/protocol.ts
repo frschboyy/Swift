@@ -66,7 +66,12 @@ export type Inbound =
   // After an answer, the open mic takes a reply without the wake phrase for `seconds` (wake listening on).
   | { type: "followup"; data: { open: boolean; seconds: number } }
   // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
-  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean } };
+  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean } }
+  // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
+  // held false: they're back, and the card has timeout_s left.
+  | { type: "confirm.hold"; data: { request_id: string; held: boolean; timeout_s: number } }
+  // ADR-014 §5: after an answer, one line naming a conversation left unfinished ("continue" picks it up).
+  | { type: "resume.offer"; data: { thread_id: string; title: string } };
 
 export type ErrorData = {
   code: string;

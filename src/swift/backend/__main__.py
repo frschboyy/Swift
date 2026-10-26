@@ -30,7 +30,9 @@ from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
 from swift.ipc.server import OverlayServer
+from swift.attention import Attention
 from swift.lifecycle import Lifecycle
+from swift.parked import ParkedThreads
 from swift.presence import PresenceMonitor, WindowsProbe
 from swift.logging_setup import setup_logging
 from swift.routing import Route, route
@@ -215,6 +217,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     opener = LocalOpener(settings)
     tools = _make_tools(settings, desktop, opener)
     mock = MockExecutor(tools=tools)
+    # ADR-014 L2: cards wait while the owner is away; unfinished conversations are kept 24 h.
+    attention = Attention()
+    parked = ParkedThreads(Path(settings.logging.interactions).parent / "parked.json")
     session = Session(
         server.send,
         _make_executor(settings, mock, tools),
@@ -229,6 +234,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         opener=opener,
         library=_make_library(settings),
         desktop=desktop,
+        attention=attention,
+        parked=parked,
         followup_s=settings.followup_context_s,
         unclear_p=settings.stt.unclear_p,
         reject_p=settings.stt.reject_p,
@@ -277,10 +284,12 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         logger.warning("presence not available", error=str(exc))
     else:
         lifecycle.attach(monitor)
+        session.on_owner = monitor.touch
         presence_tasks = (asyncio.create_task(monitor.run()), asyncio.create_task(lifecycle.run()))  # noqa: F841
     if classifier is not None:
         classifier.start_loading()
     if isinstance(session.executor, ClaudeCodeExecutor):
+        session.executor.attention = attention
         session.executor.prepare()
     logger.info("backend ready", port=bound, debug=settings.debug, wake=wake.enabled)
 

@@ -148,3 +148,25 @@ Returning is a signal too: unlock, resume from sleep, the first input after `awa
 
 **Not in L1:** held confirm cards and resumable conversations (L2); calls, quiet modes and quiet hours (L3).
 
+## 11. Implementation status: L2 (2026-10-27)
+
+| Part | Where | Tests |
+|---|---|---|
+| Held cards: a card's countdown runs only while the owner is here or idle. Away (any reason), it stops; back, it goes on with at least 60 s left; held 12 h, it gives up as "no answer" | `src/swift/attention.py` (`Attention.wait`), used by Swift's own cards (`Session._swift_confirm`) and Claude Code's (`ClaudeCodeExecutor._decide`); other providers keep the plain timeout | `test_held_cards.py` |
+| The overlay hides a held card and shows it again on return, with "1 card waiting, since …" and a fresh countdown | `confirm.hold` message (new, outbound), `Session.hold_cards` (called by `Lifecycle.handle`), presenter `held` + `onConfirmHold`, `main.ts` `onConfirmHold` | `test_held_cards.py`, `presenter.test.ts`; drawn in the dev harness |
+| Talking to Swift (hotkey, wake phrase, a reply, "Swift, …" on a card) counts as being here, also for keyboard idle time | `PresenceMonitor.touch`, `Session.on_owner` | `test_held_cards.py` |
+| Parking: a run stopped (Esc, "stop", Swift quitting) or with a card left unanswered keeps its thread, request, last steps, the last draft or event shown, and when | `src/swift/parked.py` (`ParkedThreads`, `parked.json` next to the interaction log), `Session._park` | `test_parked.py` |
+| Resuming: "continue", "where were we", "go on", "what was I doing" take the newest; "finish the email to Ada" matches by the request's words. The resumed run gets the parked context and continues the same thread (same card) | `rules.py` `resume`, `named_task`, `Parked.as_context`, `_interaction` | `test_parked.py` |
+| The offer: after the next answer, one line "Unfinished: <title>. Say “continue”, or “not now”." At most 3 times, not in the first minute; "not now" stops it; "forget that" just after it drops the thread | `resume.offer` message (new, outbound), `Session._offer_parked`, `main.ts` `onResumeOffer` | `test_parked.py`; drawn in the dev harness |
+| Kept 24 h, across restarts; an unreadable file is ignored | `ParkedThreads` | `test_parked.py` |
+
+**Refinements, decided while building:**
+- **The offer appears on the next answer, not on the listening card.** That's when Swift is on screen with room for a line. With wake listening on, the follow-up window lets the owner say just "continue".
+- **"Continue" with nothing parked** goes to the provider with the last exchange (as before), or says "There's nothing unfinished to pick up."
+- **A rejected card is not parked.** Saying no is a decision. Corrections after a rejection keep working through the follow-up context (ADR-013).
+- **"The owner starts something unrelated in the middle of it"** can't happen yet: one request runs at a time, and a new request during a run answers its card or is the mid-run grammar. It comes with ADR-013 phase B (several requests at once).
+
+**Owner-run:** checks 14–16 in `docs/testing/owner-checks.md` (a card held across a lock; stop, the offer, "continue"). `report.py` reports them.
+
+**Not in L2:** calls, quiet modes and quiet hours (L3); mid-task redirects (with ADR-013 phase B); notifications and digests queued while away (with the watchers, ADR-011).
+

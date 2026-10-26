@@ -38,7 +38,7 @@ let steps: string[] = [];
 let request = "";
 // The provider working on the current run, and what it last reported doing.
 let agent: Agent | null = null;
-let current: { activity?: Activity; agent: Agent | null; subagent: boolean } | null = null;
+let current: { activity?: Activity; agent: Agent | null; subagent: boolean; app?: string | null } | null = null;
 let runStarted = 0;
 let lastStepAt = 0;
 let confirmDeadline = 0;
@@ -189,7 +189,7 @@ function renderWorking(): void {
     const latest = i === steps.length - 1;
     list.append(el("li", { class: latest ? "step step--latest" : "step" }, el("span", { class: "step-dot" }), el("span", { class: "step-text" }, text)));
   });
-  const title = current ? activityLabel(current.agent, current.activity, current.subagent) : handoffLabel(agent);
+  const title = current ? activityLabel(current.agent, current.activity, current.subagent, current.app) : handoffLabel(agent);
   const toggle = el(
     "button",
     {
@@ -265,6 +265,15 @@ const SEND_TEXT: Record<string, string> = {
   sent: "Sent",
   failed: "Not sent",
   rejected: "Not sent: you didn't approve it",
+  filled_in: "Filled in for you: check it and press Send",
+};
+// The same states, for a calendar event.
+const EVENT_TEXT: Record<string, string> = {
+  waiting_approval: "Waiting for your approval",
+  sending: "Adding…",
+  sent: "Added to your calendar",
+  failed: "Not added",
+  rejected: "Not added: you didn't approve it",
 };
 
 /** One artifact, readable at a glance. Bodies scroll inside the card, which stays put. */
@@ -302,6 +311,18 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
         draft?.kind === "email_draft"
           ? el("dl", { class: "kv kv--after" }, el("dt", {}, "To"), el("dd", {}, draft.data.to.map((p) => p.name || p.email).join(", ")), el("dt", {}, "Subject"), el("dd", {}, draft.data.subject))
           : null,
+      );
+      break;
+    }
+    case "calendar_event": {
+      const e = a.data;
+      body = el(
+        "div",
+        {},
+        e.state ? el("p", { class: `summary send-${e.state === "sent" ? "sent" : e.state}` }, EVENT_TEXT[e.state] ?? e.state) : null,
+        e.reason ? el("p", { class: "muted" }, e.reason) : null,
+        el("dl", { class: "kv" }, el("dt", {}, "What"), el("dd", {}, e.title), el("dt", {}, "When"), el("dd", {}, e.when),
+          ...(e.location ? [el("dt", {}, "Where"), el("dd", {}, e.location)] : [])),
       );
       break;
     }
@@ -815,7 +836,7 @@ function onMessage(msg: Inbound): void {
     case "step":
       steps = [...steps, msg.data.text].slice(-MAX_STEPS);
       lastStepAt = Date.now();
-      current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false };
+      current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false, app: msg.data.app };
       if (state === "working") renderWorking();
       break;
     case "confirm.request":

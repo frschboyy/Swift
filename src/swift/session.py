@@ -786,14 +786,14 @@ class Session:
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", summary, details))
             return
         if action == "undo" and self.tools is not None and self.tools.last_write is not None and self.desktop:
-            receipt, self.tools.last_write = self.tools.last_write, None
             try:
-                answer = await self.desktop.undo(receipt)
-            except ConnectorError as exc:
+                answer = await self.desktop.undo(self.tools.last_write)
+            except ConnectorError as exc:  # kept: "click in Notepad and say undo that again"
                 record["status"] = "error"
                 record["error"] = "undo_failed"
                 await self._send_failure(Failure("undo_failed", "Couldn't undo that", str(exc), exc.hint), record)
                 return
+            self.tools.last_write = None
             record["status"] = "done"
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
             return

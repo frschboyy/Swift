@@ -22,8 +22,9 @@ from loguru import logger
 from swift import __version__
 from swift.audio.recorder import MicRecorder
 from swift.config.paths import app_paths
-from swift.connectors.base import EmailConnector
-from swift.connectors.fake import FakeMailConnector
+from swift.connectors.base import CalendarConnector, EmailConnector
+from swift.connectors.fake import FakeCalendarConnector, FakeMailConnector
+from swift.desktop.base import Desktop, NeverRead
 from swift.executors.base import Executor
 from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
@@ -41,7 +42,9 @@ from swift.settings import Settings, SettingsError, expand, load_settings
 from swift.stt.fixes import WordFixes
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
 from swift.wake import WakeListener
+from swift.workflows.library import Library, load_library
 from swift.workflows.tools import KnownContact, ToolHost
+from swift.workflows.toolset import ALL_TOOLS
 
 READY_PREFIX = "SWIFT_BACKEND_READY"
 
@@ -83,8 +86,19 @@ def _make_transcriber(settings: Settings) -> LocalTranscriber:
 DEMO_LECTURER = KnownContact("Dr Ada Lovelace", "ada.lovelace@example.edu", ("lecturer", "professor"))
 
 
-def _make_tools(settings: Settings) -> ToolHost:
-    """Swift's workflow tools (ADR-010). Debug mode always uses the fake connector: a demo never touches Google."""
+def _make_desktop(settings: Settings) -> Desktop | None:
+    """Desktop awareness (ADR-012 D1-D2): the real Windows desktop, also in debug mode (it is local)."""
+    cfg = settings.desktop
+    if not cfg.enabled or sys.platform != "win32":
+        return None
+    from swift.desktop.windows import WindowsDesktop
+
+    return WindowsDesktop(NeverRead.with_extra(cfg.never_read_apps, cfg.never_read_titles))
+
+
+def _make_tools(settings: Settings, desktop: Desktop | None, opener: LocalOpener) -> ToolHost:
+    """Swift's tools (ADR-010, ADR-011 W1, ADR-012). Debug mode always uses the fake connectors: a demo
+    never touches Google."""
     kind = "fake" if settings.debug else settings.connectors.email
     connector: EmailConnector | None = None
     if kind == "fake":
@@ -93,13 +107,27 @@ def _make_tools(settings: Settings) -> ToolHost:
         from swift.connectors.gmail import GmailConnector
 
         connector = GmailConnector()
+    calendar_kind = "fake" if settings.debug else settings.connectors.calendar
+    calendar: CalendarConnector | None = None
+    if calendar_kind == "fake":
+        calendar = FakeCalendarConnector()
+    elif calendar_kind == "google":
+        from swift.connectors.google_calendar import GoogleCalendarConnector
+
+        calendar = GoogleCalendarConnector()
     contacts = tuple(KnownContact(c.name, c.email, tuple(c.aliases)) for c in settings.contacts)
     if kind == "fake" and not contacts:
         contacts = (DEMO_LECTURER,)
     journal = Journal(Path(settings.logging.journal))
     journal.report_unfinished()
-    logger.info("workflow tools", email=kind, contacts=len(contacts))
-    return ToolHost(connector, contacts, ActionGateway(journal))
+    logger.info("workflow tools", email=kind, calendar=calendar_kind, desktop=desktop is not None, contacts=len(contacts))
+    return ToolHost(connector, contacts, ActionGateway(journal), ALL_TOOLS, calendar=calendar, desktop=desktop,
+                    opener=opener)
+
+
+def _make_library(settings: Settings) -> Library | None:
+    cfg = settings.workflows
+    return load_library(Path(cfg.dir)) if cfg.enabled else None
 
 
 def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | None = None) -> Executor:
@@ -159,7 +187,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     )
 
     router, classifier = _make_router(settings)
-    tools = _make_tools(settings)
+    desktop = _make_desktop(settings)
+    opener = LocalOpener(settings)
+    tools = _make_tools(settings, desktop, opener)
     mock = MockExecutor(tools=tools)
     session = Session(
         server.send,
@@ -172,7 +202,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         ptt_label=settings.hotkeys.push_to_talk,
         audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
         router=router,
-        opener=LocalOpener(settings),
+        opener=opener,
+        library=_make_library(settings),
+        desktop=desktop,
         followup_s=settings.followup_context_s,
         unclear_p=settings.stt.unclear_p,
         reject_p=settings.stt.reject_p,

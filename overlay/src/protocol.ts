@@ -19,7 +19,9 @@ export type Agent = { id: string; name: string };
 // Normalized by the backend from each provider's own events (executors/base.py Activity).
 export type Activity =
   | "starting" | "reading" | "searching" | "editing" | "running" | "browsing"
-  | "delegating" | "planning" | "thinking" | "waiting" | "switching" | "blocked" | "working";
+  | "delegating" | "planning" | "thinking" | "waiting" | "switching" | "blocked" | "working"
+  // Swift's own, in the owner's app (ADR-012 §6): the step carries `app`.
+  | "writing";
 
 export type ResultDetails =
   | { kind: "text"; text: string }
@@ -29,11 +31,14 @@ export type ResultDetails =
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).
 export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done" | "failed";
 export type Person = { name: string; email: string };
-export type SendState = "waiting_approval" | "sending" | "sent" | "failed" | "rejected";
+// filled_in: the email is in Gmail's compose window or an Outlook draft; the owner presses Send (ADR-012 Q3).
+export type SendState = "waiting_approval" | "sending" | "sent" | "failed" | "rejected" | "filled_in";
+export type CalendarEventData = { title: string; when: string; location: string; all_day: boolean; start: string; end: string; state?: SendState; reason?: string };
 export type Artifact = { run_id: string; id: string; phase: Phase; version: number; title: string; agent?: Agent | null } & (
   | { kind: "email_draft"; data: { to: Person[]; subject: string; body: string } }
   | { kind: "recipient"; data: { query: string; candidates: (Person & { source: string })[]; chosen: number | null } }
-  | { kind: "send_status"; data: { state: SendState; draft_id?: string; message_id?: string; reason?: string } }
+  | { kind: "send_status"; data: { state: SendState; draft_id?: string; message_id?: string; reason?: string; app?: string } }
+  | { kind: "calendar_event"; data: CalendarEventData }
   | { kind: "text" | "list" | "table"; data: ResultDetails }
 );
 
@@ -42,7 +47,7 @@ export type Inbound =
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null } }
   | { type: "level"; data: { rms: number } }
   | { type: "transcript"; data: { text: string; final: boolean } }
-  | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean } }
+  | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; app?: string | null } }
   // timeout_s: how long the card waits before the run stops without an answer.
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
   | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; agent?: Agent | null; timeout_s?: number | null; artifact_id?: string | null } }

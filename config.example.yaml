@@ -73,6 +73,16 @@ logging:
 
 connectors:                        # Swift's own workflow tools (ADR-010)
   email: none                      # none | fake | gmail. gmail: sign in first (docs/google_setup.md). debug: true always uses fake
+  calendar: none                   # none | fake | google. google shares the Gmail sign-in; sign in again once for calendar.events
+
+workflows:                         # ADR-011 W1: built-in ones ship with Swift ("what workflows do I have?")
+  enabled: true
+  dir: "%APPDATA%/Swift/workflows" # your own: one folder each, SKILL.md + swift.yaml
+
+desktop:                           # ADR-012 D1-D2: "this", "here", "open this", writing where you are, "undo that"
+  enabled: true                    # read when you speak, never stored; password managers, banks, private windows never read
+  never_read_apps: []              # more apps never to look at, e.g. ["Signal.exe"]
+  never_read_titles: []            # more window-title words, e.g. ["payroll"]
 contacts: []                       # who Swift may email; "my lecturer" finds them by alias. Addresses never come from speech alone
   # - name: "Dr Ada Lovelace"
   #   email: "ada.lovelace@example.edu"

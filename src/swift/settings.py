@@ -194,6 +194,35 @@ class ConnectorSettings(_Section):
     # Which email service Swift's tools use (ADR-010 §9). gmail needs signing in first:
     # uv run --group spikes python -m swift.connectors.gmail signin. Debug mode always uses fake.
     email: Literal["none", "fake", "gmail"] = "none"
+    # Where calendar-event adds events (ADR-011 W1). google shares the Gmail sign-in, which needs
+    # signing in again once to grant calendar.events. Debug mode always uses fake.
+    calendar: Literal["none", "fake", "google"] = "none"
+
+
+class WorkflowSettings(_Section):
+    """Workflows (ADR-011 W1): the built-in ones ship with Swift; yours live in ``dir``."""
+
+    enabled: bool = True
+    dir: str = "%APPDATA%/Swift/workflows"
+
+    @field_validator("dir")
+    @classmethod
+    def _expand(cls, v: str) -> str:
+        return expand(v)
+
+
+class DesktopSettings(_Section):
+    """Desktop awareness (ADR-012 D1-D2): where you are, "this" and "here", writing where you are.
+
+    Read only when you speak, never stored, sent only when a request needs it. Never read:
+    password managers, banking sites and private browser windows, plus what you add here.
+    """
+
+    enabled: bool = True
+    # More apps never to look at, by executable name ("Signal.exe").
+    never_read_apps: list[str] = Field(default_factory=list)
+    # More window-title words never to look at ("payroll", "mybank.com").
+    never_read_titles: list[str] = Field(default_factory=list)
 
 
 class LoggingSettings(_Section):
@@ -225,6 +254,8 @@ class Settings(_Section):
     followup_context_s: float = Field(300.0, ge=0)
     demand_classifier: DemandClassifierSettings = Field(default_factory=DemandClassifierSettings)
     connectors: ConnectorSettings = Field(default_factory=ConnectorSettings)
+    workflows: WorkflowSettings = Field(default_factory=WorkflowSettings)
+    desktop: DesktopSettings = Field(default_factory=DesktopSettings)
     # The only people Swift resolves besides your Google contacts (ADR-010 §4: addresses never
     # come from the model or from speech alone).
     contacts: list[ContactSettings] = Field(default_factory=list)

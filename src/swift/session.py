@@ -162,6 +162,8 @@ CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
 # Messages that say which thread they belong to.
 THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
 CONFIRM_TIMEOUT_S = 120.0
+# Wake listening never waits longer than this for one utterance's transcription.
+WAKE_STT_TIMEOUT_S = 20.0
 # A workflow offer waits this long for "yes" or "no".
 OFFER_S = 120.0
 # Reading where the owner is may take this long; after that the request goes on without it.
@@ -359,6 +361,11 @@ class Session:
         self._swift_declined: str | None = None
         self._hearing = False
         self._wake_warned = False
+        # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
+        self.wake_stats = dict.fromkeys(
+            ("heard", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure", "other_speech",
+             "wake", "followup", "hands_free"), 0,
+        )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
         self._last_exchange: Exchange | None = None
@@ -512,15 +519,26 @@ class Session:
         ``time.monotonic()`` at which the utterance ended. Anything else is dropped after it
         is transcribed, and never logged.
         """
-        if self.recorder is None or self.transcriber is None or self._hearing:
+        if self.recorder is None or self.transcriber is None:
+            return
+        self.wake_stats["heard"] += 1
+        if self._hearing:
+            self.wake_stats["skipped_hearing"] += 1
             return
         if self.busy and not self._hands_free():
+            self.wake_stats["skipped_busy"] += 1
             return  # e.g. recording after the hotkey: nothing to answer, not even worth transcribing
         started_at = ended_at - len(audio) / SAMPLE_RATE
         self._hearing = True
         try:
-            heard = await self.transcriber.transcribe(audio)
+            # Never stuck: a transcription that hangs would leave wake listening deaf for good.
+            heard = await asyncio.wait_for(self.transcriber.transcribe(audio), WAKE_STT_TIMEOUT_S)
+        except TimeoutError:
+            self.wake_stats["stt_timeout"] += 1
+            logger.warning("wake listening: a transcription took too long; skipped", timeout_s=WAKE_STT_TIMEOUT_S)
+            return
         except SttUnavailable as exc:
+            self.wake_stats["stt_failed"] += 1
             if not self._wake_warned:
                 self._wake_warned = True
                 logger.warning("wake listening can't transcribe", error=str(exc))
@@ -528,16 +546,22 @@ class Session:
         finally:
             self._hearing = False
         if self.wake_min_p and heard.words and sum(w.p for w in heard.words) / len(heard.words) < self.wake_min_p:
+            self.wake_stats["unsure"] += 1
             return
         match = match_wake(heard.text, self.wake_greetings)
         if self.busy:
             if self._hands_free():  # not if the hotkey was pressed meanwhile
+                self.wake_stats["hands_free"] += 1
                 await self._hear_busy(heard, match_address(heard.text, self.wake_greetings))
             return
         if match is None:
             if heard.text.strip() and self._in_followup(started_at):
+                self.wake_stats["followup"] += 1
                 self._start_followup(heard)
+            else:
+                self.wake_stats["other_speech"] += 1
             return
+        self.wake_stats["wake"] += 1
         logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms)
         record: dict[str, Any] = {
             "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
@@ -561,6 +585,11 @@ class Session:
         )
 
     # ---- hands-free (the open microphone, when wake listening is on) --------------------------
+
+    def take_wake_stats(self) -> dict[str, int]:
+        """The wake-listening counters since the last call, then start again (content-free)."""
+        out, self.wake_stats = self.wake_stats, dict.fromkeys(self.wake_stats, 0)
+        return out
 
     def _hands_free(self) -> bool:
         """A run the open microphone can talk to: working, or its confirm card open, and no

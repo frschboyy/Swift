@@ -278,3 +278,60 @@ async def test_hotkey_pressed_while_transcribing_wins() -> None:
     session._task = asyncio.create_task(asyncio.sleep(0.05))  # the hotkey started something
     await first
     assert out.messages == []
+
+
+# ---- staying responsive over hours (owner report, 2026-10-27) -----------------------------------
+
+
+def test_continuous_sound_never_leaves_it_deaf_for_long() -> None:
+    got: list[Any] = []
+    listener = WakeListener(lambda a, t: got.append(a))
+    feed(listener, quiet=40)
+    for i in range(int(45 * SAMPLE_RATE / BLOCK)):  # 45 s of TV or a call: varying, never a pause
+        listener.feed(block(LOUD if i % 2 == 0 else QUIET))
+    assert listener.stats["forced_resets"] >= 1
+    feed(listener, quiet=40)
+    feed(listener, loud=30)
+    feed(listener, quiet=40)
+    assert len(got) == 1  # the next request is still heard
+
+
+def test_counters_and_reset() -> None:
+    listener = WakeListener(lambda a, t: None)
+    feed(listener, quiet=40)
+    feed(listener, loud=3)  # a click
+    feed(listener, quiet=40)
+    feed(listener, loud=30)
+    feed(listener, quiet=40)
+    stats = listener.take_stats()
+    assert stats["utterances"] == 1 and stats["too_short"] == 1 and stats["blocks"] == 153 and stats["loudest"] > 0.5
+    assert listener.take_stats()["blocks"] == 0  # counted since the last report
+    feed(listener, loud=10)
+    listener.reset()  # e.g. the stream was reopened mid-utterance
+    feed(listener, quiet=40)
+    assert listener.stats["utterances"] == 0
+
+
+async def test_session_counts_where_each_utterance_went() -> None:
+    session, out, records, rec, stt = make("I think swift is a nice language")
+    await session.hear_wake(AUDIO, time.monotonic())
+    words = "hey swift what time is it"
+    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.2))  # all guesses
+    await session.hear_wake(AUDIO, time.monotonic())
+    stats = session.take_wake_stats()
+    assert stats["heard"] == 2 and stats["other_speech"] == 1 and stats["unsure"] == 1 and stats["wake"] == 0
+    assert session.take_wake_stats()["heard"] == 0
+
+
+async def test_a_hung_transcription_doesnt_leave_wake_listening_deaf(monkeypatch: pytest.MonkeyPatch) -> None:
+    import swift.session as session_module
+
+    monkeypatch.setattr(session_module, "WAKE_STT_TIMEOUT_S", 0.05)
+    session, out, records, rec, stt = make("Hey Swift, what time is it?")
+    session.transcriber = FakeTranscriber(text="Hey Swift, what time is it?", delay=10)
+    await session.hear_wake(AUDIO, time.monotonic())
+    assert session.wake_stats["stt_timeout"] == 1 and session._hearing is False
+    session.transcriber = FakeTranscriber(text="Hey Swift, what time is it?")
+    await session.hear_wake(AUDIO, time.monotonic())  # the next one goes through
+    await finish(session)
+    assert records and records[-1]["source"] == "wake"

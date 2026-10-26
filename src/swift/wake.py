@@ -143,10 +143,40 @@ class WakeListener:
         self._lead = 0  # room-noise blocks at the start of the utterance
         self._quiet = 0  # silent blocks at the end of the utterance so far
         self._too_long = False
+        self._too_long_blocks = 0
+        self._max_too_long = max(1, round(30 * per_s))  # never deaf for more than 30 s at a stretch
+        # Content-free counters for the periodic "wake listening" log line (``take_stats``).
+        self.stats = {"blocks": 0, "speech_blocks": 0, "utterances": 0, "too_short": 0, "too_long": 0, "forced_resets": 0}
+        self.loudest = 0.0
+
+    def reset(self) -> None:
+        """Forget the current utterance and the room's level (e.g. after the stream was reopened)."""
+        self._blocks, self._pad = [], type(self._pad)(maxlen=self._pad.maxlen)
+        self._lead = self._quiet = self._too_long_blocks = 0
+        self._too_long = False
+        self._gate = NoiseGate(self._gate.min_level, self._gate.margin)
+
+    def take_stats(self) -> dict[str, float]:
+        """The counters since the last call (and the room's level now), then start again."""
+        out: dict[str, float] = {**self.stats, "loudest": round(self.loudest, 2), "room": round(self._gate.floor, 2)}
+        self.stats = dict.fromkeys(self.stats, 0)
+        self.loudest = 0.0
+        return out
 
     def feed(self, block: np.ndarray) -> None:
         block = block.reshape(-1).copy()  # PortAudio reuses its buffer
-        speech = self._gate.speech(level_from_block(block))
+        level = level_from_block(block)
+        speech = self._gate.speech(level)
+        self.stats["blocks"] += 1
+        self.stats["speech_blocks"] += speech
+        self.loudest = max(self.loudest, level)
+        if self._too_long:
+            # A conversation, music or a TV can keep "speech" going without a pause; don't stay
+            # deaf until it stops: start over after 30 s.
+            self._too_long_blocks += 1
+            if self._too_long_blocks >= self._max_too_long:
+                self.stats["forced_resets"] += 1
+                self._too_long, self._too_long_blocks, self._blocks, self._quiet = False, 0, [], 0
         if not self._blocks and not self._too_long:
             if speech:
                 self._blocks = [*self._pad, block]
@@ -161,8 +191,12 @@ class WakeListener:
             self._blocks.append(block)
             if len(self._blocks) - self._lead - self._quiet > self._max_blocks:
                 self._blocks, self._too_long = [], True
+                self.stats["too_long"] += 1
         if self._quiet >= self._end_blocks:
             blocks, self._blocks = self._blocks, []
             self._too_long = False
             if blocks and len(blocks) - self._lead - self._quiet >= self._min_blocks:
+                self.stats["utterances"] += 1
                 self._on_utterance(np.concatenate(blocks), time.monotonic())
+            elif blocks:
+                self.stats["too_short"] += 1

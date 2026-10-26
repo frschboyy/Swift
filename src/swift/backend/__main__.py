@@ -167,6 +167,18 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
     return functools.partial(route, demand_fn=estimate), estimate
 
 
+async def _report_wake(listener: WakeListener, session: Session, recorder: MicRecorder, every_s: float = 300.0) -> None:
+    """Every 5 minutes, one content-free line on where wake listening's utterances went.
+
+    Read top to bottom: blocks arriving -> speech in them -> utterances cut -> heard by the
+    session -> transcribed -> wake / follow-up / other speech. The first number that drops to 0
+    is where it stopped.
+    """
+    while True:
+        await asyncio.sleep(every_s)
+        logger.info("wake listening", device=recorder.device_name, **listener.take_stats(), **session.take_wake_stats())
+
+
 async def _watch_microphone(recorder: MicRecorder, every_s: float = 2.0) -> None:
     """Keep the always-open microphone alive: reopen it when it stops delivering audio."""
     while True:
@@ -238,7 +250,10 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
 
             loop.call_soon_threadsafe(start)
 
-        recorder.tap = WakeListener(heard).feed
+        listener = WakeListener(heard)
+        recorder.tap = listener.feed
+        recorder.on_reopen = listener.reset
+        wake_report = asyncio.create_task(_report_wake(listener, session, recorder))  # noqa: F841
 
     bound = await server.start(port)
     print(f"{READY_PREFIX} port={bound}", flush=True)

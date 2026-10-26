@@ -88,6 +88,27 @@ def _input_device() -> tuple[int | None, object | None]:
     return None, None
 
 
+def _device_name(device: int | None) -> str:
+    try:
+        import sounddevice as sd
+
+        info = sd.query_devices(device if device is not None else sd.default.device[0])
+        return str(info["name"]) if isinstance(info, dict) else ""
+    except Exception:  # noqa: BLE001 - only for the log
+        return ""
+
+
+def _refresh_devices() -> None:
+    """Make PortAudio list the devices as they are now (its list is fixed at initialization)."""
+    try:
+        import sounddevice as sd
+
+        sd._terminate()  # noqa: SLF001 - sounddevice's own way to re-enumerate devices
+        sd._initialize()  # noqa: SLF001
+    except Exception as exc:  # noqa: BLE001 - keep the old list rather than fail the reopen
+        logger.warning("couldn't refresh the device list", error=str(exc))
+
+
 class Recorder(Protocol):
     def start(self, on_level: Callable[[float], None], lead_s: float | None = None) -> None: ...
 
@@ -140,6 +161,10 @@ class MicRecorder:
         self._lookback_blocks = math.ceil(lookback_s * SAMPLE_RATE / BLOCK) if lookback_s > 0 else 0
         self._ring: deque[np.ndarray] = deque(maxlen=max(self._preroll_blocks, self._lookback_blocks, 1))
         self.tap: Callable[[np.ndarray], None] | None = None
+        # Called (on the audio thread) after the kept-open stream was reopened.
+        self.on_reopen: Callable[[], None] | None = None
+        # The input device of the open stream, for the log.
+        self.device_name = ""
         self._recording = False
         self._lock = threading.Lock()
         self._stream = None
@@ -199,6 +224,8 @@ class MicRecorder:
                 )
             self._stream.start()
             self._last_block = time.monotonic()
+            self.device_name = _device_name(device)
+            logger.info("microphone opened", device=self.device_name, kept_open=self._keep_open)
         except sd.PortAudioError as exc:
             self._stream = None
             raise _mic_error(exc) from None
@@ -272,11 +299,17 @@ class MicRecorder:
             opened=stream is not None, active=bool(stream is not None and stream.active), quiet_s=round(quiet_s, 1),
         )
         self._close_stream()
+        _refresh_devices()  # after sleep or a headset change PortAudio's device list is stale
         try:
             self._open_stream()
         except MicError as exc:
             logger.warning("microphone stream not reopened; trying again shortly", error=str(exc))
             return False
+        if self.on_reopen is not None:
+            try:
+                self.on_reopen()
+            except Exception as exc:  # noqa: BLE001 - a listener bug must not stop the stream
+                logger.warning("after-reopen hook failed", error=str(exc))
         return True
 
     def _callback(self, indata: np.ndarray, frames: int, _time: object, _status: object) -> None:

@@ -323,4 +323,16 @@ With wake listening on, you don't need the hotkey or the wake phrase to answer S
 
 Other speech near the microphone is ignored.
 
+**If "hey Swift" stops responding:** every 5 minutes `swift.log` gets a line `wake listening`, with counts only (never words). The counts follow an utterance through each stage. The first number that drops to 0 shows where it stopped:
+
+| Field | Counts |
+|---|---|
+| `blocks` | Audio arriving from the microphone (named in `device`) |
+| `speech_blocks` | Of those, how many sounded like speech |
+| `utterances` | Speech cut into requests |
+| `heard` | Utterances that reached the session |
+| `wake`, `followup`, `other_speech`, `unsure` | What they turned out to be |
+
+`loudest` and `room` are levels (0–1). A `microphone opened` line names the device each time the stream (re)opens, for example after sleep. Swift reopens the microphone when it stops delivering audio, refreshes Windows' device list when it does, never waits more than 20 s on one transcription, and never stays deaf more than 30 s through continuous sound.
+
 Swift does not yet pause wake listening when the PC is locked ([threat model](docs/threat_model.md) T7); edits and commands still need your approval on the overlay.

@@ -191,3 +191,12 @@ def test_nothing_is_reopened_during_a_recording_or_without_keep_open(fake_sd: An
     plain = make(0.0)
     plain.prepare().result()
     assert plain.check_stream() is False
+
+
+def test_a_reopen_tells_the_listener_to_start_over(fake_sd: Any) -> None:
+    r = MicRecorder(asyncio.new_event_loop(), keep_open=True)
+    calls: list[str] = []
+    r.on_reopen = lambda: calls.append("reset")
+    r.prepare().result()
+    r._last_block -= 10
+    assert r.check_stream() is True and calls == ["reset"]

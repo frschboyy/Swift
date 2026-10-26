@@ -14,6 +14,10 @@ triggers:
       - "write an email to {person} about {message}"
       - "send an email to {person} saying {message}"
       - "send an email to {person} about {message}"
+  # "Write my lecturer an email about the deadline", "draft a mail to Ada".
+  - intent:
+      actions: [email, write, draft, send, compose, reply]
+      subjects: [email, mail, e mail, message]
 inputs:
   person: {type: contact}           # resolved by find_contact, never from the model or speech alone
   message: {type: text}             # what to say, in the owner's words

@@ -12,6 +12,10 @@ triggers:
       - "put {event} on my calendar"
       - "put {event} on my calendar {when}"
       - "add an event {event} to my calendar"
+  # "Set up a meeting with my professor on Friday", "schedule office hours on my calendar".
+  - intent:
+      actions: [add, put, schedule, set up, book, create, arrange, plan, organise, organize]
+      subjects: [calendar, meeting, appointment, event, call, lunch, dinner, session, office hours]
 inputs:
   event: {type: text}               # what, and often when ("lunch with Ada tomorrow at noon")
   when: {type: date}

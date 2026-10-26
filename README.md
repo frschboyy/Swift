@@ -319,6 +319,8 @@ With wake listening on, you don't need the hotkey or the wake phrase to answer S
 - **On a confirm card:** say "reject", "no" or "stop". **Approving needs Swift's name**, "Swift, approve" (or a click or the hotkey), so a TV or someone nearby saying "yes" can't approve anything.
 - **After an answer:** for 8 seconds (`wake.followup_s`; 0 turns it off), just reply. The card shows "Listening for a reply… N s".
 
+- **To change what Swift shows you** on an email or calendar card, say what to change: "no, make it Friday at three". Hands-free, start with its name: "Swift, make it Friday". Swift revises it and shows a new card.
+
 Other speech near the microphone is ignored.
 
 Swift does not yet pause wake listening when the PC is locked ([threat model](docs/threat_model.md) T7); edits and commands still need your approval on the overlay.

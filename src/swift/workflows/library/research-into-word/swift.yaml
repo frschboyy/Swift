@@ -12,6 +12,10 @@ triggers:
       - "research {topic} and write it up in word"
       - "write up research on {topic} in word"
       - "write a research brief on {topic} in word"
+  # "Look into the history of tea and write it up in a Word document".
+  - intent:
+      actions: [research, look into, find out about, write up, summarise, summarize]
+      subjects: [word, word document, doc, document]
 inputs:
   topic: {type: text}
   depth: {type: choice, of: [quick, normal, thorough], default: normal}

@@ -155,3 +155,39 @@ def test_start_error_is_a_mic_error(fake_sd: Any) -> None:
     fake_sd.fail = False
     r.start(lambda _: None)
     r.stop()
+
+
+# ---- the always-open stream recovers by itself (wake listening) ------------------------------
+
+
+def test_a_stream_that_went_quiet_is_reopened(fake_sd: Any) -> None:
+    r = MicRecorder(asyncio.new_event_loop(), keep_open=True)
+    r.prepare().result()
+    first = FakeStream.instances[0]
+    first.feed(1)
+    assert r.check_stream() is False  # blocks are arriving
+    r._last_block -= 10  # ...then nothing for 10 s (sleep, a headset switch)
+    assert r.check_stream() is True
+    assert first.closed and len(FakeStream.instances) == 2 and FakeStream.instances[1].active
+
+
+def test_a_stopped_stream_is_reopened_and_a_failure_retried_later(fake_sd: Any) -> None:
+    r = MicRecorder(asyncio.new_event_loop(), keep_open=True)
+    r.prepare().result()
+    FakeStream.instances[0].active = False  # the device went away
+    fake_sd.fail = True
+    assert r.check_stream() is False  # can't reopen yet: logged, tried again next time
+    fake_sd.fail = False
+    assert r.check_stream() is True and FakeStream.instances[-1].active
+
+
+def test_nothing_is_reopened_during_a_recording_or_without_keep_open(fake_sd: Any) -> None:
+    r = MicRecorder(asyncio.new_event_loop(), keep_open=True)
+    r.prepare().result()
+    r.start(lambda _: None)
+    r._last_block -= 10
+    assert r.check_stream() is False and len(FakeStream.instances) == 1
+    r.stop()
+    plain = make(0.0)
+    plain.prepare().result()
+    assert plain.check_stream() is False

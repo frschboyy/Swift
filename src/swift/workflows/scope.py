@@ -22,7 +22,8 @@ from typing import Any, Literal
 from swift.connectors.base import Contact
 from swift.workflows.artifacts import Artifact, ArtifactStore, Kind, Phase
 
-Decision = Literal["approve", "reject", "no_answer"]
+# "revise": the owner asked for a change on the card; their words are in ``RunScope.feedback``.
+Decision = Literal["approve", "reject", "no_answer", "revise"]
 # (title, detail, tool, artifact_id) -> the owner's answer on the confirm card.
 Confirmer = Callable[[str, str, str, str | None], Awaitable[Decision]]
 Publisher = Callable[[Artifact], Awaitable[None]]
@@ -65,6 +66,8 @@ class RunScope:
     sent: set[str] = field(default_factory=set)
     ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
     closed: bool = False
+    # What the owner said to change on the last confirm card answered "revise".
+    feedback: str = ""
     # None: not a workflow run, every tool is available (ADR-010 behaviour).
     grant: Grant | None = None
     step_fn: Stepper | None = None

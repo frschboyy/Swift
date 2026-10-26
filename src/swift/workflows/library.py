@@ -18,8 +18,12 @@ the package is skipped. Two places are read: the built-in library next to this f
 and the owner's ``%APPDATA%\\Swift\\workflows``; an owner's package with a built-in's
 name replaces it. ``installed/`` (ADR-011 §6.6) is later work and not read.
 
-Matching (ADR-011 §6.2): a trigger phrase whose slots all fill runs the workflow; a
-request that only shares words with a workflow's title and description is offered.
+Matching (ADR-011 §6.2): a trigger phrase whose slots all fill runs the workflow, and
+so does an ``intent`` trigger: one of its action words and one of its subject words
+anywhere in a request that isn't a question ("set up a meeting with the professor on
+my calendar"). A request that only shares words with a workflow's title and
+description is offered. Running directly is safe: anything consequential still waits
+for the owner on a confirm card.
 """
 
 from __future__ import annotations
@@ -62,6 +66,12 @@ _SLOT = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
 _WORD = re.compile(r"[a-z0-9']+")
 _LEAD = r"(?:(?:hey |ok |okay )?swift[\s,]+)?(?:(?:please|can you|could you|would you)[\s,]+)*"
 _GAP = r"[\s,.:;!?-]+"
+# A request opening with one of these asks something; an intent trigger never runs on it
+# ("what's on my calendar", "did I add the meeting").
+_QUESTION = frozenset(
+    "what what's whats when where which who whose why how did do does is are was were have has had am "
+    "should will shall isn't aren't didn't don't doesn't".split()
+)
 # Words that say nothing about which workflow is meant.
 _STOP = frozenset(
     "a an and the to of in on for with into from by at as is are be it its this that these those my your our "
@@ -91,6 +101,23 @@ class Trigger:
 
 
 @dataclass(frozen=True)
+class Intent:
+    """Run when a request has one of ``actions`` and one of ``subjects`` (whole words or phrases)."""
+
+    actions: tuple[str, ...]
+    subjects: tuple[str, ...]
+
+    def matches(self, text: str) -> bool:
+        said = " ".join(_WORD.findall(text.lower()))
+        lead = re.match(_LEAD, said)
+        words = said[lead.end():].split() if lead else said.split()
+        if not words or words[0] in _QUESTION:
+            return False
+        said = " " + " ".join(words) + " "
+        return any(f" {a} " in said for a in self.actions) and any(f" {s} " in said for s in self.subjects)
+
+
+@dataclass(frozen=True)
 class Package:
     name: str
     version: str
@@ -105,6 +132,7 @@ class Package:
     needs: tuple[str, ...] = ()
     provider: str = "any"
     shows: tuple[str, ...] = ()
+    intents: tuple[Intent, ...] = ()
 
     @property
     def tools(self) -> frozenset[str]:
@@ -142,7 +170,7 @@ class Package:
 @dataclass(frozen=True)
 class Match:
     package: Package
-    # "run": a trigger matched with every slot filled; "offer": only the description did.
+    # "run": a trigger matched with every slot filled, or an intent did; "offer": only the description did.
     kind: Literal["run", "offer"]
     inputs: dict[str, str] = field(default_factory=dict)
 
@@ -176,6 +204,9 @@ class Library:
                     best = (trigger.weight, package, inputs)
         if best is not None:
             return Match(best[1], "run", best[2])
+        intended = [p for p in self.packages.values() if any(i.matches(said) for i in p.intents)]
+        if len(intended) == 1:
+            return Match(intended[0], "run")  # inputs come from the request as said
         return self._offer(said)
 
     def _offer(self, said: str) -> Match | None:
@@ -331,13 +362,17 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
     settings = _fields(manifest.get("settings"), "settings")
 
     triggers: list[Trigger] = []
+    intents: list[Intent] = []
     raw_triggers = manifest.get("triggers") or []
     if not isinstance(raw_triggers, list):
         raise PackageError("swift.yaml: triggers must be a list")
     for entry in raw_triggers:
+        if isinstance(entry, dict) and set(entry) == {"intent"}:
+            intents.append(_intent(entry["intent"]))
+            continue
         if not isinstance(entry, dict) or set(entry) != {"say"}:
             kinds = ", ".join(map(str, entry)) if isinstance(entry, dict) else str(entry)
-            raise PackageError(f"swift.yaml: only `say` triggers are supported yet (got {kinds})")
+            raise PackageError(f"swift.yaml: only `say` and `intent` triggers are supported yet (got {kinds})")
         phrases = [entry["say"]] if isinstance(entry["say"], str) else entry["say"]
         if not isinstance(phrases, list) or not all(isinstance(p, str) and p.strip() for p in phrases):
             raise PackageError("swift.yaml: say must be a phrase or a list of phrases")
@@ -368,8 +403,21 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
 
     return Package(
         name, version, title.strip(), " ".join(description.split()), body, folder, source,
-        tuple(triggers), inputs, settings, tuple(needs), provider, tuple(shows),
+        tuple(triggers), inputs, settings, tuple(needs), provider, tuple(shows), tuple(intents),
     )
+
+
+def _intent(raw: object) -> Intent:
+    """``intent: {actions: [add, schedule, set up], subjects: [calendar, meeting]}``."""
+    if not isinstance(raw, dict) or set(raw) != {"actions", "subjects"}:
+        raise PackageError("swift.yaml: intent needs `actions` and `subjects` (lists of words)")
+    lists = []
+    for key in ("actions", "subjects"):
+        words = raw[key]
+        if not isinstance(words, list) or not words or not all(isinstance(w, str) and w.strip() for w in words):
+            raise PackageError(f"swift.yaml: intent {key} must be a list of words")
+        lists.append(tuple(" ".join(_WORD.findall(w.lower())) for w in words))
+    return Intent(lists[0], lists[1])
 
 
 def load_library(owner_dir: Path | None = None, builtin_dir: Path = BUILTIN_DIR) -> Library:

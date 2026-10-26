@@ -76,7 +76,7 @@ def test_owner_library_adds_and_replaces(tmp_path: Path) -> None:
         ({"needs: [swift.present]": "needs: [files.delete]"}, "no capability `files.delete`"),
         ({'"tidy my {{folder}} folder"': '"tidy {{folder}} {{other}}"'}, "isn't one of the inputs"),
         ({"run:": "recipe: recipe.yaml\nrun:"}, "isn't supported yet (W3)"),
-        ({'- say: ["tidy my {{folder}} folder"]': "- schedule: '0 18 * * 5'"}, "only `say` triggers"),
+        ({'- say: ["tidy my {{folder}} folder"]': "- schedule: '0 18 * * 5'"}, "only `say` and `intent` triggers"),
         ({"title: Tidy my downloads": "titel: x"}, "unknown key `titel`"),
         ({"playbook: SKILL.md": "playbook: other.md"}, "playbook: SKILL.md"),
         ({"of: [downloads, desktop]": "of: []"}, "a choice needs"),

@@ -223,10 +223,21 @@ async def send_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> T
         case "rejected":
             return ToolResult(False, f"{outcome.reason}: the email was NOT sent. Don't retry or try another way; "
                               "stop and tell the owner it wasn't sent.")
+        case "revise":
+            return ToolResult(False, revise_text(outcome.reason, "draft_email and then send_email", "sent"))
         case "denied":
             return ToolResult(False, f"Not sent: {outcome.reason}")
         case _:
             return ToolResult(False, f"Sending failed: {outcome.reason} Don't retry; tell the owner.")
+
+
+def revise_text(feedback: str, tool: str, done: str) -> str:
+    """What a provider is told when the owner asks for a change on a confirm card."""
+    return (
+        f"The owner wants a change before this goes ahead: “{feedback}”. Nothing was {done}. "
+        f"Apply the change, keep everything else as it was, and call {tool} again: Swift shows the owner "
+        "the new version to approve."
+    )
 
 
 async def present(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:

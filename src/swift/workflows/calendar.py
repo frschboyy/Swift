@@ -19,7 +19,7 @@ from typing import Any
 from swift.connectors.base import CalendarEvent
 from swift.security.gateway import Action
 from swift.workflows.scope import RunScope
-from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
+from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj, revise_text
 
 MAX_TITLE = 200
 MAX_TEXT = 2000
@@ -121,6 +121,8 @@ async def create_calendar_event(host: ToolHost, scope: RunScope, args: dict[str,
         case "rejected":
             return ToolResult(False, f"{outcome.reason}: the event was NOT added. Don't retry or try another way; "
                               "stop and tell the owner it wasn't added.")
+        case "revise":
+            return ToolResult(False, revise_text(outcome.reason, "create_calendar_event", "added"))
         case "denied":
             return ToolResult(False, f"Not added: {outcome.reason}")
         case _:

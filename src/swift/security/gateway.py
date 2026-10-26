@@ -31,7 +31,8 @@ from swift.connectors.base import Contact, ConnectorError
 from swift.security.journal import Journal
 from swift.workflows.scope import RunScope
 
-OutcomeStatus = Literal["done", "rejected", "denied", "failed"]
+# "revise": the owner wants a change first; ``reason`` holds their words (nothing was done).
+OutcomeStatus = Literal["done", "rejected", "denied", "failed", "revise"]
 Status = Literal["waiting_approval", "sending", "sent", "failed", "rejected"]
 
 # Tool -> what it needs. Swift's table, never a connector's claim (ADR-005). There is no "auto":
@@ -107,6 +108,9 @@ class ActionGateway:
         if policy == "confirm":
             await status("waiting_approval")
             decision = await scope.confirm(action.title, action.detail, action.tool, action.artifact_id)
+            if decision == "revise":
+                logger.info("owner asked for a change", tool=action.tool)
+                return Outcome("revise", scope.feedback)
             if decision != "approve":
                 await status("rejected")
                 why = "The owner didn't answer in time" if decision == "no_answer" else "The owner rejected it"

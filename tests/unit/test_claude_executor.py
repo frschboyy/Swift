@@ -56,8 +56,7 @@ def replay(name: str) -> tuple[list[str], Outcome | None]:
 
 def test_sdk_messages_map_like_the_raw_stream() -> None:
     steps, outcome = replay("claude_read_only.jsonl")
-    assert steps[:6] == [
-        "Starting Claude Code…",
+    assert steps[:5] == [
         "Finding files: src/swift/executors/**/*.py",
         "Reading __init__.py",
         "Reading base.py",

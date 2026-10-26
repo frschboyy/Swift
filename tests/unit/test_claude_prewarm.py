@@ -87,7 +87,7 @@ async def test_request_goes_to_the_spare_and_a_new_one_is_connected(tmp_path: Pa
     _, steps = await run_to_end(ex, "what's in the executors folder?")
     first = FakeClient.made[0]
     assert first.prompt == "what's in the executors folder?" and first.disconnected
-    assert steps[0] == "Starting Claude Code…"
+    assert "Starting Claude Code…" not in steps
 
     await asyncio.sleep(0.05)
     assert len(FakeClient.made) == 2 and FakeClient.made[1].connected and FakeClient.made[1].prompt is None

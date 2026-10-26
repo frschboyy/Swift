@@ -173,7 +173,7 @@ def _plain(text: str) -> str:
 def steps_for(event: dict[str, Any]) -> list[Step]:
     kind, sub = event.get("type"), event.get("subtype")
     if kind == "system" and sub == "init":
-        return [Step("Starting Claude Code…", "info", "starting")]
+        return []  # no "Starting Claude Code" line (owner, 2026-10-26): later steps and the byline name the provider
     if kind == "system" and sub == "permission_denied":
         return [Step(f"Blocked: {event.get('tool_name', 'a tool')} isn't allowed", "info", "blocked")]
     if kind == "system" and sub == "api_retry":

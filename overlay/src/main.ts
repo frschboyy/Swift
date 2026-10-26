@@ -222,7 +222,7 @@ function renderWorking(): void {
       {},
       head(el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "card-title card-title--live" }, title), [elapsed, toggle], false),
       small || shown ? null : request ? el("p", { class: "request" }, request) : null,
-      shown ? artifactView(shown) : small ? null : steps.length ? list : el("p", { class: "muted" }, "Starting…"),
+      shown ? artifactView(shown) : small ? null : steps.length ? list : null,
       stalled ? el("p", { class: "note note--soft" }, "Still working. Bigger requests can take a few minutes.") : null,
       runVoice ? runVoiceLine(runVoice) : null,
       el(
@@ -432,7 +432,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       longDraft
         ? el("button", { class: "link", "aria-expanded": String(fullDraft), onclick: () => askView(fullDraft ? "hide" : "show") }, fullDraft ? "Show less" : "Show full draft")
         : null,
-      el("p", { class: "voice-hint", "data-request": data.request_id }, "Or hold ", pttKeys(), " and say “approve” or “reject”."),
+      el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint(data)),
       el("p", { class: "countdown", "aria-live": "off" }),
       el(
         "div",
@@ -448,6 +448,12 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     card.classList.add("card--timed");
   }
   tickConfirm();
+}
+
+/** The voice line on a confirm card. On Swift's own cards (an email, an event) saying what to change revises it. */
+function voiceHint(data: { agent?: Agent | null; artifact_id?: string | null } | null): (Node | string)[] {
+  const ownCard = !!data && !data.agent && !!data.artifact_id;
+  return ["Or hold ", pttKeys(), ownCard ? " and say “approve”, “reject”, or what to change." : " and say “approve” or “reject”."];
 }
 
 function tickConfirm(): void {
@@ -469,7 +475,7 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
   else if (data.phase === "hint") hint.textContent = data.text;
   // A voice approval Swift held back (noise, or not sure what it heard): it needs one more.
   else if (data.phase === "again") hint.replaceChildren(icon("alert"), data.text);
-  else hint.replaceChildren("Or hold ", pttKeys(), " and say “approve” or “reject”.");
+  else hint.replaceChildren(...voiceHint(lastConfirm));
 }
 
 function detailsText(details: ResultDetails | null | undefined): string {

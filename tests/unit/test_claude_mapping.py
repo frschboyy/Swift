@@ -26,9 +26,8 @@ def replay(name: str) -> tuple[list[str], object]:
 
 def test_read_only_run_maps_to_readable_steps_and_a_list_result() -> None:
     steps, outcome = replay("claude_read_only.jsonl")
-    assert steps[0] == "Starting Claude Code…"
-    assert steps[1] == "Finding files: src/swift/executors/**/*.py"
-    assert steps[2:6] == ["Reading __init__.py", "Reading base.py", "Reading mock.py", "Reading echo.py"]
+    assert steps[0] == "Finding files: src/swift/executors/**/*.py"  # no "Starting Claude Code" line
+    assert steps[1:5] == ["Reading __init__.py", "Reading base.py", "Reading mock.py", "Reading echo.py"]
     assert all(len(s) <= 80 for s in steps)
     assert outcome.status == "done"
     assert outcome.summary.startswith("The src/swift/executors package")  # markdown backticks removed

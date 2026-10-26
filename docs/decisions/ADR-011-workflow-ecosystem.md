@@ -499,6 +499,19 @@ Built: the library, routing and three built-in playbooks of §13.5, together wit
 
 **Not done in W1:** recipes, schedules, watchers, the tray list, creating or editing workflows by voice, git history of the owner's library, and the capability registry with scopes (W2). A scope written in `needs` (`- files.write: {within: …}`) is accepted, and only its name is checked.
 
+## 15. After first use (2026-10-26, owner feedback)
+
+- **Clear requests run directly.**
+  - `swift.yaml` triggers gain `intent: {actions: [...], subjects: [...]}`. One action word and one subject word anywhere in a request runs the workflow ("set up a meeting with my professor on my calendar"). The provider takes the inputs from the request.
+  - A request that opens with a question word ("what", "did", "is"…) never runs one.
+  - The offer ("I have a workflow for that") is now only for unclear matches.
+  - All three built-in workflows have intents.
+- **Corrections stay in the same run.**
+  - On Swift's own confirm cards (an email, an event), anything said that isn't approve, reject or stop is a change to make ("no, make it Friday at three"). The gateway returns `revise` with the owner's words. The tool tells the provider to apply the change and call it again, the working card shows "Changing it: …", and a new card shows the corrected version.
+  - Hands-free, a change needs Swift's name first, like approving.
+  - The approval log records `revise` and the length of the change; the words are in `heard`, as for any voice answer.
+- **After a rejection,** the follow-up context includes what Swift last showed (the event or email). It says whether that went ahead, and tells the provider that the correction wins over the earlier request. That way a correction no longer drags the original wrong value back in.
+
 ## Sources checked (2026-10-24)
 
 - Agent Skills specification: agentskills.io/specification

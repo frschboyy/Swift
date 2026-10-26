@@ -138,6 +138,8 @@ TAIL_S = 0.3
 # A request this soon after the previous Claude answer carries that exchange as context.
 FOLLOWUP_S = 300.0
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
+# On Swift's own cards (an email, an event) anything else said is a change to make.
+CHANGE_HINT = "Say “approve”, “reject”, or what to change."
 # A voice approval in a noisy room needs a second one (docs/stt-noise.md). The room
 # between words measured -72 to -45 dBFS quiet and -49 to -31 with a TV talking. Word
 # confidence doesn't help here: a clean "Stop." scored 0.46, a misheard "Sure." 0.71.
@@ -179,6 +181,9 @@ class Exchange:
     answer: str
     approved: tuple[str, ...]
     at: float
+    # The last email or event Swift showed on a card ("To Ada, Subject …"), and whether it went ahead.
+    proposed: str = ""
+    proposed_done: bool = False
 
     def as_context(self, now: float) -> str:
         lines = [
@@ -189,7 +194,30 @@ class Exchange:
         ]
         if self.approved:
             lines.append("Actions the user approved: " + "; ".join(_clip(a, 120) for a in self.approved[-5:]))
+        if self.proposed:
+            state = "it went ahead" if self.proposed_done else "the user did NOT approve it"
+            lines.append(
+                f"What Swift last showed the user ({state}): {_clip(self.proposed, 400)}. If the current request "
+                "corrects it, use the correction and keep the rest; the corrected values win over the previous request."
+            )
         return "\n".join(lines) + "\n\n[Current request]\n"
+
+
+def _proposal(store: ArtifactStore | None) -> str:
+    """The last email or event shown on a card, in one line, for the follow-up context."""
+    if store is None:
+        return ""
+    for kind in ("calendar_event", "email_draft"):
+        artifact = store.newest(kind)
+        if artifact is None:
+            continue
+        data = artifact.data
+        if kind == "calendar_event":
+            where = f", at {data['location']}" if data.get("location") else ""
+            return f"calendar event “{data.get('title', '')}”, {data.get('when', '')}{where}"
+        to = ", ".join(f"{p.get('name')} <{p.get('email')}>" for p in data.get("to", []))
+        return f"email to {to}, subject “{data.get('subject', '')}”, body: {_clip(str(data.get('body', '')), 200)}"
+    return ""
 
 
 def _clip(text: str, limit: int) -> str:
@@ -312,7 +340,7 @@ class Session:
         self._artifacts: ArtifactStore | None = None
         self._artifacts_run: str | None = None
         self._swift_ids = count(1)
-        self._swift_pending: dict[str, asyncio.Future[bool]] = {}
+        self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
         # Title of a Swift confirm card the owner rejected (or left) in this run.
         self._swift_declined: str | None = None
         self._hearing = False
@@ -531,10 +559,18 @@ class Session:
         """
         text = (match.remainder if match else heard.text).strip()
         decision = route_midrun(text) if text else None
+        open_request = self._open_confirm()
         if decision is None:
+            # Other speech: ignored, unless it's addressed to Swift on Swift's own card, where it is a
+            # change to make ("Swift, make it Friday at three").
+            if text and match is not None and open_request is not None and open_request in self._swift_pending:
+                self._heard = heard
+                entry = self._approval(open_request)
+                if entry is not None:
+                    entry["hands_free"] = True
+                    await self._answer_text(open_request, entry, text, self._confirm_phase(open_request))
             return
         self._heard = heard
-        open_request = self._open_confirm()
         if open_request is not None:
             entry = self._approval(open_request)
             if entry is None or decision.action not in HANDS_FREE_CONFIRM:
@@ -1143,7 +1179,7 @@ class Session:
     async def _swift_confirm(self, title: str, detail: str, tool: str, artifact_id: str | None) -> Decision:
         """The gateway's confirm card: shown, answered and timed out like a provider's."""
         request_id = f"swift:{next(self._swift_ids)}"
-        future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         self._swift_pending[request_id] = future
         self._confirm_ids.add(request_id)
         self._confirm_titles[request_id] = title
@@ -1161,12 +1197,24 @@ class Session:
         )
         decision: Decision
         try:
-            decision = "approve" if await asyncio.wait_for(future, self.confirm_timeout_s) else "reject"
+            answer = await asyncio.wait_for(future, self.confirm_timeout_s)
+            if isinstance(answer, str):
+                decision = "revise"
+                if self._scope is not None:
+                    self._scope.feedback = answer
+            else:
+                decision = "approve" if answer else "reject"
         except TimeoutError:
             decision = "no_answer"
         finally:
             self._swift_pending.pop(request_id, None)
             self._confirm_ids.discard(request_id)
+        if decision == "revise":
+            # The run goes on: the provider applies the change and shows a new card.
+            if self._active is not None:
+                await self._set_state("working", run_id=run_id, agent=self._agent())
+            await self._swift_step(f"Changing it: {_clip(answer, 60)}", "editing", None)  # type: ignore[arg-type]
+            return decision
         if decision != "approve":
             self._swift_declined = title
             if self._active is not None:
@@ -1322,8 +1370,24 @@ class Session:
             entry["source"] = "voice"
             if self._task is not None:
                 self._task.cancel()  # like Esc; the interaction cleans up
+        elif request_id in self._swift_pending and text.strip():
+            await self._revise(request_id, text.strip())
+            await phase("idle")
         else:
             await phase("hint", f"Heard “{_clip(text, 60)}”. {CONFIRM_VOICE_HINT}")
+
+    async def _revise(self, request_id: str, text: str) -> None:
+        """A change asked for on Swift's own confirm card: the run goes on with the owner's words."""
+        future = self._swift_pending.get(request_id)
+        if future is None or future.done():
+            return
+        self._confirm_ids.discard(request_id)
+        if (entry := self._approval(request_id)) is not None:
+            entry["decision"] = "revise"
+            entry["answered_ms"] = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
+            entry["change_chars"] = len(text)  # the words themselves are in "heard", like any voice answer
+        logger.info("owner asked for a change on the card")
+        future.set_result(text)
 
     def _approval_doubt(self, heard: Transcription | None) -> str | None:
         """Why a voice "approve" shouldn't count on its own: "noise", or None."""
@@ -1353,7 +1417,12 @@ class Session:
 
     def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
         if result.status in ("done", "rejected"):
-            self._last_exchange = Exchange(record["id"], request, result.summary, tuple(self._approved), time.monotonic())
+            proposed = _proposal(self._store())
+            self._last_exchange = Exchange(
+                record["id"], request, result.summary, tuple(self._approved), time.monotonic(),
+                # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".
+                proposed=proposed, proposed_done=bool(proposed) and record.get("status") == "done",
+            )
         else:
             self._last_exchange = None
 

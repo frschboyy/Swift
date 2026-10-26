@@ -167,6 +167,16 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
     return functools.partial(route, demand_fn=estimate), estimate
 
 
+async def _watch_microphone(recorder: MicRecorder, every_s: float = 2.0) -> None:
+    """Keep the always-open microphone alive: reopen it when it stops delivering audio."""
+    while True:
+        await asyncio.sleep(every_s)
+        try:
+            await asyncio.to_thread(recorder.check_stream)
+        except Exception:  # noqa: BLE001 - the watchdog must outlive any one failure
+            logger.exception("microphone watchdog failed")
+
+
 async def _serve(settings: Settings, token: str, port: int) -> None:
     server = OverlayServer(
         token,
@@ -235,6 +245,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     # After the ready line, so the overlay is usable sooner. A push-to-talk before
     # these finish just waits for them.
     recorder.prepare()
+    if wake.enabled or settings.audio.preroll_s > 0:
+        mic_watch = asyncio.create_task(_watch_microphone(recorder))  # noqa: F841 - lives as long as the backend
     transcriber.start_loading()
     if classifier is not None:
         classifier.start_loading()

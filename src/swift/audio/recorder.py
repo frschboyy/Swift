@@ -115,6 +115,11 @@ class MicRecorder:
     ``keep_open`` does the same without a pre-roll, for wake listening: ``tap`` then
     receives every block (on the audio thread; keep it quick), and ``start(lead_s=...)``
     prepends that much of the audio just before it, at most ``lookback_s``.
+
+    A stream kept open for hours can stop delivering audio without an error (sleep and
+    resume, a headset connecting, the default device changing). ``check_stream`` reopens
+    it when no block has arrived for a while; the backend calls it every few seconds, so
+    hands-free listening recovers without waiting for the next hotkey press.
     """
 
     def __init__(
@@ -147,6 +152,8 @@ class MicRecorder:
         # Audio from before the key-down that was prepended (0 without pre-roll).
         self.preroll_ms = 0
         self._t_start = 0.0
+        # time.monotonic() of the last block from the stream: how ``check_stream`` sees a stall.
+        self._last_block = 0.0
 
     def prepare(self) -> Future[None]:
         """Warm PortAudio up in the background, and open the pre-roll stream if enabled.
@@ -191,6 +198,7 @@ class MicRecorder:
                     samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=BLOCK, callback=self._callback
                 )
             self._stream.start()
+            self._last_block = time.monotonic()
         except sd.PortAudioError as exc:
             self._stream = None
             raise _mic_error(exc) from None
@@ -245,7 +253,34 @@ class MicRecorder:
             return np.zeros(0, dtype=np.int16)
         return np.concatenate(blocks).reshape(-1)
 
+    def check_stream(self, stall_s: float = 3.0) -> bool:
+        """Reopen the kept-open stream if it died or went quiet. True if it was reopened.
+
+        Blocks until the audio thread has done it; call from a worker thread, not the loop.
+        """
+        return self._on_audio_thread(lambda: self._check_stream(stall_s))
+
+    def _check_stream(self, stall_s: float) -> bool:
+        if not self._keep_open or self._recording:
+            return False  # a recording reopens a dead stream itself (``_start``)
+        stream = self._stream
+        quiet_s = time.monotonic() - self._last_block
+        if stream is not None and stream.active and quiet_s < stall_s:
+            return False
+        logger.warning(
+            "microphone stream stopped delivering audio; reopening",
+            opened=stream is not None, active=bool(stream is not None and stream.active), quiet_s=round(quiet_s, 1),
+        )
+        self._close_stream()
+        try:
+            self._open_stream()
+        except MicError as exc:
+            logger.warning("microphone stream not reopened; trying again shortly", error=str(exc))
+            return False
+        return True
+
     def _callback(self, indata: np.ndarray, frames: int, _time: object, _status: object) -> None:
+        self._last_block = time.monotonic()
         tap = self.tap
         if tap is not None:
             try:

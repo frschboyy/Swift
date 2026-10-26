@@ -25,14 +25,16 @@ const isSwift = (agent: Agent | null | undefined): boolean => !agent || agent.id
 
 /** Working-card title: "Claude Code is reading", "Swift is writing in Word", or Swift's own coordination. */
 export function activityLabel(agent: Agent | null | undefined, activity: Activity | undefined, subagent = false, app?: string | null): string {
+  // Starting up isn't news (owner, 2026-10-26): the next steps and the byline say who does the work.
+  if (activity === "starting") return handoffLabel(agent);
   if (isSwift(agent)) return activity === "writing" ? `Swift is writing${app ? ` in ${app}` : ""}` : "Swift is coordinating";
   const who = subagent ? `${agent!.name}’s helper` : agent!.name;
   return `${who} ${VERBS[activity ?? "working"] ?? VERBS.working}`;
 }
 
-/** Before the provider reports anything: Swift has handed the request over. */
-export function handoffLabel(agent: Agent | null | undefined): string {
-  return isSwift(agent) ? "Swift is working" : `Swift handed this to ${agent!.name}`;
+/** Before the provider reports anything. No provider name yet: its own steps ("Claude Code is reading") and the result's byline give it. */
+export function handoffLabel(_agent: Agent | null | undefined): string {
+  return "Working on it";
 }
 
 /** Footer on results: Swift presents, the provider (if any) did the work. */

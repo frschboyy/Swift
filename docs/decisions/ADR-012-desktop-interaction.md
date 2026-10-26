@@ -179,7 +179,7 @@ The owner ran 35 probes. Runs that measured the wrong window were discarded: VS 
 
 | App | Focused element (what was clicked) | Read selection / text | Write | Window: named / with ids | Snapshot | Bulk read |
 |---|---|---|---|---|---|---|
-| **Word** | Document | yes: 69 chars selected, 53,446-char document in 27 ms | through Word's object model (`-Word` test not yet run) | 24 % / 8 % (tables make 512 cells) | ~325 tokens | 1.9 s; element-by-element walk 11 s |
+| **Word** | Document | yes: 69 chars selected, 53,446-char document in 27 ms | **yes**, through Word's object model: 133 ms a paragraph, read back through UIA (268 of 269 chars), undone in 88 ms (`-Word` test; Word's cold start 5.3 s) | 24 % / 8 % (tables make 512 cells) | ~325 tokens | 1.9 s; element-by-element walk 11 s |
 | **PowerPoint** | a generic pane, even with the cursor in a slide text box | **slide text not visible** | object model only | 96 % / 53 % (ribbon) | ~800 | 0.2 s |
 | **Excel** | the current cell | cell value (88 chars) | **yes**: cell value writable, plus Invoke and grid position | 96 % / 72 % | ~1,750 (every visible cell is an element) | 0.5 s |
 | **Outlook** (classic) | message body / compose body | yes: 1,549-char message, 10-char selection | body offers text access but no Value: object model or typing | 78–83 % / 37–49 % | ~360–420 | 0.2 s |
@@ -218,7 +218,8 @@ The owner ran 35 probes. Runs that measured the wrong window were discarded: VS 
   - Explorer through its shell interface (selected files) plus UIA;
   - PowerPoint and VS Code through their own interfaces.
 - **The Gmail question (§11.3) has a cheap answer:** filling Gmail's compose window through UIA in the owner's browser works with no Google setup. Classic Outlook offers the same through its object model.
-- **Still to run:** Notepad, the `-Word` live-writing test, and a PowerPoint re-check with the raw view.
+- **Writing visibly is confirmed in Word.** The `-Word` test wrote a paragraph every 133 ms through the object model, fast enough to stream generated text. It read the result back through UIA with no screenshot, and Word's own undo removed it in 88 ms.
+- **Still to run:** Notepad, and a PowerPoint re-check with the raw view.
 
 ## 10. Proposed order of work
 

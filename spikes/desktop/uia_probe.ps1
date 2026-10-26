@@ -243,7 +243,9 @@ function Probe-Word {
   $r.chars_after_undo = $doc.Content.Text.Length
   Start-Sleep -Seconds 1
   $doc.Close(0)   # wdDoNotSaveChanges
-  if ($app.Documents.Count -eq 0) { $app.Quit(0) }
+  # No arguments: Word's Quit takes by-reference options PowerShell can't pass as plain values.
+  # Nothing is left to save at this point, so Word won't ask.
+  if ($app.Documents.Count -eq 0) { $app.Quit() }
   [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($app)
   $r
 }

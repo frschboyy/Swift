@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Exploration. Nothing here is decided; the owner's questions are in §12.
+- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1 (2026-10-26).
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -341,6 +341,7 @@ Each phase is small enough to use before the next, and each needs the owner's go
 ## 12. Questions for the owner
 
 1. **The model:** playbooks and recipes as two forms of one workflow, agents as role-based workers, and Swift owning the runtime and trust boundary. Is this the direction?
+   - **Decided 2026-10-26 (owner): yes, option A**, built in the order B → A: W1 playbooks first (behaving like option B), desktop D1–D2 alongside (ADR-012), recipes (W3) once there are playbooks or desktop tasks worth hardening. The ADR-012 probe supported this: most of the owner's apps can be operated precisely through their structure, which suits recipe steps, while WhatsApp, PowerPoint slides and VS Code's editor still need agent judgment.
 2. **Format:** Agent Skills plus `swift.yaml`, so playbooks also work directly in Claude Code, Codex and Hermes?
 3. **Runtime:** a thin runtime in Swift, with n8n reachable as an optional capability over MCP rather than as the engine? Or would you like a short n8n trial first, installing it locally and exposing one workflow over MCP to Swift, before deciding?
 4. **Learning:** L0 to L2 only, with desktop observation (L3) out of scope unless decided separately?

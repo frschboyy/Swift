@@ -58,6 +58,12 @@ $VP = [System.Windows.Automation.ValuePattern]
 
 function Ms([System.Diagnostics.Stopwatch]$sw) { [math]::Round($sw.Elapsed.TotalMilliseconds, 1) }
 
+# Some elements (seen in File Explorer) report no control type at all.
+function TypeName($controlType) {
+  if ($null -eq $controlType) { return "Unknown" }
+  $controlType.ProgrammaticName -replace '^ControlType\.', ''
+}
+
 # ---- 1. Win32 basics: which window, which app, caret, cursor --------------------------------
 
 function Probe-Basics([IntPtr]$hwnd) {
@@ -87,7 +93,7 @@ function Probe-Focus([int]$procId) {
   try { $f = $AE::FocusedElement } catch { $r.error = "no focused element"; return $r }
   $r.focus_ms = Ms $sw
   $r.in_window = ($f.Current.ProcessId -eq $procId)
-  $r.type = $f.Current.ControlType.ProgrammaticName -replace '^ControlType\.', ''
+  $r.type = TypeName $f.Current.ControlType
   $r.has_name = -not [string]::IsNullOrEmpty($f.Current.Name)
   $r.has_automation_id = -not [string]::IsNullOrEmpty($f.Current.AutomationId)
   $r.is_password = $f.Current.IsPassword
@@ -135,7 +141,7 @@ function Probe-Tree([System.Windows.Automation.AutomationElement]$root) {
     $n++
     if ($depth -gt $maxDepth) { $maxDepth = $depth }
     $c = $el.Cached
-    $type = $c.ControlType.ProgrammaticName -replace '^ControlType\.', ''
+    $type = TypeName $c.ControlType
     $types[$type] = 1 + [int]$types[$type]
     $hasName = -not [string]::IsNullOrEmpty($c.Name)
     if ($hasName) { $named++ }

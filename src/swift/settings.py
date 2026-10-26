@@ -105,6 +105,10 @@ class WakeSettings(_Section):
     end_silence_s: float = Field(0.9, gt=0)
     # ...and Swift stops listening if you say nothing for this long.
     start_timeout_s: float = Field(5.0, gt=0)
+    # After an answer, reply without the wake phrase for this long (the card shows it; 0 = off).
+    # During a run, "show me", "stop" and "reject" work without it too; approving needs
+    # "Swift, approve" (or a click or the hotkey), so overheard speech can't approve anything.
+    followup_s: float = Field(8.0, ge=0, le=60)
 
 
 class ExecutorSettings(_Section):

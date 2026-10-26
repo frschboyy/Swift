@@ -367,6 +367,33 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
   else if (!v.open && card.querySelector(".artifact")) setStage("idle");
 }
 
+// ---- follow-up window: reply without the wake phrase, just after an answer ---------------
+
+let followupUntil = 0;
+
+function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
+  followupUntil = data.open ? Date.now() + data.seconds * 1000 : 0;
+  // The card stays up at least as long as Swift is listening for a reply.
+  if (followupUntil && fadeMs && fadeMs < data.seconds * 1000 + 500) startFade(data.seconds * 1000 + 500);
+  tickFollowup();
+}
+
+function tickFollowup(): void {
+  const left = Math.ceil((followupUntil - Date.now()) / 1000);
+  let line = card.querySelector<HTMLElement>(".followup");
+  if (left <= 0 || (state !== "result" && state !== "error")) {
+    followupUntil = left <= 0 ? 0 : followupUntil;
+    line?.remove();
+    return;
+  }
+  if (!line) {
+    line = el("p", { class: "voice-hint followup", "data-phase": "listening", "aria-live": "off" });
+    (card.firstElementChild ?? card).append(line);
+    scheduleRegions();
+  }
+  line.replaceChildren(icon("mic"), `Listening for a reply… ${left} s`);
+}
+
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
   window.clearTimeout(runVoiceTimer);
   runVoice = v.phase === "idle" ? null : v;
@@ -787,6 +814,7 @@ function setAnchor(anchor: string): void {
 // ---- once a second: elapsed time, stall note, confirm countdown -----------------
 
 window.setInterval(() => {
+  if (followupUntil) tickFollowup();
   if (state === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
@@ -859,6 +887,9 @@ function onMessage(msg: Inbound): void {
       break;
     case "run.voice":
       onRunVoice(msg.data);
+      break;
+    case "followup":
+      onFollowup(msg.data);
       break;
   }
 }

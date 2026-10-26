@@ -67,7 +67,11 @@ typing in the document.
 Wake listening (swift/wake.py) starts the same interaction by voice: ``hear_wake`` gets a
 short utterance from the always-open microphone, transcribes it, and if it opens with
 "hey / hello / good afternoon Swift" either runs what follows in the same breath or, after
-a bare greeting, records the request and ends it when the owner stops talking.
+a bare greeting, records the request and ends it when the owner stops talking. While a
+run is going, the open microphone also takes the mid-run phrases and confirm answers
+without the hotkey (``_hear_busy``): "show me", "stop" and "reject" on their own,
+approving only with Swift's name first. After an answer, a reply needs no wake phrase
+for ``wake_followup_s`` (the card shows "Listening for a reply").
 """
 
 from __future__ import annotations
@@ -102,7 +106,7 @@ from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import refers_here, refers_to_selection, route_midrun, strip_wake
 from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, Transcription, assess
-from swift.wake import NoiseGate, match_wake
+from swift.wake import NoiseGate, WakeMatch, match_address, match_wake
 from swift.workflows.artifacts import Artifact, ArtifactStore
 from swift.workflows.library import Library, Match
 from swift.workflows.scope import Decision, Grant, RunScope
@@ -141,6 +145,11 @@ NOISY_DB = -50.0
 DOUBT_TEXT = {"noise": "it's noisy here"}
 CONFIRM_AGAIN_HINT = "Say “approve” again to go ahead, or click."
 MIDRUN_HINT = "I'm still on the last request. Say “show me” or “stop”."
+# Hands-free on a confirm card: rejecting needs no wake phrase, approving does (threat model T2).
+HANDS_FREE_APPROVE_HINT = "To approve hands-free, say “Swift, approve”, or click."
+# Mid-run phrases the open microphone acts on without the wake phrase; everything else is ignored.
+HANDS_FREE_MIDRUN = frozenset({"show", "hide", "stop", "cancel"})
+HANDS_FREE_CONFIRM = HANDS_FREE_MIDRUN | {"approve", "reject"}
 CONFIRM_TIMEOUT_S = 120.0
 # A workflow offer waits this long for "yes" or "no".
 OFFER_S = 120.0
@@ -243,6 +252,7 @@ class Session:
         wake_min_p: float = 0.5,
         wake_end_silence_s: float = 0.9,
         wake_start_timeout_s: float = 5.0,
+        wake_followup_s: float = 0.0,
         tools: ToolHost | None = None,
         confirm_timeout_s: float = CONFIRM_TIMEOUT_S,
         library: Library | None = None,
@@ -280,6 +290,11 @@ class Session:
         self.wake_min_p = wake_min_p
         self.wake_end_silence_s = wake_end_silence_s
         self.wake_start_timeout_s = wake_start_timeout_s
+        # After an answer, the open microphone takes a reply without the wake phrase for this
+        # long (0: off). The overlay shows it on the card.
+        self.wake_followup_s = wake_followup_s
+        # The follow-up window: (opened, closes) in time.monotonic(), or None.
+        self._followup: tuple[float, float] | None = None
         # Swift's workflow tools (ADR-010); None: providers get none.
         self.tools = tools
         # How long Swift's own confirm cards (the gateway's) wait for an answer.
@@ -441,13 +456,19 @@ class Session:
         )
 
     async def hear_wake(self, audio: Any, ended_at: float) -> None:
-        """An utterance from the open microphone: start an interaction if it is a wake phrase.
+        """An utterance from the open microphone (swift/wake.py).
 
-        ``ended_at`` is the ``time.monotonic()`` at which the utterance ended. Anything that
-        is not a wake phrase is dropped after it is transcribed, and never logged.
+        At rest, a wake phrase starts an interaction ("hey Swift, ..."), and so does any
+        request in the follow-up window just after an answer. During a run, the mid-run
+        phrases and confirm answers work hands-free (``_hear_busy``). ``ended_at`` is the
+        ``time.monotonic()`` at which the utterance ended. Anything else is dropped after it
+        is transcribed, and never logged.
         """
-        if self.recorder is None or self.transcriber is None or self.busy or self._hearing:
+        if self.recorder is None or self.transcriber is None or self._hearing:
             return
+        if self.busy and not self._hands_free():
+            return  # e.g. recording after the hotkey: nothing to answer, not even worth transcribing
+        started_at = ended_at - len(audio) / SAMPLE_RATE
         self._hearing = True
         try:
             heard = await self.transcriber.transcribe(audio)
@@ -458,12 +479,16 @@ class Session:
             return
         finally:
             self._hearing = False
-        if self.busy:  # the hotkey was pressed meanwhile
-            return
         if self.wake_min_p and heard.words and sum(w.p for w in heard.words) / len(heard.words) < self.wake_min_p:
             return
         match = match_wake(heard.text, self.wake_greetings)
+        if self.busy:
+            if self._hands_free():  # not if the hotkey was pressed meanwhile
+                await self._hear_busy(heard, match_address(heard.text, self.wake_greetings))
+            return
         if match is None:
+            if heard.text.strip() and self._in_followup(started_at):
+                self._start_followup(heard)
             return
         logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms)
         record: dict[str, Any] = {
@@ -486,6 +511,74 @@ class Session:
         self._task = asyncio.create_task(
             self._interaction(record, partial(self._capture_voice, auto=auto), self.executor, self.executor.start)
         )
+
+    # ---- hands-free (the open microphone, when wake listening is on) --------------------------
+
+    def _hands_free(self) -> bool:
+        """A run the open microphone can talk to: working, or its confirm card open, and no
+        push-to-talk capture going."""
+        voice_idle = self._confirm_voice is None or self._confirm_voice.done()
+        return voice_idle and self._active is not None and self.state in ("working", "confirm")
+
+    async def _hear_busy(self, heard: Transcription, match: WakeMatch | None) -> None:
+        """Hands-free during a run: the mid-run phrases, and answers on a confirm card.
+
+        An open microphone mostly hears other speech, so anything that isn't one of these
+        phrases is ignored silently. Rejecting, stopping and "show me" need no wake phrase;
+        approving needs Swift's name first ("Swift, approve", "hey Swift, approve"), so a TV
+        or a bystander saying "yes" can never approve an action (threat model T2). The
+        noisy-room double check still applies.
+        """
+        text = (match.remainder if match else heard.text).strip()
+        decision = route_midrun(text) if text else None
+        if decision is None:
+            return
+        self._heard = heard
+        open_request = self._open_confirm()
+        if open_request is not None:
+            entry = self._approval(open_request)
+            if entry is None or decision.action not in HANDS_FREE_CONFIRM:
+                return
+            phase = self._confirm_phase(open_request)
+            if decision.action == "approve" and match is None:
+                await phase("hint", HANDS_FREE_APPROVE_HINT)
+                return
+            entry["hands_free"] = True
+            await self._answer_text(open_request, entry, text, phase)
+        elif decision.action in HANDS_FREE_MIDRUN:
+            await self._midrun_text(text, self._run_phase)
+
+    def _in_followup(self, started_at: float) -> bool:
+        """Whether an utterance that started at ``started_at`` falls in the follow-up window."""
+        window = self._followup
+        return window is not None and window[0] - 0.2 <= started_at <= window[1]
+
+    def _start_followup(self, heard: Transcription) -> None:
+        """A reply just after an answer, without the wake phrase: an ordinary request."""
+        logger.info("follow-up heard", stt_ms=heard.stt_ms)
+        record: dict[str, Any] = {
+            "source": "followup", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
+        }
+
+        async def capture(rec: dict[str, Any]) -> str:
+            self._heard = heard
+            return heard.text.strip()
+
+        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+
+    async def _open_followup(self) -> None:
+        """After an answer: listen for a reply without the wake phrase, and say so on the card."""
+        if self.wake_followup_s <= 0 or self.recorder is None:
+            return
+        now = time.monotonic()
+        self._followup = (now, now + self.wake_followup_s)
+        await self._send(outbound("followup", open=True, seconds=self.wake_followup_s))
+
+    async def _close_followup(self) -> None:
+        if self._followup is None:
+            return
+        self._followup = None
+        await self._send(outbound("followup", open=False, seconds=0))
 
     async def _capture_voice(
         self,
@@ -614,6 +707,7 @@ class Session:
             "approvals": [],
         }
         self._record = record
+        await self._close_followup()
         self._artifacts = self._artifacts_run = None
         started = time.monotonic()
         # Any new request answers or drops the last workflow offer.
@@ -636,7 +730,7 @@ class Session:
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake")
+            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "followup")
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             target: OpenTarget | None = None
             workflow: Match | None = None
@@ -1289,6 +1383,7 @@ class Session:
         await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
         message = failure.as_message() | {"retry": self._retry is not None}
         await self._send(outbound("error", **message, agent=agent))
+        await self._open_followup()
 
     async def _start_retry(self) -> None:
         """"Try again" on an error card: the same request, without speaking it again."""
@@ -1327,3 +1422,5 @@ class Session:
                 agent=agent, note=note,
             )
         )
+        if result.status != "cancelled":
+            await self._open_followup()

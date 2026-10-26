@@ -78,6 +78,20 @@ def match_wake(text: str, extra_greetings: Iterable[str] = ()) -> WakeMatch | No
     return None
 
 
+def match_address(text: str, extra_greetings: Iterable[str] = ()) -> WakeMatch | None:
+    """Swift addressed by name: a wake phrase, or the name alone first ("Swift, approve").
+
+    Only for answers during a run, where the name alone is deliberate enough; it never
+    starts an interaction (speech about the Swift language would).
+    """
+    if (m := match_wake(text, extra_greetings)) is not None:
+        return m
+    found = [(w.group(), w.end()) for w in _WORD.finditer(text.lower().replace("’", "'"))]
+    if found and _close(found[0][0].strip("'").removesuffix("'s"), NAME):
+        return WakeMatch(NAME, text[found[0][1]:].lstrip(_TRIM).strip())
+    return None
+
+
 class NoiseGate:
     """Tells speech from the room by level (0..1, ``level_from_block``), following the room.
 

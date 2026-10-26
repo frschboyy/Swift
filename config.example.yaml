@@ -16,6 +16,8 @@ wake:                              # start by voice: "hey / hello / good afterno
   min_p: 0.5                       # ignore a phrase the model was this unsure of; 0 = off
   end_silence_s: 0.9               # after a bare "hey Swift", the request ends this long after you stop
   start_timeout_s: 5               # ...and Swift stops listening if you say nothing for this long
+  followup_s: 8                    # after an answer, reply without "hey Swift" for this long; 0 = off
+                                   # during a run "show me", "stop", "reject" work without it; approving needs "Swift, approve"
 
 stt:
   engine: "parakeet"               # "parakeet" (fast, accurate) or "whisper"

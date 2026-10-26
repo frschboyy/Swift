@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1–Q5 (2026-10-26).
+- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1–Q6 (2026-10-26); new questions from the owner's workflows in §13.4.
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -357,6 +357,77 @@ Each phase is small enough to use before the next, and each needs the owner's go
 5. **Sharing:** playbooks and recipes only, never bundled scripts, until there's a plugin host with an allowlist (ADR-005 Phase 7)?
    - **Decided 2026-10-26 (owner): A.** Installed workflows may bring instructions (`SKILL.md`) and recipes; installing shows their permissions first, and any later growth in permissions needs approval. Bundled code from elsewhere (`scripts/`) is ignored. A new MCP server needs its own approval through an allowlist with Swift-assigned risk per tool (ADR-005 Phase 7). The owner's own workflows may use scripts they wrote or reviewed. Allowing reviewed outside scripts (option B) may be revisited once Swift has a sandbox for outside code.
 6. **Which first workflows matter to you?** The five examples are guesses from the repo (lectures, downloads, email, coding). The real list should come from your week.
+   - **Answered 2026-10-26 (owner):** see §13.
+
+## 13. The owner's workflows (answer to Q6, 2026-10-26)
+
+### 13.1 The list
+
+The owner's main workflows:
+- trading news and tech news;
+- job search, research opportunities and master's programmes;
+- free credits posted online and on social media, possibly found by bots such as Grok or Claude scheduled tasks;
+- research, writing and drafting, as plain text or real documents;
+- coding workflows (VS Code, Claude);
+- adding events to Google Calendar and Apple Calendar;
+- study and lectures;
+- files;
+- operating desktop apps;
+- drafting emails;
+- notifications when specific people (bosses) email.
+
+### 13.2 Mapped to what each needs
+
+| # | Workflow | Shape | Needs | Already have | Feasibility |
+|---|---|---|---|---|---|
+| 1 | **Drafting emails** | playbook → recipe | Contacts; a draft shown for the owner to send | ADR-010 tools; probe: Gmail compose writable (UIA), classic Outlook object model | **High** |
+| 2 | **Research, writing, drafting into documents** | playbook | Web research; writing into Word | `research-brief` example; probe: Word writes at 133 ms/paragraph | **High** |
+| 3 | **Operating desktop apps** (open, dictate, write here) | D1–D2 | Context tracker, typing where the owner is | Probe: most apps expose focus and text | **High** |
+| 4 | **Coding** (VS Code, Claude) | playbook; `second-opinion` | Claude Code (today), Codex later; VS Code through its CLI or extension | Claude Code provider (ADR-008) | **High** |
+| 5 | **Adding calendar events** | recipe | A calendar capability: confirm before creating | Google: `calendar.events` scope verified in spike S4. Outlook: object model. | **High** for Google and Outlook. **Apple Calendar: low** (no Windows API; iCloud CalDAV with an app-specific password, or a shared `.ics`). |
+| 6 | **Study and lectures** | recipe on a schedule | File tools (W2), scheduler (W5) | `lecture-digest` example | Medium (after W2) |
+| 7 | **Files** | recipe | Scoped file tools with undo (W2) | `tidy-downloads` example | Medium (after W2) |
+| 8 | **Alerts from specific senders** (bosses) | **watcher** (new, §13.3) | Reading incoming mail metadata; a background watch; a notification | Classic Outlook can signal new mail locally (object model); Gmail would need `gmail.readonly` or `gmail.metadata` (§13.4) | Medium; needs a decision |
+| 9 | **News digests** (tech, markets) | **watcher**: scheduled research playbook | Sources list, web search, "already seen" memory, a digest card | Research playbook | Medium. Summaries and alerts only; no trading actions or advice. |
+| 10 | **Opportunities** (jobs, research positions, master's programmes) | **watcher** with criteria | A profile (field, location, deadlines); sources; dedupe; deadline reminders (links to #5) | Research playbook | Medium |
+| 11 | **Free credits and offers posted on social media** | **watcher**, with an outside agent as worker | Access to X, Reddit and similar: official APIs (often paid or limited), or an agent that has access, e.g. Grok for X, through its API | Role-based workers (§7.2) | **Low/uncertain.** Depends on platform access and terms of service; needs research. |
+
+### 13.3 What the list adds to the design
+
+1. **Watchers: a new workflow kind.** Five of the eleven (#8–#11, and #6 on a schedule) watch something and report, rather than doing a task on request. A watcher has:
+   - a trigger: a schedule, or an event such as "new mail from X";
+   - **memory between runs**: items already seen, so it reports only what's new;
+   - filters: the owner's criteria;
+   - an **output**: a digest card, a single alert, or nothing.
+
+   It never acts on what it finds without asking. Watchers fit the package format (`swift.yaml` gains `watch:` with `state` and `notify`) and the runtime (W5 scheduler), but need state storage and a notification surface.
+2. **Notifications.** Swift today shows cards only while it's working, or right after. Watchers need:
+   - a Windows notification (toast), or a card at rest;
+   - respect for do-not-disturb, and quiet hours;
+   - "show me" on a notification opens the digest artifact.
+3. **Reading email** is new. Swift deliberately only *sends* mail today (spec §9.1: no `gmail.readonly`; email search behind a feature flag, §1.4). Alerts from senders need at least sender and subject of incoming mail. That makes it a scope decision (§13.4).
+4. **Agents with special access as workers.** For social media, the worker might be an agent that can see the platform (Grok for X), not Claude. That is the role-based worker model, with a new provider type: an API-backed research agent, not a coding agent.
+5. **Where scheduled work runs.** Swift's scheduler runs only while the laptop is on and Swift is running. News and opportunity watchers could instead run as cloud scheduled tasks (Claude routines, Grok tasks) and deliver to Swift when it starts. That is more reliable, but the data passes through those services.
+6. **Scope against the original spec.** Spec §1.4 deferred generic UI automation and file writes and moves, and §9.1 excluded reading mail. Q1–Q5, ADR-012 and this list deliberately widen that. The owner decides the scope, so this ADR records it as an explicit change, not a drift.
+
+### 13.4 New questions for the owner
+
+1. **Reading email for alerts:**
+   - (a) classic Outlook's local new-mail event: no new Google scope; only works while Outlook runs;
+   - (b) Gmail with `gmail.metadata` (sender and subject, no bodies);
+   - (c) Gmail with `gmail.readonly`;
+   - (d) not for now.
+2. **Where watchers run:** locally only (private; only while the laptop is on), or allow cloud scheduled tasks for public-web watchers (news, opportunities), never for email?
+3. **Social media (#11):** research access options first (official APIs, Grok's API, terms of service) before committing to it?
+4. **Apple Calendar:** needed, or is Google (and Outlook) enough for now?
+
+### 13.5 Proposed first slice (to confirm after §13.4)
+
+1. **W1 with three playbooks:** draft an email (#1), research and write into Word (#2), add a calendar event (#5, Google).
+2. **D1–D2:** open apps and write where the owner is (#3).
+3. **Coding (#4)** keeps working through Claude Code as today.
+
+Watchers (#8–#11), file tools (#6–#7) and recipes follow, in that order.
 
 ## Sources checked (2026-10-24)
 

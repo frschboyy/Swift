@@ -1,6 +1,7 @@
 # ADR-014: Swift adapts to how people actually use it: presence, idle time, interruptions, resuming
 
-- **Status:** Proposed. The owner decides; questions are in §9.
+- **Status:** Accepted (owner, 2026-10-27: approved as proposed, with the proposed answers in §9). L1 first.
+- **Decided by:** Owner
 - **Date:** 2026-10-27
 - **Builds on:** ADR-007 (follow-up context), ADR-009 (overlay UX), ADR-010 (confirm cards), ADR-012 (desktop), ADR-013 (presenter, threads, several requests); threat model T7 (no action while locked)
 
@@ -113,7 +114,7 @@ Returning is a signal too: unlock, resume from sleep, the first input after `awa
 - **Log:** every presence change, and the 5-minute `wake listening` counters (added 2026-10-27).
 - **The owner-check report** (`spikes/owner_checks/report.py`) shows presence changes alongside requests.
 
-## 9. Questions for the owner
+## 9. Owner's decisions (2026-10-27: the proposed answers, approved)
 
 1. **Direction:** presence states, cards that pause instead of expiring, resumable conversations, mid-task redirects, automatic quiet, and resources released and re-warmed. Is this the behaviour you want?
 2. **Away and locked:** hands-free off while locked or away (T7), and the hotkey still works after unlocking?

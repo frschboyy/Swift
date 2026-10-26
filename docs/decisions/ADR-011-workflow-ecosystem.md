@@ -423,6 +423,13 @@ The owner's main workflows:
      - Polling interval: a few minutes, while Swift runs. Gmail push notifications (Pub/Sub) would need cloud infrastructure and are out of scope.
      - Alert content is untrusted (a subject line is attacker-controllable): it is shown, never acted on.
 2. **Where watchers run:** locally only (private; only while the laptop is on), or allow cloud scheduled tasks for public-web watchers (news, opportunities), never for email?
+   - **Decided 2026-10-26 (owner): the laptop, plus cloud scheduled tasks for public-web watchers** (news, opportunities). Email watchers stay on the laptop. **Google credentials never leave the laptop:** cloud watchers deliver through their own service's email or notifications, or hand results to Swift, which sends the digest when it next runs.
+   - **Digests by email, decided 2026-10-26 (owner).** Watchers may send formatted, styled digests to the owner's own inbox **without a confirm card**. This is a deliberate, narrow exception to ADR-010 §4's "email.send is always confirm":
+     - the recipient is fixed in config to the owner's own address(es); no watcher, model or web content can set or change it;
+     - only watchers may use it, and only for digests; every other email keeps the confirm card;
+     - Swift renders the email from its own template, so web text is escaped (no injected markup or scripts), links show their real domain, and the digest is labelled as generated from web sources;
+     - it is sent through the owner's Gmail (`gmail.compose`) from the laptop, with a daily count and size limit;
+     - the gateway's policy table gains one entry, `digest.send_self`, with this rule. It is journalled and audited like any send.
 3. **Social media (#11):** research access options first (official APIs, Grok's API, terms of service) before committing to it?
 4. **Apple Calendar:** needed, or is Google (and Outlook) enough for now?
 

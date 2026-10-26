@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1–Q4 (2026-10-26).
+- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1–Q5 (2026-10-26).
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -355,6 +355,7 @@ Each phase is small enough to use before the next, and each needs the owner's go
      - without L3, ADR-012's desktop context is used in the moment and never stored. With L3, only what the consent screen listed is stored.
      - All levels remain suggestion-only: at most one a day, "stop suggesting this" is permanent, everything is computed locally.
 5. **Sharing:** playbooks and recipes only, never bundled scripts, until there's a plugin host with an allowlist (ADR-005 Phase 7)?
+   - **Decided 2026-10-26 (owner): A.** Installed workflows may bring instructions (`SKILL.md`) and recipes; installing shows their permissions first, and any later growth in permissions needs approval. Bundled code from elsewhere (`scripts/`) is ignored. A new MCP server needs its own approval through an allowlist with Swift-assigned risk per tool (ADR-005 Phase 7). The owner's own workflows may use scripts they wrote or reviewed. Allowing reviewed outside scripts (option B) may be revisited once Swift has a sandbox for outside code.
 6. **Which first workflows matter to you?** The five examples are guesses from the repo (lectures, downloads, email, coding). The real list should come from your week.
 
 ## Sources checked (2026-10-24)

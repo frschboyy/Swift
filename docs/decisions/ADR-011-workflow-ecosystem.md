@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1, Q2, Q3 (2026-10-26).
+- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1–Q4 (2026-10-26).
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -346,6 +346,14 @@ Each phase is small enough to use before the next, and each needs the owner's go
    - **Decided 2026-10-26 (owner): yes.** A workflow is a folder with `SKILL.md` (Agent Skills format), `swift.yaml` (triggers, inputs, scoped permissions, version, what it shows), and optionally `recipe.yaml` and `tests/` (§4). Swift drafts these files when the owner describes a workflow; hand-editing is the excepti3. **Runtime:** a thin runtime in Swift, with n8n reachable as an optional capability over MCP rather than as the engine? Or would you like a short n8n trial first, installing it locally and exposing one workflow over MCP to Swift, before deciding?
    - **Decided 2026-10-26 (owner): D.** A thin runtime inside Swift (§9) runs every workflow; n8n is at most an optional capability, called through MCP behind Swift's gateway, never the engine. No n8n trial now: it waits until the owner wants an integration Swift doesn't have. Reasons: approvals and "show me" must cover every action; desktop work (ADR-012) happens in local apps, which n8n doesn't operate; the owner's workflows are short.ing?
 4. **Learning:** L0 to L2 only, with desktop observation (L3) out of scope unless decided separately?
+   - **Decided 2026-10-26 (owner): L0–L2 on; L3 available only as an explicit, transparent opt-in**, like a phone app asking to track activity across other apps. Off by default; Swift never turns it on itself. Requirements:
+     - a dedicated consent screen answered by **click**, never by voice (T2). It states the benefits (what suggestions to expect), the coverage (which apps or categories, and what is always excluded: password managers, banking, private browsing), what is recorded (app and action only, or also text: separate choices), where it is kept and for how long (local only, deleted after N days), and how to turn it off and delete everything;
+     - granular per app or category, not all-or-nothing;
+     - visible while on (a tray indicator) and pausable ("pause observing for an hour");
+     - reviewable: "what have you learned about me?" lists stored observations in plain words, each deletable;
+     - re-confirmed periodically (e.g. every 90 days);
+     - without L3, ADR-012's desktop context is used in the moment and never stored. With L3, only what the consent screen listed is stored.
+     - All levels remain suggestion-only: at most one a day, "stop suggesting this" is permanent, everything is computed locally.
 5. **Sharing:** playbooks and recipes only, never bundled scripts, until there's a plugin host with an allowlist (ADR-005 Phase 7)?
 6. **Which first workflows matter to you?** The five examples are guesses from the repo (lectures, downloads, email, coding). The real list should come from your week.
 

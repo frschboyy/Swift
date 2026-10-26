@@ -1,0 +1,23 @@
+# Swift's manifest for calendar-event (ADR-011 §13 #5, Google; Apple Calendar left out for now).
+schema: swift.workflow/v0
+name: calendar-event
+version: 1.0.0
+title: Add a calendar event
+triggers:
+  - say:
+      - "add {event} to my calendar"
+      - "add {event} to my calendar {when}"
+      - "put {event} in my calendar"
+      - "put {event} in my calendar {when}"
+      - "put {event} on my calendar"
+      - "put {event} on my calendar {when}"
+      - "add an event {event} to my calendar"
+inputs:
+  event: {type: text}               # what, and often when ("lunch with Ada tomorrow at noon")
+  when: {type: date}
+needs:
+  - calendar.create_event           # external: always the confirm card
+run:
+  playbook: SKILL.md
+  provider: any
+shows: [calendar_event]

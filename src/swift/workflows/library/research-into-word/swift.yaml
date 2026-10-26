@@ -1,0 +1,25 @@
+# Swift's manifest for research-into-word (ADR-011 §13 #2; ADR-012 §6 foreground mode).
+schema: swift.workflow/v0
+name: research-into-word
+version: 1.0.0
+title: Research into Word
+triggers:
+  - say:
+      - "research {topic} into word"
+      - "research {topic} in word"
+      - "research {topic} and write it in word"
+      - "research {topic} and put it in word"
+      - "research {topic} and write it up in word"
+      - "write up research on {topic} in word"
+      - "write a research brief on {topic} in word"
+inputs:
+  topic: {type: text}
+  depth: {type: choice, of: [quick, normal, thorough], default: normal}
+needs:
+  - web.search                      # read: the provider's own search
+  - web.fetch                       # read; what it returns is untrusted
+  - desktop.write                   # reversible: Word's own undo
+run:
+  playbook: SKILL.md
+  provider: any
+shows: [text]

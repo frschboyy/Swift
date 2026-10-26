@@ -8,19 +8,20 @@ the artifact that matters for the current phase, or the one asked for by kind.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
-Kind = Literal["email_draft", "recipient", "send_status", "text", "list", "table"]
+Kind = Literal["email_draft", "recipient", "send_status", "calendar_event", "text", "list", "table"]
+KINDS: tuple[str, ...] = get_args(Kind)
 Phase = Literal["resolving", "drafting", "confirming", "sending", "done", "failed"]
 
 # What "show me" opens first in each phase; the newest artifact when none of these exists.
 PHASE_KINDS: dict[str, tuple[str, ...]] = {
     "resolving": ("recipient",),
-    "drafting": ("email_draft",),
-    "confirming": ("email_draft",),
-    "sending": ("send_status", "email_draft"),
-    "done": ("send_status",),
-    "failed": ("send_status",),
+    "drafting": ("email_draft", "calendar_event"),
+    "confirming": ("email_draft", "calendar_event"),
+    "sending": ("send_status", "email_draft", "calendar_event"),
+    "done": ("send_status", "calendar_event"),
+    "failed": ("send_status", "calendar_event"),
 }
 
 

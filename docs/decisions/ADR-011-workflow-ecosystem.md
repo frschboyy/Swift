@@ -437,6 +437,7 @@ The owner's main workflows:
 
      "Unread" comes from Gmail's `UNREAD` label on Swift's own digest messages, read with the approved `gmail.metadata` scope. The hint clears as soon as the owner reads a digest on any device.
 3. **Social media (#11):** research access options first (official APIs, Grok's API, terms of service) before committing to it?
+   - **Decided 2026-10-26 (owner): left out for now.** No research or building. Revisit only if the owner asks.
 4. **Apple Calendar:** needed, or is Google (and Outlook) enough for now?
 
 ### 13.5 Proposed first slice (to confirm after §13.4)

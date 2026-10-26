@@ -100,6 +100,14 @@ class Trigger:
     weight: int
 
 
+def is_question(text: str) -> bool:
+    """Whether a request asks something ("what's on my calendar", "did I add it?") rather than says what to do."""
+    said = " ".join(_WORD.findall(text.lower()))
+    lead = re.match(_LEAD, said)
+    words = said[lead.end():].split() if lead else said.split()
+    return text.rstrip().endswith("?") or bool(words) and words[0] in _QUESTION
+
+
 @dataclass(frozen=True)
 class Intent:
     """Run when a request has one of ``actions`` and one of ``subjects`` (whole words or phrases)."""
@@ -108,12 +116,11 @@ class Intent:
     subjects: tuple[str, ...]
 
     def matches(self, text: str) -> bool:
+        if is_question(text):
+            return False
         said = " ".join(_WORD.findall(text.lower()))
         lead = re.match(_LEAD, said)
-        words = said[lead.end():].split() if lead else said.split()
-        if not words or words[0] in _QUESTION:
-            return False
-        said = " " + " ".join(words) + " "
+        said = " " + (said[lead.end():] if lead else said).strip() + " "
         return any(f" {a} " in said for a in self.actions) and any(f" {s} " in said for s in self.subjects)
 
 

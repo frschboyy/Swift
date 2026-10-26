@@ -108,7 +108,7 @@ from swift.routing.rules import refers_here, refers_to_selection, route_midrun, 
 from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, Transcription, assess
 from swift.wake import NoiseGate, WakeMatch, match_address, match_wake
 from swift.workflows.artifacts import Artifact, ArtifactStore
-from swift.workflows.library import Library, Match
+from swift.workflows.library import Library, Match, is_question
 from swift.workflows.scope import Decision, Grant, RunScope
 from swift.workflows.tools import ToolHost
 
@@ -341,6 +341,8 @@ class Session:
         self._artifacts_run: str | None = None
         self._swift_ids = count(1)
         self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
+        # A change asked for on a provider card that couldn't take it: the next request, after this run.
+        self._correction: str | None = None
         # Title of a Swift confirm card the owner rejected (or left) in this run.
         self._swift_declined: str | None = None
         self._hearing = False
@@ -563,7 +565,7 @@ class Session:
         if decision is None:
             # Other speech: ignored, unless it's addressed to Swift on Swift's own card, where it is a
             # change to make ("Swift, make it Friday at three").
-            if text and match is not None and open_request is not None and open_request in self._swift_pending:
+            if text and match is not None and open_request is not None:
                 self._heard = heard
                 entry = self._approval(open_request)
                 if entry is not None:
@@ -766,7 +768,7 @@ class Session:
             record["transcript"] = transcript
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "followup")
+            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "followup", "correction")
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             target: OpenTarget | None = None
             workflow: Match | None = None
@@ -882,6 +884,9 @@ class Session:
                 approval.setdefault("decision", unanswered)
             if self.on_finish is not None:
                 self.on_finish(record)
+            if self._correction is not None:
+                # After this task is done (busy is still true inside it).
+                asyncio.get_running_loop().call_soon(self._start_correction)
 
     async def _handle_here(self, decision: Route, record: dict[str, Any], target: OpenTarget | None = None) -> None:
         """Commands and questions Swift answers itself: no executor, no network."""
@@ -1006,6 +1011,8 @@ class Session:
             t_ms = int((time.monotonic() - t0) * 1000)
             if event.type == "step":
                 record["steps"].append({"t_ms": t_ms, "text": event.text, "activity": event.activity})
+                if event.activity == "starting":
+                    continue  # no "Starting <provider>" line, whichever provider (owner, 2026-10-26)
                 await self._send(
                     outbound(
                         "step", run_id=run_id, text=event.text, kind="tool", ts=event.ts,
@@ -1370,11 +1377,49 @@ class Session:
             entry["source"] = "voice"
             if self._task is not None:
                 self._task.cancel()  # like Esc; the interaction cleans up
-        elif request_id in self._swift_pending and text.strip():
+        elif request_id in self._swift_pending and text.strip() and not is_question(text):
             await self._revise(request_id, text.strip())
+            await phase("idle")
+        elif text.strip() and not is_question(text):
+            await self._change_provider_card(request_id, text.strip())
             await phase("idle")
         else:
             await phase("hint", f"Heard “{_clip(text, 60)}”. {CONFIRM_VOICE_HINT}")
+
+    async def _change_provider_card(self, request_id: str, text: str) -> None:
+        """A change asked for on the provider's own card ("edit this file"): the provider revises it
+        if it can (``Executor.change``); otherwise the card is rejected and the change becomes the
+        next request, so it works the same with any provider."""
+        if self._active is None or request_id not in self._confirm_ids:
+            return
+        executor, run_id = self._active
+        entry = self._approval(request_id)
+        native = getattr(executor, "change", None)
+        if native is not None and await native(request_id, text):
+            self._confirm_ids.discard(request_id)
+            if entry is not None:
+                entry["decision"] = "revise"
+                entry["change_chars"] = len(text)
+            await self._set_state("working", run_id=run_id, agent=self._agent())
+            await self._swift_step(f"Changing it: {_clip(text, 60)}", "editing", None)
+            return
+        # No native support: say no to this card, then ask again with the change once the run ends.
+        self._correction = text
+        if entry is not None:
+            entry["change_chars"] = len(text)
+        await self._confirm_reply(request_id, False, source="voice")
+
+    def _start_correction(self) -> None:
+        """After a run whose card was answered with a change: the change, as the next request."""
+        text, self._correction = self._correction, None
+        if text is None or self.busy:
+            return
+        record: dict[str, Any] = {"source": "correction", "executor": getattr(self.executor, "name", "?")}
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return text
+
+        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
 
     async def _revise(self, request_id: str, text: str) -> None:
         """A change asked for on Swift's own confirm card: the run goes on with the owner's words."""

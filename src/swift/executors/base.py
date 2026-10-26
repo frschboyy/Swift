@@ -123,3 +123,8 @@ class Executor(Protocol):
     async def result(self, run_id: str) -> ExecResult: ...
 
     async def reply(self, request_id: str, approve: bool) -> None: ...
+
+    # Optional: ``async def change(self, request_id: str, text: str) -> bool``. The owner answered
+    # the provider's own confirm card with a change ("no, put it in docs/ instead"): pass it to the
+    # provider, which revises and asks again; True if it took it. A provider without it gets the
+    # same result generically: Swift rejects the card and sends the change as the next request.

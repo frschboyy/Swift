@@ -95,6 +95,10 @@ ESCALATE_PROMPT = (
     "judgment calls), call request_stronger_model before attempting it, with a reason of a few words."
 )
 
+CHANGE_MESSAGE = (
+    "The user didn't approve this as it is, and asked for a change instead: “{text}”. "
+    "Apply the change and try again; Swift will ask the user again before it runs."
+)
 REJECTED_MESSAGE = (
     "The user rejected this action in Swift's voice overlay. Stop here; don't retry it or try a workaround."
 )
@@ -124,7 +128,7 @@ class _Run:
     cancelled: bool = False
     # Set when the user rejects (or doesn't answer) a confirm request.
     stopped_by: tuple[str, str] | None = None  # (decision, title)
-    pending: dict[str, asyncio.Future[bool]] = field(default_factory=dict)
+    pending: dict[str, asyncio.Future[bool | str]] = field(default_factory=dict)
     ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
     # Model state (ADR-007): current level, the connected client, and what happened.
     level: str = "standard"
@@ -405,6 +409,15 @@ class ClaudeCodeExecutor:
         if future is not None and not future.done():
             future.set_result(approve)
 
+    async def change(self, request_id: str, text: str) -> bool:
+        """The owner asked for a change on a confirm card: Claude Code revises and asks again."""
+        run = self._runs.get(request_id.split(":", 1)[0])
+        future = run.pending.get(request_id) if run else None
+        if future is None or future.done():
+            return False
+        future.set_result(text)
+        return True
+
     def _get(self, run_id: str) -> _Run:
         try:
             return self._runs[run_id]
@@ -430,6 +443,8 @@ class ClaudeCodeExecutor:
         decision = await self._decide(run, run_id, title, detail, name)
         if decision == "approve":
             return PermissionResultAllow(updated_input=args)
+        if isinstance(decision, tuple):  # ("change", the owner's words): declined, but the run goes on
+            return PermissionResultDeny(message=CHANGE_MESSAGE.format(text=decision[1]), interrupt=False)
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)
         return PermissionResultDeny(message=REJECTED_MESSAGE, interrupt=True)
@@ -437,14 +452,17 @@ class ClaudeCodeExecutor:
     async def _confirm(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> bool:
         return await self._decide(run, run_id, title, detail, tool) == "approve"
 
-    async def _decide(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> str:
-        """Show a confirm card and wait: "approve", "reject" or "no_answer"."""
+    async def _decide(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> Any:
+        """Show a confirm card and wait: "approve", "reject", "no_answer", or ("change", the owner's words)."""
         request_id = f"{run_id}:{next(run.ids)}"
-        future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+        future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         run.pending[request_id] = future
         run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool))
         try:
-            return "approve" if await asyncio.wait_for(future, self.confirm_timeout_s) else "reject"
+            answer = await asyncio.wait_for(future, self.confirm_timeout_s)
+            if isinstance(answer, str):
+                return ("change", answer)
+            return "approve" if answer else "reject"
         except TimeoutError:
             return "no_answer"
         finally:

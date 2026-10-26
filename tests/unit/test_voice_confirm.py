@@ -244,3 +244,56 @@ async def test_a_click_still_approves_a_held_card() -> None:
     await session.handle(Message("confirm.reply", {"request_id": request_id, "decision": "approve"}))
     await finish(session)
     assert out.last("result")["status"] == "done"
+
+
+# ---- a change instead of approve / reject, whichever provider asked -------------------------
+
+
+async def test_a_change_on_a_provider_card_without_native_support_becomes_the_next_request() -> None:
+    """The demo agent can't revise: Swift rejects its card and asks again with the change."""
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    out.confirm.clear()
+    await say(session, stt, "No, put the section in the README instead.")
+    await finish(session)
+    assert records[0]["status"] == "rejected" and records[0]["approvals"][0]["change_chars"] > 0
+    # Once the rejected run has finished, the change runs as the next request (here it reaches a
+    # card again: the demo agent's script).
+    await asyncio.wait_for(out.confirm.wait(), 2)
+    assert out.last("transcript") == {"text": "No, put the section in the README instead.", "final": True}
+    await session.cancel()
+    assert records[1]["source"] == "correction"
+
+
+async def test_a_question_on_a_card_is_not_a_change() -> None:
+    session, out, records, _, stt = make()
+    await until_confirm(session, out)
+    await say(session, stt, "Is that the notes file?")
+    assert session.state == "confirm"
+    assert [m.data for m in out.messages if m.type == "confirm.voice"][-1]["phase"] == "hint"
+    await session.cancel()
+
+
+class RevisingMock(MockExecutor):
+    """A provider that takes changes itself (like Claude Code): it records them and carries on."""
+
+    def __init__(self) -> None:
+        super().__init__(speed=0, default_scenario="confirm")
+        self.changes: list[str] = []
+
+    async def change(self, request_id: str, text: str) -> bool:
+        self.changes.append(text)
+        await self.reply(request_id, True)  # revised and done, for the test
+        return True
+
+
+async def test_a_provider_that_revises_takes_the_change_in_the_same_run() -> None:
+    out, records, rec, stt = Outbox(), [], FakeRecorder(), FakeTranscriber("add a next steps section to my notes")
+    mock = RevisingMock()
+    session = Session(out, mock, recorder=rec, transcriber=stt, tail_s=0.0, on_finish=records.append)
+    await until_confirm(session, out)
+    await say(session, stt, "Call it Next actions instead.")
+    await finish(session)
+    assert mock.changes == ["Call it Next actions instead."]
+    assert records[0]["approvals"][0]["decision"] == "revise" and len(records) == 1
+    assert any("Changing it" in m.data.get("text", "") for m in out.messages if m.type == "step")

@@ -113,7 +113,8 @@ async def test_run_messages_name_the_provider_and_activity() -> None:
     working = [s for s in of(rec, "state") if s["state"] == "working"]
     assert working and all(s["agent"] == AGENT for s in working)
     steps = of(rec, "step")
-    assert steps[0]["activity"] == "starting" and steps[1]["activity"] == "reading"
+    # The provider's start-up step is dropped for every provider (owner, 2026-10-26), but logged.
+    assert steps[0]["activity"] == "reading" and records[0]["steps"][0]["activity"] == "starting"
     assert all(s["agent"] == AGENT and s["subagent"] is False for s in steps)
     result = of(rec, "result")[-1]
     assert result["agent"] == AGENT and result["note"] is None

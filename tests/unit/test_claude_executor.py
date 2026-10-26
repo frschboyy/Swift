@@ -184,6 +184,21 @@ async def test_reject_denies_and_stops_the_run() -> None:
     assert final.status == "rejected" and final.summary.startswith("Rejected: Create or overwrite hello.txt")
 
 
+async def test_a_change_declines_but_lets_claude_carry_on() -> None:
+    """The owner answers the card with a change: Claude Code is told what to do instead and asks again."""
+    ex, run = ClaudeCodeExecutor(cwd=None), _Run()
+    ex._runs["cc-1"] = run
+    args = {"file_path": "C:\\p\\hello.txt", "content": "hi"}
+    task = asyncio.create_task(ex._ask(run, "cc-1", "Write", args))
+    event: ExecEvent = await asyncio.wait_for(run.queue.get(), 2)
+    assert await ex.change(event.request_id, "put it in the docs folder instead") is True
+    result = await asyncio.wait_for(task, 3)
+    assert isinstance(result, PermissionResultDeny) and result.interrupt is False
+    assert "put it in the docs folder instead" in result.message
+    assert run.stopped_by is None  # the run isn't over
+    assert await ex.change(event.request_id, "again") is False  # already answered
+
+
 async def test_no_answer_times_out_as_a_rejection() -> None:
     ex, run = ClaudeCodeExecutor(cwd=None, confirm_timeout_s=0.1), _Run()
     ex._runs["cc-1"] = run

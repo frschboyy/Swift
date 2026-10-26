@@ -60,6 +60,10 @@ The owner talks to Swift. Swift hands the work to an execution provider: Claude 
 1. Write an executor that implements `Executor`, with `provider = ProviderInfo(...)`, and map its events onto `Activity`.
 2. Add its spoken name to `AGENT_NAMES` (and to `_AGENT` in `routing/rules.py`, if it's a new word).
 3. Build it in `backend/__main__.py`, as the default or as a fallback.
+4. *Added 2026-10-26 (owner):* behaviour must be the same whichever provider works:
+   - Don't announce start-up. Steps with activity `starting` are dropped by the session anyway.
+   - The working card never names the provider; only the result's byline does.
+   - Corrections on the provider's own confirm cards: implement `change(request_id, text)` if the provider can revise and ask again; Claude Code declines with the owner's words and carries on. Without it, Swift rejects the card and sends the change as the next request, so the owner sees the same thing.
 
 Neither the session nor the overlay changes.
 

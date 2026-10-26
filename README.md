@@ -319,7 +319,7 @@ With wake listening on, you don't need the hotkey or the wake phrase to answer S
 - **On a confirm card:** say "reject", "no" or "stop". **Approving needs Swift's name**, "Swift, approve" (or a click or the hotkey), so a TV or someone nearby saying "yes" can't approve anything.
 - **After an answer:** for 8 seconds (`wake.followup_s`; 0 turns it off), just reply. The card shows "Listening for a reply… N s".
 
-- **To change what Swift shows you** on an email or calendar card, say what to change: "no, make it Friday at three". Hands-free, start with its name: "Swift, make it Friday". Swift revises it and shows a new card.
+- **To change what a card shows**, whatever it is (an email, an event, a file edit) and whichever agent asked, say what to change: "no, make it Friday at three". Hands-free, start with its name: "Swift, make it Friday". The agent revises it and you get a new card. If an agent can't revise in place, Swift says no to that card and asks again with your change. A question ("is that the notes file?") leaves the card open.
 
 Other speech near the microphone is ignored.
 

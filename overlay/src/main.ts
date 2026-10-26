@@ -466,10 +466,9 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   tickConfirm();
 }
 
-/** The voice line on a confirm card. On Swift's own cards (an email, an event) saying what to change revises it. */
-function voiceHint(data: { agent?: Agent | null; artifact_id?: string | null } | null): (Node | string)[] {
-  const ownCard = !!data && !data.agent && !!data.artifact_id;
-  return ["Or hold ", pttKeys(), ownCard ? " and say “approve”, “reject”, or what to change." : " and say “approve” or “reject”."];
+/** The voice line on a confirm card: any card takes a change ("no, make it Friday"), whichever agent asked. */
+function voiceHint(_data: unknown): (Node | string)[] {
+  return ["Or hold ", pttKeys(), " and say “approve”, “reject”, or what to change."];
 }
 
 function tickConfirm(): void {

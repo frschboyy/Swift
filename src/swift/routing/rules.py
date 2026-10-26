@@ -3,10 +3,13 @@
 - **control**: the whole utterance is a command to Swift ("stop", "never mind",
   "approve"). Matching is on the whole utterance only, so "stop reminding me
   to take a break" is a request, not a stop.
-- **local**: Swift answers itself (time, date) or opens an app, folder or project. "Open ..."
+- **local**: Swift answers itself (time, date, "what workflows do I have?"), undoes what it
+  wrote in an app ("undo that", ADR-012 §6), or opens an app, folder or project. "Open ..."
   is matched loosely here (a short phrase with no conjunction or verb in it); the session
   resolves the phrase against the ``local`` settings and sends it on to Claude Code when
-  the target isn't a configured name, so only known names are ever opened.
+  the target isn't a configured name, so only known names are ever opened. "Open this"
+  opens the file selected in File Explorer (ADR-012 D1). "Undo that" is Swift's only when
+  Swift wrote something; otherwise it goes on to Claude Code as before.
 - **agent**: everything else, sent to the provider (Claude Code today, ADR-008). A leading "use opus / use haiku" picks the model
   and is removed; "think hard about ..." asks for the strongest model and is kept.
   Demand (light or standard) comes from ``demand_fn``: by default the keyword
@@ -64,6 +67,9 @@ LOCAL: dict[str, str] = {
     "time": r"what time is it( now)?|what'?s the time( now| right now)?|what is the time( now)?|tell me the time",
     "date": r"what'?s the date( today)?|what is the date( today)?|what'?s today'?s date|what is today'?s date"
     r"|what day is it( today)?|(which|what) day of the week is it( today)?|what'?s the day today",
+    "workflows": r"what workflows (do i have|have i got|are there|can you (run|do))|which workflows do (i|you) have"
+    r"|(list|show)( me)? (my |the |all )?workflows|what are my workflows",
+    "undo": r"undo|undo (that|it|this)|undo (what you (just )?(wrote|typed))|undo (the|your) (last )?(writing|typing)",
 }
 _CONTROL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in CONTROL.items()]
 _LOCAL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in LOCAL.items()]
@@ -78,7 +84,7 @@ class Route:
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
     # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
-    # local: time | date | identity | open.
+    # local: time | date | identity | open | workflows | undo.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None
@@ -117,6 +123,21 @@ def _open_request(norm: str) -> tuple[str, str | None] | None:
     if m := _OPEN_FOR.fullmatch(rest):
         return m.group("target"), m.group("app")
     return rest, None
+
+
+# A request about where the owner is (ADR-012 §5.1): "rewrite this", "write here", "open these".
+_HERE = re.compile(r"\b(this|these|here|the selection|selected|highlighted|what i'?ve selected)\b", re.IGNORECASE)
+_SELECTION = re.compile(r"\b(this|these|the selection|selected|highlighted|what i'?ve selected)\b", re.IGNORECASE)
+DEICTIC = frozenset({"this", "that", "it", "these", "this file", "these files", "the selection", "the selected file",
+                     "the selected files", "selected", "the file", "this one"})
+
+
+def refers_here(text: str) -> bool:
+    return bool(_HERE.search(text))
+
+
+def refers_to_selection(text: str) -> bool:
+    return bool(_SELECTION.search(text))
 
 
 def _normalize(text: str) -> str:

@@ -265,6 +265,8 @@ class MockExecutor:
                         # Like a real provider: stop and say what happened.
                         if tool == "send_email" and "NOT sent" in result.text:
                             return ExecResult("done", "The email wasn't sent.")
+                        if tool == "create_calendar_event" and "NOT added" in result.text:
+                            return ExecResult("done", "The event wasn't added.")
                         return ExecResult("error", result.text.split("\n", 1)[0])
                 case Fail(message=message):
                     return ExecResult("error", message)

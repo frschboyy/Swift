@@ -25,6 +25,12 @@
   (``find_contact``, ``draft_email``, ``send_email``, ``present``) join the in-process
   ``swift`` MCP server and ``allowed_tools``: Claude Code doesn't ask about them,
   because anything with a side effect goes through Swift's gateway and its confirm card.
+- **Workflows (ADR-011 W1).** Swift picks the workflow and puts its playbook in the request;
+  Claude Code never loads skills itself (``setting_sources=[]``). In a workflow run the tool
+  host refuses Swift tools the manifest doesn't declare, and ``can_use_tool`` refuses Claude
+  Code's own tools that go through it (Edit, Write, Bash) without a card. Web search and
+  fetch exist only for runs whose workflow declares ``web.search`` / ``web.fetch``; they are
+  allowed there without a card and refused everywhere else.
 """
 
 from __future__ import annotations
@@ -65,11 +71,18 @@ OVERRIDE_LEVEL = {"haiku": "light", "sonnet": "standard", "opus": "strong"}
 DEFAULT_TURN_LIMITS = {"light": 8, "standard": 25}
 ESCALATE_TOOL = "mcp__swift__request_stronger_model"
 WORKFLOW_PROMPT = (
-    " Swift has its own tools for the user's accounts (mcp__swift__*). For email, use only them: "
+    " Swift has its own tools for the user's accounts and apps (mcp__swift__*). For email, use only them: "
     "find_contact to get an address (never type one yourself), draft_email to write it, then send_email; "
-    "Swift shows the user the draft and sends only if they approve. If a Swift tool says something wasn't "
+    "Swift shows the user the draft and sends only if they approve. To work in the app the user is in "
+    "(write here, open this), use the desktop_* tools. If a Swift tool says something wasn't "
     "done, don't try another way: say so in your answer."
 )
+# Claude Code's own tools a workflow can declare: tool -> capability (ADR-011 §7.1).
+PROVIDER_TOOLS = {"WebSearch": "web.search", "WebFetch": "web.fetch"}
+NOT_IN_WORKFLOW_MESSAGE = (
+    "This workflow doesn't allow {tool}, so Swift refused it. Continue with the workflow's own tools."
+)
+NO_WEB_MESSAGE = "Web access isn't available for this request. Answer without it."
 SYSTEM_PROMPT = (
     "You are working for Swift, the user's voice assistant: the user talks to Swift, Swift handed you this "
     "request, and Swift shows your final answer to the user. Answer the request directly; don't introduce "
@@ -314,11 +327,13 @@ class ClaudeCodeExecutor:
             system_prompt += WORKFLOW_PROMPT
         mcp_servers = {"swift": create_sdk_mcp_server("swift", tools=sdk_tools)} if sdk_tools else {}
         extra_tools = [f"mcp__swift__{t.name}" for t in sdk_tools]
+        # Present in every CLI (it is connected before the request is known), allowed per run in _ask.
+        web_tools = [t for t in PROVIDER_TOOLS if t not in self.allowed_tools] if self.tools is not None else []
 
         return ClaudeAgentOptions(
             cwd=self._check_cwd(),
             cli_path=self._resolve_claude(),
-            tools=[*self.allowed_tools, *self.confirm_tools, *extra_tools],
+            tools=[*self.allowed_tools, *self.confirm_tools, *web_tools, *extra_tools],
             allowed_tools=[*self.allowed_tools, *extra_tools],
             permission_mode="default",
             can_use_tool=can_use_tool,
@@ -403,6 +418,14 @@ class ClaudeCodeExecutor:
 
         if name == "AskUserQuestion":
             return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
+        host = self.tools
+        if name in PROVIDER_TOOLS:
+            if host is not None and host.permits(PROVIDER_TOOLS[name]):
+                return PermissionResultAllow(updated_input=args)
+            return PermissionResultDeny(message=NO_WEB_MESSAGE)
+        if host is not None and host.in_workflow:
+            # The workflow's manifest lists what it may do; nothing else, not even with a card.
+            return PermissionResultDeny(message=NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
         title, detail = confirm_card(name, args, cwd=self.cwd)
         decision = await self._decide(run, run_id, title, detail, name)
         if decision == "approve":

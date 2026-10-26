@@ -301,3 +301,30 @@ async def test_esc_on_the_confirm_card_logs_the_approval_as_cancelled() -> None:
     await session.handle(Message("cancel", {}))
     assert out.last("result")["status"] == "cancelled"
     assert records[0]["approvals"][0]["decision"] == "cancelled"
+
+
+async def test_web_and_own_tools_follow_the_workflow_grant(tmp_path: Path) -> None:
+    """ADR-011 W1: web tools only in workflows that declare them; nothing undeclared, not even with a card."""
+    from swift.workflows.scope import Grant
+    from swift.workflows.tools import ToolHost
+
+    host = ToolHost()
+    ex, run = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host), _Run()
+    ex._runs["cc-1"] = run
+    opts = ex.options(run, "cc-1")
+    assert "WebSearch" in opts.tools and "WebSearch" not in opts.allowed_tools  # decided per run in _ask
+
+    async def nothing(*_: Any) -> Any:
+        return None
+
+    host.open(nothing, nothing)  # an ordinary request: no web
+    denied = await ex._ask(run, "cc-1", "WebSearch", {"query": "tea"})
+    assert isinstance(denied, PermissionResultDeny) and "isn't available" in denied.message
+
+    research = Grant("research-into-word", frozenset({"desktop_write"}), frozenset({"web.search", "web.fetch"}))
+    host.open(nothing, nothing, research)
+    assert isinstance(await ex._ask(run, "cc-1", "WebFetch", {"url": "https://example.com"}), PermissionResultAllow)
+    bash = await ex._ask(run, "cc-1", "Bash", {"command": "dir"})
+    assert isinstance(bash, PermissionResultDeny) and "doesn't allow Bash" in bash.message
+    assert run.queue.empty() and run.stopped_by is None  # no card, and the run goes on
+    assert ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe").options(_Run(), "cc-1").tools.count("WebSearch") == 0

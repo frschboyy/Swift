@@ -119,7 +119,7 @@ async def test_an_approval_is_used_once() -> None:
     draft_id = await drafted(host)
     assert (await host.call("send_email", {"draft_id": draft_id})).ok
     again = await host.call("send_email", {"draft_id": draft_id})
-    assert not again.ok and "already sent" in again.text
+    assert not again.ok and "already done" in again.text
     assert len(mail.sent) == 1
 
 

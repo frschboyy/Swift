@@ -2,10 +2,12 @@
 
 ``execute`` runs every step in order and stops at the first that fails:
 
-1. validate   the action's own checks (draft exists, fields filled in, not sent already)
+1. validate   the action's own checks (draft exists, fields filled in, not done already)
 2. resolve    every target came from the owner's contacts in this run (T1)
-3. policy     external side effects always need the owner's approval; nothing else runs
-4. confirm    the overlay's confirm card, bound to the payload digest
+3. policy     external side effects always need the owner's approval; reversible ones in
+              the owner's own apps (a draft filled in, text written into Word) run
+              without a card but are journalled like the rest (ADR-012 §7)
+4. confirm    the overlay's confirm card, bound to the payload digest (confirm only)
 5. journal    PENDING, metadata only
 6. execute    after recomputing the digest: a change voids the approval (T3)
 7. verify     the service must return an id; no id is a failure, never "sent"
@@ -32,8 +34,17 @@ from swift.workflows.scope import RunScope
 OutcomeStatus = Literal["done", "rejected", "denied", "failed"]
 Status = Literal["waiting_approval", "sending", "sent", "failed", "rejected"]
 
-# Tool -> what it needs. Swift's table, never a connector's claim (ADR-005). There is no "auto".
-POLICY: dict[str, Literal["confirm"]] = {"send_email": "confirm"}
+# Tool -> what it needs. Swift's table, never a connector's claim (ADR-005). There is no "auto":
+# "reversible" is for the owner's own apps, in front of them, with the app's undo.
+POLICY: dict[str, Literal["confirm", "reversible"]] = {
+    "send_email": "confirm",
+    "create_calendar_event": "confirm",
+    # "Open this" on a program or script: running it is not reversible.
+    "desktop_open_program": "confirm",
+    "fill_in_email": "reversible",
+    "desktop_write": "reversible",
+    "desktop_open": "reversible",
+}
 
 
 @dataclass(frozen=True)
@@ -52,6 +63,8 @@ class Action:
     validate: Callable[[], str | None] = lambda: None
     # Progress for the overlay: (status, extra fields).
     on_status: Callable[[Status, dict[str, str]], Awaitable[None]] | None = None
+    # False for actions with nobody on the other end (a calendar event for the owner, a write).
+    targets_required: bool = True
 
 
 @dataclass(frozen=True)
@@ -76,9 +89,9 @@ class ActionGateway:
         if (problem := action.validate()) is not None:
             return self._deny(action, problem)
         if action.digest() in scope.sent:
-            return self._deny(action, "This exact email was already sent in this run; it won't be sent twice.")
+            return self._deny(action, "This exact action was already done in this run; it won't be done twice.")
         # 2. resolve
-        if not action.targets:
+        if action.targets_required and not action.targets:
             return self._deny(action, "There is no recipient.")
         for target in action.targets:
             if target.email.lower() not in scope.resolved:
@@ -86,20 +99,22 @@ class ActionGateway:
                     action, f"{target.email} isn't one of the owner's contacts. Look the person up with find_contact."
                 )
         # 3. policy
-        if POLICY.get(action.tool) != "confirm":
+        policy = POLICY.get(action.tool)
+        if policy is None:
             return self._deny(action, f"No policy allows {action.tool}.")
         # 4. confirm
         approved_digest = action.digest()
-        await status("waiting_approval")
-        decision = await scope.confirm(action.title, action.detail, action.tool, action.artifact_id)
-        if decision != "approve":
-            await status("rejected")
-            why = "The owner didn't answer in time" if decision == "no_answer" else "The owner rejected it"
-            logger.info("action not approved", tool=action.tool, decision=decision)
-            return Outcome("rejected", why)
-        if scope.closed:  # stopped (Esc, "stop") while the card was up
-            await status("rejected")
-            return Outcome("denied", "The run ended before it could be sent.")
+        if policy == "confirm":
+            await status("waiting_approval")
+            decision = await scope.confirm(action.title, action.detail, action.tool, action.artifact_id)
+            if decision != "approve":
+                await status("rejected")
+                why = "The owner didn't answer in time" if decision == "no_answer" else "The owner rejected it"
+                logger.info("action not approved", tool=action.tool, decision=decision)
+                return Outcome("rejected", why)
+            if scope.closed:  # stopped (Esc, "stop") while the card was up
+                await status("rejected")
+                return Outcome("denied", "The run ended before it could be done.")
         # 5. journal
         action_id = uuid.uuid4().hex[:12]
         domains = sorted({t.email.rsplit("@", 1)[-1].lower() for t in action.targets})
@@ -107,7 +122,7 @@ class ActionGateway:
         # 6. execute
         if action.digest() != approved_digest:
             self.journal.write(action_id, "FAILED", reason="changed_after_approval")
-            await status("failed", reason="It changed after you approved it, so it wasn't sent.")
+            await status("failed", reason="It changed after you approved it, so it wasn't done.")
             return Outcome("denied", "The content changed after the owner approved it; nothing was sent.")
         await status("sending")
         try:

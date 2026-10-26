@@ -11,7 +11,11 @@ it as artifacts, and runs anything with a side effect through the gateway.
 | ``send_email(draft_id)`` | external: through ``ActionGateway`` and the confirm card |
 | ``present(kind, title, data)`` | none: shows a text, list or table |
 
+More tools live next to this module: the calendar (``calendar.py``) and the desktop
+(``desktop_tools.py``); ``ALL_TOOLS`` (``toolset.py``) is every one of them.
+
 ``side_effect`` is Swift's own label; a connector's description of itself is never used.
+In a workflow run (ADR-011 W1) the scope's ``Grant`` decides which tools may be called.
 """
 
 from __future__ import annotations
@@ -20,15 +24,19 @@ import json
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from loguru import logger
 
-from swift.connectors.base import Contact, ConnectorError, EmailConnector, OutgoingEmail
+from swift.connectors.base import CalendarConnector, Contact, ConnectorError, EmailConnector, OutgoingEmail
 from swift.security.gateway import Action, ActionGateway
-from swift.workflows.scope import Confirmer, Draft, Publisher, RunScope
+from swift.workflows.scope import Confirmer, Draft, Grant, Publisher, RunScope, Stepper
 
-SideEffect = Literal["none", "external"]
+if TYPE_CHECKING:
+    from swift.desktop.base import Desktop, WriteReceipt
+    from swift.routing.local import LocalOpener
+
+SideEffect = Literal["none", "read", "reversible", "external"]
 
 MAX_BODY = 20_000
 # The overlay gets at most this much of a body; the frame limit is 64 KB.
@@ -293,18 +301,38 @@ class ToolHost:
         contacts: tuple[KnownContact, ...] = (),
         gateway: ActionGateway | None = None,
         tools: tuple[ToolSpec, ...] = TOOLS,
+        *,
+        calendar: CalendarConnector | None = None,
+        desktop: Desktop | None = None,
+        opener: LocalOpener | None = None,
     ) -> None:
         self.connector = connector
         self.contacts = contacts
         self.gateway = gateway or ActionGateway()
         self.tools = {t.name: t for t in tools}
+        self.calendar = calendar
+        self.desktop = desktop
+        self.opener = opener
         self.scope: RunScope | None = None
+        # The last thing Swift wrote in the owner's apps, for "undo that" (ADR-012 §6).
+        self.last_write: WriteReceipt | None = None
 
-    def open(self, publish: Publisher, confirm: Confirmer) -> RunScope:
+    def open(
+        self, publish: Publisher, confirm: Confirmer, grant: Grant | None = None, step: Stepper | None = None
+    ) -> RunScope:
         if self.scope is not None:
             self.scope.closed = True
-        self.scope = RunScope(publish, confirm)
+        self.scope = RunScope(publish, confirm, grant=grant, step_fn=step)
         return self.scope
+
+    def permits(self, capability: str) -> bool:
+        """A provider capability (``web.search``) the open run's workflow declared. Outside workflows: none."""
+        scope = self.scope
+        return scope is not None and not scope.closed and scope.grant is not None and capability in scope.grant.capabilities
+
+    @property
+    def in_workflow(self) -> bool:
+        return self.scope is not None and not self.scope.closed and self.scope.grant is not None
 
     def close(self, scope: RunScope) -> None:
         scope.closed = True
@@ -318,6 +346,11 @@ class ToolHost:
         scope = self.scope
         if scope is None or scope.closed:
             return ToolResult(False, "No Swift run is active; nothing was done.")
+        if not scope.allows(name):
+            assert scope.grant is not None
+            logger.info("tool outside the workflow refused", tool=name, workflow=scope.grant.workflow)
+            return ToolResult(False, f"The {scope.grant.workflow} workflow doesn't use {name}, so Swift refused it. "
+                              "Nothing was done; carry on with the workflow's own tools.")
         try:
             return await spec.handler(self, scope, args if isinstance(args, dict) else {})
         except Exception as exc:  # noqa: BLE001 - a tool bug is reported to the provider, not a crash

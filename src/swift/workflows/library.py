@@ -289,7 +289,8 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
         if not path.is_file():
             raise PackageError(f"{path.name} is missing")
     try:
-        skill = skill_path.read_text(encoding="utf-8")
+        # A checkout with CRLF line ends still has the front matter where it's expected.
+        skill = skill_path.read_text(encoding="utf-8").replace("\r\n", "\n")
         manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError) as exc:
         raise PackageError(f"can't read it: {exc}") from None

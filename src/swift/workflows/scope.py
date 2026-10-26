@@ -2,8 +2,12 @@
 
 Swift runs one interaction at a time, so the tool host has at most one open
 ``RunScope``. The session opens it before the provider starts and closes it when
-the run ends; it supplies how artifacts reach the overlay (``publish``) and how
-the gateway asks the owner (``confirm``).
+the run ends; it supplies how artifacts reach the overlay (``publish``), how the
+gateway asks the owner (``confirm``) and how Swift's own steps reach the working
+card (``step``, e.g. "Swift is writing in Word").
+
+A workflow run (ADR-011 W1) also carries a ``Grant``: the Swift tools and provider
+capabilities its manifest declares. The tool host refuses every other tool.
 """
 
 from __future__ import annotations
@@ -22,6 +26,17 @@ Decision = Literal["approve", "reject", "no_answer"]
 # (title, detail, tool, artifact_id) -> the owner's answer on the confirm card.
 Confirmer = Callable[[str, str, str, str | None], Awaitable[Decision]]
 Publisher = Callable[[Artifact], Awaitable[None]]
+# (text, activity, app) -> a step on the working card, from Swift itself.
+Stepper = Callable[[str, str, str | None], Awaitable[None]]
+
+
+@dataclass(frozen=True)
+class Grant:
+    """What a workflow run may use: its manifest's ``needs`` (ADR-011 §4.2)."""
+
+    workflow: str
+    tools: frozenset[str]
+    capabilities: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -50,6 +65,19 @@ class RunScope:
     sent: set[str] = field(default_factory=set)
     ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))
     closed: bool = False
+    # None: not a workflow run, every tool is available (ADR-010 behaviour).
+    grant: Grant | None = None
+    step_fn: Stepper | None = None
+    # time.monotonic() until which the owner is talking to Swift (push-to-talk held): their
+    # key presses then aren't "typing in the window" (ADR-012 §6).
+    talking_until: float = 0.0
+
+    def allows(self, tool: str) -> bool:
+        return self.grant is None or tool in self.grant.tools
+
+    async def step(self, text: str, activity: str = "working", app: str | None = None) -> None:
+        if self.step_fn is not None:
+            await self.step_fn(text, activity, app)
 
     async def publish(self, id: str, kind: Kind, phase: Phase, title: str, data: dict[str, Any]) -> Artifact:
         artifact = self.artifacts.put(id, kind, phase, title, data)

@@ -1,6 +1,6 @@
 # ADR-012: Desktop interaction, structured first (exploration)
 
-- **Status:** Exploration. Nothing is decided. The measurements the owner runs are in §9; the owner's questions are in §11.
+- **Status:** Exploration. Nothing is decided. Measurements on the owner's apps are in §9 (run 2026-10-25/26); the owner's questions are in §11.
 - **Date:** 2026-10-25
 - **Builds on:** ADR-009 (overlay mechanics, caret-aware placement), ADR-010 (gateway, artifacts, "show me"), ADR-011 (workflow ecosystem)
 - **Probe:** [`spikes/desktop/`](../../spikes/desktop/README.md)
@@ -173,12 +173,52 @@ Test run by the developer session on the taskbar:
 | Snapshot | about 126 tokens |
 | Walk / bulk fetch | 220 ms / 135 ms (managed UIA client, an upper bound) |
 
-Still to measure: Word, Gmail in Chrome, VS Code, Explorer, Notepad, and anything else the owner uses daily.
+### 9.1 Results on the owner's apps (2026-10-25/26)
 
-What the results decide:
-- which apps can go structured-first, and which need app-specific work or level 4;
-- whether snapshot latency needs the Rust option (§5.5);
-- whether Chrome exposes Gmail well enough through UIA, or needs the extension route.
+The owner ran 35 probes. Runs that measured the wrong window were discarded: VS Code instead of Excel, and Word while it was still starting. Tokens are the estimated size of a structured snapshot of the visible interactive elements; a screenshot is roughly 1,500 or more.
+
+| App | Focused element (what was clicked) | Read selection / text | Write | Window: named / with ids | Snapshot | Bulk read |
+|---|---|---|---|---|---|---|
+| **Word** | Document | yes: 69 chars selected, 53,446-char document in 27 ms | through Word's object model (`-Word` test not yet run) | 24 % / 8 % (tables make 512 cells) | ~325 tokens | 1.9 s; element-by-element walk 11 s |
+| **PowerPoint** | a generic pane, even with the cursor in a slide text box | **slide text not visible** | object model only | 96 % / 53 % (ribbon) | ~800 | 0.2 s |
+| **Excel** | the current cell | cell value (88 chars) | **yes**: cell value writable, plus Invoke and grid position | 96 % / 72 % | ~1,750 (every visible cell is an element) | 0.5 s |
+| **Outlook** (classic) | message body / compose body | yes: 1,549-char message, 10-char selection | body offers text access but no Value: object model or typing | 78–83 % / 37–49 % | ~360–420 | 0.2 s |
+| **Chrome** | address bar / page / Gmail compose | address (54 chars), page text (6k), selection, compose body | **address bar and Gmail compose writable** | 61–82 % / 10–49 % | ~460–1,200 | 0.2–0.4 s once built |
+| **Brave, Edge** | the same as Chrome | the same | the same | the same | ~150–2,000 | the same |
+| **Claude desktop** | message box | yes (10 chars, 5 selected) | **yes** | 83 % / 13 % | ~1,150 | 0.3 s |
+| **Slack** | message box | yes (10 of 10 selected) | **yes** | 70 % / 18 % | ~920 | 0.1 s |
+| **VS Code** | editor | **only a window of the file** (99 chars), selection not reported | value writable, but only that window | 72 % / 10 % | ~1,000 | 0.2 s |
+| **Spotify** | a pane (the row click didn't take focus) | n/a | n/a | 90 % / 4 % | ~1,450 | 0.75 s |
+| **WhatsApp** | a pane | **nothing**: 9 elements in the whole window | n/a | n/a | ~16 | 0.05 s |
+| **Snipping Tool** | a pane | n/a | n/a | 93 % / 71 % (14 elements) | ~90 | 0.07 s |
+| **File Explorer** | a file item | n/a (list selection isn't text) | items support Invoke, Value (rename), SelectionItem | 80 % / 72 % | ~640 | 0.3 s |
+| Notepad | not run | | | | | |
+
+### 9.2 What the results show
+
+1. **Structured access works for most daily apps.** Word, Excel, Outlook, all three browsers, Claude, Slack and Explorer expose the focused control, text and selection in tens of milliseconds, without a screenshot. Level 2 (put content where the owner is) is feasible in all of them.
+2. **Chromium apps behave as one family.** Chrome, Brave, Edge, Claude, Slack and VS Code expose text boxes the same way (Value plus Text, writable). One implementation covers them all. Their elements rarely have stable ids (4–37 %), so element references there rely on names.
+3. **Browsers build their tree on first request.** The first look at Chrome or Edge saw 80 elements; two seconds later, 400–900. Swift's first desktop query to a browser must wait for this, then reads are fast.
+4. **Three apps need their own route:**
+   - **PowerPoint:** slide text wasn't visible through the managed UIA client's control view. Use PowerPoint's object model. Re-check with the raw view or native UIA before concluding PowerPoint hides it.
+   - **VS Code's editor:** exposes only a window of the file around the cursor, and no selection. Use VS Code's extension API or command line.
+   - **WhatsApp:** exposes almost nothing (9 elements). It is a candidate for the level-4 fallback (local OCR or a screenshot with permission), or for staying out of scope.
+5. **Whole-window snapshots are often as big as a screenshot** (~1,000–2,000 tokens in Excel, Spotify, busy pages and Edge). They are cheap only when **scoped to the focus area** (Word: ~325; Outlook: ~400). §5.2's "near the focus" rule is necessary, not an optimisation.
+6. **Speed:** Win32 basics take 30–100 ms, the focused element 10–120 ms, the selection 15–170 ms. Bulk reads take 0.1–0.5 s for most apps but 1.9 s for a Word document with tables, and element-by-element walks are much slower (up to 11 s). Snapshots must use bulk, scoped reads. The managed client is an upper bound; native UIA is to be measured when building D4.
+7. **Live pages change while being read.** One Edge run failed with an element vanishing mid-read. The snapshot code must retry or read in parts.
+8. **Incomplete data exists even in Windows' own apps.** One Explorer element reported no control type.
+
+### 9.3 Consequences for the plan
+
+- **D1–D2 (context, typing where the owner is) are confirmed** for every app above except WhatsApp.
+- **D3 adapters, in the owner's order of value:**
+  - Word and Excel through their object models;
+  - Outlook (classic) through its object model: a draft created and shown for the owner to send;
+  - Chrome through UIA, which is enough for the address bar and Gmail compose, so the extension route isn't needed for the basic Gmail case;
+  - Explorer through its shell interface (selected files) plus UIA;
+  - PowerPoint and VS Code through their own interfaces.
+- **The Gmail question (§11.3) has a cheap answer:** filling Gmail's compose window through UIA in the owner's browser works with no Google setup. Classic Outlook offers the same through its object model.
+- **Still to run:** Notepad, the `-Word` live-writing test, and a PowerPoint re-check with the raw view.
 
 ## 10. Proposed order of work
 

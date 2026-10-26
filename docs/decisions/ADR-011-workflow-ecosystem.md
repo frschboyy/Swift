@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Exploration, being decided question by question (§12). Decided so far: Q1–Q6 (2026-10-26); new questions from the owner's workflows in §13.4.
+- **Status:** Accepted. The owner decided every question in §12 and §13.4 on 2026-10-26. Building still needs a go-ahead per phase (§11, §13.5).
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -439,6 +439,7 @@ The owner's main workflows:
 3. **Social media (#11):** research access options first (official APIs, Grok's API, terms of service) before committing to it?
    - **Decided 2026-10-26 (owner): left out for now.** No research or building. Revisit only if the owner asks.
 4. **Apple Calendar:** needed, or is Google (and Outlook) enough for now?
+   - **Decided 2026-10-26 (owner): left out for now.** Google Calendar (already-granted `calendar.events`) and Outlook's calendar (object model) are enough.
 
 ### 13.5 Proposed first slice (to confirm after §13.4)
 

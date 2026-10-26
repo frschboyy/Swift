@@ -42,7 +42,7 @@ The owner talks to Swift. Swift hands the work to an execution provider: Claude 
 
 - `agent` is `{id, name}`, or `null` when Swift did the work itself (time, date, open, identity).
 - The overlay turns these into words in one file, `overlay/src/agents.ts`, which knows no provider by name:
-  - working card: "Claude Code is reading", "Swift handed this to Claude Code";
+  - working card: "Claude Code is reading", "Swift handed this to Claude Code". *Changed 2026-10-26 (owner): the working card no longer names the provider ("Reading", "Thinking", "Working on it"); the result's byline still does.*
   - confirm card: "Claude Code wants to:";
   - result card: "Swift · via Claude Code";
   - error card: "Claude Code ran into a problem".

@@ -66,6 +66,8 @@ let fullDraft = false;
 let runVoice: { phase: string; text: string } | null = null;
 let runVoiceTimer = 0;
 const DRAFT_LINES = 8;
+// While the backend listens for a reply without the wake phrase (wake listening, after an answer).
+let followupUntil = 0;
 
 const client = new BackendClient(onMessage, onStatus);
 
@@ -91,28 +93,44 @@ function writePref(key: string, value: string): void {
 
 // ---- rendering ---------------------------------------------------------------
 
+/** A new request: forget the last one's steps, artifacts and timers. */
+function resetRun(keepRequest: boolean): void {
+  steps = [];
+  if (!keepRequest) {
+    request = "";  // the transcript of a request that skipped "listening" arrived just before
+    agent = null;  // the "state" message that starts a run sets it just before
+  }
+  current = null;
+  runStarted = 0;
+  artifacts = new Map();
+  viewing = undefined;
+  lastConfirm = null;
+  fullDraft = false;
+  runVoice = null;
+  followupUntil = 0;
+}
+
 function setStage(next: UiState): void {
+  const wasActive = ACTIVE.has(state);
   state = next;
   stage.dataset.state = next;
   void syncEscape();
+  // An active request never fades: a card fading from the last answer must not hide this one
+  // (a follow-up or "hey Swift, <request>" starts without the listening state).
+  if (ACTIVE.has(next)) {
+    clearFade();
+    card.classList.remove("card--sticky");
+  }
+  if (!wasActive && (next === "working" || next === "confirm")) resetRun(true);
 
   if (next === "listening") orb.listen();
   else if (next === "transcribing") orb.settle();
   else orb.stop();
 
   if (next === "listening") {
-    steps = [];
-    request = "";
-    agent = null;
-    current = null;
-    runStarted = 0;
+    resetRun(false);
     listenStarted = performance.now();
     loudest = 0;
-    artifacts = new Map();
-    viewing = undefined;
-    lastConfirm = null;
-    fullDraft = false;
-    runVoice = null;
     delete transcriptEl.dataset.quiet;
     transcriptEl.textContent = "";
     card.replaceChildren();
@@ -368,8 +386,6 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
 }
 
 // ---- follow-up window: reply without the wake phrase, just after an answer ---------------
-
-let followupUntil = 0;
 
 function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
   followupUntil = data.open ? Date.now() + data.seconds * 1000 : 0;

@@ -4,35 +4,35 @@
 
 import type { Activity, Agent } from "./protocol";
 
-const VERBS: Record<Activity, string> = {
-  starting: "is starting",
-  reading: "is reading",
-  searching: "is searching",
-  editing: "is making changes",
-  running: "is running a command",
-  browsing: "is browsing",
-  delegating: "is handing off a subtask",
-  planning: "is planning",
-  thinking: "is thinking",
-  waiting: "is waiting to retry",
-  switching: "is switching models",
-  blocked: "was blocked",
-  working: "is working",
-  writing: "is writing",
+// What the working card says, without naming the provider (owner, 2026-10-26: no "Claude Code is
+// thinking"; the result's byline says who did the work).
+const DOING: Record<Activity, string> = {
+  starting: "Working on it",
+  reading: "Reading",
+  searching: "Searching",
+  editing: "Making changes",
+  running: "Running a command",
+  browsing: "Browsing",
+  delegating: "Handing off a subtask",
+  planning: "Planning",
+  thinking: "Thinking",
+  waiting: "Waiting to retry",
+  switching: "Switching models",
+  blocked: "Blocked",
+  working: "Working on it",
+  writing: "Writing",
 };
 
 const isSwift = (agent: Agent | null | undefined): boolean => !agent || agent.id === "swift";
 
-/** Working-card title: "Claude Code is reading", "Swift is writing in Word", or Swift's own coordination. */
-export function activityLabel(agent: Agent | null | undefined, activity: Activity | undefined, subagent = false, app?: string | null): string {
-  // Starting up isn't news (owner, 2026-10-26): the next steps and the byline say who does the work.
-  if (activity === "starting") return handoffLabel(agent);
-  if (isSwift(agent)) return activity === "writing" ? `Swift is writing${app ? ` in ${app}` : ""}` : "Swift is coordinating";
-  const who = subagent ? `${agent!.name}’s helper` : agent!.name;
-  return `${who} ${VERBS[activity ?? "working"] ?? VERBS.working}`;
+/** Working-card title: "Reading", "Writing in Word", "Thinking (helper)". */
+export function activityLabel(_agent: Agent | null | undefined, activity: Activity | undefined, subagent = false, app?: string | null): string {
+  if (activity === "writing") return `Writing${app ? ` in ${app}` : ""}`;
+  const doing = DOING[activity ?? "working"] ?? DOING.working;
+  return subagent ? `${doing} (helper)` : doing;
 }
 
-/** Before the provider reports anything. No provider name yet: its own steps ("Claude Code is reading") and the result's byline give it. */
+/** Before the provider reports anything. */
 export function handoffLabel(_agent: Agent | null | undefined): string {
   return "Working on it";
 }

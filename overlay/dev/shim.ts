@@ -84,6 +84,12 @@ window.WebSocket = class extends NativeWebSocket {
     socket.send(JSON.stringify({ v: 1, type, ts: Date.now(), data }));
     return true;
   },
+  /** Deliver a frame to the overlay as if the backend sent it, e.g. inject("state", {state: "working"}). */
+  inject(type: string, data: Record<string, unknown> = {}): boolean {
+    if (!socket) return false;
+    socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type, ts: Date.now(), data }) }));
+    return true;
+  },
   /** Simulate a Rust-side event, e.g. emit("hotkey", {name: "debug", state: "down"}). */
   emit(event: string, payload: unknown): void {
     for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload });

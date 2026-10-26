@@ -169,6 +169,7 @@ function Probe-Tree([System.Windows.Automation.AutomationElement]$root) {
     $cache.TreeScope = [System.Windows.Automation.TreeScope]::Element
     $active = $cache.Activate()
     try { $bulkCount = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition).Count }
+    catch { $bulkCount = "failed: " + $_.Exception.InnerException.GetType().Name }  # live pages change mid-read
     finally { $active.Dispose() }
     $bulkMs = Ms $bulk
   }

@@ -1,6 +1,6 @@
 # ADR-012: Desktop interaction, structured first (exploration)
 
-- **Status:** Exploration, being decided question by question (§11). Decided so far: Q1 (2026-10-26). Q5 (measurements) is done (§9).
+- **Status:** Exploration, being decided question by question (§11). Decided so far: Q1, Q2 (2026-10-26). Q5 (measurements) is done (§9).
 - **Date:** 2026-10-25
 - **Builds on:** ADR-009 (overlay mechanics, caret-aware placement), ADR-010 (gateway, artifacts, "show me"), ADR-011 (workflow ecosystem)
 - **Probe:** [`spikes/desktop/`](../../spikes/desktop/README.md)
@@ -238,6 +238,13 @@ D1 and D2 are small and fit next to ADR-011's W1. D3 depends on what the probe f
 1. **Positioning:** "a voice co-pilot that operates your computer with you, visibly and under your control". Does that describe what you want Swift to be?
    - **Decided 2026-10-26 (owner): yes.** Swift is "a voice co-pilot that operates your computer with you, visibly and under your control": voice-first but never voice-only; works with the owner, never instead of them; acts in the owner's real apps; visible as it works; Esc, undo, approvals and opt-ins always available.
 2. **Structured first:** levels 1 to 3 through Win32, UIA and app object models, with screenshots only as a permissioned fallback?
+   - **Decided 2026-10-26 (owner): yes, with the fallback ladder.** Per request, in order:
+     1. the app's own interface;
+     2. UI Automation, scoped to the focus area, with redaction;
+     3. local OCR;
+     4. a screenshot to a vision model, only with the owner's permission (per app or per use) and with Swift saying when it is "looking".
+
+     The probe (§9) is the basis: structure works for most of the owner's apps; PowerPoint and VS Code use their own interfaces; WhatsApp would need step 4.
 3. **The Gmail case:** fill in the compose window and let you click Send (no Google setup), or send through the API with Swift's confirm card (ADR-010), or offer both?
 4. **Privacy defaults:** context tracked locally and always on; snapshots sent only when a request needs them, with redaction and a never-read list; screenshots off unless you allow them per app?
 5. **Measurements:** run the probe on your daily apps (`spikes/desktop/README.md`) before choosing D3's adapters?

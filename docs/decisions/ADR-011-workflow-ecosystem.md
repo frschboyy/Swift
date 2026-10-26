@@ -417,6 +417,11 @@ The owner's main workflows:
    - (b) Gmail with `gmail.metadata` (sender and subject, no bodies);
    - (c) Gmail with `gmail.readonly`;
    - (d) not for now.
+   - **Decided 2026-10-26 (owner): (b) Gmail with `gmail.metadata`**: sender, subject, date and labels, never bodies. Implementation notes (Gmail API docs, checked 2026-10-26):
+     - `gmail.metadata` is a *restricted* scope, like the already-granted `gmail.compose`. For the owner's unverified personal project it means the same consent warning, not a verification review. Adding it means signing in again (`swift.connectors.gmail signin`).
+     - The `q` search parameter is not available with this scope. Swift therefore lists new messages (`users.history.list` since the last seen history id, or recent INBOX messages), fetches `format=metadata` with only `From`, `Subject` and `Date`, and matches senders against the owner's list **locally**. The boss list never leaves the machine.
+     - Polling interval: a few minutes, while Swift runs. Gmail push notifications (Pub/Sub) would need cloud infrastructure and are out of scope.
+     - Alert content is untrusted (a subject line is attacker-controllable): it is shown, never acted on.
 2. **Where watchers run:** locally only (private; only while the laptop is on), or allow cloud scheduled tasks for public-web watchers (news, opportunities), never for email?
 3. **Social media (#11):** research access options first (official APIs, Grok's API, terms of service) before committing to it?
 4. **Apple Calendar:** needed, or is Google (and Outlook) enough for now?

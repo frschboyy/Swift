@@ -1,6 +1,6 @@
 # ADR-012: Desktop interaction, structured first (exploration)
 
-- **Status:** Accepted. The owner decided every question in §11 on 2026-10-26; the measurements are in §9. Building still needs a go-ahead per phase (§10).
+- **Status:** Accepted. The owner decided every question in §11 on 2026-10-26; the measurements are in §9. Building still needs a go-ahead per phase (§10). D1–D2 are built (§12).
 - **Date:** 2026-10-25
 - **Builds on:** ADR-009 (overlay mechanics, caret-aware placement), ADR-010 (gateway, artifacts, "show me"), ADR-011 (workflow ecosystem)
 - **Probe:** [`spikes/desktop/`](../../spikes/desktop/README.md)
@@ -260,6 +260,87 @@ D1 and D2 are small and fit next to ADR-011's W1. D3 depends on what the probe f
      - "Pause desktop awareness", plus a tray indicator whenever Swift reads more than basic context.
 5. **Measurements:** run the probe on your daily apps (`spikes/desktop/README.md`) before choosing D3's adapters?
    - **Done 2026-10-25/26:** results in §9.
+
+## 12. Implementation status (D1–D2, 2026-10-26, branch `claude/w1-playbooks-desktop-f23fe0`)
+
+Built with ADR-011 W1. The behaviour is verified by unit tests against a fake desktop (`desktop/fake.py`). The Windows implementation was only smoke-tested read-only on the development laptop: the context of the app in front, with no text. Everything that writes is owner-run (below).
+
+| Part | Where | Tests |
+|---|---|---|
+| `Desktop` interface, context, never-read list | `desktop/base.py` | `test_desktop.py` |
+| Fake desktop | `desktop/fake.py` | used by `test_desktop.py`, `test_playbooks.py` |
+| Windows implementation | `desktop/windows.py` | owner-run |
+| Tools `desktop_context`, `desktop_write`, `desktop_open`, `fill_in_email` (gateway risk: read, reversible, reversible or confirm, reversible) | `workflows/desktop_tools.py`, `security/gateway.py` | `test_desktop.py`, `test_architecture.py` |
+| "This" / "here" in routing, "open this", "undo that" | `session.py`, `routing/rules.py`, `routing/local.py` | `test_playbooks.py` |
+| "Swift is writing in <app>"; calendar and "filled in" cards | `overlay/src/agents.ts`, `main.ts`, `protocol.ts` | `tsc --noEmit` |
+| Settings | `desktop.enabled`, `desktop.never_read_apps`, `desktop.never_read_titles` | `test_settings.py` |
+
+**Dependencies (owner step).**
+- UI Automation uses `comtypes`, now in `pyproject.toml`, which needs `uv lock` and `uv sync`. `pywin32` is now listed directly too; it was already installed as a dependency of a dependency.
+- Without `comtypes`, Swift still runs:
+  - the context gives the focused window's class instead of the control type;
+  - writing at the focus skips the Value pattern and goes to paste or keystrokes;
+  - Gmail can't be filled in (Outlook still can).
+- **Why `comtypes` and not raw ctypes for UIA:** UIA isn't an IDispatch interface, so pywin32 can't call it. Hand-written vtables would be several hundred lines of fragile code for what `comtypes` does in a few.
+
+**How it behaves, and where it differs from §5–§6:**
+
+- **Context: read when the owner speaks, not event-driven.**
+  - §5.1 proposed a tracker fed by WinEvents. What routing needs is where the owner was when they spoke. So the context is read once when an interaction starts, while they talk, and dropped when it ends. It is never logged; the interaction log records only that context or a selection was sent.
+  - Reads use Win32, Word's object model, `Shell.Application` for Explorer, and UIA for other apps. They run on one COM thread, with a 1-second limit before the request goes on without them.
+- **When it's sent:**
+  - only with requests that say "this", "these", "here" or "the selection";
+  - the selected text (at most 4,000 characters) only when the request is about the selection, marked as screen content, never instructions;
+  - in File Explorer, the number of selected files, never their names.
+- **Never read:** password managers by executable; banking sites and private or incognito windows by window title (the title is matched locally, then dropped). Owners add apps and title words in `config.yaml`. For these, and for password fields, the context says only "<app> (private)". Nothing there is read or written.
+- **Writing ladder** (§5.3):
+  1. Word's object model, for Word or `where: "word"`. `# ` and `## ` lines become Heading 1 and 2.
+  2. The UIA Value pattern, only for an empty field. Value replaces the whole field, and Swift never guesses the caret.
+  3. A clipboard paste, only when the clipboard holds nothing or plain text. That text is put back afterwards.
+  4. Keystrokes.
+
+  UIA's Text pattern reads selections but can't insert, so it is used for reading only.
+- **Foreground mode** (§6):
+  - Text goes in one paragraph at a time; Esc (or "stop") ends the run between paragraphs.
+  - Before each paragraph Swift checks:
+    - Word's cursor is where it left it, and the same document is in front;
+    - for Value, paste and keys: the same window and control have focus, and a Value field still holds only Swift's text;
+    - no key press: input arrived with the mouse not moving. Mouse movement and push-to-talk don't count.
+  - On any of these it pauses, and a card asks "Carry on writing in Word?". If the owner says no, or the target still isn't as Swift left it, Swift stops and says how far it got.
+- **"Undo that":**
+  - Answered by Swift when Swift wrote last; otherwise it goes to Claude Code as before.
+  - Word: the write is one custom undo record. It is undone only if the document hasn't changed since; otherwise Swift says to use Ctrl+Z.
+  - Value: the field is cleared, if it still holds Swift's text.
+  - Paste or keys: Ctrl+Z once per paragraph, only while that app is in front.
+- **"Open this"** opens the one file or folder selected in the File Explorer window in front. A program or script is never opened this way. `desktop_open` from a provider opens selected files (at most 5), or names from `local`, never a path it typed. A program needs the confirm card (`desktop_open_program`).
+- **Gmail compose** (Q3):
+  - Swift opens `mail.google.com/mail/?view=cm&fs=1` in the default browser. The URL has no content in it.
+  - When the To, Subject and Message Body fields appear (up to 20 s), it fills them through UIA's Value pattern, or by focus and paste.
+  - A private window is refused.
+- **Outlook:** a new mail item with To, Subject and Body, displayed. The owner presses Send.
+
+**Owner-run checks (REQUIRES-HW):**
+
+1. `uv lock`, `uv sync`, then `uv run python -m swift.desktop.windows` with Word in front: `uia: True`, `app: Word`, `control: document`. No text is printed.
+2. **Real Word write:** "research the history of tea into Word" (with Claude Code). Check:
+   - the card says "Swift is writing in Word";
+   - paragraphs appear one by one, with the headings styled;
+   - typing in the document pauses it with a card;
+   - Esc stops it;
+   - "undo that" removes it in one step.
+3. **Gmail compose:** "email <contact> saying …" with Gmail signed in. Check:
+   - a compose window opens and fills in To, Subject and body;
+   - the To address turns into a chip;
+   - nothing is sent until you press Send.
+
+   Also try a Chrome incognito window in front: the fill-in is refused.
+4. **Outlook draft:** the same request with "in Outlook": a draft is displayed, filled in, and not sent.
+5. **Write here:** in Notepad, Slack and a Chrome text box, "write a haiku about tea here". Note which route each used (value, paste or keys) and whether "undo that" works. Check the clipboard is unchanged afterwards.
+6. **This / open this:**
+   - select text in Word and say "rewrite this more formally";
+   - in File Explorer, select one document and say "open this";
+   - select an `.exe` and say "open this": it goes to Claude Code, and `desktop_open` asks first.
+7. **Never read:** with KeePass, a page titled with your bank, or an incognito window in front, "summarise this" gets only "(private)".
 
 ## Sources checked (2026-10-25)
 

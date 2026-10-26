@@ -1,6 +1,6 @@
 # ADR-011: A workflow ecosystem for Swift (exploration)
 
-- **Status:** Accepted. The owner decided every question in §12 and §13.4 on 2026-10-26. Building still needs a go-ahead per phase (§11, §13.5).
+- **Status:** Accepted. The owner decided every question in §12 and §13.4 on 2026-10-26. Building still needs a go-ahead per phase (§11, §13.5). W1 is built (§14).
 - **Date:** 2026-10-24
 - **Builds on:** ADR-005 (connectors), ADR-007 (routing), ADR-008 (providers), ADR-010 (workflow foundations, "show me")
 - **Examples:** [`docs/explorations/workflows/`](../explorations/workflows/): five workflows written in the format proposed here, to test it
@@ -448,6 +448,56 @@ The owner's main workflows:
 3. **Coding (#4)** keeps working through Claude Code as today.
 
 Watchers (#8–#11), file tools (#6–#7) and recipes follow, in that order.
+
+## 14. Implementation status (W1, 2026-10-26, branch `claude/w1-playbooks-desktop-f23fe0`)
+
+Built: the library, routing and three built-in playbooks of §13.5, together with ADR-012 D1–D2. Verified by unit tests with fake email, calendar and desktop: the three workflows run end to end through the session (`test_playbooks.py`). Nothing was sent, added or typed for real.
+
+| Part | Where | Tests |
+|---|---|---|
+| Package loader and validator (§4, the W1 subset below) | `workflows/library.py` | `test_library.py` |
+| Built-in playbooks | `workflows/library/email-draft`, `research-into-word`, `calendar-event` | `test_library.py`, `test_playbooks.py` |
+| Routing between the rules and the provider (§6.2); "what workflows do I have?" | `session.py`, `routing/rules.py` | `test_playbooks.py` |
+| Playbook in the request; the run limited to its `needs` | `library.py` (`Package.request`), `workflows/scope.py` (`Grant`), `tools.py`, `executors/claude_code.py` | `test_desktop.py`, `test_claude_executor.py`, `test_playbooks.py` |
+| Calendar tool, connector and sign-in scope | `workflows/calendar.py`, `connectors/google_calendar.py`, `connectors/google.py`, `connectors/fake.py` | `test_calendar.py` |
+| Gateway: reversible actions, actions without recipients | `security/gateway.py` | `test_workflows.py`, `test_desktop.py`, `test_calendar.py` |
+| Settings | `workflows.enabled`, `workflows.dir`, `connectors.calendar` | `test_settings.py` |
+
+**The `swift.yaml` subset read in W1:** `schema` (`swift.workflow/v0`), `name`, `version`, `title`, `triggers` (`say` only), `inputs`, `settings`, `needs`, `run.playbook` (`SKILL.md`), `run.provider`, `shows`. `recipe`, `schedule`, `budget`, `undo`, `history` and `watch` are reported as "not supported yet" with the phase that brings them, and the package is skipped. `SKILL.md` must have Agent Skills front matter whose `name` matches the folder.
+
+**How it behaves:**
+
+- **Places.** The built-in library, then `%APPDATA%\Swift\workflows`. An owner's package with a built-in's name replaces it. `installed/` isn't read yet. The examples in `docs/explorations/workflows/` aren't loaded.
+- **Invalid packages** are skipped, logged, and listed by "what workflows do I have?" as "Couldn't load <folder>: <reason>".
+- **Triggers.** `{slot}` must be a declared input, and two slots need words between them (`email {person} {message}` is refused: Swift can't tell where the person ends). A choice slot must match one of its options. The phrase with the most literal words wins. Wake words and "please / can you" in front are allowed.
+- **Offers.** A request with no trigger match that shares at least two content words with a workflow's title and description, one of them from the title, is offered: "I have a workflow for that: Research into Word. Say “yes” to use it, or “no” to ask as usual." "Yes" within two minutes runs it with the original request. "No" sends the request on as an ordinary one. Any other request drops the offer.
+- **What the provider gets:** the workflow's name and version; the Swift tools it may use; the `SKILL.md` body without its front matter; the inputs (slot values or defaults); the settings' defaults; the current date, time and UTC offset; and the request as said. Per-owner values for `settings` come later.
+- **Limits in a workflow run.**
+  - The tool host refuses any Swift tool the manifest doesn't declare (`Grant`).
+  - Claude Code's own tools that ask (Edit, Write, Bash) are refused without a card.
+  - `WebSearch` and `WebFetch` exist in every Claude Code process (it's connected before the request is known). They are allowed only in runs whose workflow declares `web.search` / `web.fetch`, and refused everywhere else, as before.
+  - Read, Glob and Grep stay pre-approved: read-only, in the working folder.
+- **Capabilities.** The names a manifest may use, with their Swift tools and risk, are `CAPABILITIES` in `library.py`. The `desktop.*` capabilities map to tools named `desktop_context`, `desktop_write` and `desktop_open`, because MCP tool names can't contain dots.
+- **email-draft** (ADR-012 Q3):
+  - `find_contact`, then `draft_email`, then `fill_in_email` (Gmail compose or an Outlook draft; the `app` setting, default `gmail`). Nothing is sent, and there's no confirm card: the owner's Send is the approval.
+  - The gateway still checks the recipients were resolved in this run and journals the fill-in.
+  - "Just send it", or the app being unavailable, uses `send_email` with the confirm card.
+- **calendar-event:** `create_calendar_event` through the gateway's confirm card, which shows the event. The event has no attendees, so no invitations go out (`sendUpdates: none`). The end defaults to an hour later, or a day for an all-day event.
+- **Google sign-in** (`connectors/google.py`, shared by Gmail and Calendar) now asks for `calendar.events` too. `gmail.metadata` isn't added; it waits for watchers. An older token keeps working for mail. Calendar then fails with "Google Calendar isn't allowed yet … sign in again".
+
+**Owner-run checks:**
+
+- **REQUIRES-GOOGLE:**
+  - Sign in again (`uv run --group spikes python -m swift.connectors.gmail signin`); the output should list `granted` for `calendar.events`.
+  - Set `connectors.calendar: google`, say "add lunch with Ada to my calendar tomorrow at noon", approve the card, and check the event in Google Calendar. Reject once, and check nothing was added.
+  - "Email <contact> saying …, just send it" sends after the card, as in ADR-010.
+- **Claude Code end to end** (a signed-in `claude`): one run of each workflow, by voice.
+  - research-into-word: web search works and Word fills in (ADR-012 §12).
+  - email-draft: Gmail compose and an Outlook draft fill in (ADR-012 §12).
+  - A plain request, such as "what's the weather", gets no web access.
+- **The library on your machine:** "what workflows do I have?" lists three. A copy of a built-in in `%APPDATA%\Swift\workflows` with a changed title shows "(yours)". A broken copy is listed as "Couldn't load …".
+
+**Not done in W1:** recipes, schedules, watchers, the tray list, creating or editing workflows by voice, git history of the owner's library, and the capability registry with scopes (W2). A scope written in `needs` (`- files.write: {within: …}`) is accepted, and only its name is checked.
 
 ## Sources checked (2026-10-24)
 

@@ -62,7 +62,9 @@ export type Inbound =
   // Open the detail view on an artifact (null: the steps), or close it. Swift decides which (ADR-010 §7).
   | { type: "view"; data: { run_id: string; artifact_id: string | null; open: boolean } }
   // Push-to-talk while working: the mid-run grammar ("show me", "stop").
-  | { type: "run.voice"; data: { run_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } };
+  | { type: "run.voice"; data: { run_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } }
+  // After an answer, the open mic takes a reply without the wake phrase for `seconds` (wake listening on).
+  | { type: "followup"; data: { open: boolean; seconds: number } };
 
 export type ErrorData = {
   code: string;

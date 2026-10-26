@@ -213,6 +213,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         wake_min_p=wake.min_p,
         wake_end_silence_s=wake.end_silence_s,
         wake_start_timeout_s=wake.start_timeout_s,
+        wake_followup_s=wake.followup_s if wake.enabled else 0.0,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)

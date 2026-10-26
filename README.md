@@ -312,4 +312,13 @@ docs/decisions/      Architecture decision records
 
 Set `wake.enabled: true` in `config.yaml` and say "hey Swift", "hello Swift" or "good afternoon Swift" (also "hi", "ok", "good morning/evening", and sound-alikes such as "hey swiff"). Say the request in the same breath ("hey Swift, what time is it") or wait for the listening card and say it after; it ends when you stop talking. The hotkey keeps working.
 
-There is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`. Swift does not yet pause wake listening when the PC is locked ([threat model](docs/threat_model.md) T7); edits and commands still need your approval on the overlay.
+There is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`.
+
+With wake listening on, you don't need the hotkey or the wake phrase to answer Swift:
+- **During a run:** say "show me", "hide that" or "stop".
+- **On a confirm card:** say "reject", "no" or "stop". **Approving needs Swift's name**, "Swift, approve" (or a click or the hotkey), so a TV or someone nearby saying "yes" can't approve anything.
+- **After an answer:** for 8 seconds (`wake.followup_s`; 0 turns it off), just reply. The card shows "Listening for a reply… N s".
+
+Other speech near the microphone is ignored.
+
+Swift does not yet pause wake listening when the PC is locked ([threat model](docs/threat_model.md) T7); edits and commands still need your approval on the overlay.

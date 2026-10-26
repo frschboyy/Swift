@@ -1,6 +1,6 @@
 # ADR-012: Desktop interaction, structured first (exploration)
 
-- **Status:** Exploration, being decided question by question (§11). Decided so far: Q1, Q2 (2026-10-26). Q5 (measurements) is done (§9).
+- **Status:** Exploration, being decided question by question (§11). Decided so far: Q1–Q3 (2026-10-26). Q5 (measurements) is done (§9).
 - **Date:** 2026-10-25
 - **Builds on:** ADR-009 (overlay mechanics, caret-aware placement), ADR-010 (gateway, artifacts, "show me"), ADR-011 (workflow ecosystem)
 - **Probe:** [`spikes/desktop/`](../../spikes/desktop/README.md)
@@ -246,6 +246,11 @@ D1 and D2 are small and fit next to ADR-011's W1. D3 depends on what the probe f
 
      The probe (§9) is the basis: structure works for most of the owner's apps; PowerPoint and VS Code use their own interfaces; WhatsApp would need step 4.
 3. **The Gmail case:** fill in the compose window and let you click Send (no Google setup), or send through the API with Swift's confirm card (ADR-010), or offer both?
+   - **Decided 2026-10-26 (owner): both, with fill-in-and-you-send as the default.**
+     - **Default:** Swift fills in Gmail's compose window in the owner's browser (UIA, writable per §9), or a classic Outlook draft (object model), while the owner watches. The owner presses Send.
+     - **Alternative:** sending through the Gmail API after Swift's confirm card (ADR-010), when the owner says "just send it" or the browser isn't available.
+     - Both routes only use recipients from the owner's contacts or `find_contact`.
+     - Digests to the owner's own inbox follow ADR-011 §13.4 instead.
 4. **Privacy defaults:** context tracked locally and always on; snapshots sent only when a request needs them, with redaction and a never-read list; screenshots off unless you allow them per app?
 5. **Measurements:** run the probe on your daily apps (`spikes/desktop/README.md`) before choosing D3's adapters?
    - **Done 2026-10-25/26:** results in §9.

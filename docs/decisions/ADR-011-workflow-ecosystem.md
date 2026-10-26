@@ -430,6 +430,12 @@ The owner's main workflows:
      - Swift renders the email from its own template, so web text is escaped (no injected markup or scripts), links show their real domain, and the digest is labelled as generated from web sources;
      - it is sent through the owner's Gmail (`gmail.compose`) from the laptop, with a daily count and size limit;
      - the gateway's policy table gains one entry, `digest.send_self`, with this rule. It is journalled and audited like any send.
+   - **Unread digests, decided 2026-10-26 (owner):**
+     - a dot on Swift's tray icon, with the tooltip "N unread digests";
+     - a brief one-line hint when Swift next appears anyway (push-to-talk or startup), never popping up on its own (ADR-009);
+     - "show me my digests" lists them as a card, each with a link to open the email.
+
+     "Unread" comes from Gmail's `UNREAD` label on Swift's own digest messages, read with the approved `gmail.metadata` scope. The hint clears as soon as the owner reads a digest on any device.
 3. **Social media (#11):** research access options first (official APIs, Grok's API, terms of service) before committing to it?
 4. **Apple Calendar:** needed, or is Google (and Outlook) enough for now?
 

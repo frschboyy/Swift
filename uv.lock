@@ -170,6 +170,15 @@ wheels = [
 ]
 
 [[package]]
+name = "comtypes"
+version = "1.4.17"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/ff/c7836bd0d78fc615281016f154f514e9d523d7cb9ab9e8b4d344adc5f5e7/comtypes-1.4.17.tar.gz", hash = "sha256:3d9c1e92ad8daf7600d371e76ee16161a627a5fb70c3144f6e52e78af6034363", size = 262743, upload-time = "2026-09-21T08:08:07.687Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/9c/d0bc1fb69ad22a04bdc01dd9b5613a2ebc4d02ba1ec24b02127dc93791ba/comtypes-1.4.17-py3-none-any.whl", hash = "sha256:4e0a221dde2c589b82977bed802efd71cd5eb67a380347b732e02735e597f586", size = 298743, upload-time = "2026-09-21T08:08:06.461Z" },
+]
+
+[[package]]
 name = "cryptography"
 version = "50.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1494,12 +1503,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "claude-agent-sdk" },
+    { name = "comtypes", marker = "sys_platform == 'win32'" },
     { name = "faster-whisper" },
     { name = "loguru" },
     { name = "numpy" },
     { name = "onnx-asr", extra = ["cpu"] },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pyyaml" },
     { name = "sounddevice" },
     { name = "websockets" },
@@ -1533,12 +1544,14 @@ sttbench = [
 [package.metadata]
 requires-dist = [
     { name = "claude-agent-sdk", specifier = ">=0.1.80" },
+    { name = "comtypes", marker = "sys_platform == 'win32'", specifier = ">=1.4" },
     { name = "faster-whisper", specifier = ">=1.2" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "onnx-asr", extras = ["cpu"], specifier = ">=0.12" },
     { name = "psutil", specifier = ">=6" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=306" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "sounddevice", specifier = ">=0.5" },
     { name = "websockets", specifier = ">=15" },

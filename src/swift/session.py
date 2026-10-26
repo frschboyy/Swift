@@ -64,6 +64,11 @@ selected in File Explorer; "undo that" undoes what Swift last wrote, with the ap
 Push-to-talk during a write marks the owner as talking, so their key press isn't taken as
 typing in the document.
 
+Threads (ADR-013 §4): every request belongs to a thread. A reply in the follow-up window,
+a correction, "try again" and the answer to a workflow offer continue the thread before;
+anything else starts a new one. Run messages carry ``thread_id`` so the overlay continues
+the same card for a thread instead of replacing it.
+
 Wake listening (swift/wake.py) starts the same interaction by voice: ``hear_wake`` gets a
 short utterance from the always-open microphone, transcribes it, and if it opens with
 "hey / hello / good afternoon Swift" either runs what follows in the same breath or, after
@@ -152,6 +157,10 @@ HANDS_FREE_APPROVE_HINT = "To approve hands-free, say “Swift, approve”, or c
 # Mid-run phrases the open microphone acts on without the wake phrase; everything else is ignored.
 HANDS_FREE_MIDRUN = frozenset({"show", "hide", "stop", "cancel"})
 HANDS_FREE_CONFIRM = HANDS_FREE_MIDRUN | {"approve", "reject"}
+# Requests from these sources continue the thread before them (ADR-013 §4.1).
+CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
+# Messages that say which thread they belong to.
+THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
 CONFIRM_TIMEOUT_S = 120.0
 # A workflow offer waits this long for "yes" or "no".
 OFFER_S = 120.0
@@ -286,8 +295,11 @@ class Session:
         library: Library | None = None,
         desktop: Desktop | None = None,
     ) -> None:
-        self._send = send
+        self._raw_send = send
         self.executor = executor
+        # The thread of the current (or last) request (ADR-013 §4).
+        self._thread: str | None = None
+        self._thread_before: str | None = None
         # The default provider first, then the ones tried when it's unavailable.
         self.providers = Providers([executor, *fallbacks])
         self._clarified_at: float | None = None
@@ -367,6 +379,12 @@ class Session:
         self._run_started: float | None = None
         # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
         self._retry: tuple[str, str] | None = None
+
+    async def _send(self, msg: Message) -> None:
+        """Every message to the overlay; run messages are tagged with their thread (ADR-013 §4.3)."""
+        if self._thread and msg.type in THREADED and "thread_id" not in msg.data:
+            msg = Message(msg.type, {**msg.data, "thread_id": self._thread}, msg.ts)
+        await self._raw_send(msg)
 
     @property
     def busy(self) -> bool:
@@ -745,6 +763,10 @@ class Session:
             "approvals": [],
         }
         self._record = record
+        previous = self._thread
+        self._thread = previous if previous and record.get("source") in CONTINUES_THREAD else uuid.uuid4().hex[:12]
+        self._thread_before = previous
+        record["thread"] = self._thread
         await self._close_followup()
         self._artifacts = self._artifacts_run = None
         started = time.monotonic()
@@ -1054,6 +1076,8 @@ class Session:
             return None
         accepted = decision.action == "approve"
         record["offer"] = "accepted" if accepted else "declined"
+        if self._thread_before:  # the answer belongs with the request that was offered the workflow
+            self._thread = record["thread"] = self._thread_before
         return _to_agent(replace(decision, text=text)), (replace(match, kind="run") if accepted else None)
 
     async def _offer_workflow(self, match: Match, text: str, record: dict[str, Any]) -> None:

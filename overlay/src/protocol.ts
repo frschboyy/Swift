@@ -34,7 +34,7 @@ export type Person = { name: string; email: string };
 // filled_in: the email is in Gmail's compose window or an Outlook draft; the owner presses Send (ADR-012 Q3).
 export type SendState = "waiting_approval" | "sending" | "sent" | "failed" | "rejected" | "filled_in";
 export type CalendarEventData = { title: string; when: string; location: string; all_day: boolean; start: string; end: string; state?: SendState; reason?: string };
-export type Artifact = { run_id: string; id: string; phase: Phase; version: number; title: string; agent?: Agent | null } & (
+export type Artifact = { run_id: string; thread_id?: string; id: string; phase: Phase; version: number; title: string; agent?: Agent | null } & (
   | { kind: "email_draft"; data: { to: Person[]; subject: string; body: string } }
   | { kind: "recipient"; data: { query: string; candidates: (Person & { source: string })[]; chosen: number | null } }
   | { kind: "send_status"; data: { state: SendState; draft_id?: string; message_id?: string; reason?: string; app?: string } }
@@ -44,17 +44,17 @@ export type Artifact = { run_id: string; id: string; phase: Phase; version: numb
 
 export type Inbound =
   | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string> } }
-  | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null } }
+  | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
   | { type: "transcript"; data: { text: string; final: boolean } }
-  | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; app?: string | null } }
+  | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // timeout_s: how long the card waits before the run stops without an answer.
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; agent?: Agent | null; timeout_s?: number | null; artifact_id?: string | null } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; agent?: Agent | null; timeout_s?: number | null; artifact_id?: string | null; thread_id?: string } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
-  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null } }
+  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.
   // retry: "Try again" re-runs the request. severity "info": a nudge, not a failure.
   | { type: "error"; data: ErrorData }
@@ -75,6 +75,7 @@ export type ErrorData = {
   retry?: boolean;
   severity?: "error" | "info";
   agent?: Agent | null;
+  thread_id?: string;
 };
 
 export type Outbound =

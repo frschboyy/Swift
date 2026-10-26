@@ -1,5 +1,6 @@
 // Overlay renderer. The backend owns the state machine; this file draws it,
-// forwards hotkeys, manages Esc registration, fade timers and click-through regions.
+// forwards hotkeys, manages Esc registration and click-through regions. What is on screen and
+// for how long is decided by the presenter (presenter.ts, ADR-013): no fade timers here.
 // Failure cards, connection status, placement and dragging: ADR-009.
 // Run artifacts and the "show me" detail view: ADR-010 §7. The detail view replaces the
 // working card's body in place (the card never moves mid-run); Swift picks what it shows.
@@ -10,13 +11,13 @@ import { activityLabel, byline, handoffLabel } from "./agents";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
+import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 
 const INFO_FADE_MS = 5000;
 const ERROR_FADE_MS = 12000;
 const READY_FADE_MS = 4000;
 const CANCELLED_FADE_MS = 2200;
-const RESUME_FADE_MS = 2500;
 const MAX_STEPS = 5;
 // Show the elapsed time once a run takes longer than this; say it's still going after STALL_MS without news.
 const ELAPSED_AFTER_MS = 3000;
@@ -43,9 +44,12 @@ let runStarted = 0;
 let lastStepAt = 0;
 let confirmDeadline = 0;
 let compact = readPref("swift.compact") === "1";
-let fadeTimer = 0;
-let fadeMs = 0;
 let hovering = false;
+let dragging = false;
+// What is on screen and until when (ADR-013 §3). Changed only through present*().
+let pres: P.Presenter = P.initial;
+// The last messages, for the debug-build invariant report.
+const recent: string[] = [];
 let escapeActive = false;
 let debugEnabled = false;
 let pttSpec = "";
@@ -66,8 +70,6 @@ let fullDraft = false;
 let runVoice: { phase: string; text: string } | null = null;
 let runVoiceTimer = 0;
 const DRAFT_LINES = 8;
-// While the backend listens for a reply without the wake phrase (wake listening, after an answer).
-let followupUntil = 0;
 
 const client = new BackendClient(onMessage, onStatus);
 
@@ -107,21 +109,47 @@ function resetRun(keepRequest: boolean): void {
   lastConfirm = null;
   fullDraft = false;
   runVoice = null;
-  followupUntil = 0;
 }
 
-function setStage(next: UiState): void {
-  const wasActive = ACTIVE.has(state);
+/** Debug builds: a broken presenter rule is reported with the messages that led to it. */
+function checkPresenter(): void {
+  if (!debugEnabled) return;
+  const broken = P.violations(pres);
+  if (broken.length) console.warn("[overlay] presenter rule broken:", broken, "after", recent.slice(-12));
+}
+
+/** The card's drain bar and sticky state follow the presenter's deadline. */
+function showDeadline(): void {
+  const fadeAt = pres.card.fadeAt;
+  card.classList.toggle("card--sticky", fadeAt === null && !ACTIVE.has(state));
+  if (fadeAt !== null) card.style.setProperty("--fade-ms", `${Math.max(0, fadeAt - Date.now())}ms`);
+  card.classList.toggle("card--paused", pres.pausedLeft !== null);
+}
+
+/** An answer, error or notice is being drawn: ``false`` means it mustn't be (busy screen, or stale). */
+function presentAnswer(kind: "result" | "error" | "notice", ms: number | null, runId?: string, threadId?: string, summary?: string): boolean {
+  const r = P.onAnswer(pres, { kind, runId, threadId, summary, ms }, Date.now());
+  pres = r.p;
+  checkPresenter();
+  return r.shown;
+}
+
+/** Earlier turns of this conversation, one line each, above the card (ADR-013 §4.2). */
+function threadLines(): HTMLElement | null {
+  if (!pres.history.length) return null;
+  return el("ul", { class: "thread", "aria-label": "Earlier in this conversation" }, ...pres.history.map((t) => el("li", {}, t.text)));
+}
+
+function setStage(next: UiState, runId: string | null = null, threadId: string | null = null): void {
+  const change = P.onState(pres, next, runId, threadId);
+  pres = change.p;
+  checkPresenter();
   state = next;
   stage.dataset.state = next;
   void syncEscape();
-  // An active request never fades: a card fading from the last answer must not hide this one
-  // (a follow-up or "hey Swift, <request>" starts without the listening state).
-  if (ACTIVE.has(next)) {
-    clearFade();
-    card.classList.remove("card--sticky");
-  }
-  if (!wasActive && (next === "working" || next === "confirm")) resetRun(true);
+  if (ACTIVE.has(next)) card.classList.remove("card--sticky");
+  // A new request, however it started (follow-up, correction, "hey Swift, X" in one breath).
+  if (change.newRun && next !== "listening") resetRun(true);
 
   if (next === "listening") orb.listen();
   else if (next === "transcribing") orb.settle();
@@ -135,7 +163,6 @@ function setStage(next: UiState): void {
     transcriptEl.textContent = "";
     card.replaceChildren();
     card.className = "card";
-    clearFade();
   }
   if (next === "transcribing") {
     transcriptEl.dataset.pending = "true";
@@ -163,7 +190,6 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
 }
 
 function hideCard(): void {
-  clearFade();
   card.classList.remove("card--in");
   card.classList.add("card--out");
   scheduleRegions();
@@ -178,7 +204,9 @@ function hideCard(): void {
 }
 
 function dismiss(): void {
-  if (!ACTIVE.has(state)) setStage("idle");
+  const r = P.onDismiss(pres);
+  pres = r.p;
+  if (r.hide) setStage("idle");
 }
 
 /** Card header: drag handle (data-drag) for moving the overlay, with an optional close button. */
@@ -239,6 +267,7 @@ function renderWorking(): void {
       "div",
       {},
       head(el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "card-title card-title--live" }, title), [elapsed, toggle], false),
+      small ? null : threadLines(),
       small || shown ? null : request ? el("p", { class: "request" }, request) : null,
       shown ? artifactView(shown) : small ? null : steps.length ? list : null,
       stalled ? el("p", { class: "note note--soft" }, "Still working. Bigger requests can take a few minutes.") : null,
@@ -352,12 +381,13 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
 
 /** After the run: "show me" (or Show) on a result opens the artifact as its own card. */
 function renderArtifactCard(a: Artifact): void {
+  if (!presentAnswer("result", readingMs(a.kind === "email_draft" ? a.data.body : a.title), a.run_id, pres.threadId ?? undefined)) return;
   rest("result");
   showCard(
     el("div", { "data-hit": true, class: "hit-area", onclick: dismissUnlessControl }, head(icon("info"), a.title), artifactView(a, 0, false)),
     "result card--neutral",
   );
-  startFade(readingMs(a.kind === "email_draft" ? a.data.body : a.title));
+  showDeadline();
 }
 
 function onArtifact(a: Artifact): void {
@@ -388,17 +418,15 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
 // ---- follow-up window: reply without the wake phrase, just after an answer ---------------
 
 function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
-  followupUntil = data.open ? Date.now() + data.seconds * 1000 : 0;
-  // The card stays up at least as long as Swift is listening for a reply.
-  if (followupUntil && fadeMs && fadeMs < data.seconds * 1000 + 500) startFade(data.seconds * 1000 + 500);
-  tickFollowup();
+  // The presenter keeps the answer up at least as long as Swift listens for a reply.
+  pres = P.onFollowup(pres, data.open, data.seconds, Date.now());
+  showDeadline();
+  drawFollowup(pres.followupUntil ? Math.ceil((pres.followupUntil - Date.now()) / 1000) : 0);
 }
 
-function tickFollowup(): void {
-  const left = Math.ceil((followupUntil - Date.now()) / 1000);
+function drawFollowup(left: number): void {
   let line = card.querySelector<HTMLElement>(".followup");
   if (left <= 0 || (state !== "result" && state !== "error")) {
-    followupUntil = left <= 0 ? 0 : followupUntil;
     line?.remove();
     return;
   }
@@ -442,6 +470,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       "div",
       { "data-hit": true },
       head(icon("shield"), "Approval needed", [data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null], false),
+      threadLines(),
       data.agent ? el("p", { class: "asker" }, `${data.agent.name} wants to:`) : null,
       el("p", { class: "confirm-title" }, data.title),
       shown ? artifactView(shown, fullDraft ? 0 : DRAFT_LINES) : data.detail ? el("p", { class: "muted detail-text" }, data.detail) : null,
@@ -559,8 +588,9 @@ function copyButton(text: string): HTMLElement {
 function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void {
   if (data.status === "cancelled") {
     // Esc or "stop": the owner knows what happened, so just acknowledge it.
+    if (!presentAnswer("result", CANCELLED_FADE_MS, data.run_id, data.thread_id)) return;
     showCard(el("div", { "data-hit": true, class: "hit-area", onclick: dismiss }, head(icon("stop"), "Cancelled")), "result card--neutral card--compact");
-    startFade(CANCELLED_FADE_MS);
+    showDeadline();
     return;
   }
   const variant = data.status === "done" ? "done" : "neutral";
@@ -568,11 +598,14 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const label = { done: "Done", rejected: "Not approved", error: "Failed" }[data.status];
   const extra = detailsText(data.details);
   const copyable = [data.summary, extra].filter(Boolean).join("\n\n");
+  const line = `${data.status === "rejected" ? "Not approved: " : ""}${clipLine(data.summary)}`;
+  if (!presentAnswer("result", readingMs(copyable), data.run_id, data.thread_id, line)) return;
   showCard(
     el(
       "div",
       { "data-hit": true, class: "hit-area", onclick: dismissUnlessControl },
       head(icon(glyph), label),
+      threadLines(),
       data.note ? el("p", { class: "note" }, data.note) : null,
       el("p", { class: "summary" }, data.summary),
       renderDetails(data.details),
@@ -591,7 +624,13 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
     ),
     `result card--${variant}`,
   );
-  startFade(readingMs(copyable));
+  showDeadline();
+}
+
+/** One line of an answer, for the thread's history. */
+function clipLine(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length <= 90 ? flat : `${flat.slice(0, 89).trimEnd()}…`;
 }
 
 /** Clicking a card dismisses it, except on its buttons and expandable details. */
@@ -602,7 +641,7 @@ function dismissUnlessControl(ev: Event): void {
 
 // Shown when Swift is launched again while already running (single-instance plugin).
 function renderAlreadyRunning(): void {
-  if (ACTIVE.has(state)) return; // mid-interaction: don't cover the run
+  if (!presentAnswer("notice", READY_FADE_MS + 1500)) return; // never over a request
   rest("result");
   showCard(
     el(
@@ -614,17 +653,17 @@ function renderAlreadyRunning(): void {
     ),
     "result card--done",
   );
-  startFade(READY_FADE_MS + 1500);
+  showDeadline();
 }
 
 function renderReady(): void {
-  if (ACTIVE.has(state) || card.classList.contains("card--in")) return;
+  if (card.classList.contains("card--in") || !presentAnswer("notice", READY_FADE_MS)) return;
   rest("result");
   showCard(
     el("div", { "data-hit": true, class: "hit-area", onclick: dismiss }, head(icon("check"), "Swift is ready"), el("p", { class: "summary" }, "Hold ", pttKeys(), " and speak.")),
     "result card--done card--compact-body",
   );
-  startFade(READY_FADE_MS);
+  showDeadline();
 }
 
 type Problem = {
@@ -639,10 +678,13 @@ type Problem = {
   // Stays until dismissed: Swift can't work until it's fixed.
   sticky?: boolean;
   glyph?: string;
+  runId?: string;
+  threadId?: string;
 };
 
 function renderProblem(p: Problem): void {
   const info = p.severity === "info";
+  if (!presentAnswer("error", p.sticky ? null : info ? INFO_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
   rest("error");
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
@@ -685,10 +727,7 @@ function renderProblem(p: Problem): void {
     info ? "error card--info" : "error",
     info ? "status" : "alert",
   );
-  if (p.sticky) {
-    clearFade();
-    card.classList.add("card--sticky");
-  } else startFade(info ? INFO_FADE_MS : ERROR_FADE_MS);
+  showDeadline();
 }
 
 function renderError(data: ErrorData): void {
@@ -701,6 +740,7 @@ function renderError(data: ErrorData): void {
     retry: data.retry,
     logs: LOGGED.has(data.code),
     agent: data.agent ?? null,
+    threadId: data.thread_id,
   });
 }
 
@@ -757,34 +797,27 @@ function describeBackendProblem(problem: string): Problem {
   };
 }
 
-// ---- fade timers (paused while hovered) -------------------------------------
+// ---- hover and drag hold an answer (the presenter keeps the time) -------------------
 
-function clearFade(): void {
-  window.clearTimeout(fadeTimer);
-  fadeTimer = 0;
-  fadeMs = 0;
-}
-
-function startFade(ms: number): void {
-  clearFade();
-  fadeMs = ms;
-  card.style.setProperty("--fade-ms", `${ms}ms`);
-  card.classList.remove("card--paused");
-  if (!hovering) fadeTimer = window.setTimeout(() => setStage("idle"), ms);
+function setHold(): void {
+  pres = P.onHold(pres, hovering || dragging, Date.now());
+  showDeadline();
 }
 
 function setHover(inside: boolean): void {
   hovering = inside;
   card.classList.toggle("card--hover", inside);
-  if ((state !== "result" && state !== "error") || !fadeMs) return;
-  if (inside) {
-    window.clearTimeout(fadeTimer);
-    card.classList.add("card--paused");
-  } else {
-    card.classList.remove("card--paused");
-    fadeTimer = window.setTimeout(() => setStage("idle"), RESUME_FADE_MS);
-  }
+  setHold();
 }
+
+// ---- the one clock: answers fade and the reply window counts down only here ---------
+
+window.setInterval(() => {
+  const r = P.tick(pres, Date.now());
+  pres = r.p;
+  if (r.hide) setStage("idle");
+  drawFollowup(r.followupLeft);
+}, 250);
 
 // ---- click-through regions ---------------------------------------------------
 
@@ -835,7 +868,6 @@ function setAnchor(anchor: string): void {
 // ---- once a second: elapsed time, stall note, confirm countdown -----------------
 
 window.setInterval(() => {
-  if (followupUntil) tickFollowup();
   if (state === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
@@ -859,6 +891,7 @@ async function syncEscape(): Promise<void> {
 // ---- backend messages ----------------------------------------------------------
 
 function onMessage(msg: Inbound): void {
+  if (msg.type !== "level") recent.push(`${msg.type}${"state" in msg.data ? `:${msg.data.state}` : ""}`), recent.splice(0, recent.length - 30);
   switch (msg.type) {
     case "hello.ok":
       debugEnabled = msg.data.debug;
@@ -868,7 +901,7 @@ function onMessage(msg: Inbound): void {
       break;
     case "state":
       if (msg.data.agent !== undefined) agent = msg.data.agent;
-      setStage(msg.data.state);
+      setStage(msg.data.state, msg.data.run_id ?? null, msg.data.thread_id ?? null);
       break;
     case "level":
       orb.setLevel(msg.data.rms);
@@ -889,6 +922,8 @@ function onMessage(msg: Inbound): void {
       if (state === "working") renderWorking();
       break;
     case "confirm.request":
+      pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id);
+      checkPresenter();
       renderConfirm(msg.data);
       break;
     case "confirm.voice":
@@ -995,8 +1030,8 @@ void listen("already-running", () => renderAlreadyRunning());
 void listen<{ anchor: string }>("placement", ({ payload }) => setAnchor(payload.anchor));
 void listen<boolean>("drag", ({ payload }) => {
   stage.dataset.dragging = String(payload);
-  if (payload) window.clearTimeout(fadeTimer);
-  else if (fadeMs && !hovering) fadeTimer = window.setTimeout(() => setStage("idle"), RESUME_FADE_MS);
+  dragging = payload;
+  setHold();
 });
 
 void invoke<{ anchor: string }>("get_placement").then((p) => setAnchor(p.anchor)).catch(() => {});

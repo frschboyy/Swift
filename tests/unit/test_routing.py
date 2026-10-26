@@ -172,7 +172,9 @@ async def test_repeat_shows_the_last_answer_again() -> None:
     session, rec, _, _ = await ask("What's in the docs folder?")
     first = rec.last("result")
     await ask("repeat that", session)
-    assert rec.last("result") == first
+    again = rec.last("result")
+    # The same answer; "repeat that" is a request of its own, so it has its own thread (ADR-013).
+    assert {k: v for k, v in again.items() if k != "thread_id"} == {k: v for k, v in first.items() if k != "thread_id"}
 
 
 async def test_approve_with_nothing_open_says_so() -> None:

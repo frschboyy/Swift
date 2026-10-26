@@ -22,14 +22,19 @@
       <button data-send='["debug.say", {"text": "hide that"}]'>Say “hide that”</button>
       <button data-send='["debug.say", {"text": "approve"}]'>Say “approve”</button>
       <button data-send='["debug.say", {"text": "stop"}]'>Say “stop”</button>
+      <!-- ADR-013: replay message sequences into the overlay, no backend request -->
+      <button data-replay="correctionAfterReject">Replay: correction after reject</button>
+      <button data-replay="threeTurnThread">Replay: 3-turn thread</button>
     </aside>
     <script type="module">
       document.getElementById("dev").addEventListener("click", (ev) => {
-        const raw = ev.target.closest("button")?.dataset.send;
-        if (raw) window.__shim.send(...JSON.parse(raw));
+        const button = ev.target.closest("button");
+        if (button?.dataset.send) window.__shim.send(...JSON.parse(button.dataset.send));
+        if (button?.dataset.replay) window.__replay(button.dataset.replay);
       });
     </script>
     <script type="module" src="/dev/shim.ts"></script>
+    <script type="module" src="/dev/scenarios.ts"></script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -204,3 +204,27 @@ def test_the_name_alone_addresses_swift_only_for_answers() -> None:
     assert match_address("Hey Swift approve").remainder == "approve"  # type: ignore[union-attr]
     assert match_address("swiff approve").remainder == "approve"  # type: ignore[union-attr]
     assert match_address("I approve of Swift") is None
+
+
+# ---- threads (ADR-013 §4) -----------------------------------------------------------------------
+
+
+def threads(out: Outbox, kind: str = "result") -> list[str]:
+    return [m.data["thread_id"] for m in out.messages if m.type == kind]
+
+
+async def test_a_follow_up_continues_the_thread_and_a_new_request_starts_one() -> None:
+    session, out, records, stt = wake_session(8.0)
+    await say(session, stt, "Hey Swift, what time is it?")
+    await finish(session)
+    await say(session, stt, "what's the date")  # a reply in the follow-up window
+    await finish(session)
+    await asyncio.sleep(0)
+    session._followup = None  # the window has closed
+    await say(session, stt, "Hey Swift, what's the date")  # a new request
+    await finish(session)
+    first, reply, new = threads(out)
+    assert first == reply != new
+    assert [r["thread"] for r in records] == [first, first, new]
+    # Every run message of a request carries its thread.
+    assert all(m.data.get("thread_id") for m in out.messages if m.type in ("state", "result"))

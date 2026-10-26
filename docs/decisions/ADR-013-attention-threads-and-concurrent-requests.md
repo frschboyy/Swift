@@ -169,3 +169,23 @@ A is useful on its own and is a prerequisite for B.
 3. **Limit:** 3 at once (proposed), or another number?
 4. **Background rows:** shown under the focus card, at most 3 lines (proposed)? Or only as a count ("2 more running") until you ask?
 5. **Order:** phase A (presenter, threads, sequence tests) first, then B?
+
+## 10. Implementation status: phase A (2026-10-26)
+
+| Part | Where | Checked by |
+|---|---|---|
+| Presenter: card ownership, deadlines instead of timers, hover/drag hold, follow-up window, notices never over a request, stale answers ignored, invariants | `overlay/src/presenter.ts` | `overlay/tests/presenter.test.ts` (12 sequences, `npm test`); also run by `uv run pytest` (`tests/unit/test_overlay_presenter.py`, skipped without Node 22.6+) |
+| The overlay draws through it: one 250 ms clock, no fade timers left in `main.ts`; debug builds log broken rules with the last 12 messages | `overlay/src/main.ts` | Harness, by eye |
+| Threads: `thread_id` on `state`, `step`, `confirm.request`, `result`, `error`, `artifact`. A follow-up, a correction, "try again" and an offer's answer continue the thread; the card shows the thread's last two answers above it, one line each. | `session.py` (`CONTINUES_THREAD`, `_send`), `presenter.ts`, `main.ts` | `test_hands_free.py`, presenter tests |
+| Replays | `overlay/dev/scenarios.ts`, harness buttons "Replay: correction after reject", "Replay: 3-turn thread" | Harness |
+
+Checked in the dev harness:
+- the 2026-10-26 sequence keeps the corrected card on screen 13 s later, with the rejected answer as a line above it;
+- a three-turn thread reads as one card;
+- the email demo through the real backend still fades its result on its own, with no console errors.
+
+**Not done in phase A:**
+- several requests at once (phase B);
+- background rows and voice targeting (phase B);
+- a request that refers back ("it", "that") outside the follow-up window still starts a new thread.
+

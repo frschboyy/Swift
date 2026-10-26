@@ -1,6 +1,7 @@
 # ADR-013: Attention, conversation threads, and requests running side by side
 
-- **Status:** Proposed. The owner decides; questions are in §9.
+- **Status:** Accepted (owner, 2026-10-26: approved as proposed, with the proposed answers in §9). Phase A first.
+- **Decided by:** Owner
 - **Date:** 2026-10-26
 - **Builds on:** ADR-006 (the backend owns the state), ADR-009 (overlay UX), ADR-010 ("show me", confirm cards), ADR-012 (foreground mode)
 
@@ -161,7 +162,7 @@ A is useful on its own and is a prerequisite for B.
 - **Separate windows per request.** Rejected: more transparent windows to keep click-through and out of the way (ADR-009), and they fight for screen space, which is exactly what the owner wants to avoid.
 - **Let the provider handle multitasking** (one agent session juggling several requests). Rejected: it couples unrelated requests' context and approvals, and works differently per provider.
 
-## 9. Questions for the owner
+## 9. Owner's decisions (2026-10-26: the proposed answers, approved)
 
 1. **Direction:** one presenter with layers; threads for related requests; up to 3 requests side by side with one confirm card and one app writer at a time?
 2. **A clear new request while one runs:** start it beside the first (proposed), or queue it to start afterwards?

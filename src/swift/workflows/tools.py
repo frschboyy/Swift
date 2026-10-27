@@ -7,7 +7,7 @@ it as artifacts, and runs anything with a side effect through the gateway.
 | Tool | Side effect |
 |---|---|
 | ``find_contact(query)`` | none: resolves a person from the owner's contacts |
-| ``draft_email(to, subject, message, draft_id?)`` | none: a draft held by Swift, written as the owner |
+| ``draft_email(to, subject, message, draft_id?)`` | none: a draft held by Swift, written as the owner; a revision keeps what it leaves out |
 | ``send_email(draft_id)`` | external: through ``ActionGateway`` and the confirm card |
 | ``present(kind, title, data)`` | none: shows a text, list or table |
 | ``undo_last_action()`` | external: reverses the last action the owner approved, if it can be, with its own card |
@@ -20,7 +20,10 @@ In a workflow run (ADR-011 W1) the scope's ``Grant`` decides which tools may be 
 
 A draft reads as the owner wrote it: the provider writes a short subject and the message,
 and Swift puts "Hello Janet," above it and "Regards," and the owner's name under it. The name
-is ``owner_name`` in ``config.yaml``, else the name on the owner's Google account.
+is ``owner_name`` in ``config.yaml``, else the name on the owner's Google account. A subject
+that is a sentence to the recipient ("I am not coming") is the message, and is refused. A
+revision (``draft_id``) keeps the subject and recipients it doesn't give: "actually say I'm not
+coming" rewrites the message, never the subject.
 
 A ``ToolResult`` that is ``expected`` didn't go ahead for a reason that isn't the provider
 struggling (the owner said no or asked for a change; nobody matched): Swift doesn't count it
@@ -38,8 +41,10 @@ import asyncio
 import contextvars
 import json
 import re
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from loguru import logger
@@ -71,6 +76,14 @@ _SIGN_OFF = re.compile(
     re.IGNORECASE,
 )
 _TITLES = {"dr", "prof", "professor", "mr", "mrs", "ms", "miss", "mx", "sir", "dame"}
+# A subject opening like this is a sentence to the recipient: the message, not what it's about.
+_SPOKEN = re.compile(
+    r"^(?:i|i'm|im|i've|i'll|i'd|hello|hi|hey|dear|just wanted|(?:the|this|my) email)\b", re.IGNORECASE,
+)
+# The owner's calendar titles Swift knows ("cancel Swift check" is a calendar request): asked for
+# again after this long, for events from yesterday to this many days ahead.
+TITLES_TTL_S = 600.0
+TITLES_DAYS = 30
 # The overlay gets at most this much of a body; the frame limit is 64 KB.
 SHOWN_BODY = 16_000
 _EMAIL = re.compile(r"^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$")
@@ -238,13 +251,21 @@ def subject_problem(subject: str, message: str) -> str | None:
                 "in message.")
     if _flat(subject) == _flat(message_only(message)):
         return "The subject repeats the message. Make the subject a few words, and write the message in full."
+    if _SPOKEN.match(subject.replace("\u2019", "'")):
+        return ("The subject reads like the message. Make it a short summary of what the email is about "
+                "(e.g. “Not coming”, “Running late”), and put what to say in message.")
     return None
 
 
 async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
-    to_arg = args.get("to", [])
+    draft_id = str(args.get("draft_id") or "").strip()
+    previous = scope.drafts.get(draft_id) if draft_id else None
+    if draft_id and previous is None:
+        return ToolResult(False, f"There is no draft {draft_id}.")
+    to_arg = args.get("to") or ([c.email for c in previous.to] if previous else [])
     addresses = [to_arg] if isinstance(to_arg, str) else [str(a) for a in to_arg or []]
-    subject = " ".join(str(args.get("subject", "")).split())
+    # A revision keeps its subject unless it gives a new one: a correction changes what is said.
+    subject = " ".join(str(args.get("subject") or (previous.subject if previous else "")).split())
     # ``body`` is the older name; either way it's the message, and Swift adds the greeting and sign-off.
     message = str(args.get("message") or args.get("body") or "").strip()
     if not addresses or not message_only(message):
@@ -264,11 +285,7 @@ async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> 
     body = compose(tuple(recipients), message, signer)
     logger.info("draft written", subject_words=len(subject.split()), greeted=greeting(tuple(recipients)) != "Hello,",
                 signed=bool(signer), revision=bool(args.get("draft_id")))
-    draft_id = str(args.get("draft_id") or "").strip()
-    if draft_id:
-        previous = scope.drafts.get(draft_id)
-        if previous is None:
-            return ToolResult(False, f"There is no draft {draft_id}.")
+    if previous is not None:
         draft = replace(previous, to=tuple(recipients), subject=subject, body=body, version=previous.version + 1)
     else:
         draft = Draft(f"draft-{next(scope.ids)}", tuple(recipients), subject, body)
@@ -422,11 +439,14 @@ TOOLS: tuple[ToolSpec, ...] = (
         "draft_email",
         "Write or revise an email draft held by Swift; the owner can see it. Nothing is sent. "
         "Swift adds the greeting (\"Hello Janet,\") and the owner's sign-off and name. "
-        "Pass draft_id to revise an existing draft.",
+        "Pass draft_id to revise an existing draft: what you leave out (to, subject) stays as it was, so a "
+        "correction (\"actually say I'm not coming\") passes only the new message.",
         _obj(
-            ["to", "subject", "message"],
-            to={"type": "array", "items": {"type": "string"}, "description": "Addresses from find_contact"},
-            subject={"type": "string", "description": "A few words, e.g. 'Meeting cancelled'; never the message"},
+            ["message"],
+            to={"type": "array", "items": {"type": "string"},
+                "description": "Addresses from find_contact (a new draft needs them)"},
+            subject={"type": "string", "description": "A short summary of what it's about, e.g. 'Meeting cancelled'; "
+                     "never the message or a sentence to the recipient (a new draft needs it)"},
             message={"type": "string", "description": "What the owner says to the recipient, in the first person "
                      "and their plain voice, in full sentences. Plain text; no greeting, no sign-off."},
             draft_id={"type": "string"},
@@ -495,6 +515,37 @@ class ToolHost:
         # "show me" during a run brings that app to the front.
         self.last_write_scope: RunScope | None = None
         self.live_write: tuple[RunScope, WriteReceipt] | None = None
+        # Titles of the owner's calendar events, from the calendar and from what runs saw, so a
+        # request that names one ("cancel Swift check") goes to the calendar workflow.
+        self.event_titles: set[str] = set()
+        self._titles_at = 0.0
+        self._titles_task: asyncio.Task[None] | None = None
+
+    def known_titles(self) -> tuple[str, ...]:
+        """The calendar titles Swift knows; asks the calendar again in the background when they're old."""
+        stale = time.monotonic() - self._titles_at > TITLES_TTL_S or not self._titles_at
+        if self.calendar is not None and stale and (self._titles_task is None or self._titles_task.done()):
+            try:
+                self._titles_task = asyncio.get_running_loop().create_task(self.refresh_titles())
+            except RuntimeError:
+                pass  # no loop: what is known will do
+        return tuple(self.event_titles)
+
+    async def refresh_titles(self) -> None:
+        if self.calendar is None:
+            return
+        self._titles_at = time.monotonic()
+        now = datetime.now().astimezone()
+        try:
+            events = await self.calendar.list_events(now - timedelta(days=1), now + timedelta(days=TITLES_DAYS), "", 50)
+        except (ConnectorError, OSError) as exc:
+            logger.info("calendar titles not read", error=type(exc).__name__)
+            return
+        self.event_titles |= {e.event.title for e in events if e.event.title.strip()}
+        logger.info("calendar titles read", count=len(self.event_titles))
+
+    def saw_titles(self, *titles: str) -> None:
+        self.event_titles |= {t for t in titles if t.strip()}
 
     @property
     def scope(self) -> RunScope | None:

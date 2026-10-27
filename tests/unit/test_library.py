@@ -48,7 +48,7 @@ def test_builtin_library_loads_cleanly() -> None:
     assert library.problems == []
     assert sorted(library.packages) == ["calendar-event", "email-draft", "research-into-word"]
     email = library.packages["email-draft"]
-    assert email.source == "built-in" and email.version == "1.0.0"
+    assert email.source == "built-in" and email.version == "1.1.0"
     assert email.tools == {"find_contact", "draft_email", "fill_in_email", "send_email"}
     assert library.packages["research-into-word"].tools == {"desktop_write"}  # web.* are the provider's own
     assert library.packages["calendar-event"].shows == ("calendar_event", "table")
@@ -149,7 +149,7 @@ def test_playbook_request() -> None:
     package = load_library().packages["calendar-event"]
     now = datetime(2026, 10, 26, 9, 30, tzinfo=timezone.utc)
     text = package.request({"event": "lunch with Ada"}, "add lunch with Ada to my calendar", now)
-    assert text.startswith("[Swift workflow: Calendar events (calendar-event 2.0.0)]")
+    assert text.startswith("[Swift workflow: Calendar events (calendar-event 2.1.0)]")
     assert ("Use only these Swift tools: create_calendar_event, delete_calendar_event, find_contact, "
             "list_calendar_events, undo_last_action, update_calendar_event.") in text
     assert "# Calendar events" in text and "name: calendar-event" not in text  # body, no front matter

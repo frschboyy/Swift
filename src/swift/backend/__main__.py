@@ -277,6 +277,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     if wake.enabled or settings.audio.preroll_s > 0:
         mic_watch = asyncio.create_task(_watch_microphone(recorder))  # noqa: F841 - lives as long as the backend
     transcriber.start_loading()
+    if tools is not None:
+        tools.known_titles()  # the calendar's titles, so "cancel Swift check" is known as a calendar request
     # ADR-014: here / idle / away, lock and sleep handling, re-warm on return, tray status.
     lifecycle = Lifecycle(
         session, server.send, recorder=recorder, transcriber=transcriber, executor=session.executor,

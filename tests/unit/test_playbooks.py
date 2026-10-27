@@ -119,7 +119,7 @@ async def test_email_draft_fills_in_gmail_for_the_owner_to_send() -> None:
     assert record["workflow"] == "email-draft" and record["status"] == "done"
     request = w.provider.requests[0]
     # Swift chose the workflow and passed its playbook, inputs and the request.
-    assert request.startswith("[Swift workflow: Draft an email (email-draft 1.0.0)]")
+    assert request.startswith("[Swift workflow: Draft an email (email-draft 1.1.0)]")
     assert "draft_email, fill_in_email, find_contact, send_email" in request
     assert "Fill it in with `fill_in_email`" in request
     assert "person (contact): my lecturer" in request and "message (text): I'll miss Thursday's lecture" in request

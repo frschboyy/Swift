@@ -10,7 +10,7 @@ A workflow is a folder with ``SKILL.md`` (the playbook, Agent Skills format) and
 | ``triggers`` | ``- say: ["email {person} saying {message}", ...]``; slots are declared ``inputs`` |
 | ``inputs``, ``settings`` | Typed: text, choice (``of``), contact, folder, project, date; optional ``default`` |
 | ``needs`` | Capabilities from ``CAPABILITIES``: the only Swift tools (and provider tools) a run may use |
-| ``run`` | ``playbook: SKILL.md``; ``provider``: ``any`` or a provider id |
+| ``run`` | ``playbook: SKILL.md``; ``provider``: ``any`` or a provider id; ``demand``: ``light`` or ``standard`` (the model runs start on) |
 | ``shows`` | Artifact kinds the workflow produces |
 
 Anything else (recipes, schedules, budgets) is reported as not supported yet, and
@@ -23,7 +23,10 @@ so does an ``intent`` trigger: one of its action words and one of its subject wo
 anywhere in a request that isn't a question ("set up a meeting with the professor on
 my calendar"). An intent marked ``questions: true`` is the opposite: it runs only on a
 question ("what's on my calendar tomorrow", "when is my next meeting"), for workflows
-that answer them by looking something up. A request that only shares words with a workflow's title and
+that answer them by looking something up. In place of subject words an intent can take a new
+time (``times: true``: "move Swift check to two p.m.") or the title of one of the owner's
+calendar events (``titles: true``: "cancel Swift check", heard as "swift deck" too), from the
+titles the caller passes to ``match``. A request that only shares words with a workflow's title and
 description is offered. Running directly is safe: anything consequential still waits
 for the owner on a confirm card.
 """
@@ -31,8 +34,10 @@ for the owner on a confirm card.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Literal
 
@@ -86,6 +91,44 @@ _STOP = frozenset(
 )
 
 
+_NUMBER = r"(?:\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)"
+# A new time or day after "to" / "for" ("to two p m", "for 14 00", "to friday", "until tomorrow"), in the
+# words ``_WORD`` leaves ("p.m." -> "p m"). Bare numbers don't count: "change the font to 12".
+_TIME = re.compile(
+    rf" (?:to|for|until|till) (?:(?:next|this|the) )?(?:{_NUMBER}(?: \d{{2}}| thirty| fifteen| forty five)?"
+    rf" ?(?:a m|p m|am|pm|o'?clock)|\d{{1,2}} \d{{2}}|noon|midday|midnight|tomorrow|tonight|today|morning"
+    r"|afternoon|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|weekend|month"
+    r"|\d{1,2}(?:st|nd|rd|th))\b"
+)
+# How close a name as heard must be to an event's title ("swift deck" for "Swift check" is 0.84).
+TITLE_LIKENESS = 0.75
+_TITLE_FILLER = frozenset("the my our a an meeting event appointment call".split())
+
+
+def _letters(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def likeness(heard: str, title: str) -> float:
+    """How alike a name as heard is to a title, 0 to 1, by its letters ("Flift Tech" / "Swift check": 0.53)."""
+    a, b = _letters(heard), _letters(title)
+    return SequenceMatcher(None, a, b).ratio() if a and b else 0.0
+
+
+def names_title(words: list[str], titles: Iterable[str]) -> bool:
+    """Whether some run of ``words`` sounds like one of ``titles`` ("swift deck" for "Swift check")."""
+    words = [w for w in words if w not in _TITLE_FILLER]
+    for title in titles:
+        size = len(_WORD.findall(title.lower()))
+        if not size:
+            continue
+        for n in {max(1, size - 1), size, size + 1}:
+            for i in range(max(1, len(words) - n + 1)):
+                if likeness(" ".join(words[i:i + n]), title) >= TITLE_LIKENESS:
+                    return True
+    return False
+
+
 class PackageError(ValueError):
     pass
 
@@ -133,19 +176,37 @@ class Intent:
     """Run when a request has one of ``actions`` and one of ``subjects`` (whole words or phrases).
 
     Requests that ask something never run an intent, so "did I add the meeting?" doesn't add
-    one; an intent with ``questions`` runs only on those (its actions are question words)."""
+    one; an intent with ``questions`` runs only on those (its actions are question words).
+    Instead of a subject, ``times``: a new time after the action ("move Swift check to two p.m.");
+    ``titles``: the request opens with the action, then names one of ``titles`` ("cancel Swift check")."""
 
     actions: tuple[str, ...]
-    subjects: tuple[str, ...]
+    subjects: tuple[str, ...] = ()
     questions: bool = False
+    times: bool = False
+    titles: bool = False
 
-    def matches(self, text: str) -> bool:
+    def matches(self, text: str, titles: Iterable[str] = ()) -> bool:
         if is_question(text) != self.questions:
             return False
         said = " ".join(_WORD.findall(text.lower()))
         lead = re.match(_LEAD, said)
-        said = " " + (said[lead.end():] if lead else said).strip() + " "
-        return any(f" {a} " in said for a in self.actions) and any(f" {s} " in said for s in self.subjects)
+        said = (said[lead.end():] if lead else said).strip()
+        said = " " + re.sub(r"^(?:(?:and|so|ok|okay|now|then|just|actually|also|please)\s+)+", "", said) + " "
+        actions = [a for a in self.actions if f" {a} " in said]
+        if not actions:
+            return False
+        if any(f" {s} " in said for s in self.subjects):
+            return True
+        if self.times and any(_TIME.search(said[said.index(f" {a} ") + len(a) + 1:]) for a in actions):
+            return True
+        opening = next((a for a in actions if said.startswith(f" {a} ")), None)
+        if self.titles and titles and opening is not None:
+            named = said[len(opening) + 1:]
+            if (when := _TIME.search(named)) is not None:  # "move swift check to two p m": the name ends there
+                named = named[:when.start()]
+            return names_title(named.split(), titles)
+        return False
 
 
 @dataclass(frozen=True)
@@ -164,6 +225,8 @@ class Package:
     provider: str = "any"
     shows: tuple[str, ...] = ()
     intents: tuple[Intent, ...] = ()
+    # The model its runs start on, unless the owner named one; None: as the request was routed.
+    demand: Literal["light", "standard"] | None = None
 
     @property
     def tools(self) -> frozenset[str]:
@@ -220,8 +283,10 @@ class Library:
     packages: dict[str, Package] = field(default_factory=dict)
     problems: list[Problem] = field(default_factory=list)
 
-    def match(self, text: str) -> Match | None:
+    def match(self, text: str, titles: Iterable[str] = ()) -> Match | None:
+        """``titles``: the owner's calendar event titles Swift knows of, for ``titles`` intents."""
         said = text.strip()
+        titles = tuple(titles)
         if is_show(said):
             return None  # "show me the Word document" asks to see something, never to run a workflow
         best: tuple[int, Package, dict[str, str]] | None = None
@@ -237,7 +302,7 @@ class Library:
                     best = (trigger.weight, package, inputs)
         if best is not None:
             return Match(best[1], "run", best[2])
-        intended = [p for p in self.packages.values() if any(i.matches(said) for i in p.intents)]
+        intended = [p for p in self.packages.values() if any(i.matches(said, titles) for i in p.intents)]
         if len(intended) == 1:
             return Match(intended[0], "run")  # inputs come from the request as said
         return self._offer(said)
@@ -425,10 +490,13 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
     run = manifest.get("run")
     if not isinstance(run, dict) or run.get("playbook") != "SKILL.md":
         raise PackageError("swift.yaml: run needs `playbook: SKILL.md`")
-    if extra := set(run) - {"playbook", "provider"}:
+    if extra := set(run) - {"playbook", "provider", "demand"}:
         key = sorted(map(str, extra))[0]
         raise PackageError(f"swift.yaml: run.{key} isn't supported yet" + (f" ({_LATER[key]})" if key in _LATER else ""))
     provider = str(run.get("provider", "any"))
+    demand = run.get("demand")
+    if demand not in (None, "light", "standard"):
+        raise PackageError("swift.yaml: run.demand must be light or standard")
 
     shows = manifest.get("shows") or []
     if not isinstance(shows, list) or any(s not in KINDS for s in shows):
@@ -436,24 +504,33 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
 
     return Package(
         name, version, title.strip(), " ".join(description.split()), body, folder, source,
-        tuple(triggers), inputs, settings, tuple(needs), provider, tuple(shows), tuple(intents),
+        tuple(triggers), inputs, settings, tuple(needs), provider, tuple(shows), tuple(intents), demand,
     )
 
 
 def _intent(raw: object) -> Intent:
-    """``intent: {actions: [add, schedule, set up], subjects: [calendar, meeting], questions?: true}``."""
-    if not isinstance(raw, dict) or not {"actions", "subjects"} <= set(raw) <= {"actions", "subjects", "questions"}:
+    """``intent: {actions: [add, schedule, set up], subjects: [calendar, meeting], questions?: true}``;
+    ``times: true`` or ``titles: true`` can stand in for ``subjects``."""
+    flags = ("questions", "times", "titles")
+    if (
+        not isinstance(raw, dict) or "actions" not in raw or not set(raw) <= {"actions", "subjects", *flags}
+        or ("subjects" not in raw and not (raw.get("times") or raw.get("titles")))
+    ):
         raise PackageError("swift.yaml: intent needs `actions` and `subjects` (lists of words), "
-                           "and optionally `questions: true`")
-    if not isinstance(raw.get("questions", False), bool):
-        raise PackageError("swift.yaml: intent questions must be true or false")
-    lists = []
+                           "and optionally `questions: true`, `times: true` or `titles: true`")
+    for flag in flags:
+        if not isinstance(raw.get(flag, False), bool):
+            raise PackageError(f"swift.yaml: intent {flag} must be true or false")
+    lists: list[tuple[str, ...]] = []
     for key in ("actions", "subjects"):
+        if key not in raw:
+            lists.append(())
+            continue
         words = raw[key]
         if not isinstance(words, list) or not words or not all(isinstance(w, str) and w.strip() for w in words):
             raise PackageError(f"swift.yaml: intent {key} must be a list of words")
         lists.append(tuple(" ".join(_WORD.findall(w.lower())) for w in words))
-    return Intent(lists[0], lists[1], raw.get("questions", False))
+    return Intent(lists[0], lists[1], raw.get("questions", False), raw.get("times", False), raw.get("titles", False))
 
 
 def load_library(owner_dir: Path | None = None, builtin_dir: Path = BUILTIN_DIR) -> Library:

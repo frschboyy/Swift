@@ -83,6 +83,15 @@ class RunScope:
     def allows(self, tool: str) -> bool:
         return self.grant is None or tool in self.grant.tools
 
+    def carry_from(self, before: RunScope) -> None:
+        """Go on from the request before in the same thread: its contacts, drafts and events, so
+        "send it" sends that draft and "actually say …" revises it (owner checks, 2026-10-27)."""
+        self.resolved.update(before.resolved)
+        self.drafts.update(before.drafts)
+        self.events.update(before.events)
+        self.sent |= before.sent
+        self.ids = itertools.count(next(before.ids))  # its ids stay its own: draft-1 is still that draft
+
     async def step(self, text: str, activity: str = "working", app: str | None = None) -> None:
         if self.step_fn is not None:
             await self.step_fn(text, activity, app)

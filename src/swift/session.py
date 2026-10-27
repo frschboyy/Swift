@@ -222,6 +222,8 @@ UNSURE_MIDRUN_OK = frozenset({"show", "hide", "stop", "cancel", "pause"})
 PAUSED_HINT = "Paused. Say “go on” to pick it up."
 # Requests from these sources continue the thread before them (ADR-013 §4.1).
 CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
+# How many threads' last tool scopes are kept for their follow-ups.
+KEEP_THREAD_SCOPES = 8
 # Messages that say which thread they belong to.
 THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
 CONFIRM_TIMEOUT_S = 120.0
@@ -329,7 +331,12 @@ def _proposal(store: ArtifactStore | None) -> str:
             where = f", at {data['location']}" if data.get("location") else ""
             return f"calendar event “{data.get('title', '')}”, {data.get('when', '')}{where}"
         to = ", ".join(f"{p.get('name')} <{p.get('email')}>" for p in data.get("to", []))
-        return f"email to {to}, subject “{data.get('subject', '')}”, body: {_clip(str(data.get('body', '')), 200)}"
+        # The message alone: Swift adds the greeting and sign-off again, so they mustn't come back in it.
+        parts = str(data.get("body", "")).split("\n\n")
+        message = "\n\n".join(parts[1:-1]) if len(parts) >= 3 else str(data.get("body", ""))
+        return (f"email draft {artifact.id} to {to}, subject “{data.get('subject', '')}”, message: {_clip(message, 300)} "
+                f"(“send it” sends {artifact.id} with send_email; a correction revises it with draft_email, "
+                f"draft_id {artifact.id} and the new message only: the subject stays)")
     return ""
 
 
@@ -665,6 +672,9 @@ class Session:
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
         self._last_exchange: Exchange | None = None
+        # The tool scope the last request in each recent thread left: the next request in that thread
+        # ("send it", "actually say I'm not coming") picks up its drafts, contacts, events and workflow.
+        self._left: dict[str, RunScope] = {}
         # The moment the last time or date answer was about, and its thread: "and the date?" (fast lane).
         self._moment: tuple[str, fast.Moment] | None = None
         # That answer as context, for a follow-up to it the fast lane can't answer ("what's that in euros").
@@ -1542,6 +1552,9 @@ class Session:
                 decision = replace(
                     _to_agent(decision), text=resumed.request, demand=estimate(resumed.request) or "standard"
                 )
+            before = self._left.get(record.get("thread") or "") if decision is not None and answered is None else None
+            if before is not None and decision is not None and decision.action == "quick":
+                decision = replace(decision, action=None)  # it goes on with the thread's draft or event: not the light lane
             if decision is not None and decision.action == "quick" and answered is None and resumed is None:
                 if await self._quick_answer(decision, record):
                     return
@@ -1550,10 +1563,17 @@ class Session:
                 decision is not None and decision.route == "agent" and answered is None and resumed is None
                 and self.library is not None
             ):
-                workflow = self.library.match(decision.text)
+                workflow = self.library.match(decision.text, self._titles())
                 if workflow is not None and workflow.kind == "offer":
                     await self._offer_workflow(workflow, decision.text, record)
                     return
+                if workflow is None and before is not None and before.grant is not None:
+                    # A follow-up in a workflow's thread ("Can you send it for me?", "actually say …"): the
+                    # same workflow goes on, with its playbook and its tools (owner checks, 2026-10-27).
+                    if (package := self.library.packages.get(before.grant.workflow)) is not None:
+                        workflow = Match(package, "run")
+                if workflow is not None and workflow.package.demand and not decision.override:
+                    decision = replace(decision, demand=workflow.package.demand)
             if decision is not None:
                 record["route"] = decision.route
                 if decision.addressed_as:
@@ -1928,7 +1948,7 @@ class Session:
             return False
         if decision.route == "local":
             return decision.action not in ("resume", "not_now", "undo")
-        if self.library is not None and self.library.match(decision.text) is not None:
+        if self.library is not None and self.library.match(decision.text, self._titles()) is not None:
             return True
         words = decision.text.split()
         if strict:
@@ -2022,6 +2042,10 @@ class Session:
         summary = (f"I have a workflow for that: {match.package.title}. "
                    "Say “yes” to use it, or “no” to ask as usual.")
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", summary))
+
+    def _titles(self) -> tuple[str, ...]:
+        """The owner's calendar titles Swift knows, so "cancel Swift check" matches the calendar workflow."""
+        return self.tools.known_titles() if self.tools is not None else ()
 
     def _workflows_answer(self) -> tuple[str, dict[str, Any] | None]:
         """"What workflows do I have?": each one with how to start it, and any that didn't load."""
@@ -2129,6 +2153,9 @@ class Session:
             grant,
             partial(self._for_run, run, self._swift_step),
         )
+        # Only a follow-up, a correction or a resumed conversation shares a thread with what came before.
+        if (before := self._left.get(record.get("thread") or "")) is not None:
+            self._scope.carry_from(before)
         CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it
 
     async def _for_run(self, run: Run, fn: Callable[..., Awaitable[Any]], *args: Any) -> Any:
@@ -2146,6 +2173,11 @@ class Session:
         if scope is None or self.tools is None:
             return
         self.tools.close(scope)
+        if (thread := self._thread) is not None:
+            self._left.pop(thread, None)
+            self._left[thread] = scope
+            while len(self._left) > KEEP_THREAD_SCOPES:
+                self._left.pop(next(iter(self._left)))
         if scope.artifacts.latest:
             self._artifacts = scope.artifacts
             self._artifacts_run = self._active[1] if self._active else self._artifacts_run

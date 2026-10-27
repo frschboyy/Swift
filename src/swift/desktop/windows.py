@@ -52,6 +52,8 @@ GMAIL_WAIT_S = 20.0
 GMAIL_FIELDS = {"to": ("To recipients", "To"), "subject": ("Subject",), "body": ("Message Body", "Message body")}
 # A paste is read by the app after Ctrl+V is processed: wait before the clipboard changes again.
 PASTE_SETTLE_S = 0.12
+# How long a field Swift put the cursor in has to take it, before a paste.
+FOCUS_WAIT_S = 1.0
 MAX_SELECTION_READ = 100_000
 
 # UI Automation control type ids -> the words the context uses.
@@ -698,16 +700,25 @@ class WindowsDesktop:
         fields = {key: uia.find(root, names) for key, names in GMAIL_FIELDS.items()}
         if not all(fields.values()):
             return None
-        for key, text in (("to", ", ".join(to)), ("subject", subject), ("body", body)):
-            self._set_field(uia, fields[key], text)
+        # The subject last, and set directly: a paste meant for the body that Gmail sends to the field in
+        # focus can't end up in it (owner checks, 2026-10-27: the message landed in the subject).
+        for key, text in (("to", ", ".join(to)), ("body", body), ("subject", subject)):
+            self._set_field(uia, fields[key], text, key)
+        value = uia.value(fields["subject"])
+        if value is not None and " ".join(str(value.CurrentValue).split()) != " ".join(subject.split()):
+            logger.warning("gmail subject was wrong after filling in: set again")
+            value.SetValue(subject)
         return f"gmail-compose-{next(self._ids)}"
 
-    def _set_field(self, uia: _Uia, element: Any, text: str) -> None:
+    def _set_field(self, uia: _Uia, element: Any, text: str, field: str = "") -> None:
         value = uia.value(element)
         if value is not None and not value.CurrentIsReadOnly:
             value.SetValue(text)
             return
         element.SetFocus()
+        if not self._has_focus(uia, element):
+            raise DesktopError(f"Swift couldn't put the cursor in Gmail's {field or 'field'}, so it stopped there.",
+                               "Finish the email yourself, or try again.")
         saved = _saved_clipboard()
         if saved is None:
             _type(text)
@@ -716,6 +727,26 @@ class WindowsDesktop:
         _chord(VK_CONTROL, ord("V"))
         time.sleep(PASTE_SETTLE_S)
         _set_clipboard(saved)
+
+    @staticmethod
+    def _has_focus(uia: _Uia, element: Any) -> bool:
+        """Whether the keyboard is in ``element`` (or inside it) yet: a paste goes wherever it is."""
+        deadline = time.monotonic() + FOCUS_WAIT_S
+        walker = uia.automation.RawViewWalker
+        while True:
+            try:
+                node = uia.focused()
+                for _ in range(6):
+                    if node is None:
+                        break
+                    if uia.same(node, element):
+                        return True
+                    node = walker.GetParentElement(node)
+            except Exception:  # noqa: BLE001 - the page changed while being read
+                pass
+            if time.monotonic() > deadline:
+                return False
+            time.sleep(0.05)
 
     def _outlook_draft(self, to: list[str], subject: str, body: str) -> str:
         import win32com.client

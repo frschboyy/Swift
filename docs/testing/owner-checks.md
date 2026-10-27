@@ -73,12 +73,12 @@ About 10 minutes. Uses your real Google Calendar: every change waits for a card,
 |---|---|---|---|
 | 29 | "Hey Swift, what's on my calendar tomorrow?" | **No card.** A table "Your calendar: <tomorrow>" with "Swift check" at 11:00, and a one-sentence answer. Not "I can't read your calendar". | The calendar workflow ran on a question |
 | 30 | "Hey Swift, when is my next meeting?" | The next event in the coming week, by name and time | The calendar workflow ran |
-| 31 | Hold the hotkey: "move Swift check to 2 pm" | A card "Change in your calendar: Swift check" with "When: … 11:00–11:30 → … 14:00–14:30". **Approve.** | An approved update |
+| 31 | Hold the hotkey: "move Swift check to 2 pm" | Within about 15 s (the calendar workflow, on the light model; on 2026-10-27 it went to the general agent), a card "Change in your calendar: Swift check" with "When: … 11:00–11:30 → … 14:00–14:30". **Approve.** If it was heard as "swift deck", the card still names Swift check. | An approved update; calendar changes ran the calendar workflow on the light model |
 | 32 | Hold the hotkey: "add a Google Meet link to Swift check" | A card listing "Adds a Google Meet link". Approve. In Google Calendar the event now has a Meet link. | An approved update |
 | 33 | Hold the hotkey: "set up a meeting with Test Me on Thursday at three with a Meet link" | A card "Add to your calendar: …" whose line ends "invites Test Me (Google emails them) · with a Google Meet link". **Approve.** | An approved add |
 | 34 | Right away: "hey Swift, undo that" | A new card "Undo: remove from your calendar: …" for the Thursday meeting. Approve. It's gone from Google Calendar, and Test Me gets a cancellation. | An undo, approved |
 | 35 | Hold the hotkey: "change Swift check to 3 pm", **approve**, then hold the hotkey: "I didn't approve that" | A card "Undo: change back: Swift check" with "When: … 15:00 → … 14:00". Approve; it's back at 14:00. | An undo of an update |
-| 36 | Hold the hotkey: "cancel Swift check" | A card "Remove from your calendar: Swift check". Click **Reject** first: it's still there. Then ask again and **approve**: it's gone. | A rejected and an approved removal |
+| 36 | Hold the hotkey: "cancel Swift check" | Within about 15 s (on 2026-10-27 it took over two minutes), a card "Remove from your calendar: Swift check". Click **Reject** first: it's still there. Then ask again and **approve**: it's gone. Plain "cancel" while something runs still stops it. | A rejected and an approved removal |
 | 37 | "Hey Swift, email Test Me that the meeting is off", approve, then "hey Swift, undo that" | "…can't be undone (a sent email can't be unsent)", and **no** card that removes a calendar event instead | An undo refused for an email |
 
 If Swift says the calendar "isn't allowed yet" or the sign-in "has expired", sign in again yourself (`uv run --group spikes python -m swift.connectors.gmail signin`).
@@ -99,6 +99,7 @@ About 5 minutes. **Sign in to Google again first**, yourself: Swift now asks for
 |---|---|---|---|
 | 41 | "Hey Swift, email Test Me that the meeting is off" | Gmail's compose window with a **short subject** (e.g. "Meeting cancelled", never the whole message) and a body that starts "Hello …," says it in plain words as you, and ends "Regards," and **your name** (from your Google account, or `owner_name`). Close it without sending. | A draft greeted and signed with your name |
 | 42 | "Hey Swift, email Janet saying I'll send the chapter tomorrow" (someone you've emailed but never saved as a contact) | Swift finds her: the recipient card shows her email address. If several match, each line shows the email and a second detail (her organization, or "you've emailed them"), and Swift asks which one. Close the draft without sending. | A contact found from Gmail correspondence |
+| 43 | "Hey Swift, email Test Me that I'm running late". When the compose window shows, close it, then in the reply window: "actually say that I am not coming". Then: "can you send it for me?" | The compose window again with the **same short subject** ("Running late") and a body "Hello …, … not coming … Regards, <your name>". Then a send card whose subject is still "Running late": **Reject**. Also "email myself", then "the email should ask me how I'm doing today": the question is in the body, never the subject. | An email's follow-ups stayed in the email workflow |
 
 ## After the checks: the report
 

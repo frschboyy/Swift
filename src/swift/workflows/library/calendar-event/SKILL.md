@@ -26,7 +26,8 @@ Work out which of these the user wants, and do only that.
 
 ## Change or move ("move my meeting with Ada to Friday at 3", "add a Meet link to it", "invite Charles")
 
-1. Find the event with `list_calendar_events` (use `query` and the day it's on). An event added earlier in this conversation is in the earlier answer: use its `event_id`. If several events could be meant, ask which one.
+1. Find the event with `list_calendar_events` (use `query` and the day it's on, if said). An event added earlier in this conversation is in the earlier answer: use its `event_id`. If several events could be meant, ask which one.
+   - Requests are spoken, so names are often misheard ("swift deck" or "Flift Tech" for "Swift check"). Search with the name as heard: if nothing has those words, Swift returns the events that sound like it. If only one could be meant, go on with that one (the user sees it on the card); if several could, ask which.
 2. Call `update_calendar_event` with its `event_id` and only what changes. A new `start` alone keeps the length. `add_attendees` come from `find_contact`; `remove_attendees` can be names or addresses. `meet: true` adds a Meet link.
 3. Swift shows the user before → after on a card and changes it only if they approve.
 

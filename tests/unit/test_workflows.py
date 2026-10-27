@@ -85,7 +85,7 @@ async def test_no_answer_sends_nothing() -> None:
 
 async def test_an_address_from_the_model_is_never_used() -> None:
     host, mail, _ = make()
-    result = await host.call("draft_email", {"to": ["x@evil.example"], "subject": "Hi", "body": "Hello"})
+    result = await host.call("draft_email", {"to": ["x@evil.example"], "subject": "Greetings", "body": "Hello"})
     assert not result.ok and "find_contact" in result.text
     assert mail.sent == []
 

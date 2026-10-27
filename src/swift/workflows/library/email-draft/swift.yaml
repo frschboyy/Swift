@@ -1,7 +1,7 @@
 # Swift's manifest for email-draft (ADR-011 §4; ADR-012 Q3: fill it in, the owner presses Send).
 schema: swift.workflow/v0
 name: email-draft
-version: 1.0.0
+version: 1.1.0
 title: Draft an email
 triggers:
   - say:

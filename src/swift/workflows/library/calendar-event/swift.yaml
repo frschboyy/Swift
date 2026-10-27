@@ -2,7 +2,7 @@
 # The everyday lifecycle: look, add, change, move, cancel, add a Meet link, undo.
 schema: swift.workflow/v0
 name: calendar-event
-version: 2.0.0
+version: 2.1.0
 title: Calendar events
 triggers:
   - say:
@@ -16,7 +16,8 @@ triggers:
   # "Set up a meeting with my professor on Friday", "schedule office hours on my calendar".
   - intent:
       actions: [add, put, schedule, set up, book, create, arrange, plan, organise, organize]
-      subjects: [calendar, meeting, appointment, event, call, lunch, dinner, session, office hours]
+      subjects: [calendar, meeting, appointment, event, call, lunch, dinner, session, office hours,
+                 google meet, meet link]
   # "Move my meeting with Ada to Friday", "cancel the dentist appointment", "add a Meet link to my
   # meeting", "show me my calendar for tomorrow". No bare "event" or "call" here: "remove the
   # event listener" and "update the function call" are coding requests.
@@ -25,6 +26,17 @@ triggers:
                 rename, invite, show, list, check]
       subjects: [calendar, meeting, meetings, appointment, appointments, lunch, dinner, office hours,
                  google meet, meet link]
+  # An event named only by its title, often misheard (owner checks, 2026-10-27): "move Swift check
+  # to two p.m." (a change and a new time), "cancel Swift check" or "cancel swift deck" (a change,
+  # then something that sounds like one of the owner's event titles). The run finds it by title.
+  # "Cancel" or "stop" alone is still the control word that stops a run.
+  - intent:
+      actions: [move, reschedule, push, push back, bring forward, postpone, delay, shift, change]
+      times: true
+  - intent:
+      actions: [move, reschedule, push, push back, bring forward, postpone, delay, shift, change, update, rename,
+                cancel, delete, remove, invite]
+      titles: true
   # Questions it answers by looking: "what's on my calendar tomorrow", "when is my next meeting",
   # "am I free on Friday afternoon". Only about the owner's own calendar ("my ..."), so "what is
   # a meeting" or "how do I schedule a meeting in Teams" aren't routed here.
@@ -46,4 +58,5 @@ needs:
 run:
   playbook: SKILL.md
   provider: any
+  demand: light                     # a few tool calls: the light model, escalated only if it struggles
 shows: [calendar_event, table]

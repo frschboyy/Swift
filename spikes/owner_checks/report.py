@@ -107,6 +107,16 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     drafts = [line for line in log if "| draft written |" in line]
     as_owner = [line for line in drafts if "greeted=True" in line and "signed=True" in line]
     emailed = [line for line in log if "| contact lookup |" in line and "gmail_emailed" in line]
+    # Calendar changes (owner checks of 2026-10-27, 17:00: they went to the general agent, one for 148 s).
+    changing = ("update_calendar_event", "delete_calendar_event")
+    changes = [r for r in rows if any(a.get("tool") in changing for a in r.get("approvals", []))]
+    changes_ok = bool(changes) and all(r.get("workflow") == "calendar-event" and r.get("demand") == "light"
+                                       for r in changes)
+    # Follow-ups to an email ("send it", "actually say …") go on in the email workflow, with its draft.
+    emails = {r.get("thread") for r in rows if r.get("workflow") == "email-draft"}
+    email_followups = [r for r in rows if r.get("source") in ("followup", "correction") and r.get("thread") in emails
+                       and r.get("route") == "agent"]
+    subject_fixed = [line for line in log if "gmail subject was wrong" in line]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows),
          f"{unsure_wake} unsure wake phrase(s) still taken"),
@@ -183,6 +193,13 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(as_owner)} of {len(drafts)} draft(s); check on screen: short subject, 'Regards, <your name>'"),
         ("42 a contact found from Gmail correspondence (people you've emailed)", bool(emailed),
          f"{len(emailed)} lookup(s)"),
+        ("31-36 calendar changes ran the calendar workflow on the light model", changes_ok,
+         ", ".join(f"{r.get('workflow') or 'agent'}/{r.get('demand')} {r.get('run_ms', 0) / 1000:.0f} s" for r in changes)
+         or "none"),
+        ("43 an email's follow-ups stayed in the email workflow", bool(email_followups)
+         and all(r.get("workflow") == "email-draft" for r in email_followups),
+         f"{len(email_followups)} follow-up(s); Gmail subject put right {len(subject_fixed)} time(s); "
+         "check on screen: the subject stays short"),
     ]
 
 

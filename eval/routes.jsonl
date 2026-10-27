@@ -90,33 +90,33 @@
 {"id": "rt06", "text": "test my project", "route": "agent", "demand": "light", "tags": ["E4", "terse"], "split": "test", "source": "v2"}
 {"id": "cr01", "text": "Remind me every Friday to send my supervisor a weekly update.", "route": "agent", "demand": "light", "tags": ["E5", "canonical", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr02", "text": "remind me every friday to send my supervisor a weekly update", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr03", "text": "Remind me tomorrow at 3pm to call the bank.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr03", "text": "Remind me tomorrow at 3pm to call the bank.", "route": "local", "demand": null, "tags": ["E5", "system"], "split": "train", "source": "v2"}
 {"id": "cr04", "text": "Set a reminder for Monday morning to submit the timesheet.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr05", "text": "In two hours remind me to take a break.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "test", "source": "v2"}
 {"id": "cr06", "text": "Remind me every weekday at 9 to check the lab bookings.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr07", "text": "Don't let me forget to pay rent on the first of every month.", "route": "agent", "demand": "light", "tags": ["E5", "paraphrase", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr08", "text": "Hey Swift remind me at five to leave for the station", "route": "agent", "demand": "light", "tags": ["E5", "wake-prefix", "stt", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cr08", "text": "Hey Swift remind me at five to leave for the station", "route": "local", "demand": null, "tags": ["E5", "wake-prefix", "stt", "system"], "split": "test", "source": "v2"}
 {"id": "cr09", "text": "Every Friday remind me to back up my thesis.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr10", "text": "Remind me to water the plants.", "route": "agent", "demand": "light", "tags": ["E5", "missing-slots", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr11", "text": "Set a weekly reminder on Sundays to plan the week.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cr12", "text": "remind me in 20 minutes to check the oven", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cr12", "text": "remind me in 20 minutes to check the oven", "route": "local", "demand": null, "tags": ["E5", "stt", "system"], "split": "train", "source": "v2"}
 {"id": "cr13", "text": "Can you remind me next Tuesday to email Sarah about the dataset?", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-email", "no-tool"], "split": "test", "source": "v2"}
 {"id": "cr14", "text": "Remind me every other Wednesday to renew the parking permit.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr15", "text": "Add a reminder for 8am tomorrow: bring the poster.", "route": "agent", "demand": "light", "tags": ["E5", "paraphrase", "no-tool"], "split": "test", "source": "v2"}
 {"id": "cr16", "text": "Remind me on Friday to schedule a meeting with my supervisor.", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr17", "text": "Every morning at 7 remind me to take my medication.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cr18", "text": "Remind me tonight to run the tests before I leave.", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-tests", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr01", "text": "What reminders do I have?", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr02", "text": "list my reminders", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr03", "text": "Show me all my reminders.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr01", "text": "What reminders do I have?", "route": "local", "demand": null, "tags": ["E5", "system"], "split": "train", "source": "v2"}
+{"id": "lr02", "text": "list my reminders", "route": "local", "demand": null, "tags": ["E5", "stt", "system"], "split": "train", "source": "v2"}
+{"id": "lr03", "text": "Show me all my reminders.", "route": "local", "demand": null, "tags": ["E5", "system"], "split": "train", "source": "v2"}
 {"id": "lr04", "text": "Do I have any reminders set for Friday?", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
 {"id": "lr05", "text": "Read out my reminders.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "lr06", "text": "Hey Swift which reminders are active", "route": "agent", "demand": "light", "tags": ["E5", "wake-prefix", "no-tool"], "split": "train", "source": "v2"}
+{"id": "lr06", "text": "Hey Swift which reminders are active", "route": "local", "demand": null, "tags": ["E5", "wake-prefix", "system"], "split": "train", "source": "v2"}
 {"id": "cc01", "text": "Cancel the Friday reminder.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
-{"id": "cc02", "text": "delete the reminder about the weekly update", "route": "agent", "demand": "light", "tags": ["E5", "stt", "no-tool"], "split": "test", "source": "v2"}
+{"id": "cc02", "text": "delete the reminder about the weekly update", "route": "local", "demand": null, "tags": ["E5", "stt", "system"], "split": "test", "source": "v2"}
 {"id": "cc03", "text": "Stop reminding me to take a break.", "route": "agent", "demand": "light", "tags": ["E5", "near-miss-stop", "no-tool"], "split": "train", "source": "v2"}
 {"id": "cc04", "text": "Remove the rent reminder.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "test", "source": "v2"}
-{"id": "cc05", "text": "Cancel my reminder about the parking permit.", "route": "agent", "demand": "light", "tags": ["E5", "no-tool"], "split": "train", "source": "v2"}
+{"id": "cc05", "text": "Cancel my reminder about the parking permit.", "route": "local", "demand": null, "tags": ["E5", "system"], "split": "train", "source": "v2"}
 {"id": "cc06", "text": "Get rid of the second reminder.", "route": "agent", "demand": "light", "tags": ["E5", "referent", "no-tool"], "split": "test", "source": "v2"}
 {"id": "ct01", "text": "Stop.", "route": "control", "demand": null, "tags": ["control"], "split": "train", "source": "v2"}
 {"id": "ct02", "text": "stop", "route": "control", "demand": null, "tags": ["control", "stt"], "split": "train", "source": "v2"}
@@ -147,7 +147,7 @@
 {"id": "ge05", "text": "Who is my supervisor?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
 {"id": "ge06", "text": "Translate good morning into French.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
 {"id": "ge07", "text": "What's the weather like?", "route": "agent", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "train", "source": "v2"}
-{"id": "ge08", "text": "Play some music.", "route": "agent", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "test", "source": "v2"}
+{"id": "ge08", "text": "Play some music.", "route": "local", "demand": null, "tags": ["system"], "split": "test", "source": "v2"}
 {"id": "ge09", "text": "How long until my next meeting?", "route": "agent", "demand": "light", "tags": ["near-miss-meeting", "no-tool"], "split": "train", "source": "v2"}
 {"id": "ge10", "text": "Find all Word documents in my thesis folder.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
 {"id": "ge11", "text": "Did my dean reply to my email?", "route": "agent", "demand": "light", "tags": ["near-miss-email", "no-tool"], "split": "train", "source": "v2"}
@@ -156,7 +156,7 @@
 {"id": "ge14", "text": "What did the last test run say?", "route": "agent", "demand": "light", "tags": ["near-miss-tests"], "split": "test", "source": "v2"}
 {"id": "ge15", "text": "Explain what a p-value is in one sentence.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "v2"}
 {"id": "ge16", "text": "Open the folder with my lecture notes.", "route": "local", "demand": null, "tags": ["planned"], "split": "test", "source": "v2"}
-{"id": "ge17", "text": "How much free disk space do I have?", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "v2"}
+{"id": "ge17", "text": "How much free disk space do I have?", "route": "local", "demand": null, "tags": ["system"], "split": "test", "source": "v2"}
 {"id": "ge18", "text": "Summarize this webpage for me.", "route": "agent", "demand": "light", "tags": ["unsupported", "no-tool"], "split": "train", "source": "v2"}
 {"id": "rq01", "text": "What's in the executors folder?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}
 {"id": "rq02", "text": "Find the open to-dos in this project.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "prompts"}

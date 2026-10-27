@@ -35,7 +35,7 @@ Wake detection runs, and actions execute, only while availability is `ACTIVE`.
 
 ## Trust boundary
 
-Every side effect goes through `security/gateway.py` (built in ADR-010 for email; more workflows reuse it). The full sequence is:
+Every side effect that leaves this PC or acts for the owner elsewhere (email, calendar, files, programs) goes through `security/gateway.py` (built in ADR-010 for email; more workflows reuse it). Swift's own device changes are the one exception, below. The full sequence is:
 
 1. validate
 2. resolve targets
@@ -52,6 +52,14 @@ What exists today (ADR-010):
 - `ActionGateway.execute` runs those steps for `send_email`. Policy is a fixed table: external side effects always need the confirm card; there is no "auto". The approval is bound to the draft's digest, used once, and voided if the draft changes.
 - The journal (`%LOCALAPPDATA%\Swift\journal.jsonl`) holds metadata only; an action still `PENDING` at startup is logged and never resumed.
 - `tests/unit/test_architecture.py` checks by AST scan that a connector's `send` is reached only through the gateway's `Action.perform`.
+
+### Swift's own device changes (ADR-016 §3, Phase A1)
+
+The system lane (`swift/system/`) changes this PC directly, without a confirm card: volume, mute, media keys, dark mode, brightness, lock, window moves, a screenshot, opening a Windows settings page, and a web search in the default browser. The exception is deliberate and bounded:
+
+- **Local and low-stakes.** Each change stays on this PC and is reversible ("undo that", for 10 minutes: volume, mute, theme, brightness, timers and reminders) or harmless (lock, a window move, a settings page). Nothing here sends, deletes, buys or shuts down. Sleep, restart, shut down and sign out are not in the lane; they go to the agent and its confirm card.
+- **What the owner said, nothing else.** The lane runs only on the owner's own words, routed by the rules (`routing/rules.py`); no model, page or connector output can reach it. Targets are fixed: settings pages from a built-in table, web searches only to `google.com` with the spoken query, and `WindowsSystem.open_uri` refuses anything that isn't `ms-settings:` or `https://`.
+- **Journaled.** Each change is written to the same action journal as the gateway (`PENDING`, then `DONE`/`FAILED`, tool `system.<intent>`), metadata only: never a search query or a reminder's words. Reads (battery, volume) and Swift's own timers and reminders (`schedule.json`) are not journaled.
 
 ## Workflows and "show me" (ADR-010)
 

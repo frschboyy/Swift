@@ -14,6 +14,10 @@
 - **fast lane** (``fast.py``, ADR-007 §10): time and date maths, other cities' time,
   conversions, arithmetic and spelling are ``local`` with action ``answer``. A leading "and",
   "so" or "Swift," doesn't stop a local match ("and what's the date?").
+- **system lane** (``swift/system``, ADR-016 §3): timers, alarms, reminders, volume and media keys, dark
+  mode, brightness, lock, battery and disk, Windows settings pages, window moves, a screenshot and a web
+  search are ``local`` with action ``system``; the session carries them out and says what was done. A
+  reminder with no time, or sleep / restart / shut down, is not matched and goes on to the agent.
 - **light lane** (``light.py``): quick facts and everyday language are ``agent`` with action
   ``quick`` and light demand; the session answers them with one tool-free model call, and only
   hands them to the agent when that call can't answer.
@@ -46,6 +50,7 @@ from typing import Literal
 from swift.executors.providers import AGENT_NAMES
 from swift.routing import fast, light
 from swift.routing.demand import estimate
+from swift.system import intents as system_intents
 
 RouteName = Literal["control", "local", "agent"]
 Demand = Literal["light", "standard"]
@@ -108,7 +113,8 @@ class Route:
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
     # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
-    # local: time | date | identity | open | workflows | undo | resume | not_now | show_last | answer (fast lane);
+    # local: time | date | identity | open | workflows | undo | resume | not_now | show_last | answer (fast lane)
+    # | system (the system lane);
     # agent: quick (the light lane) or None.
     action: str | None = None
     demand: Demand | None = None
@@ -200,6 +206,9 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
             return Route("local", text.strip(), action=action, addressed_as=_agent_key(called.group(1)) if called else None)
     if fast.answer(text) is not None:
         return Route("local", text.strip(), action="answer")
+    # The system lane (ADR-016 §3): timers, reminders, volume, theme, lock, ... done by Swift.
+    if system_intents.parse(text) is not None:
+        return Route("local", text.strip(), action="system")
 
     if (opened := _open_request(norm)) is not None:
         return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])

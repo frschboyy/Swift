@@ -90,6 +90,10 @@ desktop:                           # ADR-012 D1-D2: "this", "here", "open this",
   enabled: true                    # read when you speak, never stored; password managers, banks, private windows never read
   never_read_apps: []              # more apps never to look at, e.g. ["Signal.exe"]
   never_read_titles: []            # more window-title words, e.g. ["payroll"]
+system:                            # ADR-016 A1: timers, alarms, reminders, volume, theme, lock... done by Swift, no model
+  enabled: true                    # false sends all of those to the agent as before. Never sleeps, restarts or shuts down
+  schedule_file: "%LOCALAPPDATA%/Swift/schedule.json"  # timers and reminders survive a restart
+  chime: true                      # a short sound when one comes due
 contacts: []                       # who Swift may email; "my lecturer" finds them by alias. Addresses never come from speech alone
   # - name: "Dr Ada Lovelace"
   #   email: "ada.lovelace@example.edu"

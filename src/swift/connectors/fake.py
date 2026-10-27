@@ -27,8 +27,10 @@ class FakeMailConnector:
         fail: str | None = None,
         no_id: bool = False,
         delay: float = 0.0,
+        owner: str = "",
     ) -> None:
         self.contacts = contacts
+        self.owner = owner
         # Set to make the next sends fail with this message, or return no message id.
         self.fail = fail
         self.no_id = no_id
@@ -39,6 +41,9 @@ class FakeMailConnector:
     async def directory(self, query: str) -> list[Contact]:
         words = query.lower().split()
         return [c for c in self.contacts if words and all(w in c.name.lower() or w in c.email for w in words)]
+
+    async def owner_name(self) -> str:
+        return self.owner
 
     async def send(self, email: OutgoingEmail) -> SentMessage:
         if self.delay:

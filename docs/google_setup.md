@@ -25,7 +25,9 @@ Go to **APIs & Services → OAuth consent screen**. Newer consoles call this **G
    | `https://www.googleapis.com/auth/gmail.compose` | Create, update, and send drafts | Restricted scope |
    | `https://www.googleapis.com/auth/calendar.events` | Read, add, change and remove events, with Google Meet links | Sensitive |
    | `https://www.googleapis.com/auth/calendar.freebusy` | Free/busy for you and attendees | **[verify it's offered]**; if not, use `calendar.readonly` |
-   | `https://www.googleapis.com/auth/contacts.readonly` | Contact lookup | Sensitive |
+   | `https://www.googleapis.com/auth/contacts.readonly` | Contact lookup: your saved Google contacts | Sensitive |
+   | `https://www.googleapis.com/auth/contacts.other.readonly` | Contact lookup: "other contacts", the people you've emailed | Sensitive |
+   | `https://www.googleapis.com/auth/userinfo.profile` | Your name, to sign the emails Swift drafts | Not sensitive |
 
    Do **not** add `gmail.readonly`. Email search stays off (§1.4).
 4. **Test users / Audience:** add your own Gmail address.
@@ -60,5 +62,14 @@ uv run --group spikes python spikes/google/freebusy_probe.py --shared SUPERVISOR
 
 Paste the full output into the chat. The probes never print tokens, only their lengths and the scopes granted.
 
-## 8. Revoking access later
+## 8. Signing in again after Swift asks for more (2026-10-27)
+Swift now also asks for `contacts.other.readonly` and `userinfo.profile` (the table in step 3). A token from an earlier sign-in doesn't cover them, so **sign in again once**, yourself, in your own browser:
+
+```powershell
+uv run --group spikes python -m swift.connectors.gmail signin
+```
+
+Add the two scopes on the consent screen first (step 3) if your console lists scopes there. The sign-in prints `granted` or `MISSING` for each scope. Until you sign in again, Swift still finds your saved contacts, but not the people you've only emailed, and it signs emails with `owner_name` from `config.yaml` (or just "Regards,").
+
+## 9. Revoking access later
 Go to <https://myaccount.google.com/permissions>, find **Swift (personal)**, and choose **Remove access**. Also delete the `Swift/Google-probe` entry from Windows Credential Manager. The probe deletes it itself, but check.

@@ -5,7 +5,9 @@ One consent covers every scope Swift uses:
 | Scope | For |
 |---|---|
 | ``gmail.compose`` | sending a draft the owner approved (spike S4) |
-| ``contacts.readonly`` | ``find_contact`` |
+| ``contacts.readonly`` | ``find_contact``: the owner's Google contacts |
+| ``contacts.other.readonly`` | ``find_contact``: "other contacts", the people the owner has emailed |
+| ``userinfo.profile`` | the owner's name, to sign the emails Swift drafts |
 | ``calendar.events`` | creating an event the owner approved (spike S4) |
 
 No ``gmail.readonly``: Swift never reads or searches mail. ``gmail.metadata`` (ADR-011
@@ -16,6 +18,9 @@ No ``gmail.readonly``: Swift never reads or searches mail. ``gmail.metadata`` (A
   ``%APPDATA%\\Swift\\client_secret.json`` (docs/google_setup.md).
 - A token from before a scope was added still works for the older scopes; the new
   one fails with "insufficient scopes" until the owner signs in again.
+- A dropped connection (WinError 10053/10054, a timeout) or a 5xx is retried, at most
+  twice with a short backoff, but only for calls that are safe to repeat (``retry=True``:
+  reads, a patch, a delete). Sending an email or adding an event is never repeated.
 
 Signing in is the owner's job, in their own browser::
 
@@ -30,17 +35,23 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import errno
 import json
 import os
+import socket
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar
+
+from loguru import logger
 
 from swift.connectors.base import ConnectorError
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.compose",
     "https://www.googleapis.com/auth/contacts.readonly",
+    "https://www.googleapis.com/auth/contacts.other.readonly",
+    "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/calendar.events",
 ]
 KEYRING_SERVICE = "Swift/Google"
@@ -48,7 +59,25 @@ KEYRING_USER = "refresh_token"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 SIGNIN_HINT = "Run `uv run --group spikes python -m swift.connectors.gmail signin` and sign in, then try again."
 
+# Waits before the second and third try of a call that is safe to repeat.
+RETRY_DELAYS_S = (0.5, 1.5)
+# Windows' WSAECONNABORTED / WSAECONNRESET / WSAETIMEDOUT, and their POSIX names.
+_DROPPED = {10053, 10054, 10060, errno.ECONNABORTED, errno.ECONNRESET, errno.ETIMEDOUT, errno.EPIPE}
+
 T = TypeVar("T")
+
+
+def transient(exc: BaseException) -> bool:
+    """A failure worth one more try: the connection dropped or timed out, or Google had a 5xx."""
+    if isinstance(exc, (ConnectionError, TimeoutError, socket.timeout)):
+        return True
+    if isinstance(exc, OSError) and (exc.errno in _DROPPED or getattr(exc, "winerror", None) in _DROPPED):
+        return True
+    status = getattr(getattr(exc, "resp", None), "status", None)
+    try:
+        return status is not None and 500 <= int(status) < 600
+    except (TypeError, ValueError):
+        return False
 
 
 def client_secret_path() -> Path:
@@ -100,21 +129,36 @@ class GoogleSession:
             self._services[name] = build(name, version, credentials=self._credentials(), cache_discovery=False)
         return self._services[name]
 
-    async def call(self, fn: Callable[[], T]) -> T:
-        try:
-            return await asyncio.to_thread(fn)
-        except ConnectorError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - Google errors become one readable failure
-            text, low = str(exc), str(exc).lower()
-            if ("insufficient" in low and "scope" in low) or "insufficientpermissions" in low:
-                raise ConnectorError(
-                    f"{self.service_name} isn't allowed yet: Swift's Google sign-in is missing a permission.",
-                    "Sign in again to grant it: " + SIGNIN_HINT, code="not_connected",
-                ) from None
-            if "invalid_grant" in text or "401" in text:
-                raise ConnectorError(f"{self.service_name} sign-in has expired.", SIGNIN_HINT, code="not_connected") from None
-            raise ConnectorError(f"{self.service_name} refused the request: {text[:200]}", "Try again in a moment.") from None
+    async def call(self, fn: Callable[[], T], *, retry: bool = False) -> T:
+        """Run ``fn`` on a thread. ``retry``: it is safe to repeat, so a dropped connection is tried again."""
+        delays = RETRY_DELAYS_S if retry else ()
+        for attempt in range(len(delays) + 1):
+            try:
+                return await asyncio.to_thread(fn)
+            except ConnectorError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - Google errors become one readable failure
+                if attempt < len(delays) and transient(exc):
+                    logger.info("google call retried", service=self.service_name, attempt=attempt + 1,
+                                error=type(exc).__name__)
+                    await asyncio.sleep(delays[attempt])
+                    continue
+                raise self._failure(exc) from None
+        raise AssertionError("unreachable")
+
+    def _failure(self, exc: Exception) -> ConnectorError:
+        if transient(exc):
+            return ConnectorError(f"Swift lost the connection to {self.service_name}, so it couldn't finish.",
+                                  "Try again in a moment.")
+        text, low = str(exc), str(exc).lower()
+        if ("insufficient" in low and "scope" in low) or "insufficientpermissions" in low:
+            return ConnectorError(
+                f"{self.service_name} isn't allowed yet: Swift's Google sign-in is missing a permission.",
+                "Sign in again to grant it: " + SIGNIN_HINT, code="not_connected",
+            )
+        if "invalid_grant" in text or "401" in text:
+            return ConnectorError(f"{self.service_name} sign-in has expired.", SIGNIN_HINT, code="not_connected")
+        return ConnectorError(f"{self.service_name} couldn't do that: {text[:200]}", "Try again in a moment.")
 
 
 def signin() -> None:

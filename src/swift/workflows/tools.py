@@ -7,7 +7,7 @@ it as artifacts, and runs anything with a side effect through the gateway.
 | Tool | Side effect |
 |---|---|
 | ``find_contact(query)`` | none: resolves a person from the owner's contacts |
-| ``draft_email(to, subject, body, draft_id?)`` | none: a draft held by Swift |
+| ``draft_email(to, subject, message, draft_id?)`` | none: a draft held by Swift, written as the owner |
 | ``send_email(draft_id)`` | external: through ``ActionGateway`` and the confirm card |
 | ``present(kind, title, data)`` | none: shows a text, list or table |
 | ``undo_last_action()`` | external: reverses the last action the owner approved, if it can be, with its own card |
@@ -17,6 +17,14 @@ More tools live next to this module: the calendar (``calendar.py``) and the desk
 
 ``side_effect`` is Swift's own label; a connector's description of itself is never used.
 In a workflow run (ADR-011 W1) the scope's ``Grant`` decides which tools may be called.
+
+A draft reads as the owner wrote it: the provider writes a short subject and the message,
+and Swift puts "Hello Janet," above it and "Regards," and the owner's name under it. The name
+is ``owner_name`` in ``config.yaml``, else the name on the owner's Google account.
+
+A ``ToolResult`` that is ``expected`` didn't go ahead for a reason that isn't the provider
+struggling (the owner said no or asked for a change; nobody matched): Swift doesn't count it
+towards moving the run to a stronger model.
 
 Several requests can run at once (ADR-013 §5.4), each in its own scope. A call names its run:
 a provider passes its run id (``bind`` ties it to the scope), otherwise the scope the session
@@ -53,6 +61,16 @@ if TYPE_CHECKING:
 SideEffect = Literal["none", "read", "reversible", "external"]
 
 MAX_BODY = 20_000
+# A subject is a few words ("Meeting cancelled"), never the message.
+MAX_SUBJECT = 78
+MAX_SUBJECT_WORDS = 10
+_GREETING = re.compile(r"^(?:hi|hello|hey|dear|good (?:morning|afternoon|evening))\b[^.!?\n]{0,60},?\s*$", re.IGNORECASE)
+_SIGN_OFF = re.compile(
+    r"^(?:regards|kind regards|best regards|warm regards|best|best wishes|many thanks|thanks|thank you|cheers|"
+    r"sincerely|yours sincerely|yours faithfully|yours|all the best|take care)\b[^.!?,\n]{0,12}[,!]?\s*$",
+    re.IGNORECASE,
+)
+_TITLES = {"dr", "prof", "professor", "mr", "mrs", "ms", "miss", "mx", "sir", "dame"}
 # The overlay gets at most this much of a body; the frame limit is 64 KB.
 SHOWN_BODY = 16_000
 _EMAIL = re.compile(r"^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$")
@@ -76,6 +94,8 @@ class ToolResult:
     ok: bool
     text: str
     data: dict[str, Any] = field(default_factory=dict)
+    # Not ok, but not the provider failing either: the owner decided, or nobody matched.
+    expected: bool = False
 
     def as_mcp(self) -> dict[str, Any]:
         text = self.text + (f"\n{json.dumps(self.data, ensure_ascii=False)}" if self.data else "")
@@ -133,6 +153,9 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         if _EMAIL.match(contact.email):
             unique.setdefault(contact.email.lower(), contact)
     candidates = list(unique.values())
+    # Content-free: how many, and where from ("gmail_emailed": someone the owner has emailed).
+    logger.info("contact lookup", found=len(candidates), sources=sorted({c.source for c in candidates}),
+                problem=bool(problem))
     for contact in candidates:
         scope.resolved[contact.email.lower()] = contact
     await scope.publish(
@@ -142,22 +165,94 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
     data = {"candidates": [c.as_dict() for c in candidates]}
     if not candidates:
         return ToolResult(False, f"No contact matches “{raw}”. {problem}".strip() +
-                          " Don't guess an address: tell the owner who couldn't be found.", data)
+                          " Don't guess an address: tell the owner who couldn't be found.", data, expected=not problem)
     if len(candidates) > 1:
-        return ToolResult(True, "Several contacts match. Use the one the request clearly means; if it's not clear, "
-                          "stop and ask the owner which one.", data)
-    return ToolResult(True, f"Found {candidates[0].name}.", data)
+        listed = "; ".join(_described(c) for c in candidates)
+        return ToolResult(True, f"Several contacts match: {listed}. Use the one the request clearly means; if it's "
+                          "not clear, stop and ask the owner which one, naming each by email and the detail shown.",
+                          data)
+    return ToolResult(True, f"Found {_described(candidates[0])}.", data)
+
+
+def _described(contact: Contact) -> str:
+    """Enough to tell two matches apart: "Janet Okafor <janet@uni.ac.uk>, University of X, Supervisor"."""
+    return f"{contact.name} <{contact.email}>" + (f", {contact.detail}" if contact.detail else "")
+
+
+def greeting(recipients: tuple[Contact, ...]) -> str:
+    """The greeting line: "Hello Janet,", "Hello Dr Lovelace,", "Hello Janet and Ada,"; "Hello," without a name."""
+    names = []
+    for contact in recipients:
+        words = contact.name.split() if "@" not in contact.name else []
+        if len(words) >= 2 and words[0].lower().rstrip(".") in _TITLES:
+            names.append(f"{words[0]} {words[-1]}")
+        elif words:
+            names.append(words[0])
+    if not names:
+        return "Hello,"
+    joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return f"Hello {joined},"
+
+
+def message_only(text: str) -> str:
+    """The message without a greeting or sign-off the provider wrote itself (Swift adds its own)."""
+    lines = text.replace("\r\n", "\n").strip().split("\n")
+    if len(lines) > 1 and _GREETING.match(lines[0].strip()):
+        lines = lines[1:]
+    filled = [i for i, line in enumerate(lines) if line.strip()]
+    for i in filled[1:][-3:]:  # never the message's first line: "Thanks!" alone is the message
+        if _SIGN_OFF.match(lines[i].strip()):
+            lines = lines[:i]
+            break
+    return "\n".join(lines).strip()
+
+
+def compose(recipients: tuple[Contact, ...], message: str, owner: str) -> str:
+    """The body as the owner sends it: greeting, their message, and their name."""
+    sign_off = f"Regards,\n{owner}" if owner else "Regards,"
+    return f"{greeting(recipients)}\n\n{message_only(message)}\n\n{sign_off}"
+
+
+async def owner_name(host: ToolHost) -> str:
+    """Who signs the owner's emails: ``owner_name`` in config.yaml, else their Google account's name."""
+    if host.owner_name:
+        return host.owner_name
+    ask = getattr(host.connector, "owner_name", None)
+    if ask is None:
+        return ""
+    try:
+        return str(await ask()).strip()
+    except ConnectorError:
+        return ""
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.lower().split()).rstrip(".!")
+
+
+def subject_problem(subject: str, message: str) -> str | None:
+    if not subject:
+        return "A draft needs a subject of a few words, e.g. “Meeting cancelled”."
+    if len(subject) > MAX_SUBJECT or len(subject.split()) > MAX_SUBJECT_WORDS:
+        return ("The subject is too long. Make it a few words (e.g. “Meeting cancelled”) and put what to say "
+                "in message.")
+    if _flat(subject) == _flat(message_only(message)):
+        return "The subject repeats the message. Make the subject a few words, and write the message in full."
+    return None
 
 
 async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     to_arg = args.get("to", [])
     addresses = [to_arg] if isinstance(to_arg, str) else [str(a) for a in to_arg or []]
-    subject = str(args.get("subject", "")).strip()
-    body = str(args.get("body", "")).strip()
-    if not addresses or not subject or not body:
-        return ToolResult(False, "A draft needs at least one recipient, a subject and a body.")
-    if len(body) > MAX_BODY:
-        return ToolResult(False, f"The body is too long (over {MAX_BODY} characters).")
+    subject = " ".join(str(args.get("subject", "")).split())
+    # ``body`` is the older name; either way it's the message, and Swift adds the greeting and sign-off.
+    message = str(args.get("message") or args.get("body") or "").strip()
+    if not addresses or not message_only(message):
+        return ToolResult(False, "A draft needs at least one recipient, a subject and a message.")
+    if problem := subject_problem(subject, message):
+        return ToolResult(False, problem)
+    if len(message) > MAX_BODY:
+        return ToolResult(False, f"The message is too long (over {MAX_BODY} characters).")
     recipients = []
     for address in addresses:
         contact = scope.resolved.get(address.strip().lower())
@@ -165,6 +260,10 @@ async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> 
             return ToolResult(False, f"{address} isn't a contact Swift has resolved. Use find_contact first; "
                               "never type an address yourself.")
         recipients.append(contact)
+    signer = await owner_name(host)
+    body = compose(tuple(recipients), message, signer)
+    logger.info("draft written", subject_words=len(subject.split()), greeted=greeting(tuple(recipients)) != "Hello,",
+                signed=bool(signer), revision=bool(args.get("draft_id")))
     draft_id = str(args.get("draft_id") or "").strip()
     if draft_id:
         previous = scope.drafts.get(draft_id)
@@ -175,8 +274,8 @@ async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> 
         draft = Draft(f"draft-{next(scope.ids)}", tuple(recipients), subject, body)
     scope.drafts[draft.id] = draft
     await scope.publish(draft.id, "email_draft", "drafting", _draft_title(draft), _draft_data(draft))
-    return ToolResult(True, "Draft ready. Send it with send_email; Swift will ask the owner first.",
-                      {"draft_id": draft.id, "version": draft.version})
+    return ToolResult(True, "Draft ready, with the owner's greeting and sign-off added. Send it with send_email; "
+                      "Swift will ask the owner first.", {"draft_id": draft.id, "version": draft.version})
 
 
 async def send_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
@@ -239,9 +338,10 @@ async def send_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> T
             return ToolResult(True, f"Sent to {names}.", {"message_id": outcome.receipt})
         case "rejected":
             return ToolResult(False, f"{outcome.reason}: the email was NOT sent. Don't retry or try another way; "
-                              "stop and tell the owner it wasn't sent.")
+                              "stop and tell the owner it wasn't sent.", expected=True)
         case "revise":
-            return ToolResult(False, revise_text(outcome.reason, "draft_email and then send_email", "sent"))
+            return ToolResult(False, revise_text(outcome.reason, "draft_email and then send_email", "sent"),
+                              expected=True)
         case "denied":
             return ToolResult(False, f"Not sent: {outcome.reason}")
         case _:
@@ -289,11 +389,12 @@ async def undo_last_action(host: ToolHost, scope: RunScope, args: dict[str, Any]
         case "done":
             return ToolResult(True, f"Undone: “{last.title}”.", {"undid": last.tool})
         case "rejected":
-            return ToolResult(False, f"{outcome.reason}: “{last.title}” stays as it is. Don't retry; tell the owner.")
+            return ToolResult(False, f"{outcome.reason}: “{last.title}” stays as it is. Don't retry; tell the owner.",
+                              expected=True)
         case "revise":
             return ToolResult(False, f"The owner wants something else instead: “{outcome.reason}”. Nothing was undone. "
                               "Do what they asked with the workflow's own tools; Swift asks them again before it "
-                              "changes anything.")
+                              "changes anything.", expected=True)
         case "denied":
             return ToolResult(False, f"Not undone: {outcome.reason}")
         case _:
@@ -320,12 +421,14 @@ TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec(
         "draft_email",
         "Write or revise an email draft held by Swift; the owner can see it. Nothing is sent. "
+        "Swift adds the greeting (\"Hello Janet,\") and the owner's sign-off and name. "
         "Pass draft_id to revise an existing draft.",
         _obj(
-            ["to", "subject", "body"],
+            ["to", "subject", "message"],
             to={"type": "array", "items": {"type": "string"}, "description": "Addresses from find_contact"},
-            subject={"type": "string"},
-            body={"type": "string", "description": "Plain text, signed as the owner"},
+            subject={"type": "string", "description": "A few words, e.g. 'Meeting cancelled'; never the message"},
+            message={"type": "string", "description": "What the owner says to the recipient, in the first person "
+                     "and their plain voice, in full sentences. Plain text; no greeting, no sign-off."},
             draft_id={"type": "string"},
         ),
         "none", draft_email,
@@ -367,9 +470,12 @@ class ToolHost:
         calendar: CalendarConnector | None = None,
         desktop: Desktop | None = None,
         opener: LocalOpener | None = None,
+        owner_name: str = "",
     ) -> None:
         self.connector = connector
         self.contacts = contacts
+        # Signs the emails Swift drafts; "" asks the email connector (the Google account's name).
+        self.owner_name = owner_name
         self.gateway = gateway or ActionGateway()
         self.tools = {t.name: t for t in tools}
         self.calendar = calendar

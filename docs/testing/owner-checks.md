@@ -1,4 +1,4 @@
-# Owner checks: the overlay, conversations, corrections, stepping away, several requests, the calendar (ADR-012, ADR-013, ADR-014, ADR-011 §13 #5)
+# Owner checks: the overlay, conversations, corrections, stepping away, several requests, the calendar, emails written as you (ADR-012, ADR-013, ADR-014, ADR-011 §13 #5)
 
 About 45 minutes, in your real Swift with your real microphone. Run them in order.
 
@@ -81,7 +81,24 @@ About 10 minutes. Uses your real Google Calendar: every change waits for a card,
 | 36 | Hold the hotkey: "cancel Swift check" | A card "Remove from your calendar: Swift check". Click **Reject** first: it's still there. Then ask again and **approve**: it's gone. | A rejected and an approved removal |
 | 37 | "Hey Swift, email Test Me that the meeting is off", approve, then "hey Swift, undo that" | "…can't be undone (a sent email can't be unsent)", and **no** card that removes a calendar event instead | An undo refused for an email |
 
-If Swift says the calendar "isn't allowed yet" or the sign-in "has expired", sign in again yourself (`uv run --group spikes python -m swift.connectors.gmail signin`); no new permission is asked for.
+If Swift says the calendar "isn't allowed yet" or the sign-in "has expired", sign in again yourself (`uv run --group spikes python -m swift.connectors.gmail signin`).
+
+### Changing your mind (ADR-014 §7; moved here from checks 22–24)
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 38 | Hold the hotkey: "write a short paragraph about lunch". While it works, hold the hotkey: "actually, make it about dinner instead" | "Changing course: actually, make it about dinner…" on the card; the answer is about dinner, on the **same card** | A change of mind passed on (same session for Claude Code) |
+| 39 | Hands-free during a run: "hey Swift, write a haiku about rain", then, **without** "Swift": "actually make it about snow" | A hint: say "Swift, actually …". Then say "Swift, actually make it about snow" and it changes course | A hands-free change of mind needed the name |
+| 40 | "Hey Swift, email Test Me that I'm running late". Approve the card. While it finishes, say "Swift, actually say I'm not coming" | "The email was already sent, so I can't take it back. Say “yes” and I'll send a correction." Say "Swift, yes" and **Reject** the new card | Told it was already sent; the correction offered |
+
+### Emails written as you, and people you've emailed (owner checks of 2026-10-27, fixed)
+
+About 5 minutes. **Sign in to Google again first**, yourself: Swift now asks for two more read-only permissions, "other contacts" (the people you've emailed) and your basic profile (your name, to sign emails). Run `uv run --group spikes python -m swift.connectors.gmail signin`; each permission should print `granted`. Until you do, Swift still finds your saved contacts, but not people you've only emailed, and signs with `owner_name` from `config.yaml` if you set it.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 41 | "Hey Swift, email Test Me that the meeting is off" | Gmail's compose window with a **short subject** (e.g. "Meeting cancelled", never the whole message) and a body that starts "Hello …," says it in plain words as you, and ends "Regards," and **your name** (from your Google account, or `owner_name`). Close it without sending. | A draft greeted and signed with your name |
+| 42 | "Hey Swift, email Janet saying I'll send the chapter tomorrow" (someone you've emailed but never saved as a contact) | Swift finds her: the recipient card shows her email address. If several match, each line shows the email and a second detail (her organization, or "you've emailed them"), and Swift asks which one. Close the draft without sending. | A contact found from Gmail correspondence |
 
 ## After the checks: the report
 
@@ -96,11 +113,3 @@ It reads your local Swift logs, prints what happened request by request, and mar
 ## If something goes wrong
 
 Note the check number and the time. That's enough: the logs have the rest.
-
-### Changing your mind (ADR-014 §7; moved here from checks 22–24)
-
-| # | Do | You should see | Report checks |
-|---|---|---|---|
-| 38 | Hold the hotkey: "write a short paragraph about lunch". While it works, hold the hotkey: "actually, make it about dinner instead" | "Changing course: actually, make it about dinner…" on the card; the answer is about dinner, on the **same card** | A change of mind passed on (same session for Claude Code) |
-| 39 | Hands-free during a run: "hey Swift, write a haiku about rain", then, **without** "Swift": "actually make it about snow" | A hint: say "Swift, actually …". Then say "Swift, actually make it about snow" and it changes course | A hands-free change of mind needed the name |
-| 40 | "Hey Swift, email Test Me that I'm running late". Approve the card. While it finishes, say "Swift, actually say I'm not coming" | "The email was already sent, so I can't take it back. Say “yes” and I'll send a correction." Say "Swift, yes" and **Reject** the new card | Told it was already sent; the correction offered |

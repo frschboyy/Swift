@@ -225,10 +225,11 @@ async def test_fill_in_email_never_sends_and_only_to_contacts() -> None:
     host, desktop, owner, journal = make()
     found = await host.call("find_contact", {"query": "lecturer"})
     draft = await host.call("draft_email", {"to": [found.data["candidates"][0]["email"]], "subject": "Thursday",
-                                            "body": "Dear Dr Lovelace, ..."})
+                                            "message": "I'll miss Thursday's lecture."})
     filled = await host.call("fill_in_email", {"draft_id": draft.data["draft_id"], "app": "outlook"})
     assert filled.ok and "Nothing was sent" in filled.text
-    assert desktop.filled == [("outlook", ["ada.lovelace@example.edu"], "Thursday", "Dear Dr Lovelace, ...")]
+    body = "Hello Dr Lovelace,\n\nI'll miss Thursday's lecture.\n\nRegards,"
+    assert desktop.filled == [("outlook", ["ada.lovelace@example.edu"], "Thursday", body)]
     assert owner.asked == []  # the owner's own click on Send is the approval (ADR-012 §7)
     status = owner.artifacts[-1]
     assert status.kind == "send_status" and status.data["state"] == "filled_in" and status.data["app"] == "Outlook"

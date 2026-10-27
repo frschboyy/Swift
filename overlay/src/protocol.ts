@@ -42,7 +42,7 @@ export type CalendarEventData = {
 };
 export type Artifact = { run_id: string; thread_id?: string; id: string; phase: Phase; version: number; title: string; agent?: Agent | null } & (
   | { kind: "email_draft"; data: { to: Person[]; subject: string; body: string } }
-  | { kind: "recipient"; data: { query: string; candidates: (Person & { source: string })[]; chosen: number | null } }
+  | { kind: "recipient"; data: { query: string; candidates: (Person & { source: string; detail?: string })[]; chosen: number | null } }
   | { kind: "send_status"; data: { state: SendState; draft_id?: string; message_id?: string; reason?: string; app?: string } }
   | { kind: "calendar_event"; data: CalendarEventData }
   | { kind: "text" | "list" | "table"; data: ResultDetails }

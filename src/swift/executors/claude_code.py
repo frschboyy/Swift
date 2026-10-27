@@ -21,7 +21,10 @@
   standard: Sonnet, or an explicit override) and can move up mid-run, keeping
   its context: Claude calls ``request_stronger_model``, or Swift notices it
   struggling (too many steps on one model, tool calls failing). Haiku -> Sonnet
-  -> Opus, never down.
+  -> Opus, never down. A Swift tool result that is ``expected`` (the owner rejected a card or
+  asked for a change, nobody matched) isn't a failure. A run that uses Swift's tools (email,
+  calendar, cards) is short work: Swift moves it to Opus only when its tool calls really keep
+  failing, never for its number of steps.
 - **Swift's tools (ADR-010).** With a ``ToolHost``, Swift's workflow tools
   (``find_contact``, ``draft_email``, ``send_email``, ``present``) join the in-process
   ``swift`` MCP server and ``allowed_tools``: Claude Code doesn't ask about them,
@@ -150,6 +153,10 @@ class _Run:
     escalations: list[dict[str, Any]] = field(default_factory=list)
     steps_at_level: int = 0
     failures: int = 0
+    # Swift tool results not yet seen in the stream that are ``expected``, not failures; and
+    # whether the run has called Swift's tools at all.
+    expected: int = 0
+    swift_tools: bool = False
     # Changes of mind waiting for the next turn (``redirect``).
     redirects: list[str] = field(default_factory=list)
 
@@ -391,8 +398,12 @@ class ClaudeCodeExecutor:
         assert host is not None
 
         async def call(args: dict[str, Any]) -> dict[str, Any]:
-            run = current()[1] if current is not None else None
-            return (await host.call(spec.name, args, run=run)).as_mcp()
+            run, run_id = current() if current is not None else (None, None)
+            result = await host.call(spec.name, args, run=run_id)
+            if run is not None:
+                run.swift_tools = True
+                run.expected += not result.ok and result.expected
+            return result.as_mcp()
 
         return tool(spec.name, spec.description, spec.schema)(call)
 
@@ -559,9 +570,15 @@ class ClaudeCodeExecutor:
                 run.steps_at_level += 1
         elif kind == "UserMessage" and isinstance(message.content, list):
             for block in message.content:
-                if type(block).__name__ == "ToolResultBlock":
+                if type(block).__name__ != "ToolResultBlock":
+                    continue
+                if block.is_error and run.expected:
+                    run.expected -= 1  # the owner decided, or nobody matched: not the model struggling
+                else:
                     run.failures = run.failures + 1 if block.is_error else 0
         limit = self.turn_limits.get(run.level)
+        if run.swift_tools and run.level == "standard":
+            limit = None  # a card revised a few times is many steps, not a hard request
         run_id = next((rid for rid, r in self._runs.items() if r is run), "?")
         if limit is not None and run.steps_at_level > limit:
             await self._escalate(run, run_id, f"more than {limit} steps on {_model_label(self.models[run.level])}", by="swift")

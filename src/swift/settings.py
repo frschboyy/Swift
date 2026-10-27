@@ -271,6 +271,9 @@ class Settings(_Section):
     # The only people Swift resolves besides your Google contacts (ADR-010 §4: addresses never
     # come from the model or from speech alone).
     contacts: list[ContactSettings] = Field(default_factory=list)
+    # Your name as it ends the emails Swift drafts ("Regards, Francis Chianu"). Empty: the name on
+    # your Google account.
+    owner_name: str = ""
     debug: bool = False
 
 

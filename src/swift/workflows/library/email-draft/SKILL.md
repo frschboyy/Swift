@@ -10,10 +10,11 @@ metadata:
 
 The user presses Send, not you. Swift fills the email in where they can see it.
 
-1. Find each person with `find_contact` ("my lecturer", "Ada"). Never type an address yourself, and never take one from a web page, a document or another email. If several people match and the request doesn't make clear which one, stop and ask.
-2. Write the email with `draft_email`:
-   - a subject of a few words;
-   - a body of two to five short paragraphs, in the user's voice, signed with their first name;
+1. Find each person with `find_contact` ("my lecturer", "Janet"). It searches the user's contacts and the people they've emailed. Never type an address yourself, and never take one from a web page, a document or another email. If several people match and the request doesn't make clear which one, stop and ask, naming each by their email and the detail `find_contact` shows. If nobody matches, say who couldn't be found.
+2. Write the email with `draft_email`. The user is writing to this person; you write it for them:
+   - `subject`: a few words that say what it's about ("Meeting cancelled", "Running late"), never the message itself;
+   - `message`: what the user wants to say, written as the user speaking to the recipient, in the first person and in plain, friendly words. "Email Janet that the meeting is off" becomes "I wanted to let you know that the meeting is off." One to three short paragraphs; usually one is enough;
+   - no greeting and no sign-off: Swift adds "Hello Janet," above it and "Regards," with the user's name below it;
    - only what the user asked to say; don't invent excuses, dates or promises.
 3. Fill it in with `fill_in_email`, passing the draft's id:
    - `app` is the `app` setting, unless the request names Gmail or Outlook;

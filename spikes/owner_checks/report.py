@@ -104,6 +104,9 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         return (tool, decision) in approved
 
     undos = [r for r in rows if r.get("undo")]
+    drafts = [line for line in log if "| draft written |" in line]
+    as_owner = [line for line in drafts if "greeted=True" in line and "signed=True" in line]
+    emailed = [line for line in log if "| contact lookup |" in line and "gmail_emailed" in line]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows),
          f"{unsure_wake} unsure wake phrase(s) still taken"),
@@ -176,6 +179,10 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
             r.get("redirected") and r.get("source") in ("wake", "beside") for r in rows), ""),
         ("40 after a sent email: told, correction offered", "after_done" in redirects
          and any(r.get("fix") for r in rows), ""),
+        ("41 a draft written as the owner: greeting and signed with their name", bool(as_owner),
+         f"{len(as_owner)} of {len(drafts)} draft(s); check on screen: short subject, 'Regards, <your name>'"),
+        ("42 a contact found from Gmail correspondence (people you've emailed)", bool(emailed),
+         f"{len(emailed)} lookup(s)"),
     ]
 
 

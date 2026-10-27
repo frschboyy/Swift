@@ -30,9 +30,14 @@ class Contact:
     email: str
     # Where Swift found it: "config" (the owner's contacts list) or the connector's id.
     source: str = "config"
+    # A second thing to tell two matches apart by: "Acme Ltd, Supervisor", "you've emailed them".
+    detail: str = ""
 
     def as_dict(self) -> dict[str, str]:
-        return {"name": self.name, "email": self.email, "source": self.source}
+        out = {"name": self.name, "email": self.email, "source": self.source}
+        if self.detail:
+            out["detail"] = self.detail
+        return out
 
 
 @dataclass(frozen=True)
@@ -61,6 +66,10 @@ class EmailConnector(Protocol):
 
     async def directory(self, query: str) -> list[Contact]:
         """The owner's contacts matching ``query`` (read-only)."""
+        ...
+
+    async def owner_name(self) -> str:
+        """The owner's name on the account, to sign emails with; "" if unknown (read-only)."""
         ...
 
     async def send(self, email: OutgoingEmail) -> SentMessage:

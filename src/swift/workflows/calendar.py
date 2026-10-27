@@ -169,9 +169,9 @@ def _answer(outcome: Outcome, done: str, verb: str, tool: str, data: dict[str, A
             return ToolResult(True, done, data or {})
         case "rejected":
             return ToolResult(False, f"{outcome.reason}: the event was NOT {verb}. Don't retry or try another way; "
-                              f"stop and tell the owner it wasn't {verb}.")
+                              f"stop and tell the owner it wasn't {verb}.", expected=True)
         case "revise":
-            return ToolResult(False, revise_text(outcome.reason, tool, verb))
+            return ToolResult(False, revise_text(outcome.reason, tool, verb), expected=True)
         case "denied":
             return ToolResult(False, f"Not {verb}: {outcome.reason}")
         case _:

@@ -4,6 +4,10 @@ One JSON line per state change: ``PENDING`` before a side effect runs, then
 ``DONE`` or ``FAILED``. Metadata only: never an email body, subject or full
 address (T8). An action still ``PENDING`` when Swift starts is reported and
 never resumed, so a crash can't send an email twice.
+
+``DONE`` carries the service's id (``receipt``) and whether it can be undone; an
+action that reverses another names it (``undoes``). ``receipts`` reads them back:
+e.g. the events Swift added, so "remove the event you just added" finds it.
 """
 
 from __future__ import annotations
@@ -37,9 +41,9 @@ class Journal:
         except OSError as exc:
             logger.warning("could not write the action journal", error=str(exc))
 
-    def unfinished(self) -> list[dict[str, Any]]:
-        """Actions whose last entry is ``PENDING``: interrupted mid-execute. Never resumed."""
-        last: dict[str, dict[str, Any]] = {}
+    def _all(self) -> list[dict[str, Any]]:
+        """Every entry: the file's (earlier Swift runs too), then this run's that aren't in a file."""
+        out: list[dict[str, Any]] = []
         if self.path is not None and self.path.exists():
             for line in self.path.read_text(encoding="utf-8").splitlines():
                 try:
@@ -47,10 +51,35 @@ class Journal:
                 except json.JSONDecodeError:
                     continue
                 if isinstance(entry, dict) and "action" in entry:
-                    last[entry["action"]] = entry
-        for entry in self.entries:
+                    out.append(entry)
+            return out
+        return list(self.entries)
+
+    def unfinished(self) -> list[dict[str, Any]]:
+        """Actions whose last entry is ``PENDING``: interrupted mid-execute. Never resumed."""
+        last: dict[str, dict[str, Any]] = {}
+        for entry in self._all() + self.entries:
             last[entry["action"]] = entry
         return [e for e in last.values() if e.get("state") == "PENDING"]
+
+    def receipts(self, tool: str) -> list[str]:
+        """The ids ``tool`` got back for actions that are DONE and not undone since, oldest first."""
+        tools: dict[str, str] = {}
+        undone: set[str] = set()
+        undoes: dict[str, str] = {}
+        done: list[tuple[str, str]] = []
+        for entry in self._all():
+            action, state = entry["action"], entry.get("state")
+            if state == "PENDING":
+                tools[action] = str(entry.get("tool", ""))
+                if entry.get("undoes"):
+                    undoes[action] = str(entry["undoes"])
+            elif state == "DONE":
+                if action in undoes:
+                    undone.add(undoes[action])
+                if tools.get(action) == tool and entry.get("receipt"):
+                    done.append((action, str(entry["receipt"])))
+        return [receipt for action, receipt in done if action not in undone]
 
     def report_unfinished(self) -> None:
         for entry in self.unfinished():

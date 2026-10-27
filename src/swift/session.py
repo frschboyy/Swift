@@ -148,6 +148,7 @@ from swift.routing.rules import (
     route_target,
     strip_wake,
 )
+from swift.security.gateway import UNDO_WINDOW_S, Approved
 from swift.stt.transcriber import (
     REJECT_P,
     UNCLEAR_P,
@@ -233,10 +234,19 @@ NO_TARGET_HINT = "I couldn't tell which request you mean."
 # After something that can't be taken back, the follow-up Swift offers (ADR-014 §7).
 DONE_ALREADY = {
     "send_email": ("The email was already sent", "send a correction"),
-    "create_calendar_event": ("The event was already added", "change the event"),
+    "create_calendar_event": ("The event was already added", "change it"),
+    "update_calendar_event": ("The event was already changed", "change it again"),
+    "delete_calendar_event": ("The event was already removed", "add it again"),
     "desktop_open_program": ("It was already opened", "go on from there"),
 }
+# Done, but changeable in place: a change of mind changes it rather than doing a correction.
+CHANGEABLE = frozenset({"create_calendar_event", "update_calendar_event"})
 FIX_OFFER_S = 120.0
+# "Undo that" when the newest thing Swift did was an approved action (the gateway's undo).
+UNDO_REQUEST = (
+    "{said}\n\n[Swift: the last thing the owner approved was “{title}”. They want it undone: call "
+    "undo_last_action. Swift shows them a card first; if it can't be undone, say so.]"
+)
 # Words that don't name a request ("the", "one").
 _NAME_STOP = frozenset(
     "a an the to of for on in at about with my me our your and or it that this one request task thing please "
@@ -1378,7 +1388,11 @@ class Session:
                 target = await self._open_target(decision)
                 if target is None:  # not a configured name: Claude Code decides
                     decision = _to_agent(decision)
-            if decision is not None and decision.action == "undo" and not self._can_undo():
+            if decision is not None and decision.action == "undo" and (undo := self._approved_undo()) is not None:
+                # The newest thing Swift did was approved on a card: its own undo, with a card again.
+                record["undo"] = undo.tool
+                decision = replace(_to_agent(decision), text=UNDO_REQUEST.format(said=decision.text, title=undo.title))
+            elif decision is not None and decision.action == "undo" and not self._can_undo():
                 decision = _to_agent(decision)  # nothing Swift wrote: "undo that" is for Claude Code
             resumed: Parked | None = None
             if decision is not None and self.parked is not None and answered is None:
@@ -1818,9 +1832,17 @@ class Session:
             return
         done = run.scope.done if run.scope is not None else []
         if done:
-            # Something that can't be taken back already happened: say so, offer the follow-up.
+            # Something already happened: say so, offer the follow-up.
             tool, title = done[-1]
             what, fix = DONE_ALREADY.get(tool, ("That was already done", "follow it up"))
+            if tool in CHANGEABLE:
+                self._fix_offer = (f"{change}\n\n[Already done: {title}. Change that event to match "
+                                   "(update_calendar_event); don't add another.]", run.thread, time.monotonic())
+                if record is not None:
+                    record["redirected"] = "after_done"
+                logger.info("change of mind after an action that can be changed", tool=tool)
+                await phase("hint", f"{what}. Say “yes” and I'll {fix}.")
+                return
             self._fix_offer = (f"{change}\n\n[Already done, and it can't be undone: {title}. Do the follow-up "
                                "that makes the change, e.g. a correction.]", run.thread, time.monotonic())
             if record is not None:
@@ -1902,6 +1924,16 @@ class Session:
 
     def _can_undo(self) -> bool:
         return self.desktop is not None and self.tools is not None and self.tools.last_write is not None
+
+    def _approved_undo(self) -> Approved | None:
+        """The gateway's last approved action, when "undo that" means it: recent, and newer than
+        anything Swift wrote in the owner's apps (that one has the app's own undo)."""
+        if self.tools is None:
+            return None
+        last = self.tools.gateway.last_approved(UNDO_WINDOW_S)
+        if last is None or (self._can_undo() and self.tools.last_write_at >= last.at):
+            return None
+        return last
 
     async def _with_desktop(self, request: str, said: str, record: dict[str, Any]) -> str:
         """Add where the owner is when the request says "this" or "here"; the selection only if it's about it."""

@@ -1,8 +1,9 @@
 # Swift's manifest for calendar-event (ADR-011 §13 #5, Google; Apple Calendar left out for now).
+# The everyday lifecycle: look, add, change, move, cancel, add a Meet link, undo.
 schema: swift.workflow/v0
 name: calendar-event
-version: 1.0.0
-title: Add a calendar event
+version: 2.0.0
+title: Calendar events
 triggers:
   - say:
       - "add {event} to my calendar"
@@ -16,12 +17,33 @@ triggers:
   - intent:
       actions: [add, put, schedule, set up, book, create, arrange, plan, organise, organize]
       subjects: [calendar, meeting, appointment, event, call, lunch, dinner, session, office hours]
+  # "Move my meeting with Ada to Friday", "cancel the dentist appointment", "add a Meet link to my
+  # meeting", "show me my calendar for tomorrow". No bare "event" or "call" here: "remove the
+  # event listener" and "update the function call" are coding requests.
+  - intent:
+      actions: [move, reschedule, push back, bring forward, postpone, cancel, delete, remove, change, update,
+                rename, invite, show, list, check]
+      subjects: [calendar, meeting, meetings, appointment, appointments, lunch, dinner, office hours,
+                 google meet, meet link]
+  # Questions it answers by looking: "what's on my calendar tomorrow", "when is my next meeting",
+  # "am I free on Friday afternoon". Only about the owner's own calendar ("my ..."), so "what is
+  # a meeting" or "how do I schedule a meeting in Teams" aren't routed here.
+  - intent:
+      questions: true
+      actions: [what, what's, whats, when, when's, where, which, do, does, am, is, are, have, anything]
+      subjects: [my calendar, my schedule, my diary, my agenda, my day, my week, my next meeting, my meetings,
+                 my next event, my events, my appointments, my next appointment, am i free, am i busy]
 inputs:
   event: {type: text}               # what, and often when ("lunch with Ada tomorrow at noon")
   when: {type: date}
 needs:
+  - calendar.list_events            # read: no card
   - calendar.create_event           # external: always the confirm card
+  - calendar.update_event           # external: the card shows before → after
+  - calendar.delete_event           # external: always the confirm card
+  - email.find_contact              # attendees only ever come from the owner's contacts
+  - swift.undo                      # "undo that": removes the event just added, with a card
 run:
   playbook: SKILL.md
   provider: any
-shows: [calendar_event]
+shows: [calendar_event, table]

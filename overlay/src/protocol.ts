@@ -33,7 +33,13 @@ export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done"
 export type Person = { name: string; email: string };
 // filled_in: the email is in Gmail's compose window or an Outlook draft; the owner presses Send (ADR-012 Q3).
 export type SendState = "waiting_approval" | "sending" | "sent" | "failed" | "rejected" | "filled_in";
-export type CalendarEventData = { title: string; when: string; location: string; all_day: boolean; start: string; end: string; state?: SendState; reason?: string };
+export type CalendarEventData = {
+  title: string; when: string; location: string; all_day: boolean; start: string; end: string; state?: SendState; reason?: string;
+  // Who is invited, and a Meet link asked for or present.
+  attendees?: string; meet?: boolean;
+  // A change: the event before it and the card's "before → after" lines. A removal: removing.
+  before?: Omit<CalendarEventData, "before" | "changes">; changes?: string[]; removing?: boolean;
+};
 export type Artifact = { run_id: string; thread_id?: string; id: string; phase: Phase; version: number; title: string; agent?: Agent | null } & (
   | { kind: "email_draft"; data: { to: Person[]; subject: string; body: string } }
   | { kind: "recipient"; data: { query: string; candidates: (Person & { source: string })[]; chosen: number | null } }

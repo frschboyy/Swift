@@ -1,36 +1,117 @@
 """Google Calendar for the calendar-event workflow (ADR-011 W1, §13 #5).
 
-Creates one event in the owner's primary calendar with ``events.insert`` under
-``calendar.events`` (verified in spike S4). Nothing else: no reading, no attendees,
-so no invitations go out. The sign-in is shared with Gmail (``swift.connectors.google``);
-a token from before ``calendar.events`` was added needs signing in again.
+Works on the owner's primary calendar, all under the ``calendar.events`` scope
+(verified in spike S4; it covers reading as well as changing events, so nothing new
+needs granting):
+
+| Method | API |
+|---|---|
+| ``list_events`` | ``events.list`` (repeating events expanded, soonest first) |
+| ``get_event`` | ``events.get`` |
+| ``create_event`` | ``events.insert`` |
+| ``update_event`` | ``events.patch`` |
+| ``delete_event`` | ``events.delete`` |
+
+A Google Meet link is asked for with ``conferenceData.createRequest`` and
+``conferenceDataVersion=1``. Invitations, changes and cancellations are emailed
+(``sendUpdates="all"``) only when the event has attendees, who only ever come from
+the owner's contacts; otherwise nobody is told (``"none"``). The sign-in is shared with
+Gmail (``swift.connectors.google``); a token from before ``calendar.events`` was added
+needs signing in again.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+import uuid
+from datetime import date, datetime
 from typing import Any
 
-from swift.connectors.base import CalendarEvent, CreatedEvent, Manifest
+from swift.connectors.base import CalendarEvent, ConnectorError, Contact, CreatedEvent, Manifest, StoredEvent
 from swift.connectors.google import GoogleSession
 
 
-def body(event: CalendarEvent) -> dict[str, Any]:
+def _when(moment: datetime | date) -> dict[str, str]:
+    if isinstance(moment, datetime):
+        return {"dateTime": moment.astimezone().isoformat(timespec="seconds")}
+    return {"date": moment.isoformat()}
+
+
+def meet_request(request_id: str | None = None) -> dict[str, Any]:
+    """Asks Google to make a Meet link for the event (needs ``conferenceDataVersion=1``)."""
+    return {"createRequest": {"requestId": request_id or uuid.uuid4().hex,
+                              "conferenceSolutionKey": {"type": "hangoutsMeet"}}}
+
+
+def body(event: CalendarEvent, request_id: str | None = None) -> dict[str, Any]:
     """The event as the API's ``Event`` resource. Times carry the owner's UTC offset."""
-    if event.all_day:
-        when = {"start": {"date": event.start.isoformat()}, "end": {"date": event.end.isoformat()}}
-    else:
-        assert isinstance(event.start, datetime) and isinstance(event.end, datetime)
-        when = {
-            "start": {"dateTime": event.start.astimezone().isoformat(timespec="seconds")},
-            "end": {"dateTime": event.end.astimezone().isoformat(timespec="seconds")},
-        }
-    out: dict[str, Any] = {"summary": event.title, **when}
+    out: dict[str, Any] = {"summary": event.title, "start": _when(event.start), "end": _when(event.end)}
     if event.location:
         out["location"] = event.location
     if event.description:
         out["description"] = event.description
+    if event.attendees:
+        out["attendees"] = [{"email": c.email} for c in event.attendees]
+    if event.meet:
+        out["conferenceData"] = meet_request(request_id)
     return out
+
+
+def patch(current: dict[str, Any], event: CalendarEvent, request_id: str | None = None) -> dict[str, Any]:
+    """What ``events.patch`` gets to make ``current`` (the API's resource) look like ``event``.
+
+    Attendees still on the event keep their entry (and their answer); a Meet link is
+    only ever added, never removed."""
+    out: dict[str, Any] = {
+        "summary": event.title, "start": _when(event.start), "end": _when(event.end),
+        "location": event.location, "description": event.description,
+    }
+    kept = {str(a.get("email", "")).lower(): a for a in current.get("attendees") or []}
+    wanted = [kept.get(c.email.lower(), {"email": c.email}) for c in event.attendees]
+    # The owner's own entry and rooms aren't shown as attendees, so they're kept as they are.
+    wanted += [a for a in kept.values() if a.get("self") or a.get("resource")]
+    if [a.get("email") for a in wanted] != [a.get("email") for a in current.get("attendees") or []]:
+        out["attendees"] = wanted
+    if event.meet and not _meet_link(current):
+        out["conferenceData"] = meet_request(request_id)
+    return out
+
+
+def _moment(raw: dict[str, Any]) -> datetime | date:
+    if "dateTime" in raw:
+        return datetime.fromisoformat(str(raw["dateTime"])).astimezone()
+    return date.fromisoformat(str(raw["date"]))
+
+
+def _meet_link(raw: dict[str, Any]) -> str:
+    if raw.get("hangoutLink"):
+        return str(raw["hangoutLink"])
+    for entry in (raw.get("conferenceData") or {}).get("entryPoints") or []:
+        if entry.get("entryPointType") == "video" and entry.get("uri"):
+            return str(entry["uri"])
+    return ""
+
+
+def parse(raw: dict[str, Any]) -> StoredEvent:
+    """An ``Event`` resource as Swift's ``StoredEvent``. The owner and rooms aren't attendees."""
+    attendees = tuple(
+        Contact(str(a.get("displayName") or a["email"]), str(a["email"]), "google_calendar")
+        for a in raw.get("attendees") or [] if a.get("email") and not a.get("self") and not a.get("resource")
+    )
+    meet = _meet_link(raw)
+    event = CalendarEvent(
+        str(raw.get("summary") or "(no title)"), _moment(raw.get("start") or {}), _moment(raw.get("end") or {}),
+        str(raw.get("location") or ""), str(raw.get("description") or ""), attendees, bool(meet),
+    )
+    return StoredEvent(str(raw.get("id", "")), event, str(raw.get("htmlLink", "")), meet,
+                       bool(raw.get("recurringEventId")))
+
+
+def _notify(*events: CalendarEvent | dict[str, Any]) -> str:
+    """Attendees are told ("all") about a change only when there are any."""
+    for event in events:
+        if (event.attendees if isinstance(event, CalendarEvent) else event.get("attendees")):
+            return "all"
+    return "none"
 
 
 class GoogleCalendarConnector:
@@ -39,11 +120,69 @@ class GoogleCalendarConnector:
     def __init__(self) -> None:
         self._google = GoogleSession("Google Calendar")
 
+    def _events(self) -> Any:
+        return self._google.service("calendar", "v3").events()
+
+    async def list_events(self, start: datetime, end: datetime, query: str = "", limit: int = 20) -> list[StoredEvent]:
+        def fetch() -> list[StoredEvent]:
+            args: dict[str, Any] = {
+                "calendarId": "primary", "timeMin": start.astimezone().isoformat(timespec="seconds"),
+                "timeMax": end.astimezone().isoformat(timespec="seconds"), "singleEvents": True,
+                "orderBy": "startTime", "maxResults": limit,
+            }
+            if query:
+                args["q"] = query
+            items = self._events().list(**args).execute().get("items") or []
+            return [parse(i) for i in items if i.get("status") != "cancelled"]
+
+        return await self._google.call(fetch)
+
+    def _get(self, event_id: str) -> dict[str, Any] | None:
+        try:
+            raw = self._events().get(calendarId="primary", eventId=event_id).execute()
+        except Exception as exc:  # noqa: BLE001 - "not found" is an answer, anything else is a failure
+            if "404" in str(exc) or "410" in str(exc):
+                return None
+            raise
+        return None if raw.get("status") == "cancelled" else raw
+
+    async def get_event(self, event_id: str) -> StoredEvent | None:
+        def fetch() -> StoredEvent | None:
+            raw = self._get(event_id)
+            return parse(raw) if raw is not None else None
+
+        return await self._google.call(fetch)
+
     async def create_event(self, event: CalendarEvent) -> CreatedEvent:
         def insert() -> CreatedEvent:
-            events = self._google.service("calendar", "v3").events()
-            created = events.insert(calendarId="primary", body=body(event), sendUpdates="none").execute()
-            return CreatedEvent(str(created.get("id", "")), str(created.get("htmlLink", "")))
+            created = self._events().insert(
+                calendarId="primary", body=body(event), sendUpdates=_notify(event),
+                conferenceDataVersion=1 if event.meet else 0,
+            ).execute()
+            return CreatedEvent(str(created.get("id", "")), str(created.get("htmlLink", "")), _meet_link(created))
 
         return await self._google.call(insert)
 
+    async def update_event(self, event_id: str, event: CalendarEvent) -> CreatedEvent:
+        def update() -> CreatedEvent:
+            current = self._get(event_id)
+            if current is None:
+                raise ConnectorError("That event isn't in the calendar any more.", code="not_found")
+            changes = patch(current, event)
+            updated = self._events().patch(
+                calendarId="primary", eventId=event_id, body=changes, sendUpdates=_notify(event, current),
+                conferenceDataVersion=1 if "conferenceData" in changes else 0,
+            ).execute()
+            return CreatedEvent(str(updated.get("id", "")), str(updated.get("htmlLink", "")), _meet_link(updated))
+
+        return await self._google.call(update)
+
+    async def delete_event(self, event_id: str) -> str:
+        def delete() -> str:
+            current = self._get(event_id)
+            if current is None:
+                raise ConnectorError("That event isn't in the calendar any more.", code="not_found")
+            self._events().delete(calendarId="primary", eventId=event_id, sendUpdates=_notify(current)).execute()
+            return event_id  # Google answers a delete with an empty body; no error means it's gone
+
+        return await self._google.call(delete)

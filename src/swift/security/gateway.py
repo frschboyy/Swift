@@ -15,14 +15,22 @@
 9. audit      one log line through the redaction patcher
 
 Policy fails closed: a tool the table doesn't know is denied.
+
+Undo ("undo that", "that wasn't approved"): an action can say how to reverse itself
+(``Action.undo``: a new ``Action`` built from the receipt, e.g. removing the event just
+added). The gateway remembers the approved actions it did (``approved``), newest last.
+``undo_last`` reverses the newest one, if it can be undone, through this same
+``execute``: a confirm card, journalled with ``undoes`` naming the action it reverses.
+A sent email has no undo, and the owner is told so.
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from loguru import logger
@@ -40,6 +48,8 @@ Status = Literal["waiting_approval", "sending", "sent", "failed", "rejected"]
 POLICY: dict[str, Literal["confirm", "reversible"]] = {
     "send_email": "confirm",
     "create_calendar_event": "confirm",
+    "update_calendar_event": "confirm",
+    "delete_calendar_event": "confirm",
     # "Open this" on a program or script: running it is not reversible.
     "desktop_open_program": "confirm",
     "fill_in_email": "reversible",
@@ -66,6 +76,27 @@ class Action:
     on_status: Callable[[Status, dict[str, str]], Awaitable[None]] | None = None
     # False for actions with nobody on the other end (a calendar event for the owner, a write).
     targets_required: bool = True
+    # How to reverse it once done: (scope, receipt) -> the reversing action (its own card).
+    # None: it can't be undone (an email, once sent).
+    undo: Callable[[RunScope, str], Action] | None = None
+    # The journal id of the action this one reverses (set by ``undo_last``).
+    undoes: str = ""
+
+
+@dataclass
+class Approved:
+    """An action the owner approved and the gateway did: what "undo that" refers to."""
+
+    action_id: str
+    tool: str
+    title: str
+    receipt: str
+    undo: Callable[[RunScope, str], Action] | None
+    at: float = field(default_factory=time.monotonic)
+
+    @property
+    def undoable(self) -> bool:
+        return self.undo is not None
 
 
 @dataclass(frozen=True)
@@ -75,9 +106,39 @@ class Outcome:
     receipt: str = ""
 
 
+# How many approved actions are remembered for "undo that" (in memory, this Swift run only),
+# and for how long after it was done "undo that" still means one.
+KEEP_APPROVED = 20
+UNDO_WINDOW_S = 15 * 60.0
+
+
 class ActionGateway:
     def __init__(self, journal: Journal | None = None) -> None:
         self.journal = journal or Journal(None)
+        # Approved and done, newest last; an undone one is removed.
+        self.approved: list[Approved] = []
+
+    def last_approved(self, within_s: float | None = None) -> Approved | None:
+        """The newest action the owner approved that's still in place (done less than ``within_s`` ago)."""
+        if not self.approved:
+            return None
+        last = self.approved[-1]
+        if within_s is not None and time.monotonic() - last.at > within_s:
+            return None
+        return last
+
+    async def undo_last(self, scope: RunScope, within_s: float | None = None) -> tuple[Approved | None, Outcome]:
+        """Reverse the newest approved action, with its own confirm card. Denied if it can't be undone."""
+        last = self.last_approved(within_s)
+        if last is None:
+            return None, Outcome("denied", "Swift hasn't done anything on the owner's approval recently.")
+        if last.undo is None:
+            return last, Outcome("denied", f"“{last.title}” can't be undone.")
+        reverse = last.undo(scope, last.receipt)
+        outcome = await self.execute(scope, replace(reverse, undoes=last.action_id))
+        if outcome.status == "done" and last in self.approved:
+            self.approved.remove(last)
+        return last, outcome
 
     async def execute(self, scope: RunScope, action: Action) -> Outcome:
         async def status(state: Status, **extra: str) -> None:
@@ -122,7 +183,9 @@ class ActionGateway:
         # 5. journal
         action_id = uuid.uuid4().hex[:12]
         domains = sorted({t.email.rsplit("@", 1)[-1].lower() for t in action.targets})
-        self.journal.write(action_id, "PENDING", tool=action.tool, digest=approved_digest[:16], domains=domains)
+        extra = {"undoes": action.undoes} if action.undoes else {}
+        self.journal.write(action_id, "PENDING", tool=action.tool, digest=approved_digest[:16], domains=domains,
+                           **extra)
         # 6. execute
         if action.digest() != approved_digest:
             self.journal.write(action_id, "FAILED", reason="changed_after_approval")
@@ -143,10 +206,13 @@ class ActionGateway:
         if not receipt:
             return await self._failed(action, action_id, "The service didn't confirm it.", status)
         # 8. journal, 9. audit
-        self.journal.write(action_id, "DONE", receipt=receipt)
+        self.journal.write(action_id, "DONE", receipt=receipt, undoable=action.undo is not None)
         scope.sent.add(approved_digest)
         if policy == "confirm":
             scope.done.append((action.tool, action.title))
+            if not action.undoes:  # undoing an undo isn't offered
+                self.approved = [*self.approved, Approved(action_id, action.tool, action.title, receipt,
+                                                          action.undo)][-KEEP_APPROVED:]
         await status("sent", message_id=receipt)
         logger.info("action done", tool=action.tool, action=action_id, domains=domains)
         return Outcome("done", receipt=receipt)

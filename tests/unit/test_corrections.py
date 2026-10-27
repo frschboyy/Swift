@@ -184,13 +184,28 @@ def test_clear_requests_run_and_questions_do_not() -> None:
         "add lunch with Ada to my calendar tomorrow at noon": ("calendar-event", "run"),
         "write my lecturer an email about the deadline": ("email-draft", "run"),
         "research the history of tea and write it up in a word document": ("research-into-word", "run"),
-        "what's on my calendar tomorrow": None,
         "I have a meeting later": None,
         "what time is it": None,
+        # The calendar's whole lifecycle runs there too (looking, moving, cancelling, Meet links).
+        "move my meeting with Ada to Friday at 3": ("calendar-event", "run"),
+        "cancel my dentist appointment tomorrow": ("calendar-event", "run"),
+        "add a google meet link to my meeting with Ada": ("calendar-event", "run"),
+        "show me my calendar for this week": ("calendar-event", "run"),
+        # Questions about the owner's own calendar run it on purpose: it answers them by looking
+        # (list_calendar_events, read-only), so is_question doesn't block them.
+        "what's on my calendar tomorrow": ("calendar-event", "run"),
+        "when is my next meeting?": ("calendar-event", "run"),
+        "Hey Swift, do I have anything on my calendar this week": ("calendar-event", "run"),
+        "am I free on Friday afternoon": ("calendar-event", "run"),
+        # ... but not questions about meetings in general, nor coding requests.
+        "what is a meeting": None,
+        "how do I schedule a meeting in Teams?": None,
+        "remove the event listener in main.ts": None,
+        "update the function call in session.py": None,
     }
     for text, expected in cases.items():
         m = library.match(text)
         assert ((m.package.name, m.kind) if m else None) == expected, text
-    # A question that mentions the subject is at most offered, never run.
-    m = library.match("did I add the meeting to my calendar")
+    # A question that isn't about the owner's calendar never runs a workflow that does something.
+    m = library.match("did I add the meeting")
     assert m is None or m.kind == "offer"

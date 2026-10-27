@@ -51,7 +51,11 @@ def test_builtin_library_loads_cleanly() -> None:
     assert email.source == "built-in" and email.version == "1.0.0"
     assert email.tools == {"find_contact", "draft_email", "fill_in_email", "send_email"}
     assert library.packages["research-into-word"].tools == {"desktop_write"}  # web.* are the provider's own
-    assert library.packages["calendar-event"].shows == ("calendar_event",)
+    assert library.packages["calendar-event"].shows == ("calendar_event", "table")
+    assert library.packages["calendar-event"].tools == {
+        "list_calendar_events", "create_calendar_event", "update_calendar_event", "delete_calendar_event",
+        "find_contact", "undo_last_action",
+    }
 
 
 def test_the_exploration_examples_are_not_loaded() -> None:
@@ -130,7 +134,7 @@ def test_trigger_with_slots_runs_and_description_offers() -> None:
     assert offer is not None and offer.kind == "offer" and offer.package.name == "research-into-word"
 
     assert library.match("fix the failing test in session.py") is None
-    assert library.match("what's on my calendar today") is None  # one shared word isn't enough
+    assert library.match("what's the weather today") is None
 
 
 def test_choice_slots_must_match(tmp_path: Path) -> None:
@@ -145,9 +149,10 @@ def test_playbook_request() -> None:
     package = load_library().packages["calendar-event"]
     now = datetime(2026, 10, 26, 9, 30, tzinfo=timezone.utc)
     text = package.request({"event": "lunch with Ada"}, "add lunch with Ada to my calendar", now)
-    assert text.startswith("[Swift workflow: Add a calendar event (calendar-event 1.0.0)]")
-    assert "Use only these Swift tools: create_calendar_event." in text
-    assert "# Add a calendar event" in text and "name: calendar-event" not in text  # body, no front matter
+    assert text.startswith("[Swift workflow: Calendar events (calendar-event 2.0.0)]")
+    assert ("Use only these Swift tools: create_calendar_event, delete_calendar_event, find_contact, "
+            "list_calendar_events, undo_last_action, update_calendar_event.") in text
+    assert "# Calendar events" in text and "name: calendar-event" not in text  # body, no front matter
     assert "event (text): lunch with Ada" in text and "when (date): (not given" in text
     assert "Monday 26 October 2026, 09:30 (UTC+00:00)" in text
     assert text.endswith("add lunch with Ada to my calendar")

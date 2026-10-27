@@ -17,6 +17,8 @@
 //!
 //! - Pane windows (ADR-015) get the same styles but are never click-through: each is sized to
 //!   its content, so all of it is the pane. The subclass's data says which kind a window is.
+//! - The text box (ADR-015 §10) is the one window that may be activated: it needs the keyboard.
+//!   It keeps the other styles (on top, no taskbar entry, capture-excluded).
 //!
 //! Handles are passed around as `isize` because `HWND` is a raw pointer and not `Send`.
 
@@ -40,6 +42,8 @@ const SUBCLASS_ID: usize = 0x5357_4654; // "SWFT"
 /// Subclass data: the main window follows `CLICK_THROUGH`; a pane is never click-through.
 const MAIN: usize = 1;
 const PANE: usize = 0;
+/// The text box: like a pane, but it takes focus.
+const TYPING: usize = 2;
 
 /// Desired click-through state; `WM_STYLECHANGING` enforces it.
 static CLICK_THROUGH: AtomicBool = AtomicBool::new(true);
@@ -51,6 +55,9 @@ fn hwnd(raw: isize) -> HWND {
 /// The extended style Swift requires, given whatever someone else tried to set.
 fn enforce(ex: u32, kind: usize) -> u32 {
     let mut ex = (ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST) & !WS_EX_APPWINDOW;
+    if kind == TYPING {
+        ex &= !WS_EX_NOACTIVATE;
+    }
     if kind == MAIN && CLICK_THROUGH.load(Ordering::SeqCst) {
         ex |= WS_EX_LAYERED | WS_EX_TRANSPARENT;
     } else {
@@ -98,7 +105,7 @@ unsafe extern "system" fn overlay_proc(
     kind: usize,
 ) -> LRESULT {
     match msg {
-        WM_MOUSEACTIVATE => return MA_NOACTIVATE as LRESULT,
+        WM_MOUSEACTIVATE if kind != TYPING => return MA_NOACTIVATE as LRESULT,
         WM_STYLECHANGING if wparam as i32 == GWL_EXSTYLE => {
             let change = lparam as *mut STYLESTRUCT;
             (*change).styleNew = enforce((*change).styleNew, kind);
@@ -116,6 +123,21 @@ pub fn init_overlay(raw: isize) -> bool {
 /// The same for a pane window (ADR-015): no focus, on top, capture-excluded, never click-through.
 pub fn init_pane(raw: isize) -> bool {
     init(raw, PANE)
+}
+
+/// The text box: on top and capture-excluded (what's typed is private), but it takes the keyboard.
+pub fn init_typing(raw: isize) -> bool {
+    init(raw, TYPING)
+}
+
+/// After a pane was dragged: make sure it's shown and on top where it was dropped, as the main
+/// window is after its drag (check 19, 2026-10-27: a dragged pane vanished on release).
+pub fn reshow(raw: isize) {
+    unsafe {
+        let handle = hwnd(raw);
+        SetWindowPos(handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+        ShowWindow(handle, SW_SHOWNOACTIVATE);
+    }
 }
 
 fn init(raw: isize, kind: usize) -> bool {

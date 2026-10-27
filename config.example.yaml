@@ -4,6 +4,7 @@
 hotkeys:
   push_to_talk: "Ctrl+Shift+Space" # hold to talk, release to stop
   debug: "Ctrl+Alt+F12"            # cycles MockExecutor scenarios when debug: true
+  type: "Ctrl+Alt+Space"           # opens a text box: type a request instead of saying it ("" turns it off)
 
 audio:
   preroll_s: 0                     # >0 keeps the mic open and prepends this much audio from before the key-down

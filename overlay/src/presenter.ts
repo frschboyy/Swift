@@ -35,6 +35,8 @@ export type Row = {
   startedMs: number;
   // How it ended, in one line (ended rows only).
   summary: string;
+  // The request in the owner's words (its chip's tooltip, the "Got it" line).
+  words?: string;
 };
 
 const RUNNING: ReadonlySet<string> = new Set(["queued", "listening", "transcribing", "working", "confirm"]);
@@ -246,7 +248,10 @@ export function onHold(p: Presenter, holding: boolean, now: number): Presenter {
   if (p.card.fadeAt === null) return p;
   if (holding) return p.pausedLeft !== null ? p : { ...p, pausedLeft: Math.max(0, p.card.fadeAt - now) };
   if (p.pausedLeft === null) return p;
-  return { ...p, pausedLeft: null, card: { ...p.card, fadeAt: now + RESUME_MS } };
+  // Never sooner than Swift listens for the reply: a question stays its whole window (check 26,
+  // 2026-10-27: the mouse leaving the card gave it 2.5 s, whatever the backend's 25 s).
+  const listening = p.followupUntil > now ? p.followupUntil + 500 : 0;
+  return { ...p, pausedLeft: null, card: { ...p.card, fadeAt: Math.max(now + RESUME_MS, listening) } };
 }
 
 /** The owner closed the card. Only an answer or notice can be closed: a request goes on. */

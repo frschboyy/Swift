@@ -3,9 +3,10 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
-  diffPanes, needsReader, openReader, paneLabel, queuedRows, readerTick, touchReader, wantedPanes, workingQuiet,
-  READER_QUIET_MS, WORKING_QUIET_MS,
+  diffPanes, needsReader, newRows, openReader, paneLabel, queuedRows, readerTick, touchReader, wantedPanes, workingQuiet,
+  PaneSync, CHIP_DELAY_MS, MAX_PANES, READER_QUIET_MS, WORKING_QUIET_MS, type PaneSpec,
 } from "../src/panes.ts";
+import { initialStack, onStack, stackView } from "../src/stack.ts";
 import { initial, onRuns, MAX_ROWS, type Row } from "../src/presenter.ts";
 
 const row = (runId: string, state = "working", title = runId): Row => ({
@@ -21,16 +22,17 @@ test("each other running request gets its own window; the one in front doesn't",
   assert.equal(panes[1].view.kind === "request" && panes[1].view.label, "doing confirm");
 });
 
-test("a queued request is a line on the card, not a window", () => {
+test("bug 4: a request waiting for a slot gets a chip too, so the owner sees it registered", () => {
   const p = onRuns(initial, "a", [row("b"), row("q", "queued")], 0);
-  assert.deepEqual(wantedPanes(p, null, label).map((s) => s.label), ["pane-run-b"]);
+  assert.deepEqual(wantedPanes(p, null, label).map((s) => s.label), ["pane-run-b", "pane-run-q"]);
   assert.deepEqual(queuedRows(p).map((r) => r.runId), ["q"]);
 });
 
-test("never more request windows than the run limit", () => {
-  const rows = ["b", "c", "d", "e", "f"].map((id) => row(id));
+test("never more request windows than MAX_PANES", () => {
+  const rows = ["b", "c", "d", "e", "f", "g", "h"].map((id) => row(id));
   const p = onRuns(initial, "a", rows, 0);
-  assert.equal(wantedPanes(p, null, label).length, MAX_ROWS);
+  assert.equal(wantedPanes(p, null, label).length, MAX_PANES);
+  assert.ok(MAX_PANES > MAX_ROWS);
 });
 
 test("an ended request keeps its window until its row goes", () => {
@@ -87,4 +89,85 @@ test("windows are created, updated only when what they show changes, and closed"
   const d = diffPanes(open, later);
   assert.deepEqual(d.update.map((s) => s.label), ["pane-run-b"]);
   assert.deepEqual(d.close, ["pane-run-c"]);
+});
+
+// ---- bug 1 (2026-10-27): a chip can never outlive its request ---------------------------------
+
+/** A shell whose windows take a while to open, like the real one. */
+class SlowShell {
+  open = new Set<string>();
+  sent: string[] = [];
+  private pending: (() => void)[] = [];
+  host = {
+    open: (spec: PaneSpec) => new Promise<void>((done) => this.pending.push(() => { this.open.add(spec.label); done(); })),
+    close: (label: string) => void this.open.delete(label),  // closing one that isn't open yet does nothing
+    send: (label: string) => void this.sent.push(label),
+  };
+  finishOpening(): void {
+    this.pending.splice(0).forEach((f) => f());
+  }
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test("bug 1: a request that ends while its window is still opening doesn't leave the window behind", async () => {
+  const shell = new SlowShell();
+  let p = onRuns(initial, "a", [row("a"), row("local-1", "idle", "What time is it?")], 0);
+  const sync = new PaneSync(shell.host, () => wantedPanes(p, null, label));
+  const first = sync.sync();  // the beside request's chip starts opening...
+  await tick();
+  p = onRuns(p, "local-1", [row("a")], 0);  // ...and its answer, 0 ms later, takes the front
+  void sync.sync();
+  shell.finishOpening();
+  await tick();
+  shell.finishOpening();  // pane-run-a, wanted now, opens
+  await first;
+  assert.ok(!shell.open.has("pane-run-local-1"), "the chip outlived its request");
+  assert.ok(!sync.shown.has("pane-run-local-1"));
+  assert.ok(sync.shown.has("pane-run-a"));
+});
+
+test("windows Swift doesn't want are strays to close, but not while a sync is opening one", async () => {
+  const shell = new SlowShell();
+  const p = onRuns(initial, "a", [row("b")], 0);
+  const sync = new PaneSync(shell.host, () => wantedPanes(p, null, label));
+  const running = sync.sync();
+  await tick();
+  assert.deepEqual(sync.strays(["pane-run-b", "pane-run-old"]), []);
+  shell.finishOpening();
+  await running;
+  assert.deepEqual(sync.strays(["pane-run-b", "pane-run-old"]), ["pane-run-old"]);
+});
+
+test("a window that can't open: no pane windows, and the caller is told", async () => {
+  let told = 0;
+  const p = onRuns(initial, "a", [row("b")], 0);
+  const sync = new PaneSync({ open: () => Promise.reject(new Error("no")), close: () => {}, send: () => {} }, () => wantedPanes(p, null, label), () => told++);
+  await sync.sync();
+  assert.equal(sync.available, false);
+  assert.equal(told, 1);
+  assert.equal(sync.shown.size, 0);
+});
+
+// ---- bug 4: a request said beside another shows at once --------------------------------------
+
+test("bug 4: a new request is announced at once; its window waits a moment (instant answers don't flash one)", () => {
+  const young = { ...row("b"), startedMs: 10_000 };
+  const p = onRuns(initial, "a", [young], 0);
+  assert.deepEqual(newRows(new Set(), p.rows).map((r) => r.runId), ["b"]);
+  assert.deepEqual(newRows(new Set(["b"]), p.rows), []);
+  assert.deepEqual(newRows(new Set(), [row("c", "result")]), []);  // already over: nothing to announce
+  assert.deepEqual(wantedPanes(p, null, label, { now: 10_000 + CHIP_DELAY_MS - 1 }), []);
+  assert.deepEqual(wantedPanes(p, null, label, { now: 10_000 + CHIP_DELAY_MS }).map((s) => s.label), ["pane-run-b"]);
+});
+
+// ---- the stack and the text box are panes too ------------------------------------------------
+
+test("the stack is a pane while something waits; the text box while it's open", () => {
+  const items = [{ id: "card:1", kind: "waiting" as const, title: "Add lunch", reason: "waiting", since_ms: 0, thread_id: null }];
+  const stack = stackView(onStack(initialStack, items, 0), 0);
+  const typing = { kind: "type" as const, draft: "", follows: null };
+  const specs = wantedPanes(initial, null, label, { stack, typing, now: 0 });
+  assert.deepEqual(specs.map((s) => [s.label, s.kind]), [["pane-stack", "stack"], ["pane-type", "type"]]);
+  assert.deepEqual(wantedPanes(initial, null, label, { stack: stackView(initialStack, 0) }), []);
 });

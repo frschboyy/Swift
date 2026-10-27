@@ -109,6 +109,23 @@ test("hover holds an answer; letting go gives it RESUME_MS", () => {
   assert.equal(o.p.card.kind, "none");
 });
 
+test("check 26: letting go of a question never shortens its reply window", () => {
+  const o = new Overlay();
+  o.state("working", "cc-1", "t1");
+  o.answer("result", 6000, "cc-1", "t1");
+  o.followup(true, 25);  // "Which day, and what time?": Swift listens 25 s
+  o.wait(3000);
+  o.p = onHold(o.p, true, o.now);  // the pointer passes over the card...
+  o.wait(1000);
+  o.p = onHold(o.p, false, o.now);  // ...and leaves: before, 2.5 s more, then gone
+  o.wait(RESUME_MS + 1000);
+  assert.equal(o.p.card.kind, "result");
+  o.wait(25000 - 4000 - RESUME_MS - 1000 - 250);
+  assert.equal(o.p.card.kind, "result");
+  o.wait(1500);
+  assert.equal(o.p.card.kind, "none");
+});
+
 test("the answer stays while the follow-up window is open", () => {
   const o = new Overlay();
   o.state("working", "cc-1", "t1");

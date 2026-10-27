@@ -542,3 +542,61 @@ code {
 .reader-body { overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; user-select: text; cursor: text; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
 .reader-body .summary { white-space: pre-wrap; line-height: 1.5; }
 .reader-text { color: var(--muted); white-space: pre-wrap; line-height: 1.5; }
+
+/* "Got it: …": a request said beside the one in front registered (bug 4, 2026-10-27). */
+.row--ack { display: flex; align-items: center; gap: 6px; padding: 4px 10px; color: var(--ok); max-height: none; }
+.row--ack svg { width: 13px; height: 13px; flex: none; }
+.row--ack .row-title { max-width: none; white-space: normal; color: var(--text); }
+
+/* ADR-015 §9: the waiting stack. Compressed: the top card with up to two edges behind it. */
+.stack {
+  position: relative; width: 300px; height: 72px; padding: 6px 0 0; box-sizing: border-box; cursor: pointer; user-select: none;
+}
+.stack::before, .stack::after {
+  content: ""; position: absolute; left: 10px; right: 10px; height: 56px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--panel-edge); opacity: 0;
+}
+.stack::before { top: 0; left: 18px; right: 18px; }
+.stack::after { top: 3px; }
+.stack--2::after, .stack--3::after, .stack--3::before { opacity: 0.7; }
+.stack-top {
+  position: relative; display: flex; align-items: center; gap: 10px; height: 60px; margin-top: 6px; padding: 0 12px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-edge); box-sizing: border-box;
+}
+.stack:hover .stack-top { border-color: rgba(255, 255, 255, 0.22); }
+.stack--fresh .stack-top { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(138, 180, 255, 0.25); }
+.stack-badge {
+  flex: none; min-width: 24px; height: 24px; padding: 0 6px; box-sizing: border-box; border-radius: 12px;
+  display: grid; place-items: center; background: rgba(138, 180, 255, 0.18); color: var(--accent); font-weight: 700; font-size: 12.5px;
+}
+.stack-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; gap: 2px; }
+.stack-text .row-title { max-width: 100%; font-size: 13px; }
+.stack-text .row-activity { font-size: 12px; color: var(--faint); }
+.stack-count { font-size: 11.5px; color: var(--faint); }
+.stack-open { width: 360px; opacity: 1; transform: none; pointer-events: auto; }
+.stack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: var(--reader-max, 480px); overflow-y: auto; scrollbar-width: thin; }
+.stack-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  background: var(--raise); border: 1px solid var(--panel-edge);
+}
+.stack-item:hover { border-color: rgba(255, 255, 255, 0.22); }
+.stack-item--fresh { border-color: var(--accent); }
+.stack-item .actions { flex: none; gap: 4px; }
+/* The dev harness has no pane windows: the stack is a short list under the card. */
+.stack-inline { width: min(100%, 420px); margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.stack-inline[hidden] { display: none; }
+.stack-inline .stack-item { background: var(--panel); font-size: 12.5px; color: var(--faint); }
+.stack-inline .row-title { max-width: 40%; }
+
+/* ADR-015 §10: the text box. */
+.type-box { width: 560px; opacity: 1; transform: none; pointer-events: auto; padding: 10px 12px; }
+.type-row { display: flex; align-items: center; gap: 10px; }
+.type-row > svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.type-input {
+  flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.06); color: var(--text); font: inherit; font-size: 14px; outline: none;
+}
+.type-input:focus { border-color: var(--accent); }
+.type-follows { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; color: var(--faint); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.type-follows svg { width: 13px; height: 13px; flex: none; }
+.type-box .hint { flex: none; font-size: 11.5px; }

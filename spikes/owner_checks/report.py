@@ -64,6 +64,11 @@ def show(rows: list[dict[str, Any]]) -> None:
               f"{(r.get('transcript') or '')[:60]}")
 
 
+def _stack(log: list[str], action: str) -> int:
+    """How many times the owner opened, skipped or ended something in the waiting stack."""
+    return sum("stack action |" in line and f"action='{action}'" in line for line in log)
+
+
 def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, str]]:
     by_thread: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
@@ -136,11 +141,22 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("14 a card held while away, answered after", any(
             a.get("held_away") and a.get("decision") in ("approve", "reject")
             for r in held for a in r["approvals"]), f"{len(held)} held card(s)"),
-        ("15 a stopped request parked, then offered", any(r.get("parked") == "stopped" for r in rows)
-         and any(r.get("offered_resume") for r in rows), ""),
-        ("15 the Unfinished line's title is the owner's words", any(r.get("offered_resume") for r in rows),
-         "check on screen: never '[Swift workflow: ...'"),
-        ("16 a parked request resumed", any(r.get("resumed") for r in rows), ""),
+        # The waiting stack (ADR-015 §9) replaced "continue" as the way back.
+        ("15 stopped requests parked into the stack", sum(r.get("parked") == "stopped" for r in rows) >= 2,
+         f"{sum(r.get('parked') == 'stopped' for r in rows)} parked"),
+        ("15 a card in the stack skipped, and one ended", _stack(log, "skip") > 0 and _stack(log, "end") > 0,
+         f"skip {_stack(log, 'skip')}, end {_stack(log, 'end')}"),
+        ("16 a conversation resumed from the stack", any(r.get("source") == "stack" and r.get("resumed") for r in rows),
+         f"opened from the stack: {_stack(log, 'open')}"),
+        ("16 'Later' on a card on screen, then answered from the stack", any(
+            "stack action | kind='card' action='skip'" in line for line in log)
+         and any(r.get("source") != "stack" and set(decisions(r)) & {"approve", "reject"} for r in rows), ""),
+        ("16b a typed request, and typed 'approve' didn't approve", any(r.get("source") == "typed" for r in rows)
+         and not any(r.get("source") == "typed" and r.get("route") == "control" and r.get("action") == "approve"
+                     and r.get("status") == "done" and "approve" in decisions(r) for r in rows),
+         f"{sum(r.get('source') == 'typed' for r in rows)} typed; check on screen: 'Typing can't approve'"),
+        ("16b a typed follow-up continued the thread", any(
+            r.get("source") == "typed" and len(by_thread.get(r.get("thread") or "", [])) > 1 for r in rows), ""),
         ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
         ("18-20 windows, the reader, chips, moved windows", True, "check on screen: nothing cut off; Read all; chip after a minute"),
         ("21 a card waited behind another, then answered", any(

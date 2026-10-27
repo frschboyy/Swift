@@ -29,6 +29,7 @@ const ICONS: Record<string, string> = {
   info: "M12 11v6M12 7.5v.5M12 21a9 9 0 100-18 9 9 0 000 18z",
   shield: "M12 3l7 3v5.5c0 4.4-3 8-7 9.5-4-1.5-7-5.1-7-9.5V6l7-3z",
   stop: "M7 7h10v10H7z",
+  edit: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
   wifi: "M4.9 9.9a10 10 0 0114.2 0M7.8 12.8a6 6 0 018.4 0M10.6 15.6a2 2 0 012.8 0M12 19v.01",
   copy: "M9 9h10v10H9zM5 15V5h10",
   collapse: "M6 15l6-6 6 6",

@@ -25,6 +25,9 @@ pub struct Prefs {
 pub struct PanePlaces {
     pub request: Option<(f64, f64)>,
     pub reader: Option<(f64, f64)>,
+    /// The waiting stack: where its bottom-left corner was dropped (it grows upwards).
+    pub stack: Option<(f64, f64)>,
+    pub typing: Option<(f64, f64)>,
 }
 
 impl Default for Prefs {
@@ -71,7 +74,7 @@ mod tests {
         let p: Prefs = serde_json::from_str(r#"{"smart": false, "later": 1}"#).unwrap();
         assert_eq!(p, Prefs { anchor: Anchor::BottomCenter, smart: false, panes: PanePlaces::default() });
         let p: Prefs = serde_json::from_str(r#"{"panes": {"reader": [0.1, 0.2]}}"#).unwrap();
-        assert_eq!(p.panes, PanePlaces { request: None, reader: Some((0.1, 0.2)) });
+        assert_eq!(p.panes, PanePlaces { reader: Some((0.1, 0.2)), ..PanePlaces::default() });
         assert!(serde_json::from_str::<Prefs>(r#"{"anchor": "middle"}"#).is_err());
     }
 }

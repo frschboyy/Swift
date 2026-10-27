@@ -10,6 +10,10 @@
 // open in a reader window, and the backend hears when a confirm card is actually on screen
 // (``card.seen``): its countdown runs only then. Without pane windows (the dev harness), the
 // rows come back.
+// ADR-015 §9, §10 (the owner checks of 2026-10-27): what waits for the owner is a stack of cards in
+// a bottom corner (stack.ts), and a hotkey or the tray opens a text box to type to Swift. Pane
+// windows are opened and closed one change at a time, and a pane Swift doesn't want is closed
+// whatever it shows (a chip used to outlive its request).
 
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
@@ -20,9 +24,12 @@ import { Orb } from "./orb";
 import * as Panes from "./panes";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
+import * as S from "./stack";
 
 const INFO_FADE_MS = 5000;
 const ERROR_FADE_MS = 12000;
+// An error with "Try again" waits longer: the button is an answer the owner may want to give.
+const RETRY_FADE_MS = 20000;
 const READY_FADE_MS = 4000;
 const CANCELLED_FADE_MS = 2200;
 const MAX_STEPS = 5;
@@ -83,11 +90,17 @@ const DRAFT_LINES = 8;
 let seen: string | null = null;
 // Pane windows (ADR-015 §3): what each open one shows. False once opening one failed: rows instead.
 let paneWindows = true;
-const panes = new Map<string, Panes.PaneView>();
 let reader: Panes.Reader = null;
 // A working card with no news for a while collapses to its line (ADR-015 §3.3); the pointer on it opens it.
 let quiet = false;
 let lastLookAt = 0;
+// The waiting stack (ADR-015 §9) and the text box (§10): null while closed.
+let stack: S.Stack = S.initialStack;
+let typing: Panes.TypeView | null = null;
+let typedDraft = "";
+// Requests seen in ``runs`` (for "Got it: …"), and the lines shown until when.
+const knownRows = new Set<string>();
+let acks: { runId: string; words: string; until: number }[] = [];
 
 const client = new BackendClient(onMessage, onStatus);
 
@@ -167,6 +180,7 @@ function reportSeen(): void {
 
 const ROW_STATE: Record<string, string> = {
   queued: "Waiting to start",
+  idle: "Starting",
   listening: "Listening",
   transcribing: "Transcribing",
   confirm: "Waiting for your answer",
@@ -183,6 +197,10 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
   checkPresenter();
   if (pres.focus !== promoted) promoted = null;
+  // A request said beside the one in front: say at once that it registered, in its words (bug 4).
+  const now = Date.now();
+  for (const r of Panes.newRows(knownRows, pres.rows)) acks.push({ runId: r.runId, words: r.words || r.title, until: now + Panes.ACK_MS });
+  for (const r of rows) knownRows.add(r.runId);
   drawRows();
 }
 
@@ -216,15 +234,23 @@ function drawRows(): void {
     );
   });
   if (more) items.push(el("li", { class: "row row--more" }, `+${more} more`));
+  items.unshift(...ackLines());
   if (pres.waiting) items.unshift(el("li", { class: "row row--waiting" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
   rowsEl.replaceChildren(...items);
   rowsEl.hidden = items.length === 0;
   scheduleRegions();
 }
 
+/** "Got it: …" for a request just said beside the one in front (bug 4, 2026-10-27). */
+function ackLines(): HTMLElement[] {
+  const now = Date.now();
+  acks = acks.filter((a) => a.until > now && pres.rows.some((r) => r.runId === a.runId));
+  return acks.map((a) => el("li", { class: "row row--ack", "aria-live": "polite" }, icon("check"), el("span", { class: "row-title" }, `Got it: “${a.words}”`)));
+}
+
 /** With pane windows, only what waits stays on the card in front: cards, and requests without a slot. */
 function drawWaiting(): void {
-  const items: HTMLElement[] = [];
+  const items: HTMLElement[] = ackLines();
   if (pres.waiting) items.push(el("li", { class: "row row--waiting" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
   const queued = Panes.queuedRows(pres).length;
   if (queued) items.push(el("li", { class: "row row--more" }, `${queued} more ${queued === 1 ? "request" : "requests"} waiting to start`));
@@ -233,34 +259,47 @@ function drawWaiting(): void {
   scheduleRegions();
 }
 
-/** Open, update and close pane windows to match the presenter and the reader. */
-async function syncPanes(): Promise<void> {
-  if (!paneWindows) return;
-  const shown = new Map([...panes].map(([label, view]) => [label, JSON.stringify(view)]));
-  const d = Panes.diffPanes(shown, Panes.wantedPanes(pres, reader, rowLabel));
-  for (const label of d.close) {
-    panes.delete(label);
-    void invoke("close_pane", { label }).catch(() => {});
-  }
-  for (const spec of d.update) {
-    panes.set(spec.label, spec.view);
-    sendPane(spec.label, spec.view);
-  }
-  for (const spec of d.create) {
-    panes.set(spec.label, spec.view);
-    const { w, h } = Panes.paneSize(spec);
-    try {
-      await invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h });
-    } catch (err) {
-      // No pane windows here (the dev harness, or an older shell): the rows under the card instead.
-      console.warn("[overlay] pane windows unavailable:", err);
-      paneWindows = false;
-      panes.clear();
-      reader = null;
-      drawRows();
-      return;
+/** The panes wanted now: requests, the reader, the stack and the text box. */
+const wanted = (): Panes.PaneSpec[] =>
+  Panes.wantedPanes(pres, reader, rowLabel, { stack: S.stackView(stack, Date.now()), typing, now: Date.now() });
+
+// One change at a time, and a window nobody wants is closed even if it opened late (bug 1).
+const paneSync = new Panes.PaneSync(
+  {
+    open: (spec) => {
+      const { w, h } = Panes.paneSize(spec);
+      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h });
+    },
+    close: (label) => void invoke("close_pane", { label }).catch(() => {}),
+    send: (label, view) => sendPane(label, view),
+  },
+  wanted,
+  (err) => {
+    // No pane windows here (the dev harness, or an older shell): the rows under the card instead.
+    console.warn("[overlay] pane windows unavailable:", err);
+    paneWindows = false;
+    reader = null;
+    typing = null;
+    drawRows();
+    drawStackInline();
+  },
+);
+const panes = paneSync.shown;
+
+/** Open, update and close pane windows to match the presenter, the reader, the stack and the text box. */
+function syncPanes(): Promise<void> {
+  return paneWindows ? paneSync.sync() : Promise.resolve();
+}
+
+/** A pane window Swift doesn't want (left over from an older shell or a lost close): closed. */
+async function sweepPanes(): Promise<void> {
+  if (!paneWindows || paneSync.busy) return;
+  try {
+    for (const label of paneSync.strays(await invoke<string[]>("pane_labels"))) {
+      void invoke("close_pane", { label }).catch(() => {});
     }
-    sendPane(spec.label, spec.view);  // if it isn't listening yet, it asks again ("ready")
+  } catch {
+    // An older shell without pane_labels: nothing to sweep.
   }
 }
 
@@ -273,13 +312,36 @@ function openReader(title: string, summary: string, details: ResultDetails | nul
   void syncPanes();
 }
 
-void listen<{ label: string; action: string; runId?: string }>("pane-action", ({ payload }) => {
+type PaneAction = { label: string; action: string; runId?: string; id?: string; item?: "open" | "skip" | "end"; text?: string };
+
+void listen<PaneAction>("pane-action", ({ payload }) => {
   switch (payload.action) {
     case "ready": {
       const view = panes.get(payload.label);
       if (view) sendPane(payload.label, view);
+      else void invoke("close_pane", { label: payload.label }).catch(() => {});  // nothing for it to show
       break;
     }
+    case "stack-expand":
+      stack = S.expand(stack);
+      void syncPanes();
+      break;
+    case "stack-collapse":
+      stack = S.collapse(stack);
+      void syncPanes();
+      break;
+    case "stack-item":
+      if (payload.id && payload.item) stackAction(payload.id, payload.item);
+      break;
+    case "type-send":
+      typedDraft = "";
+      if (payload.text?.trim()) client.send({ type: "text", data: { text: payload.text, thread_id: typing?.follows ? typingThread : null } });
+      closeTyping();
+      break;
+    case "type-close":
+      typedDraft = payload.text ?? typedDraft;
+      closeTyping();
+      break;
     case "focus":
       if (payload.runId) askFocus(payload.runId);
       break;
@@ -294,6 +356,77 @@ void listen<{ label: string; action: string; runId?: string }>("pane-action", ({
       break;
   }
 });
+
+/** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
+function stackAction(id: string, action: "open" | "skip" | "end"): void {
+  stack = S.afterAction(stack, action);
+  client.send({ type: "stack.action", data: { id, action } });
+  void syncPanes();
+  drawStackInline();
+}
+
+/** Without pane windows (the dev harness): the stack is a short list under the card. */
+const stackEl = document.getElementById("stack");
+function drawStackInline(): void {
+  if (!stackEl) return;
+  const view = paneWindows ? null : S.stackView(stack, Date.now());
+  stackEl.hidden = !view;
+  if (!view) {
+    stackEl.replaceChildren();
+    return;
+  }
+  stackEl.replaceChildren(
+    el("p", { class: "stack-count" }, S.countLine(view.items.length)),
+    ...view.items.map((i) =>
+      el("div", { class: "stack-item", "data-hit": true },
+        el("span", { class: "row-title" }, i.title),
+        el("span", { class: "row-activity" }, i.line),
+        el("button", { class: "btn btn--ghost btn--small", onclick: () => stackAction(i.id, "open") }, i.open),
+        el("button", { class: "btn btn--ghost btn--small", onclick: () => stackAction(i.id, "skip") }, "Skip"),
+        el("button", { class: "btn btn--ghost btn--small", onclick: () => stackAction(i.id, "end") }, "End"))),
+  );
+  scheduleRegions();
+}
+
+function onStackMessage(items: S.Stack["items"]): void {
+  stack = S.onStack(stack, items, Date.now());
+  void syncPanes();
+  drawStackInline();
+}
+
+// ---- typing to Swift (ADR-015 §10) ----------------------------------------------------------
+
+// The conversation the open text box follows up (the one on screen when it opened).
+let typingThread: string | null = null;
+
+/** The hotkey or the tray: open the text box (or close it, if it's open). */
+function toggleTyping(): void {
+  if (typing) {
+    closeTyping();
+    return;
+  }
+  const onScreen = ["result", "error", "confirm", "working"].includes(pres.card.kind) ? pres.card.threadId ?? pres.threadId : null;
+  typingThread = onScreen;
+  const follows = onScreen && pres.lastAnswer?.threadId === onScreen ? pres.lastAnswer.text : null;
+  typing = { kind: "type", draft: typedDraft, follows };
+  if (!paneWindows) {
+    // The dev harness has no pane windows: a prompt stands in for the text box.
+    const text = window.prompt("Type to Swift");
+    typing = null;
+    if (text?.trim()) client.send({ type: "text", data: { text, thread_id: follows ? onScreen : null } });
+    return;
+  }
+  void syncEscape();  // Esc belongs to the text box while it's open
+  void syncPanes();
+}
+
+function closeTyping(): void {
+  if (!typing) return;
+  typing = null;
+  typingThread = null;
+  void syncEscape();
+  void syncPanes();
+}
 
 function askFocus(runId: string): void {
   promoted = runId;
@@ -660,7 +793,12 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     el(
       "div",
       { "data-hit": true },
-      head(icon("shield"), "Approval needed", [data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null], false),
+      head(icon("shield"), "Approval needed", [
+        data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null,
+        // ADR-015 §9: put it in the waiting stack for later, or end the request.
+        el("button", { class: "btn btn--ghost btn--small", title: "Put this card with your waiting cards for later", onclick: () => stackAction(`card:${data.request_id}`, "skip") }, "Later"),
+        el("button", { class: "icon-btn", "aria-label": "End this request", title: "End this request", onclick: () => stackAction(`card:${data.request_id}`, "end") }, icon("stop")),
+      ], false),
       since !== null
         ? el("p", { class: "voice-hint waiting", "data-phase": "hint" }, icon("info"), `1 card waiting, since ${clock(since)}`)
         : null,
@@ -716,7 +854,7 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
 function onResumeOffer(data: Extract<Inbound, { type: "resume.offer" }>["data"]): void {
   if (state !== "result" && state !== "error") return;
   card.querySelector(".resume")?.remove();
-  const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("info"), `Unfinished: ${data.title}. Say “continue”, or “not now”.`);
+  const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("info"), `Unfinished: ${data.title}. It's with your waiting cards.`);
   (card.firstElementChild ?? card).append(line);
   scheduleRegions();
 }
@@ -927,7 +1065,7 @@ type Problem = {
 
 function renderProblem(p: Problem): void {
   const info = p.severity === "info";
-  if (!presentAnswer("error", p.sticky ? null : info ? INFO_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
+  if (!presentAnswer("error", p.sticky ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
   rest("error");
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
@@ -1077,7 +1215,7 @@ window.setInterval(() => {
 let regionTimers: number[] = [];
 
 function sendRegions(): void {
-  const visible = (card.classList.contains("card--in") && !card.classList.contains("card--held")) || !rowsEl.hidden;
+  const visible = (card.classList.contains("card--in") && !card.classList.contains("card--held")) || !rowsEl.hidden || !(stackEl?.hidden ?? true);
   // Outermost hit areas only: a nested one adds nothing.
   const rects = visible
     ? Array.from(document.querySelectorAll<HTMLElement>("[data-hit]"))
@@ -1118,6 +1256,8 @@ function setAnchor(anchor: string): void {
 
 // ---- once a second: elapsed time, stall note, confirm countdown -----------------
 
+let sweepTick = 0;
+
 window.setInterval(() => {
   if (state === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
@@ -1130,6 +1270,10 @@ window.setInterval(() => {
     }
   } else if (state === "confirm") tickConfirm();
   if (pres.rows.length && !paneWindows) drawRows();  // their elapsed time (pane windows keep their own)
+  else if (acks.length) drawRows();  // "Got it" lines go after a few seconds
+  // Young requests get their chip, the stack's glow fades: both are in what's wanted.
+  if (paneWindows && (pres.rows.length || stack.items.length)) void syncPanes();
+  if (++sweepTick % 3 === 0) void sweepPanes();
   const shrunk = Panes.readerTick(reader, Date.now(), false);
   if (shrunk !== reader) {
     reader = shrunk;
@@ -1140,7 +1284,7 @@ window.setInterval(() => {
 // ---- Esc: only grabbed while Swift is active ------------------------------------
 
 async function syncEscape(): Promise<void> {
-  const want = ACTIVE.has(state);
+  const want = ACTIVE.has(state) && !typing;
   if (want === escapeActive) return;
   escapeActive = want;
   try {
@@ -1222,6 +1366,9 @@ function onMessage(msg: Inbound): void {
     case "runs":
       onRuns(msg.data);
       break;
+    case "stack":
+      onStackMessage(msg.data.items);
+      break;
   }
 }
 
@@ -1262,6 +1409,7 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
   const wanted: Record<string, string> = {};
   if (hotkeys.push_to_talk) wanted.push_to_talk = hotkeys.push_to_talk;
   if (debugEnabled && hotkeys.debug) wanted.debug = hotkeys.debug;
+  if (hotkeys.type) wanted.type = hotkeys.type;
   const problems = await invoke<HotkeyProblem[]>("register_hotkeys", { hotkeys: wanted });
   const ptt = problems.find((p) => p.name === "push_to_talk");
   if (ptt) {
@@ -1275,6 +1423,16 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
     });
   } else if (problems.length) {
     console.warn("hotkeys:", problems);
+  }
+  const typeKey = problems.find((p) => p.name === "type");
+  if (typeKey && !ptt) {
+    renderProblem({
+      title: "The typing shortcut isn't working",
+      message: typeKey.reason === "in_use" ? `${hotkeyParts(typeKey.spec).join("+")} is already used by another app.` : `“${typeKey.spec}” isn't a shortcut Swift understands.`,
+      hint: "Pick another one for hotkeys.type in config.yaml, or use “Type to Swift” in the tray menu.",
+      detail: typeKey.detail,
+      severity: "info",
+    });
   }
   if (!readyReported) {
     // Startup time, once per launch: process start to "usable".
@@ -1293,6 +1451,8 @@ void listen<{ name: string; state: "down" | "up" }>("hotkey", ({ payload }) => {
     // Ignored while busy (the backend would ignore it too), so the cycle doesn't skip a scenario.
     const scenario: Scenario = SCENARIOS[scenarioIndex++ % SCENARIOS.length];
     client.send({ type: "debug.run", data: { scenario } });
+  } else if (payload.name === "type" && payload.state === "down") {
+    toggleTyping();
   } else if (payload.name === "push_to_talk") {
     const sent = client.send({ type: "ptt", data: { state: payload.state } });
     if (!sent && payload.state === "down") renderConnection(true);

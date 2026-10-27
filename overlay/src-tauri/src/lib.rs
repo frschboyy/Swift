@@ -4,6 +4,10 @@
 //! Pane windows (ADR-015): one small window per other request and a reader for long answers,
 //! each non-activating, on top and capture-excluded like the main one, sized to its content,
 //! dragged anywhere, and remembered per kind.
+//! ADR-015 §9, §10 (2026-10-27): the waiting stack is a pane in a bottom corner that grows
+//! upwards and folds up on a click anywhere else (`watch_outside`); the text box is the one pane
+//! that takes the keyboard, opened by `hotkeys.type` or the tray's "Type to Swift". `pane_labels`
+//! lets the main window close any pane it no longer wants.
 
 mod backend;
 mod hit;
@@ -382,14 +386,20 @@ async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f
     let (anchor, remembered) = {
         let state = app.state::<Placement>();
         let p = state.0.lock().unwrap();
-        let places = p.prefs.panes;
-        (p.current, match kind { PaneKind::Request => places.request, PaneKind::Reader => places.reader })
+        (p.current, remembered_place(&p.prefs.panes, kind))
     };
     let (x, y) = match remembered {
+        // The stack remembers its bottom edge: it grows upwards.
+        Some(f) if kind.grows_up() => {
+            let (x, bottom) = panes::remembered_origin(area, scale, f, index, (size.0, 0));
+            panes::clamp(area, (x, bottom - size.1), size)
+        }
         Some(f) => panes::remembered_origin(area, scale, f, index, size),
         None => panes::default_origin(area, scale, anchor, kind, index, size),
     };
-    // Created shown and unfocused (tao shows it with SW_SHOWNOACTIVATE), as the main window.
+    let typing = kind == PaneKind::Type;
+    // Created shown and unfocused (tao shows it with SW_SHOWNOACTIVATE), as the main window;
+    // the text box is created focused, since typing is what it's for.
     let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
         .title("Swift")
         .transparent(true)
@@ -397,7 +407,7 @@ async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
-        .focused(false)
+        .focused(typing)
         .resizable(false)
         .inner_size(w, h)
         .position(x as f64 / scale, y as f64 / scale)
@@ -405,11 +415,16 @@ async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f
         .build()
         .map_err(|e| e.to_string())?;
     let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
-    if !win::init_pane(hwnd) {
+    let excluded = if typing { win::init_typing(hwnd) } else { win::init_pane(hwnd) };
+    if !excluded {
         eprintln!("warning: pane {label}: capture exclusion failed");
     }
     win::place(hwnd, x, y, size.0, size.1);
     app.state::<Panes>().0.lock().unwrap().insert(label, (hwnd, kind));
+    if typing {
+        // Opened by a hotkey or the tray menu, so Windows lets Swift take the foreground.
+        let _ = window.set_focus();
+    }
     Ok(())
 }
 
@@ -432,9 +447,13 @@ async fn fit_pane(app: AppHandle, label: String, w: f64, h: f64) -> Result<(), S
     let Some((x, y, _, _)) = win::window_rect(hwnd) else { return Ok(()) };
     let (area, scale) = area_at(&window, Some((x, y))).ok_or("no monitor")?;
     let size = ((w.max(40.0) * scale).round() as i32, ((h.max(24.0) * scale).round() as i32).min(panes::max_height(area)));
+    let kind = app.state::<Panes>().0.lock().unwrap().get(&label).map(|(_, k)| *k);
+    // The stack keeps its bottom edge where it is: expanded, it grows upwards.
+    let (_, _, _, old_h) = win::window_rect(hwnd).unwrap_or((x, y, 0, size.1));
+    let y = if kind.is_some_and(PaneKind::grows_up) { y + old_h - size.1 } else { y };
     win::set_size(hwnd, size.0, size.1);
     let (cx, cy) = panes::clamp(area, (x, y), size);
-    if (cx, cy) != (x, y) {
+    if (cx, cy) != win::window_rect(hwnd).map(|r| (r.0, r.1)).unwrap_or((x, y)) {
         win::move_to(hwnd, cx, cy);
     }
     Ok(())
@@ -473,6 +492,9 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     if !moved {
         return Ok(false);
     }
+    // Shown and on top where it was dropped, as the main window is after its drag (check 19,
+    // 2026-10-27: a dragged pane vanished when the mouse was released).
+    win::reshow(hwnd);
     let window = app.get_webview_window(&label).ok_or("no such pane")?;
     let Some((x, y, w, h)) = win::window_rect(hwnd) else { return Ok(true) };
     let Some((area, _)) = area_at(&window, Some((x + w / 2, y + h / 2))) else { return Ok(true) };
@@ -482,13 +504,63 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     }
     let state = app.state::<Placement>();
     let mut p = state.0.lock().unwrap();
-    let place = Some(panes::to_fraction(area, (cx, cy)));
+    let place = Some(panes::to_fraction(area, (cx, if kind.grows_up() { cy + h } else { cy })));
+    let places = &mut p.prefs.panes;
     match kind {
-        PaneKind::Request => p.prefs.panes.request = place,
-        PaneKind::Reader => p.prefs.panes.reader = place,
+        PaneKind::Request => places.request = place,
+        PaneKind::Reader => places.reader = place,
+        PaneKind::Stack => places.stack = place,
+        PaneKind::Type => places.typing = place,
     }
     prefs::save(&p.prefs);
     Ok(true)
+}
+
+fn remembered_place(places: &prefs::PanePlaces, kind: PaneKind) -> Option<(f64, f64)> {
+    match kind {
+        PaneKind::Request => places.request,
+        PaneKind::Reader => places.reader,
+        PaneKind::Stack => places.stack,
+        PaneKind::Type => places.typing,
+    }
+}
+
+/// The expanded stack folds up on a press anywhere outside it (the owner's design). Resolves
+/// true on such a press, false when the pane closed first. Panes never take focus, so this
+/// watches the mouse instead of waiting for a blur.
+#[tauri::command]
+async fn watch_outside(app: AppHandle, label: String) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut was_down = win::left_button_down();
+        loop {
+            let Some((hwnd, _)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
+                return false;
+            };
+            let down = win::left_button_down();
+            if down && !was_down {
+                let inside = match (win::cursor_pos(), win::window_rect(hwnd)) {
+                    (Some((cx, cy)), Some((x, y, w, h))) => cx >= x && cx < x + w && cy >= y && cy < y + h,
+                    _ => true,
+                };
+                if !inside {
+                    return true;
+                }
+            }
+            was_down = down;
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Every pane window open now, so the main window can close one it no longer wants (a chip
+/// can never outlive its request, bug 1 of 2026-10-27).
+#[tauri::command]
+async fn pane_labels(app: AppHandle) -> Result<Vec<String>, String> {
+    let mut labels: Vec<String> = app.webview_windows().into_keys().filter(|l| l.starts_with("pane-")).collect();
+    labels.sort();
+    Ok(labels)
 }
 
 #[tauri::command]
@@ -618,6 +690,8 @@ pub fn run() {
             close_pane,
             fit_pane,
             drag_pane,
+            watch_outside,
+            pane_labels,
             copy_text,
             open_logs,
             set_status
@@ -655,10 +729,12 @@ pub fn run() {
             position_items.push(&separator);
             position_items.push(&smart);
             let position = Submenu::with_items(app, "Position", true, &position_items)?;
+            // ADR-015 §10: the same as hotkeys.type, for when the shortcut isn't to hand.
+            let type_item = MenuItem::with_id(app, "type", "Type to Swift…", true, None::<&str>)?;
             let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit Swift", true, None::<&str>)?;
             let separator2 = PredefinedMenuItem::separator(app)?;
-            let menu = Menu::with_items(app, &[&position, &logs_item, &separator2, &quit_item])?;
+            let menu = Menu::with_items(app, &[&type_item, &position, &logs_item, &separator2, &quit_item])?;
             app.manage(TrayItems { anchors, smart });
             let mut tray = TrayIconBuilder::with_id("swift")
                 .tooltip("Swift: starting")
@@ -666,6 +742,9 @@ pub fn run() {
                 .show_menu_on_left_click(true)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "logs" => open_logs_folder(),
+                    "type" => {
+                        let _ = app.emit("hotkey", HotkeyEvent { name: "type".into(), state: "down" });
+                    }
                     "quit" => quit(app),
                     "smart" => {
                         {

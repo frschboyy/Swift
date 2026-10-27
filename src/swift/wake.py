@@ -120,23 +120,33 @@ class WakeListener:
     utterance (int16, 16 kHz, a little room noise around it) and the ``time.monotonic()``
     its last block arrived. Utterances shorter than ``min_s`` (a cough, a click) or
     longer than ``max_s`` (a conversation, not a wake phrase and a short request) are dropped.
+
+    Except when ``accept_short()`` says so (a run is going, or a reply window is open): then
+    one of at least ``short_s`` is handed on as ``on_utterance(audio, ended_at, True)``, because
+    "stop" or "show me" said briskly is often under ``min_s`` of speech (owner checks,
+    2026-10-27: 19 too short during a research run, every "show me" lost). The session keeps it
+    only if it is one of the control phrases.
     """
 
     def __init__(
         self,
-        on_utterance: Callable[[np.ndarray, float], None],
+        on_utterance: Callable[..., None],
         *,
         end_silence_s: float = 0.6,
         min_s: float = 0.4,
+        short_s: float = 0.15,
         max_s: float = 6.0,
         pad_s: float = 0.3,
         gate: NoiseGate | None = None,
+        accept_short: Callable[[], bool] | None = None,
     ) -> None:
         self._on_utterance = on_utterance
+        self.accept_short = accept_short
         self._gate = gate or NoiseGate()
         per_s = SAMPLE_RATE / BLOCK
         self._end_blocks = max(1, round(end_silence_s * per_s))
         self._min_blocks = max(1, round(min_s * per_s))
+        self._short_blocks = max(1, round(short_s * per_s))
         self._max_blocks = max(1, round(max_s * per_s))
         self._pad: deque[np.ndarray] = deque(maxlen=max(1, round(pad_s * per_s)))
         self._blocks: list[np.ndarray] = []
@@ -146,7 +156,7 @@ class WakeListener:
         self._too_long_blocks = 0
         self._max_too_long = max(1, round(30 * per_s))  # never deaf for more than 30 s at a stretch
         # Content-free counters for the periodic "wake listening" log line (``take_stats``).
-        self.stats = {"blocks": 0, "speech_blocks": 0, "utterances": 0, "too_short": 0, "too_long": 0, "forced_resets": 0}
+        self.stats = {"blocks": 0, "speech_blocks": 0, "utterances": 0, "too_short": 0, "short": 0, "too_long": 0, "forced_resets": 0}
         self.loudest = 0.0
 
     def reset(self) -> None:
@@ -195,8 +205,12 @@ class WakeListener:
         if self._quiet >= self._end_blocks:
             blocks, self._blocks = self._blocks, []
             self._too_long = False
-            if blocks and len(blocks) - self._lead - self._quiet >= self._min_blocks:
+            spoken = len(blocks) - self._lead - self._quiet
+            if blocks and spoken >= self._min_blocks:
                 self.stats["utterances"] += 1
                 self._on_utterance(np.concatenate(blocks), time.monotonic())
+            elif blocks and spoken >= self._short_blocks and self.accept_short is not None and self.accept_short():
+                self.stats["short"] += 1
+                self._on_utterance(np.concatenate(blocks), time.monotonic(), True)
             elif blocks:
                 self.stats["too_short"] += 1

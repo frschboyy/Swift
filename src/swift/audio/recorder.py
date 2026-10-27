@@ -167,6 +167,13 @@ class MicRecorder:
         self.device_name = ""
         # Paused (screen locked, asleep: ADR-014): the kept-open stream is closed and stays closed.
         self.paused = False
+        # pause() / resume() calls in the order they were made: only the newest is carried out, so a
+        # pause still queued behind a busy audio thread never closes the microphone after the owner
+        # came back (owner checks, 2026-10-27: "microphone paused" logged after the unlock).
+        self._wanted = 0
+        self._wanted_lock = threading.Lock()
+        # time.monotonic() when the kept-open stream was last opened (unlock-to-listening, in the log).
+        self.opened_at = 0.0
         self._recording = False
         self._lock = threading.Lock()
         self._stream = None
@@ -225,7 +232,7 @@ class MicRecorder:
                     samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=BLOCK, callback=self._callback
                 )
             self._stream.start()
-            self._last_block = time.monotonic()
+            self._last_block = self.opened_at = time.monotonic()
             self.device_name = _device_name(device)
             logger.info("microphone opened", device=self.device_name, kept_open=self._keep_open)
         except sd.PortAudioError as exc:
@@ -291,22 +298,40 @@ class MicRecorder:
 
     def pause(self) -> None:
         """Close the kept-open stream until ``resume`` (Windows' microphone indicator goes off)."""
-        self._on_audio_thread(self._pause)
+        wanted = self._want()
+        self._on_audio_thread(lambda: self._pause(wanted))
 
     def resume(self) -> None:
         """Reopen it with a fresh device list (the owner is back; devices may have changed)."""
-        self._on_audio_thread(self._resume)
+        wanted = self._want()
+        self._on_audio_thread(lambda: self._resume(wanted))
 
-    def _pause(self) -> None:
+    def _want(self) -> int:
+        with self._wanted_lock:
+            self._wanted += 1
+            return self._wanted
+
+    def _superseded(self, wanted: int | None) -> bool:
+        return wanted is not None and wanted != self._wanted
+
+    def _pause(self, wanted: int | None = None) -> None:
+        if self._superseded(wanted):
+            logger.info("microphone pause skipped: resumed since")
+            return
         self.paused = True
         if self._keep_open and not self._recording:
             self._close_stream()
             logger.info("microphone paused")
 
-    def _resume(self) -> None:
-        self.paused = False
+    def _resume(self, wanted: int | None = None) -> None:
+        if self._superseded(wanted):
+            return  # paused again since
+        was_paused, self.paused = self.paused, False
         if not self._keep_open or self._recording:
             return
+        stream = self._stream
+        if not was_paused and stream is not None and stream.active and time.monotonic() - self._last_block < 1.0:
+            return  # its pause was overtaken and it is still delivering audio: no need to reopen
         self._close_stream()
         _refresh_devices()
         try:

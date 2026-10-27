@@ -5,12 +5,15 @@
 | When | Then |
 |---|---|
 | Screen locked, or the PC slept | Hands-free listening off and the open microphone closed (T7). The hotkey still works after unlocking. |
-| Back (unlocked, resumed, first input after being away) | Microphone reopened with a fresh device list and the speech model made ready first (loaded, and run once so it is paged back in); a warm Claude Code only a few seconds later, so the two don't compete for the CPU while the owner says "hey Swift" |
+| Back (unlocked, resumed, first input after being away) | The speech model made ready (loaded, and run once so it is paged back in) while the microphone is reopened with a fresh device list; a warm Claude Code only a few seconds later, so the two don't compete for the CPU while the owner says "hey Swift". "listening again" logs how long after coming back both were ready |
 | Away for ``release_after_s`` (30 min) | Warm Claude Code released. The speech model too, unless hands-free listening still needs it (away only because the keyboard was idle) |
 | Here or idle, every few minutes | A warm Claude Code that exited on its own is replaced, so the first request after a quiet spell isn't slow |
 | Away, for any reason (L2) | An open confirm card is held: hidden, its countdown stopped (``Session.hold_cards``). Back: shown again |
 
 Each change is also announced to the overlay (``presence``) for the tray tooltip.
+
+Changes are handled as they come, but the microphone always follows the newest one: a lock
+handled late (the audio thread busy) never closes it after the unlock (``MicRecorder.pause``).
 """
 
 from __future__ import annotations
@@ -65,6 +68,8 @@ class Lifecycle:
         self._last_spare_check = clock()
         self._tasks: set[asyncio.Task[None]] = set()
         self._warming: asyncio.Task[None] | None = None
+        # Coming back: (reason, clock() then, what is ready so far: "mic" / "speech" -> seconds after).
+        self._back: tuple[str, float, dict[str, float]] | None = None
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
@@ -83,14 +88,39 @@ class Lifecycle:
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
             await hold_cards(change.new == "away")
+        if change.returned:
+            # The speech model first: it is the slow part (paged out while locked), and the
+            # microphone reopening behind a busy audio thread must not hold it up.
+            self._back = (change.reason, self.clock(), {})
+            mark = getattr(self.session, "mark_return", None)
+            if mark is not None:
+                mark(change.reason)
+            await self.warm_up()
+        elif change.locked_or_asleep:
+            self._back = None
         if self.wake_enabled and self.recorder is not None:
             if change.locked_or_asleep:
                 await asyncio.to_thread(self.recorder.pause)
             elif change.returned or (self.recorder.paused and listening):
                 await asyncio.to_thread(self.recorder.resume)
-        if change.returned:
-            await self.warm_up()
+                self._ready("mic")
+        elif change.returned:
+            self._ready("mic")
         await self.announce()
+
+    def _ready(self, part: str) -> None:
+        """One part of listening again is ready; when both are, log how long it took since coming back."""
+        back = self._back
+        if back is None:
+            return
+        reason, t0, parts = back
+        parts.setdefault(part, self.clock() - t0)
+        if len(parts) == 2:
+            self._back = None
+            logger.info(
+                "listening again", reason=reason, ms=int(max(parts.values()) * 1000),
+                mic_ms=int(parts["mic"] * 1000), speech_ms=int(parts["speech"] * 1000),
+            )
 
     async def warm_up(self) -> None:
         """The owner is back: get the slow parts ready before they speak, the speech model first.
@@ -110,6 +140,7 @@ class Lifecycle:
         try:
             async with asyncio.timeout(SPARE_AT_MOST_S):
                 await self._speech_ready()
+                self._ready("speech")
                 await asyncio.sleep(self.spare_after_speech_s)
                 # Not in the middle of a transcription: the owner may be talking right now.
                 while getattr(self.transcriber, "busy", False):

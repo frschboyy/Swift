@@ -228,11 +228,15 @@ _SHOW = re.compile(
     r"(?: (?:it|that|this|the (?P<what>\w+)(?: you'?re writing| so far)?|what you'?re doing|your progress))?"
 )
 _HIDE = re.compile(r"(?:hide|close)(?: (?:it|that|this|the \w+))?|go back|back")
+# "Pause" stops the run and keeps it as unfinished (like Esc); "go on" then picks it up.
+_PAUSE = re.compile(r"pause(?: (?:it|that|there))?|hold it")
+_GO_ON = re.compile(r"(?:go on|carry on|keep going|continue)(?: (?:then|please))?")
 
 
 def route_midrun(text: str) -> Route | None:
     """A mid-run command: ``show`` (``target``: an artifact kind, "steps", or None), ``hide``,
-    or a control action (stop / cancel / approve / reject ...). None for anything else."""
+    ``pause``, ``resume`` ("go on"), or a control action (stop / cancel / approve / reject ...).
+    None for anything else."""
     norm = _normalize(text)
     if m := _SHOW.fullmatch(norm):
         what = m.group("what")
@@ -241,6 +245,10 @@ def route_midrun(text: str) -> Route | None:
         return Route("control", text.strip(), action="show", target=_SHOW_WHAT.get(what or ""))
     if _HIDE.fullmatch(norm):
         return Route("control", text.strip(), action="hide")
+    if _PAUSE.fullmatch(norm):
+        return Route("control", text.strip(), action="pause")
+    if _GO_ON.fullmatch(norm):
+        return Route("control", text.strip(), action="resume")
     for action, pattern in _CONTROL:
         if pattern.fullmatch(norm):
             return Route("control", text.strip(), action=action)

@@ -326,9 +326,13 @@ class _Writer:
         target = await self.desktop._run(self._finish)
         return WriteReceipt(self.app, self.route, self.chunks, self.chars, target)
 
+    def live(self) -> WriteReceipt:
+        return WriteReceipt(self.app, self.route, self.chunks, self.chars, self._live_target())
+
     def _write(self, text: str, last: bool) -> None: ...
     def _changed(self) -> str | None: ...
     def _finish(self) -> Any: ...
+    def _live_target(self) -> Any: ...
 
 
 class _WordWriter(_Writer):
@@ -390,6 +394,9 @@ class _WordWriter(_Writer):
         steps = 1 if self.recording else self.steps
         return ("word", self.name, self.doc.Content.End, steps)
 
+    def _live_target(self) -> Any:
+        return ("word", self.name, 0, 0)  # enough for ``show``; never for ``undo``
+
 
 class _ValueWriter(_Writer):
     route: Route = "value"
@@ -411,6 +418,9 @@ class _ValueWriter(_Writer):
         return None
 
     def _finish(self) -> Any:
+        return ("value", self.value, self.text)
+
+    def _live_target(self) -> Any:
         return ("value", self.value, self.text)
 
 
@@ -449,6 +459,9 @@ class _KeyWriter(_Writer):
                 _set_clipboard(self.clipboard or "")
             except DesktopError:
                 logger.warning("couldn't put the clipboard back")
+        return ("keys", self.hwnd)
+
+    def _live_target(self) -> Any:
         return ("keys", self.hwnd)
 
 

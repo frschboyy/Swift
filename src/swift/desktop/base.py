@@ -143,6 +143,10 @@ class Writer(Protocol):
 
     async def finish(self) -> WriteReceipt: ...
 
+    def live(self) -> WriteReceipt:
+        """What is being written so far, for "show me" while it writes. No side effects."""
+        ...
+
 
 class Desktop(Protocol):
     async def context(self) -> DesktopContext: ...

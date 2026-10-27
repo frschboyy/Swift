@@ -74,9 +74,16 @@ short utterance from the always-open microphone, transcribes it, and if it opens
 "hey / hello / good afternoon Swift" either runs what follows in the same breath or, after
 a bare greeting, records the request and ends it when the owner stops talking. While a
 run is going, the open microphone also takes the mid-run phrases and confirm answers
-without the hotkey (``_hear_busy``): "show me", "stop" and "reject" on their own,
-approving only with Swift's name first. After an answer, a reply needs no wake phrase
-for ``wake_followup_s`` (the card shows "Listening for a reply").
+without the hotkey (``_hear_busy``): "show me", "stop", "pause" and "reject" on their own,
+approving only with Swift's name first. Then a clip shorter than wake listening's usual
+minimum is kept too, if it is one of those control phrases. "Show me" while a request writes
+in an app brings that app to the front. After an answer, a reply needs no wake phrase
+for ``wake_followup_s`` (the card shows "Listening for a reply"); after a question, for
+``wake_question_s``, and a question from a request behind another comes to the front first.
+
+Fast-lane follow-ups: a time or date answer keeps the moment it was about for its thread, so
+"and the date?" after "what day is it a week from today?" is that day's date. One the fast
+lane can't answer goes to the agent with that answer as context.
 
 Stepping away (ADR-014 L2): while the owner is away, an open confirm card is held instead of
 timing out (``hold_cards``, swift/attention.py): the overlay hides it and shows it again on
@@ -203,8 +210,16 @@ MIDRUN_HINT = "Say “show me”, “stop”, or “actually …” to change it
 # Hands-free on a confirm card: rejecting needs no wake phrase, approving does (threat model T2).
 HANDS_FREE_APPROVE_HINT = "To approve hands-free, say “Swift, approve”, or click."
 # Mid-run phrases the open microphone acts on without the wake phrase; everything else is ignored.
-HANDS_FREE_MIDRUN = frozenset({"show", "hide", "stop", "cancel"})
-HANDS_FREE_CONFIRM = HANDS_FREE_MIDRUN | {"approve", "reject"}
+HANDS_FREE_MIDRUN = frozenset({"show", "hide", "stop", "cancel", "pause", "resume"})
+HANDS_FREE_CONFIRM = frozenset({"show", "hide", "stop", "cancel", "pause", "approve", "reject"})
+# A clip shorter than wake listening's usual minimum is kept only if it is one of these
+# (owner checks, 2026-10-27: "show me" and "stop" said briskly were cut as too short).
+SHORT_MIDRUN = frozenset({"show", "hide", "stop", "cancel", "pause", "resume"})
+SHORT_AT_REST = frozenset({"stop", "cancel", "resume", "show_last", "repeat", "not_now"})
+# What the open microphone heard is also kept below ``wake.min_p`` when it is one of these
+# during a run (never an approval): a clean "Stop." scored 0.46.
+UNSURE_MIDRUN_OK = frozenset({"show", "hide", "stop", "cancel", "pause"})
+PAUSED_HINT = "Paused. Say “go on” to pick it up."
 # Requests from these sources continue the thread before them (ADR-013 §4.1).
 CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
 # Messages that say which thread they belong to.
@@ -638,16 +653,22 @@ class Session:
         self._wake_warned = False
         # Screen locked or PC asleep (ADR-014): the open microphone is ignored (threat model T7).
         self.listening_paused = False
+        # Set when the owner comes back (``mark_return``): the first wake phrase after it logs how long it was.
+        self._returned: tuple[str, float] | None = None
         # Called when an overlay says it's ready (the lifecycle announces presence then).
         self.on_ready: Callable[[], Awaitable[None]] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
-            ("heard", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure", "unsure_wake",
-             "other_speech", "wake", "followup", "hands_free"), 0,
+            ("heard", "short_heard", "short_dropped", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure",
+             "unsure_wake", "unsure_midrun", "other_speech", "wake", "followup", "hands_free"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
         self._last_exchange: Exchange | None = None
+        # The moment the last time or date answer was about, and its thread: "and the date?" (fast lane).
+        self._moment: tuple[str, fast.Moment] | None = None
+        # That answer as context, for a follow-up to it the fast lane can't answer ("what's that in euros").
+        self._local_exchange: Exchange | None = None
         # The last answer, with the agent that produced it (None: Swift), for "repeat that".
         self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
         self._local_ids = count(1)
@@ -1050,18 +1071,33 @@ class Session:
         record: dict[str, Any] = {"source": "voice", "executor": getattr(self.executor, "name", "?")}
         self._launch(record, self._capture_voice, self.executor, self.executor.start)
 
-    async def hear_wake(self, audio: Any, ended_at: float) -> None:
+    def mark_return(self, reason: str) -> None:
+        """The owner is back (unlocked, resumed): the next wake phrase says how long after it came."""
+        self._returned = (reason, time.monotonic())
+
+    def wants_short(self) -> bool:
+        """Wake listening asks (on the audio thread) whether to hand on a very short clip: only
+        while a run is going hands-free or a reply window is open, where "stop" or "show me" may come."""
+        if self.recorder is None or self.listening_paused:
+            return False
+        window = self._followup
+        return self._hands_free() or (window is not None and time.monotonic() <= window[1] + 1.0)
+
+    async def hear_wake(self, audio: Any, ended_at: float, short: bool = False) -> None:
         """An utterance from the open microphone (swift/wake.py).
 
         At rest, a wake phrase starts an interaction ("hey Swift, ..."), and so does any
         request in the follow-up window just after an answer. During a run, the mid-run
         phrases and confirm answers work hands-free (``_hear_busy``). ``ended_at`` is the
         ``time.monotonic()`` at which the utterance ended. Anything else is dropped after it
-        is transcribed, and never logged.
+        is transcribed, and never logged. A ``short`` clip (under the usual minimum length) is
+        kept only if it is a control phrase ("stop", "show me", "go on").
         """
         if self.recorder is None or self.transcriber is None or self.listening_paused:
             return
         self.wake_stats["heard"] += 1
+        if short:
+            self.wake_stats["short_heard"] += 1
         if self._hearing:
             self.wake_stats["skipped_hearing"] += 1
             return
@@ -1094,15 +1130,21 @@ class Session:
             self._heard_at = time.monotonic()
         match = match_wake(heard.text, self.wake_greetings)
         busy = self._front_busy() or self._capturing()
+        midrun = route_midrun(heard.text) if busy and heard.text.strip() else None
+        if short and not self._short_kept(heard.text, midrun if busy else None, busy):
+            self.wake_stats["short_dropped"] += 1
+            return
         mean_p = sum(w.p for w in heard.words) / len(heard.words) if heard.words else None
         if self.wake_min_p and mean_p is not None and mean_p < self.wake_min_p:
             # Matched first: a wake phrase at rest gets the lower bar, since the model is often
             # unsure of a name (owner checks, 2026-10-27: half of what it heard was "unsure").
-            # Everything else keeps the bar: follow-ups, other speech, answers during a run.
-            if busy or match is None or mean_p < self.wake_phrase_min_p:
+            # So does "stop" or "show me" during a run: nothing is approved by it.
+            # Everything else keeps the bar: follow-ups, other speech, approvals during a run.
+            midrun_ok = busy and midrun is not None and midrun.action in UNSURE_MIDRUN_OK
+            if (busy and not midrun_ok) or (match is None and not midrun_ok) or mean_p < self.wake_phrase_min_p:
                 self.wake_stats["unsure"] += 1
                 return
-            self.wake_stats["unsure_wake"] += 1
+            self.wake_stats["unsure_midrun" if midrun_ok else "unsure_wake"] += 1
         if busy:
             if self._hands_free():  # not if the hotkey was pressed meanwhile
                 self.wake_stats["hands_free"] += 1
@@ -1121,9 +1163,17 @@ class Session:
             return
         self.wake_stats["wake"] += 1
         self._owner_here()
-        logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms)
+        back: dict[str, Any] = {}
+        if self._returned is not None:
+            # The first wake phrase since the owner came back (owner check 13): how long after it
+            # the owner finished saying it, and after it Swift had it transcribed.
+            reason, at = self._returned
+            self._returned = None
+            back = {"back": reason, "since_back_ms": int((ended_at - at) * 1000),
+                    "heard_back_ms": int((time.monotonic() - at) * 1000)}
+        logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms, **back)
         record: dict[str, Any] = {
-            "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
+            "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms, **back,
         }
         if match.remainder:
             # "Hey Swift, what time is it": the request came with the phrase.
@@ -1143,6 +1193,15 @@ class Session:
 
     # ---- hands-free (the open microphone, when wake listening is on) --------------------------
 
+    def _short_kept(self, text: str, midrun: Route | None, busy: bool) -> bool:
+        """A very short clip: kept only if it is a control phrase (during a run: the mid-run ones)."""
+        if not text.strip():
+            return False
+        if busy:
+            return midrun is not None and midrun.action in SHORT_MIDRUN
+        decision = default_router(text)
+        return decision.route in ("control", "local") and decision.action in SHORT_AT_REST
+
     def take_wake_stats(self) -> dict[str, int]:
         """The wake-listening counters since the last call, then start again (content-free)."""
         out, self.wake_stats = self.wake_stats, dict.fromkeys(self.wake_stats, 0)
@@ -1150,9 +1209,14 @@ class Session:
 
     def _hands_free(self) -> bool:
         """A run in front the open microphone can talk to: working, or its confirm card open, and
-        no push-to-talk capture going."""
+        no push-to-talk capture going. Also before the provider has started (choosing a workflow,
+        reading where the owner is): "stop" must work from the first moment the card says working."""
         voice_idle = self._confirm_voice is None or self._confirm_voice.done()
-        return voice_idle and self._active is not None and self.state in ("working", "confirm")
+        # Before "working", with the transcript known: choosing a workflow, starting the provider.
+        started = self.state in ("working", "confirm") or (
+            self.state in ("idle", "transcribing") and self._record is not None and "transcript" in self._record
+        )
+        return voice_idle and self._front_busy() and started
 
     async def _hear_busy(self, heard: Transcription, match: WakeMatch | None) -> None:
         """Hands-free during a run: the mid-run phrases, and answers on a confirm card.
@@ -1236,6 +1300,8 @@ class Session:
         if self.wake_followup_s <= 0 or self.recorder is None or self._current() is not self._focus:
             return  # an answer in the background isn't on screen to reply to
         seconds = max(self.wake_followup_s, self.wake_question_s) if question else self.wake_followup_s
+        if question:
+            logger.info("question window", seconds=seconds)  # owner check 26: how long Swift waits for the answer
         now = time.monotonic()
         self._followup = (now, now + seconds)
         await self._send(outbound("followup", open=True, seconds=seconds, question=question))
@@ -1419,6 +1485,8 @@ class Session:
                 "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside",
             )
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
+            if decision is not None:
+                decision = self._follow_local(decision, transcript, record)
             target: OpenTarget | None = None
             workflow: Match | None = None
             if decision is not None and self._live(besides=run) and (named := route_target(transcript)) is not None:
@@ -1538,7 +1606,8 @@ class Session:
             if self._active is not None:
                 active_executor, run_id = self._active
                 await active_executor.cancel(run_id)
-                await self._send_result(run_id, ExecResult("cancelled", "Cancelled."), self._agent())
+                said = PAUSED_HINT if record.get("paused") else "Cancelled."
+                await self._send_result(run_id, ExecResult("cancelled", said), self._agent())
             else:
                 await self._set_state("idle")
             raise
@@ -1680,7 +1749,9 @@ class Session:
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
             record["status"] = "done"
-            said = fast.answer(decision.text) or "Sorry, I couldn't work that out."
+            found = fast.reply(decision.text, previous=self._thread_moment())
+            said = found[0] if found is not None else "Sorry, I couldn't work that out."
+            self._local_answer(record, decision.text, said, found[1] if found is not None else None)
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
             return
         now = datetime.now()
@@ -1697,7 +1768,10 @@ class Session:
             "fix_declined": "Okay, I'll leave it as it is.",
         }
         record["status"] = "done"
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answers.get(action or "", "Done.")))
+        said = answers.get(action or "", "Done.")
+        if action in ("time", "date"):
+            self._local_answer(record, decision.text, said, fast.Moment(now.astimezone(), action == "time"))
+        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""
@@ -2251,11 +2325,36 @@ class Session:
         artifact = None
         if kind != "steps" and store is not None:
             artifact = store.pick(kind) or store.pick()
+        if artifact is None and kind is None and await self._show_app():
+            # Nothing on the card to show, but it writes in an app: that's the live work (owner
+            # checks, 2026-10-27: "show me" during "research … into Word" opened an empty view).
+            if self._record is not None:
+                self._record.setdefault("views", []).append({"source": source, "kind": "app"})
+            return
         if self._record is not None:
             self._record.setdefault("views", []).append({"source": source, "kind": artifact.kind if artifact else None})
         await self._send(
             outbound("view", run_id=self._run_id(), artifact_id=artifact.id if artifact else None, open=True)
         )
+
+    async def _show_app(self) -> bool:
+        """The app the request in front is writing in (or wrote in), brought to the front. False:
+        it hasn't written anywhere, or the app can't be brought forward (then the steps view opens)."""
+        tools, scope = self.tools, self._scope
+        if tools is None or self.desktop is None or scope is None:
+            return False
+        live = tools.live_write
+        receipt = live[1] if live is not None and live[0] is scope else None
+        if receipt is None and tools.last_write_scope is scope:
+            receipt = tools.last_write
+        if receipt is None:
+            return False
+        try:
+            said = await self.desktop.show(receipt)
+        except ConnectorError:
+            return False
+        await self._run_phase("hint", said)
+        return True
 
     async def _show_last(self, decision: Route, record: dict[str, Any]) -> None:
         """"Show me" with no run going (ADR-007 §10): the last run's result card, or the app it wrote in."""
@@ -2345,10 +2444,14 @@ class Session:
         if action in ("show", "hide"):
             await phase("idle")
             await self._view(action == "show", decision.target if decision else None)
-        elif action in ("stop", "cancel", "mute"):
+        elif action in ("stop", "cancel", "mute", "pause"):
             await phase("idle")
+            if action == "pause" and self._record is not None:
+                self._record["paused"] = True  # kept as unfinished, like Esc; "go on" picks it up
             if self._task is not None:
                 self._task.cancel()  # like Esc; the interaction cleans up
+        elif action == "resume":
+            await phase("hint", "It's still going.")
         elif action == "approve" and self._fix_offer is not None:
             text, thread, at = self._fix_offer
             self._fix_offer = None
@@ -2437,6 +2540,14 @@ class Session:
         if (view := route_midrun(text)) is not None and view.action in ("show", "hide"):
             await phase("idle")
             await self._view(view.action == "show", view.target)
+            return
+        if view is not None and view.action == "pause":
+            entry["source"] = "voice"
+            owner = self._owner_of(request_id)
+            if owner is not None and owner.task is not None:
+                if owner.record is not None:
+                    owner.record["paused"] = True  # kept as unfinished; "go on" picks it up
+                owner.task.cancel()
             return
         decision = (self.router or default_router)(text)
         held = entry.pop("held", None)
@@ -2551,6 +2662,8 @@ class Session:
         most likely the answer, so its thread goes on and is no longer parked.
         """
         last, now = self._last_exchange, time.monotonic()
+        if record.get("follows_local") and self._local_exchange is not None:
+            last = self._local_exchange  # a follow-up to Swift's own answer: that answer is the context
         if last is None or self.followup_s <= 0:
             return request
         asked = self._asked_parked(last.thread)
@@ -2562,6 +2675,32 @@ class Session:
             record["answered_later"] = True
         record["context"] = {"previous": last.id, "age_s": int(now - last.at)}
         return last.as_context(now) + request
+
+    def _thread_moment(self) -> fast.Moment | None:
+        """The moment of this thread's last local time or date answer, if any."""
+        moment = self._moment
+        return moment[1] if moment is not None and moment[0] == self._thread else None
+
+    def _follow_local(self, decision: Route, transcript: str, record: dict[str, Any]) -> Route:
+        """A follow-up to a local answer in the same thread ("What day is it a week from today?" -
+        "Tuesday." - "And the date?"): about that answer's moment, not today (owner checks,
+        2026-10-27). One the fast lane can't answer goes to the agent, which gets the last answer
+        as context, never to the context-free light lane."""
+        moment = self._thread_moment()
+        if moment is None or decision.route == "control":
+            return decision
+        if fast.follow_up(transcript, moment) is not None:
+            return Route("local", transcript.strip(), action="answer")
+        if fast.is_follow_up(transcript) or (fast.refers_back(transcript) and decision.action in ("answer", "quick")):
+            record["follows_local"] = True
+            return _to_agent(decision)
+        return decision
+
+    def _local_answer(self, record: dict[str, Any], request: str, said: str, moment: fast.Moment | None) -> None:
+        """Keep a local answer for the next request in its thread: its moment, and as context."""
+        thread = record.get("thread")
+        self._moment = (thread, moment) if moment is not None and thread else None
+        self._local_exchange = Exchange(record["id"], request, said, (), time.monotonic(), thread=thread)
 
     def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
         if result.status in ("done", "rejected"):
@@ -2645,5 +2784,12 @@ class Session:
         if asks:
             assert self._record is not None
             self._expect_answer(self._record)
-        if result.status != "cancelled":
-            await self._open_followup(question=asks)
+            run = self._current()
+            focus = self._focus
+            if run is not focus and (focus is None or not (focus.alive and focus.task is not None)):
+                # A question from a request that ended behind another (owner check 26: its card went
+                # after about 7 s, never "Listening for your answer"): it needs the owner, so it
+                # comes to the front like a card does, unless the one in front is still going.
+                await self._bring(run)
+        if result.status != "cancelled" or (self._record or {}).get("paused"):
+            await self._open_followup(question=asks)  # after "pause": "go on" needs no wake phrase

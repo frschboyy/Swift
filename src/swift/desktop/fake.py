@@ -49,6 +49,9 @@ class FakeWriter:
     async def finish(self) -> WriteReceipt:
         return WriteReceipt(self.app, self.route, self.chunks, self.chars, (self.target, self.before))
 
+    def live(self) -> WriteReceipt:
+        return WriteReceipt(self.app, self.route, self.chunks, self.chars, (self.target, self.before))
+
 
 class FakeDesktop:
     def __init__(self, front: FakeApp | None = None, never_read: NeverRead | None = None) -> None:

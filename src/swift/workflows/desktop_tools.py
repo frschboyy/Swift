@@ -114,6 +114,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         async with _one_writer(host, scope, "Word" if where == "word" else "the app in front"):
             writer = await desktop.writer(where, mode, bool(args.get("new_document")))  # type: ignore[arg-type]
             report["app"] = host.writing_app = writer.app
+            host.live_write = (scope, writer.live())
             await scope.step(f"Writing in {writer.app}", "writing", writer.app)
             since = await desktop.owner_input()
             try:
@@ -135,8 +136,10 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                         since = await desktop.owner_input()  # Swift's own key presses
                     await asyncio.sleep(0)  # Esc (the run cancelled) stops here, between paragraphs
             finally:
+                host.live_write = None
                 host.last_write = await writer.finish()
                 host.last_write_at = time.monotonic()
+                host.last_write_scope = scope
             return f"{writer.route}:{report['written']}"
 
     action = Action(

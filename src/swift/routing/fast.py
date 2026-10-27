@@ -26,6 +26,7 @@ import operator
 import re
 import string
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
 # ---- normalizing what was said ------------------------------------------------------------
@@ -129,6 +130,34 @@ def _relative(d: date, today: date) -> str:
     return {0: "today", 1: "tomorrow", -1: "yesterday", 2: "the day after tomorrow"}.get(days, "")
 
 
+# ---- what an answer was about, for the follow-up ("and the date?") ------------------------------
+
+
+@dataclass(frozen=True)
+class Moment:
+    """The moment a time or date answer was about: "one week from today" is next Tuesday."""
+
+    # Aware; in that city's own offset when the answer was another city's time.
+    at: datetime
+    # The answer gave a time of day ("It'll be 16:30"), not only a day.
+    timed: bool
+    city: str | None = None
+
+
+class _Said(str):
+    moment: Moment | None = None
+
+
+def _said(text: str, at: datetime, timed: bool, city: str | None = None) -> str:
+    out = _Said(text)
+    out.moment = Moment(at, timed, city)
+    return out
+
+
+def _on(d: date, now: datetime) -> datetime:
+    return now.replace(year=d.year, month=d.month, day=d.day)
+
+
 # ---- durations ------------------------------------------------------------------------------
 
 _UNIT_S = {
@@ -181,7 +210,7 @@ _TIME_AGO = re.compile(rf"(?:what time (?:was it|was)|what was the time) (?P<ago
 
 def _time_answer(t: str, now: datetime) -> str | None:
     if _TIME_NOW.fullmatch(t):
-        return f"It's {_hm(now)}."
+        return _said(f"It's {_hm(now)}.", now, True)
     m = _TIME_IN.fullmatch(t)
     if m and "time" not in t and "from" not in t and "later" not in t:
         m = None  # "what's in 3 days" is a date question
@@ -191,16 +220,16 @@ def _time_answer(t: str, now: datetime) -> str | None:
             return None
         then = now + dur[0]
         if dur[0] >= timedelta(days=2):
-            return f"It'll be {_hm(then)} on {_day(then.date())}."
+            return _said(f"It'll be {_hm(then)} on {_day(then.date())}.", then, True)
         when = _relative(then.date(), now.date())
-        return f"It'll be {_hm(then)}" + (f" {when}." if when and when != "today" else ".")
+        return _said(f"It'll be {_hm(then)}" + (f" {when}." if when and when != "today" else "."), then, True)
     if m := _TIME_AGO.fullmatch(t):
         dur = _duration(m.group("ago"))
         if dur is None or dur[1]:
             return None
         then = now - dur[0]
         when = _relative(then.date(), now.date())
-        return f"It was {_hm(then)}" + (f" {when}." if when and when != "today" else ".")
+        return _said(f"It was {_hm(then)}" + (f" {when}." if when and when != "today" else "."), then, True)
     return None
 
 
@@ -288,7 +317,7 @@ def _city_answer(t: str, now: datetime) -> str | None:
         return None
     name = city.upper() if city in ("utc", "gmt") else city.title()
     when = _relative(there.date(), now.date())
-    return f"It's {_hm(there)} in {name}" + (f", {when}." if when and when != "today" else ".")
+    return _said(f"It's {_hm(there)} in {name}" + (f", {when}." if when and when != "today" else "."), there, True, city)
 
 
 # ---- dates ----------------------------------------------------------------------------------
@@ -408,7 +437,7 @@ _LEFT = re.compile(r"how many days (?:are )?(?:left|remaining) (?:in|of) (?:the 
 def _date_answer(t: str, now: datetime) -> str | None:
     today = now.date()
     if _DATE_NOW.fullmatch(t):
-        return f"It's {_day(today)}."
+        return _said(f"It's {_day(today)}.", now, False)
     if re.fullmatch(r"what (?:month|month of the year) is it(?: now| today)?|which month is it|what's the month", t):
         return f"It's {today.strftime('%B')}."
     if re.fullmatch(r"what year is it(?: now| today)?|which year is it|what's the year|what year are we in", t):
@@ -447,7 +476,8 @@ def _date_answer(t: str, now: datetime) -> str | None:
             span = f"about {months} month{'s' if months != 1 else ''}" if months else f"{days} days"
         else:
             span = f"{days} day{'s' if days != 1 else ''}"
-        return f"{span[:1].upper() + span[1:]} until {said}, on {d.strftime('%A')} {_say_date(d, d.year != today.year)}."
+        return _said(f"{span[:1].upper() + span[1:]} until {said}, on {d.strftime('%A')} {_say_date(d, d.year != today.year)}.",
+                     _on(d, now), False)
     if m := _SINCE.fullmatch(t):
         unit = m.group("unit") or m.group("unit2")
         found = _when(m.group("when") or m.group("when2"), today, past=True)
@@ -459,7 +489,7 @@ def _date_answer(t: str, now: datetime) -> str | None:
             return None
         n = days // 7 if unit == "weeks" else days
         u = unit.rstrip("s")
-        return f"{_num(n)} {u}{'s' if n != 1 else ''} since {said}."
+        return _said(f"{_num(n)} {u}{'s' if n != 1 else ''} since {said}.", _on(d, now), False)
     if m := _WHEN_IS.fullmatch(t):
         past = t.startswith("when was")
         found = _when(m.group("when"), today, past=past)
@@ -474,7 +504,8 @@ def _date_answer(t: str, now: datetime) -> str | None:
             tail = f", in {days} days"
         else:
             tail = f", {-days} days ago"
-        return f"{said[:1].upper() + said[1:]} {'was' if days < 0 else 'is'} {d.strftime('%A')}, {_say_date(d)}{tail}."
+        return _said(f"{said[:1].upper() + said[1:]} {'was' if days < 0 else 'is'} {d.strftime('%A')}, {_say_date(d)}{tail}.",
+                     _on(d, now), False)
     for pattern in (_WEEKDAY_OF, _DATE_OF, _DATE_POSSESSIVE):
         m = pattern.fullmatch(t)
         if m is None:
@@ -485,16 +516,17 @@ def _date_answer(t: str, now: datetime) -> str | None:
             continue
         d, said = found
         verb = "was" if d < today else "is"
+        at = _on(d, now)
         if said in ("today", "tomorrow", "yesterday", "the day after tomorrow", "the day before yesterday"):
             verb = "was" if d < today else "is"
-            return f"{said[:1].upper() + said[1:]} {verb} {_day(d)}."
+            return _said(f"{said[:1].upper() + said[1:]} {verb} {_day(d)}.", at, False)
         if re.fullmatch(rf"(?:next |this |last |coming |this coming )?{_WEEKDAY}(?: week)?", said.lower()):
-            return f"{said[:1].upper() + said[1:]} {verb} {_say_date(d, d.year != today.year)}."
+            return _said(f"{said[:1].upper() + said[1:]} {verb} {_say_date(d, d.year != today.year)}.", at, False)
         if pattern is _WEEKDAY_OF or re.match(r"what day|which day", t):
-            return f"{said[:1].upper() + said[1:]} {verb} a {d.strftime('%A')}" + (
+            return _said(f"{said[:1].upper() + said[1:]} {verb} a {d.strftime('%A')}" + (
                 f", {d.year}." if d.year != today.year and str(d.year) not in said else "."
-            )
-        return f"{said[:1].upper() + said[1:]} {verb} {_day(d)}."
+            ), at, False)
+        return _said(f"{said[:1].upper() + said[1:]} {verb} {_day(d)}.", at, False)
     return None
 
 
@@ -732,20 +764,117 @@ _FAMILIES: tuple[Callable[[str, datetime], str | None], ...] = (
 )
 
 
-def answer(text: str, now: datetime | None = None) -> str | None:
-    """Swift's own answer to ``text``, or None when it isn't one of the fast lane's questions."""
+def reply(text: str, now: datetime | None = None, previous: Moment | None = None) -> tuple[str, Moment | None] | None:
+    """Swift's own answer to ``text`` and the moment it was about (None for a sum or a spelling),
+    or None when it isn't one of the fast lane's questions. With ``previous`` (the moment of the
+    thread's last local answer), a follow-up such as "and the date?" is about that moment."""
+    now = now if now is not None and now.tzinfo is not None else (now or datetime.now()).astimezone()
+    if previous is not None and (followed := follow_up(text, previous)) is not None:
+        return followed
+    if previous is not None and is_follow_up(text):
+        return None  # "and the time?" after a day with no time: not "now"; the agent has the context
     t = normalize(text)
     if not t or len(t) > 120:
         return None
-    now = now if now is not None and now.tzinfo is not None else (now or datetime.now()).astimezone()
     for family in _FAMILIES:
         try:
             found = family(t, now)
         except (ValueError, OverflowError, KeyError, IndexError):
             found = None
         if found is not None:
-            return found
+            return str(found), getattr(found, "moment", None)
     return None
 
 
-__all__ = ["CITIES", "answer", "city_time", "normalize"]
+def answer(text: str, now: datetime | None = None) -> str | None:
+    """Swift's own answer to ``text``, or None when it isn't one of the fast lane's questions."""
+    found = reply(text, now)
+    return found[0] if found is not None else None
+
+
+# ---- follow-ups: "and the date?", "what time is that in Tokyo?" ---------------------------------
+
+# Said as a follow-up: a leading "and" / "so" / "what about", or a word pointing back.
+_FU_LEAD = re.compile(r"^\W*(?:(?:hey |hi |ok |okay )?swift\W+)?(?:and|so|what about|how about)\b")
+_FU_REF = re.compile(r"\b(?:that|there|then)\b")
+_FU = re.compile(
+    r"(?:(?:what|which)(?:'s| is| was| will| would)? )?(?:(?:is|was|will|would) )?(?:the |its )?"
+    r"(?P<what>date|day of the week|day|time|year|month)"
+    r"(?: (?:is|was|will be|would be|of|on|for))?(?: (?:it|that|then|that day|that time))?(?: (?:be|fall on))?"
+    r"(?: (?:in (?P<city>[a-z ]+?)|(?P<there>there)))?"
+)
+_FU_CITY = re.compile(r"(?:what about |how about )?(?:in )?(?P<city>[a-z ]+?)")
+
+
+def refers_back(text: str) -> bool:
+    """Whether ``text`` reads as a follow-up to the last answer ("and the date", "what's that in euros")."""
+    raw = text.lower().replace("’", "'")
+    return bool(_FU_LEAD.match(raw) or _FU_REF.search(raw))
+
+
+def is_follow_up(text: str) -> bool:
+    """Shaped like a follow-up about the last answer ("and the time?", "and in Tokyo?"), answerable or not."""
+    t = normalize(text)
+    lead = refers_back(text)
+    if _FU.fullmatch(t) is not None:
+        return lead or not t.startswith(("what", "which"))
+    c = _FU_CITY.fullmatch(t)
+    return lead and c is not None and c.group("city").strip() in CITIES
+
+
+def follow_up(text: str, previous: Moment) -> tuple[str, Moment] | None:
+    """A follow-up about ``previous``: its date, day, year or month, or its time (here, in a named
+    city, or "there": the city it was about). None when it isn't one, or it can't be answered here
+    ("what time is that" after an answer that had no time of day)."""
+    t = normalize(text)
+    if not t or len(t.split()) > 9:
+        return None
+    lead = refers_back(text)
+    m = _FU.fullmatch(t)
+    if m is None:
+        c = _FU_CITY.fullmatch(t) if lead and previous.timed else None
+        if c is None or c.group("city").strip() not in CITIES:
+            return None
+        return _time_there(previous, c.group("city").strip())
+    # "the date" alone is elliptical; "what's the date" is only a follow-up when it says so.
+    if not (lead or not t.startswith(("what", "which"))):
+        return None
+    what = m.group("what")
+    city = (m.group("city") or "").strip() or None
+    if m.group("there"):
+        city = previous.city
+        if city is None:
+            return None  # "there" with no place in the last answer: the agent asks
+    if city is not None and city not in CITIES:
+        return None
+    if what == "time":
+        if not previous.timed:
+            return None
+        return _time_there(previous, city) if city else (f"That's {_hm(previous.at)}.", previous)
+    at = city_time(city, previous.at) if city else previous.at
+    assert at is not None
+    where = f" in {_city_name(city)}" if city and city != previous.city else ""
+    if what == "date":
+        said = f"That's {_day(at.date())}{where}."
+    elif what == "year":
+        said = f"That's in {at.year}."
+    elif what == "month":
+        said = f"That's in {at.strftime('%B')}."
+    else:
+        said = f"That's a {at.strftime('%A')}{where}."
+    return said, Moment(at, previous.timed, city or previous.city)
+
+
+def _city_name(city: str) -> str:
+    return city.upper() if city in ("utc", "gmt") else city.title()
+
+
+def _time_there(previous: Moment, city: str) -> tuple[str, Moment]:
+    there = city_time(city, previous.at)
+    assert there is not None
+    days = (there.date() - previous.at.date()).days
+    day = f", {there.strftime('%A')}" if days else ""
+    return f"That's {_hm(there)} in {_city_name(city)}{day}.", Moment(there, True, city)
+
+
+__all__ = ["CITIES", "Moment", "answer", "city_time", "follow_up", "is_follow_up", "normalize", "refers_back", "reply"]

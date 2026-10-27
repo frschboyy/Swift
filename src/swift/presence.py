@@ -30,6 +30,9 @@ Reason = Literal["input", "idle", "locked", "asleep", "unlocked", "resumed", "st
 IDLE_S = 10 * 60
 AWAY_S = 30 * 60
 POLL_S = 2.0
+# While locked or asleep, poll faster: the unlock is noticed within half a second, not two
+# (owner check 13: about 7-10 s from unlocking until Swift heard "hey Swift").
+AWAY_POLL_S = 0.5
 # A poll this much later than scheduled: the machine was asleep in between.
 SLEEP_GAP_S = 15.0
 
@@ -124,10 +127,10 @@ class PresenceMonitor:
         self.on_change(change)
         return change
 
-    async def run(self, every_s: float = POLL_S) -> None:
+    async def run(self, every_s: float = POLL_S, away_every_s: float = AWAY_POLL_S) -> None:
         while True:
             self.poll()
-            await asyncio.sleep(every_s)
+            await asyncio.sleep(away_every_s if not self.listening_allowed else every_s)
 
 
 class WindowsProbe:

@@ -254,15 +254,16 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     wake_tasks: set[asyncio.Task[None]] = set()
     if wake.enabled:
 
-        def heard(audio: Any, ended_at: float) -> None:  # audio thread
+        def heard(audio: Any, ended_at: float, short: bool = False) -> None:  # audio thread
             def start() -> None:
-                task = loop.create_task(session.hear_wake(audio, ended_at))
+                task = loop.create_task(session.hear_wake(audio, ended_at, short))
                 wake_tasks.add(task)
                 task.add_done_callback(wake_tasks.discard)
 
             loop.call_soon_threadsafe(start)
 
-        listener = WakeListener(heard)
+        # Very short clips ("stop", "show me" said briskly) only while a run or a reply window wants them.
+        listener = WakeListener(heard, accept_short=session.wants_short)
         recorder.tap = listener.feed
         recorder.on_reopen = listener.reset
         wake_report = asyncio.create_task(_report_wake(listener, session, recorder))  # noqa: F841

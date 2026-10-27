@@ -86,7 +86,14 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     held = [r for r in rows if any(a.get("held_away") for a in r.get("approvals", []))]
     unsure_wake = sum(_counter(line, "unsure_wake") for line in log if "| wake listening |" in line)
     first_wake = _first_wake_after_unlock(log)
+    ready_ms = _slowest(log, "| listening again |", "ms")
+    back_ms = _slowest(log, "wake phrase heard", "since_back_ms")
+    midrun = [x for r in rows for x in (r.get("midrun") or [])]
+    views = [v.get("kind") for r in rows for v in (r.get("views") or [])]
+    short_kept = sum(_counter(line, "short_heard") - _counter(line, "short_dropped") for line in log if "| wake listening |" in line)
     asked = [line for line in log if "conversation parked | reason='asked'" in line]
+    # How long each question listened for its answer ("question window", logged since 2026-10-27).
+    windows = [_counter(line, "seconds") for line in log if "| question window |" in line]
     model_retries = [line for line in log if "couldn't confirm its model" in line]
     side_by_side = _overlapping(rows)
     redirects = [r.get("redirected") for r in rows if r.get("redirected")]
@@ -107,14 +114,21 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("8  correction after a rejection, then approved", corrected, ""),
         ("8  no card timed out unanswered", not timed_out,
          ", ".join(f"{r['_t']:%H:%M:%S}" for r in timed_out) or "none"),
-        ("10 'show me' / 'stop' during a run", any(r.get("midrun") for r in rows)
-         or any(r.get("status") == "cancelled" and r.get("run_ms") for r in rows), ""),
+        ("10 'show me' / 'stop' during a run", ("show" in midrun or "app" in views)
+         and any(r.get("status") == "cancelled" and r.get("run_ms") for r in rows),
+         f"mid-run: {', '.join(str(m) for m in midrun) or 'none'}; shown: {', '.join(str(v) for v in views) or 'nothing'}; "
+         f"{short_kept} short clip(s) kept"),
+        ("10 'show me' while writing brought the app forward", "app" in views, ""),
         ("11 microphone reopened after a pause (if it had stopped)", True,
          f"{len(reopened)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
         ("12 lock: away, microphone paused; unlock: back", locked and unlocked and paused,
          f"{len(presence)} presence change(s)"),
-        ("13 first wake after each unlock transcribed in under 3 s", first_wake is not None and first_wake < 3000,
-         f"stt_ms={first_wake}" if first_wake is not None else "no wake after an unlock"),
+        ("13 listening again within 2 s of each unlock; first wake transcribed in under 3 s",
+         ready_ms is not None and ready_ms < 2000 and first_wake is not None and first_wake < 3000,
+         f"unlock to listening (slowest) {ready_ms} ms; first wake after unlock: stt_ms={first_wake}, "
+         f"finished speaking {back_ms} ms after the unlock" if first_wake is not None
+         else f"unlock to listening (slowest) {ready_ms} ms; no wake after an unlock"),
+        ("13 no microphone pause after an unlock", not _paused_while_back(log), ""),
         ("14 a card held while away, answered after", any(
             a.get("held_away") and a.get("decision") in ("approve", "reject")
             for r in held for a in r["approvals"]), f"{len(held)} held card(s)"),
@@ -138,7 +152,9 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("24 after a sent email: told, correction offered", "after_done" in redirects
          and any(r.get("fix") for r in rows), ""),
         ("25 a fourth request waited for a slot", any(r.get("queued") for r in rows), ""),
-        ("26 a question parked unanswered", bool(asked), f"{len(asked)} parked"),
+        ("26 a question listened for its answer (at least 20 s), then parked",
+         bool(asked) and bool(windows) and min(windows) >= 20,
+         f"{len(asked)} parked; question windows: {', '.join(f'{w} s' for w in windows) or 'none logged'}"),
         ("27 the question picked up later", any(r.get("resumed") == "asked" or r.get("answered_later") for r in rows), ""),
         ("28 unconfirmed model retried with the default (if it happened)", True,
          f"{len(model_retries)} retr{'y' if len(model_retries) == 1 else 'ies'}"),
@@ -158,6 +174,22 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
 def _counter(line: str, name: str) -> int:
     m = re.search(rf"\b{name}=(\d+)", line)
     return int(m.group(1)) if m else 0
+
+
+def _slowest(log: list[str], marker: str, name: str) -> int | None:
+    found = [_counter(line, name) for line in log if marker in line and re.search(rf"\b{name}=\d", line)]
+    return max(found, default=None)
+
+
+def _paused_while_back(log: list[str]) -> bool:
+    """A "microphone paused" logged while presence said here (the 2026-10-27 race)."""
+    here = True
+    for line in log:
+        if "| presence |" in line:
+            here = "state='away'" not in line
+        elif "microphone paused" in line and here:
+            return True
+    return False
 
 
 def _first_wake_after_unlock(log: list[str]) -> int | None:

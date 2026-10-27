@@ -385,6 +385,10 @@ class ToolHost:
         # (time.monotonic()): "undo that" means the newer of it and the gateway's last approved action.
         self.last_write: WriteReceipt | None = None
         self.last_write_at = 0.0
+        # Which request wrote it, and what is being written right now and for which request:
+        # "show me" during a run brings that app to the front.
+        self.last_write_scope: RunScope | None = None
+        self.live_write: tuple[RunScope, WriteReceipt] | None = None
 
     @property
     def scope(self) -> RunScope | None:

@@ -133,10 +133,11 @@ from swift.desktop.base import Desktop, DesktopContext
 from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
 from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
+from swift.executors.quick import QuickModel
 from swift.failures import Failure, Severity, classify
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.parked import Parked, ParkedThreads
-from swift.routing import Route
+from swift.routing import Route, fast
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
@@ -532,6 +533,7 @@ class Session:
         desktop: Desktop | None = None,
         attention: Attention | None = None,
         parked: ParkedThreads | None = None,
+        quick: QuickModel | None = None,
     ) -> None:
         self._raw_send = send
         self.executor = executor
@@ -604,6 +606,12 @@ class Session:
         self.attention = attention
         # Conversations left unfinished (ADR-014 §5); None: nothing is parked.
         self.parked = parked
+        # The light lane's tool-free model call (ADR-007 §10); None: those requests go to the agent.
+        self.quick = quick
+        # What "show me" with no run going brings back: the last run with artifacts, or (when it
+        # wrote in an app since) that app; the write it was set for (ADR-007 §10).
+        self._last_shown: Run | None = None
+        self._last_shown_write: Any = None
         # Called when the owner talks to Swift (the hotkey, the wake phrase): they're here.
         self.on_owner: Callable[[], None] | None = None
         # The "Unfinished: …" line shown last: (thread, when).
@@ -1447,6 +1455,10 @@ class Session:
                 decision = replace(
                     _to_agent(decision), text=resumed.request, demand=estimate(resumed.request) or "standard"
                 )
+            if decision is not None and decision.action == "quick" and answered is None and resumed is None:
+                if await self._quick_answer(decision, record):
+                    return
+                decision = replace(decision, action=None)  # no quick answer: the agent takes it
             if (
                 decision is not None and decision.route == "agent" and answered is None and resumed is None
                 and self.library is not None
@@ -1648,6 +1660,14 @@ class Session:
             self._note = None
             record["status"] = "done"
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            return
+        if action == "show_last":
+            await self._show_last(decision, record)
+            return
+        if action == "answer":  # the fast lane (ADR-007 §10), worked out now
+            record["status"] = "done"
+            said = fast.answer(decision.text) or "Sorry, I couldn't work that out."
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
             return
         now = datetime.now()
         answers = {
@@ -2018,6 +2038,11 @@ class Session:
         if scope.artifacts.latest:
             self._artifacts = scope.artifacts
             self._artifacts_run = self._active[1] if self._active else self._artifacts_run
+        wrote = self.tools.last_write
+        if wrote is not None and wrote is not self._last_shown_write:  # it wrote in an app: "show me" brings that up
+            self._last_shown, self._last_shown_write = None, wrote
+        elif scope.artifacts.latest:
+            self._last_shown = self._current()
         CURRENT_SCOPE.set(None)
 
     def _run_id(self) -> str:
@@ -2199,6 +2224,45 @@ class Session:
         await self._send(
             outbound("view", run_id=self._run_id(), artifact_id=artifact.id if artifact else None, open=True)
         )
+
+    async def _show_last(self, decision: Route, record: dict[str, Any]) -> None:
+        """"Show me" with no run going (ADR-007 §10): the last run's result card, or the app it wrote in."""
+        record["status"] = "done"
+        self._current().title = ""  # it only shows another's work: no row of its own
+        last = self._last_shown
+        wrote = self.tools.last_write if self.tools is not None else None
+        named_app = re.search(r"\b(word|document|doc)\b", decision.text.lower()) is not None
+        store = last.artifacts if last is not None else None
+        if store is not None and store.latest and not (named_app and wrote is not None):
+            artifact = store.pick()
+            run_id = last.artifacts_run or ""  # type: ignore[union-attr]
+            await self._set_state("idle")
+            for shown in store.latest.values():
+                await self._send(outbound("artifact", **shown.as_message(run_id)))
+            await self._send(outbound("view", run_id=run_id, artifact_id=artifact.id if artifact else None, open=True))
+            return
+        if wrote is not None and self.desktop is not None:
+            try:
+                said = await self.desktop.show(wrote)
+            except ConnectorError as exc:
+                said = f"{exc} {exc.hint}".strip()
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+            return
+        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", "There's nothing to show yet."))
+
+    async def _quick_answer(self, decision: Route, record: dict[str, Any]) -> bool:
+        """The light lane (ADR-007 §10): one tool-free model call. False: no answer, the agent takes it."""
+        if self.quick is None:
+            return False
+        await self._set_state("working")
+        said = await self.quick.answer(decision.text)
+        if said is None:
+            return False
+        record["route"], record["action"], record["status"] = "light", "quick", "done"
+        result = ExecResult("done", said)
+        await self._send_result(f"local-{next(self._local_ids)}", result)
+        self._remember(record, decision.text, result)
+        return True
 
     async def _say(self, text: str) -> None:
         """Debug mode: typed text handled as if spoken mid-run (the dev harness's "show me")."""

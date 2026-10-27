@@ -184,3 +184,45 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
 - **§8 Voice approvals.** Push-to-talk is accepted while the state is `confirm` (only then). The backend state stays `confirm`; `confirm.voice` messages (`listening`, `transcribing`, `idle`, `hint`) update a line on the confirm card instead of the orb, which would clear the card. "approve"/"reject" answer the card like a click, "stop"/"cancel" cancel the run like Esc, anything else shows a hint and leaves the card open. A click while the voice answer is still transcribing wins. `approvals[]` in the interaction log gains `source` (`voice` | `click`) and `heard` (what was said on the card).
 - **§9 Follow-up context.** `resume` was not used: with `--no-session-persistence` there is nothing to resume, and resuming needs the session id at connect time, which breaks the pre-warmed CLI. Instead the session keeps one previous exchange (request, answer summary, approved action titles) and prepends it, clipped, to the next Claude request within `followup_context_s` (default 300 s, 0 = off). An error or cancelled run, or saying "new topic" / "start over", clears it. Time/date and commands in between keep it.
 - Live check (2026-10-23, Haiku, `debug.ask` through `Session` + `ClaudeCodeExecutor` on this repo): "Which file in src/swift/routing has the most lines?" answered rules.py (98) in 31.9 s for $0.0014; the follow-up "How many functions are defined in it?" got the context block and correctly answered 4 functions in rules.py in 8.2 s for $0.0010. Voice approvals are covered by unit tests only (no mic in the check).
+
+## 10. Lanes: the simplest path that answers (addendum, 2026-10-27)
+
+**Why.** The owner's interaction log (2026-10-27, `spikes/owner_checks/report.py --since 03:56`) showed everyday requests going through an agent run of 7–18 s. "What time will it be in two minutes?" took 18 s. "And what's the date?" and "what month is it?" went to the agent, while "What's the date?" was answered locally, because the rules were too literal. And "Show me" / "Show me the Word document", said after a research-into-Word run had finished, started new agent runs; one was even offered the research-into-Word workflow. The owner's goal: *"matching each request to the simplest, fastest, and most appropriate path; more sophisticated workflows remain for tasks that genuinely need them."*
+
+**Decision.** Every request goes down the first lane that can answer it:
+
+```
+transcript
+  ├─ control ──── stop, cancel, approve, … (rules, whole utterance)
+  ├─ local ────── Swift itself, offline, a few ms
+  │                 identity, open, undo, resume, "show me" (show_last), time, date
+  │                 fast lane (routing/fast.py): time/date maths, other cities, conversions,
+  │                 arithmetic and percentages, spelling
+  ├─ light ────── one tool-free call to the light model (routing/light.py, executors/quick.py)
+  │                 synonyms, definitions, translations, grammar, stable facts, a polite reply
+  ├─ agent ────── Claude Code with tools, model picked by demand (§2–§6)
+  └─ workflow ─── a matched workflow package runs on the agent (ADR-011)
+```
+
+**How a request picks a lane** (`routing/rules.py`, in this order):
+
+1. **Control**, then **local** rules match the whole utterance. A leading "and", "so", "ok" or "Swift," no longer stops a local match ("and what's the date?").
+2. **Fast lane:** `fast.answer(text)` returns an answer, so the route is `local` with action `answer`. The session works the answer out again when it replies, so the time is the time it answers. It covers:
+   - time now, in or ago ("in two minutes", "in an hour and a half", "90 minutes ago");
+   - the time in about 100 cities, from a built-in table of offsets and EU, US, AU and NZ daylight-saving rules (Windows Python has no tz database, and adding `tzdata` was not worth a dependency);
+   - dates: today, tomorrow, weekdays ("next Friday's date"), explicit dates ("what day is the 3rd of November"), holidays ("how many days until Christmas"), "in 3 weeks", "what month / year / week is it", days left in the year;
+   - conversions: length, mass, volume, temperature, speed, time, area and data sizes;
+   - arithmetic with words or symbols, percentages ("15% of 80", "20% off 50"), square roots and powers;
+   - "how do you spell …".
+
+   Numbers can be words ("two hundred and fifty"). Anything ambiguous returns None and goes on, because a wrong answer is worse than a slow one.
+3. **"Show me"** with no run going is `local` / `show_last`. It reopens the last run's artifact card, or, if that run wrote in an app (Word), brings that app and document to the front (`Desktop.show`). "The Word document" or "the doc" prefers the app. It never starts a run. `Library.match` also refuses any "show / let me see / bring up / where is …" request (`is_show`), so it can never trigger a workflow run or offer. During a run, the mid-run grammar (ADR-010 §6) still handles "show me", as before.
+4. **Light lane:** `light.kind(text)` recognises a word question, a stable fact or a few words to send. The route stays `agent` with action `quick` and light demand, so the eval set and its "nothing is lost" test hold. The session first asks `QuickModel`: one Claude Code call on the light model with every tool off, no MCP servers, no settings files, no persisted session and one turn, using the owner's existing sign-in (owner decision 1: no separate API key). The interaction log records route `light`. If that call fails, is empty, or takes longer than 20 s, the request continues to the agent on Haiku, so this lane can only make a request faster. Anything about the owner's things ("my", "this", files, email, calendar) or about now ("today", "latest", "weather") is excluded and goes to the agent, which has the tools and data for it.
+5. **Agent**, then a **workflow** if `Library.match` finds one, exactly as before.
+
+**Cost and speed.** The fast lane needs no model and no network: measured in milliseconds. The light lane keeps one tool-free CLI connected ahead of time, the same way the agent's `prewarm` does, and uses a fresh one for each question so questions never share context. It saves the agent session's system prompt, tools, MCP server and loop; measured live on 2026-10-27, with the CLI already warm: 2.5 s ("a synonym for happy") and 1.8 s ("reply politely to say I'm running ten minutes late"), against 7–18 s through the agent. Warming the CLI took 17.5 s, in the background at startup. `executor.quick_answers: false` turns the light lane off.
+
+**Not done / next.**
+- A direct Messages API call would be faster still (under 1 s, no CLI process), but it needs an API key, which owner decision 1 ruled out. If the owner wants it, it fits behind `QuickModel.answer` without changing the router.
+- The fast lane is English only and uses this PC's clock and time zone. City times outside the table go to the agent.
+- Re-run `report.py` on the owner's next session to confirm these phrase families no longer reach the agent.

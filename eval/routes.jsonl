@@ -249,8 +249,8 @@
 {"id": "nw49", "text": "Summarize the commits from this week.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
 {"id": "nw50", "text": "Set the push to talk hotkey to control shift S in the config.", "route": "agent", "demand": "light", "tags": ["edit"], "split": "train", "source": "new"}
 {"id": "nw51", "text": "Count the lines of Python in the source folder.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
-{"id": "nw52", "text": "What's two hundred and forty times seventeen?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
-{"id": "nw53", "text": "Convert thirty degrees Celsius to Fahrenheit.", "route": "agent", "demand": "light", "tags": [], "split": "test", "source": "new"}
+{"id": "nw52", "text": "What's two hundred and forty times seventeen?", "route": "local", "demand": null, "tags": ["fast-lane"], "split": "train", "source": "new"}
+{"id": "nw53", "text": "Convert thirty degrees Celsius to Fahrenheit.", "route": "local", "demand": null, "tags": ["fast-lane"], "split": "test", "source": "new"}
 {"id": "nw54", "text": "Draft a polite reply declining the meeting.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
 {"id": "nw55", "text": "Pull the latest changes in the Swift repo.", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
 {"id": "nw56", "text": "Use opus to review the routing design for gaps.", "route": "agent", "demand": "standard", "override": "opus", "tags": [], "split": "train", "source": "new"}
@@ -265,7 +265,7 @@
 {"id": "nw65", "text": "say that again", "route": "control", "demand": null, "tags": ["stt"], "split": "train", "source": "new"}
 {"id": "nw66", "text": "Hey Swift cancel", "route": "control", "demand": null, "tags": ["wake-prefix"], "split": "test", "source": "new"}
 {"id": "nw67", "text": "Quiet.", "route": "control", "demand": null, "tags": [], "split": "train", "source": "new"}
-{"id": "nw68", "text": "What's the time in Bucharest?", "route": "agent", "demand": "light", "tags": [], "split": "train", "source": "new"}
+{"id": "nw68", "text": "What's the time in Bucharest?", "route": "local", "demand": null, "tags": ["fast-lane"], "split": "train", "source": "new"}
 {"id": "nw69", "text": "Open the Swift project in VS Code.", "route": "local", "demand": null, "tags": ["planned"], "split": "train", "source": "new"}
 {"id": "nw70", "text": "Open my downloads folder.", "route": "local", "demand": null, "tags": ["planned"], "split": "test", "source": "new"}
 {"id": "nw71", "text": "Launch Chrome.", "route": "local", "demand": null, "tags": ["planned"], "split": "train", "source": "new"}

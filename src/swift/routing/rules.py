@@ -9,7 +9,14 @@
   resolves the phrase against the ``local`` settings and sends it on to Claude Code when
   the target isn't a configured name, so only known names are ever opened. "Open this"
   opens the file selected in File Explorer (ADR-012 D1). "Undo that" is Swift's only when
-  Swift wrote something; otherwise it goes on to Claude Code as before.
+  Swift wrote something; otherwise it goes on to Claude Code as before. "Show me" on its own,
+  with no run going, is ``show_last``: the last run's result or the app it wrote in (ADR-007 §10).
+- **fast lane** (``fast.py``, ADR-007 §10): time and date maths, other cities' time,
+  conversions, arithmetic and spelling are ``local`` with action ``answer``. A leading "and",
+  "so" or "Swift," doesn't stop a local match ("and what's the date?").
+- **light lane** (``light.py``): quick facts and everyday language are ``agent`` with action
+  ``quick`` and light demand; the session answers them with one tool-free model call, and only
+  hands them to the agent when that call can't answer.
 - **agent**: everything else, sent to the provider (Claude Code today, ADR-008). A leading "use opus / use haiku" picks the model
   and is removed; "think hard about ..." asks for the strongest model and is kept.
   Demand (light or standard) comes from ``demand_fn``: by default the keyword
@@ -37,6 +44,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from swift.executors.providers import AGENT_NAMES
+from swift.routing import fast, light
 from swift.routing.demand import estimate
 
 RouteName = Literal["control", "local", "agent"]
@@ -77,10 +85,16 @@ LOCAL: dict[str, str] = {
     r"|from where (we|i|you) (left off|stopped)))?|where were we|what was i doing|where did we leave off"
     r"|pick up where (we|i|you) left off",
     "not_now": r"not now|not right now|later|maybe later",
+    # ADR-007 §10: with no run going, "show me" is the last result, or the app Swift wrote in.
+    "show_last": r"(?:can you |could you )?(?:show me|show|let me see|bring up|pull up|bring back)(?: it| that| this| them"
+    r"| what you (?:wrote|made|did|found|just wrote|wrote in word)| the (?:result|results|document|doc|word document|word doc"
+    r"|file|draft|email|report|research|answer|last one|output|summary|notes|last result)| me)?(?: again| in word| now)?"
+    r"|where is it|where(?:'s| is) the (?:document|doc|word document|draft|result|report)",
 }
 _CONTROL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in CONTROL.items()]
 _LOCAL = [(action, re.compile(rf"(?:{pattern})")) for action, pattern in LOCAL.items()]
 
+_LEAD_IN = re.compile(r"^(?:(?:and|so|ok|okay|right|alright|then|also|oh|well|but|now|hmm+)\s+)+(?=\S)")
 _USE_MODEL = re.compile(r"^(?:use|using|with|on) (opus|sonnet|haiku)(?: model)?(?:,| to| for| and)?\s+(.+)$", re.IGNORECASE)
 _THINK_HARD = re.compile(r"^think (?:really )?(?:hard|harder|carefully|deeply)\b", re.IGNORECASE)
 
@@ -91,7 +105,8 @@ class Route:
     # The request as it should be sent: wake word and a "use <model>" prefix removed.
     text: str
     # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
-    # local: time | date | identity | open | workflows | undo | resume | not_now.
+    # local: time | date | identity | open | workflows | undo | resume | not_now | show_last | answer (fast lane);
+    # agent: quick (the light lane) or None.
     action: str | None = None
     demand: Demand | None = None
     override: Override | None = None
@@ -174,10 +189,14 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     for action, pattern in _CONTROL:
         if pattern.fullmatch(norm):
             return Route("control", text.strip(), action=action)
+    # "And what's the date?", "so, what time is it": the same question.
+    loose = _LEAD_IN.sub("", norm) or norm
     for action, pattern in _LOCAL:
-        if pattern.fullmatch(norm):
+        if pattern.fullmatch(norm) or pattern.fullmatch(loose):
             called = _AGENT_WORD.search(norm) if action == "identity" else None
             return Route("local", text.strip(), action=action, addressed_as=_agent_key(called.group(1)) if called else None)
+    if fast.answer(text) is not None:
+        return Route("local", text.strip(), action="answer")
 
     if (opened := _open_request(norm)) is not None:
         return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])
@@ -189,6 +208,8 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
         return Route("agent", rest[:1].upper() + rest[1:], demand="light" if model == "haiku" else "standard", override=override)
     if _THINK_HARD.match(request):
         return Route("agent", request, demand="standard", override="opus")
+    if light.kind(request) is not None:
+        return Route("agent", request, action="quick", demand="light")
     return Route("agent", request, demand=demand_fn(request) or default_demand)  # type: ignore[arg-type]
 
 

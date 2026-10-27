@@ -47,7 +47,7 @@ def test_whole_utterance_commands_are_control(text: str, action: str) -> None:
         "Yes, and also add tests for it.",
         "No wonder the tests fail, fix them.",
         "Go ahead and send the email to my dean.",
-        "What time is it in Bucharest?",
+        "What time is it in Atlantis?",  # a city the fast lane doesn't know (Bucharest: test_fast_lane.py)
     ],
 )
 def test_requests_that_start_like_commands_still_reach_claude(text: str) -> None:

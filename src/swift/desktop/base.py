@@ -167,6 +167,11 @@ class Desktop(Protocol):
         """Undo a write with the app's own undo. Returns what happened, for the result card."""
         ...
 
+    async def show(self, receipt: WriteReceipt) -> str:
+        """Bring the app and document Swift wrote in to the front ("show me", ADR-007 §10). Returns
+        what happened, for the result card; raises ``DesktopError`` when it isn't there any more."""
+        ...
+
     async def open_path(self, path: str) -> None: ...
 
     async def fill_in_email(self, app: str, to: list[str], subject: str, body: str) -> str:

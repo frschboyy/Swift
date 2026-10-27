@@ -140,6 +140,8 @@ class ExecutorSettings(_Section):
     confirm_strong: bool = False
     # Tool-using steps on one model before Swift moves the run up.
     turn_limits: dict[Literal["light", "standard"], int] = Field(default_factory=lambda: {"light": 8, "standard": 25})
+    # Quick facts and everyday language: one tool-free call to the light model, no agent run (ADR-007 §10).
+    quick_answers: bool = True
 
 
 class LocalSettings(_Section):

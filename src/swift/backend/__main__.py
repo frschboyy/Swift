@@ -29,6 +29,7 @@ from swift.executors.base import Executor
 from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.echo import EchoExecutor
 from swift.executors.mock import MockExecutor
+from swift.executors.quick import QuickModel
 from swift.ipc.server import OverlayServer
 from swift.attention import Attention
 from swift.lifecycle import Lifecycle
@@ -293,6 +294,10 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     if isinstance(session.executor, ClaudeCodeExecutor):
         session.executor.attention = attention
         session.executor.prepare()
+        if settings.executor.quick_answers:
+            # ADR-007 §10: the light lane, on the owner's existing Claude Code sign-in.
+            session.quick = QuickModel(settings.executor.models["light"], prewarm=settings.executor.prewarm)
+            session.quick.prepare()
     logger.info("backend ready", port=bound, debug=settings.debug, wake=wake.enabled)
 
     # Exit when Tauri closes our stdin (normal quit). The Job Object covers crashes.
@@ -303,6 +308,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         await session.close()
         if isinstance(session.executor, ClaudeCodeExecutor):
             await session.executor.close()
+        if session.quick is not None:
+            await session.quick.close()
         await server.stop()
         logger.info("backend stopped")
 

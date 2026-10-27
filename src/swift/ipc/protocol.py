@@ -17,6 +17,11 @@ working on (a draft, a recipient, a send status); ``view`` opens or closes the o
 detail view on one; ``run.voice`` is push-to-talk feedback on the working card. Inbound
 ``view`` is the Show / Back button, ``debug.say`` typed text treated as speech mid-run.
 ``confirm.request`` may carry ``artifact_id``: the card shows that artifact (the draft).
+
+Several requests at once (ADR-013 phase B): ``runs`` names the request in front (``focus``,
+its ``run_id``), the others as one-line ``rows``, and how many confirm cards wait behind the
+one on screen. It is sent only while there is more than one. Inbound ``focus`` brings a row
+to the front (a click on it, or the overlay's own card fading while others still run).
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -51,13 +56,16 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "view": {"action": (str, ("show", "hide"))},
     # Debug mode only: typed text handled as if spoken during a run ("show me").
     "debug.say": {"text": (str, None)},
+    # A background request to the front (ADR-013 §3.1).
+    "focus": {"run_id": (str, None)},
     # Sent once when the overlay is fully up; ``backend_ms`` is optional.
     "ready": {"startup_ms": (int, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
-     "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer"}
+     "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
+     "runs"}
 )
 
 

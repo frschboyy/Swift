@@ -335,6 +335,11 @@ Other speech near the microphone is ignored.
 
 `loudest` and `room` are levels (0–1). A `microphone opened` line names the device each time the stream (re)opens, for example after sleep. Swift reopens the microphone when it stops delivering audio, refreshes Windows' device list when it does, never waits more than 20 s on one transcription, and never stays deaf more than 30 s through continuous sound.
 
+**Several requests at once** ([ADR-013](docs/decisions/ADR-013-attention-threads-and-concurrent-requests.md) phase B):
+- Ask something new while a request runs ("hey Swift, what time is it", or the hotkey) and it runs beside it. The one in front has the card; the others are one line each under it (at most three, then "+N more"). Click a line, or say "show me the research one", to bring it forward; "stop the research one" or "stop everything" stops them. Esc and "stop" act on the one in front.
+- Up to three run at once; a fourth waits and starts when one is done. Only one confirm card is shown at a time: the others wait in order, and each one's 2-minute countdown starts when it's shown. Only one request writes in your apps at a time; another says "Waiting for Word".
+- **Change your mind mid-task:** "actually …", "instead …", "no, I meant …", "change it to …". Hands-free, start with "Swift, …". Claude Code takes the change in the same session; other providers start again with it. If something can't be taken back (an email already sent), Swift says so and offers to send a correction.
+
 **While you're away** ([ADR-014](docs/decisions/ADR-014-presence-and-lifecycle.md)):
 - When the screen is locked or the PC sleeps, Swift stops listening and closes the microphone ([threat model](docs/threat_model.md) T7). When you're back, it reopens the microphone and gets the speech model and Claude Code ready before you speak.
 - If you only stop typing, it keeps listening, so you can still talk to it from across the room. After 30 minutes away it frees the warm Claude Code, and the speech model too if nothing is listening.

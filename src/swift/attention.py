@@ -13,6 +13,10 @@ countdown only while the owner is here or idle:
 
 Swift's own cards (the gateway's) and Claude Code's cards both wait through here; a provider
 without it keeps the plain timeout.
+
+With several requests at once (ADR-013 §5.2) only one card is on screen; the others wait in
+line. ``set_queued`` stops a waiting card's countdown the same way, so each card's time starts
+when it is shown.
 """
 
 from __future__ import annotations
@@ -50,6 +54,8 @@ class Attention:
         self.clock = clock
         self.held = False
         self._waits: dict[str, _Wait] = {}
+        # Cards waiting behind the one on screen: their countdown hasn't started.
+        self._queued: set[str] = set()
         self._changed = asyncio.Event()
 
     def set_held(self, held: bool) -> list[str]:
@@ -58,15 +64,36 @@ class Attention:
             return []
         self.held = held
         now = self.clock()
-        for w in self._waits.values():
+        for key, w in self._waits.items():
             if held:
-                w.left = max(0.0, (w.deadline or now) - now)
-                w.deadline, w.held_at = None, now
-            else:
+                self._freeze(w, now)
+            elif key not in self._queued:
                 w.left = max(w.left, self.return_s)
                 w.deadline, w.held_at = now + w.left, None
         self.check()
         return list(self._waits)
+
+    def set_queued(self, key: str, queued: bool) -> None:
+        """A card waits behind another (True), or is now the one on screen (False): its countdown starts."""
+        if queued == (key in self._queued):
+            return
+        now = self.clock()
+        w = self._waits.get(key)
+        if queued:
+            self._queued.add(key)
+            if w is not None:
+                self._freeze(w, now)
+        else:
+            self._queued.discard(key)
+            if w is not None and not self.held:
+                w.deadline, w.held_at = now + w.left, None
+        self.check()
+
+    @staticmethod
+    def _freeze(w: _Wait, now: float) -> None:
+        if w.deadline is not None:
+            w.left = max(0.0, w.deadline - now)
+            w.deadline, w.held_at = None, now
 
     def left(self, key: str) -> float | None:
         """Seconds of countdown the card has left (frozen while held); None: not waiting."""
@@ -83,7 +110,8 @@ class Attention:
     async def wait(self, key: str, future: asyncio.Future[Any], timeout_s: float) -> Any:
         """``future``'s result. TimeoutError when the countdown runs out, or the card was held too long."""
         now = self.clock()
-        w = _Wait(timeout_s, None, now) if self.held else _Wait(timeout_s, now + timeout_s, None)
+        frozen = self.held or key in self._queued
+        w = _Wait(timeout_s, None, now) if frozen else _Wait(timeout_s, now + timeout_s, None)
         self._waits[key] = w
         try:
             while True:
@@ -100,6 +128,7 @@ class Attention:
                     return future.result()
         finally:
             self._waits.pop(key, None)
+            self._queued.discard(key)
 
 
 async def wait_answer(attention: Attention | None, key: str, future: asyncio.Future[Any], timeout_s: float) -> Any:

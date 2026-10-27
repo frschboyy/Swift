@@ -1,6 +1,6 @@
-# Owner checks: the overlay, conversations, corrections, stepping away (ADR-012, ADR-013 phase A, ADR-014)
+# Owner checks: the overlay, conversations, corrections, stepping away, several requests (ADR-012, ADR-013, ADR-014)
 
-About 15 minutes, in your real Swift with your real microphone. Run them in order.
+About 25 minutes, in your real Swift with your real microphone. Run them in order.
 
 - Each check says **what to do**, **what you should see**, and what the log report checks afterwards.
 - Note anything that looks wrong and roughly when, e.g. "check 3 at 20:15".
@@ -40,6 +40,20 @@ About 15 minutes, in your real Swift with your real microphone. Run them in orde
 | 14 | Hold the hotkey: "set up a meeting with Test Me on Friday at four". When the card appears, lock the screen (Win + L) and wait **3 minutes** (longer than the card's 2-minute countdown). Unlock | The card is back, with "1 card waiting, since …" at the top and a fresh countdown. Click **Reject**. | A card held while away, answered after |
 | 15 | Hold the hotkey: "draft an email to Test Me about lunch". While it works, press Esc. Wait a minute, then hold the hotkey: "what time is it" | The time, with one more line: "Unfinished: Draft an email to Test Me about lunch. Say “continue”, or “not now”." | A stopped request parked; the line offered |
 | 16 | Within 8 s (or with the hotkey): "continue" | It picks the email up again, on the same card as before, and shows the draft. Click **Reject**. | A parked request resumed |
+
+### Several requests at once, and changing your mind (ADR-013 phase B, ADR-014 §7)
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 17 | Hold the hotkey: "research the history of tea and summarise it". While it works: "hey Swift, what time is it" | The time on the card; under it **one line** for the research ("research the history of…", what it's doing, elapsed time). Nothing on the card jumps or flickers. | Two requests running at the same time |
+| 18 | Let the time answer fade | The research card comes back by itself, with its steps | (seen on screen) |
+| 19 | While the research still runs: "hey Swift, set up a meeting with Test Me on Friday at four". Then "hey Swift, what's the date" | The calendar card on screen; the date answer **does not cover it** (it's a line under it, or waits). | The calendar card was answered, never timed out |
+| 20 | Click **Reject** on the calendar card. Then say "show me the research one" | The research card in front again | A request brought forward by name |
+| 21 | Say "stop the research one" | The research row/card ends ("Stopped …"); nothing else stops | A request stopped by name |
+| 22 | Hold the hotkey: "write a short paragraph about lunch". While it works, hold the hotkey: "actually, make it about dinner instead" | "Changing course: actually, make it about dinner…" on the card; the answer is about dinner, on the **same card** | A change of mind passed on (same session for Claude Code) |
+| 23 | Hands-free during a run: "hey Swift, write a haiku about rain", then, **without** "Swift": "actually make it about snow" | A hint: say "Swift, actually …". Then say "Swift, actually make it about snow" and it changes course | A hands-free change of mind needed the name |
+| 24 | "Hey Swift, email Test Me that I'm running late". Approve the card. While it finishes, say "Swift, actually say I'm not coming" | "The email was already sent, so I can't take it back. Say “yes” and I'll send a correction." Say "Swift, yes" and **Reject** the new card | Told it was already sent; the correction offered |
+| 25 | Start three long requests one after another ("research …"), then a fourth | Three run (one card, two lines); the card says the fourth is waiting, and it starts when one finishes | The fourth waited for a slot |
 
 ## After the checks: the report
 

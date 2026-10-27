@@ -170,8 +170,8 @@ async def test_ptt_while_working_takes_the_midrun_grammar() -> None:
     assert [v["phase"] for v in of(out, "run.voice")] == ["listening", "transcribing", "idle"]
     assert out.last("view")["artifact_id"] == "recipient"
 
-    # Anything else is a hint, never a new request.
-    stt.text = "also book me a flight"
+    # Anything that is neither for the run nor a clear new request is a hint (test_runs.py: new ones).
+    stt.text = "um, the"
     await session.handle(Message("ptt", {"state": "down"}))
     await asyncio.sleep(0)
     await session.handle(Message("ptt", {"state": "up"}))

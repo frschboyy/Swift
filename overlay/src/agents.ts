@@ -16,7 +16,7 @@ const DOING: Record<Activity, string> = {
   delegating: "Handing off a subtask",
   planning: "Planning",
   thinking: "Thinking",
-  waiting: "Waiting to retry",
+  waiting: "Waiting",
   switching: "Switching models",
   blocked: "Blocked",
   working: "Working on it",

@@ -502,3 +502,18 @@ code {
 
 /* ADR-014 §4: a confirm card put aside while the owner is away. */
 .card--held { display: none !important; }
+
+/* ADR-013 phase B: other requests, one line each under the card; at most three, then "+N more". */
+.rows { list-style: none; margin: 6px 0 0; padding: 0; width: min(100%, 420px); display: flex; flex-direction: column; gap: 4px; }
+.rows[hidden] { display: none; }
+#stage[data-anchor^="top"] .rows { order: -1; margin: 0 0 6px; }
+.row { max-height: 28px; border-radius: 8px; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 12.5px; color: var(--faint); }
+.row-btn { all: unset; box-sizing: border-box; width: 100%; height: 28px; padding: 0 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.row-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.row-title { color: var(--text, inherit); flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-activity { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .elapsed { flex: none; }
+.row-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
+.spinner--small { width: 10px; height: 10px; border-width: 1.5px; }
+.row--more, .row--waiting { padding: 4px 10px; background: none; border: none; }
+.row--waiting { color: var(--accent); }

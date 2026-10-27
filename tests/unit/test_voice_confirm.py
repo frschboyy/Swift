@@ -146,10 +146,12 @@ async def test_a_quick_tap_on_the_card_does_nothing() -> None:
 
 
 async def test_ptt_while_working_listens_for_midrun_commands_not_a_new_run() -> None:
-    """ADR-010 §6: push-to-talk mid-run goes to the mid-run grammar (test_show_me.py)."""
+    """ADR-010 §6: push-to-talk mid-run goes to the mid-run grammar (test_show_me.py); speech that is
+    neither for the run nor a clear new request is a hint (a clear one starts beside it: test_runs.py)."""
     out = Outbox()
     session = Session(
-        out, MockExecutor(speed=1, default_scenario="long"), recorder=FakeRecorder(), transcriber=FakeTranscriber(),
+        out, MockExecutor(speed=1, default_scenario="long"), recorder=FakeRecorder(),
+        transcriber=FakeTranscriber(text="uh, hmm"),
         tail_s=0.0,
     )
     await ptt(session, "down")

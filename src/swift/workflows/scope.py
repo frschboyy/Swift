@@ -1,8 +1,7 @@
 """The state Swift's tools keep for one run (ADR-010 §3.4).
 
-Swift runs one interaction at a time, so the tool host has at most one open
-``RunScope``. The session opens it before the provider starts and closes it when
-the run ends; it supplies how artifacts reach the overlay (``publish``), how the
+Every request has its own ``RunScope`` (several can run at once, ADR-013 §5.4). The
+session opens it before the provider starts and closes it when the run ends; it supplies how artifacts reach the overlay (``publish``), how the
 gateway asks the owner (``confirm``) and how Swift's own steps reach the working
 card (``step``, e.g. "Swift is writing in Word").
 
@@ -74,6 +73,9 @@ class RunScope:
     # time.monotonic() until which the owner is talking to Swift (push-to-talk held): their
     # key presses then aren't "typing in the window" (ADR-012 §6).
     talking_until: float = 0.0
+    # Actions the gateway did in this run that needed the owner's approval, as (tool, title):
+    # a sent email can't be taken back, so a change of mind afterwards is told so (ADR-014 §7).
+    done: list[tuple[str, str]] = field(default_factory=list)
 
     def allows(self, tool: str) -> bool:
         return self.grant is None or tool in self.grant.tools

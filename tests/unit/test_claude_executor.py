@@ -331,11 +331,12 @@ async def test_web_and_own_tools_follow_the_workflow_grant(tmp_path: Path) -> No
     async def nothing(*_: Any) -> Any:
         return None
 
-    host.open(nothing, nothing)  # an ordinary request: no web
+    plain = host.open(nothing, nothing)  # an ordinary request: no web
     denied = await ex._ask(run, "cc-1", "WebSearch", {"query": "tea"})
     assert isinstance(denied, PermissionResultDeny) and "isn't available" in denied.message
 
     research = Grant("research-into-word", frozenset({"desktop_write"}), frozenset({"web.search", "web.fetch"}))
+    host.close(plain)  # one request at a time here (each has its own scope)
     host.open(nothing, nothing, research)
     assert isinstance(await ex._ask(run, "cc-1", "WebFetch", {"url": "https://example.com"}), PermissionResultAllow)
     bash = await ex._ask(run, "cc-1", "Bash", {"command": "dir"})

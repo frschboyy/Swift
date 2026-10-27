@@ -128,3 +128,8 @@ class Executor(Protocol):
     # the provider's own confirm card with a change ("no, put it in docs/ instead"): pass it to the
     # provider, which revises and asks again; True if it took it. A provider without it gets the
     # same result generically: Swift rejects the card and sends the change as the next request.
+    #
+    # Optional: ``async def redirect(self, run_id: str, text: str) -> bool``. The owner changed their
+    # mind mid-run ("actually, make it about the deadline"): the provider goes on with the change in
+    # the same session; True if it took it. Without it, Swift cancels the run and starts it again
+    # with the original request and the change (ADR-014 §7).

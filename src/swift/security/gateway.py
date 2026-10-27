@@ -145,6 +145,8 @@ class ActionGateway:
         # 8. journal, 9. audit
         self.journal.write(action_id, "DONE", receipt=receipt)
         scope.sent.add(approved_digest)
+        if policy == "confirm":
+            scope.done.append((action.tool, action.title))
         await status("sent", message_id=receipt)
         logger.info("action done", tool=action.tool, action=action_id, domains=domains)
         return Outcome("done", receipt=receipt)

@@ -164,9 +164,28 @@ Returning is a signal too: unlock, resume from sleep, the first input after `awa
 - **The offer appears on the next answer, not on the listening card.** That's when Swift is on screen with room for a line. With wake listening on, the follow-up window lets the owner say just "continue".
 - **"Continue" with nothing parked** goes to the provider with the last exchange (as before), or says "There's nothing unfinished to pick up."
 - **A rejected card is not parked.** Saying no is a decision. Corrections after a rejection keep working through the follow-up context (ADR-013).
-- **"The owner starts something unrelated in the middle of it"** can't happen yet: one request runs at a time, and a new request during a run answers its card or is the mid-run grammar. It comes with ADR-013 phase B (several requests at once).
+- **"The owner starts something unrelated in the middle of it"** can't happen yet: one request runs at a time, and a new request during a run answers its card or is the mid-run grammar. It comes with ADR-013 phase B (several requests at once): see §12.
 
 **Owner-run:** checks 14–16 in `docs/testing/owner-checks.md` (a card held across a lock; stop, the offer, "continue"). `report.py` reports them.
 
 **Not in L2:** calls, quiet modes and quiet hours (L3); mid-task redirects (with ADR-013 phase B); notifications and digests queued while away (with the watchers, ADR-011).
 
+## 12. Implementation status: mid-task redirects (§7), with ADR-013 phase B (2026-10-27)
+
+| Part | Where | Tests |
+|---|---|---|
+| The grammar: "actually …", "instead …" / "… instead", "no, I meant …", "I mean …", "change it to …", "make it … instead", "rather …", "scratch that and …"; the whole utterance is the change | `rules.route_redirect` | `test_runs.py` |
+| Hands-free a change of mind needs Swift's name first ("Swift, actually …"); without it a hint says so (threat model T2) | `Session._hear_busy` | `test_runs.py` |
+| A card is open: the change is a change to the card (as before) | `Session._redirect` → `_answer_text` | `test_runs.py` |
+| Before anything that can't be undone: Claude Code takes it as the next turn of the same session (the current turn is interrupted; an open card takes it as a change); other providers are cancelled and started again with the request and the change, in the same interaction, thread and card | `ClaudeCodeExecutor.redirect`, `_pump`, `REDIRECT_MESSAGE`; `Session._run` (`Run.restart`) | `test_runs.py` |
+| After something that can't be undone (the gateway's approved actions in this run: a sent email, an added event): Swift says so plainly ("The email was already sent, so I can't take it back. Say “yes” and I'll send a correction.") and "Swift, yes" starts the follow-up in the same thread | `RunScope.done` (gateway), `Session._redirect`, `_fix_offer`, `_answer_fix` | `test_runs.py` |
+| An unrelated request mid-task runs beside the first (ADR-013 phase B), never dropping it | `Session._start_beside` | `test_runs.py` |
+
+**Decided while building:**
+- "Can't be undone" means an action the gateway asked the owner to approve and then did. Swift's writes in the owner's apps are reversible ("undo that"), so they don't count; neither do Claude Code's own approved file edits, which the provider can revise.
+- Approving the follow-up hands-free needs the name too ("Swift, yes").
+- Only the change count and how it was handled (`redirected`) go in the interaction log, besides the transcript already kept there.
+
+**Owner-run:** checks 22–24 in `docs/testing/owner-checks.md`.
+
+**Not in this step:** L3 (quiet modes, call detection).

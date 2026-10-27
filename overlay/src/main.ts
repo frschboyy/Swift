@@ -4,6 +4,8 @@
 // Failure cards, connection status, placement and dragging: ADR-009.
 // Run artifacts and the "show me" detail view: ADR-010 §7. The detail view replaces the
 // working card's body in place (the card never moves mid-run); Swift picks what it shows.
+// Several requests (ADR-013 phase B): the others are one line each under the card (``runs``);
+// a click on one, or the card in front fading while one still runs, brings it forward.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -31,6 +33,7 @@ const LOGGED: ReadonlySet<string> = new Set(["internal", "crashed", "executor_fa
 
 const stage = document.getElementById("stage")!;
 const card = document.getElementById("card")!;
+const rowsEl = document.getElementById("rows")!;
 const transcriptEl = document.getElementById("transcript")!;
 const orb = new Orb(document.getElementById("orb")!);
 
@@ -68,6 +71,8 @@ let artifacts = new Map<string, Artifact>();
 let viewing: string | null | undefined;
 let lastConfirm: Extract<Inbound, { type: "confirm.request" }>["data"] | null = null;
 let fullDraft = false;
+// The row last asked to come forward, so the clock asks once.
+let promoted: string | null = null;
 // Push-to-talk on the working card (mid-run grammar).
 let runVoice: { phase: string; text: string } | null = null;
 let runVoiceTimer = 0;
@@ -137,6 +142,65 @@ function presentAnswer(kind: "result" | "error" | "notice", ms: number | null, r
   return r.shown;
 }
 
+// ---- other requests: one line each under the card (ADR-013 §3.1) ---------------------------
+
+const ROW_STATE: Record<string, string> = {
+  queued: "Waiting to start",
+  listening: "Listening",
+  transcribing: "Transcribing",
+  confirm: "Waiting for your answer",
+  result: "Done",
+  error: "Didn't finish",
+  done: "Stopped",
+};
+
+function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
+  const rows: P.Row[] = data.rows.map((r) => ({
+    runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
+    startedMs: r.started_ms, summary: r.summary,
+  }));
+  pres = P.onRuns(pres, data.focus, rows, data.waiting);
+  checkPresenter();
+  if (pres.focus !== promoted) promoted = null;
+  drawRows();
+}
+
+function rowLabel(r: P.Row): string {
+  if (r.state === "working") return activityLabel(null, (r.activity ?? undefined) as Activity | undefined, false, r.app);
+  const label = ROW_STATE[r.state] ?? "Working on it";
+  return r.summary ? `${label}: ${r.summary}` : label;
+}
+
+function drawRows(): void {
+  const { rows, more } = P.visibleRows(pres);
+  const items: HTMLElement[] = rows.map((r) => {
+    const running = !["result", "error", "done"].includes(r.state);
+    const s = Math.max(0, Math.floor((Date.now() - r.startedMs) / 1000));
+    return el(
+      "li",
+      { class: `row row--${r.state}`, "data-hit": true },
+      el(
+        "button",
+        { class: "row-btn", title: "Bring this request to the front", onclick: () => askFocus(r.runId) },
+        el("span", { class: running ? "spinner spinner--small" : "row-dot", "aria-hidden": "true" }),
+        el("span", { class: "row-title" }, r.title),
+        el("span", { class: "row-activity" }, rowLabel(r)),
+        running ? el("span", { class: "elapsed" }, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`) : null,
+      ),
+    );
+  });
+  if (more) items.push(el("li", { class: "row row--more" }, `+${more} more`));
+  if (pres.waiting) items.unshift(el("li", { class: "row row--waiting" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
+  rowsEl.replaceChildren(...items);
+  rowsEl.hidden = items.length === 0;
+  scheduleRegions();
+}
+
+function askFocus(runId: string): void {
+  promoted = runId;
+  client.send({ type: "focus", data: { run_id: runId } });
+}
+
 /** Earlier turns of this conversation, one line each, above the card (ADR-013 §4.2). */
 function threadLines(): HTMLElement | null {
   if (!pres.history.length) return null;
@@ -145,6 +209,7 @@ function threadLines(): HTMLElement | null {
 
 function setStage(next: UiState, runId: string | null = null, threadId: string | null = null): void {
   const change = P.onState(pres, next, runId, threadId);
+  if (change.ignored) return;  // another request's news: its row says it
   pres = change.p;
   checkPresenter();
   state = next;
@@ -862,6 +927,9 @@ window.setInterval(() => {
   pres = r.p;
   if (r.hide) setStage("idle");
   drawFollowup(r.followupLeft);
+  // The card in front is gone but another request still runs: bring it forward.
+  const next = P.promotion(pres);
+  if (next && next !== promoted) askFocus(next);
 }, 250);
 
 // ---- click-through regions ---------------------------------------------------
@@ -871,7 +939,7 @@ window.setInterval(() => {
 let regionTimers: number[] = [];
 
 function sendRegions(): void {
-  const visible = card.classList.contains("card--in") && !card.classList.contains("card--held");
+  const visible = (card.classList.contains("card--in") && !card.classList.contains("card--held")) || !rowsEl.hidden;
   // Outermost hit areas only: a nested one adds nothing.
   const rects = visible
     ? Array.from(document.querySelectorAll<HTMLElement>("[data-hit]"))
@@ -918,6 +986,7 @@ window.setInterval(() => {
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
     if (isStalled(Date.now()) !== !!card.querySelector(".note--soft")) renderWorking();
   } else if (state === "confirm") tickConfirm();
+  if (pres.rows.length) drawRows();  // their elapsed time
 }, 1000);
 
 // ---- Esc: only grabbed while Swift is active ------------------------------------
@@ -1000,6 +1069,9 @@ function onMessage(msg: Inbound): void {
       break;
     case "resume.offer":
       onResumeOffer(msg.data);
+      break;
+    case "runs":
+      onRuns(msg.data);
       break;
   }
 }

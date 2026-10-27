@@ -71,7 +71,21 @@ export type Inbound =
   // held false: they're back, and the card has timeout_s left.
   | { type: "confirm.hold"; data: { request_id: string; held: boolean; timeout_s: number } }
   // ADR-014 §5: after an answer, one line naming a conversation left unfinished ("continue" picks it up).
-  | { type: "resume.offer"; data: { thread_id: string; title: string } };
+  | { type: "resume.offer"; data: { thread_id: string; title: string } }
+  // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
+  | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } };
+
+export type RunRow = {
+  run_id: string;
+  thread_id: string | null;
+  title: string;
+  state: string;
+  activity: Activity | null;
+  app: string | null;
+  agent: Agent | null;
+  started_ms: number;
+  summary: string;
+};
 
 export type ErrorData = {
   code: string;
@@ -96,6 +110,8 @@ export type Outbound =
   | { type: "debug.say"; data: { text: string } }
   // The card's Show / Back button: the same as saying "show me" / "hide that".
   | { type: "view"; data: { action: "show" | "hide" } }
+  // A background request to the front: a row clicked, or the card in front gone while it runs.
+  | { type: "focus"; data: { run_id: string } }
   | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } };
 
 export function encode(msg: Outbound): string {

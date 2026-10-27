@@ -5,6 +5,11 @@
 // card can only fade if it is still the card on screen, so a finished request's fade can never
 // hide the next request's card (the 2026-10-26 bug). New requests are recognised from run and
 // thread ids, not from "listening", so new ways of starting one need no change here.
+//
+// Several requests at once (ADR-013 phase B): the backend's ``runs`` message names the one in
+// front (``focus``) and the others as rows. While there are rows, only the request in front can
+// change the card; the others' news is in their rows. When the card in front is gone and a row
+// still runs, ``promote`` names the one to bring forward (main.ts asks the backend).
 
 import type { UiState } from "./protocol";
 
@@ -15,6 +20,24 @@ const ACTIVE: ReadonlySet<CardKind> = new Set(["listening", "transcribing", "wor
 export const RESUME_MS = 2500;
 /** Earlier turns of a thread shown above its card. */
 export const HISTORY = 2;
+/** Background rows drawn under the card; past that, "+N more" (ADR-013 §3.3). */
+export const MAX_ROWS = 3;
+
+/** Another request, one line under the card in front. */
+export type Row = {
+  runId: string;
+  threadId: string | null;
+  title: string;
+  // "queued" (waiting for a slot), "listening" … "confirm", or how it ended: "result", "error", "done".
+  state: string;
+  activity: string | null;
+  app: string | null;
+  startedMs: number;
+  // How it ended, in one line (ended rows only).
+  summary: string;
+};
+
+const RUNNING: ReadonlySet<string> = new Set(["queued", "listening", "transcribing", "working", "confirm"]);
 
 export type Card = {
   kind: CardKind;
@@ -43,6 +66,10 @@ export type Presenter = {
   followupUntil: number;
   // Hover or drag holds the card: the time left when it started.
   pausedLeft: number | null;
+  // Several requests (ADR-013 phase B): the one in front, the others, and cards waiting behind the shown one.
+  focus: string | null;
+  rows: Row[];
+  waiting: number;
 };
 
 export const initial: Presenter = {
@@ -55,9 +82,38 @@ export const initial: Presenter = {
   held: null,
   followupUntil: 0,
   pausedLeft: null,
+  focus: null,
+  rows: [],
+  waiting: 0,
 };
 
 export const isActive = (p: Presenter): boolean => ACTIVE.has(p.card.kind);
+
+/** Another request's message while there are rows: it updates its row, never the card. */
+const notInFront = (p: Presenter, runId: string | null | undefined): boolean =>
+  p.rows.length > 0 && p.focus !== null && !!runId && runId !== p.focus;
+
+/** The ``runs`` message: who is in front, the others' rows, how many cards wait. */
+export function onRuns(p: Presenter, focus: string | null, rows: Row[], waiting: number): Presenter {
+  const next = { ...p, focus, rows: rows.filter((r) => r.runId !== focus), waiting };
+  if (focus !== null && p.card.runId !== null && p.card.runId !== focus && next.rows.length) {
+    // Another request comes to the front: its card replaces this one (the backend draws it next).
+    return { ...next, card: { ...initial.card }, pendingConfirm: null, held: null, pausedLeft: null };
+  }
+  return next;
+}
+
+/** The rows to draw (at most MAX_ROWS) and how many more there are. */
+export function visibleRows(p: Presenter): { rows: Row[]; more: number } {
+  return { rows: p.rows.slice(0, MAX_ROWS), more: Math.max(0, p.rows.length - MAX_ROWS) };
+}
+
+/** Nothing in front any more but a row still runs: the newest one should come forward. */
+export function promotion(p: Presenter): string | null {
+  if (p.card.kind !== "none") return null;
+  const running = p.rows.filter((r) => RUNNING.has(r.state) && r.state !== "queued");
+  return running.length ? running[running.length - 1].runId : null;
+}
 
 export type StateChange = {
   p: Presenter;
@@ -67,12 +123,15 @@ export type StateChange = {
   continued: boolean;
   // Nothing is shown any more (idle).
   hide: boolean;
+  // Another request's state while there are rows: ignored here (its row says it).
+  ignored?: boolean;
 };
 
 /** A ``state`` message from the backend. */
 export function onState(p: Presenter, state: UiState, runId: string | null, threadId: string | null): StateChange {
   const wasActive = isActive(p);
   const kind = state as CardKind;
+  if (notInFront(p, runId)) return { p, newRun: false, continued: false, hide: false, ignored: true };
   if (state === "idle") {
     return { p: { ...p, card: { ...initial.card }, pendingConfirm: null, held: null }, newRun: false, continued: false, hide: true };
   }
@@ -134,7 +193,8 @@ export type Answer = {
 /** A result, an error, or one of Swift's own notices. ``shown`` false: a notice the screen is too busy for. */
 export function onAnswer(p: Presenter, a: Answer, now: number): { p: Presenter; shown: boolean } {
   if (a.kind === "notice" && isActive(p)) return { p, shown: false };  // never over a request
-  if (a.runId && p.runId && a.runId !== p.runId && isActive(p)) return { p, shown: false };  // a late, stale answer
+  if (notInFront(p, a.runId)) return { p, shown: false };  // its row says how it ended
+  if (a.runId && p.runId && a.runId !== p.runId && isActive(p) && a.runId !== p.focus) return { p, shown: false };  // a late, stale answer
   const fadeAt = a.ms === null ? null : now + Math.max(a.ms, p.followupUntil > now ? p.followupUntil - now + 500 : 0);
   const thread = a.threadId ?? (a.kind === "notice" ? null : p.threadId);
   return {
@@ -191,5 +251,13 @@ export function violations(p: Presenter): string[] {
   if (p.held && p.held !== p.pendingConfirm) out.push(`card ${p.held} is put aside but isn't waiting`);
   if (p.history.length > HISTORY) out.push("too many earlier turns");
   if (p.history.some((t) => t.threadId !== p.threadId)) out.push("an earlier turn from another thread");
+  // Several requests: never two cards fighting (ADR-013 §3.2).
+  if (p.rows.length && p.focus && isActive(p) && p.card.runId && p.card.runId !== p.focus) {
+    out.push(`the card on screen (${p.card.runId}) isn't the request in front (${p.focus})`);
+  }
+  if (p.rows.some((r) => r.runId === p.focus)) out.push("the request in front also has a row");
+  if (new Set(p.rows.map((r) => r.runId)).size !== p.rows.length) out.push("a request has two rows");
+  if (p.waiting > 0 && !p.pendingConfirm) out.push(`${p.waiting} cards wait but none is on screen`);
+  if (visibleRows(p).rows.length > MAX_ROWS) out.push("too many rows");
   return out;
 }

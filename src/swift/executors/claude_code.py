@@ -32,6 +32,11 @@
   Code's own tools that go through it (Edit, Write, Bash) without a card. Web search and
   fetch exist only for runs whose workflow declares ``web.search`` / ``web.fetch``; they are
   allowed there without a card and refused everywhere else.
+- **Several runs at once (ADR-013 phase B).** Each run has its own CLI; Swift's tools are
+  called with the run's id, so the tool host uses that run's scope.
+- **Changing course (ADR-014 §7).** ``redirect`` hands the owner's "actually, …" to a running
+  run: an open card takes it as a change; otherwise the current turn is interrupted and the
+  change goes in as the next turn of the same session, so what was read so far is kept.
 """
 
 from __future__ import annotations
@@ -101,6 +106,10 @@ CHANGE_MESSAGE = (
     "The user didn't approve this as it is, and asked for a change instead: “{text}”. "
     "Apply the change and try again; Swift will ask the user again before it runs."
 )
+REDIRECT_MESSAGE = (
+    "The user changed their mind while you were working: “{text}”. Go on from where you are with this "
+    "change: keep what is still useful, drop what no longer fits, and don't repeat what's already done."
+)
 REJECTED_MESSAGE = (
     "The user rejected this action in Swift's voice overlay. Stop here; don't retry it or try a workaround."
 )
@@ -140,6 +149,8 @@ class _Run:
     escalations: list[dict[str, Any]] = field(default_factory=list)
     steps_at_level: int = 0
     failures: int = 0
+    # Changes of mind waiting for the next turn (``redirect``).
+    redirects: list[str] = field(default_factory=list)
 
 
 def as_event(message: Any) -> dict[str, Any] | None:
@@ -351,7 +362,7 @@ class ClaudeCodeExecutor:
             sdk_tools.append(request_stronger_model)
             system_prompt += ESCALATE_PROMPT
         if self.tools is not None:
-            sdk_tools += [self._sdk_tool(tool, spec) for spec in self.tools.tools.values()]
+            sdk_tools += [self._sdk_tool(tool, spec, current) for spec in self.tools.tools.values()]
             system_prompt += WORKFLOW_PROMPT
         mcp_servers = {"swift": create_sdk_mcp_server("swift", tools=sdk_tools)} if sdk_tools else {}
         extra_tools = [f"mcp__swift__{t.name}" for t in sdk_tools]
@@ -373,13 +384,14 @@ class ClaudeCodeExecutor:
             extra_args={"no-session-persistence": None},
         )
 
-    def _sdk_tool(self, tool: Any, spec: ToolSpec) -> Any:
-        """One of Swift's tools for the in-process MCP server; the host runs it in the open run scope."""
+    def _sdk_tool(self, tool: Any, spec: ToolSpec, current: Callable[[], tuple[_Run, str]] | None = None) -> Any:
+        """One of Swift's tools for the in-process MCP server; the host runs it in this run's scope."""
         host = self.tools
         assert host is not None
 
         async def call(args: dict[str, Any]) -> dict[str, Any]:
-            return (await host.call(spec.name, args)).as_mcp()
+            run = current()[1] if current is not None else None
+            return (await host.call(spec.name, args, run=run)).as_mcp()
 
         return tool(spec.name, spec.description, spec.schema)(call)
 
@@ -442,6 +454,22 @@ class ClaudeCodeExecutor:
         future.set_result(text)
         return True
 
+    async def redirect(self, run_id: str, text: str) -> bool:
+        """The owner changed their mind mid-run ("actually, make it about the deadline"). True if taken."""
+        run = self._runs.get(run_id)
+        if run is None or run.finished.is_set() or run.cancelled:
+            return False
+        waiting = [f for f in run.pending.values() if not f.done()]
+        if waiting:  # a card is open: the change answers it, and the turn goes on
+            waiting[-1].set_result(text)
+            return True
+        run.redirects.append(text)
+        interrupt = getattr(run.client, "interrupt", None)
+        if interrupt is not None:
+            with contextlib.suppress(Exception):
+                await interrupt()  # the turn ends; _pump sends the change as the next one
+        return True
+
     def _get(self, run_id: str) -> _Run:
         try:
             return self._runs[run_id]
@@ -457,10 +485,10 @@ class ClaudeCodeExecutor:
             return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
         host = self.tools
         if name in PROVIDER_TOOLS:
-            if host is not None and host.permits(PROVIDER_TOOLS[name]):
+            if host is not None and host.permits(PROVIDER_TOOLS[name], run_id):
                 return PermissionResultAllow(updated_input=args)
             return PermissionResultDeny(message=NO_WEB_MESSAGE)
-        if host is not None and host.in_workflow:
+        if host is not None and host.in_workflow_for(run_id):
             # The workflow's manifest lists what it may do; nothing else, not even with a card.
             return PermissionResultDeny(message=NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
         title, detail = confirm_card(name, args, cwd=self.cwd)
@@ -551,17 +579,24 @@ class ClaudeCodeExecutor:
             model = self.models[run.level]
             await run.client.set_model(model)
             run.models.append(model)
-            await run.client.query(request)
-            async for message in run.client.receive_response():
-                await self._watch(run, message)
-                event = as_event(message)
-                if event is None:
-                    continue
-                for step in steps_for(event):
-                    run.queue.put_nowait(
-                        ExecEvent("step", step.text, activity=step.activity, subagent=step.subagent)  # type: ignore[arg-type]
-                    )
-                outcome = outcome_for(event) or outcome
+            while True:
+                await run.client.query(request)
+                async for message in run.client.receive_response():
+                    await self._watch(run, message)
+                    event = as_event(message)
+                    if event is None:
+                        continue
+                    for step in steps_for(event):
+                        run.queue.put_nowait(
+                            ExecEvent("step", step.text, activity=step.activity, subagent=step.subagent)  # type: ignore[arg-type]
+                        )
+                    outcome = outcome_for(event) or outcome
+                if not run.redirects or run.cancelled or run.stopped_by is not None:
+                    break
+                # The owner changed their mind: the same session, a new turn (ADR-014 §7).
+                request = REDIRECT_MESSAGE.format(text="; ".join(run.redirects))
+                run.redirects.clear()
+                outcome = None
             run.result = self._final(run, outcome, None)
         except asyncio.CancelledError:
             run.result = ExecResult("cancelled", "Cancelled.")

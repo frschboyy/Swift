@@ -84,6 +84,8 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     unlocked = any("reason='unlocked'" in line for line in presence)
     paused = any("microphone paused" in line for line in log)
     held = [r for r in rows if any(a.get("held_away") for a in r.get("approvals", []))]
+    side_by_side = _overlapping(rows)
+    redirects = [r.get("redirected") for r in rows if r.get("redirected")]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows), ""),
         ("2-3 a conversation in one thread", longest >= 3, f"longest thread: {longest} requests"),
@@ -106,7 +108,33 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("15 a stopped request parked, then offered", any(r.get("parked") == "stopped" for r in rows)
          and any(r.get("offered_resume") for r in rows), ""),
         ("16 a parked request resumed", any(r.get("resumed") for r in rows), ""),
+        ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
+        ("19 a card waited behind another, then answered", any(
+            a.get("queued") and a.get("decision") in ("approve", "reject")
+            for r in rows for a in r.get("approvals", [])), ""),
+        ("20 a request brought forward by name", any("show_named" in (r.get("midrun") or []) or r.get("action") == "show_named"
+                                                    for r in rows), ""),
+        ("21 a request stopped by name", any("stop_named" in (r.get("midrun") or []) or r.get("action") == "stop_named"
+                                            for r in rows), ""),
+        ("22 a change of mind passed on", any(x in ("same_session", "restart") for x in redirects),
+         ", ".join(redirects) or "none"),
+        ("23 a hands-free change of mind (with the name)", any(
+            r.get("redirected") and r.get("source") in ("wake", "beside") for r in rows), ""),
+        ("24 after a sent email: told, correction offered", "after_done" in redirects
+         and any(r.get("fix") for r in rows), ""),
+        ("25 a fourth request waited for a slot", any(r.get("queued") for r in rows), ""),
     ]
+
+
+def _overlapping(rows: list[dict[str, Any]]) -> int:
+    """How many requests started while another was still running (from start time and duration)."""
+    spans = []
+    for r in rows:
+        if "_t" in r and r.get("interaction_ms"):
+            start = r["_t"].timestamp()
+            spans.append((start, start + r["interaction_ms"] / 1000))
+    spans.sort()
+    return sum(1 for i, (start, _) in enumerate(spans) if any(s < start < e for s, e in spans[:i]))
 
 
 def main() -> None:

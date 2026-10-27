@@ -1,7 +1,7 @@
 """Interaction state machine (PLAN.md §1, §3).
 
 The backend is authoritative: the overlay only renders the ``state`` and
-content messages sent from here. One interaction runs at a time:
+content messages sent from here. Each interaction (a request) goes:
 
     idle -> listening -> transcribing -> working <-> confirm -> result | error
 
@@ -83,19 +83,42 @@ timing out (``hold_cards``, swift/attention.py): the overlay hides it and shows 
 return. A run that is stopped, or whose card goes unanswered, is parked (swift/parked.py):
 "continue" or "finish the email to Ada" picks it up later in the same thread, and the next
 answer carries one "Unfinished: …" line (``resume.offer``).
+
+Several requests at once (ADR-013 phase B, §5): each request is a ``Run`` with its own task,
+record, scope, thread and cards. Up to ``MAX_RUNS`` run side by side; another waits for a slot.
+One is in front (the **focus**): the overlay draws its card, and only its messages reach the
+overlay. The others are one-line rows (``runs``); bringing one to the front replays its card.
+A clear new request said during a run ("hey Swift, what time is it", or anything after the
+hotkey that isn't for the run in front) starts beside it. Only one confirm card is on screen:
+the others wait in order, their countdown not started, and the card's request comes to the
+front. "Stop the research one" / "show me the email one" name a request by its words; Esc,
+"stop" and the card answers go to the one in front.
+
+The attributes that used to describe "the" interaction (``_record``, ``_active``, ``_scope``,
+``_thread``…) now belong to a run: they resolve to the run whose task is running (``_RUN``),
+or, for what the overlay and the microphone send in, to the run in front.
+
+Changing course (ADR-014 §7): during a run, "actually …", "no, I meant …", "change it to …"
+(``route_redirect``; hands-free only after Swift's name) redirect the run in front. A provider
+that can (Claude Code) takes it as a new turn of the same session; others are cancelled and
+started again with the request and the change. After something that can't be taken back (an
+email sent through the gateway), Swift says so and offers the follow-up: "yes" starts it.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import math
+import re
 import time
 import uuid
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
-from functools import partial
+from collections import deque
+from collections.abc import Awaitable, Callable, Iterator
+from dataclasses import dataclass, field, replace
 from datetime import datetime
+from functools import partial
 from itertools import count
 from pathlib import Path
 from typing import Any
@@ -111,18 +134,33 @@ from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailabl
 from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
 from swift.failures import Failure, Severity, classify
-from swift.parked import Parked, ParkedThreads
 from swift.ipc.protocol import Message, now_ms, outbound
+from swift.parked import Parked, ParkedThreads
 from swift.routing import Route
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
-from swift.routing.rules import refers_here, refers_to_selection, route_midrun, strip_wake
-from swift.stt.transcriber import REJECT_P, UNCLEAR_P, SttUnavailable, Transcriber, Transcription, assess
+from swift.routing.rules import (
+    refers_here,
+    refers_to_selection,
+    route_midrun,
+    route_redirect,
+    route_target,
+    strip_wake,
+)
+from swift.stt.transcriber import (
+    REJECT_P,
+    UNCLEAR_P,
+    SttUnavailable,
+    Transcriber,
+    Transcription,
+    assess,
+)
 from swift.wake import NoiseGate, WakeMatch, match_address, match_wake
 from swift.workflows.artifacts import Artifact, ArtifactStore
 from swift.workflows.library import Library, Match, is_question
 from swift.workflows.scope import Decision, Grant, RunScope
+from swift.workflows.tools import CURRENT as CURRENT_SCOPE
 from swift.workflows.tools import ToolHost
 
 Send = Callable[[Message], Awaitable[None]]
@@ -159,7 +197,7 @@ CHANGE_HINT = "Say “approve”, “reject”, or what to change."
 NOISY_DB = -50.0
 DOUBT_TEXT = {"noise": "it's noisy here"}
 CONFIRM_AGAIN_HINT = "Say “approve” again to go ahead, or click."
-MIDRUN_HINT = "I'm still on the last request. Say “show me” or “stop”."
+MIDRUN_HINT = "Say “show me”, “stop”, or “actually …” to change it."
 # Hands-free on a confirm card: rejecting needs no wake phrase, approving does (threat model T2).
 HANDS_FREE_APPROVE_HINT = "To approve hands-free, say “Swift, approve”, or click."
 # Mid-run phrases the open microphone acts on without the wake phrase; everything else is ignored.
@@ -178,6 +216,33 @@ OFFER_S = 120.0
 CONTEXT_TIMEOUT_S = 1.0
 # The selected text sent with a request about it, at most.
 MAX_SELECTION = 4000
+# Requests running side by side, at most (ADR-013 §5.2); another waits for one to end.
+MAX_RUNS = 3
+# A request that ended in the background keeps its row ("Done: …") this long.
+FINISHED_ROW_S = 20.0
+# What only the request in front sends to the overlay; the others update their row instead.
+FOCUS_ONLY = frozenset({
+    "state", "step", "confirm.request", "confirm.voice", "result", "error", "artifact", "view", "run.voice",
+    "transcript", "followup", "resume.offer",
+})
+# Messages that bring a request that just started beside another to the front.
+TAKES_FRONT = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
+QUEUED_HINT = "That's waiting: {n} requests are running. It starts when one of them is done."
+REDIRECT_NAME_HINT = "To change it hands-free, say “Swift, actually …”."
+NO_TARGET_HINT = "I couldn't tell which request you mean."
+# After something that can't be taken back, the follow-up Swift offers (ADR-014 §7).
+DONE_ALREADY = {
+    "send_email": ("The email was already sent", "send a correction"),
+    "create_calendar_event": ("The event was already added", "change the event"),
+    "desktop_open_program": ("It was already opened", "go on from there"),
+}
+FIX_OFFER_S = 120.0
+# Words that don't name a request ("the", "one").
+_NAME_STOP = frozenset(
+    "a an the to of for on in at about with my me our your and or it that this one request task thing please "
+    "up some from by is was be i you we".split()
+)
+_NAME_WORD = re.compile(r"[a-z0-9']+")
 
 
 @dataclass(frozen=True)
@@ -244,6 +309,137 @@ def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def _name_words(text: str) -> set[str]:
+    return {w for w in _NAME_WORD.findall(text.lower()) if w not in _NAME_STOP and len(w) > 1}
+
+
+def _short_title(text: str) -> str:
+    """A request's row title: its first few words ("Research the history of…")."""
+    words = strip_wake(text).split()
+    title = " ".join(words[:5]) + ("…" if len(words) > 5 else "")
+    return _clip(title, 40)
+
+
+@dataclass(eq=False)
+class Run:
+    """One request (ADR-013 §5.4): its task and record, provider run, tool scope, thread and cards."""
+
+    task: asyncio.Task[None] | None = None
+    record: dict[str, Any] | None = None
+    active: tuple[Executor, str] | None = None
+    scope: RunScope | None = None
+    thread: str | None = None
+    thread_before: str | None = None
+    confirm_ids: set[str] = field(default_factory=set)
+    # Confirm card titles by request id, and the ones approved in this run.
+    confirm_titles: dict[str, str] = field(default_factory=dict)
+    approved: list[str] = field(default_factory=list)
+    run_started: float | None = None
+    # Title of a Swift confirm card the owner rejected (or left) in this run.
+    swift_declined: str | None = None
+    # The request as sent on (for parking it), and as sent to the provider (for starting again).
+    request: str | None = None
+    sent: str | None = None
+    launch: dict[str, Any] = field(default_factory=dict)
+    # Read when the interaction started; this request only, never logged.
+    context: asyncio.Task[DesktopContext | None] | None = None
+    note: str | None = None
+    # A change asked for on a provider card that couldn't take it: the next request, after this run.
+    correction: str | None = None
+    # A change of mind the provider can't take in the same session: cancel, then start again with it.
+    restart: str | None = None
+    # The run's artifacts, kept after it ended while its result is on screen ("show me" after a send).
+    artifacts: ArtifactStore | None = None
+    artifacts_run: str | None = None
+    # What the overlay knows: the state, the run id its messages carry, and its row.
+    state: str = "idle"
+    ui_id: str | None = None
+    title: str = ""
+    activity: str | None = None
+    app: str | None = None
+    agent: dict[str, str] | None = None
+    started_ms: int = field(default_factory=now_ms)
+    summary: str = ""
+    ended: float | None = None
+    # Waiting for a slot (``MAX_RUNS``).
+    queued: bool = False
+    # The last messages that drew its card, replayed when it comes to the front.
+    shown_state: Message | None = None
+    steps: deque[Message] = field(default_factory=lambda: deque(maxlen=5))
+    shown_artifacts: dict[str, Message] = field(default_factory=dict)
+    card: Message | None = None
+    answer: Message | None = None
+
+    @property
+    def alive(self) -> bool:
+        return self.ended is None
+
+    def remember(self, msg: Message) -> None:
+        """Keep what its card shows, for replaying it; and what its row says."""
+        data = msg.data
+        match msg.type:
+            case "state":
+                self.shown_state = msg
+                self.state = data["state"]
+                if data["state"] in ("listening", "transcribing", "working"):
+                    self.answer = None
+                if "agent" in data:
+                    self.agent = data["agent"]
+            case "step":
+                self.steps.append(msg)
+                self.activity, self.app = data.get("activity"), data.get("app")
+            case "artifact":
+                self.shown_artifacts[data["id"]] = msg
+            case "confirm.request":
+                self.card = msg
+            case "result" | "error":
+                self.answer, self.card = msg, None
+                self.summary = _clip(str(data.get("summary") or data.get("title") or data.get("message") or ""), 80)
+
+    def replay(self) -> list[Message]:
+        """Its card again: state, the last steps, its artifacts, then its open card or its answer."""
+        out = [self.shown_state] if self.shown_state is not None else []
+        if self.state in ("working", "confirm"):
+            out += list(self.steps)
+        out += list(self.shown_artifacts.values())
+        if self.state == "confirm" and self.card is not None:
+            out.append(self.card)
+        elif self.answer is not None and self.state in ("result", "error"):
+            out.append(self.answer)
+        return out
+
+    def row(self) -> dict[str, Any]:
+        """Its one line under the card in front (ADR-013 §3.1)."""
+        if self.queued:
+            state = "queued"
+        elif self.alive or self.state in ("result", "error"):
+            state = self.state
+        else:
+            state = "done"
+        return {
+            "run_id": self.ui_id or f"req-{(self.record or {}).get('id', '')[:8]}",
+            "thread_id": self.thread, "title": self.title, "state": state, "activity": self.activity,
+            "app": self.app, "agent": self.agent, "started_ms": self.started_ms,
+            "summary": "" if self.alive else self.summary,
+        }
+
+
+# The run whose task is running (each request's task sets it).
+_RUN: contextvars.ContextVar[Run | None] = contextvars.ContextVar("swift_run", default=None)
+
+
+def _per_run(name: str, doc: str) -> property:
+    """A Session attribute that belongs to a run: the running task's, else the one in front."""
+
+    def get(self: Session) -> Any:
+        return getattr(self._current(), name)
+
+    def put(self: Session, value: Any) -> None:
+        setattr(self._current(), name, value)
+
+    return property(get, put, doc=doc)
+
+
 def _to_agent(decision: Route) -> Route:
     """A local route Swift can't handle after all ("open" an unknown name): on to the provider."""
     request = strip_wake(decision.text) or decision.text
@@ -274,6 +470,23 @@ class UserFacingError(Exception):
 
 
 class Session:
+    # Each belongs to a request (``Run``); see the module docstring.
+    _record = _per_run("record", "The request's interaction record (the log line).")
+    _active = _per_run("active", "(executor, provider run id) while the provider works on it.")
+    _scope = _per_run("scope", "Its scope for Swift's tools.")
+    _confirm_ids = _per_run("confirm_ids", "Its confirm cards waiting for an answer.")
+    _confirm_titles = _per_run("confirm_titles", "Confirm card titles by request id.")
+    _approved = _per_run("approved", "Titles of the cards approved in it.")
+    _run_started = _per_run("run_started", "When the provider started (time.monotonic()).")
+    _swift_declined = _per_run("swift_declined", "Title of a Swift card the owner rejected or left.")
+    _request = _per_run("request", "The request as sent on, for parking it.")
+    _context = _per_run("context", "Where the owner was when it started (desktop).")
+    _note = _per_run("note", "Swift's aside above its answer.")
+    _correction = _per_run("correction", "A change for a card the provider couldn't take: the next request.")
+    _thread_before = _per_run("thread_before", "The thread before this request's.")
+    _artifacts = _per_run("artifacts", "Its artifacts, kept after it ended.")
+    _artifacts_run = _per_run("artifacts_run", "The run id its artifacts belong to.")
+
     def __init__(
         self,
         send: Send,
@@ -309,9 +522,23 @@ class Session:
     ) -> None:
         self._raw_send = send
         self.executor = executor
-        # The thread of the current (or last) request (ADR-013 §4).
-        self._thread: str | None = None
-        self._thread_before: str | None = None
+        # Requests running, or ended but still shown (in front, or as a finished row); oldest first.
+        self._runs: list[Run] = []
+        # The one in front, one that takes the front when it first shows something, and the
+        # stand-in when there is none.
+        self._focus: Run | None = None
+        self._next_focus: Run | None = None
+        self._none = Run()
+        self._slots = asyncio.Semaphore(MAX_RUNS)
+        # Confirm cards in the order asked: (run, request id); the first is on screen (ADR-013 §5.2).
+        self._cards: list[tuple[Run, str]] = []
+        self._card_shown: dict[str, asyncio.Event] = {}
+        # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
+        self._rows_sent: dict[str, Any] | None = None
+        # The thread of the last request started (ADR-013 §4): a follow-up continues it.
+        self._last_thread: str | None = None
+        # After something that can't be undone: the follow-up offered, its thread, and when.
+        self._fix_offer: tuple[str, str | None, float] | None = None
         # The default provider first, then the ones tried when it's unavailable.
         self.providers = Providers([executor, *fallbacks])
         self._clarified_at: float | None = None
@@ -361,24 +588,12 @@ class Session:
         self.parked = parked
         # Called when the owner talks to Swift (the hotkey, the wake phrase): they're here.
         self.on_owner: Callable[[], None] | None = None
-        # The request of the current interaction as sent on (for parking it), and the
-        # "Unfinished: …" line shown last: (thread, when).
-        self._request: str | None = None
+        # The "Unfinished: …" line shown last: (thread, when).
         self._offered: tuple[str, float] | None = None
         # A workflow offered for the last request, its text, and when: (match, text, at).
         self._offer: tuple[Match, str, float] | None = None
-        # Read when the current interaction started; this request only, never logged.
-        self._context: asyncio.Task[DesktopContext | None] | None = None
-        self._scope: RunScope | None = None
-        # The last run's artifacts, kept while its result is on screen ("show me" after a send).
-        self._artifacts: ArtifactStore | None = None
-        self._artifacts_run: str | None = None
         self._swift_ids = count(1)
         self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
-        # A change asked for on a provider card that couldn't take it: the next request, after this run.
-        self._correction: str | None = None
-        # Title of a Swift confirm card the owner rejected (or left) in this run.
-        self._swift_declined: str | None = None
         self._hearing = False
         self._wake_warned = False
         # Screen locked or PC asleep (ADR-014): the open microphone is ignored (threat model T7).
@@ -397,30 +612,260 @@ class Session:
         self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
         self._local_ids = count(1)
         self._released: asyncio.Event | None = None
+        # The state of the request in front, as the overlay shows it.
         self.state = "idle"
+        # The task of the request in front.
         self._task: asyncio.Task[None] | None = None
-        self._active: tuple[Executor, str] | None = None
-        self._confirm_ids: set[str] = set()
-        # Confirm card titles by request id, and the ones approved in this run.
-        self._confirm_titles: dict[str, str] = {}
-        self._approved: list[str] = []
         # Push-to-talk while a run is going: answering its confirm card, or the mid-run grammar.
         self._confirm_voice: asyncio.Task[None] | None = None
-        self._record: dict[str, Any] | None = None
-        self._run_started: float | None = None
         # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
         self._retry: tuple[str, str] | None = None
 
+    # ---- requests side by side (ADR-013 phase B) ------------------------------------------
+
+    def _current(self) -> Run:
+        """The request this code works for: the running task's, else the one in front."""
+        run = _RUN.get()
+        if run is not None:
+            return run
+        return self._focus or self._none
+
+    @contextlib.contextmanager
+    def _as(self, run: Run) -> Iterator[None]:
+        """Act for ``run`` (an answer to its card, a change to it) from outside its task."""
+        token = _RUN.set(run)
+        try:
+            yield
+        finally:
+            _RUN.reset(token)
+
+    @property
+    def _thread(self) -> str | None:
+        """The thread of the current request, else of the last one started (ADR-013 §4)."""
+        run = self._current()
+        return run.thread if run is not self._none and run.thread else self._last_thread
+
+    @_thread.setter
+    def _thread(self, value: str | None) -> None:
+        run = self._current()
+        if run is not self._none:
+            run.thread = value
+        self._last_thread = value
+
+    def _live(self, besides: Run | None = None) -> list[Run]:
+        return [r for r in self._runs if r.alive and r is not besides]
+
+    def _owner_of(self, request_id: str) -> Run | None:
+        """The request a confirm card belongs to."""
+        return next((r for r in self._runs if request_id in r.confirm_ids), None)
+
+    def _front_busy(self) -> bool:
+        """The request in front is still going (the overlay shows it as active)."""
+        focus = self._focus
+        return (focus is not None and focus.alive and focus.task is not None) or (
+            self._task is not None and not self._task.done()
+        )
+
+    def _capturing(self) -> bool:
+        """The owner is speaking a request (listening / transcribing): nothing else starts now."""
+        return any(r.state in ("listening", "transcribing") for r in self._live())
+
     async def _send(self, msg: Message) -> None:
-        """Every message to the overlay; run messages are tagged with their thread (ADR-013 §4.3)."""
-        if self._thread and msg.type in THREADED and "thread_id" not in msg.data:
-            msg = Message(msg.type, {**msg.data, "thread_id": self._thread}, msg.ts)
+        """Every message to the overlay. Run messages are tagged with their thread (ADR-013 §4.3);
+        a request that isn't in front updates its row instead (ADR-013 §3.2)."""
+        run = self._current()
+        if run is self._none:
+            await self._raw_send(msg)
+            return
+        if run.thread and msg.type in THREADED and "thread_id" not in msg.data:
+            msg = Message(msg.type, {**msg.data, "thread_id": run.thread}, msg.ts)
+        if msg.type not in FOCUS_ONLY:
+            await self._raw_send(msg)
+            return
+        run.remember(msg)
+        named = msg.data.get("run_id")
+        renamed = bool(named) and named != run.ui_id
+        if renamed:
+            run.ui_id = named
+        if run is self._next_focus and msg.type in TAKES_FRONT and not self._cards:
+            await self._take_front(run)
+        elif run is not self._focus:
+            await self._send_rows()
+            return
+        elif renamed:
+            await self._send_rows()  # the overlay learns the new id in front before its messages
         await self._raw_send(msg)
+
+    async def _send_rows(self) -> None:
+        """The ``runs`` message: who is in front, the others' rows, the cards waiting. Only while
+        there is more than the one in front (single requests look exactly as before)."""
+        focus = self._focus
+        rows = [r.row() for r in self._runs if r is not focus and r.title]
+        waiting = max(0, len(self._cards) - 1)
+        payload = {"focus": focus.ui_id if focus else None, "rows": rows, "waiting": waiting}
+        last = self._rows_sent
+        if not rows and not waiting and (last is None or (not last["rows"] and not last["waiting"])):
+            return
+        if payload == last:
+            return
+        self._rows_sent = payload
+        await self._raw_send(outbound("runs", **payload))
+
+    async def _take_front(self, run: Run) -> None:
+        """A request that started beside another shows its first card: it is now in front."""
+        self._next_focus = None
+        self._set_focus(run)
+        await self._send_rows()
+
+    def _set_focus(self, run: Run) -> None:
+        old, self._focus = self._focus, run
+        if old is not None and old is not run and not old.alive:
+            # It ended while in front and its answer was seen: no row for it.
+            with contextlib.suppress(ValueError):
+                self._runs.remove(old)
+        if run.task is not None:
+            self._task = run.task
+        self.state = run.state
+
+    async def _bring(self, run: Run) -> bool:
+        """Bring a request to the front and draw its card again. Not while another's card waits."""
+        if self._cards and self._cards[0][0] is not run:
+            return False
+        if run is self._focus:
+            return True
+        self._next_focus = None
+        self._set_focus(run)
+        await self._send_rows()
+        for msg in run.replay():
+            await self._raw_send(msg)
+        return True
+
+    def _find(self, words: str, *, besides: Run | None = None) -> Run | None:
+        """A request named by what it's about ("the research one"): the best match by its words."""
+        live = [r for r in self._runs if r is not besides and (r.alive or r.answer is not None)]
+        if words == "other":
+            others = [r for r in live if r is not self._focus]
+            return others[-1] if others else None
+        wanted = _name_words(words)
+        if not wanted:
+            return None
+        scored = [(len(wanted & _name_words(f"{r.title} {r.request or ''}")), i, r) for i, r in enumerate(live)]
+        best = max(scored, default=None, key=lambda t: (t[0], t[1]))
+        return best[2] if best is not None and best[0] > 0 else None
+
+    def _launch(
+        self,
+        record: dict[str, Any],
+        capture: Callable[[dict[str, Any]], Awaitable[str | None]],
+        executor: Executor,
+        start: Callable[[str], Awaitable[str]],
+        *,
+        title: str = "",
+    ) -> Run:
+        """Start an interaction. With others running it starts beside them: it takes the front
+        when it first shows something, unless a confirm card is on screen (ADR-013 §3.1)."""
+        run = Run(title=title)
+        self._runs.append(run)
+        run.task = asyncio.create_task(self._interaction(run, record, capture, executor, start))
+        if self._cards:
+            pass  # the card on screen keeps the front; this one is a row
+        elif self._focus is not None and self._focus.alive:
+            self._next_focus = run
+        else:
+            self._set_focus(run)
+        return run
+
+    def _start_beside(self, text: str, source: str = "beside") -> Run:
+        """A clear new request said while another runs: it runs beside it (ADR-013 §5.1)."""
+        record: dict[str, Any] = {"source": source, "executor": getattr(self.executor, "name", "?")}
+        logger.info("request started beside another", running=len(self._live()))
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return text
+
+        return self._launch(record, capture, self.executor, self.executor.start, title=_short_title(text))
+
+    async def _ended(self, run: Run) -> None:
+        """Clean-up when a request is done: its cards go, and its row says how it ended."""
+        run.ended = time.monotonic()
+        await self._drop_cards(run)
+        if self._next_focus is run:
+            self._next_focus = None
+        if run is not self._focus:
+            if run.record is None and not run.title:
+                with contextlib.suppress(ValueError):
+                    self._runs.remove(run)
+            else:
+                asyncio.get_running_loop().call_later(FINISHED_ROW_S, self._forget_row, run)
+        await self._send_rows()
+
+    def _forget_row(self, run: Run) -> None:
+        if run is self._focus or run.alive:
+            return
+        with contextlib.suppress(ValueError):
+            self._runs.remove(run)
+        asyncio.get_running_loop().create_task(self._send_rows())
+
+    # ---- one confirm card at a time (ADR-013 §5.2) -------------------------------------------
+
+    async def _ask_card(self, run: Run, request_id: str) -> bool:
+        """A card asked for. The first in line comes to the front now (True); the others wait, their
+        countdown not started (False)."""
+        self._cards.append((run, request_id))
+        self._card_shown[request_id] = shown = asyncio.Event()
+        if len(self._cards) == 1:
+            shown.set()
+            if run is not self._focus:
+                if self._next_focus is run:
+                    self._next_focus = None
+                self._set_focus(run)
+                await self._send_rows()
+                for msg in run.replay():
+                    await self._raw_send(msg)
+            return True
+        if self.attention is not None:
+            self.attention.set_queued(request_id, True)
+        if (entry := self._approval(request_id)) is not None:
+            entry["queued"] = True
+        logger.info("confirm card waits behind another", waiting=len(self._cards) - 1)
+        await self._send_rows()
+        return False
+
+    async def _card_done(self, request_id: str) -> None:
+        """A card was answered or went away: the next one in line comes to the front."""
+        index = next((i for i, (_, r) in enumerate(self._cards) if r == request_id), None)
+        if index is None:
+            return
+        self._cards.pop(index)
+        self._card_shown.pop(request_id, None)
+        if self.attention is not None:
+            self.attention.set_queued(request_id, False)
+        if index == 0 and self._cards:
+            await self._show_next_card()
+        else:
+            await self._send_rows()
+
+    async def _show_next_card(self) -> None:
+        run, request_id = self._cards[0]
+        if self.attention is not None:
+            self.attention.set_queued(request_id, False)
+        if (shown := self._card_shown.get(request_id)) is not None:
+            shown.set()
+        if run is self._focus:
+            await self._send_rows()
+            for msg in run.replay():
+                await self._raw_send(msg)
+        else:
+            await self._bring(run)
+
+    async def _drop_cards(self, run: Run) -> None:
+        for _, request_id in [c for c in self._cards if c[0] is run]:
+            await self._card_done(request_id)
 
     @property
     def busy(self) -> bool:
-        """True while an interaction task is running, even before its first state change."""
-        return self._task is not None and not self._task.done()
+        """True while any request is running (even before its first state change)."""
+        return (self._task is not None and not self._task.done()) or bool(self._live())
 
     # ---- inbound -----------------------------------------------------------
 
@@ -444,19 +889,31 @@ class Session:
                 await self._view(msg.data["action"] == "show", source="click")
             case "debug.say":
                 await self._say(msg.data["text"])
+            case "focus":
+                await self._focus_row(msg.data["run_id"])
             case "ptt" if msg.data["state"] == "down":
-                if self._scope is not None:  # the hotkey isn't the owner typing in the document
-                    self._scope.talking_until = math.inf
+                self._talking(math.inf)  # the hotkey isn't the owner typing in the document
                 await self._start_voice()
             case "ptt":
-                if self._scope is not None:
-                    self._scope.talking_until = time.monotonic() + 1.0
+                self._talking(time.monotonic() + 1.0)
                 if self._released is not None:
                     self._released.set()
             case _:
                 logger.warning("unhandled message", kind=msg.type)
 
+    def _talking(self, until: float) -> None:
+        for run in self._live():
+            if run.scope is not None:
+                run.scope.talking_until = until
+
+    async def _focus_row(self, run_id: str) -> None:
+        """A row clicked, or the card in front faded while others still run: that one to the front."""
+        run = next((r for r in self._runs if r.ui_id == run_id or r.row()["run_id"] == run_id), None)
+        if run is None or not await self._bring(run):
+            logger.info("focus ignored", known=run is not None)
+
     async def cancel(self) -> None:
+        """Esc: stop the request in front."""
         if self._task is None or self._task.done():
             return
         self._task.cancel()
@@ -466,19 +923,31 @@ class Session:
             pass
 
     async def close(self) -> None:
+        for run in self._live():
+            if run.task is not None and run is not self._focus:
+                run.task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await run.task
         await self.cancel()
 
     # ---- interaction -------------------------------------------------------
 
     async def _set_state(self, state: str, **extra: Any) -> None:
-        self.state = state
+        run = self._current()
+        if run is self._focus or run is self._none:
+            self.state = state
+        if state == "idle" and run is self._focus and (others := self._live(besides=run)):
+            # Nothing more to show for this one, but others still run: the newest comes to the front.
+            run.state = "idle"
+            await self._bring(others[-1])
+            return
         await self._send(outbound("state", state=state, **extra))
 
     async def _start_demo(self, scenario: str) -> None:
         if self.debug_executor is None:
             logger.warning("debug.run ignored: debug mode is off")
             return
-        if self.busy:
+        if self._front_busy() or self._capturing():
             logger.info("debug.run ignored: busy", state=self.state)
             return
         transcript = DEMO_TRANSCRIPTS[scenario]
@@ -497,28 +966,31 @@ class Session:
             assert self.debug_executor is not None
             return await self.debug_executor.start(text, scenario=scenario)
 
-        self._task = asyncio.create_task(self._interaction(record, capture, self.debug_executor, start))
+        self._launch(record, capture, self.debug_executor, start)
 
     async def _start_text(self, text: str) -> None:
-        """Debug mode only: run the configured executor on typed text."""
+        """Debug mode only: run the configured executor on typed text (beside a running one, too)."""
         if self.debug_executor is None:
             logger.warning("debug.ask ignored: debug mode is off")
             return
-        if self.busy or not text.strip():
+        if self._capturing() or not text.strip():
+            return
+        if self._front_busy():
+            self._start_beside(text.strip(), source="debug.ask")
             return
         record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "debug.ask"}
 
         async def capture(rec: dict[str, Any]) -> str:
             return text.strip()
 
-        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+        self._launch(record, capture, self.executor, self.executor.start)
 
     async def _start_voice(self) -> None:
         if self.recorder is None or self.transcriber is None:
             logger.warning("ptt ignored: no recorder or transcriber")
             return
         self._owner_here()
-        if self.busy:
+        if self._front_busy() or self._capturing():
             open_request = self._open_confirm()
             idle_voice = self._confirm_voice is None or self._confirm_voice.done()
             if open_request is not None and idle_voice:
@@ -533,9 +1005,7 @@ class Session:
         # Created before the task so a quick release can't be missed.
         self._released = asyncio.Event()
         record: dict[str, Any] = {"source": "voice", "executor": getattr(self.executor, "name", "?")}
-        self._task = asyncio.create_task(
-            self._interaction(record, self._capture_voice, self.executor, self.executor.start)
-        )
+        self._launch(record, self._capture_voice, self.executor, self.executor.start)
 
     async def hear_wake(self, audio: Any, ended_at: float) -> None:
         """An utterance from the open microphone (swift/wake.py).
@@ -552,7 +1022,7 @@ class Session:
         if self._hearing:
             self.wake_stats["skipped_hearing"] += 1
             return
-        if self.busy and not self._hands_free():
+        if (self._front_busy() or self._capturing()) and not self._hands_free():
             self.wake_stats["skipped_busy"] += 1
             return  # e.g. recording after the hotkey: nothing to answer, not even worth transcribing
         started_at = ended_at - len(audio) / SAMPLE_RATE
@@ -576,7 +1046,7 @@ class Session:
             self.wake_stats["unsure"] += 1
             return
         match = match_wake(heard.text, self.wake_greetings)
-        if self.busy:
+        if self._front_busy() or self._capturing():
             if self._hands_free():  # not if the hotkey was pressed meanwhile
                 self.wake_stats["hands_free"] += 1
                 addressed = match_address(heard.text, self.wake_greetings)
@@ -604,7 +1074,7 @@ class Session:
                 self._heard = heard
                 return match.remainder
 
-            self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+            self._launch(record, capture, self.executor, self.executor.start)
             return
         auto = AutoEnd(
             lead_s=len(audio) / SAMPLE_RATE + max(0.0, time.monotonic() - ended_at),
@@ -612,9 +1082,7 @@ class Session:
             start_timeout_s=self.wake_start_timeout_s,
         )
         self._released = asyncio.Event()
-        self._task = asyncio.create_task(
-            self._interaction(record, partial(self._capture_voice, auto=auto), self.executor, self.executor.start)
-        )
+        self._launch(record, partial(self._capture_voice, auto=auto), self.executor, self.executor.start)
 
     # ---- hands-free (the open microphone, when wake listening is on) --------------------------
 
@@ -624,8 +1092,8 @@ class Session:
         return out
 
     def _hands_free(self) -> bool:
-        """A run the open microphone can talk to: working, or its confirm card open, and no
-        push-to-talk capture going."""
+        """A run in front the open microphone can talk to: working, or its confirm card open, and
+        no push-to-talk capture going."""
         voice_idle = self._confirm_voice is None or self._confirm_voice.done()
         return voice_idle and self._active is not None and self.state in ("working", "confirm")
 
@@ -641,15 +1109,32 @@ class Session:
         text = (match.remainder if match else heard.text).strip()
         decision = route_midrun(text) if text else None
         open_request = self._open_confirm()
+        if decision is None and text and route_target(text) is not None:
+            # "Stop the research one", "show me the email one": like "stop" and "show me", no name needed.
+            self._heard = heard
+            await self._midrun_text(text, self._run_phase if open_request is None else self._confirm_phase(open_request))
+            return
         if decision is None:
-            # Other speech: ignored, unless it's addressed to Swift on Swift's own card, where it is a
-            # change to make ("Swift, make it Friday at three").
-            if text and match is not None and open_request is not None:
-                self._heard = heard
-                entry = self._approval(open_request)
-                if entry is not None:
-                    entry["hands_free"] = True
-                    await self._answer_text(open_request, entry, text, self._confirm_phase(open_request))
+            # Other speech: ignored, unless it's addressed to Swift. Then on a card it is a change to
+            # make ("Swift, make it Friday at three") or a new request beside it ("Swift, what time
+            # is it"); during a run, a change of mind or a new request (ADR-013 §5.1, ADR-014 §7).
+            if not text:
+                return
+            if match is None:
+                if open_request is None and route_redirect(text) is not None:
+                    await self._run_phase("hint", REDIRECT_NAME_HINT)  # a change of mind needs the name (T2)
+                return
+            self._heard = heard
+            if open_request is None:
+                await self._midrun_text(text, self._run_phase)
+                return
+            if self._new_request(text, strict=True):
+                self._start_beside(text)
+                return
+            entry = self._approval(open_request)
+            if entry is not None:
+                entry["hands_free"] = True
+                await self._answer_text(open_request, entry, text, self._confirm_phase(open_request))
             return
         self._heard = heard
         if open_request is not None:
@@ -664,6 +1149,8 @@ class Session:
             await self._answer_text(open_request, entry, text, phase)
         elif decision.action in HANDS_FREE_MIDRUN:
             await self._midrun_text(text, self._run_phase)
+        elif decision.action == "approve" and match is not None and self._fix_offer is not None:
+            await self._midrun_text(text, self._run_phase)  # "Swift, yes": the follow-up offered (ADR-014 §7)
 
     def _in_followup(self, started_at: float) -> bool:
         """Whether an utterance that started at ``started_at`` falls in the follow-up window."""
@@ -681,12 +1168,12 @@ class Session:
             self._heard = heard
             return heard.text.strip()
 
-        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+        self._launch(record, capture, self.executor, self.executor.start)
 
     async def _open_followup(self) -> None:
         """After an answer: listen for a reply without the wake phrase, and say so on the card."""
-        if self.wake_followup_s <= 0 or self.recorder is None:
-            return
+        if self.wake_followup_s <= 0 or self.recorder is None or self._current() is not self._focus:
+            return  # an answer in the background isn't on screen to reply to
         now = time.monotonic()
         self._followup = (now, now + self.wake_followup_s)
         await self._send(outbound("followup", open=True, seconds=self.wake_followup_s))
@@ -811,11 +1298,13 @@ class Session:
 
     async def _interaction(
         self,
+        run: Run,
         record: dict[str, Any],
         capture: Callable[[dict[str, Any]], Awaitable[str | None]],
         executor: Executor,
         start: Callable[[str], Awaitable[str]],
     ) -> None:
+        _RUN.set(run)  # this task works for this request (its own context)
         record = {
             "ts": datetime.now().astimezone().isoformat(timespec="milliseconds"),
             "id": uuid.uuid4().hex,
@@ -824,19 +1313,30 @@ class Session:
             "approvals": [],
         }
         self._record = record
-        previous = self._thread
+        previous = record.pop("continues", None) or self._last_thread
         self._thread = previous if previous and record.get("source") in CONTINUES_THREAD else uuid.uuid4().hex[:12]
         self._thread_before = previous
         record["thread"] = self._thread
-        await self._close_followup()
-        self._artifacts = self._artifacts_run = None
+        if run is self._focus:
+            await self._close_followup()
         started = time.monotonic()
         # Any new request answers or drops the last workflow offer.
         offer, self._offer = self._offer, None
-        if self.desktop is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake"):
+        fix, self._fix_offer = self._fix_offer, None
+        if self.desktop is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "beside"):
             # Where the owner is when they start speaking, read while they talk.
             self._context = asyncio.create_task(self._read_context())
+        slot = False
         try:
+            if self._slots.locked():
+                # MAX_RUNS already: this one waits for a slot, as a row, and the card in front says so.
+                run.queued = True
+                record["queued"] = True
+                await self._send_rows()
+                with self._as(self._focus or self._none):
+                    await self._run_phase("hint", QUEUED_HINT.format(n=MAX_RUNS))
+            await self._slots.acquire()
+            slot, run.queued = True, False
             transcript = await capture(record)
             if transcript is None:
                 record["status"] = "cancelled"
@@ -849,13 +1349,29 @@ class Session:
                     await self._send(outbound("error", **tap.as_message()))
                 return
             record["transcript"] = transcript
+            run.title = run.title or _short_title(transcript)
             await self._send(outbound("transcript", text=transcript, final=True))
 
-            routed = self.router is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "followup", "correction")
+            routed = self.router is not None and record.get("source") in (
+                "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside",
+            )
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             target: OpenTarget | None = None
             workflow: Match | None = None
+            if decision is not None and self._live(besides=run) and (named := route_target(transcript)) is not None:
+                # "Stop the research one" while others run: about those, not a request.
+                record["route"], record["action"], record["status"] = "local", f"{named[0]}_named", "done"
+                answer = await self._named(named, besides=run)
+                if not answer:
+                    run.title = ""  # it only brought another to the front: no row of its own
+                    if answer == "":
+                        return
+                    answer = NO_TARGET_HINT
+                await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+                return
             answered = self._answer_offer(decision, offer, record) if decision is not None else None
+            if answered is None and decision is not None:
+                answered = self._answer_fix(decision, fix, record)
             if answered is not None:
                 decision, workflow = answered
             if decision is not None and decision.action == "open":
@@ -913,6 +1429,7 @@ class Session:
                     if workflow is not None:
                         package = workflow.package
                         record["workflow"] = package.name
+                        run.title = package.title
                         request = package.request(workflow.inputs, decision.text)
                         prefer = None if package.provider == "any" else package.provider
                     self._request = request
@@ -921,6 +1438,8 @@ class Session:
                         request = resumed.as_context(time.time()) + request
                     else:
                         request = self._with_context(self._with_unclear(request, record), record)
+                    run.sent = request
+                    run.launch = {"demand": decision.demand, "override": decision.override, "prefer": prefer}
                     launch = await self.providers.start(
                         request,
                         demand=decision.demand,
@@ -967,12 +1486,15 @@ class Session:
                 record,
             )
         finally:
+            if slot:
+                self._slots.release()
             voice = self._confirm_voice
-            if voice is not None and not voice.done() and voice is not asyncio.current_task():
+            if run is self._focus and voice is not None and not voice.done() and voice is not asyncio.current_task():
+                # Push-to-talk on this request's card; on another's it carries on.
                 voice.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await voice
-            self._confirm_voice = None
+                self._confirm_voice = None
             if self._context is not None:  # the desktop context is for this request only
                 self._context.cancel()
                 self._context = None
@@ -988,17 +1510,19 @@ class Session:
             self._run_started = None
             self._active = None
             self._record = None
-            self._released = None
+            if run is self._focus:
+                self._released = None
             self._confirm_ids.clear()
             self._confirm_titles.clear()
             self._approved = []
             record["interaction_ms"] = int((time.monotonic() - started) * 1000)
             record.setdefault("status", "error")
+            await self._ended(run)
             if self.on_finish is not None:
                 self.on_finish(record)
-            if self._correction is not None:
+            if run.correction is not None:
                 # After this task is done (busy is still true inside it).
-                asyncio.get_running_loop().call_soon(self._start_correction)
+                asyncio.get_running_loop().call_soon(self._start_correction, run)
 
     async def _handle_here(self, decision: Route, record: dict[str, Any], target: OpenTarget | None = None) -> None:
         """Commands and questions Swift answers itself: no executor, no network."""
@@ -1087,6 +1611,7 @@ class Session:
             "new_topic": "Okay, starting fresh: the next request won't see the last one.",
             "resume": "There's nothing unfinished to pick up.",
             "not_now": "Okay.",
+            "fix_declined": "Okay, I'll leave it as it is.",
         }
         record["status"] = "done"
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answers.get(action or "", "Done.")))
@@ -1120,15 +1645,39 @@ class Session:
         return identity.clarification(called, self.providers.agents())
 
     async def _run(self, started: Started, record: dict[str, Any]) -> ExecResult:
+        run = self._current()
+        t0 = self._run_started = time.monotonic()
+        while True:
+            result = await self._run_once(started, record, t0)
+            change, run.restart = run.restart, None
+            if change is None or result.status != "cancelled" or run.sent is None:
+                break
+            # The provider can't change course in its session: start it again with the change (ADR-014 §7).
+            request = (
+                f"{run.sent}\n\n[The user changed their mind while this was running: “{change}”. Do the request "
+                "with that change. A previous attempt was stopped part-way; check before redoing anything.]"
+            )
+            run.sent = request
+            try:
+                started = await self.providers.start(request, **run.launch)
+            except ExecutorUnavailable as exc:
+                raise UserFacingError("executor_unavailable", str(exc), exc.hint, title="Can't hand this off yet") from None
+            await self._swift_step(f"Changing course: {_clip(change, 60)}", "planning", None)
+        record["run_ms"] = int((time.monotonic() - t0) * 1000)
+        return result
+
+    async def _run_once(self, started: Started, record: dict[str, Any], t0: float) -> ExecResult:
         executor, run_id = started.executor, started.run_id
+        run = self._current()
         self._active = (executor, run_id)
+        if self.tools is not None and run.scope is not None:
+            self.tools.bind(run.scope, run_id)  # its tool calls name this run (ADR-013 §5.4)
         provider = started.provider
         agent = self._agent()
         record["provider"] = provider.id
         if started.skipped:
             record["skipped"] = [p.id for p, _ in started.skipped]
         await self._set_state("working", run_id=run_id, agent=agent)
-        t0 = self._run_started = time.monotonic()
         for skipped, _ in started.skipped:
             # Swift's own step: who couldn't take the request and who did.
             await self._send(
@@ -1153,6 +1702,8 @@ class Session:
                 self._confirm_ids.add(event.request_id)
                 self._confirm_titles[event.request_id] = event.text
                 record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms})
+                # Behind another card, it waits (its countdown not started) and stays off screen.
+                await self._ask_card(run, event.request_id)
                 await self._set_state("confirm", run_id=run_id, agent=agent)
                 await self._send(
                     outbound(
@@ -1167,9 +1718,7 @@ class Session:
                         timeout_s=getattr(executor, "confirm_timeout_s", None),
                     )
                 )
-        result = await executor.result(run_id)
-        record["run_ms"] = int((time.monotonic() - t0) * 1000)
-        return result
+        return await executor.result(run_id)
 
     # ---- workflows (ADR-011 W1) ---------------------------------------------------------
 
@@ -1187,6 +1736,113 @@ class Session:
         if self._thread_before:  # the answer belongs with the request that was offered the workflow
             self._thread = record["thread"] = self._thread_before
         return _to_agent(replace(decision, text=text)), (replace(match, kind="run") if accepted else None)
+
+    def _answer_fix(
+        self, decision: Route, fix: tuple[str, str | None, float] | None, record: dict[str, Any]
+    ) -> tuple[Route, Match | None] | None:
+        """"Yes" / "no" to the follow-up offered after something that couldn't be undone (ADR-014 §7)."""
+        if fix is None or decision.route != "control" or decision.action not in ("approve", "reject"):
+            return None
+        text, thread, at = fix
+        if time.monotonic() - at > FIX_OFFER_S:
+            return None
+        record["fix"] = "accepted" if decision.action == "approve" else "declined"
+        if thread:
+            self._thread = record["thread"] = thread
+        if decision.action == "reject":
+            return replace(decision, route="local", action="fix_declined"), None
+        return _to_agent(replace(decision, text=text)), None
+
+    # ---- several requests: naming one, a new one beside, changing course ---------------------
+
+    def _new_request(self, text: str, *, strict: bool = False) -> bool:
+        """Whether something said during a run is a clear new request, not about the run (ADR-013 §5.1).
+        ``strict`` (on a confirm card, where anything else is a change to it): only questions and
+        Swift's own answers."""
+        if not text.strip() or route_midrun(text) is not None or route_redirect(text) is not None:
+            return False
+        decision = (self.router or default_router)(text)
+        if decision.route == "control":
+            return False
+        if decision.route == "local":
+            return decision.action not in ("resume", "not_now", "undo")
+        if self.library is not None and self.library.match(decision.text) is not None:
+            return True
+        words = decision.text.split()
+        if strict:
+            return len(words) >= 3 and is_question(decision.text)
+        refers_back = re.search(r"\b(it|that|this|them|those)\b", decision.text.lower()) is not None
+        return len(words) >= 3 and not (refers_back and len(words) < 6)
+
+    async def _named(self, named: tuple[str, str], besides: Run | None = None, *, view: bool = False) -> str | None:
+        """"Stop the research one", "show me the email one", "stop everything". The answer to say;
+        "" when there's nothing to say (a request came to the front); None when no request is meant.
+        ``view``: "show me the email" could also mean the one in front's draft, which then wins."""
+        verb, words = named
+        if verb == "stop" and words == "*":
+            stopping = self._live(besides=besides)
+            for run in stopping:
+                if run.task is not None:
+                    run.task.cancel()
+            return f"Stopped {len(stopping)} request{'s' if len(stopping) != 1 else ''}." if stopping else "Nothing is running."
+        if verb == "show":
+            run = self._find(words, besides=besides)
+            if run is None or (view and run is self._focus):
+                return None
+            if not await self._bring(run):
+                return "Answer the card on screen first."
+            logger.info("request brought to the front by name")
+            return ""
+        run = self._find(words, besides=besides)
+        if run is None or not run.alive:
+            return NO_TARGET_HINT
+        if run.task is not None:
+            run.task.cancel()
+        logger.info("request stopped by name")
+        return f"Stopped “{run.title}”."
+
+    async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]]) -> None:
+        """"Actually, make it about the deadline": the request in front changes course (ADR-014 §7)."""
+        run = self._current()
+        record = self._record
+        if record is not None:
+            record["redirects"] = record.get("redirects", 0) + 1
+        if self._active is None:
+            await phase("hint", "Hold on: say it again once I've started.")
+            return
+        if (open_request := self._open_confirm()) is not None and open_request in self._confirm_ids:
+            # A card is open: the change is a change to it, as if said on the card.
+            entry = self._approval(open_request)
+            if entry is not None:
+                await self._answer_text(open_request, entry, change, phase)
+            return
+        done = run.scope.done if run.scope is not None else []
+        if done:
+            # Something that can't be taken back already happened: say so, offer the follow-up.
+            tool, title = done[-1]
+            what, fix = DONE_ALREADY.get(tool, ("That was already done", "follow it up"))
+            self._fix_offer = (f"{change}\n\n[Already done, and it can't be undone: {title}. Do the follow-up "
+                               "that makes the change, e.g. a correction.]", run.thread, time.monotonic())
+            if record is not None:
+                record["redirected"] = "after_done"
+            logger.info("change of mind after an action that can't be undone", tool=tool)
+            await phase("hint", f"{what}, so I can't take it back. Say “yes” and I'll {fix}.")
+            return
+        executor, run_id = self._active
+        native = getattr(executor, "redirect", None)
+        await phase("idle")
+        await self._swift_step(f"Changing course: {_clip(change, 60)}", "planning", None)
+        if native is not None and await native(run_id, change):
+            if record is not None:
+                record["redirected"] = "same_session"
+            logger.info("change of mind passed on in the same session")
+            return
+        # Any other provider: stop this attempt and start again with the change (``_run``).
+        if record is not None:
+            record["redirected"] = "restart"
+        logger.info("change of mind: starting again with it")
+        run.restart = change
+        await executor.cancel(run_id)
 
     async def _offer_workflow(self, match: Match, text: str, record: dict[str, Any]) -> None:
         self._offer = (match, text, time.monotonic())
@@ -1286,7 +1942,19 @@ class Session:
         if workflow is not None:
             package = workflow.package
             grant = Grant(package.name, package.tools, frozenset(package.needs))
-        self._scope = self.tools.open(partial(self._publish, record), self._swift_confirm, grant, self._swift_step)
+        run = self._current()
+        self._scope = self.tools.open(
+            partial(self._for_run, run, partial(self._publish, record)),
+            partial(self._for_run, run, self._swift_confirm),
+            grant,
+            partial(self._for_run, run, self._swift_step),
+        )
+        CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it
+
+    async def _for_run(self, run: Run, fn: Callable[..., Awaitable[Any]], *args: Any) -> Any:
+        """A tool scope's callback, for its own request whichever task the provider calls it from."""
+        with self._as(run):
+            return await fn(*args)
 
     def _close_scope(self) -> None:
         for future in self._swift_pending.values():
@@ -1301,6 +1969,7 @@ class Session:
         if scope.artifacts.latest:
             self._artifacts = scope.artifacts
             self._artifacts_run = self._active[1] if self._active else self._artifacts_run
+        CURRENT_SCOPE.set(None)
 
     def _run_id(self) -> str:
         if self._active is not None:
@@ -1326,6 +1995,8 @@ class Session:
         if self._record is not None:
             asked = int((time.monotonic() - self._run_started) * 1000) if self._run_started else 0
             self._record["approvals"].append({"tool": tool, "request_id": request_id, "asked_ms": asked, "by": "swift"})
+        run = self._current()
+        await self._ask_card(run, request_id)
         await self._set_state("confirm", run_id=run_id, agent=self._agent())
         await self._send(
             outbound(
@@ -1336,6 +2007,9 @@ class Session:
         )
         decision: Decision
         try:
+            if (shown := self._card_shown.get(request_id)) is not None and not shown.is_set():
+                # Behind another card: its countdown starts when it's on screen (ADR-013 §5.2).
+                await asyncio.wait({future, asyncio.ensure_future(shown.wait())}, return_when=asyncio.FIRST_COMPLETED)
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
             if isinstance(answer, str):
                 decision = "revise"
@@ -1348,6 +2022,7 @@ class Session:
         finally:
             self._swift_pending.pop(request_id, None)
             self._confirm_ids.discard(request_id)
+            await self._card_done(request_id)
         if decision == "revise":
             # The run goes on: the provider applies the change and shows a new card.
             if self._active is not None:
@@ -1371,7 +2046,8 @@ class Session:
         """The owner left (hide open confirm cards, stop their countdown) or came back (show them again)."""
         if self.attention is None:
             return
-        changed = [r for r in self.attention.set_held(held) if r in self._confirm_ids]
+        shown = self._open_confirm()
+        changed = [r for r in self.attention.set_held(held) if r == shown]  # the others aren't on screen
         for request_id in changed:
             left = self.attention.left(request_id)
             if (entry := self._approval(request_id)) is not None and held:
@@ -1409,7 +2085,7 @@ class Session:
 
     async def _offer_parked(self) -> None:
         """After an answer: one line naming a conversation left unfinished, if there is one."""
-        if self.parked is None:
+        if self.parked is None or self._current() is not self._focus:
             return
         offer = self.parked.offer(besides=self._thread)
         if offer is None:
@@ -1426,7 +2102,8 @@ class Session:
 
     async def _view(self, show: bool, kind: str | None = None, source: str = "voice") -> None:
         """Open the detail view on the artifact that matters now (or ``kind``), or close it."""
-        if not self.busy and self._artifacts is None:
+        run = self._current()
+        if not (run.alive and run.task is not None) and self._artifacts is None:
             return  # nothing on screen to show
         if not show:
             await self._send(outbound("view", run_id=self._run_id(), artifact_id=None, open=False))
@@ -1443,7 +2120,7 @@ class Session:
 
     async def _say(self, text: str) -> None:
         """Debug mode: typed text handled as if spoken mid-run (the dev harness's "show me")."""
-        if self.debug_executor is None or not self.busy:
+        if self.debug_executor is None or not self._front_busy():
             return
         open_request = self._open_confirm()
         if open_request is not None:
@@ -1468,10 +2145,25 @@ class Session:
             await self._midrun_text(text, self._run_phase)
 
     async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]]) -> None:
+        """Said during a run: about the one in front, naming another, a change of mind, or a new request."""
         decision = route_midrun(text)
         action = decision.action if decision else None
+        named = route_target(text)
+        if named is not None and (action is None or named[0] == "show"):
+            answer = await self._named(named, view=action == "show")
+            if answer is None and action is None:
+                answer = NO_TARGET_HINT
+            if answer is not None:
+                if self._record is not None:
+                    self._record.setdefault("midrun", []).append(f"{named[0]}_named")
+                if answer:
+                    await phase("hint", answer)
+                else:
+                    await phase("idle")
+                return
+        change = route_redirect(text) if action is None else None
         if self._record is not None:
-            self._record.setdefault("midrun", []).append(action)
+            self._record.setdefault("midrun", []).append("redirect" if change else action)
         if action in ("show", "hide"):
             await phase("idle")
             await self._view(action == "show", decision.target if decision else None)
@@ -1479,16 +2171,34 @@ class Session:
             await phase("idle")
             if self._task is not None:
                 self._task.cancel()  # like Esc; the interaction cleans up
+        elif action == "approve" and self._fix_offer is not None:
+            text, thread, at = self._fix_offer
+            self._fix_offer = None
+            await phase("idle")
+            if time.monotonic() - at <= FIX_OFFER_S:
+                self._start_correction(Run(correction=text, thread=thread))
         elif action in ("approve", "reject"):
             await phase("hint", "There's nothing waiting for approval right now.")
+        elif change is not None:
+            await self._redirect(change, phase)
+        elif self._new_request(text):
+            await phase("idle")
+            self._start_beside(text)
         else:
             await phase("hint", f"Heard “{_clip(text, 50)}”. {MIDRUN_HINT}")
 
     async def _confirm_reply(self, request_id: str, approve: bool, source: str = "click") -> None:
-        if self._active is None or request_id not in self._confirm_ids:
+        run = self._owner_of(request_id)
+        if run is None or run.active is None:
             logger.warning("confirm.reply for an unknown request ignored")
             return
+        with self._as(run):
+            await self._reply_for_run(request_id, approve, source)
+
+    async def _reply_for_run(self, request_id: str, approve: bool, source: str) -> None:
+        assert self._active is not None
         self._confirm_ids.discard(request_id)
+        await self._card_done(request_id)  # the next card in line first, then this one goes on
         executor, run_id = self._active
         if approve and request_id in self._confirm_titles:
             self._approved.append(self._confirm_titles[request_id])
@@ -1505,16 +2215,17 @@ class Session:
             await self._set_state("working", run_id=run_id, agent=self._agent())
 
     def _approval(self, request_id: str) -> dict[str, Any] | None:
-        if self._record is None:
+        run = self._owner_of(request_id) or self._current()
+        if run.record is None:
             return None
-        return next((c for c in self._record["approvals"] if c["request_id"] == request_id), None)
+        return next((c for c in run.record["approvals"] if c["request_id"] == request_id), None)
 
     def _open_confirm(self) -> str | None:
-        """The request id of the confirm card on screen, if any."""
-        if self.state != "confirm" or self._record is None:
+        """The request id of the confirm card on screen, if any (the first in line)."""
+        if not self._cards:
             return None
-        pending = [c["request_id"] for c in self._record["approvals"] if c["request_id"] in self._confirm_ids]
-        return pending[-1] if pending else None
+        run, request_id = self._cards[0]
+        return request_id if run.state == "confirm" and request_id in run.confirm_ids else None
 
     async def _answer_by_voice(self, request_id: str) -> None:
         """Push-to-talk on an open confirm card: approve, reject, or stop the run."""
@@ -1566,8 +2277,9 @@ class Session:
             await self._confirm_reply(request_id, decision.action == "approve", source="voice")
         elif decision.route == "control" and decision.action in ("stop", "cancel", "mute"):
             entry["source"] = "voice"
-            if self._task is not None:
-                self._task.cancel()  # like Esc; the interaction cleans up
+            owner = self._owner_of(request_id)
+            if owner is not None and owner.task is not None:
+                owner.task.cancel()  # like Esc; the interaction cleans up
         elif request_id in self._swift_pending and text.strip() and not is_question(text):
             await self._revise(request_id, text.strip())
             await phase("idle")
@@ -1581,13 +2293,20 @@ class Session:
         """A change asked for on the provider's own card ("edit this file"): the provider revises it
         if it can (``Executor.change``); otherwise the card is rejected and the change becomes the
         next request, so it works the same with any provider."""
-        if self._active is None or request_id not in self._confirm_ids:
+        run = self._owner_of(request_id)
+        if run is None or run.active is None:
             return
+        with self._as(run):
+            await self._change_for_run(request_id, text)
+
+    async def _change_for_run(self, request_id: str, text: str) -> None:
+        assert self._active is not None
         executor, run_id = self._active
         entry = self._approval(request_id)
         native = getattr(executor, "change", None)
         if native is not None and await native(request_id, text):
             self._confirm_ids.discard(request_id)
+            await self._card_done(request_id)
             if entry is not None:
                 entry["decision"] = "revise"
                 entry["change_chars"] = len(text)
@@ -1600,24 +2319,28 @@ class Session:
             entry["change_chars"] = len(text)
         await self._confirm_reply(request_id, False, source="voice")
 
-    def _start_correction(self) -> None:
-        """After a run whose card was answered with a change: the change, as the next request."""
-        text, self._correction = self._correction, None
-        if text is None or self.busy:
+    def _start_correction(self, after: Run) -> None:
+        """After a run whose card was answered with a change: the change, as the next request in its
+        thread (beside others still running). Also the follow-up offered after a change of mind."""
+        text, after.correction = after.correction, None
+        if text is None or self._capturing():
             return
-        record: dict[str, Any] = {"source": "correction", "executor": getattr(self.executor, "name", "?")}
+        record: dict[str, Any] = {
+            "source": "correction", "executor": getattr(self.executor, "name", "?"), "continues": after.thread,
+        }
 
         async def capture(rec: dict[str, Any]) -> str:
             return text
 
-        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+        self._launch(record, capture, self.executor, self.executor.start, title=after.title)
 
     async def _revise(self, request_id: str, text: str) -> None:
         """A change asked for on Swift's own confirm card: the run goes on with the owner's words."""
         future = self._swift_pending.get(request_id)
         if future is None or future.done():
             return
-        self._confirm_ids.discard(request_id)
+        if (owner := self._owner_of(request_id)) is not None:
+            owner.confirm_ids.discard(request_id)
         if (entry := self._approval(request_id)) is not None:
             entry["decision"] = "revise"
             entry["answered_ms"] = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
@@ -1693,7 +2416,7 @@ class Session:
     async def _start_retry(self) -> None:
         """"Try again" on an error card: the same request, without speaking it again."""
         pending, self._retry = self._retry, None
-        if pending is None or self.busy:
+        if pending is None or self._front_busy() or self._capturing():
             return
         source, again = pending
         if source == "debug.run":
@@ -1704,7 +2427,7 @@ class Session:
         async def capture(rec: dict[str, Any]) -> str:
             return again
 
-        self._task = asyncio.create_task(self._interaction(record, capture, self.executor, self.executor.start))
+        self._launch(record, capture, self.executor, self.executor.start)
 
     async def _send_result(self, run_id: str, result: ExecResult, agent: dict[str, str] | None = None) -> None:
         """Swift presents the outcome; ``agent`` says who did the work (None: Swift itself)."""

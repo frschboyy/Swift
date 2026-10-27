@@ -20,8 +20,10 @@ name, ``executors.providers.AGENT_NAMES``) is removed like the wake word and kep
 in ``addressed_as``, so the session can say once who it is (ADR-008). Alone, or as
 "who are you?", it is the local ``identity`` answer.
 
-During a run, ``route_midrun`` is the only grammar (ADR-010 §6): "show me", "show the
-draft", "hide that" and the stop words. It never starts a run; anything else is None.
+During a run, ``route_midrun`` is the grammar for the run in front (ADR-010 §6): "show me",
+"show the draft", "hide that" and the stop words. It never starts a run; anything else is None.
+``route_redirect`` finds a change of mind ("actually, …", "no, I meant …", ADR-014 §7) and
+``route_target`` a request named by what it's about ("stop the research one", ADR-013 §5.3).
 
 Mis-taking a request for a command loses it, so control and local patterns are
 deliberately narrow: an unmatched command still reaches Claude Code, just slower.
@@ -219,6 +221,53 @@ def route_midrun(text: str) -> Route | None:
         if pattern.fullmatch(norm):
             return Route("control", text.strip(), action=action)
     return None
+
+
+# A change of mind mid-run (ADR-014 §7): the whole utterance is what the owner wants instead.
+_REDIRECT = re.compile(
+    r"^(?:(?:oh|wait|hmm|sorry|no|nope)\b[\s,.!-]*)*"
+    r"(?:actually\b|instead\b|i meant\b|i mean\b|what i meant\b|change (?:it|that|this) to\b"
+    r"|make (?:it|that|this) .+ instead\b|rather\b|scratch that,? (?:and )?)",
+    re.IGNORECASE,
+)
+_INSTEAD = re.compile(r"\binstead[.!]?$", re.IGNORECASE)
+
+
+def route_redirect(text: str) -> str | None:
+    """The owner's change of mind, without Swift's name ("actually, make it Friday"); None if it isn't one."""
+    said = strip_wake(text).strip()
+    norm = said.lower()
+    if len(norm.split()) < 2:  # "actually." alone says nothing to change
+        return None
+    if _REDIRECT.match(norm) or _INSTEAD.search(norm):
+        return said
+    return None
+
+
+# A request named by what it's about (ADR-013 §5.3): "stop the research one", "show me the email one".
+_TARGET = re.compile(
+    r"(?P<verb>stop|cancel|show me|show|switch to|go to|back to|bring up|bring back)"
+    r" (?:the |my )?(?P<what>[\w' ]+?)(?: one| request| task| thing)?"
+)
+_ALL = re.compile(r"(?:stop|cancel) (?:everything|all|all of (?:it|them)|all (?:the )?requests|them all)")
+
+
+def route_target(text: str) -> tuple[str, str] | None:
+    """("stop" | "show", the words naming the request), or ("stop", "*") for "stop everything"."""
+    norm = _normalize(text)
+    if _ALL.fullmatch(norm):
+        return "stop", "*"
+    m = _TARGET.fullmatch(norm)
+    if m is None:
+        return None
+    # "Stop the music" is a request; "stop the music one" names a request.
+    if m.group("verb") in ("stop", "cancel") and not norm.endswith((" one", " request", " task", " thing")):
+        return None
+    what = m.group("what").strip()
+    if what in ("me", "it", "that", "this", "them", "everything", "me it", "me that"):
+        return None
+    verb = "stop" if m.group("verb") in ("stop", "cancel") else "show"
+    return verb, what
 
 
 def route_for_eval(text: str) -> tuple[str, str | None]:

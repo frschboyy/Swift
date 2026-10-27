@@ -16,10 +16,17 @@ More tools live next to this module: the calendar (``calendar.py``) and the desk
 
 ``side_effect`` is Swift's own label; a connector's description of itself is never used.
 In a workflow run (ADR-011 W1) the scope's ``Grant`` decides which tools may be called.
+
+Several requests can run at once (ADR-013 §5.4), each in its own scope. A call names its run:
+a provider passes its run id (``bind`` ties it to the scope), otherwise the scope the session
+opened for the task making the call is used (``CURRENT``). Only one run writes in the owner's
+apps at a time (``writing``): another one waits, and says what for.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextvars
 import json
 import re
 from collections.abc import Awaitable, Callable
@@ -28,7 +35,13 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from loguru import logger
 
-from swift.connectors.base import CalendarConnector, Contact, ConnectorError, EmailConnector, OutgoingEmail
+from swift.connectors.base import (
+    CalendarConnector,
+    ConnectorError,
+    Contact,
+    EmailConnector,
+    OutgoingEmail,
+)
 from swift.security.gateway import Action, ActionGateway
 from swift.workflows.scope import Confirmer, Draft, Grant, Publisher, RunScope, Stepper
 
@@ -43,6 +56,9 @@ MAX_BODY = 20_000
 SHOWN_BODY = 16_000
 _EMAIL = re.compile(r"^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$")
 _LEADING = re.compile(r"^(?:to |for )?(?:my |the |our )?", re.IGNORECASE)
+# The scope of the request whose task is running: set by the session, inherited by the tasks
+# a provider starts for it.
+CURRENT: contextvars.ContextVar[RunScope | None] = contextvars.ContextVar("swift_scope", default=None)
 
 
 @dataclass(frozen=True)
@@ -304,7 +320,7 @@ TOOLS: tuple[ToolSpec, ...] = (
 
 
 class ToolHost:
-    """Runs Swift's tools for whichever provider calls them, inside the one open run scope."""
+    """Runs Swift's tools for whichever provider calls them, each call in its own request's scope."""
 
     def __init__(
         self,
@@ -324,38 +340,65 @@ class ToolHost:
         self.calendar = calendar
         self.desktop = desktop
         self.opener = opener
-        self.scope: RunScope | None = None
+        # Open scopes, oldest first, and the provider run ids bound to them.
+        self.scopes: list[RunScope] = []
+        self._bound: dict[str, RunScope] = {}
+        # One writer in the owner's apps at a time (ADR-013 §5.2), and the app it writes in.
+        self.writing = asyncio.Lock()
+        self.writing_app = ""
         # The last thing Swift wrote in the owner's apps, for "undo that" (ADR-012 §6).
         self.last_write: WriteReceipt | None = None
+
+    @property
+    def scope(self) -> RunScope | None:
+        """The newest open scope (one request at a time: the only one)."""
+        return self.scopes[-1] if self.scopes else None
 
     def open(
         self, publish: Publisher, confirm: Confirmer, grant: Grant | None = None, step: Stepper | None = None
     ) -> RunScope:
-        if self.scope is not None:
-            self.scope.closed = True
-        self.scope = RunScope(publish, confirm, grant=grant, step_fn=step)
-        return self.scope
+        scope = RunScope(publish, confirm, grant=grant, step_fn=step)
+        self.scopes.append(scope)
+        return scope
 
-    def permits(self, capability: str) -> bool:
-        """A provider capability (``web.search``) the open run's workflow declared. Outside workflows: none."""
-        scope = self.scope
-        return scope is not None and not scope.closed and scope.grant is not None and capability in scope.grant.capabilities
+    def bind(self, scope: RunScope, run_id: str) -> None:
+        """The provider's run ``run_id`` works for the request with ``scope``."""
+        self._bound[run_id] = scope
+
+    def resolve(self, run: str | None = None) -> RunScope | None:
+        """The open scope a call belongs to: its run's, the calling task's, or the only one open."""
+        scope = self._bound.get(run) if run is not None else None
+        scope = scope or CURRENT.get()
+        if scope is None and len(self.scopes) == 1:
+            scope = self.scopes[0]
+        return scope if scope is not None and not scope.closed else None
+
+    def permits(self, capability: str, run: str | None = None) -> bool:
+        """A provider capability (``web.search``) the run's workflow declared. Outside workflows: none."""
+        scope = self.resolve(run)
+        return scope is not None and scope.grant is not None and capability in scope.grant.capabilities
 
     @property
     def in_workflow(self) -> bool:
-        return self.scope is not None and not self.scope.closed and self.scope.grant is not None
+        return self.in_workflow_for(None)
+
+    def in_workflow_for(self, run: str | None) -> bool:
+        scope = self.resolve(run)
+        return scope is not None and scope.grant is not None
 
     def close(self, scope: RunScope) -> None:
         scope.closed = True
-        if self.scope is scope:
-            self.scope = None
+        if scope in self.scopes:
+            self.scopes.remove(scope)
+        for run_id in [r for r, s in self._bound.items() if s is scope]:
+            del self._bound[run_id]
 
-    async def call(self, name: str, args: dict[str, Any]) -> ToolResult:
+    async def call(self, name: str, args: dict[str, Any], run: str | None = None) -> ToolResult:
         spec = self.tools.get(name)
         if spec is None:
             return ToolResult(False, f"Swift has no tool named {name}.")
-        scope = self.scope
-        if scope is None or scope.closed:
+        scope = self.resolve(run)
+        if scope is None:
             return ToolResult(False, "No Swift run is active; nothing was done.")
         if not scope.allows(name):
             assert scope.grant is not None

@@ -11,7 +11,8 @@ Writing is **foreground mode** (ADR-012 §6). The working card says "Swift is wr
 Word"; the text goes in a paragraph at a time; between paragraphs Esc (cancelling the
 run) stops it, and if the owner types, clicks elsewhere in the document or brings another
 window forward, Swift pauses and asks on a card before going on. What was written is kept
-for "undo that".
+for "undo that". Only one request writes in the owner's apps at a time (ADR-013 §5.2):
+another one waits, with "Waiting for Word" on its card, until the first is done or stopped.
 
 Text read from the screen is untrusted (ADR-012 §7): it is handed over marked as such,
 and nothing on the screen can choose a target: a path comes from the owner's selection
@@ -21,8 +22,10 @@ or a configured name, and recipients only from ``find_contact``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +65,20 @@ async def desktop_context(host: ToolHost, scope: RunScope, args: dict[str, Any])
     return ToolResult(True, context.describe(), data)
 
 
+@contextlib.asynccontextmanager
+async def _one_writer(host: ToolHost, scope: RunScope, app: str) -> AsyncIterator[None]:
+    """Write once the owner's apps are free; while another request writes, say so on the card."""
+    if host.writing.locked():
+        busy = host.writing_app or "your apps"
+        await scope.step(f"Waiting for {busy}: another request is writing there", "waiting", host.writing_app or None)
+    async with host.writing:
+        host.writing_app = app
+        try:
+            yield
+        finally:
+            host.writing_app = ""
+
+
 async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     desktop = host.desktop
     if desktop is None:
@@ -94,31 +111,32 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return tick != since[0] and cursor == since[1] and time.monotonic() > scope.talking_until
 
     async def perform() -> str:
-        writer = await desktop.writer(where, mode, bool(args.get("new_document")))  # type: ignore[arg-type]
-        report["app"] = writer.app
-        await scope.step(f"Writing in {writer.app}", "writing", writer.app)
-        since = await desktop.owner_input()
-        try:
-            for i, chunk in enumerate(chunks):
-                if i:
-                    why = await writer.changed() or ("you started typing" if await owner_typed(since) else None)
-                    if why is not None:
-                        # Owner input wins (ADR-012 §6): pause and ask before going on.
-                        answer = await scope.confirm(
-                            f"Carry on writing in {writer.app}?", f"Paused: {why}.", "desktop_write", None,
-                        )
-                        if answer != "approve" or (why := await writer.changed()) is not None:
-                            report["stopped"] = why or "you said not to go on"
-                            break
-                        since = await desktop.owner_input()
-                await writer.write(chunk, last=i == len(chunks) - 1)
-                report["written"] = i + 1
-                if writer.route in ("paste", "keys"):
-                    since = await desktop.owner_input()  # Swift's own key presses
-                await asyncio.sleep(0)  # Esc (the run cancelled) stops here, between paragraphs
-        finally:
-            host.last_write = await writer.finish()
-        return f"{writer.route}:{report['written']}"
+        async with _one_writer(host, scope, "Word" if where == "word" else "the app in front"):
+            writer = await desktop.writer(where, mode, bool(args.get("new_document")))  # type: ignore[arg-type]
+            report["app"] = host.writing_app = writer.app
+            await scope.step(f"Writing in {writer.app}", "writing", writer.app)
+            since = await desktop.owner_input()
+            try:
+                for i, chunk in enumerate(chunks):
+                    if i:
+                        why = await writer.changed() or ("you started typing" if await owner_typed(since) else None)
+                        if why is not None:
+                            # Owner input wins (ADR-012 §6): pause and ask before going on.
+                            answer = await scope.confirm(
+                                f"Carry on writing in {writer.app}?", f"Paused: {why}.", "desktop_write", None,
+                            )
+                            if answer != "approve" or (why := await writer.changed()) is not None:
+                                report["stopped"] = why or "you said not to go on"
+                                break
+                            since = await desktop.owner_input()
+                    await writer.write(chunk, last=i == len(chunks) - 1)
+                    report["written"] = i + 1
+                    if writer.route in ("paste", "keys"):
+                        since = await desktop.owner_input()  # Swift's own key presses
+                    await asyncio.sleep(0)  # Esc (the run cancelled) stops here, between paragraphs
+            finally:
+                host.last_write = await writer.finish()
+            return f"{writer.route}:{report['written']}"
 
     action = Action(
         tool="desktop_write",
@@ -218,7 +236,8 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
 
     async def perform() -> str:
         d = scope.drafts[draft_id]
-        return await desktop.fill_in_email(app, [c.email for c in d.to], d.subject, d.body)
+        async with _one_writer(host, scope, shown):
+            return await desktop.fill_in_email(app, [c.email for c in d.to], d.subject, d.body)
 
     async def on_status(state: str, extra: dict[str, str]) -> None:
         if state in ("sent", "failed"):

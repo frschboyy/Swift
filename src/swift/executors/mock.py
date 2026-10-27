@@ -259,7 +259,7 @@ class MockExecutor:
                     run.queue.put_nowait(ExecEvent("step", text, activity=item.activity))  # type: ignore[arg-type]
                     if self.tools is None:
                         return ExecResult("error", "Swift's tools aren't available to the demo agent.")
-                    result = await self.tools.call(tool, args(done) if callable(args) else args)
+                    result = await self.tools.call(tool, args(done) if callable(args) else args, run=run_id)
                     done[tool] = result
                     if not result.ok:
                         # Like a real provider: stop and say what happened.

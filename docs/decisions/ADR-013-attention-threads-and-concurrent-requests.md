@@ -189,3 +189,28 @@ Checked in the dev harness:
 - background rows and voice targeting (phase B);
 - a request that refers back ("it", "that") outside the follow-up window still starts a new thread.
 
+## 11. Implementation status: phase B (2026-10-27)
+
+| Part | Where | Checked by |
+|---|---|---|
+| `Run` per request (task, record, provider run, tool scope, thread, cards); the old single-run attributes resolve to the run whose task is running, else the one in front | `session.py` (`Run`, `_per_run`, `_RUN`, `_current`, `_as`) | the whole suite |
+| A clear new request during a run starts beside it; it takes the front when it first shows something. Mid-run grammar first, then a change of mind, then a new request, else the hint. On a card, only questions and Swift's own answers start beside it (anything else is a change to the card) | `_midrun_text`, `_hear_busy`, `_new_request`, `_start_beside`, `_launch` | `test_runs.py` |
+| At most 3 (`MAX_RUNS`); a fourth waits as a "queued" row and the card in front says so | `_interaction` (`_slots`) | `test_runs.py` |
+| One confirm card on screen; others wait in order with their countdown stopped (`Attention.set_queued`; Swift's own cards wait before counting); the card's request comes to the front; a held card (ADR-014 L2) still holds | `_ask_card`, `_card_done`, `_show_next_card`, `attention.py` | `test_runs.py`, `test_held_cards.py` |
+| One writer in the owner's apps; the other waits with "Waiting for Word: another request is writing there" | `ToolHost.writing`, `desktop_tools._one_writer` | `test_runs.py` |
+| Per-run tool scopes: a call names its run (Claude Code passes its run id; otherwise the scope of the calling task, `tools.CURRENT`; the only one open) | `ToolHost.open/bind/resolve/close`, `ClaudeCodeExecutor._sdk_tool` | `test_runs.py`, `test_desktop.py`, `test_claude_executor.py` |
+| Voice targeting: "stop the research one", "show me the email one", "stop everything", "the other one"; matched on each request's short title and words. Esc and "stop" act on the one in front | `rules.route_target`, `Session._named`, `_find` | `test_runs.py` |
+| Protocol: `runs` (outbound: focus, rows, waiting), sent only while there is more than one; `focus` (inbound) | `ipc/protocol.py`, `overlay/src/protocol.ts` | `test_runs.py` |
+| Presenter: rows (`onRuns`, `visibleRows`, at most 3 + "+N more"), another request's news never touches the card, `promotion` when the card in front is gone; new invariants (card not the one in front, a row for the one in front, duplicate rows, cards waiting with none shown, too many rows) | `overlay/src/presenter.ts` | `presenter.test.ts` (8 new sequences) |
+| Rows drawn under the card (or above it, at the top of the screen), clickable; the clock asks for the next row when the card fades | `overlay/src/main.ts`, `styles.css`, `index.html` | typecheck; owner checks 17–21, 25 |
+
+**Decided while building:**
+- **The front moves only when something new is shown.** A request started beside another takes the front with its first card, not when it's heard, so the card on screen never blanks while the new one starts.
+- **A finished request in front stays until its answer fades.** Then the overlay asks for the newest running row (`promotion` → `focus`); the backend doesn't guess when the owner has read it.
+- **A request that ends in the background** keeps its row ("Done: …") for 20 s.
+- **A provider's card waiting in line** pauses through `Attention` (Claude Code's cards); a provider without it keeps its plain timeout while waiting.
+- **Push-to-talk during a run** no longer always gives a hint: a clear request starts beside it (`test_show_me.py`, `test_voice_confirm.py` updated).
+
+**Owner-run:** checks 17–21 and 25 in `docs/testing/owner-checks.md`; `report.py` reports them.
+
+**Not done:** the harness replay buttons for several requests (`overlay/dev/scenarios.ts`); collapsed mode showing a count of the others; over-HTTP MCP per-run tokens (no HTTP provider yet).

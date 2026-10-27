@@ -248,6 +248,22 @@ class DesktopSettings(_Section):
     never_read_titles: list[str] = Field(default_factory=list)
 
 
+class SystemSettings(_Section):
+    """The system lane (ADR-016 §3): timers, reminders, volume, theme and other device controls
+    Swift does itself, in milliseconds, without a model. Nothing here sleeps, restarts or shuts down."""
+
+    enabled: bool = True
+    # Timers, alarms and reminders, kept across restarts.
+    schedule_file: str = "%LOCALAPPDATA%/Swift/schedule.json"
+    # A short sound when one is due.
+    chime: bool = True
+
+    @field_validator("schedule_file")
+    @classmethod
+    def _expand(cls, v: str) -> str:
+        return expand(v)
+
+
 class LoggingSettings(_Section):
     interactions: str = "%LOCALAPPDATA%/Swift/interactions.jsonl"
     app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
@@ -279,6 +295,7 @@ class Settings(_Section):
     connectors: ConnectorSettings = Field(default_factory=ConnectorSettings)
     workflows: WorkflowSettings = Field(default_factory=WorkflowSettings)
     desktop: DesktopSettings = Field(default_factory=DesktopSettings)
+    system: SystemSettings = Field(default_factory=SystemSettings)
     # The only people Swift resolves besides your Google contacts (ADR-010 §4: addresses never
     # come from the model or from speech alone).
     contacts: list[ContactSettings] = Field(default_factory=list)

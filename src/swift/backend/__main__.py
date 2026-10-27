@@ -43,6 +43,7 @@ from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog
 from swift.security.gateway import ActionGateway
 from swift.security.journal import Journal
+from swift.system.lane import SystemLane
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
 from swift.stt.fixes import WordFixes
@@ -100,6 +101,21 @@ def _make_desktop(settings: Settings) -> Desktop | None:
     from swift.desktop.windows import WindowsDesktop
 
     return WindowsDesktop(NeverRead.with_extra(cfg.never_read_apps, cfg.never_read_titles))
+
+
+def _make_system(settings: Settings, session: Session) -> tuple[SystemLane, asyncio.Task[None]]:
+    """The system lane (ADR-016 §3) and Swift's clock. Debug mode uses a stand-in device and keeps
+    the schedule in memory, so the harness never changes the real volume or leaves timers behind."""
+    from swift.system.control import FakeSystem, WindowsSystem
+    from swift.system.scheduler import Scheduler
+
+    scheduler = Scheduler(None if settings.debug else Path(settings.system.schedule_file))
+    # The same journal as the gateway's: one place lists every change Swift made.
+    journal = session.tools.gateway.journal if session.tools is not None else Journal(Path(settings.logging.journal))
+    lane = SystemLane(FakeSystem() if settings.debug else WindowsSystem(), scheduler, journal=journal)
+    session.system_chime = settings.system.chime
+    logger.info("system lane", pending=len(scheduler.items), device="fake" if settings.debug else "windows")
+    return lane, asyncio.create_task(scheduler.run(session.notify_due), name="scheduler")
 
 
 def _make_tools(settings: Settings, desktop: Desktop | None, opener: LocalOpener) -> ToolHost:
@@ -315,6 +331,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             # ADR-007 §10: the light lane, on the owner's existing Claude Code sign-in.
             session.quick = QuickModel(settings.executor.models["light"], prewarm=settings.executor.prewarm)
             session.quick.prepare()
+    scheduler_task: asyncio.Task[None] | None = None
+    if settings.system.enabled:
+        session.system, scheduler_task = _make_system(settings, session)
     logger.info("backend ready", port=bound, debug=settings.debug, wake=wake.enabled)
 
     # Exit when Tauri closes our stdin (normal quit). The Job Object covers crashes.
@@ -322,6 +341,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     try:
         await stdin_closed
     finally:
+        if scheduler_task is not None:
+            scheduler_task.cancel()
         await session.close()
         if isinstance(session.executor, ClaudeCodeExecutor):
             await session.executor.close()

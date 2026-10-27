@@ -18,7 +18,7 @@
 ## Routes
 
 - **`control`**: acts on Swift itself, not on the world. Stop, cancel, never mind, forget that, mute, yes/no and approve/reject (an open confirm card), repeat that, "what can you do".
-- **`local`**: Swift answers without a model. Time and date now. Opening an app, a folder or a project in VS Code are `local` with the `planned` tag (ADR-007 §3). A request that also asks for more ("open my project **and run the tests**") is `claude`.
+- **`local`**: Swift answers or acts without a model. The system lane (ADR-016 §3: timers, alarms, one-off reminders with a time, volume, media keys, dark mode, brightness, lock, battery and disk, settings pages, window moves, a web search; tag `system`) is `local`. A reminder with no time, a repeating one ("every weekday at 9"), sleep, restart and shut down are `claude`. Time and date now. Opening an app, a folder or a project in VS Code are `local` with the `planned` tag (ADR-007 §3). A request that also asks for more ("open my project **and run the tests**") is `claude`.
 - **`claude`**: everything else, including requests Swift has no tool for (calendar, reminders, sending email, weather, music: tag `no-tool`). Owner decision 3: Claude Code tries them.
 
 ## Demand (`route: agent` only)

@@ -53,27 +53,27 @@
 {"text": "Kick off the test suite for robotics.", "route": "agent", "demand": "light"}
 {"text": "Remind me every Friday to send my supervisor a weekly update.", "route": "agent", "demand": "light"}
 {"text": "remind me every friday to send my supervisor a weekly update", "route": "agent", "demand": "light"}
-{"text": "Remind me tomorrow at 3pm to call the bank.", "route": "agent", "demand": "light"}
+{"text": "Remind me tomorrow at 3pm to call the bank.", "route": "local", "demand": null}
 {"text": "Set a reminder for Monday morning to submit the timesheet.", "route": "agent", "demand": "light"}
 {"text": "Remind me every weekday at 9 to check the lab bookings.", "route": "agent", "demand": "light"}
 {"text": "Don't let me forget to pay rent on the first of every month.", "route": "agent", "demand": "light"}
 {"text": "Every Friday remind me to back up my thesis.", "route": "agent", "demand": "light"}
 {"text": "Remind me to water the plants.", "route": "agent", "demand": "light"}
 {"text": "Set a weekly reminder on Sundays to plan the week.", "route": "agent", "demand": "light"}
-{"text": "remind me in 20 minutes to check the oven", "route": "agent", "demand": "light"}
+{"text": "remind me in 20 minutes to check the oven", "route": "local", "demand": null}
 {"text": "Remind me every other Wednesday to renew the parking permit.", "route": "agent", "demand": "light"}
 {"text": "Remind me on Friday to schedule a meeting with my supervisor.", "route": "agent", "demand": "light"}
 {"text": "Every morning at 7 remind me to take my medication.", "route": "agent", "demand": "light"}
 {"text": "Remind me tonight to run the tests before I leave.", "route": "agent", "demand": "light"}
-{"text": "What reminders do I have?", "route": "agent", "demand": "light"}
-{"text": "list my reminders", "route": "agent", "demand": "light"}
-{"text": "Show me all my reminders.", "route": "agent", "demand": "light"}
+{"text": "What reminders do I have?", "route": "local", "demand": null}
+{"text": "list my reminders", "route": "local", "demand": null}
+{"text": "Show me all my reminders.", "route": "local", "demand": null}
 {"text": "Do I have any reminders set for Friday?", "route": "agent", "demand": "light"}
 {"text": "Read out my reminders.", "route": "agent", "demand": "light"}
-{"text": "Hey Swift which reminders are active", "route": "agent", "demand": "light"}
+{"text": "Hey Swift which reminders are active", "route": "local", "demand": null}
 {"text": "Cancel the Friday reminder.", "route": "agent", "demand": "light"}
 {"text": "Stop reminding me to take a break.", "route": "agent", "demand": "light"}
-{"text": "Cancel my reminder about the parking permit.", "route": "agent", "demand": "light"}
+{"text": "Cancel my reminder about the parking permit.", "route": "local", "demand": null}
 {"text": "Stop.", "route": "control", "demand": null}
 {"text": "stop", "route": "control", "demand": null}
 {"text": "cancel that", "route": "control", "demand": null}

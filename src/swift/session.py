@@ -168,6 +168,9 @@ from swift.stt.transcriber import (
     assess,
 )
 from swift.wake import CLOSE, NoiseGate, WakeMatch, close_control, match_address, match_wake
+from swift.system import intents as system_intents
+from swift.system.lane import SystemLane
+from swift.system.scheduler import Item
 from swift.workflows.artifacts import Artifact, ArtifactStore
 from swift.workflows.library import Library, Match, is_question
 from swift.workflows.scope import Decision, Grant, RunScope
@@ -190,15 +193,20 @@ MIN_SPEECH_S = 0.3
 CLARIFY_EVERY_S = 3600.0
 
 HELP_TEXT = (
-    "Hold the hotkey and ask for anything in your project: questions, changes, commands. "
-    "Say \u201cstop\u201d or press Esc to cancel, \u201crepeat that\u201d to see the last answer, "
-    "and \u201cuse opus\u201d at the start to ask for the strongest model."
+    "Hold the hotkey (or say “Hey Swift”) and ask for anything: questions, writing, your email and "
+    "calendar, or changes in your project. Swift also does everyday things itself, instantly: timers, alarms "
+    "and reminders (“remind me to call Sam at 5”), volume and music (“louder”, “next song”), "
+    "dark mode and brightness, locking the PC, battery and disk space, Windows settings (“open Bluetooth "
+    "settings”), windows (“show the desktop”) and web searches. Say “undo that” to take "
+    "a change back, “stop” or Esc to cancel, and “use opus” at the start for the strongest model."
 )
 # The mic stays open this long after the hotkey is released: people let go
 # while still saying the last word.
 TAIL_S = 0.3
 # A request this soon after the previous Claude answer carries that exchange as context.
 FOLLOWUP_S = 300.0
+# A timer, alarm or reminder that comes due while a request is on screen waits this long for it to end.
+DUE_WAIT_S = 120.0
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
 # On Swift's own cards (an email, an event) anything else said is a change to make.
 CHANGE_HINT = "Say “approve”, “reject”, or what to change."
@@ -220,6 +228,14 @@ SHORT_MIDRUN = frozenset({"show", "hide", "stop", "cancel", "pause", "resume"})
 # ...and on a confirm card, rejecting too ("no", "reject"); never approving.
 SHORT_CARD = frozenset({"reject"})
 SHORT_AT_REST = frozenset({"stop", "cancel", "resume", "show_last", "repeat", "not_now"})
+# System intents that are naturally a word or two ("louder", "next song", "unmute"): kept like the
+# commands above. Only these: a short clip is the likeliest to be a guess, and these are reversible.
+SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
+
+
+def _brisk_system(text: str) -> bool:
+    found = system_intents.parse(text)
+    return found is not None and all(i.name in SHORT_SYSTEM for i in found)
 # What the open microphone heard is also kept below ``wake.min_p`` when it is one of these
 # during a run (never an approval): a clean "Stop." scored 0.46.
 UNSURE_MIDRUN_OK = frozenset({"show", "hide", "stop", "cancel", "pause"})
@@ -518,6 +534,10 @@ def _per_run(name: str, doc: str) -> property:
     return property(get, put, doc=doc)
 
 
+def _hm(epoch: float) -> str:
+    return datetime.fromtimestamp(epoch).strftime("%H:%M")
+
+
 def _to_agent(decision: Route) -> Route:
     """A local route Swift can't handle after all ("open" an unknown name): on to the provider."""
     request = strip_wake(decision.text) or decision.text
@@ -701,6 +721,13 @@ class Session:
         self.parked = parked
         # The light lane's tool-free model call (ADR-007 §10); None: those requests go to the agent.
         self.quick = quick
+        # The system lane (ADR-016 §3): timers, volume, theme and the like, done by Swift itself.
+        # None (tests, or ``system.enabled: false``): those requests go to the agent.
+        self.system: SystemLane | None = None
+        self.system_chime = True
+        # Whether the owner is away (ADR-014: ``hold_cards``), and what came due meanwhile: shown on return.
+        self._away = False
+        self._due_away: list[tuple[Item, bool]] = []
         # What "show me" with no run going brings back: the last run with artifacts, or (when it
         # wrote in an app since) that app; the write it was set for (ADR-007 §10).
         self._last_shown: Run | None = None
@@ -1681,6 +1708,8 @@ class Session:
                 decision = default_router(said)
                 if decision.route in ("control", "local") and decision.action in SHORT_AT_REST:
                     return said
+                if decision.action == "system" and _brisk_system(said):
+                    return said  # "louder", "next song", "unmute" in the follow-up window
         return None
 
     def take_wake_stats(self) -> dict[str, int]:
@@ -1997,6 +2026,13 @@ class Session:
                 answered = self._answer_fix(decision, fix, record)
             if answered is not None:
                 decision, workflow = answered
+            if decision is not None and decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
+                decision = _to_agent(decision)
+            if (
+                decision is not None and decision.action == "undo" and self.system is not None
+                and self.system.can_undo() and not self._can_undo() and self._approved_undo() is None
+            ):
+                decision = replace(decision, action="system_undo")  # the last thing Swift did was a system change
             if decision is not None and decision.action == "open":
                 target = await self._open_target(decision)
                 if target is None:  # not a configured name: Claude Code decides
@@ -2254,6 +2290,9 @@ class Session:
         if action == "show_last":
             await self._show_last(decision, record)
             return
+        if action in ("system", "system_undo") and self.system is not None:
+            await self._system_lane(decision, record)
+            return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
             record["status"] = "done"
             found = fast.reply(decision.text, previous=self._thread_moment())
@@ -2279,6 +2318,56 @@ class Session:
         if action in ("time", "date"):
             self._local_answer(record, decision.text, said, fast.Moment(now.astimezone(), action == "time"))
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+
+    async def _system_lane(self, decision: Route, record: dict[str, Any]) -> None:
+        """The system lane (ADR-016 §3): carry the request out, then say what was done."""
+        assert self.system is not None
+        if decision.action == "system_undo":
+            said, ok, record["intents"] = await self.system.undo(), True, ["undo"]
+        else:
+            outcome = await self.system.run(decision.text)
+            if outcome is None:  # parsing is deterministic, so this is a bug; say so rather than do nothing
+                said, ok, record["intents"] = "Sorry, I couldn't work that out.", False, []
+            else:
+                said, ok, record["intents"] = outcome.said, outcome.ok, list(outcome.intents)
+        record["status"] = "done" if ok else "error"
+        if not ok:
+            record["error"] = "system_failed"
+        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+
+    async def notify_due(self, item: Item, missed: bool) -> None:
+        """A timer, alarm or reminder came due (``Scheduler.run``): a sound, and a card once the
+        owner isn't in the middle of something (at most ``DUE_WAIT_S`` later). While the owner is
+        away (locked, asleep, idle: ADR-014) the card is held, and one "while you were away" card
+        lists everything that came due when they're back; the sound still plays, so an alarm rings."""
+        assert self.system is not None
+        logger.info("due", kind=item.kind, missed=missed, away=self._away)
+        if self.system_chime:
+            asyncio.create_task(self.system.control.chime(3 if item.kind != "reminder" else 2))  # noqa: RUF006
+        if self._away:
+            self._due_away.append((item, missed))
+            return
+        await self._show_due(f"due-{item.kind}-{item.id}", self.system.due_text(item, missed))
+
+    async def _show_due(self, run_id: str, text: str) -> None:
+        waited = 0.0
+        while (self._front_busy() or self._capturing()) and waited < DUE_WAIT_S:
+            await asyncio.sleep(1.0)
+            waited += 1.0
+        await self._send_result(run_id, ExecResult("done", text))
+
+    async def _show_due_away(self) -> None:
+        """Back: one card for what came due while the owner was away."""
+        if self.system is None or not self._due_away:
+            return
+        held, self._due_away = self._due_away, []
+        if len(held) == 1:
+            item, _ = held[0]
+            text = f"While you were away: {self.system.due_text(item, False)[:-1]}, at {_hm(item.due)}."
+        else:
+            lines = "; ".join(f"{self.system.due_text(i, False)[:-1]} ({_hm(i.due)})" for i, _ in held)
+            text = f"While you were away: {lines}."
+        await self._show_due(f"due-away-{held[-1][0].id}", text)
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""
@@ -2744,7 +2833,11 @@ class Session:
             self.on_owner()
 
     async def hold_cards(self, held: bool) -> None:
-        """The owner left (hide open confirm cards, stop their countdown) or came back (show them again)."""
+        """The owner left (hide open confirm cards, stop their countdown) or came back (show them again,
+        and what came due meanwhile: ``notify_due``)."""
+        self._away = held
+        if not held and self._due_away:
+            asyncio.create_task(self._show_due_away())  # noqa: RUF006
         if self.attention is None:
             return
         shown = self._open_confirm()

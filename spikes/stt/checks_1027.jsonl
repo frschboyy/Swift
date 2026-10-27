@@ -1,0 +1,34 @@
+{"wav": "bfbc4e0c301c4670b3eedfe649f85c60.wav", "ref": "Research the history of tea into Word.", "kind": "ptt"}
+{"wav": "ac202dffaeb8404a9ac942b349547193.wav", "ref": "Research the history of tea into Word. Give me a five page research paper.", "kind": "ptt"}
+{"wav": "d024b31c4b5245b885ee8c3eacaad3d6.wav", "ref": "Research the history of Abraham Lincoln into Word. Give me a seven page report.", "kind": "ptt"}
+{"wav": "632086c79c1d4b6da6257061dcc3a696.wav", "ref": "Hey Swift, what day will it be one week from today?", "kind": "wake"}
+{"wav": "031cb78d3e3a402aa2cc7959e9588274.wav", "ref": "Set up a meeting with Test Me on Friday.", "kind": "ptt"}
+{"wav": "628e654aa12a49028a76bcf1ba24b55e.wav", "ref": "Research the history of tea and summarize it in detail.", "kind": "ptt"}
+{"wav": "dc1469b7b54f4c64b8be6edbd667c48a.wav", "ref": "Hey Swift, research the history of tea and summarize it in detail.", "kind": "wake"}
+{"wav": "b3f0870c8e534263913ad8302264a506.wav", "ref": "Hey Swift, research the history of tea and summarize it in detail.", "kind": "wake"}
+{"wav": "95ce47e543504bbdbf8b4abf2dd45fb8.wav", "ref": "Research green tea.", "kind": "ptt", "failed": true}
+{"wav": "f8645b4fdbd640fcbaad5981d3c4b359.wav", "ref": "Research green tea.", "kind": "ptt"}
+{"wav": "00d352b323004313baea167656cac5b2.wav", "ref": "Set up a meeting with Test Me on Friday at four.", "kind": "ptt"}
+{"wav": "25925fe021234c139873ded8669e1731.wav", "ref": "Hey Swift, set up a meeting with Test Me on Friday at four.", "kind": "ptt"}
+{"wav": "0dd356738fc04bc5becfb726fb83ca68.wav", "ref": "Set up a meeting with Test Me on Friday at four.", "kind": "ptt"}
+{"wav": "18beeafdcb344708b53c42d401a99af1.wav", "ref": "Set up a meeting with Test Me on Saturday at ten.", "kind": "ptt"}
+{"wav": "928020e29ca44acab16727bbe340ff84.wav", "ref": "Set up a meeting with Test Me on Saturday at ten.", "kind": "ptt", "failed": true}
+{"wav": "5f44ffb02c6d4d55ab70e368e04d5ef3.wav", "ref": "Set up a meeting with Test Me on Saturday at ten.", "kind": "ptt"}
+{"wav": "54eae5a5e85441a79f66b78b04c5fa89.wav", "ref": "Research the history of coffee and summarize it.", "kind": "ptt"}
+{"wav": "83c4c11ab9924267a663e1ba0ffdf426.wav", "ref": "Hey Swift, write me a fifteen page paper on Alexander the Great in Word.", "kind": "ptt"}
+{"wav": "a5a6545695d949c3a7ab190df714c0a0.wav", "ref": "Hey Swift, research about Mozart.", "kind": "ptt", "failed": true}
+{"wav": "5752186c14e04f21af147d456054adb8.wav", "ref": "Hey Swift, what time is it?", "kind": "wake"}
+{"wav": "dbe5df219f464a6c98fa14e6bec05e6a.wav", "ref": "Hey Swift, when is my next meeting?", "kind": "wake"}
+{"wav": "605b577f19f9421b8718431418ff618b.wav", "ref": "Move Swift check to two p.m.", "kind": "ptt", "failed": true}
+{"wav": "6e1ad61697fe48d08b385489c69e46fc.wav", "ref": "Hey Swift, when is my next meeting?", "kind": "wake"}
+{"wav": "3cb5d37134fa49069550a6b2d6eea93f.wav", "ref": "Hey Swift, undo that.", "kind": "ptt", "failed": true}
+{"wav": "7ceddd84a46a4585a20075478ab683bf.wav", "ref": "Hey Swift, undo that.", "kind": "ptt"}
+{"wav": "a6b7777dc42f4109be45df2026d9147e.wav", "ref": "Set up a meeting with Test Me on Thursday at three p.m. with a Google Meet link.", "kind": "ptt"}
+{"wav": "7cca7b71d7ca4e5590de3659f859cfdd.wav", "ref": "Change Swift check to three p.m.", "kind": "ptt"}
+{"wav": "0dc859b4c7964163848eec288027f431.wav", "ref": "I didn't approve that.", "kind": "ptt"}
+{"wav": "3172a8a2de1f4e4aae1e9859b8dcbce8.wav", "ref": "Cancel Swift check.", "kind": "ptt", "failed": true}
+{"wav": "6d2ea687ab144c869e27642e84b71256.wav", "ref": "Cancel Swift check.", "kind": "ptt"}
+{"wav": "9d2fd596d68f4110ba959b725efd0c34.wav", "ref": "Write a short paragraph about lunch.", "kind": "ptt"}
+{"wav": "76f0a21750b149d99570e13a9f70a764.wav", "ref": "Make it about dinner instead.", "kind": "ptt"}
+{"wav": "f2456e31efa44c39b640093a2bb9a318.wav", "ref": "Hey Swift, write a haiku about rain.", "kind": "wake", "failed": true}
+{"wav": "f86a9c62068b4379bccebf64a382546a.wav", "ref": "Hey Swift, write a haiku about rain.", "kind": "wake", "failed": true}

@@ -65,6 +65,8 @@ The overlay keeps a **list of requests** (`run_id` → state, steps, artifacts, 
 
 ### 3.3 Space
 
+> **Amended by ADR-015 (2026-10-27):** other requests get their own small, movable windows instead of rows, long answers scroll or open in a reader window, and a card's countdown runs only while the overlay shows it.
+
 - The window stays 720 × 560 (ADR-009) and nothing moves mid-run.
 - The focus card keeps its zone (`CARD_ZONE_H`). Background rows take at most 3 × 32 px. Past 3, it's "+N more".
 - Smart placement still checks the caret, against the focus card's zone plus the rows.
@@ -159,7 +161,7 @@ A is useful on its own and is a prerequisite for B.
 ## 8. Alternatives considered
 
 - **Keep one request at a time and queue new ones.** Simpler, and still a clear improvement: a new request waits and starts afterwards. But a 2-minute research run would block "what time is it". Running side by side is what the owner asked for.
-- **Separate windows per request.** Rejected: more transparent windows to keep click-through and out of the way (ADR-009), and they fight for screen space, which is exactly what the owner wants to avoid.
+- **Separate windows per request.** Rejected here; **reversed by ADR-015** after the owner checks of 2026-10-27 ("overlays can be anywhere, and can be moved"): more transparent windows to keep click-through and out of the way (ADR-009), and they fight for screen space, which is exactly what the owner wants to avoid.
 - **Let the provider handle multitasking** (one agent session juggling several requests). Rejected: it couples unrelated requests' context and approvals, and works differently per provider.
 
 ## 9. Owner's decisions (2026-10-26: the proposed answers, approved)

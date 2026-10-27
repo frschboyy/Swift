@@ -1,6 +1,6 @@
 # Owner checks: the overlay, conversations, corrections, stepping away, several requests, the calendar (ADR-012, ADR-013, ADR-014, ADR-011 §13 #5)
 
-About 35 minutes, in your real Swift with your real microphone. Run them in order.
+About 45 minutes, in your real Swift with your real microphone. Run them in order.
 
 - Each check says **what to do**, **what you should see**, and what the log report checks afterwards.
 - Note anything that looks wrong and roughly when, e.g. "check 3 at 20:15".
@@ -42,19 +42,21 @@ About 35 minutes, in your real Swift with your real microphone. Run them in orde
 | 15 | Hold the hotkey: "add a calendar event for lunch with Test Me on Friday at noon". While it works, press Esc. Then hold the hotkey: "draft an email to Test Me about lunch", and press Esc again. Wait a minute, then hold the hotkey: "what time is it" | The time, with one more line, "Unfinished: …", in **your own words** (never "[Swift workflow: …"). Note which one it names. | A stopped request parked; the line offered |
 | 16 | Within 8 s (or with the hotkey): "continue" | It picks up **the one the line named**, on the same card as before, even if another was stopped after it. Click **Reject**. | A parked request resumed: the one the line showed |
 
-### Several requests at once, and changing your mind (ADR-013 phase B, ADR-014 §7)
+### Windows for each request, cards that wait their turn (ADR-015)
+
+Swift now uses more of the screen: each other request gets a small window of its own, a long answer can open in a larger reader, and you can drag any of them anywhere. Nothing stays big for long. A card only counts down while it's on screen and you're there.
 
 | # | Do | You should see | Report checks |
 |---|---|---|---|
-| 17 | Hold the hotkey: "research the history of tea and summarise it". While it works: "hey Swift, what time is it" | The time on the card; under it **one line** for the research ("research the history of…", what it's doing, elapsed time). Nothing on the card jumps or flickers. | Two requests running at the same time |
-| 18 | Let the time answer fade | The research card comes back by itself, with its steps | (seen on screen) |
-| 19 | While the research still runs: "hey Swift, set up a meeting with Test Me on Friday at four". Then "hey Swift, what's the date" | The calendar card on screen; the date answer **does not cover it** (it's a line under it, or waits). | The calendar card was answered, never timed out |
-| 20 | Click **Reject** on the calendar card. Then say "show me the research one" | The research card in front again | A request brought forward by name |
-| 21 | Say "stop the research one" | The research row/card ends ("Stopped …"); nothing else stops | A request stopped by name |
-| 22 | Hold the hotkey: "write a short paragraph about lunch". While it works, hold the hotkey: "actually, make it about dinner instead" | "Changing course: actually, make it about dinner…" on the card; the answer is about dinner, on the **same card** | A change of mind passed on (same session for Claude Code) |
-| 23 | Hands-free during a run: "hey Swift, write a haiku about rain", then, **without** "Swift": "actually make it about snow" | A hint: say "Swift, actually …". Then say "Swift, actually make it about snow" and it changes course | A hands-free change of mind needed the name |
-| 24 | "Hey Swift, email Test Me that I'm running late". Approve the card. While it finishes, say "Swift, actually say I'm not coming" | "The email was already sent, so I can't take it back. Say “yes” and I'll send a correction." Say "Swift, yes" and **Reject** the new card | Told it was already sent; the correction offered |
-| 25 | Start three long requests one after another ("research …"), then a fourth | Three run (one card, two lines); the card says the fourth is waiting, and it starts when one finishes | The fourth waited for a slot |
+| 17 | Hold the hotkey: "research the history of tea and summarise it in detail". While it works: "hey Swift, what time is it" | The time on the main card. The research is **a small window of its own** (a chip with its title, what it's doing and the time so far), away from the card, not a line squeezed under it. | Two requests running at the same time |
+| 18 | Let the time answer fade. Wait for the research to finish | The research comes back to the main card **by itself**. When it finishes, the answer **scrolls** inside the card (nothing cut off at the bottom). Click **Read all**: a larger reader window opens with the whole answer. Scroll it to the end. | (seen on screen) |
+| 19 | Leave the reader alone for a minute, without the mouse on it. Then click it | It shrinks to a small chip ("… · Open"). Clicking the chip opens it again. Drag the reader somewhere else by its top, then close it with **×**. | (seen on screen) |
+| 20 | Hold the hotkey: "research green tea", then "hey Swift, what time is it". Drag the research chip to another corner. When both are done, do the same again | The second time, the research chip appears **where you dragged it** the first time. Clicking a chip brings that request to the main card. | (seen on screen) |
+| 21 | Hold the hotkey: "set up a meeting with Test Me on Friday at four", and **right away, before its card shows**: "hey Swift, add lunch with Test Me on Friday at noon". Wait about a minute without answering, then click **Reject** | One card on screen with "1 more card waiting"; the other stays out of sight and **doesn't count down**. After Reject, the second card **comes forward by itself** with its full two minutes (it never vanishes unfinished). Click **Reject**. | A card waited behind another, then answered; no card timed out while waiting |
+| 22 | Hold the hotkey: "set up a meeting with Test Me on Saturday at ten". When the card shows, lock the screen (Win + L) for 3 minutes. Unlock and don't touch anything | The card **comes back by itself**, in front, with "1 card waiting, since …" and at least a minute left. Click **Reject**. | A held card redrawn on return, then answered |
+| 23 | Hold the hotkey: "research the history of coffee and summarise it". Don't touch the card | After about 30 s without news, the working card **shrinks to one line**. Move the mouse over it: it opens again. Press Esc. | (seen on screen) |
+| 24 | Start a research request, then "hey Swift, what time is it". Say "show me the research one", then "stop the research one" | The research comes to the main card; then it ends ("Stopped …") and nothing else stops | A request brought forward and stopped by name |
+| 25 | Start three long requests one after another ("research …"), then a fourth | One on the main card and **two chips**; the card says "1 more request waiting to start", and the fourth starts when one finishes | The fourth waited for a slot |
 
 ### Answering Swift's questions, and model errors (owner checks of 2026-10-27, fixed)
 
@@ -94,3 +96,11 @@ It reads your local Swift logs, prints what happened request by request, and mar
 ## If something goes wrong
 
 Note the check number and the time. That's enough: the logs have the rest.
+
+### Changing your mind (ADR-014 §7; moved here from checks 22–24)
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 38 | Hold the hotkey: "write a short paragraph about lunch". While it works, hold the hotkey: "actually, make it about dinner instead" | "Changing course: actually, make it about dinner…" on the card; the answer is about dinner, on the **same card** | A change of mind passed on (same session for Claude Code) |
+| 39 | Hands-free during a run: "hey Swift, write a haiku about rain", then, **without** "Swift": "actually make it about snow" | A hint: say "Swift, actually …". Then say "Swift, actually make it about snow" and it changes course | A hands-free change of mind needed the name |
+| 40 | "Hey Swift, email Test Me that I'm running late". Approve the card. While it finishes, say "Swift, actually say I'm not coming" | "The email was already sent, so I can't take it back. Say “yes” and I'll send a correction." Say "Swift, yes" and **Reject** the new card | Told it was already sent; the correction offered |

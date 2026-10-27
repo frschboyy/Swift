@@ -17,6 +17,10 @@ without it keeps the plain timeout.
 With several requests at once (ADR-013 §5.2) only one card is on screen; the others wait in
 line. ``set_queued`` stops a waiting card's countdown the same way, so each card's time starts
 when it is shown.
+
+Seen (ADR-015 §4.2): with ``require_seen``, a card counts down only once the overlay says it
+has drawn it (``set_seen``, from the ``card.seen`` message), and stops again when the overlay
+hides it. A card the overlay never draws waits like a held card instead of running out unseen.
 """
 
 from __future__ import annotations
@@ -48,14 +52,18 @@ class Attention:
         hold_s: float = HOLD_S,
         return_s: float = RETURN_S,
         clock: Callable[[], float] = time.monotonic,
+        require_seen: bool = False,
     ) -> None:
         self.hold_s = hold_s
+        self.require_seen = require_seen
         self.return_s = return_s
         self.clock = clock
         self.held = False
         self._waits: dict[str, _Wait] = {}
         # Cards waiting behind the one on screen: their countdown hasn't started.
         self._queued: set[str] = set()
+        # Cards the overlay says are drawn and visible (only matters with ``require_seen``).
+        self._seen: set[str] = set()
         self._changed = asyncio.Event()
 
     def set_held(self, held: bool) -> list[str]:
@@ -67,9 +75,10 @@ class Attention:
         for key, w in self._waits.items():
             if held:
                 self._freeze(w, now)
-            elif key not in self._queued:
+            else:
                 w.left = max(w.left, self.return_s)
-                w.deadline, w.held_at = now + w.left, None
+                if self._runs(key):
+                    w.deadline, w.held_at = now + w.left, None
         self.check()
         return list(self._waits)
 
@@ -85,9 +94,30 @@ class Attention:
                 self._freeze(w, now)
         else:
             self._queued.discard(key)
-            if w is not None and not self.held:
+            if w is not None and self._runs(key):
                 w.deadline, w.held_at = now + w.left, None
         self.check()
+
+    def set_seen(self, key: str, seen: bool) -> None:
+        """The overlay drew the card and it is visible (True), or it hid it (False)."""
+        if seen == (key in self._seen):
+            return
+        now = self.clock()
+        if seen:
+            self._seen.add(key)
+        else:
+            self._seen.discard(key)
+        w = self._waits.get(key)
+        if w is not None:
+            if not seen:
+                self._freeze(w, now)
+            elif self._runs(key):
+                w.deadline, w.held_at = now + w.left, None
+        self.check()
+
+    def _runs(self, key: str) -> bool:
+        """Whether the card's countdown should run now: on screen, seen, and the owner around."""
+        return not self.held and key not in self._queued and (not self.require_seen or key in self._seen)
 
     @staticmethod
     def _freeze(w: _Wait, now: float) -> None:
@@ -110,7 +140,7 @@ class Attention:
     async def wait(self, key: str, future: asyncio.Future[Any], timeout_s: float) -> Any:
         """``future``'s result. TimeoutError when the countdown runs out, or the card was held too long."""
         now = self.clock()
-        frozen = self.held or key in self._queued
+        frozen = not self._runs(key)
         w = _Wait(timeout_s, None, now) if frozen else _Wait(timeout_s, now + timeout_s, None)
         self._waits[key] = w
         try:
@@ -129,6 +159,7 @@ class Attention:
         finally:
             self._waits.pop(key, None)
             self._queued.discard(key)
+            self._seen.discard(key)
 
 
 async def wait_answer(attention: Attention | None, key: str, future: asyncio.Future[Any], timeout_s: float) -> Any:

@@ -70,6 +70,7 @@ Returning is a signal too: unlock, resume from sleep, the first input after `awa
 ## 4. Nothing is lost by stepping away
 
 - **Confirm cards pause instead of expiring.** The countdown (ADR-009 §6) only runs while the owner is Here or Idle. On Away or Busy, the card is put aside: the provider waits, and the overlay shows nothing. On return: "You have 1 card waiting", with the card back where it was. After `hold_h` (proposed 12 h) a held card is dropped, the thread is parked (§5), and the task is reported as not done.
+- **Amended by ADR-015 §4.2:** the countdown also waits until the overlay says the card is drawn (`card.seen`), and a card coming back is redrawn by the backend.
 - **Why not keep the 120 s timeout:** it exists so a forgotten card doesn't block Swift. With several requests side by side (ADR-013 phase B), a held card no longer blocks anything else, and being away is the most common reason a card goes unanswered.
 - **Running tasks keep going while away, within limits.** Reading and researching continue. Anything needing the owner (an approval, writing into an app) waits for them. External actions never happen while away, as today.
 

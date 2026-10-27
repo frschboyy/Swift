@@ -1,4 +1,4 @@
-"""The overlay's presenter sequence tests (ADR-013 §6), run with Node so `uv run pytest` covers them.
+"""The overlay's presenter sequence tests (ADR-013 §6) and pane-window tests (ADR-015), run with Node so `uv run pytest` covers them.
 
 They live in overlay/tests/ and need only Node (22.6 or later strips TypeScript itself); skipped without it.
 """
@@ -19,7 +19,7 @@ def test_presenter_sequences_pass() -> None:
     if node is None:
         pytest.skip("Node isn't installed")
     done = subprocess.run(
-        [node, "--test", "tests/presenter.test.ts"], cwd=OVERLAY, capture_output=True, text=True, timeout=120,
+        [node, "--test", "tests/presenter.test.ts", "tests/panes.test.ts"], cwd=OVERLAY, capture_output=True, text=True, timeout=120,
     )
     if "ERR_UNKNOWN_FILE_EXTENSION" in done.stderr:
         pytest.skip("this Node can't run TypeScript directly (needs 22.6+)")

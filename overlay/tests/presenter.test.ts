@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import {
   confirmVisible, initial, isActive, onAnswer, onConfirm, onConfirmHold, onDismiss, onFollowup, onHold, onRuns, onState,
-  promotion, tick, visibleRows, violations, waitingSince, MAX_ROWS, RESUME_MS,
+  promotion, seenCard, tick, visibleRows, violations, waitingSince, MAX_ROWS, RESUME_MS,
   type Presenter, type Row,
 } from "../src/presenter.ts";
 
@@ -356,4 +356,36 @@ test("phase B: without rows, a single request behaves exactly as before", () => 
   o.answer("result", 1000, "cc-1", "t1");
   const next = o.state("working", "cc-2", "t2"); // a new request, no runs message needed
   assert.ok(next.newRun && !next.ignored);
+});
+
+// ---- ADR-015: a card counts down only while it is seen ------------------------------------------
+
+test("the card the owner can see: shown, put aside while away, back, answered", () => {
+  const o = new Overlay();
+  o.state("working", "r1", "t1");
+  o.confirm("c1", "r1");
+  assert.equal(seenCard(o.p), "c1");
+  o.p = onConfirmHold(o.p, "c1", true, 0, 1000);
+  assert.equal(seenCard(o.p), null);
+  o.p = onConfirmHold(o.p, "c1", false, 60, 3000);
+  assert.equal(seenCard(o.p), "c1");
+  o.answer("result", 6000, "r1", "t1", "Not added");
+  assert.equal(seenCard(o.p), null);
+});
+
+test("owner check 18: back after the overlay lost the card still draws it, because the backend replays it", () => {
+  const o = new Overlay();
+  o.state("working", "r1", "t1");
+  o.confirm("c1", "r1");
+  o.p = onConfirmHold(o.p, "c1", true, 0, 1000);
+  // While it was hidden, another request came to the front and went again: the overlay forgot the card.
+  o.runs("r2", [row("r1", "confirm")]);
+  assert.equal(o.p.pendingConfirm, null);
+  // Back: the backend draws the card again first (state, card), then says how long it has.
+  o.runs("r1", []);
+  o.state("confirm", "r1", "t1");
+  o.confirm("c1", "r1");
+  o.p = onConfirmHold(o.p, "c1", false, 60, 3000);
+  assert.equal(seenCard(o.p), "c1");
+  assert.equal(o.p.confirmDeadline, 3000 + 60_000);
 });

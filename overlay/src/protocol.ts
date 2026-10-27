@@ -119,6 +119,8 @@ export type Outbound =
   | { type: "view"; data: { action: "show" | "hide" } }
   // A background request to the front: a row clicked, or the card in front gone while it runs.
   | { type: "focus"; data: { run_id: string } }
+  // A confirm card is drawn and visible, or hidden again: its countdown runs only while it is (ADR-015 §4.2).
+  | { type: "card.seen"; data: { request_id: string; visible: boolean } }
   | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } };
 
 export function encode(msg: Outbound): string {

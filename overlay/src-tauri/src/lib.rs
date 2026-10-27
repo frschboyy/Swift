@@ -1,9 +1,13 @@
 //! Swift overlay shell: one transparent, non-activating, click-through,
 //! capture-excluded window; global hotkeys; tray; the Python backend's lifetime.
 //! See PLAN.md §1 and §5. Placement, dragging and the tray's Position menu: ADR-009.
+//! Pane windows (ADR-015): one small window per other request and a reader for long answers,
+//! each non-activating, on top and capture-excluded like the main one, sized to its content,
+//! dragged anywhere, and remembered per kind.
 
 mod backend;
 mod hit;
+mod panes;
 mod placement;
 mod prefs;
 mod win;
@@ -15,11 +19,12 @@ use std::time::Instant;
 use serde::Serialize;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewWindow, Wry};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use backend::{BackendInfo, SharedBackend};
 use hit::{Geometry, HitState, Rect, SharedHit};
+use panes::PaneKind;
 use placement::Anchor;
 use prefs::Prefs;
 
@@ -27,6 +32,10 @@ struct Overlay {
     hwnd: isize,
     capture_excluded: bool,
 }
+
+/// Open pane windows: label -> (window handle, kind).
+#[derive(Default)]
+struct Panes(Mutex<HashMap<String, (isize, PaneKind)>>);
 
 /// When this process started, for the startup-time measurement.
 struct Started(Instant);
@@ -346,6 +355,142 @@ async fn reveal(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// The work area and scale of the monitor under a point (physical px), or the primary one.
+fn area_at(window: &WebviewWindow, point: Option<(i32, i32)>) -> Option<(placement::Area, f64)> {
+    let monitor = point
+        .and_then(|(x, y)| window.monitor_from_point(x as f64, y as f64).ok().flatten())
+        .or_else(|| window.primary_monitor().ok().flatten())?;
+    let wa = monitor.work_area();
+    Some((placement::Area { x: wa.position.x, y: wa.position.y, w: wa.size.width, h: wa.size.height }, monitor.scale_factor()))
+}
+
+/// A pane window (ADR-015 §3): `label` "pane-…", `kind` "request" or "reader", `index` its place
+/// among panes of its kind, size in CSS px until it measures itself (`fit_pane`). Already open:
+/// left where it is, so nothing moves under the owner's eyes.
+#[tauri::command]
+async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f64, h: f64) -> Result<(), String> {
+    let kind = PaneKind::from_id(&kind).ok_or("unknown pane kind")?;
+    if !label.starts_with("pane-") || !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return Err("bad pane label".into());
+    }
+    if app.state::<Panes>().0.lock().unwrap().contains_key(&label) || app.get_webview_window(&label).is_some() {
+        return Ok(());
+    }
+    let main = app.get_webview_window("overlay").ok_or("no overlay window")?;
+    let (area, scale) = area_at(&main, win::cursor_pos()).ok_or("no monitor")?;
+    let size = ((w * scale).round() as i32, ((h * scale).round() as i32).min(panes::max_height(area)));
+    let (anchor, remembered) = {
+        let state = app.state::<Placement>();
+        let p = state.0.lock().unwrap();
+        let places = p.prefs.panes;
+        (p.current, match kind { PaneKind::Request => places.request, PaneKind::Reader => places.reader })
+    };
+    let (x, y) = match remembered {
+        Some(f) => panes::remembered_origin(area, scale, f, index, size),
+        None => panes::default_origin(area, scale, anchor, kind, index, size),
+    };
+    // Created shown and unfocused (tao shows it with SW_SHOWNOACTIVATE), as the main window.
+    let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))
+        .title("Swift")
+        .transparent(true)
+        .decorations(false)
+        .shadow(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(false)
+        .resizable(false)
+        .inner_size(w, h)
+        .position(x as f64 / scale, y as f64 / scale)
+        .visible(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+    if !win::init_pane(hwnd) {
+        eprintln!("warning: pane {label}: capture exclusion failed");
+    }
+    win::place(hwnd, x, y, size.0, size.1);
+    app.state::<Panes>().0.lock().unwrap().insert(label, (hwnd, kind));
+    Ok(())
+}
+
+#[tauri::command]
+async fn close_pane(app: AppHandle, label: String) -> Result<(), String> {
+    app.state::<Panes>().0.lock().unwrap().remove(&label);
+    if let Some(window) = app.get_webview_window(&label) {
+        window.destroy().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// The pane measured what it shows (CSS px): the window takes that size, kept on screen.
+#[tauri::command]
+async fn fit_pane(app: AppHandle, label: String, w: f64, h: f64) -> Result<(), String> {
+    let Some((hwnd, _)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
+        return Ok(());
+    };
+    let window = app.get_webview_window(&label).ok_or("no such pane")?;
+    let Some((x, y, _, _)) = win::window_rect(hwnd) else { return Ok(()) };
+    let (area, scale) = area_at(&window, Some((x, y))).ok_or("no monitor")?;
+    let size = ((w.max(40.0) * scale).round() as i32, ((h.max(24.0) * scale).round() as i32).min(panes::max_height(area)));
+    win::set_size(hwnd, size.0, size.1);
+    let (cx, cy) = panes::clamp(area, (x, y), size);
+    if (cx, cy) != (x, y) {
+        win::move_to(hwnd, cx, cy);
+    }
+    Ok(())
+}
+
+/// Pointer pressed on a pane: follow the cursor while the button is held, anywhere (no snapping),
+/// and remember where this kind of pane goes. Returns whether it moved (no: it was a click).
+#[tauri::command]
+async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
+    let Some((hwnd, kind)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
+        return Ok(false);
+    };
+    let (Some(start), Some((ox, oy, _, _))) = (win::cursor_pos(), win::window_rect(hwnd)) else {
+        return Ok(false);
+    };
+    let moved = tauri::async_runtime::spawn_blocking(move || {
+        let mut moved = false;
+        let mut last = start;
+        while win::left_button_down() {
+            if let Some(c) = win::cursor_pos() {
+                let (dx, dy) = (c.0 - start.0, c.1 - start.1);
+                if moved || dx.abs() + dy.abs() >= 4 {
+                    moved = true;
+                    if c != last {
+                        win::move_to(hwnd, ox + dx, oy + dy);
+                    }
+                }
+                last = c;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(8));
+        }
+        moved
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    if !moved {
+        return Ok(false);
+    }
+    let window = app.get_webview_window(&label).ok_or("no such pane")?;
+    let Some((x, y, w, h)) = win::window_rect(hwnd) else { return Ok(true) };
+    let Some((area, _)) = area_at(&window, Some((x + w / 2, y + h / 2))) else { return Ok(true) };
+    let (cx, cy) = panes::clamp(area, (x, y), (w, h));
+    if (cx, cy) != (x, y) {
+        win::move_to(hwnd, cx, cy);
+    }
+    let state = app.state::<Placement>();
+    let mut p = state.0.lock().unwrap();
+    let place = Some(panes::to_fraction(area, (cx, cy)));
+    match kind {
+        PaneKind::Request => p.prefs.panes.request = place,
+        PaneKind::Reader => p.prefs.panes.reader = place,
+    }
+    prefs::save(&p.prefs);
+    Ok(true)
+}
+
 #[tauri::command]
 async fn get_placement(placement: State<'_, Placement>) -> Result<PlacementEvent, String> {
     let p = placement.0.lock().unwrap();
@@ -453,6 +598,7 @@ pub fn run() {
         .manage(shared_backend.clone())
         .manage(shared_hit.clone())
         .manage(Hotkeys::default())
+        .manage(Panes::default())
         .manage(Placement(Mutex::new({
             let prefs = prefs::load();
             PlacementState { prefs, current: prefs.anchor, ..Default::default() }
@@ -468,6 +614,10 @@ pub fn run() {
             begin_drag,
             get_placement,
             reveal,
+            open_pane,
+            close_pane,
+            fit_pane,
+            drag_pane,
             copy_text,
             open_logs,
             set_status

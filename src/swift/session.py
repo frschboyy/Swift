@@ -157,6 +157,8 @@ from swift.routing.rules import (
     strip_wake,
 )
 from swift.security.gateway import UNDO_WINDOW_S, Approved
+from swift.stack import MAX_PARKED, StackItem, card_id, parked_id, split_id
+from swift.stack import order as stack_order
 from swift.stt.transcriber import (
     REJECT_P,
     UNCLEAR_P,
@@ -248,6 +250,10 @@ FOCUS_ONLY = frozenset({
 })
 # Messages that bring a request that just started beside another to the front.
 TAKES_FRONT = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
+# Typing never approves a card on its own (ADR-015 §10): a click, or "Swift, approve" said.
+TYPED_APPROVE_HINT = "Typing can't approve. Click Approve, or say “Swift, approve”."
+# A typed request is at most this long (the frame limit is far above it).
+MAX_TYPED = 2000
 QUEUED_HINT = "That's waiting: {n} requests are running. It starts when one of them is done."
 REDIRECT_NAME_HINT = "To change it hands-free, say “Swift, actually …”."
 NO_TARGET_HINT = "I couldn't tell which request you mean."
@@ -398,6 +404,8 @@ class Run:
     state: str = "idle"
     ui_id: str | None = None
     title: str = ""
+    # The request in the owner's words, longer than the title: its chip says it at once (bug 4, 2026-10-27).
+    words: str = ""
     activity: str | None = None
     app: str | None = None
     agent: dict[str, str] | None = None
@@ -463,7 +471,7 @@ class Run:
             "run_id": self.ui_id or f"req-{(self.record or {}).get('id', '')[:8]}",
             "thread_id": self.thread, "title": self.title, "state": state, "activity": self.activity,
             "app": self.app, "agent": self.agent, "started_ms": self.started_ms,
-            "summary": "" if self.alive else self.summary,
+            "summary": "" if self.alive else self.summary, "words": self.words,
         }
 
 
@@ -580,6 +588,13 @@ class Session:
         # Confirm cards in the order asked: (run, request id); the first is on screen (ADR-013 §5.2).
         self._cards: list[tuple[Run, str]] = []
         self._card_shown: dict[str, asyncio.Event] = {}
+        # Cards the owner skipped ("Later", ADR-015 §9): off screen, countdown paused, in the stack.
+        self._aside: list[tuple[Run, str]] = []
+        # When each card was asked (ms), and stack items skipped (id -> when): skipped go last.
+        self._card_since: dict[str, int] = {}
+        self._stack_skipped: dict[str, float] = {}
+        # The last ``stack`` message sent (None: none yet).
+        self._stack_sent: list[dict[str, Any]] | None = []
         # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
         self._rows_sent: dict[str, Any] | None = None
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
@@ -767,17 +782,20 @@ class Session:
             await self._send_rows()  # the overlay learns the new id in front before its messages
         await self._raw_send(msg)
 
-    async def _send_rows(self) -> None:
+    async def _send_rows(self, *, force: bool = False) -> None:
         """The ``runs`` message: who is in front, the others' rows, the cards waiting. Only while
-        there is more than the one in front (single requests look exactly as before)."""
+        there is more than the one in front (single requests look exactly as before). ``force``:
+        send it even if nothing changed (the overlay asked about a request it shouldn't know).
+        The waiting stack goes with it: what changes rows changes the stack."""
+        await self._send_stack()
         focus = self._focus
         rows = [r.row() for r in self._runs if r is not focus and r.title]
         waiting = max(0, len(self._cards) - 1)
         payload = {"focus": focus.ui_id if focus else None, "rows": rows, "waiting": waiting}
         last = self._rows_sent
-        if not rows and not waiting and (last is None or (not last["rows"] and not last["waiting"])):
+        if not force and not rows and not waiting and (last is None or (not last["rows"] and not last["waiting"])):
             return
-        if payload == last:
+        if not force and payload == last:
             return
         self._rows_sent = payload
         await self._raw_send(outbound("runs", **payload))
@@ -805,6 +823,7 @@ class Session:
         if run is self._focus:
             return True
         self._next_focus = None
+        self._question_aside(run)
         self._set_focus(run)
         await self._send_rows()
         for msg in run.replay():
@@ -854,7 +873,15 @@ class Session:
         async def capture(rec: dict[str, Any]) -> str:
             return text
 
-        return self._launch(record, capture, self.executor, self.executor.start, title=_short_title(text))
+        return self._chip_now(self._launch(record, capture, self.executor, self.executor.start, title=_short_title(text)), text)
+
+    def _chip_now(self, run: Run, text: str) -> Run:
+        """A request started beside another shows its chip at once, with its words, before it has
+        done anything (bug 4, 2026-10-27: nothing showed it, so the owner said it again)."""
+        run.words = _clip(strip_wake(text) or text, 120)
+        if run is not self._focus:
+            asyncio.get_running_loop().create_task(self._send_rows())
+        return run
 
     async def _ended(self, run: Run) -> None:
         """Clean-up when a request is done: its cards go, and its row says how it ended."""
@@ -883,12 +910,14 @@ class Session:
         """A card asked for. The first in line comes to the front now (True); the others wait, their
         countdown not started (False)."""
         self._cards.append((run, request_id))
+        self._card_since[request_id] = now_ms()
         self._card_shown[request_id] = shown = asyncio.Event()
         if len(self._cards) == 1:
             shown.set()
             if run is not self._focus:
                 if self._next_focus is run:
                     self._next_focus = None
+                self._question_aside(run)
                 self._set_focus(run)
                 await self._send_rows()
                 for msg in run.replay():
@@ -905,6 +934,13 @@ class Session:
 
     async def _card_done(self, request_id: str) -> None:
         """A card was answered or went away: the next one in line comes to the front."""
+        self._card_since.pop(request_id, None)
+        self._stack_skipped.pop(card_id(request_id), None)
+        if any(r == request_id for _, r in self._aside):
+            self._aside = [c for c in self._aside if c[1] != request_id]
+            self._card_shown.pop(request_id, None)
+            await self._send_stack()
+            return
         index = next((i for i, (_, r) in enumerate(self._cards) if r == request_id), None)
         if index is None:
             return
@@ -931,8 +967,192 @@ class Session:
             await self._bring(run)
 
     async def _drop_cards(self, run: Run) -> None:
-        for _, request_id in [c for c in self._cards if c[0] is run]:
+        for _, request_id in [c for c in self._cards + self._aside if c[0] is run]:
             await self._card_done(request_id)
+
+    # ---- the waiting stack (ADR-015 §9) ---------------------------------------------------------
+
+    def _card_title(self, run: Run, request_id: str) -> str:
+        return run.confirm_titles.get(request_id) or run.title or "A card waiting for you"
+
+    def _stack_items(self) -> list[StackItem]:
+        """Everything waiting for the owner, in the order the stack shows it."""
+        items: list[StackItem] = []
+        shown = self._open_confirm()
+        if shown is not None and self.attention is not None and self.attention.held:
+            run = self._cards[0][0]
+            items.append(StackItem(card_id(shown), "held", self._card_title(run, shown), "held",
+                                   self._card_since.get(shown, 0), run.thread))
+        for kind, cards in (("waiting", self._cards[1:]), ("later", self._aside)):
+            for run, request_id in cards:
+                items.append(StackItem(card_id(request_id), kind, self._card_title(run, request_id), kind,
+                                       self._card_since.get(request_id, 0), run.thread))
+        if self.parked is not None:
+            live = {r.thread for r in self._live() if r.thread}
+            for parked in self.parked.all()[:MAX_PARKED]:
+                if parked.thread not in live:
+                    items.append(StackItem(parked_id(parked.thread), "parked", parked.title, parked.reason,
+                                           int(parked.at * 1000), parked.thread))
+        return stack_order(items, self._stack_skipped)
+
+    async def _send_stack(self) -> None:
+        """The ``stack`` message, whenever what waits changes (never while it stays empty)."""
+        items = [item.as_message() for item in self._stack_items()]
+        if items == self._stack_sent:
+            return
+        self._stack_sent = items
+        await self._raw_send(outbound("stack", items=items))
+
+    async def _stack_action(self, item_id: str, action: str) -> None:
+        """Open, skip or end something in the stack (or the card on screen, by its own buttons)."""
+        parts = split_id(item_id)
+        if parts is None:
+            logger.info("stack action ignored", known=False)
+            return
+        kind, key = parts
+        logger.info("stack action", kind=kind, action=action)
+        if action == "skip":
+            self._stack_skipped[item_id] = time.monotonic()
+            if kind == "card":
+                await self._skip_card(key)
+        else:
+            self._stack_skipped.pop(item_id, None)
+            if kind == "card" and action == "open":
+                await self._open_card(key)
+            elif kind == "card":
+                run = self._owner_of(key)
+                if run is not None:
+                    await self._end_run(run)
+                else:
+                    await self._card_done(key)
+            elif self.parked is not None and action == "open":
+                self._resume_parked(key)
+            elif self.parked is not None:
+                self.parked.drop(key)
+        await self._send_stack()
+
+    async def _skip_card(self, request_id: str) -> None:
+        """"Later": a waiting card goes to the back of the line; the card on screen is set aside
+        (hidden, its countdown paused) and the next thing comes forward."""
+        index = next((i for i, (_, r) in enumerate(self._cards) if r == request_id), None)
+        if index is None:
+            return
+        if index > 0:
+            self._cards.append(self._cards.pop(index))
+            await self._send_rows()
+            return
+        run, _ = self._cards.pop(0)
+        self._aside.append((run, request_id))
+        left = self.confirm_timeout_s
+        if self.attention is not None:
+            self.attention.set_queued(request_id, True)
+            self.attention.set_seen(request_id, False)
+            left = self.attention.left(request_id) or left
+        await self._raw_send(outbound("confirm.hold", request_id=request_id, held=True, timeout_s=round(left, 1)))
+        if self._cards:
+            await self._show_next_card()
+        elif others := self._live(besides=run):
+            await self._bring(others[-1])
+        else:
+            await self._send_rows()
+
+    async def _open_card(self, request_id: str) -> None:
+        """A card opened from the stack comes on screen now; the one there waits behind it."""
+        entry = next((c for c in self._aside if c[1] == request_id), None)
+        if entry is not None:
+            self._aside.remove(entry)
+        else:
+            index = next((i for i, (_, r) in enumerate(self._cards) if r == request_id), None)
+            if index is None:
+                return
+            if index == 0:
+                self._owner_here()  # held while away: the owner is here, so it comes back
+                return
+            entry = self._cards.pop(index)
+        if self._cards and self.attention is not None:
+            before = self._cards[0][1]
+            self.attention.set_queued(before, True)
+            self.attention.set_seen(before, False)
+        self._cards.insert(0, entry)
+        await self._show_next_card()
+        left = self.attention.left(request_id) if self.attention is not None else None
+        await self._raw_send(outbound(
+            "confirm.hold", request_id=request_id, held=False, timeout_s=round(left or self.confirm_timeout_s, 1)
+        ))
+
+    async def _end_run(self, run: Run) -> None:
+        """Ended from the stack: the request stops and isn't kept as unfinished."""
+        if run.record is not None:
+            run.record["ended"] = True
+        if run.task is not None and not run.task.done():
+            run.task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await run.task
+
+    def _resume_parked(self, thread: str) -> None:
+        """An unfinished conversation opened from the stack: it goes on, in its own thread."""
+        assert self.parked is not None
+        parked = self.parked.get(thread)
+        if parked is None:
+            return
+        record: dict[str, Any] = {"source": "stack", "executor": getattr(self.executor, "name", "?"), "resume": thread}
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return parked.words
+
+        run = self._launch(record, capture, self.executor, self.executor.start, title=_short_title(parked.words))
+        self._chip_now(run, parked.words)
+
+    def _question_aside(self, run: Run) -> None:
+        """A card or another request takes the front from Swift's question: the question waits in
+        the stack instead of fading unanswered (check 26, 2026-10-27)."""
+        if self._question is None or self.parked is None:
+            return
+        parked = self._question[0]
+        focus = self._focus
+        if focus is None or focus is run or focus.thread != parked.thread:
+            return
+        self._question[1].cancel()
+        self._followup = None  # the reply window went with the card
+        self._park_question(parked)
+        logger.info("question moved to the waiting stack")
+
+    # ---- typing to Swift (ADR-015 §10) ----------------------------------------------------------
+
+    async def _start_typed(self, text: str, thread_id: str | None = None) -> None:
+        """A request typed into the overlay: routed and run like speech (source ``typed``). On an
+        open card it answers like voice, except that typing never approves on its own. Mid-run it
+        is the mid-run grammar; ``thread_id`` (the conversation on screen) makes it a follow-up."""
+        text = " ".join(text.split())[:MAX_TYPED]
+        if not text:
+            return
+        self._owner_here()
+        logger.info("typed request", chars=len(text))
+        open_request = self._open_confirm()
+        if open_request is not None and (run := self._owner_of(open_request)) is not None:
+            with self._as(run):
+                phase = self._confirm_phase(open_request)
+                decision = (self.router or default_router)(text)
+                if decision.route == "control" and decision.action == "approve":
+                    await phase("hint", TYPED_APPROVE_HINT)
+                    return
+                entry = self._approval(open_request)
+                if entry is not None:
+                    await self._answer_text(open_request, entry, text, phase)
+            return
+        focus = self._focus
+        if self._front_busy() and focus is not None and focus.state == "working":
+            await self._midrun_text(text, self._run_phase, source="typed")
+            return
+        record: dict[str, Any] = {"source": "typed", "executor": getattr(self.executor, "name", "?")}
+        if thread_id is not None and thread_id == self._last_thread:
+            record["continues"] = thread_id
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return text
+
+        run = self._launch(record, capture, self.executor, self.executor.start, title=_short_title(text))
+        self._chip_now(run, text)
 
     @property
     def busy(self) -> bool:
@@ -951,6 +1171,8 @@ class Session:
                 logger.info("overlay ready", startup_ms=msg.data["startup_ms"], backend_ms=msg.data.get("backend_ms"))
                 if self.on_ready is not None:
                     await self.on_ready()  # e.g. tell the new overlay whether Swift is listening
+                self._stack_sent = None
+                await self._send_stack()  # a new overlay: what waits, from before it started
             case "cancel":
                 await self.cancel()
             case "retry":
@@ -963,6 +1185,11 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
+            case "stack.action":
+                await self._stack_action(msg.data["id"], msg.data["action"])
+            case "text":
+                thread = msg.data.get("thread_id")
+                await self._start_typed(msg.data["text"], thread if isinstance(thread, str) else None)
             case "card.seen":
                 # The overlay drew the card (or hid it): its countdown runs only while seen (ADR-015 §4.2).
                 if self.attention is not None:
@@ -987,6 +1214,9 @@ class Session:
         run = next((r for r in self._runs if r.ui_id == run_id or r.row()["run_id"] == run_id), None)
         if run is None or not await self._bring(run):
             logger.info("focus ignored", known=run is not None)
+            if run is None:
+                # The overlay shows a request Swift doesn't know (a chip left over): tell it again.
+                await self._send_rows(force=True)
 
     async def cancel(self) -> None:
         """Esc: stop the request in front."""
@@ -1456,8 +1686,11 @@ class Session:
             "approvals": [],
         }
         self._record = record
-        previous = record.pop("continues", None) or self._last_thread
-        self._thread = previous if previous and record.get("source") in CONTINUES_THREAD else uuid.uuid4().hex[:12]
+        continues = record.pop("continues", None)
+        previous = continues or self._last_thread
+        # Typed text continues the conversation on screen when the overlay names it (ADR-015 §10).
+        continuing = record.get("source") in CONTINUES_THREAD or (record.get("source") == "typed" and continues is not None)
+        self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]
         self._thread_before = previous
         record["thread"] = self._thread
         if run is self._focus:
@@ -1467,7 +1700,7 @@ class Session:
         # Any new request answers or drops the last workflow offer.
         offer, self._offer = self._offer, None
         fix, self._fix_offer = self._fix_offer, None
-        if self.desktop is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "beside"):
+        if self.desktop is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "beside", "typed"):
             # Where the owner is when they start speaking, read while they talk.
             self._context = asyncio.create_task(self._read_context())
         slot = False
@@ -1494,10 +1727,11 @@ class Session:
                 return
             record["transcript"] = transcript
             run.title = run.title or _short_title(transcript)
+            run.words = run.words or _clip(strip_wake(transcript) or transcript, 120)
             await self._send(outbound("transcript", text=transcript, final=True))
 
             routed = self.router is not None and record.get("source") in (
-                "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside",
+                "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside", "typed",
             )
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             if decision is not None:
@@ -1543,6 +1777,11 @@ class Session:
                     resumed = self.parked.find(decision.text)  # "finish the email to Ada"
             elif decision is not None and decision.action == "resume" and self._last_exchange is not None:
                 decision = _to_agent(decision)
+            if (thread := record.pop("resume", None)) is not None and self.parked is not None:
+                # Opened from the waiting stack (ADR-015 §9): that conversation, whatever was said.
+                resumed = self.parked.get(thread)
+                if resumed is not None:
+                    decision, answered = Route("agent", resumed.request), None
             if resumed is not None:
                 assert self.parked is not None and decision is not None
                 self.parked.drop(resumed.thread)
@@ -2265,6 +2504,7 @@ class Session:
             return
         shown = self._open_confirm()
         changed = [r for r in self.attention.set_held(held) if r == shown]  # the others aren't on screen
+        await self._send_stack()  # a held card is in the waiting stack while the owner is away
         for request_id in changed:
             if held:
                 # Hidden: back, it counts down again only once the overlay says it drew it.
@@ -2286,6 +2526,8 @@ class Session:
         """A run stopped, or with a card nobody answered: keep it to pick up later (swift/parked.py)."""
         if self.parked is None or self._request is None or self._run_started is None:
             return
+        if record.get("ended"):
+            return  # ended from the stack: the owner said it's gone
         decisions = [a.get("decision") for a in record["approvals"]]
         if record.get("status") == "cancelled":
             reason = "stopped"
@@ -2328,6 +2570,8 @@ class Session:
         self._question = None
         assert self.parked is not None
         self.parked.park(replace(parked, at=time.time()))
+        with contextlib.suppress(RuntimeError):  # into the waiting stack (ADR-015 §9)
+            asyncio.get_running_loop().create_task(self._send_stack())
 
     def _drop_question(self) -> None:
         """Something was said (the reply, or anything else): the question no longer waits alone."""
@@ -2466,7 +2710,7 @@ class Session:
         if text is not None:
             await self._midrun_text(text, self._run_phase)
 
-    async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]]) -> None:
+    async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]], source: str = "beside") -> None:
         """Said during a run: about the one in front, naming another, a change of mind, or a new request."""
         decision = route_midrun(text)
         action = decision.action if decision else None
@@ -2509,7 +2753,7 @@ class Session:
             await self._redirect(change, phase)
         elif self._new_request(text):
             await phase("idle")
-            self._start_beside(text)
+            self._start_beside(text, source=source)
         else:
             await phase("hint", f"Heard “{_clip(text, 50)}”. {MIDRUN_HINT}")
 

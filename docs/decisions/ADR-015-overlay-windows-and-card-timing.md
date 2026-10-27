@@ -5,6 +5,7 @@
 - **Date:** 2026-10-27
 - **Amends:** ADR-013 §3.3 ("the window stays 720 × 560") and §8 ("separate windows per request: rejected"); ADR-013 §5.2 and ADR-014 §4 (when a card's countdown runs)
 - **Builds on:** ADR-009 (overlay UX, placement, dragging), ADR-013 (presenter, several requests), ADR-014 (presence, held cards)
+- **Amended:** 2026-10-27, after the owner checks at 17:00: §9 the waiting stack (replaces "continue" as the main way back to unfinished requests; amends ADR-014 §5), §10 typing to Swift, §11 four overlay fixes
 
 ## 1. Context
 
@@ -120,3 +121,128 @@ Any finished `text`, `list` or `table` artifact is drawn the same way, so other 
 **Not done:** the main window still snaps to its six anchors when dragged (ADR-009); only pane windows go anywhere. Not seen on a real screen in this session: the pane windows themselves (they build, and the placement tests pass); owner checks 17–20 are the proof.
 
 **Owner-run:** checks 17–25 in `docs/testing/owner-checks.md` (the change-of-mind checks moved to 38–40); `report.py` reports them.
+
+---
+
+# Amendment, 2026-10-27 (evening): the waiting stack, typing to Swift, four fixes
+
+The owner checks at 17:00 on 2026-10-27 (log 17:00–18:20) found that the way back to unfinished work ("continue") confused the owner, and four overlay bugs. The owner designed the replacement.
+
+## 9. The waiting stack
+
+### 9.1 The owner's design
+
+In the owner's words:
+
+> "a list of cards on the bottom corner that need attending to - they start of stack on the UI so they dont take up space, but when you double click they expand and you see all the cards you need to attend to and then you can click one - if you choose not to click one of the cards in the expanded stack view you can click anywhere else outside and they revert back to that compressed stack view... When they are in the expanded view you may be able to just go ahead and skip or kill a waiting card if you do not need it anymore, but ofcourse you can also do that if you click the card"
+
+So:
+
+- **Compressed** (the default): one card in a bottom corner, with up to two edges behind it, the number waiting, and the top card's title. It takes about 300 × 72 px.
+- **Double click:** it expands upwards into the list of everything waiting.
+- **A click anywhere outside it** compresses it again. So does opening a card.
+- **Each card** can be:
+  - **opened** ("Show" for a card, "Resume" for a conversation): it comes on screen, or the conversation goes on;
+  - **skipped**: back to the stack, last in line;
+  - **ended** (×): gone. A request is stopped and is **not** kept as unfinished.
+- **The card on screen** has the same choices: **Later** (skip: it goes into the stack, off screen, its countdown paused) and **End** (■), beside Approve and Reject.
+- A card that just joined the stack glows for 4 s, so the owner notices it.
+- The voice "continue" stays as a shortcut. The "Unfinished: …" line now says "It's with your waiting cards" instead of asking the owner to say "continue".
+
+### 9.2 What is in it
+
+| Kind | What | Open | Skip | End |
+|---|---|---|---|---|
+| **waiting** | A confirm card in line behind the one on screen (ADR-013 §5.2) | It comes on screen now; the one there waits behind it | Last in line | Its request stops; not parked |
+| **later** | A confirm card the owner skipped ("Later") | Back on screen, with the time it had left | Stays | Its request stops; not parked |
+| **held** | The card on screen while the owner is away (ADR-014 §4) | The owner is here, so it comes back | Stays | Its request stops |
+| **parked** | A conversation left unfinished (ADR-014 §5): stopped, a card unanswered, or Swift's question unanswered | The conversation resumes in its own thread, with its parked context | Last in the stack | Dropped |
+
+- A **question pushed off the screen** (a card, or another request brought to the front, takes the front from Swift's question) is parked at once, reason `asked`, so it waits in the stack instead of fading unanswered. This is what happened in check 26: the question came from a request beside another, and a card took the front.
+- Order: the held card, then cards (in the order asked), then conversations (newest first). Skipped items go last.
+- **Countdowns:** a card in the stack is not on screen, so it doesn't count down (§4.2). A card skipped and never answered gives up after the held-card limit (12 h, ADR-014), like a held card, and is parked.
+
+### 9.3 How it works
+
+- **Backend:** `swift/stack.py` (the items and their order, pure); `Session._stack_items`, `_send_stack`, `_stack_action`, `_skip_card`, `_open_card`, `_end_run`, `_resume_parked`, `_question_aside`. Cards skipped from the screen are kept in `Session._aside`, out of the line `_cards`, so "the first in line is on screen" (ADR-013 §5.2) still holds.
+- **Protocol:**
+  - outbound `stack {items: [{id, kind, title, reason, since_ms, thread_id}]}`, sent whenever the list changes (and to a newly connected overlay);
+  - inbound `stack.action {id, action: "open" | "skip" | "end"}`, where `id` is `card:<request id>` or `parked:<thread>`.
+  - Setting a card aside and bringing it back reuse `confirm.hold` (§4.1), so the overlay hides and redraws it the way it does a held card.
+- **Overlay:**
+  - `overlay/src/stack.ts`: compressed or expanded, what each line says, the glow (pure, tested).
+  - The stack is a pane window (`pane-stack`, §3) in the bottom corner on the request chips' side. Chips that would come up from the bottom now start above it.
+  - It grows upwards when it expands (`fit_pane` keeps its bottom edge). Dragged, it remembers its bottom-left corner.
+  - Panes never take focus, so "a click anywhere else" is watched by Rust: `watch_outside` polls the mouse button while the stack is expanded.
+  - Without pane windows (the dev harness), the stack is a short list under the card.
+- **Logs:** `stack action | kind=… action=…`, `question moved to the waiting stack`. No titles or words are logged.
+
+### 9.4 Alternatives considered
+
+- **Keep "continue", and show more "Unfinished" lines.** The owner found it confusing: which one would "continue" pick? The stack shows them all, and a click says which.
+- **The stack inside the main window.** The main window lives at the owner's anchor, and the owner asked for a corner. A pane can go anywhere and be dragged.
+- **Single click to expand.** The owner asked for a double click. A single click on a chip elsewhere means "bring it to the front"; here it does nothing, so a stray click doesn't open the list over their work.
+
+## 10. Typing to Swift
+
+- **Opened by** `hotkeys.type`, `Ctrl+Alt+Space` by default. It is configurable in `config.yaml`, and `""` turns it off. It is also opened from the tray: **Type to Swift…**. Pressing the hotkey again closes it.
+- **A text box** (`pane-type`) where the cards appear. It is the one pane that takes the keyboard (`win::init_typing`: no `WS_EX_NOACTIVATE`). It stays on top, has no taskbar entry, and is excluded from screen capture.
+  - **Enter** sends it. **Esc** or clicking away closes it, keeping what was typed for next time.
+  - While it is open, Swift doesn't grab Esc system-wide (§ ADR-009), so Esc reaches the box.
+- **The same path as speech:** inbound `text {text, thread_id?}`, handled by `Session._start_typed`:
+  - It is routed by the same router and runs through the same gateway, as source `typed`.
+  - Nothing running: a request.
+  - Something working in front: the mid-run grammar ("stop", "show me", "actually …", or a new request beside it, still `typed`).
+  - On an open confirm card: an answer, like voice.
+- **Typing never approves a card on its own.**
+  - "approve", "yes" or "Swift, approve" typed on a card shows the hint "Typing can't approve. Click Approve, or say “Swift, approve”."
+  - Rejecting, stopping and asking for a change by typing all work.
+  - Approvals stay with clicks, or with voice plus Swift's name (ADR-014 T2).
+- **Follow-ups:** the box names the conversation on screen when it opened ("Following up: …"). A typed request then continues that thread, but only if it is still the backend's current thread.
+- **Logs:** `typed request | chars=N`. The text itself is not logged; the interaction record keeps the transcript, as for speech.
+
+## 11. Four fixes (owner checks of 2026-10-27, 17:00)
+
+| Bug | What happened | Cause | Fix |
+|---|---|---|---|
+| 1 | A chip stuck on "What time is it? Working on it 2:44" (still counting at 19:12) after the answer was shown on another card. `source='beside' … route='local' action='time' … interaction_ms=0` at 17:13:00, 17:18:30 and 17:38:43. Clicking it logged `focus ignored known=False` | The beside request's row opened a pane window. Its answer, 0 ms later, took the front, and a second sync "closed" the window while it was still being created: the close did nothing. The window then opened, the first sync sent it the stale view, and nothing ever closed it | `PaneSync` (`panes.ts`): one sync at a time, and a sync asked for during another runs again right after it, so it sees the window it just opened. A window nobody wants is closed: a sweep every 3 s (`pane_labels`), a pane that says "ready" with nothing to show, and the backend sending `runs` again when the overlay asks about a request it doesn't know. A request younger than 600 ms gets no window yet, so instant answers don't flash one |
+| 2 | Dragging the reader or a pane made it disappear on release (check 19) | Not reproduced here. After its drag the main window is always re-placed topmost and shown (`win::place`); a pane was only moved | After a drag, the pane is shown and made topmost again where it was dropped (`win::reshow`). The press no longer starts a text selection or native drag in the webview (`preventDefault`) |
+| 3 | Cards went too quickly to answer. Check 26's question didn't stay for its 25 s, although the backend logged `question window \| seconds=25.0` | The pointer leaving a card gave it 2.5 s (`RESUME_MS`), whatever the reply window. And a card taking the front from the question dropped it without a trace | Letting go of a card never shortens it below the backend's reply window (`presenter.onHold`). A question pushed off screen goes into the stack (§9.2) |
+| 4 | When a second request was captured, nothing showed it (checks 21, 25), so the owner repeated it and made duplicates | Its chip appeared only when the request first did something, far from the card, labelled "Working on it". A request waiting for a slot had no chip at all | At once, on the main card: "Got it: “<the request's words>”" for 5 s. The backend sends a started request's row with its words straight away (`Session._chip_now`, row `words`). A request waiting for a slot gets a chip too ("Waiting to start"), up to 5 chips |
+
+### 11.1 Every auto-hide timer, reviewed
+
+The rule: **nothing that needs an answer hides while the owner is present and hasn't answered**, unless it goes somewhere they can find it.
+
+| Timer | Needs an answer? | Now |
+|---|---|---|
+| Confirm card countdown (120 s, backend) | Yes | Runs only while on screen, drawn and the owner present (§4.2). "Later" puts it in the stack, paused |
+| Answer reading time (6–20 s) | Only if it asks something | At least the backend's reply window (25 s for a question), even after the pointer leaves. Unanswered, it is parked and waits in the stack |
+| Answer pushed off by a card | Only if it asks something | Parked at once; in the stack (§9.2) |
+| Error card (12 s) | "Try again" is optional | 20 s when it offers "Try again"; 12 s otherwise |
+| Notices (4–5 s): ready, already running, "hold to talk" | No | Unchanged |
+| Mid-run hint (4 s) | No | Unchanged |
+| Request chip "Done: …" (20 s) | No (a question in it is parked, below) | Unchanged |
+| A question from a request behind another | Yes | Parked after its window, then in the stack |
+| Working card collapse (30 s), reader to chip (60 s) | No; nothing is hidden | Unchanged |
+| Card held while away | Yes | Hidden while away, in the stack as "held", back on return (ADR-014 §4) |
+
+### 11.2 Implementation status
+
+| Part | Where | Checked by |
+|---|---|---|
+| Stack items, order, actions; cards set aside; questions pushed off screen parked; ended requests not parked | `src/swift/stack.py`, `src/swift/session.py`, `src/swift/ipc/protocol.py` | `tests/unit/test_stack.py` |
+| Typing: same router, source `typed`, never approves, follow-ups in the thread on screen | `Session._start_typed`, `settings.py` (`hotkeys.type`) | `test_stack.py` |
+| Chip at once with the request's words | `Session._chip_now`, `Run.words`; `panes.ts` `newRows`, `CHIP_DELAY_MS`; `main.ts` "Got it" | `test_stack.py`, `panes.test.ts` |
+| One pane sync at a time; strays closed | `panes.ts` `PaneSync`; `main.ts` `sweepPanes`; `lib.rs` `pane_labels` | `panes.test.ts` (the bug 1 sequence) |
+| Reply window never shortened by hover | `presenter.ts` `onHold` | `presenter.test.ts` |
+| Stack and text box panes: placement, growing upwards, folding on a click outside, focus for the text box, drag fix, tray item | `pane.ts`, `stack.ts`, `styles.css`; `lib.rs` (`open_pane`, `fit_pane`, `drag_pane`, `watch_outside`), `panes.rs`, `win.rs`, `prefs.rs` | `stack.test.ts`; `cargo test` (`panes.rs`: the stack clear of the card, the chips and the reader; the text box where the cards appear) |
+
+**Not seen on a real screen in this session:**
+- the stack and text-box windows;
+- the drag fix (bug 2 wasn't reproduced);
+- whether Windows gives the text box the keyboard from the tray as well as from the hotkey.
+
+Owner checks 15, 16 (the stack) and 16b (typing), and 19 (drag) are the proof.
+
+**Coordination:** a second request said *while the first is still being captured* is queued by the voice and audio session's capture queue. Once it becomes a request, it gets its chip and "Got it" line from `_launch` / `_chip_now` like any other.

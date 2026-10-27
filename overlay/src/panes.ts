@@ -4,16 +4,25 @@
 // its own (a "request" pane, instead of ADR-013's rows), and a long answer can open in a reader
 // pane. main.ts opens, updates and closes real windows to match ``wantedPanes``; the panes
 // themselves only draw what they are told and send clicks back.
+//
+// ADR-015 §9, §10 (2026-10-27): the waiting stack is a pane of its own in a bottom corner, and
+// typing to Swift opens a text box pane, the one window that takes the keyboard.
 
 import type { ResultDetails } from "./protocol";
 import type { Presenter, Row } from "./presenter";
+import type { StackView } from "./stack";
 
-export type PaneKind = "request" | "reader";
+export type PaneKind = "request" | "reader" | "stack" | "type";
+
+/** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any. */
+export type TypeView = { kind: "type"; draft: string; follows: string | null };
 
 /** What a pane window draws. */
 export type PaneView =
-  | { kind: "request"; runId: string; title: string; label: string; startedMs: number; running: boolean; state: string }
-  | { kind: "reader"; title: string; summary: string; details: ResultDetails | null; chip: boolean };
+  | { kind: "request"; runId: string; title: string; words: string; label: string; startedMs: number; running: boolean; state: string }
+  | { kind: "reader"; title: string; summary: string; details: ResultDetails | null; chip: boolean }
+  | StackView
+  | TypeView;
 
 export type PaneSpec = { label: string; kind: PaneKind; index: number; view: PaneView };
 
@@ -28,8 +37,14 @@ export type Reader = {
   chip: boolean;
 } | null;
 
-/** Request windows at most: the run limit (ADR-013 §5.2), the same as presenter.MAX_ROWS. */
-export const MAX_PANES = 3;
+/** Request windows at most: the other requests running (the run limit, ADR-013 §5.2) and a couple
+ * waiting for a slot; each gets a chip at once so the owner sees it registered (bug 4, 2026-10-27). */
+export const MAX_PANES = 5;
+/** A request this young gets no window yet: most answers beside a run take a few ms (the time),
+ * and a window that opens and closes at once is noise. The main card says "Got it" meanwhile. */
+export const CHIP_DELAY_MS = 600;
+/** "Got it: …" on the main card for a request that started beside the one in front. */
+export const ACK_MS = 5000;
 /** No pointer or scrolling on the reader this long: it shrinks to a chip (ADR-015 §3.3). */
 export const READER_QUIET_MS = 60_000;
 /** No news and no pointer on a working card this long: it collapses to its one line. */
@@ -42,20 +57,30 @@ const ENDED: ReadonlySet<string> = new Set(["result", "error", "done"]);
 
 /** Window labels: Tauri allows letters, digits and - / : _. */
 export const paneLabel = (kind: PaneKind, id = ""): string =>
-  kind === "reader" ? "pane-reader" : `pane-run-${id.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  kind === "request" ? `pane-run-${id.replace(/[^A-Za-z0-9_-]/g, "_")}` : `pane-${kind}`;
+
+/** Besides the requests and the reader: the waiting stack and the text box, when they show. */
+export type Extra = { stack?: StackView | null; typing?: TypeView | null; now?: number };
 
 /** The panes that should exist now. ``label`` says what a row is doing, in words. */
-export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => string): PaneSpec[] {
+export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => string, extra: Extra = {}): PaneSpec[] {
   const out: PaneSpec[] = [];
-  // Requests waiting for a slot are a line on the card in front, not a window.
-  requestRows(p).forEach((r, index) => {
-    out.push({
-      label: paneLabel("request", r.runId),
-      kind: "request",
-      index,
-      view: { kind: "request", runId: r.runId, title: r.title, label: label(r), startedMs: r.startedMs, running: !ENDED.has(r.state), state: r.state },
+  const now = extra.now;
+  requestRows(p)
+    .filter((r) => now === undefined || now - r.startedMs >= CHIP_DELAY_MS)
+    .forEach((r, index) => {
+      out.push({
+        label: paneLabel("request", r.runId),
+        kind: "request",
+        index,
+        view: {
+          kind: "request", runId: r.runId, title: r.title, words: r.words ?? r.title, label: label(r), startedMs: r.startedMs,
+          running: !ENDED.has(r.state), state: r.state,
+        },
+      });
     });
-  });
+  if (extra.stack) out.push({ label: paneLabel("stack"), kind: "stack", index: 0, view: extra.stack });
+  if (extra.typing) out.push({ label: paneLabel("type"), kind: "type", index: 0, view: extra.typing });
   if (reader) {
     out.push({
       label: paneLabel("reader"),
@@ -67,8 +92,13 @@ export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => str
   return out;
 }
 
-/** The other requests that get a window: running or just ended, at most MAX_PANES. */
-export const requestRows = (p: Presenter): Row[] => p.rows.filter((r) => r.state !== "queued").slice(0, MAX_PANES);
+/** The other requests that get a window: running, waiting for a slot, or just ended; at most MAX_PANES. */
+export const requestRows = (p: Presenter): Row[] => p.rows.slice(0, MAX_PANES);
+
+/** Requests that weren't there before (not ended): the main card says "Got it" for each. */
+export function newRows(known: ReadonlySet<string>, rows: Row[]): Row[] {
+  return rows.filter((r) => !known.has(r.runId) && !ENDED.has(r.state));
+}
 
 /** Requests waiting for a slot: a line on the card in front. */
 export const queuedRows = (p: Presenter): Row[] => p.rows.filter((r) => r.state === "queued");
@@ -125,6 +155,99 @@ export function diffPanes(
 
 /** A pane's size before it measures itself (CSS px). */
 export function paneSize(spec: PaneSpec): { w: number; h: number } {
-  if (spec.view.kind === "request") return { w: 300, h: 44 };
-  return spec.view.chip ? { w: 300, h: 44 } : { w: 560, h: 420 };
+  const v = spec.view;
+  switch (v.kind) {
+    case "request":
+      return { w: 300, h: 44 };
+    case "reader":
+      return v.chip ? { w: 300, h: 44 } : { w: 560, h: 420 };
+    case "stack":
+      return v.expanded ? { w: 360, h: 56 + 68 * v.items.length } : { w: 300, h: 72 };
+    case "type":
+      return { w: 560, h: v.follows ? 92 : 68 };
+  }
+}
+
+/** What PaneSync needs from the shell: open a window (rejects: no pane windows here), close one,
+ * tell one what to show. */
+export type PaneHost = {
+  open(spec: PaneSpec): Promise<void>;
+  close(label: string): void;
+  send(label: string, view: PaneView): void;
+};
+
+/** Keeps the pane windows matching ``wanted()``, one change at a time.
+ *
+ * Opening a window takes a while. A second sync during it used to "close" a window that didn't
+ * exist yet; the window opened then and nothing closed it, so a chip outlived its request and
+ * counted up for minutes (bug 1, 2026-10-27: "What time is it? Working on it 2:44"). Here a sync
+ * asked for while one runs runs again right after it, and sees the window it just opened. */
+export class PaneSync {
+  /** What each open window shows. */
+  readonly shown = new Map<string, PaneView>();
+  private running: Promise<void> | null = null;
+  private again = false;
+  /** False once opening a window failed: the caller draws rows instead. */
+  available = true;
+
+  private readonly host: PaneHost;
+  private readonly wanted: () => PaneSpec[];
+  private readonly onUnavailable: (err: unknown) => void;
+
+  constructor(host: PaneHost, wanted: () => PaneSpec[], onUnavailable: (err: unknown) => void = () => {}) {
+    this.host = host;
+    this.wanted = wanted;
+    this.onUnavailable = onUnavailable;
+  }
+
+  get busy(): boolean {
+    return this.running !== null;
+  }
+
+  sync(): Promise<void> {
+    if (!this.available) return Promise.resolve();
+    if (this.running) {
+      this.again = true;
+      return this.running;
+    }
+    this.running = (async () => {
+      do {
+        this.again = false;
+        await this.once();
+      } while (this.again && this.available);
+    })().finally(() => (this.running = null));
+    return this.running;
+  }
+
+  /** Windows that are open but not wanted (from ``pane_labels``): close them. Not while syncing. */
+  strays(open: string[]): string[] {
+    return this.running ? [] : open.filter((label) => !this.shown.has(label));
+  }
+
+  private async once(): Promise<void> {
+    const before = new Map([...this.shown].map(([label, view]) => [label, JSON.stringify(view)]));
+    const d = diffPanes(before, this.wanted());
+    for (const label of d.close) {
+      this.shown.delete(label);
+      this.host.close(label);
+    }
+    for (const spec of d.update) {
+      this.shown.set(spec.label, spec.view);
+      this.host.send(spec.label, spec.view);
+    }
+    for (const spec of d.create) {
+      this.shown.set(spec.label, spec.view);
+      try {
+        await this.host.open(spec);
+      } catch (err) {
+        this.available = false;
+        this.shown.clear();
+        this.onUnavailable(err);
+        return;
+      }
+      this.again = true;  // the world may have moved on while it opened: look again
+      const view = this.shown.get(spec.label);
+      if (view) this.host.send(spec.label, view);  // if it isn't listening yet, it asks ("ready")
+    }
+  }
 }

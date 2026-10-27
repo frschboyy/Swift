@@ -5,16 +5,26 @@
 //! column, the reader on the other side, so neither covers the card in front. Dragged
 //! somewhere, a kind remembers where, as a fraction of the work area, so it holds across
 //! monitors and resolutions. A second pane of the same kind stacks beside the first.
+//!
+//! ADR-015 §9, §10: the waiting stack sits in a bottom corner, on the request chips' side (chips
+//! that would come up from the bottom start above it), and grows upwards when it expands. The
+//! text box goes where the cards appear, at the main window's anchored edge.
 
-use crate::placement::{Anchor, Area, MARGIN};
+use crate::placement::{card_zone, Anchor, Area, MARGIN};
 
 /// Space between stacked panes, CSS px.
 pub const GAP: f64 = 8.0;
+/// Room kept at the bottom of the chips' side for the compressed stack, CSS px.
+pub const STACK_RESERVE: f64 = 84.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PaneKind {
     Request,
     Reader,
+    /// The waiting stack (ADR-015 §9).
+    Stack,
+    /// The text box (ADR-015 §10): the one pane that takes the keyboard.
+    Type,
 }
 
 impl PaneKind {
@@ -22,16 +32,23 @@ impl PaneKind {
         match id {
             "request" => Some(PaneKind::Request),
             "reader" => Some(PaneKind::Reader),
+            "stack" => Some(PaneKind::Stack),
+            "type" => Some(PaneKind::Type),
             _ => None,
         }
+    }
+
+    /// The stack grows upwards from the bottom edge it sits on; the others grow down.
+    pub fn grows_up(self) -> bool {
+        self == PaneKind::Stack
     }
 }
 
 /// Which side of the screen (-1 left, 1 right) a kind goes on, given where the main window is.
 fn side(kind: PaneKind, main: Anchor) -> i32 {
     match (kind, main.column()) {
-        (PaneKind::Request, 1) => -1,
-        (PaneKind::Request, _) => 1,
+        (PaneKind::Request | PaneKind::Stack | PaneKind::Type, 1) => -1,
+        (PaneKind::Request | PaneKind::Stack | PaneKind::Type, _) => 1,
         (PaneKind::Reader, -1) => 1,
         (PaneKind::Reader, _) => -1,
     }
@@ -55,11 +72,20 @@ pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, inde
     let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
     let m = (MARGIN * scale).round() as i32;
     let step = size.1 + (GAP * scale).round() as i32;
+    if kind == PaneKind::Type {
+        // Where the cards appear: the answer shows up right where the request was typed.
+        let (zx, zy, zw, zh) = card_zone(area, scale, main);
+        let x = zx + (zw - size.0) / 2;
+        let y = if main.is_top() { zy } else { zy + zh - size.1 };
+        return clamp(area, (x, y), size);
+    }
     let x = if side(kind, main) < 0 { area.x + m } else { area.x + area.w as i32 - size.0 - m };
+    let reserve = (STACK_RESERVE * scale).round() as i32;
     let y = match kind {
         PaneKind::Reader => area.y + m,
+        PaneKind::Stack => area.y + area.h as i32 - m - size.1,
         PaneKind::Request if chips_from_top(main) => area.y + m + step * index as i32,
-        PaneKind::Request => area.y + area.h as i32 - m - size.1 - step * index as i32,
+        PaneKind::Request | PaneKind::Type => area.y + area.h as i32 - m - reserve - size.1 - step * index as i32,
     };
     clamp(area, (x, y), size)
 }
@@ -147,6 +173,39 @@ mod tests {
     fn kinds_parse() {
         assert_eq!(PaneKind::from_id("request"), Some(PaneKind::Request));
         assert_eq!(PaneKind::from_id("reader"), Some(PaneKind::Reader));
+        assert_eq!(PaneKind::from_id("stack"), Some(PaneKind::Stack));
+        assert_eq!(PaneKind::from_id("type"), Some(PaneKind::Type));
         assert_eq!(PaneKind::from_id("main"), None);
+        assert!(PaneKind::Stack.grows_up() && !PaneKind::Request.grows_up());
+    }
+
+    const STACK: (i32, i32) = (300, 72);
+
+    #[test]
+    fn the_stack_sits_in_a_bottom_corner_clear_of_the_card_the_chips_and_the_reader() {
+        for main in Anchor::ALL {
+            let (x, y) = default_origin(FHD, 1.0, main, PaneKind::Stack, 0, STACK);
+            let stack = (x, y, STACK.0, STACK.1);
+            assert_eq!(y + STACK.1, FHD.h as i32 - MARGIN as i32, "{main:?}: not at the bottom");
+            assert!(x == MARGIN as i32 || x + STACK.0 == FHD.w as i32 - MARGIN as i32, "{main:?}: not in a corner");
+            assert!(!overlaps(stack, card_zone(FHD, 1.0, main)), "stack over the card at {main:?}");
+            let (rx, ry) = default_origin(FHD, 1.0, main, PaneKind::Reader, 0, READER);
+            assert!(!overlaps(stack, (rx, ry, READER.0, READER.1)), "stack under the reader at {main:?}");
+            for index in 0..5 {
+                let (cx, cy) = default_origin(FHD, 1.0, main, PaneKind::Request, index, CHIP);
+                assert!(!overlaps(stack, (cx, cy, CHIP.0, CHIP.1)), "stack under chip {index} at {main:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_text_box_goes_where_the_cards_appear() {
+        let size = (560, 68);
+        for main in Anchor::ALL {
+            let zone = card_zone(FHD, 1.0, main);
+            let (x, y) = default_origin(FHD, 1.0, main, PaneKind::Type, 0, size);
+            assert!(overlaps((x, y, size.0, size.1), zone), "text box away from the cards at {main:?}");
+            assert!(x >= 0 && x + size.0 <= FHD.w as i32 && y >= 0 && y + size.1 <= FHD.h as i32);
+        }
     }
 }

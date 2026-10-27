@@ -24,6 +24,10 @@ one on screen. It is sent only while there is more than one. Inbound ``focus`` b
 to the front (a click on it, or the overlay's own card fading while others still run).
 Inbound ``card.seen`` says a confirm card is drawn and visible, or hidden: its countdown runs
 only while it is (ADR-015 §4.2).
+The waiting stack (ADR-015 §9): outbound ``stack`` lists what waits for the owner (cards in line or
+set aside, held cards, unfinished conversations); inbound ``stack.action`` opens, skips or ends
+one. Inbound ``text`` is a request typed into the overlay (source ``typed``): routed like speech,
+but it never approves a card.
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -62,6 +66,10 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "focus": {"run_id": (str, None)},
     # The overlay drew a confirm card and it is visible (or hid it): its countdown runs only then (ADR-015).
     "card.seen": {"request_id": (str, None), "visible": (bool, None)},
+    # The waiting stack (ADR-015 §9): open (bring back / resume), skip (back to the stack), end (gone).
+    "stack.action": {"id": (str, None), "action": (str, ("open", "skip", "end"))},
+    # A request typed into the overlay; optional ``thread_id``: the conversation on screen it follows.
+    "text": {"text": (str, None)},
     # Sent once when the overlay is fully up; ``backend_ms`` is optional.
     "ready": {"startup_ms": (int, None)},
 }
@@ -69,7 +77,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs"}
+     "runs", "stack"}
 )
 
 

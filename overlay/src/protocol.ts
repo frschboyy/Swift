@@ -80,7 +80,21 @@ export type Inbound =
   // ADR-014 §5: after an answer, one line naming a conversation left unfinished ("continue" picks it up).
   | { type: "resume.offer"; data: { thread_id: string; title: string } }
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
-  | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } };
+  | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } }
+  // ADR-015 §9: what waits for the owner (the waiting stack), in the order to show it.
+  | { type: "stack"; data: { items: StackEntry[] } };
+
+// One card in the waiting stack: a card in line ("waiting") or skipped ("later"), the card on
+// screen while the owner is away ("held"), or an unfinished conversation ("parked").
+export type StackEntry = {
+  id: string;
+  kind: "waiting" | "later" | "held" | "parked";
+  title: string;
+  // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
+  reason: string;
+  since_ms: number;
+  thread_id: string | null;
+};
 
 export type RunRow = {
   run_id: string;
@@ -92,6 +106,8 @@ export type RunRow = {
   agent: Agent | null;
   started_ms: number;
   summary: string;
+  // The request in the owner's words (longer than the title).
+  words?: string;
 };
 
 export type ErrorData = {
@@ -121,7 +137,11 @@ export type Outbound =
   | { type: "focus"; data: { run_id: string } }
   // A confirm card is drawn and visible, or hidden again: its countdown runs only while it is (ADR-015 §4.2).
   | { type: "card.seen"; data: { request_id: string; visible: boolean } }
-  | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } };
+  | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } }
+  // The waiting stack: open (bring back / resume), skip (back to the stack), end (gone).
+  | { type: "stack.action"; data: { id: string; action: "open" | "skip" | "end" } }
+  // A request typed into the text box; thread_id: the conversation on screen it follows up.
+  | { type: "text"; data: { text: string; thread_id: string | null } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });

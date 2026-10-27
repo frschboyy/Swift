@@ -44,6 +44,8 @@ class _Section(BaseModel):
 class Hotkeys(_Section):
     push_to_talk: str = "Ctrl+Shift+Space"
     debug: str = "Ctrl+Alt+F12"
+    # Opens the overlay's text box: type a request instead of saying it (ADR-015 §10). "" turns it off.
+    type: str = "Ctrl+Alt+Space"
 
 
 class SttSettings(_Section):

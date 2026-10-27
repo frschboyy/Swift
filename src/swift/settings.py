@@ -86,6 +86,9 @@ class AudioSettings(_Section):
     # Seconds of audio kept from before the key goes down (0 = off). Above 0 the microphone
     # stays open while Swift runs, so Windows' mic-in-use indicator is on all the time.
     preroll_s: float = Field(0.0, ge=0.0, le=2.0)
+    # A short soft chime the moment Swift hears "hey Swift" or the hotkey (false: the overlay's
+    # "Listening…" only).
+    chime: bool = True
 
 
 class WakeSettings(_Section):
@@ -115,6 +118,9 @@ class WakeSettings(_Section):
     # ...or this long when the answer asks something ("Which Tuesday?"). Unanswered by then, the
     # conversation is kept as unfinished: "continue", or just answering, picks it up.
     question_s: float = Field(25.0, ge=0, le=120)
+    # A reply in that window (no wake phrase) must be at least this sure of its words, and sound
+    # like you rather than the room (0 = only wake.min_p). Said less surely: "Try saying it again".
+    followup_min_p: float = Field(0.7, ge=0.0, le=1.0)
 
 
 class ExecutorSettings(_Section):

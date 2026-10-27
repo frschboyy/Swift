@@ -20,6 +20,7 @@ from typing import Any
 from loguru import logger
 
 from swift import __version__
+from swift.audio.chime import Chime
 from swift.audio.recorder import MicRecorder
 from swift.config.paths import app_paths
 from swift.connectors.base import CalendarConnector, EmailConnector
@@ -249,6 +250,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         wake_start_timeout_s=wake.start_timeout_s,
         wake_followup_s=wake.followup_s if wake.enabled else 0.0,
         wake_question_s=wake.question_s,
+        followup_min_p=wake.followup_min_p,
+        on_heard=Chime(settings.audio.chime),
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)
@@ -263,8 +266,17 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
 
             loop.call_soon_threadsafe(start)
 
-        # Very short clips ("stop", "show me" said briskly) only while a run or a reply window wants them.
-        listener = WakeListener(heard, accept_short=session.wants_short)
+        def peek(audio: Any) -> None:  # audio thread
+            def start() -> None:
+                task = loop.create_task(session.peek_wake(audio))
+                wake_tasks.add(task)
+                task.add_done_callback(wake_tasks.discard)
+
+            loop.call_soon_threadsafe(start)
+
+        # Very short clips ("stop", "show me" said briskly) only while a run or a reply window wants
+        # them; the start of a long utterance checked for "hey Swift" only at rest.
+        listener = WakeListener(heard, accept_short=session.wants_short, on_peek=peek, accept_peek=session.wants_peek)
         recorder.tap = listener.feed
         recorder.on_reopen = listener.reset
         wake_report = asyncio.create_task(_report_wake(listener, session, recorder))  # noqa: F841

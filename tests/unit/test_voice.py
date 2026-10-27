@@ -56,8 +56,11 @@ class FakeTranscriber:
         fail: SttUnavailable | None = None,
         probs: dict[str, float] | None = None,
         noise_db: float | None = None,
+        peak_db: float | None = None,
     ) -> None:
         self.text = text
+        # How loud the loudest moment was (None: not measured).
+        self.peak_db = peak_db
         # How loud the room was between words (None: not measured).
         self.noise_db = noise_db
         # Word -> probability for words the model was unsure of; the rest are 0.99.
@@ -74,7 +77,9 @@ class FakeTranscriber:
         words = None
         if self.probs is not None:
             words = tuple(Word(w, self.probs.get(w, 0.99)) for w in self.text.split())
-        return Transcription(self.text, 420, len(audio) / SAMPLE_RATE, words=words, noise_db=self.noise_db)
+        return Transcription(
+            self.text, 420, len(audio) / SAMPLE_RATE, peak_db=self.peak_db, words=words, noise_db=self.noise_db
+        )
 
 
 def make(

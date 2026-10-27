@@ -8,6 +8,7 @@ hotkeys:
 audio:
   preroll_s: 0                     # >0 keeps the mic open and prepends this much audio from before the key-down
                                    # (try 0.5). Windows then shows the mic-in-use indicator whenever Swift runs.
+  chime: true                      # a short soft chime the moment Swift hears "hey Swift" or the hotkey
 
 wake:                              # start by voice: "hey / hello / good afternoon Swift" (swift/wake.py)
   enabled: false                   # on keeps the mic open (Windows' mic indicator stays on) and
@@ -18,6 +19,8 @@ wake:                              # start by voice: "hey / hello / good afterno
   start_timeout_s: 5               # ...and Swift stops listening if you say nothing for this long
   followup_s: 8                    # after an answer, reply without "hey Swift" for this long; 0 = off
                                    # during a run "show me", "stop", "reject" work without it; approving needs "Swift, approve"
+  followup_min_p: 0.7              # a reply in that window must be this sure, and sound like you, not the room;
+                                   # said less surely, Swift asks you to say it again instead of guessing
 
 stt:
   engine: "parakeet"               # "parakeet" (fast, accurate) or "whisper"

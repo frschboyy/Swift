@@ -80,7 +80,9 @@ export type Inbound =
   // ADR-014 §5: after an answer, one line naming a conversation left unfinished ("continue" picks it up).
   | { type: "resume.offer"; data: { thread_id: string; title: string } }
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
-  | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } };
+  | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } }
+  // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
+  | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } };
 
 export type RunRow = {
   run_id: string;

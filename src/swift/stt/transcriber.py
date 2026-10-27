@@ -18,7 +18,7 @@ import math
 import re
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -55,6 +55,9 @@ UNCLEAR_P = 0.4
 # caught 90% of invented text and 78% of badly wrong transcripts, and 3% of right ones.
 REJECT_P = 0.7
 _PUNCT = re.compile(r"^[\W_]*$")
+# Hesitations: the model is rarely sure of them and they change nothing, so they don't count
+# toward how sure it was ("Hey Swift, research about um Mozart" was refused for its "um").
+FILLERS = frozenset({"um", "umm", "uh", "uhh", "er", "erm", "hmm", "mm", "ah", "eh"})
 
 
 class SttUnavailable(RuntimeError):
@@ -98,8 +101,24 @@ class Transcription:
         return min(w.p for w in self.words)
 
     def unclear(self, unclear_p: float = UNCLEAR_P) -> list[str]:
-        """Words heard with less than ``unclear_p`` probability."""
-        return [w.text for w in self.words or () if w.p < unclear_p]
+        """Words heard with less than ``unclear_p`` probability (hesitations aside)."""
+        return [w.text for w in self.counted() if w.p < unclear_p]
+
+    def counted(self) -> tuple[Word, ...]:
+        """The words that say how sure the model was: hesitations ("um") left out."""
+        return tuple(w for w in self.words or () if _bare(w.text) not in FILLERS)
+
+    @property
+    def mean_p(self) -> float | None:
+        """The average probability of the counted words, or None if the engine didn't say."""
+        words = self.counted()
+        return sum(w.p for w in words) / len(words) if words else None
+
+    def after(self, n: int) -> Transcription:
+        """The same without its first ``n`` words: the wake phrase, which says nothing about the request."""
+        if not self.words or n <= 0:
+            return self
+        return replace(self, words=self.words[n:])
 
 
 @dataclass(frozen=True)
@@ -107,6 +126,10 @@ class ModelStats:
     model: str
     load_s: float
     private_mb_delta: float
+
+
+def _bare(word: str) -> str:
+    return word.strip(" ,.!?;:-–—\"'").lower()
 
 
 def words_from_tokens(tokens: list[str], logprobs: list[float]) -> tuple[Word, ...]:
@@ -140,10 +163,11 @@ def assess(t: Transcription, unclear_p: float = UNCLEAR_P, reject_p: float = REJ
     A threshold of 0 turns its check off; engines that report no probabilities
     are always trusted.
     """
-    if not t.words:
+    words = t.counted()
+    if not words:
         return "clear"
-    mean_p = sum(w.p for w in t.words) / len(t.words)
-    if len(t.words) > 1 and mean_p < reject_p:
+    mean_p = sum(w.p for w in words) / len(words)
+    if len(words) > 1 and mean_p < reject_p:
         return "unclear"
     return "partly" if t.unclear(unclear_p) else "clear"
 

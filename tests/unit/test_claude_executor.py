@@ -343,3 +343,27 @@ async def test_web_and_own_tools_follow_the_workflow_grant(tmp_path: Path) -> No
     assert isinstance(bash, PermissionResultDeny) and "doesn't allow Bash" in bash.message
     assert run.queue.empty() and run.stopped_by is None  # no card, and the run goes on
     assert ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe").options(_Run(), "cc-1").tools.count("WebSearch") == 0
+
+
+async def test_web_for_ordinary_requests_but_never_an_undeclaring_workflow(tmp_path: Path) -> None:
+    """Owner checks 2026-10-28: "research the history of tea" had no web. With ``web`` on, an
+    ordinary request searches and reads without a card; a workflow that didn't declare it still can't."""
+    from swift.workflows.scope import Grant
+    from swift.workflows.tools import ToolHost
+
+    async def nothing(*_: Any) -> Any:
+        return None
+
+    host = ToolHost()
+    ex, run = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host, web=True), _Run()
+    ex._runs["cc-1"] = run
+    plain = host.open(nothing, nothing)
+    assert isinstance(await ex._ask(run, "cc-1", "WebSearch", {"query": "history of tea"}), PermissionResultAllow)
+    assert isinstance(await ex._ask(run, "cc-1", "WebFetch", {"url": "https://example.com"}), PermissionResultAllow)
+    assert run.queue.empty()  # no card
+    host.close(plain)
+    host.open(nothing, nothing, Grant("calendar-event", frozenset({"create_calendar_event"}), frozenset()))
+    denied = await ex._ask(run, "cc-1", "WebSearch", {"query": "tea"})
+    assert isinstance(denied, PermissionResultDeny) and "isn't available" in denied.message
+    # Without a tool host (no Swift tools configured) the web tools still exist when ``web`` is on.
+    assert "WebSearch" in ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", web=True).options(_Run(), "cc-1").tools

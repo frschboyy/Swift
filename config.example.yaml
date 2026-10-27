@@ -63,6 +63,7 @@ executor:
   escalation: true                 # move up mid-request when Claude asks or keeps struggling
   confirm_strong: false            # ask on the overlay before switching to the strong model
   turn_limits: {light: 8, standard: 25}  # steps on one model before Swift moves the run up
+  web: true                        # web search and fetch for ordinary requests (read-only, no card)
 
 local:                             # "open ..." handled by Swift, by spoken name only (ADR-007)
   enabled: true

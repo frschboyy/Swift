@@ -324,6 +324,10 @@ code {
 .request { margin: 0 0 10px; color: var(--muted); font-style: italic; }
 .summary { margin: 0; font-size: 15px; line-height: 1.45; }
 .more { margin: 4px 0 0; color: var(--faint); font-size: 12.5px; }
+/* A long answer: six lines on the card, the rest with "Read more", in place (owner checks 2026-10-28). */
+.result-body--long:not(.result-body--open) .summary { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.result-body--open { max-height: 380px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; user-select: text; cursor: text; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
+.result-body--open .summary { white-space: pre-wrap; line-height: 1.5; }
 .detail-text { overflow-wrap: anywhere; }
 
 .card-foot {

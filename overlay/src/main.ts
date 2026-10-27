@@ -62,6 +62,8 @@ let lastStepAt = 0;
 let compact = readPref("swift.compact") === "1";
 let hovering = false;
 let dragging = false;
+// The answer on the card is opened with "Read more": it holds, like hover, until "Read less".
+let expanded = false;
 // What is on screen and until when (ADR-013 §3). Changed only through present*().
 let pres: P.Presenter = P.initial;
 // The last messages, for the debug-build invariant report.
@@ -312,11 +314,6 @@ function sendPane(label: string, view: Panes.PaneView): void {
   void emitTo(label, "pane", { label, view }).catch(() => {});
 }
 
-function openReader(title: string, summary: string, details: ResultDetails | null, runId: string | null): void {
-  reader = Panes.openReader(title, summary, details, runId, Date.now());
-  void syncPanes();
-}
-
 type PaneAction = { label: string; action: string; runId?: string; id?: string; item?: "open" | "skip" | "end"; text?: string };
 
 void listen<PaneAction>("pane-action", ({ payload }) => {
@@ -489,6 +486,8 @@ function rest(next: "result" | "error"): void {
 }
 
 function showCard(node: HTMLElement, variant: string, role: "status" | "alert" = "status"): void {
+  // A new card: whatever was opened with "Read more" is gone with the old one.
+  if (expanded && !node.querySelector(".result-body--open")) setExpanded(false);
   card.className = `card card--${variant} card--in${hovering ? " card--hover" : ""}`;
   card.setAttribute("role", role);
   card.replaceChildren(node);
@@ -905,22 +904,24 @@ function detailsText(details: ResultDetails | null | undefined): string {
   }
 }
 
-function renderDetails(details: ResultDetails | null | undefined): HTMLElement | null {
+/** ``full``: every row, for an answer opened with "Read more" (otherwise the first six). */
+function renderDetails(details: ResultDetails | null | undefined, full = false): HTMLElement | null {
   if (!details) return null;
+  const shown = full ? Infinity : 6;
   switch (details.kind) {
     case "text":
       return el("p", { class: "muted" }, details.text);
     case "list": {
-      const more = details.items.length - 6;
+      const more = details.items.length - shown;
       return el(
         "div",
         {},
-        el("ul", { class: "result-list" }, ...details.items.slice(0, 6).map((item) => el("li", {}, item))),
-        more > 0 ? el("p", { class: "more" }, `and ${more} more (Copy includes them)`) : null,
+        el("ul", { class: "result-list" }, ...details.items.slice(0, shown).map((item) => el("li", {}, item))),
+        more > 0 ? el("p", { class: "more" }, `and ${more} more (Read more shows them)`) : null,
       );
     }
     case "table": {
-      const more = details.rows.length - 6;
+      const more = details.rows.length - shown;
       return el(
         "div",
         { class: "table-wrap" },
@@ -928,9 +929,9 @@ function renderDetails(details: ResultDetails | null | undefined): HTMLElement |
           "table",
           { class: "result-table" },
           el("thead", {}, el("tr", {}, ...details.columns.map((c) => el("th", { scope: "col" }, c)))),
-          el("tbody", {}, ...details.rows.slice(0, 6).map((row) => el("tr", {}, ...row.map((c) => el("td", {}, c))))),
+          el("tbody", {}, ...details.rows.slice(0, shown).map((row) => el("tr", {}, ...row.map((c) => el("td", {}, c))))),
         ),
-        more > 0 ? el("p", { class: "more" }, `and ${more} more rows (Read all or Copy shows them)`) : null,
+        more > 0 ? el("p", { class: "more" }, `and ${more} more rows (Read more shows them)`) : null,
       );
     }
   }
@@ -973,12 +974,32 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const copyable = [data.summary, extra].filter(Boolean).join("\n\n");
   const readable = finished.length ? finished[finished.length - 1] : null;
   const fuller = data.details ?? readable?.data ?? null;
-  const readAll = paneWindows && (Panes.needsReader(data.summary, fuller) || finished.length > 1)
-    ? el("button", { class: "btn btn--ghost btn--small", title: "Open the whole answer in a larger window", onclick: () =>
-        openReader(readable?.title ?? clipLine(request || label), data.summary, fuller, data.run_id) }, "Read all")
+  // A long answer opens in place, on this card (owner checks 2026-10-28: a separate reader
+  // window wasn't easy to read). Open, it stays until "Read less", Esc or a click on it.
+  const long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
+  const readMore = long
+    ? el("button", { class: "btn btn--ghost btn--small read-more", onclick: (ev: Event) => {
+        ev.stopPropagation();
+        setExpanded(!expanded);
+        body.classList.toggle("result-body--open", expanded);
+        (ev.currentTarget as HTMLElement).textContent = expanded ? "Read less" : "Read more";
+        drawBody();
+      } }, "Read more")
     : null;
+  const body = el("div", { class: long ? "result-body result-body--long" : "result-body" });
+  const drawBody = (): void => {
+    const parts = [
+      el("p", { class: "summary" }, data.summary),
+      renderDetails(data.details, expanded),
+      ...finished.map((a) => el("section", { class: "artifact", "aria-label": a.title }, el("h3", { class: "artifact-title" }, a.title), renderDetails(a.data, expanded))),
+    ];
+    body.replaceChildren(...parts.filter((n): n is HTMLElement => n !== null));
+    scheduleRegions();
+  };
   const line = `${data.status === "rejected" ? "Not approved: " : ""}${clipLine(data.summary)}`;
   if (!presentAnswer("result", readingMs(copyable), data.run_id, data.thread_id, line)) return;
+  setExpanded(false);
+  drawBody();
   showCard(
     el(
       "div",
@@ -986,9 +1007,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
       head(icon(glyph), label),
       threadLines(),
       data.note ? el("p", { class: "note" }, data.note) : null,
-      el("p", { class: "summary" }, data.summary),
-      renderDetails(data.details),
-      ...finished.map((a) => el("section", { class: "artifact", "aria-label": a.title }, el("h3", { class: "artifact-title" }, a.title), renderDetails(a.data))),
+      body,
       el(
         "footer",
         { class: "card-foot" },
@@ -996,7 +1015,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         el(
           "span",
           { class: "actions actions--inline" },
-          readAll,
+          readMore,
           // What the run produced (the sent email) stays one click (or "show me") away.
           artifacts.size > finished.length ? el("button", { class: "btn btn--ghost btn--small", onclick: () => askView("show") }, "Show") : null,
           data.status === "done" ? copyButton(copyable) : null,
@@ -1186,8 +1205,15 @@ function describeBackendProblem(problem: string): Problem {
 
 // ---- hover and drag hold an answer (the presenter keeps the time) -------------------
 
-function setHold(): void {
-  pres = P.onHold(pres, hovering || dragging, Date.now());
+/** "Read more" holds the answer while it's open; "Read less" gives back the time it had left. */
+function setExpanded(open: boolean): void {
+  if (open === expanded) return;
+  expanded = open;
+  setHold(!open);
+}
+
+function setHold(restore = false): void {
+  pres = P.onHold(pres, hovering || dragging || expanded, Date.now(), restore);
   showDeadline();
 }
 
@@ -1488,8 +1514,9 @@ void listen("already-running", () => renderAlreadyRunning());
 void listen<{ anchor: string }>("placement", ({ payload }) => setAnchor(payload.anchor));
 void listen<boolean>("drag", ({ payload }) => {
   stage.dataset.dragging = String(payload);
+  const ended = dragging && !payload;
   dragging = payload;
-  setHold();
+  setHold(ended);
 });
 
 void invoke<{ anchor: string }>("get_placement").then((p) => setAnchor(p.anchor)).catch(() => {});

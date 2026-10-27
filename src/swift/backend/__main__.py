@@ -156,6 +156,7 @@ def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | Non
                 confirm_strong=cfg.confirm_strong,
                 turn_limits=dict(cfg.turn_limits),
                 tools=tools,
+                web=cfg.web,
             )
         case _:
             return EchoExecutor()

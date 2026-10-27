@@ -145,6 +145,25 @@ pub fn overlay_rect(area: Area, scale: f64, anchor: Anchor) -> Rect {
     (x, y, w, h)
 }
 
+/// The overlay's rect where the owner dropped it (`dropped`: its top-left corner as a fraction
+/// of the work area), the same size as at an anchor and kept inside the work area.
+pub fn dropped_rect(area: Area, scale: f64, anchor: Anchor, (fx, fy): (f64, f64)) -> Rect {
+    let (_, _, w, h) = overlay_rect(area, scale, anchor);
+    let x = area.x + (fx.clamp(0.0, 1.0) * area.w as f64).round() as i32;
+    let y = area.y + (fy.clamp(0.0, 1.0) * area.h as f64).round() as i32;
+    let x = x.clamp(area.x, area.x + (area.w as i32 - w).max(0));
+    let y = y.clamp(area.y, area.y + (area.h as i32 - h).max(0));
+    (x, y, w, h)
+}
+
+/// Where a window's top-left corner is, as a fraction of the work area (what `dropped` keeps).
+pub fn to_fraction(area: Area, (x, y): (i32, i32)) -> (f64, f64) {
+    (
+        ((x - area.x) as f64 / area.w.max(1) as f64).clamp(0.0, 1.0),
+        ((y - area.y) as f64 / area.h.max(1) as f64).clamp(0.0, 1.0),
+    )
+}
+
 /// The part of the overlay where cards paint, in physical pixels: a band at the anchored edge.
 pub fn card_zone(area: Area, scale: f64, anchor: Anchor) -> Rect {
     let scale = sane(scale);
@@ -272,6 +291,17 @@ mod tests {
         // A tiny work area where the zones overlap: nowhere better to go.
         let tiny = Area { x: 0, y: 0, w: 600, h: 400 };
         assert_eq!(choose_anchor(tiny, 1.0, BC, &[(300, 200)]), BC);
+    }
+
+    #[test]
+    fn a_dropped_overlay_stays_where_it_was_dropped() {
+        let (x, y, w, h) = overlay_rect(FHD, 1.0, Anchor::TopCenter);
+        let dropped = to_fraction(FHD, (x + 300, y + 200));
+        let r = dropped_rect(FHD, 1.0, Anchor::TopCenter, dropped);
+        assert_eq!(r, (x + 300, y + 200, w, h));
+        // Never off the work area, whatever was remembered.
+        let (rx, ry, _, _) = dropped_rect(FHD, 1.0, Anchor::TopCenter, (1.0, 1.0));
+        assert!(rx + w <= FHD.x + FHD.w as i32 && ry + h <= FHD.y + FHD.h as i32);
     }
 
     #[test]

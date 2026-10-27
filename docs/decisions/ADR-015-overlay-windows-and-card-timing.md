@@ -246,3 +246,16 @@ The rule: **nothing that needs an answer hides while the owner is present and ha
 Owner checks 15, 16 (the stack) and 16b (typing), and 19 (drag) are the proof.
 
 **Coordination:** a second request said *while the first is still being captured* is queued by the voice and audio session's capture queue. Once it becomes a request, it gets its chip and "Got it" line from `_launch` / `_chip_now` like any other.
+
+## 12. Read more in place, cards stay where dropped, web for ordinary requests (owner checks of 2026-10-28)
+
+- **Read more / Read less replaces Read all.** The owner found the separate reader window hard to read and wanted the card itself to open. A long answer shows six lines and the first six rows. **Read more** opens the same card to the whole answer, which scrolls inside it. **Read less** closes it again. While the card is open it holds, as hover does, and closing gives back the time it had left. The reader pane's code stays, but nothing opens it from a card now.
+- **A dragged card stays where it was dropped.** The real cause of "it disappears when I let go": the main overlay snapped to the nearest corner, which moved the card out from under the pointer. Hover ended, and an answer faded 2.5 s later.
+  - Now the drop point is remembered (`dropped` in `overlay.json`, a fraction of the work area) and the overlay stays there. The nearest anchor still decides which way cards grow and which side the other windows go.
+  - Choosing a corner from the tray's Position menu clears the drop point. Smart placement still moves off the text caret.
+  - After a drag, an answer gets back the time it had left (at least 2.5 s).
+- **Web search and fetch in ordinary requests.** "Research the history of tea and summarise it" had no web: only workflows that declare `web.search` / `web.fetch` got it.
+  - Now `executor.web` (on by default) allows both, without a card, in runs that aren't in a workflow. They only read.
+  - A workflow that doesn't declare them (calendar, email) still never gets them, so a web page can't steer a run that holds Swift's tools.
+
+Checks 18, 19 and 19b are the proof.

@@ -106,7 +106,7 @@ fn place_on_cursor_monitor(app: &AppHandle, window: &WebviewWindow, hwnd: isize,
     let scale = monitor.scale_factor();
     let wa = monitor.work_area();
     let area = placement::Area { x: wa.position.x, y: wa.position.y, w: wa.size.width, h: wa.size.height };
-    let (anchor, flipped) = {
+    let (anchor, flipped, dropped) = {
         let state = app.state::<Placement>();
         let mut p = state.0.lock().unwrap();
         let anchor = match how {
@@ -119,9 +119,13 @@ fn place_on_cursor_monitor(app: &AppHandle, window: &WebviewWindow, hwnd: isize,
             Place::Smart => p.prefs.anchor,
         };
         p.current = anchor;
-        (anchor, anchor != p.prefs.anchor)
+        (anchor, anchor != p.prefs.anchor, p.prefs.dropped)
     };
-    let (x, y, w, h) = placement::overlay_rect(area, scale, anchor);
+    // Where the owner dropped it, unless smart placement moved it off the text caret.
+    let (x, y, w, h) = match dropped {
+        Some(f) if !flipped => placement::dropped_rect(area, scale, anchor, f),
+        _ => placement::overlay_rect(area, scale, anchor),
+    };
 
     // Twice: crossing into a monitor with a different DPI makes Windows resize
     // the window during the first call (WM_DPICHANGED); the second restores our rect.
@@ -148,12 +152,14 @@ fn place_on_main(app: &AppHandle, how: Place) {
     });
 }
 
-/// The owner chose where the overlay goes (tray menu or a drag): remember it and move there.
-fn choose_anchor(app: &AppHandle, anchor: Anchor) {
+/// The owner chose where the overlay goes (the tray menu, or a drag with where it was dropped):
+/// remember it and move there.
+fn choose_anchor(app: &AppHandle, anchor: Anchor, dropped: Option<(f64, f64)>) {
     {
         let state = app.state::<Placement>();
         let mut p = state.0.lock().unwrap();
         p.prefs.anchor = anchor;
+        p.prefs.dropped = dropped;
         prefs::save(&p.prefs);
     }
     sync_tray(app);
@@ -342,7 +348,13 @@ async fn begin_drag(app: AppHandle) -> Result<(), String> {
                 placement::Area { x: wa.position.x, y: wa.position.y, w: wa.size.width, h: wa.size.height }
             });
         match area {
-            Some(area) => choose_anchor(&app, placement::nearest_anchor(area, last)),
+            // It stays where it was dropped (owner checks 2026-10-28: snapping to a corner moved
+            // the card out from under the pointer, and it faded); the nearest anchor still says
+            // which way cards grow and where the other windows go.
+            Some(area) => {
+                let (x, y) = (origin.0 + last.0 - start.0, origin.1 + last.1 - start.1);
+                choose_anchor(&app, placement::nearest_anchor(area, last), Some(placement::to_fraction(area, (x, y))));
+            }
             None => place_on_main(&app, Place::Smart),
         }
     });
@@ -757,7 +769,7 @@ pub fn run() {
                     }
                     id => {
                         if let Some(anchor) = id.strip_prefix("anchor:").and_then(Anchor::from_id) {
-                            choose_anchor(app, anchor);
+                            choose_anchor(app, anchor, None);
                         }
                     }
                 });

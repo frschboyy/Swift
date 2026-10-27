@@ -146,6 +146,9 @@ class ExecutorSettings(_Section):
     escalation: bool = True
     # Ask on the overlay before switching a run to the strong model.
     confirm_strong: bool = False
+    # Web search and fetch for ordinary requests ("research the history of tea"). They only read,
+    # so there's no card; a workflow gets them only if its manifest declares them.
+    web: bool = True
     # Tool-using steps on one model before Swift moves the run up.
     turn_limits: dict[Literal["light", "standard"], int] = Field(default_factory=lambda: {"light": 8, "standard": 25})
     # Quick facts and everyday language: one tool-free call to the light model, no agent run (ADR-007 §10).

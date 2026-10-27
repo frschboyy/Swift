@@ -33,8 +33,9 @@
   Claude Code never loads skills itself (``setting_sources=[]``). In a workflow run the tool
   host refuses Swift tools the manifest doesn't declare, and ``can_use_tool`` refuses Claude
   Code's own tools that go through it (Edit, Write, Bash) without a card. Web search and
-  fetch exist only for runs whose workflow declares ``web.search`` / ``web.fetch``; they are
-  allowed there without a card and refused everywhere else.
+  fetch are allowed without a card in runs whose workflow declares ``web.search`` /
+  ``web.fetch``, and in ordinary requests (no workflow) when ``web`` is on: they only read.
+  A workflow that doesn't declare them never gets them.
 - **Several runs at once (ADR-013 phase B).** Each run has its own CLI; Swift's tools are
   called with the run's id, so the tool host uses that run's scope.
 - **Changing course (ADR-014 §7).** ``redirect`` hands the owner's "actually, …" to a running
@@ -200,8 +201,12 @@ class ClaudeCodeExecutor:
         confirm_strong: bool = False,
         turn_limits: dict[str, int] | None = None,
         tools: ToolHost | None = None,
+        web: bool = False,
     ) -> None:
         self.cwd = cwd
+        # Web search and fetch for ordinary requests ("research the history of tea"): read-only,
+        # so no card; workflows still get them only by declaring them (owner checks 2026-10-28).
+        self.web = web
         self.allowed_tools = list(allowed_tools)
         self.confirm_tools = [t for t in confirm_tools if t not in self.allowed_tools]
         self.max_budget_usd = max_budget_usd
@@ -375,7 +380,7 @@ class ClaudeCodeExecutor:
         mcp_servers = {"swift": create_sdk_mcp_server("swift", tools=sdk_tools)} if sdk_tools else {}
         extra_tools = [f"mcp__swift__{t.name}" for t in sdk_tools]
         # Present in every CLI (it is connected before the request is known), allowed per run in _ask.
-        web_tools = [t for t in PROVIDER_TOOLS if t not in self.allowed_tools] if self.tools is not None else []
+        web_tools = [t for t in PROVIDER_TOOLS if t not in self.allowed_tools] if self.tools is not None or self.web else []
 
         return ClaudeAgentOptions(
             cwd=self._check_cwd(),
@@ -497,7 +502,8 @@ class ClaudeCodeExecutor:
             return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
         host = self.tools
         if name in PROVIDER_TOOLS:
-            if host is not None and host.permits(PROVIDER_TOOLS[name], run_id):
+            in_workflow = host is not None and host.in_workflow_for(run_id)
+            if (host is not None and host.permits(PROVIDER_TOOLS[name], run_id)) or (self.web and not in_workflow):
                 return PermissionResultAllow(updated_input=args)
             return PermissionResultDeny(message=NO_WEB_MESSAGE)
         if host is not None and host.in_workflow_for(run_id):

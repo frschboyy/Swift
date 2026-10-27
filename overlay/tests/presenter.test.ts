@@ -109,6 +109,20 @@ test("hover holds an answer; letting go gives it RESUME_MS", () => {
   assert.equal(o.p.card.kind, "none");
 });
 
+test("after a drag, a card gets back the time it had left", () => {
+  const o = new Overlay();
+  o.state("working", "cc-1", "t1");
+  o.answer("result", 6000, "cc-1", "t1");
+  o.wait(1000);
+  o.p = onHold(o.p, true, o.now);  // picked up with 5 s left
+  o.wait(3000);
+  o.p = onHold(o.p, false, o.now, true);  // dropped: the 5 s again, not 2.5 s
+  o.wait(4750);
+  assert.equal(o.p.card.kind, "result");
+  o.wait(500);
+  assert.equal(o.p.card.kind, "none");
+});
+
 test("check 26: letting go of a question never shortens its reply window", () => {
   const o = new Overlay();
   o.state("working", "cc-1", "t1");

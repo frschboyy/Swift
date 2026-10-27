@@ -179,7 +179,7 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("16b a typed follow-up continued the thread", any(
             r.get("source") == "typed" and len(by_thread.get(r.get("thread") or "", [])) > 1 for r in rows), ""),
         ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
-        ("18-20 windows, the reader, chips, moved windows", True, "check on screen: nothing cut off; Read all; chip after a minute"),
+        ("18-20 windows, the reader, chips, moved windows", True, "check on screen: nothing cut off; Read more opens in place; dropped cards stay put"),
         ("21 a card waited behind another, then answered", any(
             a.get("queued") and a.get("decision") in ("approve", "reject")
             for r in rows for a in r.get("approvals", [])), ""),

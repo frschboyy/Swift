@@ -14,6 +14,10 @@ use crate::placement::Anchor;
 pub struct Prefs {
     /// Where the owner put the overlay.
     pub anchor: Anchor,
+    /// Where the owner dropped the overlay after a drag, as a fraction of the work area (its
+    /// top-left corner): it stays there instead of snapping to `anchor`, which still says which
+    /// way cards grow. A Position choice from the tray clears it.
+    pub dropped: Option<(f64, f64)>,
     /// Flip to the opposite edge when the cards would cover the text caret.
     pub smart: bool,
     /// Where the owner dragged each kind of pane window (ADR-015 §3), as fractions of the work area.
@@ -32,7 +36,7 @@ pub struct PanePlaces {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { anchor: Anchor::default(), smart: true, panes: PanePlaces::default() }
+        Prefs { anchor: Anchor::default(), dropped: None, smart: true, panes: PanePlaces::default() }
     }
 }
 
@@ -70,9 +74,9 @@ mod tests {
     #[test]
     fn reads_partial_and_unknown_files() {
         let p: Prefs = serde_json::from_str(r#"{"anchor": "top-right"}"#).unwrap();
-        assert_eq!(p, Prefs { anchor: Anchor::TopRight, smart: true, panes: PanePlaces::default() });
+        assert_eq!(p, Prefs { anchor: Anchor::TopRight, dropped: None, smart: true, panes: PanePlaces::default() });
         let p: Prefs = serde_json::from_str(r#"{"smart": false, "later": 1}"#).unwrap();
-        assert_eq!(p, Prefs { anchor: Anchor::BottomCenter, smart: false, panes: PanePlaces::default() });
+        assert_eq!(p, Prefs { anchor: Anchor::BottomCenter, dropped: None, smart: false, panes: PanePlaces::default() });
         let p: Prefs = serde_json::from_str(r#"{"panes": {"reader": [0.1, 0.2]}}"#).unwrap();
         assert_eq!(p.panes, PanePlaces { reader: Some((0.1, 0.2)), ..PanePlaces::default() });
         assert!(serde_json::from_str::<Prefs>(r#"{"anchor": "middle"}"#).is_err());

@@ -243,15 +243,18 @@ export function onFollowup(p: Presenter, open: boolean, seconds: number, now: nu
   return { ...p, followupUntil: until, card: { ...p.card, fadeAt } };
 }
 
-/** Hover or drag holds an answer; letting go gives it RESUME_MS more (ADR-009). */
-export function onHold(p: Presenter, holding: boolean, now: number): Presenter {
+/** Hover or drag holds an answer; letting go gives it RESUME_MS more (ADR-009). After a drag
+ * (``restore``) it gets back the time it had left, at least RESUME_MS: moving a card is not
+ * being done with it (owner checks 2026-10-28: a dragged card vanished soon after release). */
+export function onHold(p: Presenter, holding: boolean, now: number, restore = false): Presenter {
   if (p.card.fadeAt === null) return p;
   if (holding) return p.pausedLeft !== null ? p : { ...p, pausedLeft: Math.max(0, p.card.fadeAt - now) };
   if (p.pausedLeft === null) return p;
   // Never sooner than Swift listens for the reply: a question stays its whole window (check 26,
   // 2026-10-27: the mouse leaving the card gave it 2.5 s, whatever the backend's 25 s).
   const listening = p.followupUntil > now ? p.followupUntil + 500 : 0;
-  return { ...p, pausedLeft: null, card: { ...p.card, fadeAt: Math.max(now + RESUME_MS, listening) } };
+  const more = restore ? Math.max(RESUME_MS, p.pausedLeft) : RESUME_MS;
+  return { ...p, pausedLeft: null, card: { ...p.card, fadeAt: Math.max(now + more, listening) } };
 }
 
 /** The owner closed the card. Only an answer or notice can be closed: a request goes on. */

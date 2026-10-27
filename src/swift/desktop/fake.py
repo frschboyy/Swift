@@ -57,6 +57,7 @@ class FakeDesktop:
         self.never_read = never_read or NeverRead()
         self.writes: list[tuple[str, str]] = []
         self.opened: list[str] = []
+        self.shown: list[WriteReceipt] = []
         self.filled: list[tuple[str, list[str], str, str]] = []
         self.undone: list[WriteReceipt] = []
         # Set by a test: the reason the target changed, the owner's input tick, an app that fails.
@@ -112,6 +113,12 @@ class FakeDesktop:
         app.text = before
         self.undone.append(receipt)
         return f"Undid what I wrote in {receipt.app}."
+
+    async def show(self, receipt: WriteReceipt) -> str:
+        app, _ = receipt.target
+        self.front = app
+        self.shown.append(receipt)
+        return f"Here it is in {receipt.app}."
 
     async def open_path(self, path: str) -> None:
         self.opened.append(path)

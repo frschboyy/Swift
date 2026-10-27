@@ -162,7 +162,7 @@
 {"text": "Read me the first section of ADR seven.", "route": "agent", "demand": "light"}
 {"text": "Is there a TODO in the overlay source?", "route": "agent", "demand": "light"}
 {"text": "Set the push to talk hotkey to control shift S in the config.", "route": "agent", "demand": "light"}
-{"text": "What's two hundred and forty times seventeen?", "route": "agent", "demand": "light"}
+{"text": "What's two hundred and forty times seventeen?", "route": "local", "demand": null}
 {"text": "Draft a polite reply declining the meeting.", "route": "agent", "demand": "light"}
 {"text": "Pull the latest changes in the Swift repo.", "route": "agent", "demand": "light"}
 {"text": "Use opus to review the routing design for gaps.", "route": "agent", "demand": "standard"}
@@ -172,7 +172,7 @@
 {"text": "Yes, go ahead and run it.", "route": "control", "demand": null}
 {"text": "say that again", "route": "control", "demand": null}
 {"text": "Quiet.", "route": "control", "demand": null}
-{"text": "What's the time in Bucharest?", "route": "agent", "demand": "light"}
+{"text": "What's the time in Bucharest?", "route": "local", "demand": null}
 {"text": "Open the Swift project in VS Code.", "route": "local", "demand": null}
 {"text": "Launch Chrome.", "route": "local", "demand": null}
 {"text": "what's the date", "route": "local", "demand": null}

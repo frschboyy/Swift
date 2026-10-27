@@ -108,6 +108,17 @@ def is_question(text: str) -> bool:
     return text.rstrip().endswith("?") or bool(words) and words[0] in _QUESTION
 
 
+_SHOW = re.compile(r"(?:show|let me see|bring up|pull up|where is|where's)\b")
+
+
+def is_show(text: str) -> bool:
+    """Whether a request asks to see something ("show me the Word document"): never a workflow (ADR-007 §10)."""
+    said = " ".join(_WORD.findall(text.lower()))
+    lead = re.match(_LEAD, said)
+    said = said[lead.end():] if lead else said
+    return bool(_SHOW.match(re.sub(r"^(?:(?:and|so|ok|okay|now|then|just)\s+)+", "", said)))
+
+
 @dataclass(frozen=True)
 class Intent:
     """Run when a request has one of ``actions`` and one of ``subjects`` (whole words or phrases)."""
@@ -198,6 +209,8 @@ class Library:
 
     def match(self, text: str) -> Match | None:
         said = text.strip()
+        if is_show(said):
+            return None  # "show me the Word document" asks to see something, never to run a workflow
         best: tuple[int, Package, dict[str, str]] | None = None
         for package in self.packages.values():
             for trigger in package.triggers:

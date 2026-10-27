@@ -51,6 +51,7 @@ executor:
   max_budget_usd: 1.0
   confirm_timeout_s: 120
   prewarm: true                    # keep one Claude Code started and waiting (saves 5-13 s per request)
+  quick_answers: true              # quick facts and wording: one tool-free call to the light model (ADR-007 §10)
   models:                          # starting model by how demanding a request looks (ADR-007)
     light: "claude-haiku-5-5"      # questions, lookups, short drafts, single commands
     standard: "claude-sonnet-5-5"  # changes, investigations; also when unsure

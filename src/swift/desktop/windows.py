@@ -622,6 +622,36 @@ class WindowsDesktop:
         _chord(VK_CONTROL, ord("Z"), receipt.chunks)
         return f"Pressed Ctrl+Z in {receipt.app} {receipt.chunks} time{'s' if receipt.chunks != 1 else ''}."
 
+    async def show(self, receipt: WriteReceipt) -> str:
+        return await self._run(self._show, receipt)
+
+    def _show(self, receipt: WriteReceipt) -> str:
+        kind = receipt.target[0]
+        if kind == "word":
+            try:
+                word = _word(create=False)
+            except Exception as exc:  # noqa: BLE001 - Word was closed
+                raise DesktopError("Word isn't open any more.", "") from exc
+            doc = next((d for d in word.Documents if d.FullName == receipt.target[1]), None)
+            if doc is None:
+                raise DesktopError("That Word document isn't open any more.", "")
+            word.Visible = True
+            doc.Activate()
+            word.Activate()
+            try:
+                hwnd = int(word.ActiveWindow.Hwnd)  # Word 2013 and later
+            except Exception:  # noqa: BLE001 - word.Activate() already brought it up
+                hwnd = 0
+        elif kind == "keys":
+            hwnd = receipt.target[1]
+        else:
+            raise DesktopError(f"Swift can't bring {receipt.app} to the front.", f"Switch to {receipt.app} yourself.")
+        if hwnd:
+            if user32.IsIconic(hwnd):
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
+        return f"Here it is in {receipt.app}."
+
     async def open_path(self, path: str) -> None:
         await asyncio.to_thread(os.startfile, path)  # type: ignore[attr-defined]  # Windows only
 

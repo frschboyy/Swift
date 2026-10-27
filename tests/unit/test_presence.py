@@ -13,6 +13,7 @@ from swift.audio.recorder import SAMPLE_RATE
 from swift.ipc.protocol import Message
 from swift.lifecycle import Lifecycle
 from swift.presence import AWAY_S, IDLE_S, POLL_S, Change, PresenceMonitor
+from swift.stt.transcriber import Transcription
 
 from test_recorder_preroll import FakeStream, fake_sd  # noqa: F401 - the fake sounddevice fixture
 from test_session import Recorder as Outbox
@@ -145,7 +146,7 @@ def lifecycle(wake: bool = True) -> tuple[Lifecycle, PresenceMonitor, Probe, Clo
     session = types.SimpleNamespace(listening_paused=False)
     probe, clock = Probe(), Clock()
     life = Lifecycle(session, out, recorder=FakeRecorder(), transcriber=FakeStt(), executor=FakeExecutor(),
-                     wake_enabled=wake, clock=clock)
+                     wake_enabled=wake, clock=clock, spare_after_speech_s=0.0)
     m = PresenceMonitor(probe, lambda c: None, clock=clock)
     life.attach(m)
     return life, m, probe, clock, out
@@ -167,7 +168,10 @@ async def test_locking_pauses_listening_and_coming_back_warms_up() -> None:
     probe.is_locked = False
     await change(life, m, clock)
     assert not life.session.listening_paused and life.recorder.calls == ["pause", "resume"]
-    assert life.transcriber.calls == ["load"] and life.executor.calls == ["ensure"]
+    assert life.transcriber.calls == ["load"]
+    assert life._warming is not None
+    await life._warming  # the warm Claude Code follows the speech model
+    assert life.executor.calls == ["ensure"]
     assert out.last("presence")["listening"] is True
 
 
@@ -284,3 +288,64 @@ async def test_claude_replaces_a_spare_that_exited() -> None:
     assert connects == ["connect"]
     await ex.release_spare()
     assert ex._spare is None
+
+
+# ---- coming back: the speech model first (owner checks, 2026-10-27) --------------------------
+
+
+class SlowStt:
+    """Loads in ``load_s``; a transcription is slow (9 s, as logged) while a Claude Code is starting."""
+
+    def __init__(self, executor: SlowSpare, load_s: float = 0.05) -> None:
+        self.executor = executor
+        self.load_s = load_s
+        self.loaded = asyncio.Event()
+        self.order: list[str] = executor.order
+        self.busy = False
+
+    def start_loading(self) -> None:
+        asyncio.get_running_loop().call_later(self.load_s, self.loaded.set)
+
+    async def wait_loaded(self) -> None:
+        await self.loaded.wait()
+        self.order.append("speech loaded")
+
+    def prime(self) -> None:
+        self.order.append("speech primed")
+
+    async def transcribe(self, audio: Any) -> Transcription:
+        await self.wait_loaded()
+        return Transcription("Hey Swift, what time is it?", 8938 if self.executor.starting else 300, len(audio) / SAMPLE_RATE)
+
+
+class SlowSpare:
+    """A warm Claude Code that takes a while to start, and competes for the CPU meanwhile."""
+
+    def __init__(self) -> None:
+        self.order: list[str] = []
+        self.starting = False
+
+    async def ensure_spare(self) -> None:
+        # Like the real one: returns at once, the CLI starts in the background.
+        self.order.append("spare")
+        self.starting = True
+        asyncio.get_running_loop().call_later(0.5, setattr, self, "starting", False)
+
+
+async def test_coming_back_readies_the_speech_model_before_the_warm_claude() -> None:
+    spare = SlowSpare()
+    stt = SlowStt(spare)
+    session, out, records, rec, _ = make_wake_session("")
+    session.transcriber = stt
+    life = Lifecycle(session, Outbox(), transcriber=stt, executor=spare, spare_after_speech_s=0.2)
+    await life.warm_up()  # returns at once
+    assert spare.order == []
+    # "Hey Swift, ..." right after unlocking, while the speech model is still loading.
+    await session.hear_wake(np.zeros(SAMPLE_RATE, dtype=np.int16), time.monotonic())
+    assert "spare" not in spare.order  # no Claude Code started yet
+    assert session._task is not None
+    await asyncio.wait_for(session._task, 2)
+    assert records[0]["source"] == "wake" and records[0]["stt_ms"] == 300  # not 9 s
+    assert life._warming is not None
+    await life._warming
+    assert spare.order[-1] == "spare"

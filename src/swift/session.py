@@ -208,6 +208,8 @@ CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
 # Messages that say which thread they belong to.
 THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
 CONFIRM_TIMEOUT_S = 120.0
+# After an answer that asks something, Swift waits this long for the reply (``wake.question_s``).
+QUESTION_S = 25.0
 # Wake listening never waits longer than this for one utterance's transcription.
 WAKE_STT_TIMEOUT_S = 20.0
 # A workflow offer waits this long for "yes" or "no".
@@ -268,6 +270,7 @@ class Exchange:
     # The last email or event Swift showed on a card ("To Ada, Subject …"), and whether it went ahead.
     proposed: str = ""
     proposed_done: bool = False
+    thread: str | None = None
 
     def as_context(self, now: float) -> str:
         lines = [
@@ -313,6 +316,11 @@ def _name_words(text: str) -> set[str]:
     return {w for w in _NAME_WORD.findall(text.lower()) if w not in _NAME_STOP and len(w) > 1}
 
 
+def _asks(answer: str) -> bool:
+    """Whether an answer ends by asking the owner something ("Which Tuesday, and what time?")."""
+    return answer.rstrip(" \t\r\n\"'”’)*_").endswith("?")
+
+
 def _short_title(text: str) -> str:
     """A request's row title: its first few words ("Research the history of…")."""
     words = strip_wake(text).split()
@@ -340,6 +348,8 @@ class Run:
     # The request as sent on (for parking it), and as sent to the provider (for starting again).
     request: str | None = None
     sent: str | None = None
+    # The request in the owner's own words (the "Unfinished" line's title).
+    said: str | None = None
     launch: dict[str, Any] = field(default_factory=dict)
     # Read when the interaction started; this request only, never logged.
     context: asyncio.Task[DesktopContext | None] | None = None
@@ -480,6 +490,7 @@ class Session:
     _run_started = _per_run("run_started", "When the provider started (time.monotonic()).")
     _swift_declined = _per_run("swift_declined", "Title of a Swift card the owner rejected or left.")
     _request = _per_run("request", "The request as sent on, for parking it.")
+    _said = _per_run("said", "The request in the owner's words, for parking it.")
     _context = _per_run("context", "Where the owner was when it started (desktop).")
     _note = _per_run("note", "Swift's aside above its answer.")
     _correction = _per_run("correction", "A change for a card the provider couldn't take: the next request.")
@@ -510,9 +521,11 @@ class Session:
         noisy_db: float = NOISY_DB,
         wake_greetings: tuple[str, ...] = (),
         wake_min_p: float = 0.5,
+        wake_phrase_min_p: float = 0.2,
         wake_end_silence_s: float = 0.9,
         wake_start_timeout_s: float = 5.0,
         wake_followup_s: float = 0.0,
+        wake_question_s: float = QUESTION_S,
         tools: ToolHost | None = None,
         confirm_timeout_s: float = CONFIRM_TIMEOUT_S,
         library: Library | None = None,
@@ -567,11 +580,16 @@ class Session:
         self.noisy_db = noisy_db
         self.wake_greetings = wake_greetings
         self.wake_min_p = wake_min_p
+        # The lower bar for an utterance that is a wake phrase, when nothing is running (0 = none).
+        self.wake_phrase_min_p = wake_phrase_min_p
         self.wake_end_silence_s = wake_end_silence_s
         self.wake_start_timeout_s = wake_start_timeout_s
         # After an answer, the open microphone takes a reply without the wake phrase for this
         # long (0: off). The overlay shows it on the card.
         self.wake_followup_s = wake_followup_s
+        # After an answer that asks something: the reply window (with wake listening on), and how
+        # long before its thread is parked unanswered (0: never parked).
+        self.wake_question_s = wake_question_s
         # The follow-up window: (opened, closes) in time.monotonic(), or None.
         self._followup: tuple[float, float] | None = None
         # Swift's workflow tools (ADR-010); None: providers get none.
@@ -590,11 +608,15 @@ class Session:
         self.on_owner: Callable[[], None] | None = None
         # The "Unfinished: …" line shown last: (thread, when).
         self._offered: tuple[str, float] | None = None
+        # An answer that asked something, parked if nothing is said before its timer fires.
+        self._question: tuple[Parked, asyncio.TimerHandle] | None = None
         # A workflow offered for the last request, its text, and when: (match, text, at).
         self._offer: tuple[Match, str, float] | None = None
         self._swift_ids = count(1)
         self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
         self._hearing = False
+        # When wake listening last finished a transcription (time.monotonic()), or None.
+        self._heard_at: float | None = None
         self._wake_warned = False
         # Screen locked or PC asleep (ADR-014): the open microphone is ignored (threat model T7).
         self.listening_paused = False
@@ -602,8 +624,8 @@ class Session:
         self.on_ready: Callable[[], Awaitable[None]] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
-            ("heard", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure", "other_speech",
-             "wake", "followup", "hands_free"), 0,
+            ("heard", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure", "unsure_wake",
+             "other_speech", "wake", "followup", "hands_free"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -929,6 +951,9 @@ class Session:
                 with contextlib.suppress(asyncio.CancelledError):
                     await run.task
         await self.cancel()
+        if self._question is not None:  # quitting while Swift's question waits: keep it, like a stopped run
+            self._question[1].cancel()
+            self._park_question(self._question[0])
 
     # ---- interaction -------------------------------------------------------
 
@@ -1031,8 +1056,14 @@ class Session:
             # Never stuck: a transcription that hangs would leave wake listening deaf for good.
             heard = await asyncio.wait_for(self.transcriber.transcribe(audio), WAKE_STT_TIMEOUT_S)
         except TimeoutError:
+            # Seen twice while the PC sat idle (2026-10-27): the length and the quiet before it tell a
+            # long utterance from a model paged out after a long quiet spell.
             self.wake_stats["stt_timeout"] += 1
-            logger.warning("wake listening: a transcription took too long; skipped", timeout_s=WAKE_STT_TIMEOUT_S)
+            logger.warning(
+                "wake listening: a transcription took too long; skipped", timeout_s=WAKE_STT_TIMEOUT_S,
+                audio_s=round(len(audio) / SAMPLE_RATE, 1),
+                idle_s=None if self._heard_at is None else int(time.monotonic() - self._heard_at),
+            )
             return
         except SttUnavailable as exc:
             self.wake_stats["stt_failed"] += 1
@@ -1042,11 +1073,19 @@ class Session:
             return
         finally:
             self._hearing = False
-        if self.wake_min_p and heard.words and sum(w.p for w in heard.words) / len(heard.words) < self.wake_min_p:
-            self.wake_stats["unsure"] += 1
-            return
+            self._heard_at = time.monotonic()
         match = match_wake(heard.text, self.wake_greetings)
-        if self._front_busy() or self._capturing():
+        busy = self._front_busy() or self._capturing()
+        mean_p = sum(w.p for w in heard.words) / len(heard.words) if heard.words else None
+        if self.wake_min_p and mean_p is not None and mean_p < self.wake_min_p:
+            # Matched first: a wake phrase at rest gets the lower bar, since the model is often
+            # unsure of a name (owner checks, 2026-10-27: half of what it heard was "unsure").
+            # Everything else keeps the bar: follow-ups, other speech, answers during a run.
+            if busy or match is None or mean_p < self.wake_phrase_min_p:
+                self.wake_stats["unsure"] += 1
+                return
+            self.wake_stats["unsure_wake"] += 1
+        if busy:
             if self._hands_free():  # not if the hotkey was pressed meanwhile
                 self.wake_stats["hands_free"] += 1
                 addressed = match_address(heard.text, self.wake_greetings)
@@ -1170,13 +1209,18 @@ class Session:
 
         self._launch(record, capture, self.executor, self.executor.start)
 
-    async def _open_followup(self) -> None:
-        """After an answer: listen for a reply without the wake phrase, and say so on the card."""
+    async def _open_followup(self, question: bool = False) -> None:
+        """After an answer: listen for a reply without the wake phrase, and say so on the card.
+
+        An answer that asks something ("Which Tuesday, and what time?") gets ``wake_question_s``:
+        the owner has to think, not just say "thanks" (owner checks, 2026-10-27).
+        """
         if self.wake_followup_s <= 0 or self.recorder is None or self._current() is not self._focus:
             return  # an answer in the background isn't on screen to reply to
+        seconds = max(self.wake_followup_s, self.wake_question_s) if question else self.wake_followup_s
         now = time.monotonic()
-        self._followup = (now, now + self.wake_followup_s)
-        await self._send(outbound("followup", open=True, seconds=self.wake_followup_s))
+        self._followup = (now, now + seconds)
+        await self._send(outbound("followup", open=True, seconds=seconds, question=question))
 
     async def _close_followup(self) -> None:
         if self._followup is None:
@@ -1319,6 +1363,7 @@ class Session:
         record["thread"] = self._thread
         if run is self._focus:
             await self._close_followup()
+        self._drop_question()
         started = time.monotonic()
         # Any new request answers or drops the last workflow offer.
         offer, self._offer = self._offer, None
@@ -1383,7 +1428,10 @@ class Session:
             resumed: Parked | None = None
             if decision is not None and self.parked is not None and answered is None:
                 if decision.action == "resume":
-                    resumed = self.parked.newest()
+                    # Just after "Unfinished: …", the one it showed; otherwise the newest.
+                    shown = self._offer_shown()
+                    resumed = (self.parked.get(shown) if shown is not None else None) or self.parked.newest()
+                    self._offered = None
                     if resumed is None and self._last_exchange is not None:
                         decision = _to_agent(decision)  # nothing parked: "go on" with the last answer
                 elif decision.route == "agent":
@@ -1433,6 +1481,7 @@ class Session:
                         request = package.request(workflow.inputs, decision.text)
                         prefer = None if package.provider == "any" else package.provider
                     self._request = request
+                    self._said = resumed.words if resumed is not None else decision.text
                     request = await self._with_desktop(request, decision.text, record)
                     if resumed is not None:
                         request = resumed.as_context(time.time()) + request
@@ -1504,7 +1553,7 @@ class Session:
             self._park(record)
             self._close_scope()
             self._note = None
-            self._request = None
+            self._request = self._said = None
             if self._run_started is not None and "run_ms" not in record:
                 record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
             self._run_started = None
@@ -2072,10 +2121,43 @@ class Session:
         self.parked.park(
             Parked(
                 thread=record["thread"], request=self._request, reason=reason, at=time.time(),
-                progress=progress, proposed=_proposal(self._store()),
+                progress=progress, proposed=_proposal(self._store()), said=self._said or "",
             )
         )
         record["parked"] = reason
+
+    def _asked_parked(self, thread: str | None) -> bool:
+        if thread is None or self.parked is None:
+            return False
+        parked = self.parked.get(thread)
+        return parked is not None and parked.reason == "asked"
+
+    def _expect_answer(self, record: dict[str, Any]) -> None:
+        """Swift's answer was a question: if no reply comes in ``wake_question_s``, park the thread,
+        so "continue", or just answering later, picks it up (ADR-014 §5)."""
+        self._drop_question()
+        if self.parked is None or self._request is None or self.wake_question_s <= 0:
+            return
+        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
+        parked = Parked(
+            thread=record["thread"], request=self._request, reason="asked", at=time.time(),
+            progress=progress, proposed=_proposal(self._store()), said=self._said or "",
+        )
+        timer = asyncio.get_running_loop().call_later(self.wake_question_s, self._park_question, parked)
+        self._question = (parked, timer)
+
+    def _park_question(self, parked: Parked) -> None:
+        if self._question is None or self._question[0] is not parked:
+            return
+        self._question = None
+        assert self.parked is not None
+        self.parked.park(replace(parked, at=time.time()))
+
+    def _drop_question(self) -> None:
+        """Something was said (the reply, or anything else): the question no longer waits alone."""
+        if self._question is not None:
+            self._question[1].cancel()
+            self._question = None
 
     def _offer_shown(self) -> str | None:
         """The thread of the "Unfinished: …" line shown in the last couple of minutes, if any."""
@@ -2367,10 +2449,21 @@ class Session:
         )
 
     def _with_context(self, request: str, record: dict[str, Any]) -> str:
-        """Prepend the previous exchange when it is recent enough (ADR-007 §9)."""
+        """Prepend the previous exchange when it is recent enough (ADR-007 §9).
+
+        Also when it ended in a question that was parked unanswered, however long ago: this is
+        most likely the answer, so its thread goes on and is no longer parked.
+        """
         last, now = self._last_exchange, time.monotonic()
-        if last is None or self.followup_s <= 0 or now - last.at > self.followup_s:
+        if last is None or self.followup_s <= 0:
             return request
+        asked = self._asked_parked(last.thread)
+        if now - last.at > self.followup_s and not asked:
+            return request
+        if asked and last.thread is not None and self.parked is not None:
+            self.parked.drop(last.thread)
+            self._thread = record["thread"] = last.thread
+            record["answered_later"] = True
         record["context"] = {"previous": last.id, "age_s": int(now - last.at)}
         return last.as_context(now) + request
 
@@ -2378,7 +2471,7 @@ class Session:
         if result.status in ("done", "rejected"):
             proposed = _proposal(self._store())
             self._last_exchange = Exchange(
-                record["id"], request, result.summary, tuple(self._approved), time.monotonic(),
+                record["id"], request, result.summary, tuple(self._approved), time.monotonic(), thread=record.get("thread"),
                 # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".
                 proposed=proposed, proposed_done=bool(proposed) and record.get("status") == "done",
             )
@@ -2452,5 +2545,9 @@ class Session:
         )
         if result.status in ("done", "rejected"):
             await self._offer_parked()
+        asks = result.status == "done" and self._record is not None and _asks(result.summary)
+        if asks:
+            assert self._record is not None
+            self._expect_answer(self._record)
         if result.status != "cancelled":
-            await self._open_followup()
+            await self._open_followup(question=asks)

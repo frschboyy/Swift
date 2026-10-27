@@ -5,7 +5,7 @@
 | When | Then |
 |---|---|
 | Screen locked, or the PC slept | Hands-free listening off and the open microphone closed (T7). The hotkey still works after unlocking. |
-| Back (unlocked, resumed, first input after being away) | Microphone reopened with a fresh device list, speech model and warm Claude Code made ready, before the owner speaks |
+| Back (unlocked, resumed, first input after being away) | Microphone reopened with a fresh device list and the speech model made ready first (loaded, and run once so it is paged back in); a warm Claude Code only a few seconds later, so the two don't compete for the CPU while the owner says "hey Swift" |
 | Away for ``release_after_s`` (30 min) | Warm Claude Code released. The speech model too, unless hands-free listening still needs it (away only because the keyboard was idle) |
 | Here or idle, every few minutes | A warm Claude Code that exited on its own is replaced, so the first request after a quiet spell isn't slow |
 | Away, for any reason (L2) | An open confirm card is held: hidden, its countdown stopped (``Session.hold_cards``). Back: shown again |
@@ -27,6 +27,11 @@ from swift.presence import Change, PresenceMonitor
 
 RELEASE_AFTER_S = 30 * 60
 SPARE_CHECK_S = 5 * 60
+# After coming back, the warm Claude Code starts this long after the speech model is ready
+# (owner checks, 2026-10-27: both at once made the first "hey Swift" take 9 s to transcribe).
+SPARE_AFTER_SPEECH_S = 5.0
+# ...but never later than this after coming back, whatever the speech model is doing.
+SPARE_AT_MOST_S = 60.0
 TICK_S = 60.0
 
 
@@ -42,6 +47,7 @@ class Lifecycle:
         wake_enabled: bool = False,
         release_after_s: float = RELEASE_AFTER_S,
         spare_check_s: float = SPARE_CHECK_S,
+        spare_after_speech_s: float = SPARE_AFTER_SPEECH_S,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.session = session
@@ -52,11 +58,13 @@ class Lifecycle:
         self.wake_enabled = wake_enabled
         self.release_after_s = release_after_s
         self.spare_check_s = spare_check_s
+        self.spare_after_speech_s = spare_after_speech_s
         self.clock = clock
         self.monitor: PresenceMonitor | None = None
         self.released = False
         self._last_spare_check = clock()
         self._tasks: set[asyncio.Task[None]] = set()
+        self._warming: asyncio.Task[None] | None = None
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
@@ -85,12 +93,43 @@ class Lifecycle:
         await self.announce()
 
     async def warm_up(self) -> None:
-        """The owner is back: get the slow parts ready before they speak."""
+        """The owner is back: get the slow parts ready before they speak, the speech model first.
+
+        Returns at once; the warm Claude Code follows in the background (``_spare_after_speech``).
+        """
         self.released = False
+        logger.info("warming up: the owner is back")
         if self.transcriber is not None and hasattr(self.transcriber, "start_loading"):
             self.transcriber.start_loading()
+        if self._warming is not None:
+            self._warming.cancel()
+        self._warming = asyncio.get_running_loop().create_task(self._spare_after_speech())
+
+    async def _spare_after_speech(self) -> None:
+        t0 = self.clock()
+        try:
+            async with asyncio.timeout(SPARE_AT_MOST_S):
+                await self._speech_ready()
+                await asyncio.sleep(self.spare_after_speech_s)
+                # Not in the middle of a transcription: the owner may be talking right now.
+                while getattr(self.transcriber, "busy", False):
+                    await asyncio.sleep(0.2)
+        except TimeoutError:
+            pass
+        except Exception:  # noqa: BLE001 - the speech model's own failure is reported where it's used
+            logger.exception("speech model warm-up failed")
         await self._ensure_spare()
-        logger.info("warming up: the owner is back")
+        logger.info("warm claude after the speech model", after_s=round(self.clock() - t0, 1))
+
+    async def _speech_ready(self) -> None:
+        """The speech model loaded, and run once so its memory is paged back in after a lock or sleep."""
+        stt = self.transcriber
+        if stt is None:
+            return
+        if (wait := getattr(stt, "wait_loaded", None)) is not None:
+            await wait()
+        if (prime := getattr(stt, "prime", None)) is not None:
+            await asyncio.to_thread(prime)
 
     # ---- the slow tick ----------------------------------------------------------------
 

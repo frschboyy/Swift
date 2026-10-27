@@ -54,6 +54,16 @@ class Failure:
 # {signin} and {fallback} are its own hints, since only it knows how to fix those.
 _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
     (
+        # The CLI couldn't check its model with the API ("Couldn't confirm model … run /model"):
+        # the owner's connection or sign-in, never something to fix in the request (2026-10-27).
+        "models",
+        r"couldn.?t confirm model|could not confirm model",
+        "{name} couldn't reach its models",
+        "{name} couldn't reach its models; check your connection or sign-in.",
+        "Check your internet connection, or sign in again, then try again.",
+        True,
+    ),
+    (
         "auth",
         r"invalid api key|not (logged|signed) in|/login|log ?in again|authenticat|unauthori[sz]ed|\b401\b|"
         r"\b403\b|forbidden|oauth token|token (has )?expired",

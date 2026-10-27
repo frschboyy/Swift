@@ -337,6 +337,15 @@ async fn begin_drag(app: AppHandle) -> Result<(), String> {
 }
 
 /// Where the overlay is now, for the frontend's layout at startup.
+/// A card comes back without a hotkey (a held card after unlocking, ADR-014 §4): make sure the
+/// overlay is shown and topmost again where it was, since locking the screen can leave it hidden
+/// or behind other windows (owner check 14, 2026-10-27).
+#[tauri::command]
+async fn reveal(app: AppHandle) -> Result<(), String> {
+    place_on_main(&app, Place::Smart);
+    Ok(())
+}
+
 #[tauri::command]
 async fn get_placement(placement: State<'_, Placement>) -> Result<PlacementEvent, String> {
     let p = placement.0.lock().unwrap();
@@ -458,6 +467,7 @@ pub fn run() {
             diagnostics,
             begin_drag,
             get_placement,
+            reveal,
             copy_text,
             open_logs,
             set_status

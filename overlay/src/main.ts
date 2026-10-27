@@ -45,9 +45,6 @@ let agent: Agent | null = null;
 let current: { activity?: Activity; agent: Agent | null; subagent: boolean; app?: string | null } | null = null;
 let runStarted = 0;
 let lastStepAt = 0;
-let confirmDeadline = 0;
-// A card put aside while the owner was away, and since when (ADR-014 §4): it says so when it's back.
-let heldSince: { requestId: string; at: number } | null = null;
 let compact = readPref("swift.compact") === "1";
 let hovering = false;
 let dragging = false;
@@ -116,7 +113,6 @@ function resetRun(keepRequest: boolean): void {
   lastConfirm = null;
   fullDraft = false;
   runVoice = null;
-  heldSince = null;
 }
 
 /** Debug builds: a broken presenter rule is reported with the messages that led to it. */
@@ -496,8 +492,12 @@ function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
 
 // ---- follow-up window: reply without the wake phrase, just after an answer ---------------
 
+// The answer asked something: Swift waits longer, and the line says it's waiting for the answer.
+let followupQuestion = false;
+
 function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
   // The presenter keeps the answer up at least as long as Swift listens for a reply.
+  followupQuestion = data.open && !!data.question;
   pres = P.onFollowup(pres, data.open, data.seconds, Date.now());
   showDeadline();
   drawFollowup(pres.followupUntil ? Math.ceil((pres.followupUntil - Date.now()) / 1000) : 0);
@@ -514,7 +514,7 @@ function drawFollowup(left: number): void {
     (card.firstElementChild ?? card).append(line);
     scheduleRegions();
   }
-  line.replaceChildren(icon("mic"), `Listening for a reply… ${left} s`);
+  line.replaceChildren(icon("mic"), `${followupQuestion ? "Listening for your answer" : "Listening for a reply"}… ${left} s`);
 }
 
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
@@ -539,8 +539,9 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   const again = lastConfirm?.request_id === data.request_id;
   if (!again) fullDraft = false;
   lastConfirm = data;
-  const timeout = data.timeout_s && data.timeout_s > 0 ? data.timeout_s * 1000 : 0;
-  if (!again) confirmDeadline = timeout ? Date.now() + timeout : 0;
+  // The countdown and "since" are the presenter's: a card put aside and back gets a fresh one.
+  const confirmDeadline = pres.pendingConfirm === data.request_id ? pres.confirmDeadline : 0;
+  const since = pres.pendingConfirm === data.request_id ? P.waitingSince(pres) : null;
   // Swift's own card (send_email) shows the draft itself (ADR-010 §4).
   const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
   const longDraft = shown?.kind === "email_draft" && shown.data.body.split("\n").length > DRAFT_LINES;
@@ -549,8 +550,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       "div",
       { "data-hit": true },
       head(icon("shield"), "Approval needed", [data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null], false),
-      heldSince?.requestId === data.request_id
-        ? el("p", { class: "voice-hint waiting", "data-phase": "hint" }, icon("info"), `1 card waiting, since ${clock(heldSince.at)}`)
+      since !== null
+        ? el("p", { class: "voice-hint waiting", "data-phase": "hint" }, icon("info"), `1 card waiting, since ${clock(since)}`)
         : null,
       threadLines(),
       data.agent ? el("p", { class: "asker" }, `${data.agent.name} wants to:`) : null,
@@ -570,7 +571,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     ),
     "confirm",
   );
-  if (timeout) {
+  if (confirmDeadline) {
     card.style.setProperty("--fade-ms", `${Math.max(0, confirmDeadline - Date.now())}ms`);
     card.classList.add("card--timed");
   }
@@ -583,15 +584,17 @@ const clock = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour
 
 /** The owner left: put the card aside (hidden, no countdown). Back: show it again, saying it waited. */
 function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"]): void {
-  pres = P.onConfirmHold(pres, data.request_id, data.held);
+  pres = P.onConfirmHold(pres, data.request_id, data.held, data.timeout_s, Date.now());
   checkPresenter();
-  if (!lastConfirm || lastConfirm.request_id !== data.request_id || state !== "confirm") return;
+  if (!lastConfirm || lastConfirm.request_id !== data.request_id || pres.pendingConfirm !== data.request_id) return;
   if (data.held) {
-    if (heldSince?.requestId !== data.request_id) heldSince = { requestId: data.request_id, at: Date.now() };
     card.classList.add("card--held");
   } else {
-    confirmDeadline = data.timeout_s > 0 ? Date.now() + data.timeout_s * 1000 : 0;
+    if (state !== "confirm") setStage("confirm");
     renderConfirm(lastConfirm);  // the same card, with a fresh countdown and the "waiting" line
+    // Locking the screen can leave the overlay hidden or behind other windows, and no hotkey
+    // brought it forward this time (owner check 14, 2026-10-27).
+    void invoke("reveal").catch(() => {});
   }
   scheduleRegions();
 }
@@ -612,6 +615,7 @@ function voiceHint(_data: unknown): (Node | string)[] {
 
 function tickConfirm(): void {
   const node = card.querySelector<HTMLElement>(".countdown");
+  const confirmDeadline = pres.confirmDeadline;
   if (!node || state !== "confirm" || !confirmDeadline) return;
   const left = Math.max(0, Math.ceil((confirmDeadline - Date.now()) / 1000));
   // Only the last half minute: earlier, a ticking clock is just pressure.
@@ -1036,7 +1040,7 @@ function onMessage(msg: Inbound): void {
       if (state === "working") renderWorking();
       break;
     case "confirm.request":
-      pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id);
+      pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id, msg.data.timeout_s ?? 0, Date.now());
       checkPresenter();
       renderConfirm(msg.data);
       break;

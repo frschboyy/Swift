@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import {
   confirmVisible, initial, isActive, onAnswer, onConfirm, onConfirmHold, onDismiss, onFollowup, onHold, onRuns, onState,
-  promotion, tick, visibleRows, violations, MAX_ROWS, RESUME_MS,
+  promotion, tick, visibleRows, violations, waitingSince, MAX_ROWS, RESUME_MS,
   type Presenter, type Row,
 } from "../src/presenter.ts";
 
@@ -216,6 +216,46 @@ test("ADR-014 §4: a card put aside while the owner is away waits, then comes ba
   assert.equal(o.p.held, null);
 });
 
+
+test("owner check 14: held, then back: the card is on screen with a fresh deadline and says it waited", () => {
+  const o = new Overlay();
+  o.now = 1_000_000;
+  o.state("working", "cc-25", "t1");
+  o.state("confirm", "cc-25", "t1");
+  o.p = onConfirm(o.p, "swift:1", "cc-25", 120, o.now);
+  assert.equal(o.p.confirmDeadline, o.now + 120_000);
+  assert.equal(waitingSince(o.p), null);  // never put aside: no "waiting" line
+  o.now += 12_000;
+  const lockedAt = o.now;
+  o.p = onConfirmHold(o.p, "swift:1", true, 108, o.now);  // locked
+  assert.deepEqual(violations(o.p), []);
+  assert.equal(confirmVisible(o.p), false);
+  assert.equal(o.p.confirmDeadline, 0);  // no countdown while put aside
+  o.now += 2_000;
+  o.p = onConfirmHold(o.p, "swift:1", false, 108, o.now);  // unlocked: the backend gives it its time back
+  assert.deepEqual(violations(o.p), []);
+  assert.equal(confirmVisible(o.p), true);
+  assert.equal(o.p.card.kind, "confirm");
+  assert.equal(o.p.confirmDeadline, o.now + 108_000);  // fresh, from now
+  assert.equal(waitingSince(o.p), lockedAt);  // "1 card waiting, since …"
+  assert.equal(tick(o.p, o.now + 60_000).hide, false);
+  // Drawn again (a new draft version): the same card keeps its deadline and its line.
+  const again = onConfirm(o.p, "swift:1", "cc-25", 120, o.now + 5_000);
+  assert.equal(again.confirmDeadline, o.now + 108_000);
+  assert.equal(waitingSince(again), lockedAt);
+  // Locked twice: "since" is the first time.
+  o.p = onConfirmHold(o.p, "swift:1", true, 100, o.now + 10_000);
+  o.p = onConfirmHold(o.p, "swift:1", false, 100, o.now + 20_000);
+  assert.equal(waitingSince(o.p), lockedAt);
+  // Answered: nothing waits any more.
+  o.answer("result", 4000, "cc-25", "t1", "Added: Lunch");
+  assert.equal(o.p.heldSince, null);
+  assert.equal(o.p.confirmDeadline, 0);
+  // The next card starts clean.
+  o.state("confirm", "cc-26", "t2");
+  o.p = onConfirm(o.p, "swift:2", "cc-26", 120, o.now);
+  assert.equal(waitingSince(o.p), null);
+});
 
 // ---- several requests at once (ADR-013 phase B) -------------------------------------------
 

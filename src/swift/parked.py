@@ -1,13 +1,15 @@
 """Conversations left unfinished, kept so they can be picked up later (ADR-014 §5).
 
-A thread is **parked** when its run is stopped (Esc, "stop", Swift quitting) or a confirm
-card in it goes unanswered (including one held past ``hold_h`` while the owner was away).
+A thread is **parked** when its run is stopped (Esc, "stop", Swift quitting), a confirm
+card in it goes unanswered (including one held past ``hold_h`` while the owner was away), or
+its answer was a question the owner didn't answer while Swift listened for a reply.
 A parked thread keeps what a provider needs to go on: the request, the last steps, the
 last draft or event Swift showed, and when.
 
-- "Continue", "where were we", "go on" pick up the newest one; "finish the email to Ada"
-  the one whose request matches by its words. The resumed run continues the same thread.
-- After the next answer, the overlay shows one line, "Unfinished: <title>", at most
+- "Continue", "where were we", "go on" pick up the one the "Unfinished" line shows, if it was
+  just shown, else the newest one; "finish the email to Ada" the one whose words match. The resumed run continues the same thread.
+- After the next answer, the overlay shows one line, "Unfinished: <title>" (the title is from
+  the owner's own words, never Swift's wrapper around them), at most
   ``OFFER_TIMES`` times; "not now" stops it, "forget that" drops the thread.
 - Kept ``keep_s`` (24 h) in a local JSON file, so a restart doesn't lose them. Nothing about
   them leaves the machine.
@@ -31,6 +33,8 @@ MAX_PARKED = 10
 OFFER_TIMES = 3
 # A thread parked less than this long ago isn't offered: the owner just left it.
 OFFER_AFTER_S = 60.0
+# Where a workflow's request quotes the owner (swift/workflows/library.py ``Package.request``).
+SAID_MARKER = "[The request, as the owner said it]"
 
 # "finish the email to Ada": the words after the verb name the task.
 _NAMED = re.compile(
@@ -68,7 +72,7 @@ class Parked:
     thread: str
     # The owner's request, as sent to the provider (without Swift's added context).
     request: str
-    # "stopped" | "unanswered"
+    # "stopped" | "unanswered" (a confirm card) | "asked" (Swift's question)
     reason: str
     at: float
     # What the run had done, a few steps in one line.
@@ -77,14 +81,28 @@ class Parked:
     proposed: str = ""
     offered: int = 0
     dismissed: bool = False
+    # The request in the owner's own words (a workflow's ``request`` wraps them in its playbook).
+    said: str = ""
+
+    @property
+    def words(self) -> str:
+        """What the owner asked, in their words."""
+        if self.said:
+            return self.said
+        _, marker, said = self.request.rpartition(SAID_MARKER)  # parked before ``said`` was kept
+        return said.strip() if marker else self.request
 
     @property
     def title(self) -> str:
-        return _clip(self.request[:1].upper() + self.request[1:], 48)
+        words = self.words
+        return _clip(words[:1].upper() + words[1:], 48)
 
     def as_context(self, now: float) -> str:
         """Prepended to the resumed request, like the follow-up context (ADR-007 §9)."""
-        why = "it was stopped" if self.reason == "stopped" else "a confirm card in it went unanswered"
+        why = {
+            "stopped": "it was stopped",
+            "asked": "Swift asked the user a question and the answer hadn't come yet",
+        }.get(self.reason, "a confirm card in it went unanswered")
         lines = [
             f"[Context: an unfinished task the user is coming back to, left {_ago(now - self.at)} ({why}). "
             "Pick it up where it stopped; don't redo what was already done, and check anything that may "
@@ -138,7 +156,7 @@ class ParkedThreads:
             return None
         best: tuple[float, Parked] | None = None
         for p in self.all():
-            share = len(wanted & _words(p.request)) / len(wanted)
+            share = len(wanted & _words(p.words)) / len(wanted)
             if share >= 0.5 and (best is None or share > best[0]):
                 best = (share, p)
         return best[1] if best else None

@@ -77,6 +77,16 @@ async def test_a_bare_approve_is_not_enough() -> None:
     assert approval["decision"] == "approve" and approval["source"] == "voice" and approval["hands_free"]
 
 
+async def test_an_unsure_swift_approve_on_a_card_keeps_the_bar() -> None:
+    # The lower bar for wake phrases is only for starting at rest: approving keeps it (T2).
+    session, out, records, stt = make()
+    await until_confirm(session, out)
+    stt.probs = {"Swift,": 0.3, "approve.": 0.3}
+    await say(session, stt, "Swift, approve.")
+    assert session.state == "confirm" and session.take_wake_stats()["unsure"] == 1
+    await session.cancel()
+
+
 async def test_no_and_stop_work_without_the_wake_phrase() -> None:
     session, out, records, stt = make()
     await until_confirm(session, out)
@@ -158,7 +168,7 @@ async def test_a_reply_without_the_wake_phrase_just_after_an_answer() -> None:
     session, out, records, stt = wake_session(8.0)
     await say(session, stt, "Hey Swift, what time is it?")
     await finish(session)
-    assert out.last("followup") == {"open": True, "seconds": 8.0}
+    assert out.last("followup") == {"open": True, "seconds": 8.0, "question": False}
     await say(session, stt, "what's the date")
     await finish(session)
     assert records[1]["source"] == "followup" and records[1]["transcript"] == "what's the date"

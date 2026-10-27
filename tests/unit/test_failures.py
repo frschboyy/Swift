@@ -136,3 +136,79 @@ async def test_no_retry_without_a_request_to_repeat() -> None:
     session, rec, _ = make()
     await session.handle(Message("retry", {}))
     assert session._task is None and not rec.messages
+
+
+# ---- "Couldn't confirm model" (owner checks, 2026-10-27) ------------------------------------------
+
+UNCONFIRMED = 'Couldn\'t confirm model "claude-haiku-5-5" with the API. Try again, or run /model to see available models.'
+
+
+def test_an_unconfirmed_model_reads_plainly() -> None:
+    from swift.failures import classify
+
+    failure = classify(f"Exception: {UNCONFIRMED}", "Claude Code")
+    assert failure.code == "models" and failure.retry
+    assert failure.message == "Claude Code couldn't reach its models; check your connection or sign-in."
+    assert "/model" not in failure.message + failure.hint + failure.title  # the CLI's advice isn't Swift's
+
+
+class ModelClient:
+    """Stands in for ClaudeSDKClient: Swift's model can't be confirmed; the default works (or not)."""
+
+    made: list[ModelClient] = []
+    default_works = True
+    fail_on = "set_model"
+
+    def __init__(self, options: object) -> None:
+        self.models: list[str | None] = []
+        self.prompts: list[str] = []
+        ModelClient.made.append(self)
+
+    async def connect(self) -> None: ...
+
+    async def set_model(self, model: str | None) -> None:
+        self.models.append(model)
+        if model is not None and ModelClient.fail_on == "set_model":
+            raise Exception(UNCONFIRMED)  # noqa: TRY002 - what the SDK raises
+
+    async def query(self, prompt: str) -> None:
+        self.prompts.append(prompt)
+
+    async def receive_response(self):  # type: ignore[no-untyped-def]
+        from test_claude_executor import sdk_messages
+
+        if self.models[-1] is not None and ModelClient.fail_on == "query":
+            raise Exception(UNCONFIRMED)  # noqa: TRY002
+        if self.models[-1] is None and not ModelClient.default_works:
+            raise Exception(UNCONFIRMED.replace("haiku", "default"))  # noqa: TRY002
+        for message in sdk_messages("claude_read_only.jsonl"):
+            yield message
+
+    async def disconnect(self) -> None: ...
+
+
+@pytest.mark.parametrize("fail_on", ["set_model", "query"])
+async def test_an_unconfirmed_model_is_retried_once_with_the_default(tmp_path, fail_on: str) -> None:  # type: ignore[no-untyped-def]
+    from swift.executors.claude_code import ClaudeCodeExecutor
+
+    ModelClient.made, ModelClient.default_works, ModelClient.fail_on = [], True, fail_on
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", prewarm=False, client_factory=ModelClient)
+    run_id = await ex.start("Summarise the README", demand="light")
+    result = await asyncio.wait_for(ex.result(run_id), 5)
+    client = ModelClient.made[0]
+    assert result.status == "done"
+    assert client.models == [ex.models["light"], None]  # Swift's model, then the CLI's default; ids unchanged
+    assert result.meta["models"][-1] == "default"
+
+
+async def test_when_the_default_fails_too_the_card_says_so_plainly(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from swift.executors.claude_code import ClaudeCodeExecutor
+
+    ModelClient.made, ModelClient.default_works, ModelClient.fail_on = [], False, "set_model"
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", prewarm=False, client_factory=ModelClient)
+    run_id = await ex.start("Summarise the README", demand="light")
+    result = await asyncio.wait_for(ex.result(run_id), 5)
+    assert result.status == "error" and result.failure is not None
+    assert result.failure.code == "models"
+    assert result.failure.message == "Claude Code couldn't reach its models; check your connection or sign-in."
+    assert ModelClient.made[0].models == [ex.models["light"], None]  # tried once more, not again and again

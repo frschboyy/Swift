@@ -253,11 +253,37 @@ async def test_other_speech_is_dropped() -> None:
     assert stt.calls == 1 and out.messages == [] and records == [] and not rec.recording
 
 
-async def test_a_phrase_the_model_was_unsure_of_is_ignored() -> None:
-    session, out, records, rec, stt = make("hey swift what time is it")
-    session.transcriber = FakeTranscriber(text="hey swift what time is it", probs={"hey": 0.2, "swift": 0.3, "what": 0.4})
+async def test_a_wake_phrase_the_model_was_unsure_of_still_wakes() -> None:
+    # Owner checks, 2026-10-27: the unsure filter ran before the match and dropped real wake phrases.
+    words = "hey swift what time is it"
+    session, out, records, rec, stt = make(words)
+    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.35))  # mean 0.35 < 0.5
     await session.hear_wake(AUDIO, time.monotonic())
-    assert out.messages == [] and records == []
+    await finish(session)
+    assert records[0]["source"] == "wake" and records[0]["transcript"] == "what time is it"
+    stats = session.take_wake_stats()
+    assert stats["wake"] == 1 and stats["unsure_wake"] == 1 and stats["unsure"] == 0
+
+
+async def test_a_wake_phrase_below_the_lower_bar_is_still_ignored() -> None:
+    words = "hey swift what time is it"
+    session, out, records, rec, stt = make(words)
+    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.1))
+    await session.hear_wake(AUDIO, time.monotonic())
+    assert out.messages == [] and records == [] and session._task is None
+    assert session.take_wake_stats()["unsure"] == 1
+
+
+async def test_unsure_speech_that_is_not_a_wake_phrase_keeps_the_bar_even_in_a_followup() -> None:
+    words = "add it for tuesday"
+    session, out, records, rec, stt = make(words)
+    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.35))
+    now = time.monotonic()
+    session._followup = (now - 5, now + 5)
+    await session.hear_wake(AUDIO, now)
+    assert records == [] and session._task is None
+    stats = session.take_wake_stats()
+    assert stats["unsure"] == 1 and stats["followup"] == 0
 
 
 async def test_nothing_starts_while_an_interaction_is_running() -> None:
@@ -316,7 +342,7 @@ async def test_session_counts_where_each_utterance_went() -> None:
     session, out, records, rec, stt = make("I think swift is a nice language")
     await session.hear_wake(AUDIO, time.monotonic())
     words = "hey swift what time is it"
-    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.2))  # all guesses
+    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.1))  # all guesses
     await session.hear_wake(AUDIO, time.monotonic())
     stats = session.take_wake_stats()
     assert stats["heard"] == 2 and stats["other_speech"] == 1 and stats["unsure"] == 1 and stats["wake"] == 0

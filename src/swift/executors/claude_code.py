@@ -45,6 +45,7 @@ import asyncio
 import contextlib
 import itertools
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -577,20 +578,34 @@ class ClaudeCodeExecutor:
             else:
                 run.client, run.cli_pid = await self._connect(options)
             model = self.models[run.level]
-            await run.client.set_model(model)
-            run.models.append(model)
+            retried = False
+            try:
+                await run.client.set_model(model)
+                run.models.append(model)
+            except Exception as exc:  # noqa: BLE001 - only the model check is retried
+                if not model_unconfirmed(exc):
+                    raise
+                retried = True
+                await self._default_model(run, model)
             while True:
-                await run.client.query(request)
-                async for message in run.client.receive_response():
-                    await self._watch(run, message)
-                    event = as_event(message)
-                    if event is None:
-                        continue
-                    for step in steps_for(event):
-                        run.queue.put_nowait(
-                            ExecEvent("step", step.text, activity=step.activity, subagent=step.subagent)  # type: ignore[arg-type]
-                        )
-                    outcome = outcome_for(event) or outcome
+                try:
+                    await run.client.query(request)
+                    async for message in run.client.receive_response():
+                        await self._watch(run, message)
+                        event = as_event(message)
+                        if event is None:
+                            continue
+                        for step in steps_for(event):
+                            run.queue.put_nowait(
+                                ExecEvent("step", step.text, activity=step.activity, subagent=step.subagent)  # type: ignore[arg-type]
+                            )
+                        outcome = outcome_for(event) or outcome
+                except Exception as exc:  # noqa: BLE001 - only the model check is retried
+                    if retried or outcome is not None or not model_unconfirmed(exc):
+                        raise
+                    retried = True
+                    await self._default_model(run, run.models[-1] if run.models else model)
+                    continue
                 if not run.redirects or run.cancelled or run.stopped_by is not None:
                     break
                 # The owner changed their mind: the same session, a new turn (ADR-014 §7).
@@ -614,6 +629,15 @@ class ClaudeCodeExecutor:
             run.queue.put_nowait(_DONE)
             # One CLI per request: connect the next one now, while the owner reads the result.
             self._refill()
+
+    @staticmethod
+    async def _default_model(run: _Run, model: str) -> None:
+        """The CLI couldn't confirm Swift's model with the API (owner checks, 2026-10-27): once more
+        with the CLI's own default model before the run fails. The model ids stay as configured."""
+        logger.warning("claude couldn't confirm its model; trying its default once", model=model)
+        run.queue.put_nowait(ExecEvent("step", "Trying again with the default model", activity="switching"))
+        await run.client.set_model(None)
+        run.models.append("default")
 
     @staticmethod
     def _final(run: _Run, outcome: Outcome | None, error: Exception | None) -> ExecResult:
@@ -640,6 +664,14 @@ class ClaudeCodeExecutor:
         if failure.code == "executor_failed":  # no known cause: the CLI went away
             failure = replace(classify(summary, CLAUDE_CODE.name, **hints), detail=clean_detail(raw))
         return ExecResult("error", summary, meta=meta, failure=failure)
+
+
+_MODEL_UNCONFIRMED = re.compile(r"couldn.?t confirm model|could not confirm model", re.I)
+
+
+def model_unconfirmed(error: BaseException) -> bool:
+    """The CLI's "Couldn't confirm model "…" with the API": its models out of reach, not a bad request."""
+    return bool(_MODEL_UNCONFIRMED.search(str(error)))
 
 
 def _model_label(model: str) -> str:

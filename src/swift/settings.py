@@ -99,8 +99,11 @@ class WakeSettings(_Section):
     enabled: bool = False
     # Greetings to accept besides hey / hi / hello / ok / good morning|afternoon|evening.
     greetings: list[str] = Field(default_factory=list)
-    # A wake phrase whose words averaged below this probability is ignored (0 = off).
+    # Speech whose words averaged below this probability is ignored (0 = off)...
     min_p: float = Field(0.5, ge=0.0, le=1.0)
+    # ...except a wake phrase heard while nothing runs: it needs only this much (0 = no bar).
+    # The model is often unsure of the name itself; approving still needs it (T2).
+    phrase_min_p: float = Field(0.2, ge=0.0, le=1.0)
     # After a bare "hey Swift", the request ends this long after you stop talking...
     end_silence_s: float = Field(0.9, gt=0)
     # ...and Swift stops listening if you say nothing for this long.
@@ -109,6 +112,9 @@ class WakeSettings(_Section):
     # During a run, "show me", "stop" and "reject" work without it too; approving needs
     # "Swift, approve" (or a click or the hotkey), so overheard speech can't approve anything.
     followup_s: float = Field(8.0, ge=0, le=60)
+    # ...or this long when the answer asks something ("Which Tuesday?"). Unanswered by then, the
+    # conversation is kept as unfinished: "continue", or just answering, picks it up.
+    question_s: float = Field(25.0, ge=0, le=120)
 
 
 class ExecutorSettings(_Section):

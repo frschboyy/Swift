@@ -242,9 +242,11 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         noisy_db=settings.stt.noisy_db,
         wake_greetings=tuple(wake.greetings),
         wake_min_p=wake.min_p,
+        wake_phrase_min_p=wake.phrase_min_p,
         wake_end_silence_s=wake.end_silence_s,
         wake_start_timeout_s=wake.start_timeout_s,
         wake_followup_s=wake.followup_s if wake.enabled else 0.0,
+        wake_question_s=wake.question_s,
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)

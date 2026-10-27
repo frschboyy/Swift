@@ -312,12 +312,12 @@ docs/decisions/      Architecture decision records
 
 Set `wake.enabled: true` in `config.yaml` and say "hey Swift", "hello Swift" or "good afternoon Swift" (also "hi", "ok", "good morning/evening", and sound-alikes such as "hey swiff"). Say the request in the same breath ("hey Swift, what time is it") or wait for the listening card and say it after; it ends when you stop talking. The hotkey keeps working.
 
-There is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`.
+There is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Speech the model was unsure of (`wake.min_p`) is ignored, except a wake phrase heard while nothing runs, which only needs `wake.phrase_min_p`: the model is often unsure of the name itself. Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`.
 
 With wake listening on, you don't need the hotkey or the wake phrase to answer Swift:
 - **During a run:** say "show me", "hide that" or "stop".
 - **On a confirm card:** say "reject", "no" or "stop". **Approving needs Swift's name**, "Swift, approve" (or a click or the hotkey), so a TV or someone nearby saying "yes" can't approve anything.
-- **After an answer:** for 8 seconds (`wake.followup_s`; 0 turns it off), just reply. The card shows "Listening for a reply… N s".
+- **After an answer:** for 8 seconds (`wake.followup_s`; 0 turns it off), just reply. The card shows "Listening for a reply… N s". When Swift's answer is a question ("Which Tuesday, and what time?"), you get 25 seconds (`wake.question_s`) and the card says "Listening for your answer… N s". No answer by then: the conversation is kept as unfinished, and "continue", or just answering later, picks it up.
 
 - **To change what a card shows**, whatever it is (an email, an event, a file edit) and whichever agent asked, say what to change: "no, make it Friday at three". Hands-free, start with its name: "Swift, make it Friday". The agent revises it and you get a new card. If an agent can't revise in place, Swift says no to that card and asks again with your change. A question ("is that the notes file?") leaves the card open.
 
@@ -331,7 +331,7 @@ Other speech near the microphone is ignored.
 | `speech_blocks` | Of those, how many sounded like speech |
 | `utterances` | Speech cut into requests |
 | `heard` | Utterances that reached the session |
-| `wake`, `followup`, `other_speech`, `unsure` | What they turned out to be |
+| `wake`, `followup`, `other_speech`, `unsure` | What they turned out to be (`unsure_wake`: wake phrases the model was unsure of, taken anyway) |
 
 `loudest` and `room` are levels (0–1). A `microphone opened` line names the device each time the stream (re)opens, for example after sleep. Swift reopens the microphone when it stops delivering audio, refreshes Windows' device list when it does, never waits more than 20 s on one transcription, and never stays deaf more than 30 s through continuous sound.
 

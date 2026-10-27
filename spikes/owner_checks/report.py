@@ -84,10 +84,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     unlocked = any("reason='unlocked'" in line for line in presence)
     paused = any("microphone paused" in line for line in log)
     held = [r for r in rows if any(a.get("held_away") for a in r.get("approvals", []))]
+    unsure_wake = sum(_counter(line, "unsure_wake") for line in log if "| wake listening |" in line)
+    first_wake = _first_wake_after_unlock(log)
+    asked = [line for line in log if "conversation parked | reason='asked'" in line]
+    model_retries = [line for line in log if "couldn't confirm its model" in line]
     side_by_side = _overlapping(rows)
     redirects = [r.get("redirected") for r in rows if r.get("redirected")]
     return [
-        ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows), ""),
+        ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows),
+         f"{unsure_wake} unsure wake phrase(s) still taken"),
         ("2-3 a conversation in one thread", longest >= 3, f"longest thread: {longest} requests"),
         ("4  calendar request ran directly (no offer)", any(r.get("route") == "agent" for r in calendar)
          and not any(r.get("offered") == "calendar-event" for r in rows), f"{len(calendar)} calendar runs"),
@@ -102,11 +107,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(reopened)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
         ("12 lock: away, microphone paused; unlock: back", locked and unlocked and paused,
          f"{len(presence)} presence change(s)"),
+        ("13 first wake after each unlock transcribed in under 3 s", first_wake is not None and first_wake < 3000,
+         f"stt_ms={first_wake}" if first_wake is not None else "no wake after an unlock"),
         ("14 a card held while away, answered after", any(
             a.get("held_away") and a.get("decision") in ("approve", "reject")
             for r in held for a in r["approvals"]), f"{len(held)} held card(s)"),
         ("15 a stopped request parked, then offered", any(r.get("parked") == "stopped" for r in rows)
          and any(r.get("offered_resume") for r in rows), ""),
+        ("15 the Unfinished line's title is the owner's words", any(r.get("offered_resume") for r in rows),
+         "check on screen: never '[Swift workflow: ...'"),
         ("16 a parked request resumed", any(r.get("resumed") for r in rows), ""),
         ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
         ("19 a card waited behind another, then answered", any(
@@ -123,7 +132,29 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("24 after a sent email: told, correction offered", "after_done" in redirects
          and any(r.get("fix") for r in rows), ""),
         ("25 a fourth request waited for a slot", any(r.get("queued") for r in rows), ""),
+        ("26 a question parked unanswered", bool(asked), f"{len(asked)} parked"),
+        ("27 the question picked up later", any(r.get("resumed") == "asked" or r.get("answered_later") for r in rows), ""),
+        ("28 unconfirmed model retried with the default (if it happened)", True,
+         f"{len(model_retries)} retr{'y' if len(model_retries) == 1 else 'ies'}"),
     ]
+
+
+def _counter(line: str, name: str) -> int:
+    m = re.search(rf"\b{name}=(\d+)", line)
+    return int(m.group(1)) if m else 0
+
+
+def _first_wake_after_unlock(log: list[str]) -> int | None:
+    """The slowest stt_ms of the first wake phrase heard after each unlock (None: none)."""
+    found: list[int] = []
+    unlocked = False
+    for line in log:
+        if "reason='unlocked'" in line:
+            unlocked = True
+        elif unlocked and "wake phrase heard" in line:
+            found.append(_counter(line, "stt_ms"))
+            unlocked = False
+    return max(found, default=None)
 
 
 def _overlapping(rows: list[dict[str, Any]]) -> int:

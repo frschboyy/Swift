@@ -269,6 +269,28 @@ class LocalTranscriber:
             self._loading = False
             self._loaded.set()
 
+    @property
+    def busy(self) -> bool:
+        """A transcription is running now."""
+        return self._busy.locked()
+
+    def prime(self) -> None:
+        """Run the model once on a moment of near-silence (blocking), so the first real utterance
+        after a lock or sleep doesn't pay for paging the model back in (ADR-014 §6)."""
+        if not self.loaded:
+            return
+        noise = np.random.default_rng(0).normal(0, 0.003, SAMPLE_RATE).astype(np.float32)
+        with self._busy:
+            if self._model is None:
+                return
+            t0 = time.perf_counter()
+            try:
+                self._recognize(noise)
+            except Exception as exc:  # noqa: BLE001 - priming only costs speed
+                logger.warning("speech model warm-up run failed", error=type(exc).__name__)
+                return
+        logger.info("speech model primed", ms=int((time.perf_counter() - t0) * 1000))
+
     async def wait_loaded(self) -> None:
         if not self._loaded.is_set():
             self.start_loading()  # released while away: load again on first use

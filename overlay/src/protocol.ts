@@ -64,7 +64,8 @@ export type Inbound =
   // Push-to-talk while working: the mid-run grammar ("show me", "stop").
   | { type: "run.voice"; data: { run_id: string; phase: "listening" | "transcribing" | "idle" | "hint"; text: string } }
   // After an answer, the open mic takes a reply without the wake phrase for `seconds` (wake listening on).
-  | { type: "followup"; data: { open: boolean; seconds: number } }
+  // question: the answer asked something, so the window is longer and the card says "your answer".
+  | { type: "followup"; data: { open: boolean; seconds: number; question?: boolean } }
   // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
   | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);

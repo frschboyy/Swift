@@ -62,6 +62,10 @@ export type Presenter = {
   pendingConfirm: string | null;
   // ...unless the owner is away: then it's put aside, hidden, until they're back (ADR-014 §4).
   held: string | null;
+  // When the waiting card was first put aside (it says "1 card waiting, since …" once back); null: never.
+  heldSince: number | null;
+  // When the waiting card's countdown runs out (0: no countdown, or stopped while it is put aside).
+  confirmDeadline: number;
   // The backend takes a reply without the wake phrase until then (0: not).
   followupUntil: number;
   // Hover or drag holds the card: the time left when it started.
@@ -80,6 +84,8 @@ export const initial: Presenter = {
   lastAnswer: null,
   pendingConfirm: null,
   held: null,
+  heldSince: null,
+  confirmDeadline: 0,
   followupUntil: 0,
   pausedLeft: null,
   focus: null,
@@ -88,6 +94,9 @@ export const initial: Presenter = {
 };
 
 export const isActive = (p: Presenter): boolean => ACTIVE.has(p.card.kind);
+
+/** No confirm card waiting any more. */
+const noConfirm = { pendingConfirm: null, held: null, heldSince: null, confirmDeadline: 0 } as const;
 
 /** Another request's message while there are rows: it updates its row, never the card. */
 const notInFront = (p: Presenter, runId: string | null | undefined): boolean =>
@@ -98,7 +107,7 @@ export function onRuns(p: Presenter, focus: string | null, rows: Row[], waiting:
   const next = { ...p, focus, rows: rows.filter((r) => r.runId !== focus), waiting };
   if (focus !== null && p.card.runId !== null && p.card.runId !== focus && next.rows.length) {
     // Another request comes to the front: its card replaces this one (the backend draws it next).
-    return { ...next, card: { ...initial.card }, pendingConfirm: null, held: null, pausedLeft: null };
+    return { ...next, card: { ...initial.card }, ...noConfirm, pausedLeft: null };
   }
   return next;
 }
@@ -133,7 +142,7 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
   const kind = state as CardKind;
   if (notInFront(p, runId)) return { p, newRun: false, continued: false, hide: false, ignored: true };
   if (state === "idle") {
-    return { p: { ...p, card: { ...initial.card }, pendingConfirm: null, held: null }, newRun: false, continued: false, hide: true };
+    return { p: { ...p, card: { ...initial.card }, ...noConfirm }, newRun: false, continued: false, hide: true };
   }
   if (!ACTIVE.has(kind)) {
     // "result" / "error" come with their own message (onAnswer), which sets the card.
@@ -155,8 +164,7 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
       threadId: threadId ?? (newRun ? null : p.threadId),
       history,
       lastAnswer: newRun ? null : p.lastAnswer,
-      pendingConfirm: kind === "confirm" ? p.pendingConfirm : null,
-      held: kind === "confirm" ? p.held : null,
+      ...(kind === "confirm" ? {} : noConfirm),
       followupUntil: newRun ? 0 : p.followupUntil,
       pausedLeft: null,
     },
@@ -166,19 +174,30 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
   };
 }
 
-/** A confirm card was asked for: it must stay until answered. */
-export function onConfirm(p: Presenter, requestId: string, runId: string | null): Presenter {
-  return { ...p, card: { ...p.card, kind: "confirm", runId: runId ?? p.card.runId, fadeAt: null }, pendingConfirm: requestId };
+/** A confirm card was asked for: it must stay until answered. Its countdown starts now; drawn
+ * again (a new draft version, "show me"), it keeps the one it had. */
+export function onConfirm(p: Presenter, requestId: string, runId: string | null, timeoutS = 0, now = 0): Presenter {
+  const card = { ...p.card, kind: "confirm" as const, runId: runId ?? p.card.runId, fadeAt: null };
+  if (p.pendingConfirm === requestId) return { ...p, card };
+  return { ...p, card, ...noConfirm, pendingConfirm: requestId, confirmDeadline: deadline(timeoutS, now) };
 }
 
-/** The owner left (held) or came back: the waiting card is put aside, or shown again. Other cards are untouched. */
-export function onConfirmHold(p: Presenter, requestId: string, held: boolean): Presenter {
+const deadline = (timeoutS: number, now: number): number => (timeoutS > 0 ? now + timeoutS * 1000 : 0);
+
+/** The owner left (held) or came back: the waiting card is put aside, its countdown stopped; or
+ * shown again with the time the backend gives it (at least a minute) and when it was put aside.
+ * Other cards are untouched. */
+export function onConfirmHold(p: Presenter, requestId: string, held: boolean, timeoutS = 0, now = 0): Presenter {
   if (p.pendingConfirm !== requestId) return p;
-  return { ...p, held: held ? requestId : null };
+  if (held) return { ...p, held: requestId, heldSince: p.heldSince ?? now, confirmDeadline: 0 };
+  return { ...p, held: null, confirmDeadline: deadline(timeoutS, now) };
 }
 
 /** The waiting card is on screen (not put aside while the owner is away). */
 export const confirmVisible = (p: Presenter): boolean => p.pendingConfirm !== null && p.held === null;
+
+/** The line on a card that came back: when it was put aside (ms), or null. */
+export const waitingSince = (p: Presenter): number | null => (confirmVisible(p) ? p.heldSince : null);
 
 export type Answer = {
   kind: "result" | "error" | "notice";
@@ -203,8 +222,7 @@ export function onAnswer(p: Presenter, a: Answer, now: number): { p: Presenter; 
       card: { kind: a.kind, runId: a.runId ?? (a.kind === "notice" ? null : p.runId), threadId: thread, fadeAt },
       threadId: a.kind === "notice" ? p.threadId : thread,
       lastAnswer: a.summary && thread ? { threadId: thread, text: a.summary } : p.lastAnswer,
-      pendingConfirm: null,
-      held: null,
+      ...noConfirm,
       pausedLeft: p.pausedLeft !== null && fadeAt !== null ? fadeAt - now : null,
     },
     shown: true,
@@ -249,6 +267,8 @@ export function violations(p: Presenter): string[] {
   if (isActive(p) && p.card.fadeAt !== null) out.push(`an active ${p.card.kind} card has a fade deadline`);
   if (p.pendingConfirm && p.card.kind !== "confirm") out.push(`confirm ${p.pendingConfirm} is waiting but not on screen`);
   if (p.held && p.held !== p.pendingConfirm) out.push(`card ${p.held} is put aside but isn't waiting`);
+  if (p.held && p.confirmDeadline) out.push(`card ${p.held} is put aside but still counting down`);
+  if (!p.pendingConfirm && (p.heldSince !== null || p.confirmDeadline)) out.push("a countdown with no card waiting");
   if (p.history.length > HISTORY) out.push("too many earlier turns");
   if (p.history.some((t) => t.threadId !== p.threadId)) out.push("an earlier turn from another thread");
   // Several requests: never two cards fighting (ADR-013 §3.2).

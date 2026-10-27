@@ -69,7 +69,7 @@ Integrations sit behind a connector boundary:
 - Connector output is `UNTRUSTED_EXTERNAL`.
 - Connector tools execute only through the gateway, like every other tool.
 
-Built so far: `connectors/fake.py` (tests, debug mode) and `connectors/gmail.py` (`drafts.create` + `drafts.send` under `gmail.compose`; People search under `contacts.readonly`; refresh token only, in Credential Manager). A plugin/MCP host for third-party connectors is Phase 7.
+Built so far: `connectors/fake.py` (tests, debug mode) and `connectors/gmail.py` (`drafts.create` + `drafts.send` under `gmail.compose`; People search of contacts and the people the owner has emailed, under `contacts.readonly` and `contacts.other.readonly`, cached briefly in memory; the owner's name from `userinfo.profile` signs drafts; safe calls retried after a dropped connection; refresh token only, in Credential Manager). A plugin/MCP host for third-party connectors is Phase 7.
 
 ## Configuration and logging (Phase 0)
 

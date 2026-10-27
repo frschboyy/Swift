@@ -135,7 +135,7 @@ class GoogleCalendarConnector:
             items = self._events().list(**args).execute().get("items") or []
             return [parse(i) for i in items if i.get("status") != "cancelled"]
 
-        return await self._google.call(fetch)
+        return await self._google.call(fetch, retry=True)
 
     def _get(self, event_id: str) -> dict[str, Any] | None:
         try:
@@ -151,7 +151,7 @@ class GoogleCalendarConnector:
             raw = self._get(event_id)
             return parse(raw) if raw is not None else None
 
-        return await self._google.call(fetch)
+        return await self._google.call(fetch, retry=True)
 
     async def create_event(self, event: CalendarEvent) -> CreatedEvent:
         def insert() -> CreatedEvent:
@@ -175,14 +175,21 @@ class GoogleCalendarConnector:
             ).execute()
             return CreatedEvent(str(updated.get("id", "")), str(updated.get("htmlLink", "")), _meet_link(updated))
 
-        return await self._google.call(update)
+        # A patch sets the same fields again: safe to repeat after a dropped connection.
+        return await self._google.call(update, retry=True)
 
     async def delete_event(self, event_id: str) -> str:
+        tried = False
+
         def delete() -> str:
+            nonlocal tried
             current = self._get(event_id)
             if current is None:
+                if tried:  # the try whose connection dropped did remove it
+                    return event_id
                 raise ConnectorError("That event isn't in the calendar any more.", code="not_found")
+            tried = True
             self._events().delete(calendarId="primary", eventId=event_id, sendUpdates=_notify(current)).execute()
             return event_id  # Google answers a delete with an empty body; no error means it's gone
 
-        return await self._google.call(delete)
+        return await self._google.call(delete, retry=True)

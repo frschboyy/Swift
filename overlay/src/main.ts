@@ -410,7 +410,7 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
     case "recipient": {
       const { candidates, chosen } = a.data;
       body = candidates.length
-        ? el("ul", { class: "result-list" }, ...candidates.map((p, i) => el("li", { class: i === chosen ? "chosen" : "" }, `${p.name} <${p.email}>`)))
+        ? el("ul", { class: "result-list" }, ...candidates.map((p, i) => el("li", { class: i === chosen ? "chosen" : "" }, `${p.name} <${p.email}>` + (p.detail ? ` · ${p.detail}` : ""))))
         : el("p", { class: "muted" }, `No contact matches “${a.data.query}”.`);
       break;
     }

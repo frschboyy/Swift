@@ -90,6 +90,7 @@ contacts: []                       # who Swift may email; "my lecturer" finds th
   # - name: "Dr Ada Lovelace"
   #   email: "ada.lovelace@example.edu"
   #   aliases: ["lecturer"]
+owner_name: ""                     # how your emails end ("Regards, <name>"); empty = the name on your Google account
 
 routing: true                      # stop/cancel/repeat and time/date handled by Swift; the rest by demand
 followup_context_s: 300            # a request this soon after the last answer sees it ("now commit it"); 0 = off

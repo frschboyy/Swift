@@ -127,7 +127,7 @@ def _make_tools(settings: Settings, desktop: Desktop | None, opener: LocalOpener
     journal.report_unfinished()
     logger.info("workflow tools", email=kind, calendar=calendar_kind, desktop=desktop is not None, contacts=len(contacts))
     return ToolHost(connector, contacts, ActionGateway(journal), ALL_TOOLS, calendar=calendar, desktop=desktop,
-                    opener=opener)
+                    opener=opener, owner_name=" ".join(settings.owner_name.split()))
 
 
 def _make_library(settings: Settings) -> Library | None:

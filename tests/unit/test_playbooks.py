@@ -95,7 +95,7 @@ def email_of(found: dict[str, Any]) -> list[str]:
 
 
 def draft(done: dict[str, Any]) -> dict[str, Any]:
-    return {"to": email_of(done), "subject": "Missing Thursday", "body": "Dear Dr Lovelace, ..."}
+    return {"to": email_of(done), "subject": "Missing Thursday", "message": "I'll miss Thursday's lecture."}
 
 
 def draft_id(done: dict[str, Any]) -> str:
@@ -124,7 +124,8 @@ async def test_email_draft_fills_in_gmail_for_the_owner_to_send() -> None:
     assert "Fill it in with `fill_in_email`" in request
     assert "person (contact): my lecturer" in request and "message (text): I'll miss Thursday's lecture" in request
     assert "app: gmail" in request
-    assert w.desktop.filled == [("gmail", ["ada.lovelace@example.edu"], "Missing Thursday", "Dear Dr Lovelace, ...")]
+    body = "Hello Dr Lovelace,\n\nI'll miss Thursday's lecture.\n\nRegards,"
+    assert w.desktop.filled == [("gmail", ["ada.lovelace@example.edu"], "Missing Thursday", body)]
     assert w.mail.sent == [] and w.of("confirm.request") == []  # the owner presses Send
     assert w.of("artifact")[-1]["data"]["state"] == "filled_in"
 

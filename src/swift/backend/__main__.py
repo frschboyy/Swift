@@ -219,7 +219,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     tools = _make_tools(settings, desktop, opener)
     mock = MockExecutor(tools=tools)
     # ADR-014 L2: cards wait while the owner is away; unfinished conversations are kept 24 h.
-    attention = Attention()
+    # ADR-015: and until the overlay says it drew them.
+    attention = Attention(require_seen=True)
     parked = ParkedThreads(Path(settings.logging.interactions).parent / "parked.json")
     session = Session(
         server.send,

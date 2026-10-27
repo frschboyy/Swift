@@ -865,6 +865,7 @@ class Session:
             return True
         if self.attention is not None:
             self.attention.set_queued(request_id, True)
+            self.attention.set_seen(request_id, False)
         if (entry := self._approval(request_id)) is not None:
             entry["queued"] = True
         logger.info("confirm card waits behind another", waiting=len(self._cards) - 1)
@@ -931,6 +932,10 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
+            case "card.seen":
+                # The overlay drew the card (or hid it): its countdown runs only while seen (ADR-015 §4.2).
+                if self.attention is not None:
+                    self.attention.set_seen(msg.data["request_id"], msg.data["visible"])
             case "ptt" if msg.data["state"] == "down":
                 self._talking(math.inf)  # the hotkey isn't the owner typing in the document
                 await self._start_voice()
@@ -2155,10 +2160,18 @@ class Session:
         shown = self._open_confirm()
         changed = [r for r in self.attention.set_held(held) if r == shown]  # the others aren't on screen
         for request_id in changed:
+            if held:
+                # Hidden: back, it counts down again only once the overlay says it drew it.
+                self.attention.set_seen(request_id, False)
             left = self.attention.left(request_id)
             if (entry := self._approval(request_id)) is not None and held:
                 entry["held_away"] = entry.get("held_away", 0) + 1
             logger.info("confirm card held while away" if held else "confirm card back")
+            if not held and (run := self._owner_of(request_id)) is not None and run is self._focus:
+                # Draw it again from the start: the overlay may have moved on while it was hidden
+                # (owner check 18, 2026-10-27: back was logged, nothing was redrawn).
+                for msg in run.replay():
+                    await self._raw_send(msg)
             await self._send(
                 outbound("confirm.hold", request_id=request_id, held=held, timeout_s=round(left or 0.0, 1))
             )

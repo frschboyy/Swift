@@ -22,6 +22,8 @@ Several requests at once (ADR-013 phase B): ``runs`` names the request in front 
 its ``run_id``), the others as one-line ``rows``, and how many confirm cards wait behind the
 one on screen. It is sent only while there is more than one. Inbound ``focus`` brings a row
 to the front (a click on it, or the overlay's own card fading while others still run).
+Inbound ``card.seen`` says a confirm card is drawn and visible, or hidden: its countdown runs
+only while it is (ADR-015 §4.2).
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -58,6 +60,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "debug.say": {"text": (str, None)},
     # A background request to the front (ADR-013 §3.1).
     "focus": {"run_id": (str, None)},
+    # The overlay drew a confirm card and it is visible (or hid it): its countdown runs only then (ADR-015).
+    "card.seen": {"request_id": (str, None), "visible": (bool, None)},
     # Sent once when the overlay is fully up; ``backend_ms`` is optional.
     "ready": {"startup_ms": (int, None)},
 }

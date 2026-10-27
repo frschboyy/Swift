@@ -15,25 +15,31 @@
 //! - Copy goes through the Win32 clipboard: the overlay never has focus, which the
 //!   web Clipboard API requires.
 //!
+//! - Pane windows (ADR-015) get the same styles but are never click-through: each is sized to
+//!   its content, so all of it is the pane. The subclass's data says which kind a window is.
+//!
 //! Handles are passed around as `isize` because `HWND` is a raw pointer and not `Send`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use windows_sys::Win32::Foundation::{GlobalFree, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Foundation::{GlobalFree, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
 use windows_sys::Win32::System::DataExchange::{CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData};
 use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetGUIThreadInfo, GetWindowLongPtrW, SetWindowDisplayAffinity, SetWindowLongPtrW,
+    GetCursorPos, GetGUIThreadInfo, GetWindowLongPtrW, GetWindowRect, SetWindowDisplayAffinity, SetWindowLongPtrW,
     SetWindowPos, ShowWindow, GUITHREADINFO, GWL_EXSTYLE, HWND_TOPMOST, MA_NOACTIVATE, STYLESTRUCT,
-    SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOWNOACTIVATE,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOWNOACTIVATE,
     WDA_EXCLUDEFROMCAPTURE, WM_MOUSEACTIVATE, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
 };
 
 const SUBCLASS_ID: usize = 0x5357_4654; // "SWFT"
+/// Subclass data: the main window follows `CLICK_THROUGH`; a pane is never click-through.
+const MAIN: usize = 1;
+const PANE: usize = 0;
 
 /// Desired click-through state; `WM_STYLECHANGING` enforces it.
 static CLICK_THROUGH: AtomicBool = AtomicBool::new(true);
@@ -43,9 +49,9 @@ fn hwnd(raw: isize) -> HWND {
 }
 
 /// The extended style Swift requires, given whatever someone else tried to set.
-fn enforce(ex: u32) -> u32 {
+fn enforce(ex: u32, kind: usize) -> u32 {
     let mut ex = (ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST) & !WS_EX_APPWINDOW;
-    if CLICK_THROUGH.load(Ordering::SeqCst) {
+    if kind == MAIN && CLICK_THROUGH.load(Ordering::SeqCst) {
         ex |= WS_EX_LAYERED | WS_EX_TRANSPARENT;
     } else {
         ex &= !(WS_EX_LAYERED | WS_EX_TRANSPARENT);
@@ -55,10 +61,14 @@ fn enforce(ex: u32) -> u32 {
 
 /// Re-apply the required extended style (the subclass enforces it on the way in).
 pub fn ensure_styles(raw: isize) {
+    ensure(raw, MAIN);
+}
+
+fn ensure(raw: isize, kind: usize) {
     unsafe {
         let h = hwnd(raw);
         let ex = GetWindowLongPtrW(h, GWL_EXSTYLE);
-        let want = enforce(ex as u32) as isize;
+        let want = enforce(ex as u32, kind) as isize;
         if want != ex {
             SetWindowLongPtrW(h, GWL_EXSTYLE, want);
         }
@@ -85,13 +95,13 @@ unsafe extern "system" fn overlay_proc(
     wparam: WPARAM,
     lparam: LPARAM,
     _id: usize,
-    _data: usize,
+    kind: usize,
 ) -> LRESULT {
     match msg {
         WM_MOUSEACTIVATE => return MA_NOACTIVATE as LRESULT,
         WM_STYLECHANGING if wparam as i32 == GWL_EXSTYLE => {
             let change = lparam as *mut STYLESTRUCT;
-            (*change).styleNew = enforce((*change).styleNew);
+            (*change).styleNew = enforce((*change).styleNew, kind);
         }
         _ => {}
     }
@@ -100,10 +110,19 @@ unsafe extern "system" fn overlay_proc(
 
 /// One-time setup. Returns false if capture exclusion failed (e.g. Windows older than 2004).
 pub fn init_overlay(raw: isize) -> bool {
+    init(raw, MAIN)
+}
+
+/// The same for a pane window (ADR-015): no focus, on top, capture-excluded, never click-through.
+pub fn init_pane(raw: isize) -> bool {
+    init(raw, PANE)
+}
+
+fn init(raw: isize, kind: usize) -> bool {
     unsafe {
         let h = hwnd(raw);
-        SetWindowSubclass(h, Some(overlay_proc), SUBCLASS_ID, 0);
-        ensure_styles(raw);
+        SetWindowSubclass(h, Some(overlay_proc), SUBCLASS_ID, kind);
+        ensure(raw, kind);
         // Debug builds only: SWIFT_DEV_ALLOW_CAPTURE=1 leaves the overlay capturable so its
         // rendering can be checked with screenshots. Release builds always exclude it.
         if cfg!(debug_assertions) && std::env::var_os("SWIFT_DEV_ALLOW_CAPTURE").is_some() {
@@ -121,6 +140,20 @@ pub fn place(raw: isize, x: i32, y: i32, w: i32, h: i32) {
         SetWindowPos(handle, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         ShowWindow(handle, SW_SHOWNOACTIVATE);
     }
+}
+
+/// Resize in physical pixels, keeping the position and z-order, without activating.
+pub fn set_size(raw: isize, w: i32, h: i32) {
+    unsafe {
+        SetWindowPos(hwnd(raw), std::ptr::null_mut(), 0, 0, w, h, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
+    }
+}
+
+/// Where a window is: x, y, w, h in physical pixels.
+pub fn window_rect(raw: isize) -> Option<(i32, i32, i32, i32)> {
+    let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+    let ok = unsafe { GetWindowRect(hwnd(raw), &mut r) };
+    (ok != 0).then_some((r.left, r.top, r.right - r.left, r.bottom - r.top))
 }
 
 pub fn cursor_pos() -> Option<(i32, i32)> {

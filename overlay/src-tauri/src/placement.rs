@@ -51,7 +51,7 @@ impl Anchor {
     }
 
     /// -1 left, 0 centre, 1 right.
-    fn column(self) -> i32 {
+    pub fn column(self) -> i32 {
         match self {
             Anchor::TopLeft | Anchor::BottomLeft => -1,
             Anchor::TopCenter | Anchor::BottomCenter => 0,

@@ -84,6 +84,7 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     unlocked = any("reason='unlocked'" in line for line in presence)
     paused = any("microphone paused" in line for line in log)
     held = [r for r in rows if any(a.get("held_away") for a in r.get("approvals", []))]
+    back = [line for line in log if "confirm card back" in line]
     unsure_wake = sum(_counter(line, "unsure_wake") for line in log if "| wake listening |" in line)
     first_wake = _first_wake_after_unlock(log)
     asked = [line for line in log if "conversation parked | reason='asked'" in line]
@@ -124,19 +125,20 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          "check on screen: never '[Swift workflow: ...'"),
         ("16 a parked request resumed", any(r.get("resumed") for r in rows), ""),
         ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
-        ("19 a card waited behind another, then answered", any(
+        ("18-20 windows, the reader, chips, moved windows", True, "check on screen: nothing cut off; Read all; chip after a minute"),
+        ("21 a card waited behind another, then answered", any(
             a.get("queued") and a.get("decision") in ("approve", "reject")
             for r in rows for a in r.get("approvals", [])), ""),
-        ("20 a request brought forward by name", any("show_named" in (r.get("midrun") or []) or r.get("action") == "show_named"
+        ("21 no card timed out while out of sight", not timed_out,
+         ", ".join(f"{r['_t']:%H:%M:%S}" for r in timed_out) or "none"),
+        ("22 a held card came back by itself, then answered", any(
+            a.get("held_away") and a.get("decision") in ("approve", "reject")
+            for r in held for a in r["approvals"]) and bool(back), f"{len(back)} card(s) back"),
+        ("23 a quiet working card shrank to one line", True, "check on screen"),
+        ("24 a request brought forward by name", any("show_named" in (r.get("midrun") or []) or r.get("action") == "show_named"
                                                     for r in rows), ""),
-        ("21 a request stopped by name", any("stop_named" in (r.get("midrun") or []) or r.get("action") == "stop_named"
+        ("24 a request stopped by name", any("stop_named" in (r.get("midrun") or []) or r.get("action") == "stop_named"
                                             for r in rows), ""),
-        ("22 a change of mind passed on", any(x in ("same_session", "restart") for x in redirects),
-         ", ".join(redirects) or "none"),
-        ("23 a hands-free change of mind (with the name)", any(
-            r.get("redirected") and r.get("source") in ("wake", "beside") for r in rows), ""),
-        ("24 after a sent email: told, correction offered", "after_done" in redirects
-         and any(r.get("fix") for r in rows), ""),
         ("25 a fourth request waited for a slot", any(r.get("queued") for r in rows), ""),
         ("26 a question parked unanswered", bool(asked), f"{len(asked)} parked"),
         ("27 the question picked up later", any(r.get("resumed") == "asked" or r.get("answered_later") for r in rows), ""),
@@ -152,6 +154,12 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("36 a removal rejected, then approved", answered("delete_calendar_event", "reject")
          and answered("delete_calendar_event"), ""),
         ("37 'undo that' after an email: told it can't be undone", any(r.get("undo") == "send_email" for r in undos), ""),
+        ("38 a change of mind passed on", any(x in ("same_session", "restart") for x in redirects),
+         ", ".join(redirects) or "none"),
+        ("39 a hands-free change of mind (with the name)", any(
+            r.get("redirected") and r.get("source") in ("wake", "beside") for r in rows), ""),
+        ("40 after a sent email: told, correction offered", "after_done" in redirects
+         and any(r.get("fix") for r in rows), ""),
     ]
 
 

@@ -16,11 +16,20 @@ pub struct Prefs {
     pub anchor: Anchor,
     /// Flip to the opposite edge when the cards would cover the text caret.
     pub smart: bool,
+    /// Where the owner dragged each kind of pane window (ADR-015 §3), as fractions of the work area.
+    pub panes: PanePlaces,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PanePlaces {
+    pub request: Option<(f64, f64)>,
+    pub reader: Option<(f64, f64)>,
 }
 
 impl Default for Prefs {
     fn default() -> Self {
-        Prefs { anchor: Anchor::default(), smart: true }
+        Prefs { anchor: Anchor::default(), smart: true, panes: PanePlaces::default() }
     }
 }
 
@@ -58,9 +67,11 @@ mod tests {
     #[test]
     fn reads_partial_and_unknown_files() {
         let p: Prefs = serde_json::from_str(r#"{"anchor": "top-right"}"#).unwrap();
-        assert_eq!(p, Prefs { anchor: Anchor::TopRight, smart: true });
+        assert_eq!(p, Prefs { anchor: Anchor::TopRight, smart: true, panes: PanePlaces::default() });
         let p: Prefs = serde_json::from_str(r#"{"smart": false, "later": 1}"#).unwrap();
-        assert_eq!(p, Prefs { anchor: Anchor::BottomCenter, smart: false });
+        assert_eq!(p, Prefs { anchor: Anchor::BottomCenter, smart: false, panes: PanePlaces::default() });
+        let p: Prefs = serde_json::from_str(r#"{"panes": {"reader": [0.1, 0.2]}}"#).unwrap();
+        assert_eq!(p.panes, PanePlaces { request: None, reader: Some((0.1, 0.2)) });
         assert!(serde_json::from_str::<Prefs>(r#"{"anchor": "middle"}"#).is_err());
     }
 }

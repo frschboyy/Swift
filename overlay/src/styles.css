@@ -517,3 +517,28 @@ code {
 .spinner--small { width: 10px; height: 10px; border-width: 1.5px; }
 .row--more, .row--waiting { padding: 4px 10px; background: none; border: none; }
 .row--waiting { color: var(--accent); }
+
+/* ADR-015 §5: a long card never runs off the window: its body scrolls (wheel works without focus). */
+.card > div { max-height: calc(100vh - 56px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
+.card .artifact + .artifact, .card .summary + .artifact { margin-top: 10px; }
+
+/* ADR-015 §3: pane windows. The window is the pane: no stage padding, nothing around it. */
+#stage[data-pane] { position: static; padding: 0; gap: 0; display: block; }
+.pane-body { overflow: hidden; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; width: 300px; height: 44px; padding: 0 12px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-edge);
+  font-size: 12.5px; color: var(--faint); cursor: pointer;
+}
+.chip:hover { border-color: rgba(255, 255, 255, 0.22); color: var(--muted); }
+.chip svg { width: 14px; height: 14px; flex: none; color: var(--accent); }
+.chip .row-title { max-width: 55%; }
+.chip--confirm .row-activity { color: var(--accent); }
+.chip--result .row-dot { background: var(--ok); }
+.chip--error .row-dot { background: var(--bad); }
+.reader { width: 560px; opacity: 1; transform: none; pointer-events: auto; }
+/* The pane window is sized to its content, so the cap comes from the screen (pane.ts sets it). */
+.reader > .reader-body { max-height: var(--reader-max, 480px); }
+.reader-body { overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; user-select: text; cursor: text; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
+.reader-body .summary { white-space: pre-wrap; line-height: 1.5; }
+.reader-text { color: var(--muted); white-space: pre-wrap; line-height: 1.5; }

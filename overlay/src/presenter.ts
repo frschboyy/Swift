@@ -196,6 +196,10 @@ export function onConfirmHold(p: Presenter, requestId: string, held: boolean, ti
 /** The waiting card is on screen (not put aside while the owner is away). */
 export const confirmVisible = (p: Presenter): boolean => p.pendingConfirm !== null && p.held === null;
 
+/** The confirm card the owner can see right now, or null. main.ts tells the backend when this
+ * changes (``card.seen``): a card counts down only while it is seen (ADR-015 §4.2). */
+export const seenCard = (p: Presenter): string | null => (confirmVisible(p) && p.card.kind === "confirm" ? p.pendingConfirm : null);
+
 /** The line on a card that came back: when it was put aside (ms), or null. */
 export const waitingSince = (p: Presenter): number | null => (confirmVisible(p) ? p.heldSince : null);
 

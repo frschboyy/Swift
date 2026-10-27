@@ -41,6 +41,7 @@ The principle stays the owner's: **Swift adapts to the user, not the user to Swi
 | **Waiting** | (part of the main card) | "1 more card waiting" on the card in front | | |
 
 - **Pane windows are sized to their content,** so they are clickable all over and need no click-through regions. They never take focus (`WS_EX_NOACTIVATE`, as the main window), stay on top, have no taskbar entry, and are excluded from screen capture.
+- **Without pane windows** (the dev harness in a browser, or a shell that can't open one), the overlay falls back to ADR-013's rows under the card.
 - **Moved by dragging anywhere on them** (a press that doesn't move is a click). The position is remembered per kind, as a fraction of the monitor's work area, in `overlay.json` (beside the main anchor), so it holds across monitors and resolutions. A second window of the same kind stacks under the first.
 - **Free space:** with no remembered position, a pane goes on the side away from the main window's anchor (left anchor → right side), so it never covers the card in front.
 - **At most 3 request windows** (the run limit, ADR-013 §5.2). A queued request (4th) is a line on the card in front, as before.
@@ -48,7 +49,7 @@ The principle stays the owner's: **Swift adapts to the user, not the user to Swi
 ### 3.2 Who owns what
 
 - The main window keeps the one connection to the backend and the one presenter (ADR-013 §6). Panes are thin: the main window tells each what to show (`pane` event), and a click comes back as an action (`pane-action` event) that the main window sends on.
-- Which panes exist is a pure function of the presenter's state (`overlay/src/panes.ts`): `wantedPanes(presenter, reader, now)`. It is unit-tested like the presenter; main.ts opens, updates and closes windows to match.
+- Which panes exist is a pure function of the presenter's state and the reader (`overlay/src/panes.ts`): `wantedPanes(presenter, reader, label)`. It is unit-tested like the presenter; main.ts opens, updates and closes windows to match.
 
 ### 3.3 Chips after a quiet period
 
@@ -56,7 +57,7 @@ The principle stays the owner's: **Swift adapts to the user, not the user to Swi
 |---|---|---|
 | Main, working | No new step and no pointer over it for 30 s | It collapses to its one-line compact form (ADR-009); a new step or hover opens it again |
 | Main, answer | As today: it fades after its reading time; hover holds it | |
-| Reader | No pointer over it and no scrolling for 60 s | It shrinks to a chip ("Research: the history of tea · Open"); a click opens it again. Closing it removes it. It goes when its request's thread is gone and a new answer replaces it |
+| Reader | No pointer over it and no scrolling for 60 s | It shrinks to a chip ("Research: the history of tea · Open"); a click opens it again. Closing it (×) removes it; "Read all" on another answer replaces it |
 | Request | Always a chip | When its request ends: "Done: …" for 20 s (ADR-013), then it closes |
 
 A confirm card never shrinks: it is the one thing waiting for the owner. It is hidden only while held (owner away).
@@ -112,8 +113,10 @@ Any finished `text`, `list` or `table` artifact is drawn the same way, so other 
 | `card.seen` inbound; cards replayed on back and when they come forward; seen cleared when hidden | `src/swift/ipc/protocol.py`, `src/swift/session.py` (`hold_cards`, `_show_next_card`, `handle`) | `test_card_timing.py`, `test_held_cards.py`, `test_runs.py` |
 | The presenter says which card is seen (`seenCard`); a card that comes back is drawn whatever the overlay remembered | `overlay/src/presenter.ts`, `overlay/src/main.ts` | `overlay/tests/presenter.test.ts` |
 | Which panes exist and what they show | `overlay/src/panes.ts` | `overlay/tests/panes.test.ts` |
-| Pane windows: no focus, on top, capture-excluded, sized to content, dragged anywhere, position remembered per kind, placed away from the main window | `overlay/src-tauri/src/lib.rs` (`open_pane`, `close_pane`, `fit_pane`, `drag_pane`), `panes.rs`, `win.rs`, `prefs.rs`, `overlay/src/pane.ts` | `cargo test` (placement), by eye in the dev harness |
-| Card body scrolls; "Read all"; answers draw finished table/list/text artifacts | `overlay/src/main.ts`, `styles.css` | owner checks 17, 29 |
-| Quiet period: working card collapses after 30 s, reader to a chip after 60 s | `overlay/src/panes.ts`, `main.ts` | `panes.test.ts`, owner check 23 |
+| Pane windows: no focus, on top, capture-excluded, sized to content, dragged anywhere, position remembered per kind, placed away from the main window | `overlay/src-tauri/src/lib.rs` (`open_pane`, `close_pane`, `fit_pane`, `drag_pane`), `panes.rs`, `win.rs`, `prefs.rs`; `overlay/src/pane.ts`, `entry.ts` | `cargo test` (`panes.rs`: never over the card in front, chips and reader apart, remembered places stay on screen; `prefs.rs`); owner checks 17–20 |
+| Card body scrolls; "Read all"; answers draw finished table/list/text artifacts | `overlay/src/main.ts` (`renderResult`, `finishedArtifacts`), `styles.css` | owner checks 18, 29; in the dev harness at 720 × 560 the card stays inside the window and scrolls |
+| Quiet period: working card collapses after 30 s, reader to a chip after 60 s | `overlay/src/panes.ts` (`workingQuiet`, `readerTick`), `main.ts` | `panes.test.ts`, owner checks 19, 23 |
 
-**Owner-run:** checks 17–25 in `docs/testing/owner-checks.md`; `report.py` reports them.
+**Not done:** the main window still snaps to its six anchors when dragged (ADR-009); only pane windows go anywhere. Not seen on a real screen in this session: the pane windows themselves (they build, and the placement tests pass); owner checks 17–20 are the proof.
+
+**Owner-run:** checks 17–25 in `docs/testing/owner-checks.md` (the change-of-mind checks moved to 38–40); `report.py` reports them.

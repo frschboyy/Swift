@@ -6,13 +6,18 @@
 // working card's body in place (the card never moves mid-run); Swift picks what it shows.
 // Several requests (ADR-013 phase B): the others are one line each under the card (``runs``);
 // a click on one, or the card in front fading while one still runs, brings it forward.
+// ADR-015: those others get a small window each instead (panes.ts, pane.ts), a long answer can
+// open in a reader window, and the backend hears when a confirm card is actually on screen
+// (``card.seen``): its countdown runs only then. Without pane windows (the dev harness), the
+// rows come back.
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
+import * as Panes from "./panes";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 
@@ -74,6 +79,15 @@ let promoted: string | null = null;
 let runVoice: { phase: string; text: string } | null = null;
 let runVoiceTimer = 0;
 const DRAFT_LINES = 8;
+// The confirm card the backend was last told is on screen (ADR-015 §4.2).
+let seen: string | null = null;
+// Pane windows (ADR-015 §3): what each open one shows. False once opening one failed: rows instead.
+let paneWindows = true;
+const panes = new Map<string, Panes.PaneView>();
+let reader: Panes.Reader = null;
+// A working card with no news for a while collapses to its line (ADR-015 §3.3); the pointer on it opens it.
+let quiet = false;
+let lastLookAt = 0;
 
 const client = new BackendClient(onMessage, onStatus);
 
@@ -113,10 +127,12 @@ function resetRun(keepRequest: boolean): void {
   lastConfirm = null;
   fullDraft = false;
   runVoice = null;
+  quiet = false;
 }
 
 /** Debug builds: a broken presenter rule is reported with the messages that led to it. */
 function checkPresenter(): void {
+  reportSeen();
   if (!debugEnabled) return;
   const broken = P.violations(pres);
   if (broken.length) console.warn("[overlay] presenter rule broken:", broken, "after", recent.slice(-12));
@@ -138,7 +154,16 @@ function presentAnswer(kind: "result" | "error" | "notice", ms: number | null, r
   return r.shown;
 }
 
-// ---- other requests: one line each under the card (ADR-013 §3.1) ---------------------------
+/** Tell the backend which confirm card is on screen: it counts down only while one is (ADR-015 §4.2). */
+function reportSeen(): void {
+  const now = P.seenCard(pres);
+  if (now === seen) return;
+  if (seen) client.send({ type: "card.seen", data: { request_id: seen, visible: false } });
+  if (now) client.send({ type: "card.seen", data: { request_id: now, visible: true } });
+  seen = now;
+}
+
+// ---- other requests: a window each (ADR-015 §3), or one line each under the card -------------
 
 const ROW_STATE: Record<string, string> = {
   queued: "Waiting to start",
@@ -168,6 +193,11 @@ function rowLabel(r: P.Row): string {
 }
 
 function drawRows(): void {
+  if (paneWindows) {
+    drawWaiting();
+    void syncPanes();
+    return;
+  }
   const { rows, more } = P.visibleRows(pres);
   const items: HTMLElement[] = rows.map((r) => {
     const running = !["result", "error", "done"].includes(r.state);
@@ -191,6 +221,79 @@ function drawRows(): void {
   rowsEl.hidden = items.length === 0;
   scheduleRegions();
 }
+
+/** With pane windows, only what waits stays on the card in front: cards, and requests without a slot. */
+function drawWaiting(): void {
+  const items: HTMLElement[] = [];
+  if (pres.waiting) items.push(el("li", { class: "row row--waiting" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
+  const queued = Panes.queuedRows(pres).length;
+  if (queued) items.push(el("li", { class: "row row--more" }, `${queued} more ${queued === 1 ? "request" : "requests"} waiting to start`));
+  rowsEl.replaceChildren(...items);
+  rowsEl.hidden = items.length === 0;
+  scheduleRegions();
+}
+
+/** Open, update and close pane windows to match the presenter and the reader. */
+async function syncPanes(): Promise<void> {
+  if (!paneWindows) return;
+  const shown = new Map([...panes].map(([label, view]) => [label, JSON.stringify(view)]));
+  const d = Panes.diffPanes(shown, Panes.wantedPanes(pres, reader, rowLabel));
+  for (const label of d.close) {
+    panes.delete(label);
+    void invoke("close_pane", { label }).catch(() => {});
+  }
+  for (const spec of d.update) {
+    panes.set(spec.label, spec.view);
+    sendPane(spec.label, spec.view);
+  }
+  for (const spec of d.create) {
+    panes.set(spec.label, spec.view);
+    const { w, h } = Panes.paneSize(spec);
+    try {
+      await invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h });
+    } catch (err) {
+      // No pane windows here (the dev harness, or an older shell): the rows under the card instead.
+      console.warn("[overlay] pane windows unavailable:", err);
+      paneWindows = false;
+      panes.clear();
+      reader = null;
+      drawRows();
+      return;
+    }
+    sendPane(spec.label, spec.view);  // if it isn't listening yet, it asks again ("ready")
+  }
+}
+
+function sendPane(label: string, view: Panes.PaneView): void {
+  void emitTo(label, "pane", { label, view }).catch(() => {});
+}
+
+function openReader(title: string, summary: string, details: ResultDetails | null, runId: string | null): void {
+  reader = Panes.openReader(title, summary, details, runId, Date.now());
+  void syncPanes();
+}
+
+void listen<{ label: string; action: string; runId?: string }>("pane-action", ({ payload }) => {
+  switch (payload.action) {
+    case "ready": {
+      const view = panes.get(payload.label);
+      if (view) sendPane(payload.label, view);
+      break;
+    }
+    case "focus":
+      if (payload.runId) askFocus(payload.runId);
+      break;
+    case "open":
+    case "touch":
+      reader = Panes.touchReader(reader, Date.now());
+      void syncPanes();
+      break;
+    case "close":
+      reader = null;
+      void syncPanes();
+      break;
+  }
+});
 
 function askFocus(runId: string): void {
   promoted = runId;
@@ -318,7 +421,7 @@ function renderWorking(): void {
   const elapsed = el("span", { class: "elapsed", "aria-hidden": "true" }, runStarted && busyAt - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "");
   // "Show me" on the steps (viewing null) opens them even in compact mode.
   const shown = viewing ? artifacts.get(viewing) : undefined;
-  const small = compact && viewing === undefined;
+  const small = (compact || quiet) && viewing === undefined;
   const stalled = isStalled(busyAt);
   const showButton = artifacts.size && !shown
     ? el("button", { class: "btn btn--ghost btn--small", "data-hit": true, title: "Show what Swift is working on", onclick: () => askView("show") }, "Show")
@@ -594,6 +697,8 @@ const clock = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour
 function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"]): void {
   pres = P.onConfirmHold(pres, data.request_id, data.held, data.timeout_s, Date.now());
   checkPresenter();
+  // Back: the backend has just drawn the card again (ADR-015 §4.1), so a card this overlay had
+  // forgotten while it was hidden is already on screen (owner check 18, 2026-10-27).
   if (!lastConfirm || lastConfirm.request_id !== data.request_id || pres.pendingConfirm !== data.request_id) return;
   if (data.held) {
     card.classList.add("card--held");
@@ -681,7 +786,7 @@ function renderDetails(details: ResultDetails | null | undefined): HTMLElement |
           el("thead", {}, el("tr", {}, ...details.columns.map((c) => el("th", { scope: "col" }, c)))),
           el("tbody", {}, ...details.rows.slice(0, 6).map((row) => el("tr", {}, ...row.map((c) => el("td", {}, c))))),
         ),
-        more > 0 ? el("p", { class: "more" }, `and ${more} more rows (Copy includes them)`) : null,
+        more > 0 ? el("p", { class: "more" }, `and ${more} more rows (Read all or Copy shows them)`) : null,
       );
     }
   }
@@ -718,8 +823,16 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const variant = data.status === "done" ? "done" : "neutral";
   const glyph = data.status === "done" ? "check" : "x";
   const label = { done: "Done", rejected: "Not approved", error: "Failed" }[data.status];
-  const extra = detailsText(data.details);
+  // What the run finished showing (the calendar's table, ADR-015 §6) is part of the answer.
+  const finished = finishedArtifacts();
+  const extra = [detailsText(data.details), ...finished.map((a) => `${a.title}\n${detailsText(a.data)}`)].filter(Boolean).join("\n\n");
   const copyable = [data.summary, extra].filter(Boolean).join("\n\n");
+  const readable = finished.length ? finished[finished.length - 1] : null;
+  const fuller = data.details ?? readable?.data ?? null;
+  const readAll = paneWindows && (Panes.needsReader(data.summary, fuller) || finished.length > 1)
+    ? el("button", { class: "btn btn--ghost btn--small", title: "Open the whole answer in a larger window", onclick: () =>
+        openReader(readable?.title ?? clipLine(request || label), data.summary, fuller, data.run_id) }, "Read all")
+    : null;
   const line = `${data.status === "rejected" ? "Not approved: " : ""}${clipLine(data.summary)}`;
   if (!presentAnswer("result", readingMs(copyable), data.run_id, data.thread_id, line)) return;
   showCard(
@@ -731,6 +844,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
       data.note ? el("p", { class: "note" }, data.note) : null,
       el("p", { class: "summary" }, data.summary),
       renderDetails(data.details),
+      ...finished.map((a) => el("section", { class: "artifact", "aria-label": a.title }, el("h3", { class: "artifact-title" }, a.title), renderDetails(a.data))),
       el(
         "footer",
         { class: "card-foot" },
@@ -738,8 +852,9 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         el(
           "span",
           { class: "actions actions--inline" },
+          readAll,
           // What the run produced (the sent email) stays one click (or "show me") away.
-          artifacts.size ? el("button", { class: "btn btn--ghost btn--small", onclick: () => askView("show") }, "Show") : null,
+          artifacts.size > finished.length ? el("button", { class: "btn btn--ghost btn--small", onclick: () => askView("show") }, "Show") : null,
           data.status === "done" ? copyButton(copyable) : null,
         ),
       ),
@@ -747,6 +862,12 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
     `result card--${variant}`,
   );
   showDeadline();
+}
+
+/** Tables, lists and text the run finished showing (the calendar's "Your calendar: …"). */
+type Finished = Extract<Artifact, { kind: "text" | "list" | "table" }>;
+function finishedArtifacts(): Finished[] {
+  return [...artifacts.values()].filter((a): a is Finished => (a.kind === "table" || a.kind === "list" || a.kind === "text") && a.phase === "done");
 }
 
 /** One line of an answer, for the thread's history. */
@@ -929,6 +1050,11 @@ function setHold(): void {
 function setHover(inside: boolean): void {
   hovering = inside;
   card.classList.toggle("card--hover", inside);
+  if (inside) lastLookAt = Date.now();
+  if (inside && quiet) {
+    quiet = false;
+    if (state === "working") renderWorking();
+  }
   setHold();
 }
 
@@ -997,8 +1123,18 @@ window.setInterval(() => {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
     if (isStalled(Date.now()) !== !!card.querySelector(".note--soft")) renderWorking();
+    // No news and nobody looking: collapse to the one line (ADR-015 §3.3).
+    if (!quiet && Panes.workingQuiet(Math.max(lastStepAt, runStarted, lastLookAt), Date.now(), hovering)) {
+      quiet = true;
+      renderWorking();
+    }
   } else if (state === "confirm") tickConfirm();
-  if (pres.rows.length) drawRows();  // their elapsed time
+  if (pres.rows.length && !paneWindows) drawRows();  // their elapsed time (pane windows keep their own)
+  const shrunk = Panes.readerTick(reader, Date.now(), false);
+  if (shrunk !== reader) {
+    reader = shrunk;
+    void syncPanes();
+  }
 }, 1000);
 
 // ---- Esc: only grabbed while Swift is active ------------------------------------
@@ -1044,6 +1180,7 @@ function onMessage(msg: Inbound): void {
     case "step":
       steps = [...steps, msg.data.text].slice(-MAX_STEPS);
       lastStepAt = Date.now();
+      quiet = false;
       current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false, app: msg.data.app };
       if (state === "working") renderWorking();
       break;

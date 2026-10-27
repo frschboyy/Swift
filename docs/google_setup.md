@@ -23,7 +23,7 @@ Go to **APIs & Services → OAuth consent screen**. Newer consoles call this **G
    | Scope | Purpose | Notes |
    |---|---|---|
    | `https://www.googleapis.com/auth/gmail.compose` | Create, update, and send drafts | Restricted scope |
-   | `https://www.googleapis.com/auth/calendar.events` | Create events | Sensitive |
+   | `https://www.googleapis.com/auth/calendar.events` | Read, add, change and remove events, with Google Meet links | Sensitive |
    | `https://www.googleapis.com/auth/calendar.freebusy` | Free/busy for you and attendees | **[verify it's offered]**; if not, use `calendar.readonly` |
    | `https://www.googleapis.com/auth/contacts.readonly` | Contact lookup | Sensitive |
 

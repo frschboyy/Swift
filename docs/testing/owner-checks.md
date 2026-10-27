@@ -1,6 +1,6 @@
-# Owner checks: the overlay, conversations, corrections, stepping away, several requests (ADR-012, ADR-013, ADR-014)
+# Owner checks: the overlay, conversations, corrections, stepping away, several requests, the calendar (ADR-012, ADR-013, ADR-014, ADR-011 §13 #5)
 
-About 25 minutes, in your real Swift with your real microphone. Run them in order.
+About 35 minutes, in your real Swift with your real microphone. Run them in order.
 
 - Each check says **what to do**, **what you should see**, and what the log report checks afterwards.
 - Note anything that looks wrong and roughly when, e.g. "check 3 at 20:15".
@@ -62,6 +62,23 @@ About 25 minutes, in your real Swift with your real microphone. Run them in orde
 | 26 | "Hey Swift, add lunch with Test Me to my calendar" (no day or time) | Swift asks which day and time, with "Listening for your answer… 25 s" under it. Say nothing for 30 s. | A question parked unanswered |
 | 27 | A minute later, with the hotkey: "Friday at one" (or "continue") | It goes on with lunch, on the same card, and shows the calendar card. Click **Reject**. | The question picked up later |
 | 28 | Only if Claude Code ever says it couldn't confirm its model | One card: "Claude Code couldn't reach its models; check your connection or sign-in", after Swift tried once more with the default model | Retries with the default model, if any |
+### Your calendar: look, change, cancel, Meet links, undo (2026-10-27)
+
+About 10 minutes. Uses your real Google Calendar: every change waits for a card, and you clean up with Swift itself. Before check 29, add one event yourself in Google Calendar: "Swift check", tomorrow 11:00–11:30.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 29 | "Hey Swift, what's on my calendar tomorrow?" | **No card.** A table "Your calendar: <tomorrow>" with "Swift check" at 11:00, and a one-sentence answer. Not "I can't read your calendar". | The calendar workflow ran on a question |
+| 30 | "Hey Swift, when is my next meeting?" | The next event in the coming week, by name and time | The calendar workflow ran |
+| 31 | Hold the hotkey: "move Swift check to 2 pm" | A card "Change in your calendar: Swift check" with "When: … 11:00–11:30 → … 14:00–14:30". **Approve.** | An approved update |
+| 32 | Hold the hotkey: "add a Google Meet link to Swift check" | A card listing "Adds a Google Meet link". Approve. In Google Calendar the event now has a Meet link. | An approved update |
+| 33 | Hold the hotkey: "set up a meeting with Test Me on Thursday at three with a Meet link" | A card "Add to your calendar: …" whose line ends "invites Test Me (Google emails them) · with a Google Meet link". **Approve.** | An approved add |
+| 34 | Right away: "hey Swift, undo that" | A new card "Undo: remove from your calendar: …" for the Thursday meeting. Approve. It's gone from Google Calendar, and Test Me gets a cancellation. | An undo, approved |
+| 35 | Hold the hotkey: "change Swift check to 3 pm", **approve**, then hold the hotkey: "I didn't approve that" | A card "Undo: change back: Swift check" with "When: … 15:00 → … 14:00". Approve; it's back at 14:00. | An undo of an update |
+| 36 | Hold the hotkey: "cancel Swift check" | A card "Remove from your calendar: Swift check". Click **Reject** first: it's still there. Then ask again and **approve**: it's gone. | A rejected and an approved removal |
+| 37 | "Hey Swift, email Test Me that the meeting is off", approve, then "hey Swift, undo that" | "…can't be undone (a sent email can't be unsent)", and **no** card that removes a calendar event instead | An undo refused for an email |
+
+If Swift says the calendar "isn't allowed yet" or the sign-in "has expired", sign in again yourself (`uv run --group spikes python -m swift.connectors.gmail signin`); no new permission is asked for.
 
 ## After the checks: the report
 

@@ -176,6 +176,12 @@ def test_show_me_never_matches_a_workflow(text: str) -> None:
     assert is_show(text) and library.match(text) is None
 
 
+@pytest.mark.parametrize("text", ["show me my calendar for this week", "Swift, pull up my schedule for tomorrow"])
+def test_show_me_my_things_is_a_look_up_not_the_last_result(text: str) -> None:
+    assert not is_show(text)
+    assert route(text).action != "show_last"
+
+
 def test_workflows_still_match_without_show() -> None:
     match = load_library().match("research the history of tea into word")
     assert match is not None and match.package.name == "research-into-word"

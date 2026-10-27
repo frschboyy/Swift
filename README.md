@@ -178,6 +178,18 @@ Every decision is recorded in the interaction log's `approvals`, with `source` (
   - Reject stopped the run 0.2 s after the click, and Esc 0.4–0.5 s after
   - each request cost $0.005–0.05
 
+### Your calendar (Google)
+
+With `connectors: calendar: google`, the **calendar-event** workflow covers the everyday lifecycle. Ask in your own words; every change waits for a confirm card:
+
+- **Look:** "what's on my calendar tomorrow", "when is my next meeting", "am I free on Friday". Read-only, no card; the events show as a table.
+- **Add:** "add lunch with Ada tomorrow at noon". Attendees only ever come from your contacts (Google emails them the invitation, and the card says so). "With a Meet link" adds a Google Meet link; the card says "with a Google Meet link".
+- **Change or move:** "move my meeting with Ada to Friday at three", "add a Meet link to my meeting with Ada". The card shows each change as before → after.
+- **Cancel:** "cancel my dentist appointment". If it has attendees, Google tells them.
+- **Undo:** right after approving something, "undo that" or "I didn't approve that" offers to reverse it on a new card: an event just added is removed, a change is changed back. A sent email can't be undone, and Swift says so. This is the gateway's general undo, for any action whose tool says how to reverse it.
+
+Swift only changes or removes an event it looked up in the same request, or one it added itself (its action journal keeps the event ids, never titles). **No new Google permission is needed:** `calendar.events`, which Swift already asks for, covers reading, changing and removing events and Meet links. If you signed in before `calendar.events` was added, sign in again yourself (`uv run --group spikes python -m swift.connectors.gmail signin`).
+
 ### Speech model
 
 Two engines, picked with `stt.engine` in `config.yaml`:

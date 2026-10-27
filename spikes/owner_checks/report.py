@@ -90,6 +90,12 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     model_retries = [line for line in log if "couldn't confirm its model" in line]
     side_by_side = _overlapping(rows)
     redirects = [r.get("redirected") for r in rows if r.get("redirected")]
+    approved = [(a.get("tool"), a.get("decision")) for r in rows for a in r.get("approvals", [])]
+
+    def answered(tool: str, decision: str = "approve") -> bool:
+        return (tool, decision) in approved
+
+    undos = [r for r in rows if r.get("undo")]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows),
          f"{unsure_wake} unsure wake phrase(s) still taken"),
@@ -136,6 +142,16 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("27 the question picked up later", any(r.get("resumed") == "asked" or r.get("answered_later") for r in rows), ""),
         ("28 unconfirmed model retried with the default (if it happened)", True,
          f"{len(model_retries)} retr{'y' if len(model_retries) == 1 else 'ies'}"),
+        ("29-30 a calendar question ran the workflow, no card", any(
+            r.get("route") == "agent" and not r.get("approvals") and r.get("status") == "done" for r in calendar), ""),
+        ("31-32 a calendar change approved", answered("update_calendar_event"), ""),
+        ("33 an event added", answered("create_calendar_event"), ""),
+        ("34-35 'undo that' / 'I didn't approve that' offered an undo card", any(
+            r.get("undo") in ("create_calendar_event", "update_calendar_event") for r in undos),
+         ", ".join(str(r.get("undo")) for r in undos) or "none"),
+        ("36 a removal rejected, then approved", answered("delete_calendar_event", "reject")
+         and answered("delete_calendar_event"), ""),
+        ("37 'undo that' after an email: told it can't be undone", any(r.get("undo") == "send_email" for r in undos), ""),
     ]
 
 

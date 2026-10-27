@@ -10,6 +10,7 @@ it as artifacts, and runs anything with a side effect through the gateway.
 | ``draft_email(to, subject, body, draft_id?)`` | none: a draft held by Swift |
 | ``send_email(draft_id)`` | external: through ``ActionGateway`` and the confirm card |
 | ``present(kind, title, data)`` | none: shows a text, list or table |
+| ``undo_last_action()`` | external: reverses the last action the owner approved, if it can be, with its own card |
 
 More tools live next to this module: the calendar (``calendar.py``) and the desktop
 (``desktop_tools.py``); ``ALL_TOOLS`` (``toolset.py``) is every one of them.
@@ -42,7 +43,7 @@ from swift.connectors.base import (
     EmailConnector,
     OutgoingEmail,
 )
-from swift.security.gateway import Action, ActionGateway
+from swift.security.gateway import UNDO_WINDOW_S, Action, ActionGateway
 from swift.workflows.scope import Confirmer, Draft, Grant, Publisher, RunScope, Stepper
 
 if TYPE_CHECKING:
@@ -273,6 +274,32 @@ async def present(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> Tool
     return ToolResult(True, "Shown to the owner.", {"id": artifact.id})
 
 
+async def undo_last_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
+    """"Undo that" / "that wasn't approved": reverse what the owner last approved, if its tool can (ADR-010 §4)."""
+    last, outcome = await host.gateway.undo_last(scope, UNDO_WINDOW_S)
+    if last is None:
+        minutes = int(UNDO_WINDOW_S // 60)
+        return ToolResult(False, f"Swift hasn't done anything on the owner's approval in the last {minutes} minutes, "
+                          "so there's nothing of Swift's to undo. Nothing was changed; tell the owner.")
+    if not last.undoable:
+        return ToolResult(False, f"The last thing the owner approved was “{last.title}”, and that can't be undone "
+                          "(a sent email can't be unsent). Nothing was changed: tell the owner, and offer a follow-up "
+                          "such as a correction.")
+    match outcome.status:
+        case "done":
+            return ToolResult(True, f"Undone: “{last.title}”.", {"undid": last.tool})
+        case "rejected":
+            return ToolResult(False, f"{outcome.reason}: “{last.title}” stays as it is. Don't retry; tell the owner.")
+        case "revise":
+            return ToolResult(False, f"The owner wants something else instead: “{outcome.reason}”. Nothing was undone. "
+                              "Do what they asked with the workflow's own tools; Swift asks them again before it "
+                              "changes anything.")
+        case "denied":
+            return ToolResult(False, f"Not undone: {outcome.reason}")
+        case _:
+            return ToolResult(False, f"Undoing it failed: {outcome.reason} Don't retry; tell the owner.")
+
+
 def _draft_title(draft: Draft) -> str:
     return "Email to " + ", ".join(c.name for c in draft.to)
 
@@ -316,6 +343,14 @@ TOOLS: tuple[ToolSpec, ...] = (
              title={"type": "string"}, data={"type": "object"}),
         "none", present,
     ),
+    ToolSpec(
+        "undo_last_action",
+        "Undo the last thing the owner approved on a Swift card (\"undo that\", \"I didn't approve that\"), "
+        "e.g. remove the event just added. Swift shows the owner what will be undone on a confirm card. "
+        "Says so if it can't be undone (a sent email).",
+        _obj([]),
+        "external", undo_last_action,
+    ),
 )
 
 
@@ -346,8 +381,10 @@ class ToolHost:
         # One writer in the owner's apps at a time (ADR-013 §5.2), and the app it writes in.
         self.writing = asyncio.Lock()
         self.writing_app = ""
-        # The last thing Swift wrote in the owner's apps, for "undo that" (ADR-012 §6).
+        # The last thing Swift wrote in the owner's apps, for "undo that" (ADR-012 §6), and when
+        # (time.monotonic()): "undo that" means the newer of it and the gateway's last approved action.
         self.last_write: WriteReceipt | None = None
+        self.last_write_at = 0.0
 
     @property
     def scope(self) -> RunScope | None:

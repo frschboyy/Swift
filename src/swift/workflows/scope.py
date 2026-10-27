@@ -18,7 +18,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from swift.connectors.base import Contact
+from swift.connectors.base import Contact, StoredEvent
 from swift.workflows.artifacts import Artifact, ArtifactStore, Kind, Phase
 
 # "revise": the owner asked for a change on the card; their words are in ``RunScope.feedback``.
@@ -61,6 +61,9 @@ class RunScope:
     # Addresses find_contact returned in this run (lower-cased) -> the contact.
     resolved: dict[str, Contact] = field(default_factory=dict)
     drafts: dict[str, Draft] = field(default_factory=dict)
+    # Calendar events this run looked up or added (event id -> the event): the only ones it may
+    # change or remove, besides those the journal says Swift added.
+    events: dict[str, StoredEvent] = field(default_factory=dict)
     # Digests already sent: an approval is used once (T10).
     sent: set[str] = field(default_factory=set)
     ids: itertools.count[int] = field(default_factory=lambda: itertools.count(1))

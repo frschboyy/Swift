@@ -7,7 +7,7 @@ from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "swift"
 # Connector and desktop methods that change the outside world or the owner's apps.
-SIDE_EFFECTS = {"send", "create_event", "writer", "fill_in_email", "open_path"}
+SIDE_EFFECTS = {"send", "create_event", "update_event", "delete_event", "writer", "fill_in_email", "open_path"}
 # The only places allowed to call them (through Action.perform, which only the gateway runs).
 ALLOWED = {SRC / "workflows" / f for f in ("tools.py", "calendar.py", "desktop_tools.py")} | {SRC / "security" / "gateway.py"}
 OWNERS = {"mail", "gmail", "calendar", "desktop"}

@@ -386,6 +386,9 @@ const EVENT_TEXT: Record<string, string> = {
   failed: "Not added",
   rejected: "Not added: you didn't approve it",
 };
+// A change (``before`` set) or a removal (``removing``) says so instead.
+const CHANGE_TEXT: Record<string, string> = { ...EVENT_TEXT, sending: "Changing…", sent: "Changed", failed: "Not changed", rejected: "Not changed: you didn't approve it" };
+const REMOVE_TEXT: Record<string, string> = { ...EVENT_TEXT, sending: "Removing…", sent: "Removed from your calendar", failed: "Not removed", rejected: "Not removed: you didn't approve it" };
 
 /** One artifact, readable at a glance. Bodies scroll inside the card, which stays put. */
 function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
@@ -430,10 +433,15 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
       body = el(
         "div",
         {},
-        e.state ? el("p", { class: `summary send-${e.state === "sent" ? "sent" : e.state}` }, EVENT_TEXT[e.state] ?? e.state) : null,
+        e.state ? el("p", { class: `summary send-${e.state === "sent" ? "sent" : e.state}` }, (e.removing ? REMOVE_TEXT : e.before ? CHANGE_TEXT : EVENT_TEXT)[e.state] ?? e.state) : null,
         e.reason ? el("p", { class: "muted" }, e.reason) : null,
         el("dl", { class: "kv" }, el("dt", {}, "What"), el("dd", {}, e.title), el("dt", {}, "When"), el("dd", {}, e.when),
-          ...(e.location ? [el("dt", {}, "Where"), el("dd", {}, e.location)] : [])),
+          ...(e.location ? [el("dt", {}, "Where"), el("dd", {}, e.location)] : []),
+          ...(e.attendees ? [el("dt", {}, "Who"), el("dd", {}, e.attendees)] : []),
+          ...(e.meet ? [el("dt", {}, "Meet"), el("dd", {}, "with a Google Meet link")] : [])),
+        Array.isArray(e.changes) && e.changes.length
+          ? el("ul", { class: "result-list" }, ...e.changes.map((c) => el("li", {}, c)))
+          : null,
       );
       break;
     }

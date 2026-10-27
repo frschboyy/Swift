@@ -21,7 +21,9 @@ name replaces it. ``installed/`` (ADR-011 §6.6) is later work and not read.
 Matching (ADR-011 §6.2): a trigger phrase whose slots all fill runs the workflow, and
 so does an ``intent`` trigger: one of its action words and one of its subject words
 anywhere in a request that isn't a question ("set up a meeting with the professor on
-my calendar"). A request that only shares words with a workflow's title and
+my calendar"). An intent marked ``questions: true`` is the opposite: it runs only on a
+question ("what's on my calendar tomorrow", "when is my next meeting"), for workflows
+that answer them by looking something up. A request that only shares words with a workflow's title and
 description is offered. Running directly is safe: anything consequential still waits
 for the owner on a confirm card.
 """
@@ -51,7 +53,11 @@ CAPABILITIES: dict[str, tuple[str | None, Risk]] = {
     "email.draft": ("draft_email", "none"),
     "email.fill_in": ("fill_in_email", "reversible"),
     "email.send": ("send_email", "external"),
+    "calendar.list_events": ("list_calendar_events", "read"),
     "calendar.create_event": ("create_calendar_event", "external"),
+    "calendar.update_event": ("update_calendar_event", "external"),
+    "calendar.delete_event": ("delete_calendar_event", "external"),
+    "swift.undo": ("undo_last_action", "external"),
     "swift.present": ("present", "none"),
     "desktop.context": ("desktop_context", "read"),
     "desktop.write": ("desktop_write", "reversible"),
@@ -109,6 +115,8 @@ def is_question(text: str) -> bool:
 
 
 _SHOW = re.compile(r"(?:show|let me see|bring up|pull up|where is|where's)\b")
+# "Show me my calendar" looks up the owner's own things, which a workflow does; it isn't Swift's last result.
+_SHOW_MINE = re.compile(r"(?:show|let me see|bring up|pull up)(?: me)? my\b")
 
 
 def is_show(text: str) -> bool:
@@ -116,18 +124,23 @@ def is_show(text: str) -> bool:
     said = " ".join(_WORD.findall(text.lower()))
     lead = re.match(_LEAD, said)
     said = said[lead.end():] if lead else said
-    return bool(_SHOW.match(re.sub(r"^(?:(?:and|so|ok|okay|now|then|just)\s+)+", "", said)))
+    said = re.sub(r"^(?:(?:and|so|ok|okay|now|then|just)\s+)+", "", said)
+    return bool(_SHOW.match(said)) and not _SHOW_MINE.match(said)
 
 
 @dataclass(frozen=True)
 class Intent:
-    """Run when a request has one of ``actions`` and one of ``subjects`` (whole words or phrases)."""
+    """Run when a request has one of ``actions`` and one of ``subjects`` (whole words or phrases).
+
+    Requests that ask something never run an intent, so "did I add the meeting?" doesn't add
+    one; an intent with ``questions`` runs only on those (its actions are question words)."""
 
     actions: tuple[str, ...]
     subjects: tuple[str, ...]
+    questions: bool = False
 
     def matches(self, text: str) -> bool:
-        if is_question(text):
+        if is_question(text) != self.questions:
             return False
         said = " ".join(_WORD.findall(text.lower()))
         lead = re.match(_LEAD, said)
@@ -428,16 +441,19 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
 
 
 def _intent(raw: object) -> Intent:
-    """``intent: {actions: [add, schedule, set up], subjects: [calendar, meeting]}``."""
-    if not isinstance(raw, dict) or set(raw) != {"actions", "subjects"}:
-        raise PackageError("swift.yaml: intent needs `actions` and `subjects` (lists of words)")
+    """``intent: {actions: [add, schedule, set up], subjects: [calendar, meeting], questions?: true}``."""
+    if not isinstance(raw, dict) or not {"actions", "subjects"} <= set(raw) <= {"actions", "subjects", "questions"}:
+        raise PackageError("swift.yaml: intent needs `actions` and `subjects` (lists of words), "
+                           "and optionally `questions: true`")
+    if not isinstance(raw.get("questions", False), bool):
+        raise PackageError("swift.yaml: intent questions must be true or false")
     lists = []
     for key in ("actions", "subjects"):
         words = raw[key]
         if not isinstance(words, list) or not words or not all(isinstance(w, str) and w.strip() for w in words):
             raise PackageError(f"swift.yaml: intent {key} must be a list of words")
         lists.append(tuple(" ".join(_WORD.findall(w.lower())) for w in words))
-    return Intent(lists[0], lists[1])
+    return Intent(lists[0], lists[1], raw.get("questions", False))
 
 
 def load_library(owner_dir: Path | None = None, builtin_dir: Path = BUILTIN_DIR) -> Library:

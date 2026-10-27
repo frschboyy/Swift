@@ -512,6 +512,16 @@ Built: the library, routing and three built-in playbooks of §13.5, together wit
   - The approval log records `revise` and the length of the change; the words are in `heard`, as for any voice answer.
 - **After a rejection,** the follow-up context includes what Swift last showed (the event or email). It says whether that went ahead, and tells the provider that the correction wins over the earlier request. That way a correction no longer drags the original wrong value back in.
 
+## 16. The calendar's everyday lifecycle (2026-10-27, owner checks)
+
+In the owner's checks Swift said it "cannot remove calendar events" and "cannot edit events". The `calendar-event` workflow (2.0.0, title "Calendar events") now covers the lifecycle, all through `ActionGateway`:
+
+- `list_calendar_events` (read, no card) answers "what's on my calendar tomorrow" and "when is my next meeting". These are questions, which never run an intent (§15), so the manifest has a third intent marked `questions: true`. It runs **only** on questions, and only about the owner's own calendar ("my calendar", "my next meeting", "am I free"). "What is a meeting" and coding requests ("remove the event listener") don't match.
+- `update_calendar_event` shows before → after on the card. `delete_calendar_event` shows what goes. With attendees, both say that Google emails them. An event can be changed only if the run looked it up, or if Swift added it (the journal's `create_calendar_event` receipts).
+- Attendees come only from `find_contact`; the gateway checks them like email recipients. `meet: true` adds a Google Meet link (`conferenceData.createRequest`, `conferenceDataVersion=1`), shown as "with a Google Meet link".
+- **Undo is a gateway pattern** (ADR-010 §4). An `Action` may carry `undo`: how to build the reversing action from its receipt. The gateway remembers approved actions (in memory, 15 minutes). `undo_last_action` reverses the newest one through the same flow (card, journal with `undoes`, verify). Adding an event is undone by removing it, and a change by changing it back. A removal and a sent email have no undo, and the owner is told so. "Undo that" and "I didn't approve that" go there when the newest thing Swift did was an approved action; otherwise "undo that" keeps undoing Swift's last write in an app (ADR-012 §6).
+- No new Google scope: `calendar.events` covers reading, changing, removing and Meet links.
+
 ## Sources checked (2026-10-24)
 
 - Agent Skills specification: agentskills.io/specification

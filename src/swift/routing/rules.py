@@ -79,7 +79,10 @@ LOCAL: dict[str, str] = {
     r"|what day is it( today)?|(which|what) day of the week is it( today)?|what'?s the day today",
     "workflows": r"what workflows (do i have|have i got|are there|can you (run|do))|which workflows do (i|you) have"
     r"|(list|show)( me)? (my |the |all )?workflows|what are my workflows",
-    "undo": r"undo|undo (that|it|this)|undo (what you (just )?(wrote|typed))|undo (the|your) (last )?(writing|typing)",
+    "undo": r"undo|undo (that|it|this)|undo (what you (just )?(wrote|typed))|undo (the|your) (last )?(writing|typing)"
+    # After a card was approved by mistake (the gateway's undo, e.g. remove the event just added).
+    r"|(that was |that's |it was |it's )?not approved|i (did not|didn't|didnt) (mean to )?approve (that|it|this)"
+    r"|take (that|it) back|undo the last (thing|action)( i approved)?",
     # ADR-014 §5: pick up a conversation left unfinished, or not now.
     "resume": r"(let'?s |ok |okay )?(continue|carry on|keep going|go on|resume)( (it|that|where (we|i|you) left off"
     r"|from where (we|i|you) (left off|stopped)))?|where were we|what was i doing|where did we leave off"

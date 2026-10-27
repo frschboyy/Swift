@@ -136,6 +136,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                     await asyncio.sleep(0)  # Esc (the run cancelled) stops here, between paragraphs
             finally:
                 host.last_write = await writer.finish()
+                host.last_write_at = time.monotonic()
             return f"{writer.route}:{report['written']}"
 
     action = Action(

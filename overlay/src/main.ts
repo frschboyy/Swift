@@ -22,6 +22,7 @@ import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
 import * as Panes from "./panes";
+import * as H from "./heard";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 import * as S from "./stack";
@@ -48,6 +49,7 @@ const card = document.getElementById("card")!;
 const rowsEl = document.getElementById("rows")!;
 const transcriptEl = document.getElementById("transcript")!;
 const orb = new Orb(document.getElementById("orb")!);
+const heardText = document.getElementById("heard-text")!;
 
 let state: UiState = "idle";
 let steps: string[] = [];
@@ -85,6 +87,9 @@ let promoted: string | null = null;
 // Push-to-talk on the working card (mid-run grammar).
 let runVoice: { phase: string; text: string } | null = null;
 let runVoiceTimer = 0;
+// The "Listening…" pulse (heard.ts): shown via stage[data-heard] until it fades.
+let heardNow: H.Heard | null = null;
+let heardTimer = 0;
 const DRAFT_LINES = 8;
 // The confirm card the backend was last told is on screen (ADR-015 §4.2).
 let seen: string | null = null;
@@ -446,6 +451,7 @@ function setStage(next: UiState, runId: string | null = null, threadId: string |
   checkPresenter();
   state = next;
   stage.dataset.state = next;
+  drawHeard();
   void syncEscape();
   if (ACTIVE.has(next)) card.classList.remove("card--sticky");
   // A new request, however it started (follow-up, correction, "hey Swift, X" in one breath).
@@ -1369,7 +1375,24 @@ function onMessage(msg: Inbound): void {
     case "stack":
       onStackMessage(msg.data.items);
       break;
+    case "heard":
+      onHeard(msg.data);
+      break;
   }
+}
+
+/** Swift heard its name or the hotkey: the pulse at once, before any transcription (heard.ts). */
+function onHeard(data: Extract<Inbound, { type: "heard" }>["data"]): void {
+  heardNow = H.heard(Date.now(), data.source, data.text);
+  heardText.textContent = heardNow.text;
+  drawHeard();
+  window.clearTimeout(heardTimer);
+  heardTimer = window.setTimeout(() => { heardNow = null; drawHeard(); }, H.HEARD_MS);
+}
+
+function drawHeard(): void {
+  if (H.heardVisible(heardNow, state, Date.now()) && heardNow) stage.dataset.heard = heardNow.source;
+  else delete stage.dataset.heard;
 }
 
 /** While listening: flag a mic that hears nothing, so silence isn't mistaken for "Swift is broken". */

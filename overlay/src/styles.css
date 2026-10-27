@@ -136,6 +136,48 @@ html, body {
 #stage[data-state="transcribing"] .transcript:empty { visibility: visible; color: var(--muted); }
 #stage[data-state="listening"] .transcript:empty::before { content: "Listening"; }
 #stage[data-state="transcribing"] .transcript:empty::before { content: "Transcribing"; }
+/* Swift heard its name or the hotkey (heard.ts): a small pill that pulses once, before anything
+   is transcribed. In the flow on the card's inner side, so it never covers a card; no clicks. */
+.heard {
+  order: -1;
+  display: flex;
+  justify-content: center;
+  max-height: 0;
+  margin: 0 0 -14px;  /* hidden, it cancels the stage's gap: the card doesn't move */
+  opacity: 0;
+  transform: translateY(8px) scale(0.94);
+  transition: opacity 120ms var(--ease), transform 160ms var(--ease), max-height 160ms var(--ease), margin 160ms var(--ease);
+  pointer-events: none;
+}
+#stage[data-anchor^="top"] .heard { order: 1; margin: -14px 0 0; transform: translateY(-8px) scale(0.94); }
+#stage[data-anchor$="left"] .heard { justify-content: flex-start; }
+#stage[data-anchor$="right"] .heard { justify-content: flex-end; }
+#stage[data-heard] .heard { max-height: 40px; margin: 0; opacity: 1; transform: none; }
+.heard > #heard-text {
+  padding: 6px 14px 6px 30px;
+  margin-left: -22px;
+  border-radius: 999px;
+  background: rgba(18, 19, 25, 0.86);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.heard-dot {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: 10px;
+  height: 10px;
+  margin-left: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+#stage[data-heard] .heard-dot { animation: heard-pulse 900ms var(--ease) 2; }
+@keyframes heard-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(138, 180, 255, 0.7); }
+  100% { box-shadow: 0 0 0 12px rgba(138, 180, 255, 0); }
+}
+
 /* Nothing louder than room noise for a while: the mic may be muted or the wrong one. */
 #stage[data-state="listening"] .transcript[data-quiet]:empty { color: var(--warn); }
 #stage[data-state="listening"] .transcript[data-quiet]:empty::before { content: "Can't hear you. Check your microphone"; }

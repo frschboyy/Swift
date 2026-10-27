@@ -82,7 +82,9 @@ export type Inbound =
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
   | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } }
   // ADR-015 §9: what waits for the owner (the waiting stack), in the order to show it.
-  | { type: "stack"; data: { items: StackEntry[] } };
+  | { type: "stack"; data: { items: StackEntry[] } }
+  // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
+  | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } };
 
 // One card in the waiting stack: a card in line ("waiting") or skipped ("later"), the card on
 // screen while the owner is away ("held"), or an unfinished conversation ("parked").

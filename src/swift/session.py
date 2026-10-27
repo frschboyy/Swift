@@ -167,7 +167,7 @@ from swift.stt.transcriber import (
     Transcription,
     assess,
 )
-from swift.wake import NoiseGate, WakeMatch, match_address, match_wake
+from swift.wake import CLOSE, NoiseGate, WakeMatch, close_control, match_address, match_wake
 from swift.workflows.artifacts import Artifact, ArtifactStore
 from swift.workflows.library import Library, Match, is_question
 from swift.workflows.scope import Decision, Grant, RunScope
@@ -217,11 +217,36 @@ HANDS_FREE_CONFIRM = frozenset({"show", "hide", "stop", "cancel", "pause", "appr
 # A clip shorter than wake listening's usual minimum is kept only if it is one of these
 # (owner checks, 2026-10-27: "show me" and "stop" said briskly were cut as too short).
 SHORT_MIDRUN = frozenset({"show", "hide", "stop", "cancel", "pause", "resume"})
+# ...and on a confirm card, rejecting too ("no", "reject"); never approving.
+SHORT_CARD = frozenset({"reject"})
 SHORT_AT_REST = frozenset({"stop", "cancel", "resume", "show_last", "repeat", "not_now"})
 # What the open microphone heard is also kept below ``wake.min_p`` when it is one of these
 # during a run (never an approval): a clean "Stop." scored 0.46.
 UNSURE_MIDRUN_OK = frozenset({"show", "hide", "stop", "cancel", "pause"})
 PAUSED_HINT = "Paused. Say “go on” to pick it up."
+# Shown (and chimed, ``on_heard``) the moment Swift hears its name or the hotkey, before any
+# transcription (owner checks, 2026-10-27: no sign it had heard "hey Swift" until the card).
+HEARD_TEXT = {"wake": "Listening…", "ptt": "Listening…", "queued": "Got it. Listening for the next one…"}
+# A request captured while the one before is still being transcribed: its row until it is.
+QUEUED_TITLE = "Next request"
+# A reply without the wake phrase has to sound like the owner, not the room (owner checks,
+# 2026-10-27: a TV's "We'll push west, haven't been through there..." became a request):
+# this sure of its words (the bar for acting on a hotkey request too)...
+FOLLOWUP_MIN_P = 0.7
+# ...this far above the room between its words...
+FOLLOWUP_SNR_DB = 18.0
+# ...no quieter than this below how loud the owner's own requests have been...
+FOLLOWUP_BELOW_VOICE_DB = 18.0
+# ...and a reply, not a stretch of conversation.
+FOLLOWUP_MAX_S = 8.0
+# How the owner's voice level follows their requests (``_note_voice``).
+VOICE_EMA = 0.2
+# Said into the hotkey, "hey Crift" and "hey thrift" were the name: a looser match (wake.py).
+PTT_NAME_CLOSE = 0.5
+UNCLEAR_HINT = "Try saying it again."
+# A wake phrase already shown as heard from the start of the utterance (``peek_wake``) isn't shown twice.
+PEEK_SHOWN_S = 15.0
+PEEK_TIMEOUT_S = 3.0
 # Requests from these sources continue the thread before them (ADR-013 §4.1).
 CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
 # How many threads' last tool scopes are kept for their follow-ups.
@@ -397,6 +422,8 @@ class Run:
     correction: str | None = None
     # A change of mind the provider can't take in the same session: cancel, then start again with it.
     restart: str | None = None
+    # What ends its voice capture (the hotkey released, or the owner stopped talking).
+    released: asyncio.Event | None = None
     # The run's artifacts, kept after it ended while its result is on screen ("show me" after a send).
     artifacts: ArtifactStore | None = None
     artifacts_run: str | None = None
@@ -574,11 +601,16 @@ class Session:
         attention: Attention | None = None,
         parked: ParkedThreads | None = None,
         quick: QuickModel | None = None,
+        followup_min_p: float = FOLLOWUP_MIN_P,
+        on_heard: Callable[[str], None] | None = None,
     ) -> None:
         self._raw_send = send
         self.executor = executor
         # Requests running, or ended but still shown (in front, or as a finished row); oldest first.
         self._runs: list[Run] = []
+        # The last few that ended and are no longer shown: "stop the research one" just after it
+        # finished is answered, not sent on as a request (owner check 24, 2026-10-27).
+        self._gone: deque[Run] = deque(maxlen=MAX_RUNS)
         # The one in front, one that takes the front when it first shows something, and the
         # stand-in when there is none.
         self._focus: Run | None = None
@@ -641,6 +673,20 @@ class Session:
         self.wake_question_s = wake_question_s
         # The follow-up window: (opened, closes) in time.monotonic(), or None.
         self._followup: tuple[float, float] | None = None
+        # How sure of its words a reply in that window must be (0: as sure as anything else heard).
+        self.followup_min_p = followup_min_p
+        # Called with "wake" / "ptt" / "queued" the moment Swift hears it is wanted (the chime).
+        self.on_heard = on_heard
+        # How loud the owner's own requests peak (dBFS), learned as they speak; None until the first.
+        self._voice_db: float | None = None
+        # The start of an utterance is being checked for the wake phrase; and when it last was one.
+        self._peeking = False
+        self._peeked_at: float | None = None
+        # When the microphone last stopped recording a request (time.monotonic()): speech heard
+        # before it was that request, or over it.
+        self._mic_free_at = 0.0
+        # The hotkey is held: a capture after "hey Swift" then ends when it is released, not at a pause.
+        self._ptt_held = False
         # Swift's workflow tools (ADR-010); None: providers get none.
         self.tools = tools
         # How long Swift's own confirm cards (the gateway's) wait for an answer.
@@ -681,8 +727,9 @@ class Session:
         self.on_ready: Callable[[], Awaitable[None]] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
-            ("heard", "short_heard", "short_dropped", "skipped_busy", "skipped_hearing", "stt_failed", "stt_timeout", "unsure",
-             "unsure_wake", "unsure_midrun", "other_speech", "wake", "followup", "hands_free"), 0,
+            ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
+             "stt_failed", "stt_timeout", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
+             "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -812,6 +859,7 @@ class Session:
             # It ended while in front and its answer was seen: no row for it.
             with contextlib.suppress(ValueError):
                 self._runs.remove(old)
+                self._gone.append(old)
         if run.task is not None:
             self._task = run.task
         self.state = run.state
@@ -830,9 +878,11 @@ class Session:
             await self._raw_send(msg)
         return True
 
-    def _find(self, words: str, *, besides: Run | None = None) -> Run | None:
-        """A request named by what it's about ("the research one"): the best match by its words."""
-        live = [r for r in self._runs if r is not besides and (r.alive or r.answer is not None)]
+    def _find(self, words: str, *, besides: Run | None = None, gone: bool = False) -> Run | None:
+        """A request named by what it's about ("the research one"): the best match by its words.
+        ``gone``: also the few that ended recently and are no longer shown."""
+        shown = [r for r in self._runs if r is not besides and (r.alive or r.answer is not None)]
+        live = [*(r for r in self._gone if r not in shown and r is not besides), *shown] if gone else shown
         if words == "other":
             others = [r for r in live if r is not self._focus]
             return others[-1] if others else None
@@ -902,6 +952,7 @@ class Session:
             return
         with contextlib.suppress(ValueError):
             self._runs.remove(run)
+            self._gone.append(run)
         asyncio.get_running_loop().create_task(self._send_rows())
 
     # ---- one confirm card at a time (ADR-013 §5.2) -------------------------------------------
@@ -1196,8 +1247,10 @@ class Session:
                     self.attention.set_seen(msg.data["request_id"], msg.data["visible"])
             case "ptt" if msg.data["state"] == "down":
                 self._talking(math.inf)  # the hotkey isn't the owner typing in the document
+                self._ptt_held = True
                 await self._start_voice()
             case "ptt":
+                self._ptt_held = False
                 self._talking(time.monotonic() + 1.0)
                 if self._released is not None:
                     self._released.set()
@@ -1302,19 +1355,49 @@ class Session:
         if self._front_busy() or self._capturing():
             open_request = self._open_confirm()
             idle_voice = self._confirm_voice is None or self._confirm_voice.done()
-            if open_request is not None and idle_voice:
+            if self._listening_run() is not None or not idle_voice:
+                # Already recording: the same press sent again (the hotkey repeats it about a second
+                # in; the "ptt ignored: busy | state='listening'" lines of 2026-10-27), or a press
+                # during the capture after "hey Swift", which now goes on until the key is released.
+                logger.info("ptt while recording: the recording goes on", state=self.state)
+                return
+            if open_request is not None:
                 self._released = asyncio.Event()
+                await self._signal_heard("ptt")
                 self._confirm_voice = asyncio.create_task(self._answer_by_voice(open_request))
-            elif self.state == "working" and self._active is not None and idle_voice:
+            elif self.state == "working" and self._active is not None:
                 self._released = asyncio.Event()
+                await self._signal_heard("ptt")
                 self._confirm_voice = asyncio.create_task(self._midrun_by_voice())
             else:
-                logger.info("ptt ignored: busy", state=self.state)
+                # The last request is being transcribed or started: this is the next one, recorded
+                # now and run beside it (owner checks 20 and 21, 2026-10-27: dropped, 5 s to wait).
+                self._released = asyncio.Event()
+                await self._signal_heard("queued")
+                logger.info("next request recorded while the last one starts", state=self.state)
+                queued = {"source": "voice", "executor": getattr(self.executor, "name", "?"), "queued_behind": True}
+                self._launch(queued, self._capture_voice, self.executor, self.executor.start, title=QUEUED_TITLE)
             return
         # Created before the task so a quick release can't be missed.
         self._released = asyncio.Event()
+        await self._signal_heard("ptt")
         record: dict[str, Any] = {"source": "voice", "executor": getattr(self.executor, "name", "?")}
         self._launch(record, self._capture_voice, self.executor, self.executor.start)
+
+    def _listening_run(self) -> Run | None:
+        """The request whose words the microphone is recording now, if any."""
+        return next((r for r in self._live() if r.state == "listening"), None)
+
+    async def _signal_heard(self, source: str) -> None:
+        """Show at once (and chime) that Swift heard its name or the hotkey: before anything is
+        transcribed, so the owner never wonders whether to say it again."""
+        if self.on_heard is not None:
+            try:
+                self.on_heard(source)
+            except Exception as exc:  # noqa: BLE001 - a sound must never stop a request
+                logger.warning("heard signal failed", error=str(exc))
+        with self._as(self._none):
+            await self._send(outbound("heard", source=source, text=HEARD_TEXT[source]))
 
     def mark_return(self, reason: str) -> None:
         """The owner is back (unlocked, resumed): the next wake phrase says how long after it came."""
@@ -1328,15 +1411,43 @@ class Session:
         window = self._followup
         return self._hands_free() or (window is not None and time.monotonic() <= window[1] + 1.0)
 
+    def wants_peek(self) -> bool:
+        """Wake listening asks (on the audio thread) whether to check the start of a long utterance
+        for the wake phrase: only at rest, where it would start something."""
+        return self.recorder is not None and not self.listening_paused and not self.busy
+
+    async def peek_wake(self, audio: Any) -> None:
+        """The first second or so of an utterance still going: if it opens with the wake phrase, show
+        (and chime) that Swift heard its name now, while the owner is still saying the request."""
+        if self.recorder is None or self.transcriber is None or self.listening_paused or self._peeking or self._hearing:
+            return
+        self._peeking = True
+        try:
+            heard = await asyncio.wait_for(self.transcriber.transcribe(audio), PEEK_TIMEOUT_S)
+        except (TimeoutError, SttUnavailable):
+            return
+        finally:
+            self._peeking = False
+        mean_p = heard.mean_p
+        if match_wake(heard.text, self.wake_greetings) is None or self.busy:
+            return
+        if self.wake_phrase_min_p and mean_p is not None and mean_p < self.wake_phrase_min_p:
+            return
+        self.wake_stats["peek_wake"] += 1
+        self._peeked_at = time.monotonic()
+        await self._signal_heard("wake")
+
     async def hear_wake(self, audio: Any, ended_at: float, short: bool = False) -> None:
         """An utterance from the open microphone (swift/wake.py).
 
-        At rest, a wake phrase starts an interaction ("hey Swift, ..."), and so does any
-        request in the follow-up window just after an answer. During a run, the mid-run
-        phrases and confirm answers work hands-free (``_hear_busy``). ``ended_at`` is the
-        ``time.monotonic()`` at which the utterance ended. Anything else is dropped after it
-        is transcribed, and never logged. A ``short`` clip (under the usual minimum length) is
-        kept only if it is a control phrase ("stop", "show me", "go on").
+        At rest, a wake phrase starts an interaction ("hey Swift, ..."), and so does a reply in
+        the follow-up window just after an answer, if it sounds like the owner (``_reply_doubt``).
+        During a run, the mid-run phrases and confirm answers work hands-free (``_hear_busy``).
+        While the last request is still being transcribed or started, a wake phrase is the next
+        request, run beside it (``_queue_wake``). ``ended_at`` is the ``time.monotonic()`` at which
+        the utterance ended. Anything else is dropped after it is transcribed, and never logged.
+        A ``short`` clip (under the usual minimum length) is kept only if it is a control phrase
+        ("stop", "show me", "go on"; on a card "reject"), heard as said or as it sounded.
         """
         if self.recorder is None or self.transcriber is None or self.listening_paused:
             return
@@ -1346,10 +1457,10 @@ class Session:
         if self._hearing:
             self.wake_stats["skipped_hearing"] += 1
             return
-        if (self._front_busy() or self._capturing()) and not self._hands_free():
-            self.wake_stats["skipped_busy"] += 1
-            return  # e.g. recording after the hotkey: nothing to answer, not even worth transcribing
         started_at = ended_at - len(audio) / SAMPLE_RATE
+        if (self._front_busy() or self._capturing()) and not self._hands_free() and not self._can_queue(started_at):
+            self.wake_stats["skipped_busy"] += 1
+            return  # e.g. recording after the hotkey: its own words, not even worth transcribing
         self._hearing = True
         try:
             # Never stuck: a transcription that hangs would leave wake listening deaf for good.
@@ -1373,13 +1484,20 @@ class Session:
         finally:
             self._hearing = False
             self._heard_at = time.monotonic()
-        match = match_wake(heard.text, self.wake_greetings)
         busy = self._front_busy() or self._capturing()
+        if short:
+            kept = self._short_kept(heard.text, busy)
+            if kept is None:
+                self.wake_stats["short_dropped"] += 1
+                if not heard.text.strip():
+                    self.wake_stats["short_empty"] += 1
+                return
+            if kept != heard.text:
+                self.wake_stats["short_close"] += 1  # "so me": "show me"
+                heard = replace(heard, text=kept)
+        match = match_wake(heard.text, self.wake_greetings)
         midrun = route_midrun(heard.text) if busy and heard.text.strip() else None
-        if short and not self._short_kept(heard.text, midrun if busy else None, busy):
-            self.wake_stats["short_dropped"] += 1
-            return
-        mean_p = sum(w.p for w in heard.words) / len(heard.words) if heard.words else None
+        mean_p = heard.mean_p
         if self.wake_min_p and mean_p is not None and mean_p < self.wake_min_p:
             # Matched first: a wake phrase at rest gets the lower bar, since the model is often
             # unsure of a name (owner checks, 2026-10-27: half of what it heard was "unsure").
@@ -1397,17 +1515,20 @@ class Session:
                 if addressed is not None:
                     self._owner_here()
                 await self._hear_busy(heard, addressed)
+            elif match is not None and self._can_queue(started_at):
+                await self._queue_wake(heard, match, audio, ended_at)
+            else:
+                self.wake_stats["skipped_busy"] += 1
             return
         if match is None:
             if heard.text.strip() and self._in_followup(started_at):
-                self.wake_stats["followup"] += 1
-                self._owner_here()
-                self._start_followup(heard)
+                await self._hear_reply(heard, len(audio) / SAMPLE_RATE)
             else:
                 self.wake_stats["other_speech"] += 1
             return
         self.wake_stats["wake"] += 1
         self._owner_here()
+        self._note_voice(heard)
         back: dict[str, Any] = {}
         if self._returned is not None:
             # The first wake phrase since the owner came back (owner check 13): how long after it
@@ -1417,16 +1538,32 @@ class Session:
             back = {"back": reason, "since_back_ms": int((ended_at - at) * 1000),
                     "heard_back_ms": int((time.monotonic() - at) * 1000)}
         logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms, **back)
+        peeked, self._peeked_at = self._peeked_at, None
+        if peeked is None or ended_at - peeked > PEEK_SHOWN_S:
+            await self._signal_heard("wake")
         record: dict[str, Any] = {
             "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms, **back,
         }
+        self._wake_launch(heard, match, audio, ended_at, record)
+
+    def _wake_launch(
+        self, heard: Transcription, match: WakeMatch, audio: Any, ended_at: float, record: dict[str, Any],
+        title: str = "",
+    ) -> None:
+        """Start the request a wake phrase opened: the words that came with it, or a capture of the
+        words that follow ("hey Swift" ... "what time is it")."""
         if match.remainder:
             # "Hey Swift, what time is it": the request came with the phrase.
             async def capture(rec: dict[str, Any]) -> str:
                 self._heard = heard
+                rest = heard.after(len(match.phrase.split()))
+                if rest.confidence is not None:
+                    rec["stt_confidence"] = rest.confidence
+                if self._refuse_unclear(rest, match.remainder, rec):
+                    raise self._unclear_error(match.remainder)
                 return match.remainder
 
-            self._launch(record, capture, self.executor, self.executor.start)
+            self._launch(record, capture, self.executor, self.executor.start, title=title)
             return
         auto = AutoEnd(
             lead_s=len(audio) / SAMPLE_RATE + max(0.0, time.monotonic() - ended_at),
@@ -1434,18 +1571,117 @@ class Session:
             start_timeout_s=self.wake_start_timeout_s,
         )
         self._released = asyncio.Event()
-        self._launch(record, partial(self._capture_voice, auto=auto), self.executor, self.executor.start)
+        self._launch(record, partial(self._capture_voice, auto=auto), self.executor, self.executor.start, title=title)
+
+    def _can_queue(self, started_at: float) -> bool:
+        """Whether speech that started at ``started_at`` can be the next request while the last one
+        is busy: not while the microphone records (that is the request itself, or talk over it),
+        nor if it started before the last recording ended."""
+        voice_idle = self._confirm_voice is None or self._confirm_voice.done()
+        return voice_idle and self._listening_run() is None and started_at >= self._mic_free_at
+
+    async def _queue_wake(self, heard: Transcription, match: WakeMatch, audio: Any, ended_at: float) -> None:
+        """A wake phrase while the last request is still being transcribed or started: the next
+        request, beside it, with its row on screen at once (owner check 21: "right away, before
+        its card shows: hey Swift, add lunch ...")."""
+        self.wake_stats["queued"] += 1
+        self._owner_here()
+        self._note_voice(heard)
+        await self._signal_heard("queued")
+        logger.info("next request heard while the last one starts", with_request=bool(match.remainder))
+        record: dict[str, Any] = {
+            "source": "wake", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
+            "queued_behind": True,
+        }
+        title = _short_title(match.remainder) if match.remainder else QUEUED_TITLE
+        self._wake_launch(heard, match, audio, ended_at, record, title=title)
+
+    async def _hear_reply(self, heard: Transcription, audio_s: float) -> None:
+        """Speech in the follow-up window, without the wake phrase: a reply if it sounds like the
+        owner; said too unsurely, "try saying it again"; otherwise the room, ignored."""
+        doubt = self._reply_doubt(heard, audio_s)
+        if doubt is None:
+            self.wake_stats["followup"] += 1
+            self._owner_here()
+            self._start_followup(heard)
+            return
+        self.wake_stats[f"followup_{doubt}"] += 1
+        if doubt == "unsure":
+            # Loud and near, so most likely the owner: ask again rather than act on a guess.
+            self._owner_here()
+            self._start_followup(heard, unclear=True)
+
+    def _reply_doubt(self, heard: Transcription, audio_s: float) -> str | None:
+        """Why speech in the follow-up window is not taken as the owner's reply (None: it is).
+
+        "quiet": not loud enough over the room, or far quieter than the owner's own requests (a TV,
+        a neighbour). "long": a stretch of talk, not a reply. "unsure": loud enough, but the model
+        guessed too much of it. Measured on the clip itself, so it follows the room as it is now.
+        """
+        peak, room = heard.peak_db, heard.noise_db
+        if peak is not None:
+            if room is not None and peak - room < FOLLOWUP_SNR_DB:
+                return "quiet"
+            if self._voice_db is not None and peak < self._voice_db - FOLLOWUP_BELOW_VOICE_DB:
+                return "quiet"
+        if audio_s > FOLLOWUP_MAX_S:
+            return "long"
+        mean_p = heard.mean_p
+        if self.followup_min_p and mean_p is not None and mean_p < self.followup_min_p:
+            return "unsure"
+        return None
+
+    def _note_voice(self, heard: Transcription | None) -> None:
+        """Learn how loud the owner speaks to Swift, from requests that were surely theirs (the
+        hotkey, the wake phrase): replies are then measured against it."""
+        if heard is None or heard.peak_db is None or heard.peak_db < -60.0:
+            return
+        if self._voice_db is None:
+            self._voice_db = heard.peak_db
+        else:
+            self._voice_db += (heard.peak_db - self._voice_db) * VOICE_EMA
+
+    def _refuse_unclear(self, heard: Transcription, text: str, record: dict[str, Any]) -> bool:
+        """Whether too much of ``heard`` was a guess to act on; notes it in the record either way."""
+        clarity = assess(heard, self.unclear_p, self.reject_p)
+        if clarity != "clear":
+            record["unclear"] = heard.unclear(self.unclear_p)
+        if clarity == "unclear":
+            record["transcript_heard"] = text
+            return True
+        return False
+
+    def _unclear_error(self, text: str) -> UserFacingError:
+        # Acting on a guess is worse than asking again: say what it sounded like, do nothing.
+        return UserFacingError(
+            "unclear_speech",
+            f"It sounded like “{_clip(text, 80)}”, but too much of it was a guess to act on.",
+            UNCLEAR_HINT,
+            title="I didn't catch that",
+            severity="info",
+        )
 
     # ---- hands-free (the open microphone, when wake listening is on) --------------------------
 
-    def _short_kept(self, text: str, midrun: Route | None, busy: bool) -> bool:
-        """A very short clip: kept only if it is a control phrase (during a run: the mid-run ones)."""
+    def _short_kept(self, text: str, busy: bool) -> str | None:
+        """A very short clip: the control phrase it is, or None. During a run the mid-run ones (on
+        a card "reject" too, never "approve"); at rest the few that make sense then. Taken as said,
+        else as it sounded: the model guesses most on a brisk word ("so me" for "show me")."""
         if not text.strip():
-            return False
-        if busy:
-            return midrun is not None and midrun.action in SHORT_MIDRUN
-        decision = default_router(text)
-        return decision.route in ("control", "local") and decision.action in SHORT_AT_REST
+            return None
+        for said in (text, close_control(text)):
+            if not said:
+                continue
+            if busy:
+                allowed = SHORT_MIDRUN | SHORT_CARD if self._open_confirm() is not None else SHORT_MIDRUN
+                midrun = route_midrun(said)
+                if midrun is not None and midrun.action in allowed:
+                    return said
+            else:
+                decision = default_router(said)
+                if decision.route in ("control", "local") and decision.action in SHORT_AT_REST:
+                    return said
+        return None
 
     def take_wake_stats(self) -> dict[str, int]:
         """The wake-listening counters since the last call, then start again (content-free)."""
@@ -1523,15 +1759,22 @@ class Session:
         window = self._followup
         return window is not None and window[0] - 0.2 <= started_at <= window[1]
 
-    def _start_followup(self, heard: Transcription) -> None:
-        """A reply just after an answer, without the wake phrase: an ordinary request."""
-        logger.info("follow-up heard", stt_ms=heard.stt_ms)
+    def _start_followup(self, heard: Transcription, unclear: bool = False) -> None:
+        """A reply just after an answer, without the wake phrase: an ordinary request. ``unclear``:
+        too much of it was a guess, so the card asks to say it again instead."""
+        logger.info("follow-up heard", stt_ms=heard.stt_ms, unclear=unclear)
         record: dict[str, Any] = {
             "source": "followup", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
         }
 
         async def capture(rec: dict[str, Any]) -> str:
             self._heard = heard
+            if heard.confidence is not None:
+                rec["stt_confidence"] = heard.confidence
+            if unclear:
+                rec["transcript_heard"] = heard.text.strip()
+                rec["unclear"] = heard.unclear(self.unclear_p)
+                raise self._unclear_error(heard.text.strip())
             return heard.text.strip()
 
         self._launch(record, capture, self.executor, self.executor.start)
@@ -1570,6 +1813,8 @@ class Session:
         with the wake phrase, and says nothing at all if nothing was asked.
         """
         assert self.recorder is not None and self.transcriber is not None and self._released is not None
+        released = self._released
+        self._current().released = released
         phase = phase or self._set_state
         await phase("listening")
         levels: asyncio.Queue[float] = asyncio.Queue()
@@ -1585,26 +1830,27 @@ class Session:
             while True:
                 level = await levels.get()
                 await self._send(outbound("level", rms=round(level, 3)))
-                if auto is None:
-                    continue
+                if auto is None or self._ptt_held:
+                    continue  # the hotkey held during it: it ends when the key is released
                 now = time.monotonic()
                 if gate.speech(level):
                     last_speech = now
                 elif now - (last_speech if last_speech is not None else began) > (
                     auto.end_silence_s if last_speech is not None else auto.start_timeout_s
                 ):
-                    self._released.set()
+                    released.set()
 
         forwarder = asyncio.create_task(forward_levels())
         try:
             try:
-                await asyncio.wait_for(self._released.wait(), self.max_record_s)
+                await asyncio.wait_for(released.wait(), self.max_record_s)
                 await asyncio.sleep(self.tail_s)
             except TimeoutError:
                 logger.info("recording reached the time limit")
         finally:
             forwarder.cancel()
             audio = self.recorder.stop()
+            self._mic_free_at = time.monotonic()
 
         record["audio_s"] = round(len(audio) / SAMPLE_RATE, 2)
         record["first_audio_ms"] = getattr(self.recorder, "first_audio_ms", None)
@@ -1637,8 +1883,10 @@ class Session:
         if result.raw_text is not None:
             record["transcript_raw"] = result.raw_text
         text = result.text
+        # The name at the start says nothing about the request: it doesn't count toward how sure
+        # the model was ("Hey Crift, research about um Mozart" was refused, 2026-10-27).
+        match = match_wake(text, self.wake_greetings, close=CLOSE if auto else PTT_NAME_CLOSE)
         if auto:
-            match = match_wake(text, self.wake_greetings)
             text = match.remainder if match else text
             if not text:  # a greeting and then nothing: not an error, just no request
                 record["reason"] = "silence"
@@ -1654,19 +1902,9 @@ class Session:
             )
         if result.confidence is not None:
             record["stt_confidence"] = result.confidence
-        clarity = assess(result, self.unclear_p, self.reject_p)
-        if clarity != "clear":
-            record["unclear"] = result.unclear(self.unclear_p)
-        if clarity == "unclear":
-            # Acting on a guess is worse than asking again: say what it sounded like, do nothing.
-            record["transcript_heard"] = text
-            raise UserFacingError(
-                "unclear_speech",
-                f"It sounded like “{_clip(text, 80)}”, but too much of it was a guess to act on.",
-                "Try again closer to the mic, or somewhere quieter.",
-                title="I couldn't make that out",
-                severity="info",
-            )
+        if self._refuse_unclear(result.after(len(match.phrase.split())) if match else result, text, record):
+            raise self._unclear_error(text)
+        self._note_voice(result)
         return text
 
     async def _interaction(
@@ -1726,7 +1964,8 @@ class Session:
                     await self._send(outbound("error", **tap.as_message()))
                 return
             record["transcript"] = transcript
-            run.title = run.title or _short_title(transcript)
+            if not run.title or run.title == QUEUED_TITLE:
+                run.title = _short_title(transcript)
             run.words = run.words or _clip(strip_wake(transcript) or transcript, 120)
             await self._send(outbound("transcript", text=transcript, final=True))
 
@@ -1738,8 +1977,12 @@ class Session:
                 decision = self._follow_local(decision, transcript, record)
             target: OpenTarget | None = None
             workflow: Match | None = None
-            if decision is not None and self._live(besides=run) and (named := route_target(transcript)) is not None:
-                # "Stop the research one" while others run: about those, not a request.
+            named = route_target(transcript) if decision is not None else None
+            ended = named is not None and named[0] == "stop" and self._find(named[1], besides=run, gone=True) is not None
+            if named is not None and (self._live(besides=run) or ended):
+                # "Stop the research one" while others run, or just after one ended: about those, not
+                # a request (owner check 24, 2026-10-27: the research had just finished, so "stop the
+                # research one" went to Claude Code, which offered to delete a calendar event).
                 record["route"], record["action"], record["status"] = "local", f"{named[0]}_named", "done"
                 answer = await self._named(named, besides=run)
                 if not answer:
@@ -1918,7 +2161,7 @@ class Session:
             self._run_started = None
             self._active = None
             self._record = None
-            if run is self._focus:
+            if run.released is not None and self._released is run.released:
                 self._released = None
             self._confirm_ids.clear()
             self._confirm_titles.clear()
@@ -2214,9 +2457,11 @@ class Session:
                 return "Answer the card on screen first."
             logger.info("request brought to the front by name")
             return ""
-        run = self._find(words, besides=besides)
-        if run is None or not run.alive:
+        run = self._find(words, besides=besides) or self._find(words, besides=besides, gone=True)
+        if run is None:
             return NO_TARGET_HINT
+        if not run.alive:
+            return f"“{run.title}” had already finished."
         if run.task is not None:
             run.task.cancel()
         logger.info("request stopped by name")

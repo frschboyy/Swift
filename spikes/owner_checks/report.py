@@ -96,7 +96,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     back_ms = _slowest(log, "wake phrase heard", "since_back_ms")
     midrun = [x for r in rows for x in (r.get("midrun") or [])]
     views = [v.get("kind") for r in rows for v in (r.get("views") or [])]
-    short_kept = sum(_counter(line, "short_heard") - _counter(line, "short_dropped") for line in log if "| wake listening |" in line)
+    wake_lines = [line for line in log if "| wake listening |" in line]
+
+    def wake_count(name: str) -> int:
+        return sum(_counter(line, name) for line in wake_lines)
+
+    short_kept = wake_count("short_heard") - wake_count("short_dropped")
+    reopen_ms = _slowest(log, "| microphone reopened |", "ms")
+    next_recorded = [r for r in rows if r.get("queued_behind")]
+    asked_again = [r for r in rows if r.get("error") == "unclear_speech"]
     asked = [line for line in log if "conversation parked | reason='asked'" in line]
     # How long each question listened for its answer ("question window", logged since 2026-10-27).
     windows = [_counter(line, "seconds") for line in log if "| question window |" in line]
@@ -136,7 +144,8 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("10 'show me' / 'stop' during a run", ("show" in midrun or "app" in views)
          and any(r.get("status") == "cancelled" and r.get("run_ms") for r in rows),
          f"mid-run: {', '.join(str(m) for m in midrun) or 'none'}; shown: {', '.join(str(v) for v in views) or 'nothing'}; "
-         f"{short_kept} short clip(s) kept"),
+         f"{short_kept} short clip(s) kept ({wake_count('short_close')} as they sounded), "
+         f"{wake_count('short_empty')} empty"),
         ("10 'show me' while writing brought the app forward", "app" in views, ""),
         ("11 microphone reopened after a pause (if it had stopped)", True,
          f"{len(reopened)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
@@ -148,6 +157,8 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"finished speaking {back_ms} ms after the unlock" if first_wake is not None
          else f"unlock to listening (slowest) {ready_ms} ms; no wake after an unlock"),
         ("13 no microphone pause after an unlock", not _paused_while_back(log), ""),
+        ("13 the microphone reopened quickly on each return", reopen_ms is None or reopen_ms < 1000,
+         f"slowest reopen {reopen_ms} ms" if reopen_ms is not None else "no reopen logged"),
         ("14 a card held while away, answered after", any(
             a.get("held_away") and a.get("decision") in ("approve", "reject")
             for r in held for a in r["approvals"]), f"{len(held)} held card(s)"),
@@ -212,10 +223,18 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("31-36 calendar changes ran the calendar workflow on the light model", changes_ok,
          ", ".join(f"{r.get('workflow') or 'agent'}/{r.get('demand')} {r.get('run_ms', 0) / 1000:.0f} s" for r in changes)
          or "none"),
-        ("43 an email's follow-ups stayed in the email workflow", bool(email_followups)
+        ("49 an email's follow-ups stayed in the email workflow", bool(email_followups)
          and all(r.get("workflow") == "email-draft" for r in email_followups),
          f"{len(email_followups)} follow-up(s); Gmail subject put right {len(subject_fixed)} time(s); "
          "check on screen: the subject stays short"),
+        ("43 'hey Swift' seen while still speaking (chime and pulse)", wake_count("peek_wake") > 0,
+         f"{wake_count('peek_wake')} early, {wake_count('wake')} wake phrase(s)"),
+        ("45 the room not taken as a reply", True,
+         f"{wake_count('followup_quiet')} set aside as the room, {wake_count('followup_long')} as long talk, "
+         f"{wake_count('followup')} taken"),
+        ("46 unsure speech: asked to say it again", True, f"{len(asked_again)} time(s)"),
+        ("47 a request recorded while the last one started (20, 21)", bool(next_recorded) or wake_count("queued") > 0,
+         f"{len(next_recorded)} request(s), {wake_count('queued')} by voice"),
     ]
 
 

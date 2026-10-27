@@ -12,6 +12,7 @@ import pytest
 
 from swift.audio.recorder import BLOCK, SAMPLE_RATE
 from swift.executors.echo import EchoExecutor
+from swift.ipc.protocol import Message
 from swift.session import Session
 from swift.wake import NoiseGate, WakeListener, match_wake
 
@@ -103,7 +104,7 @@ def test_speech_between_silences_is_one_utterance() -> None:
     feed(listener, quiet=30)
     assert len(got) == 1
     audio, ended = got[0]
-    assert audio.dtype == np.int16 and 30 * BLOCK <= len(audio) <= (30 + 10 + 20) * BLOCK
+    assert audio.dtype == np.int16 and 30 * BLOCK <= len(audio) <= (30 + 10 + 25) * BLOCK  # 0.8 s end pause
     assert abs(ended - time.monotonic()) < 1
 
 
@@ -114,7 +115,7 @@ def test_a_click_is_not_an_utterance_and_a_conversation_is_dropped() -> None:
     feed(listener, loud=3)
     feed(listener, quiet=40)
     assert got == []
-    feed(listener, loud=300)  # ~10 s of talking
+    feed(listener, loud=400)  # ~13 s of talking
     feed(listener, quiet=40)
     assert got == []
     feed(listener, loud=30)  # and it recovers for the next one
@@ -257,12 +258,24 @@ async def test_a_wake_phrase_the_model_was_unsure_of_still_wakes() -> None:
     # Owner checks, 2026-10-27: the unsure filter ran before the match and dropped real wake phrases.
     words = "hey swift what time is it"
     session, out, records, rec, stt = make(words)
-    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.35))  # mean 0.35 < 0.5
+    probs = {"hey": 0.01, "swift": 0.01, "what": 0.7, "time": 0.7, "is": 0.7, "it": 0.75}  # mean 0.48 < 0.5
+    session.transcriber = FakeTranscriber(text=words, probs=probs)
     await session.hear_wake(AUDIO, time.monotonic())
     await finish(session)
     assert records[0]["source"] == "wake" and records[0]["transcript"] == "what time is it"
     stats = session.take_wake_stats()
     assert stats["wake"] == 1 and stats["unsure_wake"] == 1 and stats["unsure"] == 0
+
+
+async def test_a_request_after_the_wake_phrase_said_too_unsurely_asks_to_say_it_again() -> None:
+    # Owner checks, 2026-10-27: acted on guesses; now the card says "Try saying it again".
+    words = "hey swift ride a haiku about rain"
+    session, out, records, rec, stt = make(words)
+    session.transcriber = FakeTranscriber(text=words, probs=dict.fromkeys(words.split(), 0.35))
+    await session.hear_wake(AUDIO, time.monotonic())
+    await finish(session)
+    assert records[0]["status"] == "error" and records[0]["error"] == "unclear_speech"
+    assert out.last("error")["hint"] == "Try saying it again."
 
 
 async def test_a_wake_phrase_below_the_lower_bar_is_still_ignored() -> None:
@@ -286,12 +299,27 @@ async def test_unsure_speech_that_is_not_a_wake_phrase_keeps_the_bar_even_in_a_f
     assert stats["unsure"] == 1 and stats["followup"] == 0
 
 
-async def test_nothing_starts_while_an_interaction_is_running() -> None:
+async def test_nothing_starts_while_the_microphone_records_a_request() -> None:
     session, out, records, rec, stt = make("Hey Swift, what time is it?")
-    session._task = asyncio.create_task(asyncio.sleep(10))
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0.01)
+    assert session.state == "listening"
+    await session.hear_wake(AUDIO, time.monotonic())
+    assert stt.calls == 0  # its own words (or talk over them): not even transcribed
+    await session.handle(Message("ptt", {"state": "up"}))
+    await finish(session)
+
+
+async def test_a_wake_phrase_while_the_last_request_starts_is_the_next_one() -> None:
+    # Owner checks 20 and 21, 2026-10-27: dropped while the first was transcribed or started.
+    session, out, records, rec, stt = make("Hey Swift, what time is it?")
+    session._task = asyncio.create_task(asyncio.sleep(10))  # the last one, before its transcript
     try:
         await session.hear_wake(AUDIO, time.monotonic())
-        assert stt.calls == 0  # not even transcribed
+        assert stt.calls == 1 and session.take_wake_stats()["queued"] == 1
+        assert out.last("heard")["source"] == "queued"
+        await asyncio.wait_for(asyncio.gather(*(r.task for r in session._runs if r.task)), 2)
+        assert records[-1]["queued_behind"] is True and records[-1]["transcript"] == "what time is it?"
     finally:
         session._task.cancel()
 
@@ -301,9 +329,11 @@ async def test_hotkey_pressed_while_transcribing_wins() -> None:
     session.transcriber = FakeTranscriber(text="Hey Swift, what time is it?", delay=0.05)
     first = asyncio.create_task(session.hear_wake(AUDIO, time.monotonic()))
     await asyncio.sleep(0.01)
-    session._task = asyncio.create_task(asyncio.sleep(0.05))  # the hotkey started something
+    await session.handle(Message("ptt", {"state": "down"}))  # the owner pressed the hotkey instead
     await first
-    assert out.messages == []
+    assert [r for r in records if r.get("source") == "wake"] == [] and session.wake_stats["skipped_busy"] == 1
+    await session.handle(Message("ptt", {"state": "up"}))
+    await finish(session)
 
 
 # ---- staying responsive over hours (owner report, 2026-10-27) -----------------------------------
@@ -319,7 +349,7 @@ def test_continuous_sound_never_leaves_it_deaf_for_long() -> None:
     feed(listener, quiet=40)
     feed(listener, loud=30)
     feed(listener, quiet=40)
-    assert len(got) == 1  # the next request is still heard
+    assert len(got) >= 1 and len(got[-1]) <= (30 + 10 + 25) * BLOCK  # the next request is still heard
 
 
 def test_counters_and_reset() -> None:

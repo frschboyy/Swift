@@ -333,12 +333,23 @@ class MicRecorder:
         if not was_paused and stream is not None and stream.active and time.monotonic() - self._last_block < 1.0:
             return  # its pause was overtaken and it is still delivering audio: no need to reopen
         self._close_stream()
-        _refresh_devices()
+        # The device list as it was first: refreshing it re-enumerates every audio API and was
+        # the slow part of coming back (owner checks, 2026-10-27: 4.7 s from unlock to listening,
+        # the speech model ready after 1.4 s). Refreshed only if that fails; a device that went
+        # away while locked is caught by ``check_stream`` (no audio for 3 s: refresh, reopen).
+        t0 = time.monotonic()
+        refreshed = False
         try:
-            self._open_stream()
+            try:
+                self._open_stream()
+            except MicError:
+                refreshed = True
+                _refresh_devices()
+                self._open_stream()
         except MicError as exc:
             logger.warning("microphone not reopened on return; the watchdog will retry", error=str(exc))
             return
+        logger.info("microphone reopened", ms=int((time.monotonic() - t0) * 1000), refreshed=refreshed)
         if self.on_reopen is not None:
             try:
                 self.on_reopen()

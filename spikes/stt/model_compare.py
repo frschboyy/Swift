@@ -7,6 +7,9 @@ Runs each candidate over the owner's own recordings, on this machine only (nothi
 - ``checks``: 34 requests from the owner checks of 2026-10-27 17:00 (``checks_1027.jsonl``: the
   intended words come from the check script or the owner's own repeat; clips whose words are
   unknown are left out). ``failed`` marks the ones Swift got wrong or refused that day.
+- ``kept``: Swift's own test set (``%LOCALAPPDATA%\\Swift\\stt_testset``, swift/stt/recordings.py):
+  clips Swift kept because the owner said them again or corrected them, with the words meant.
+  All of them count as ``failed``: each was misheard, refused or failed at the time.
 
 Each clip goes through Swift's own front end first (silence gate, trim). Reported per model and
 set: WER after light normalization (case, punctuation, "3"/"three", "p.m."/"pm", "TestMe"/"Test
@@ -73,6 +76,10 @@ def clip_sets(only: set[str] | None) -> dict[str, list[tuple[Path, str, bool]]]:
     rows = [json.loads(line) for line in (HERE / "checks_1027.jsonl").read_text(encoding="utf-8").splitlines() if line]
     checks = [(SWIFT_DIR / "audio" / r["wav"], r["ref"], bool(r.get("failed"))) for r in rows]
     sets["checks"] = [c for c in checks if c[0].exists()]
+    kept = SWIFT_DIR / "stt_testset"
+    if (kept / "index.json").exists():
+        clips = json.loads((kept / "index.json").read_text(encoding="utf-8")).get("clips", [])
+        sets["kept"] = [(kept / c["wav"], c["known"], True) for c in clips if c.get("known") and (kept / c["wav"]).exists()]
     return {k: v for k, v in sets.items() if only is None or k in only}
 
 
@@ -177,7 +184,7 @@ def main() -> None:
     parser.add_argument("--models-root", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--only", default="", help="comma-separated model names (default: all)")
-    parser.add_argument("--sets", default="", help="comma-separated: read,noisy,checks (default: all)")
+    parser.add_argument("--sets", default="", help="comma-separated: read,noisy,checks,kept (default: all)")
     args = parser.parse_args()
     sets = clip_sets(set(args.sets.split(",")) if args.sets else None)
     chosen = models(args.models_root)

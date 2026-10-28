@@ -170,6 +170,8 @@ function drawTray(v: TrayView): void {
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("pause") }, icon(v.paused ? "play" : "pause"), v.paused ? "Resume listening" : "Pause listening"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("settings") }, icon("settings"), "Settings"),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("improve") }, icon("wave"), "Improve speech recognition"),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("clear-recordings") }, icon("trash"), "Clear saved recordings"),
       el("div", { class: "tray-sep" }),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("restart") }, icon("restart"), "Restart Swift"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("quit") }, icon("power"), "Quit Swift"),

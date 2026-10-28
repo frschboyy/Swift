@@ -13,7 +13,8 @@ import dataclasses
 import functools
 import os
 import sys
-from collections.abc import Callable
+import time
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +47,10 @@ from swift.security.journal import Journal
 from swift.system.lane import SystemLane
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
+from swift.executors.improve import REQUEST as IMPROVE_REQUEST
+from swift.executors.improve import ImproveExecutor
 from swift.stt.fixes import WordFixes
+from swift.stt.recordings import Recordings
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
 from swift.wake import WakeListener
 from swift.workflows.library import Library, load_library
@@ -65,8 +69,11 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _on_finish(runlog: InteractionLog) -> Callable[[dict[str, Any]], None]:
+def _on_finish(runlog: InteractionLog, recordings: Recordings | None = None) -> Callable[[dict[str, Any]], None]:
     def finish(record: dict[str, Any]) -> None:
+        # Its clip flagged or dropped (audit B-06): the flags only, never the words.
+        if recordings is not None and (flags := recordings.note(record)):
+            record["clip_flags"] = flags
         # Full record to the local interaction log; a redacted one-line summary to swift.log.
         runlog.append(record)
         summary = {k: v for k, v in record.items() if k not in ("steps", "approvals", "ts", "id")}
@@ -88,6 +95,67 @@ def _make_transcriber(settings: Settings) -> LocalTranscriber:
         beam_size=cfg.beam_size,
         fixes=fixes,
     )
+
+
+def _make_recordings(settings: Settings) -> Recordings:
+    """Which recordings are kept, and for how long (audit B-06). ``stt.save_audio`` (the old debug
+    switch) now means keep_all: every recording, still for audio.keep_days only."""
+    cfg = settings.audio
+    return Recordings(
+        Path(settings.stt.audio_dir), Path(settings.stt.test_set_dir), keep_days=cfg.keep_days,
+        keep_all=cfg.keep_all or settings.stt.save_audio, test_max=cfg.test_set_max, unsure_p=settings.stt.unclear_p,
+    )
+
+
+IMPROVE_EVERY_S = 7 * 86400
+
+
+async def _keep_recordings(
+    recordings: Recordings, session: Session, improve: ImproveExecutor | None, every_s: float = 60.0
+) -> None:
+    """Unflagged clips go once a repeat can't come; old ones once a day; the improvement pass once
+    a week, while the owner is here and nothing runs (its card asks before changing anything)."""
+    swept = time.monotonic()
+    last_pass = _last_pass(recordings)
+    while True:
+        await asyncio.sleep(every_s)
+        try:
+            recordings.tick()
+            if time.monotonic() - swept >= 86400:
+                swept = time.monotonic()
+                await asyncio.to_thread(recordings.sweep)
+            if (improve is not None and time.time() - last_pass >= IMPROVE_EVERY_S and not session.busy
+                    and not session.away and recordings.test_set()):
+                last_pass = time.time()
+                session.start_own(improve, IMPROVE_REQUEST, "improve")
+        except Exception:  # noqa: BLE001 - keeping recordings tidy must outlive any one failure
+            logger.exception("recordings upkeep failed")
+
+
+def _last_pass(recordings: Recordings) -> float:
+    """When the improvement pass last ran (its state file's time), 0 if never."""
+    try:
+        return (recordings.test_dir / "improve.json").stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _recordings_action(
+    recordings: Recordings, session: Session, improve: ImproveExecutor | None
+) -> Callable[[str], Awaitable[None]]:
+    """The tray's "Clear saved recordings" and "Improve speech recognition"."""
+
+    async def act(action: str) -> None:
+        if action == "clear":
+            counts = await asyncio.to_thread(recordings.clear)
+            n = counts["clips"] + counts["test_set"]
+            text = (f"Deleted {n} saved recording{'s' if n != 1 else ''} and the test set."
+                    if n else "There were no saved recordings.")
+            await session.notice("recordings-cleared", text)
+        elif improve is not None:
+            session.start_own(improve, IMPROVE_REQUEST, "improve")
+
+    return act
 
 
 DEMO_LECTURER = KnownContact("Dr Ada Lovelace", "ada.lovelace@example.edu", ("lecturer", "professor"))
@@ -258,6 +326,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         loop, preroll_s=settings.audio.preroll_s, keep_open=wake.enabled, lookback_s=8.0 if wake.enabled else 0.0
     )
 
+    recordings = _make_recordings(settings)
+    await asyncio.to_thread(recordings.sweep)  # at start-up, and daily (_keep_recordings)
     router, classifier = _make_router(settings)
     desktop = _make_desktop(settings)
     opener = LocalOpener(settings)
@@ -276,7 +346,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         recorder=recorder,
         transcriber=transcriber,
         ptt_label=settings.hotkeys.push_to_talk,
-        audio_dir=Path(settings.stt.audio_dir) if settings.stt.save_audio else None,
+        audio_dir=recordings.audio_dir if recordings.enabled else None,
         router=router,
         opener=opener,
         library=_make_library(settings),
@@ -296,7 +366,17 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         wake_question_s=wake.question_s,
         followup_min_p=wake.followup_min_p,
         on_heard=Chime(settings.audio.chime),
-        on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
+        on_finish=_on_finish(
+            InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label), recordings
+        ),
+    )
+    # The test set outlives audio.keep_days, so the pass works even with saving off.
+    improve = ImproveExecutor(recordings, transcriber, Path(settings.stt.word_fixes_file), settings.stt.word_fixes)
+    session.on_recordings = _recordings_action(recordings, session, improve)
+    if wake.enabled:
+        session.on_unaddressed = recordings.heard_unaddressed  # in memory; saved only before a wake phrase
+    upkeep = asyncio.create_task(  # noqa: F841 - lives as long as the backend
+        _keep_recordings(recordings, session, improve if settings.audio.improve_weekly else None)
     )
     server.set_handler(session.handle)
     session.overlay_connected = lambda: server.connected  # a due card waits for an overlay (B-03)

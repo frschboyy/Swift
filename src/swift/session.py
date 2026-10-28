@@ -718,7 +718,8 @@ class Session:
         self.demo_speed = demo_speed
         self.max_record_s = max_record_s
         self.tail_s = tail_s
-        # Debug only: every recording is saved here as <interaction id>.wav.
+        # Each recording is saved here as <interaction id>.wav; swift/stt/recordings.py decides
+        # which are kept (audit B-06). None: nothing is saved.
         self.audio_dir = audio_dir
         self.on_finish = on_finish
         # None sends every transcript to the executor unchanged (tests, demos).
@@ -836,6 +837,10 @@ class Session:
         self.on_ready: Callable[[], Awaitable[None]] | None = None
         # The tray's Pause listening / Resume (ADR-017): the lifecycle closes or reopens the microphone.
         self.on_listen: Callable[[bool], Awaitable[None]] | None = None
+        # Speech the open microphone heard that wasn't for Swift (in memory: a missed wake phrase?).
+        self.on_unaddressed: Callable[[Any], None] | None = None
+        # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
+        self.on_recordings: Callable[[str], Awaitable[None]] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
@@ -1445,6 +1450,15 @@ class Session:
         """True while any request is running (even before its first state change)."""
         return (self._task is not None and not self._task.done()) or bool(self._live())
 
+    @property
+    def away(self) -> bool:
+        """The owner is away (locked, asleep, idle: ADR-014): cards wait."""
+        return self._away
+
+    async def notice(self, run_id: str, text: str) -> None:
+        """A card from Swift that answers nothing ("Deleted 12 recordings")."""
+        await self._send_result(run_id, ExecResult("done", text))
+
     # ---- inbound -----------------------------------------------------------
 
     async def handle(self, msg: Message) -> None:
@@ -1470,6 +1484,9 @@ class Session:
                 logger.info("listening", on=msg.data["on"])
                 if self.on_listen is not None:
                     await self.on_listen(msg.data["on"])
+            case "recordings":
+                if self.on_recordings is not None:
+                    await self.on_recordings(msg.data["action"])
             case "retry":
                 await self._start_retry()
             case "confirm.reply":
@@ -1836,6 +1853,8 @@ class Session:
             midrun_ok = busy and midrun is not None and midrun.action in UNSURE_MIDRUN_OK
             if (busy and not midrun_ok) or (match is None and not midrun_ok) or mean_p < self.wake_phrase_min_p:
                 self.wake_stats["unsure"] += 1
+                if not busy and self.on_unaddressed is not None:
+                    self.on_unaddressed(audio)
                 return
             self.wake_stats["unsure_midrun" if midrun_ok else "unsure_wake"] += 1
         if (asked := self._listening_for()) is not None and self._for_question(asked, heard.text):
@@ -1872,9 +1891,11 @@ class Session:
             return
         if match is None:
             if heard.text.strip() and self._in_followup(started_at):
-                await self._hear_reply(heard, len(audio) / SAMPLE_RATE)
+                await self._hear_reply(heard, audio)
             else:
                 self.wake_stats["other_speech"] += 1
+                if self.on_unaddressed is not None:
+                    self.on_unaddressed(audio)
             return
         self.wake_stats["wake"] += 1
         self._owner_here()
@@ -1906,6 +1927,7 @@ class Session:
             # "Hey Swift, what time is it": the request came with the phrase.
             async def capture(rec: dict[str, Any]) -> str:
                 self._heard = heard
+                self._keep_audio(rec, audio)
                 rest = heard.after(len(match.phrase.split()))
                 if rest.confidence is not None:
                     rec["stt_confidence"] = rest.confidence
@@ -1946,20 +1968,20 @@ class Session:
         title = _short_title(match.remainder) if match.remainder else QUEUED_TITLE
         self._wake_launch(heard, match, audio, ended_at, record, title=title)
 
-    async def _hear_reply(self, heard: Transcription, audio_s: float) -> None:
+    async def _hear_reply(self, heard: Transcription, audio: Any) -> None:
         """Speech in the follow-up window, without the wake phrase: a reply if it sounds like the
         owner; said too unsurely, "try saying it again"; otherwise the room, ignored."""
-        doubt = self._reply_doubt(heard, audio_s)
+        doubt = self._reply_doubt(heard, len(audio) / SAMPLE_RATE)
         if doubt is None:
             self.wake_stats["followup"] += 1
             self._owner_here()
-            self._start_followup(heard)
+            self._start_followup(heard, audio=audio)
             return
         self.wake_stats[f"followup_{doubt}"] += 1
         if doubt == "unsure":
             # Loud and near, so most likely the owner: ask again rather than act on a guess.
             self._owner_here()
-            self._start_followup(heard, unclear=True)
+            self._start_followup(heard, unclear=True, audio=audio)
 
     def _reply_doubt(self, heard: Transcription, audio_s: float) -> str | None:
         """Why speech in the follow-up window is not taken as the owner's reply (None: it is).
@@ -2125,7 +2147,7 @@ class Session:
         window = self._followup
         return window is not None and window[0] - 0.2 <= started_at <= window[1]
 
-    def _start_followup(self, heard: Transcription, unclear: bool = False) -> None:
+    def _start_followup(self, heard: Transcription, unclear: bool = False, audio: Any = None) -> None:
         """A reply just after an answer, without the wake phrase: an ordinary request. ``unclear``:
         too much of it was a guess, so the card asks to say it again instead."""
         logger.info("follow-up heard", stt_ms=heard.stt_ms, unclear=unclear)
@@ -2135,6 +2157,7 @@ class Session:
 
         async def capture(rec: dict[str, Any]) -> str:
             self._heard = heard
+            self._keep_audio(rec, audio)
             if heard.confidence is not None:
                 rec["stt_confidence"] = heard.confidence
             if unclear:
@@ -2166,6 +2189,26 @@ class Session:
             return
         self._followup = None
         await self._send(outbound("followup", open=False, seconds=0))
+
+    def _keep_audio(self, record: dict[str, Any], audio: Any) -> None:
+        """Save the recording as <interaction id>.wav, for swift/stt/recordings.py to flag or drop."""
+        if self.audio_dir is None or audio is None or not len(audio) or "id" not in record:
+            return
+        path = self.audio_dir / f"{record['id']}.wav"
+        try:
+            save_wav(path, audio)
+            record["audio_file"] = str(path)
+        except OSError as exc:
+            logger.warning("could not save the recording", error=type(exc).__name__)
+
+    def start_own(self, executor: Executor, words: str, source: str) -> Run:
+        """One of Swift's own runs, as if asked (the improvement pass): not routed, shown like any other."""
+        record: dict[str, Any] = {"source": source, "executor": getattr(executor, "name", "?")}
+
+        async def capture(rec: dict[str, Any]) -> str:
+            return words
+
+        return self._chip_now(self._launch(record, capture, executor, executor.start, title=_short_title(words)), words)
 
     async def _capture_voice(
         self,
@@ -2249,13 +2292,7 @@ class Session:
         record["audio_s"] = round(len(audio) / SAMPLE_RATE, 2)
         record["first_audio_ms"] = getattr(self.recorder, "first_audio_ms", None)
         record["preroll_ms"] = getattr(self.recorder, "preroll_ms", None)
-        if self.audio_dir is not None and len(audio):
-            path = self.audio_dir / f"{record['id']}.wav"
-            try:
-                save_wav(path, audio)
-                record["audio_file"] = str(path)
-            except OSError as exc:
-                logger.warning("could not save the recording", error=str(exc))
+        self._keep_audio(record, audio)
         if record["audio_s"] < MIN_SPEECH_S:
             record["reason"] = "silence" if auto else "too_short"
             await phase("idle")

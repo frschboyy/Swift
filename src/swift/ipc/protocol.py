@@ -95,6 +95,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "live.app": {"run_id": (str, None)},
     # The answer to Swift's question on the card (ADR-016 §5.1): an option clicked. Never approves a card.
     "ask.reply": {"ask_id": (str, None), "text": (str, None)},
+    # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
+    "recordings": {"action": (str, ("clear", "improve"))},
 }
 
 OUTBOUND_TYPES = frozenset(

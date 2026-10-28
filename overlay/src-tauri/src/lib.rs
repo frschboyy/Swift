@@ -869,13 +869,17 @@ pub fn run() {
             let pause_item = MenuItem::with_id(app, "pause", "Pause or resume listening", true, None::<&str>)?;
             let settings_item = MenuItem::with_id(app, "settings", "Settings (config.yaml)", true, None::<&str>)?;
             let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", true, None::<&str>)?;
+            // Audit 2026-10, B-06: saved recordings, used and wiped on this PC only.
+            let improve_item = MenuItem::with_id(app, "improve", "Improve speech recognition", true, None::<&str>)?;
+            let clear_item = MenuItem::with_id(app, "clear-recordings", "Clear saved recordings", true, None::<&str>)?;
             // Audit 2026-10, B-04: when the engine died or hangs, without quitting.
             let restart_item = MenuItem::with_id(app, "restart", "Restart Swift", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit Swift", true, None::<&str>)?;
             let separator2 = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(
                 app,
-                &[&pause_item, &type_item, &position, &settings_item, &logs_item, &separator2, &restart_item, &quit_item],
+                &[&pause_item, &type_item, &position, &settings_item, &logs_item, &improve_item, &clear_item, &separator2,
+                  &restart_item, &quit_item],
             )?;
             app.manage(TrayItems { anchors, smart });
             let mut tray = TrayIconBuilder::with_id("swift")
@@ -895,6 +899,9 @@ pub fn run() {
                     "settings" => open_config(),
                     "pause" => {
                         let _ = app.emit_to("overlay", "tray-action", "pause");
+                    }
+                    "improve" | "clear-recordings" => {
+                        let _ = app.emit_to("overlay", "tray-action", event.id.as_ref());
                     }
                     "type" => {
                         let _ = app.emit("hotkey", HotkeyEvent { name: "type".into(), state: "down" });

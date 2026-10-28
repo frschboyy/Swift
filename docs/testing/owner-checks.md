@@ -210,6 +210,22 @@ About 10 minutes, with wake listening on. Swift now asks for what's missing inst
 
 Privacy: the log keeps the kind of question (duration, time, choice…), how it was answered (said, clicked, typed) and counts; never what was asked or what you said.
 
+### Saved recordings that earn their keep (audit B-06)
+
+About 10 minutes, with wake listening on. Before you start, remove `save_audio: true` from `stt` in `config.yaml`, or set it to `false`. That setting now keeps every clip. Then restart Swift. Have `%LOCALAPPDATA%\Swift\audio` open in Explorer, sorted by date.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 110 | Restart Swift from the tray | The audio folder holds no clip older than 7 days. The clips from before this change are gone, apart from the last 7 days' when `save_audio` was still on. `stt_corpus` and `stt_noisy` are untouched | Old recordings swept |
+| 111 | Hold the hotkey and say clearly: "what time is it". Wait a minute | The answer. Its clip shows up in the folder and is **gone within about 30 s** | Clips flagged |
+| 112 | Hold the hotkey and mumble "what's the time in Lisbon" so Swift answers "I didn't catch that". Within 15 s, hold it again and say it clearly | The second answer. In the folder, the mumbled clip stays and `index.json` lists it with `say_again` and the words you said the second time. `%LOCALAPPDATA%\Swift\stt_testset` now holds a copy of it | Clips flagged; a repeat gave a clip its words |
+| 113 | "Hey Swift, what time is it in Paris". At once: "no, I said what time is it in London" | Both answers. In `index.json`, the first clip has `repeated` and the London words | Clips flagged; a repeat gave a clip its words |
+| 114 | Say "hey Swiffer, what time is it" so Swift doesn't react. Within 5 s, say "hey Swift, what time is it" | The answer. A `…-miss.wav` file appears, listed with `missed_wake`. Talk with nobody addressing Swift leaves **no** file | A missed wake phrase was kept |
+| 115 | Tray → **Improve speech recognition** | A row "Improve speech recognition", then either a card "Use N new word fixes?" listing heard → meant, or straight to the result "Checked N of your recordings: …% of words right". Reject the card: next time the same fixes aren't offered | The improvement pass ran |
+| 116 | Tray → **Clear saved recordings** | A card: "Deleted N saved recordings and the test set." The audio and `stt_testset` folders are empty | Saved recordings cleared |
+
+Privacy: `swift.log` gets counts and flags only. Search it for "Lisbon" and "London": nothing. The words meant are only in the two `index.json` files, on this PC.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

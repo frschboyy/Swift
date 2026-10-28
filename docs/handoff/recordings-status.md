@@ -14,14 +14,13 @@ Branch `claude/busy-wiles-de06e3`, fast-forwarded from main `50f8e0f`. Not pushe
   - `endpoint_feed.json` is written for end-of-speech tuning. It holds no words.
   - `spikes/stt/model_compare.py --sets kept` runs the test set as its own set.
 - **Docs.** `docs/stt-models.md` §Recordings, threat model T14 plus a privacy section, the audit's B-06 row, README, `config.example.yaml`, and owner checks 110-116 with their report lines.
-- **Tests.** `tests/unit/test_recordings.py` (30 tests) covers retention, flagging, the cap, wiping, the card, the report, and a run with no network. Overlay `tsc` is clean, `npm test` passes 73, and `cargo check` is clean. The last full pytest run before the final edits passed 1131.
+- **Tests.** `tests/unit/test_recordings.py` (30 tests) covers retention, flagging, the cap, wiping, the card, the report, and a run with no network. Overlay `tsc` is clean, `npm test` passes 73, and `cargo check` is clean. The full pytest run on the final tree passed 1161.
 
 ## Left, in order
 
-1. Confirm a full `pytest` run on the final tree.
-2. The owner runs owner checks 110-116.
-3. Phase C reads `endpoint_feed.json` (see the shared note `recordings-b06.md`).
-4. Separately from this task: `logging_setup.CONTENT_KEYS` doesn't redact `transcript_heard`, `transcript_raw` or `unclear`. This is suspected from the code; the current log has 0 such lines.
+1. The owner runs owner checks 110-116.
+2. Phase C reads `endpoint_feed.json` (see the shared note `recordings-b06.md`).
+3. Separately from this task: `logging_setup.CONTENT_KEYS` doesn't redact `transcript_heard`, `transcript_raw` or `unclear`. This is suspected from the code; the current log has 0 such lines.
 
 ## Decisions taken by default
 

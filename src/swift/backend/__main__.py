@@ -299,6 +299,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         on_finish=_on_finish(InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label)),
     )
     server.set_handler(session.handle)
+    session.overlay_connected = lambda: server.connected  # a due card waits for an overlay (B-03)
     wake_tasks: set[asyncio.Task[None]] = set()
     if wake.enabled:
 

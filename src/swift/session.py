@@ -756,9 +756,14 @@ class Session:
         # None (tests, or ``system.enabled: false``): those requests go to the agent.
         self.system: SystemLane | None = None
         self.system_chime = True
-        # Whether the owner is away (ADR-014: ``hold_cards``), and what came due meanwhile: shown on return.
+        # Whether the owner is away (ADR-014: ``hold_cards``).
         self._away = False
-        self._due_away: list[tuple[Item, bool]] = []
+        # Timers, alarms and reminders due but not shown yet, as (item, missed, came due while away):
+        # each leaves the schedule file only once its card reached the overlay (audit 2026-10, B-03).
+        self._due: list[tuple[Item, bool, bool]] = []
+        self._due_wait: asyncio.Task[None] | None = None
+        # Whether an overlay is connected to see a card (the backend sets it; tests have one).
+        self.overlay_connected: Callable[[], bool] = lambda: True
         # A disruptive system change Swift asked about ("Turn off Wi-Fi?"): the intents, and when asked.
         self._system_confirm: tuple[tuple[Any, ...], float] | None = None
         # Swift's voice (ADR-016 §4). The base Speaker is silent; the backend sets the real one.
@@ -1341,6 +1346,7 @@ class Session:
                     await self.on_ready()  # e.g. tell the new overlay whether Swift is listening
                 self._stack_sent = None
                 await self._send_stack()  # a new overlay: what waits, from before it started
+                await self._kick_due()  # and what came due before it was there
             case "cancel":
                 self.speaker.stop()
                 await self.cancel()
@@ -2516,40 +2522,79 @@ class Session:
             asyncio.get_running_loop().create_task(self._open_followup(question=self._followup_question))
 
     async def notify_due(self, item: Item, missed: bool) -> None:
-        """A timer, alarm or reminder came due (``Scheduler.run``): a sound, and a card once the
-        owner isn't in the middle of something (at most ``DUE_WAIT_S`` later). While the owner is
-        away (locked, asleep, idle: ADR-014) the card is held, and one "while you were away" card
-        lists everything that came due when they're back; the sound still plays, so an alarm rings."""
+        """A timer, alarm or reminder came due (``Scheduler.run``): a sound now, and a card once the
+        owner can see it. It waits while the owner is away (locked, asleep, idle: ADR-014), while
+        no overlay is connected, while a card waits for an answer or the owner is speaking, and
+        while the request in front is going (at most ``DUE_WAIT_S``). Items due together share one
+        card, and each leaves the schedule only once shown (audit 2026-10, B-03). The sound still
+        plays at once, so an alarm rings."""
         assert self.system is not None
         logger.info("due", kind=item.kind, missed=missed, away=self._away)
         if self.system_chime:
             asyncio.create_task(self.system.control.chime(3 if item.kind != "reminder" else 2))  # noqa: RUF006
-        if self._away:
-            self._due_away.append((item, missed))
+        if any(i.id == item.id for i, _, _ in self._due):
             return
-        await self._show_due(f"due-{item.kind}-{item.id}", self.system.due_text(item, missed))
+        self._due.append((item, missed, self._away))
+        await self._kick_due()
 
-    async def _show_due(self, run_id: str, text: str) -> None:
+    def _due_blocked(self) -> str | None:
+        """Why a due card can't be shown right now, or None."""
+        if self._away:
+            return "away"
+        if not self.overlay_connected():
+            return "overlay"
+        if self._open_confirm() is not None or self._capturing():
+            return "card"
+        return "busy" if self._front_busy() else None
+
+    async def _kick_due(self) -> None:
+        """Show what came due, now if nothing is in the way, else once it isn't."""
+        if not self._due:
+            return
+        blocked = self._due_blocked()
+        if blocked is None:
+            await self._show_queued_due()
+        elif blocked not in ("away", "overlay") and (self._due_wait is None or self._due_wait.done()):
+            # Coming back (``hold_cards``) and a new overlay (``ready``) kick again by themselves.
+            self._due_wait = asyncio.create_task(self._wait_due())
+
+    async def _wait_due(self) -> None:
         waited = 0.0
-        while (self._front_busy() or self._capturing()) and waited < DUE_WAIT_S:
+        while self._due:
             await asyncio.sleep(1.0)
             waited += 1.0
+            blocked = self._due_blocked()
+            if blocked in ("away", "overlay"):
+                return
+            if blocked is None or (blocked == "busy" and waited >= DUE_WAIT_S):
+                await self._show_queued_due()
+                return
+
+    async def _show_queued_due(self) -> None:
+        if self.system is None or not self._due:
+            return
+        queued, self._due = self._due, []
+        if any(away for _, _, away in queued):
+            # Back: one card for what came due while the owner was away.
+            if len(queued) == 1:
+                item = queued[0][0]
+                text = f"While you were away: {self.system.due_text(item, False)[:-1]}, at {_hm(item.due)}."
+            else:
+                lines = "; ".join(f"{self.system.due_text(i, False)[:-1]} ({_hm(i.due)})" for i, _, _ in queued)
+                text = f"While you were away: {lines}."
+            run_id = f"due-away-{queued[-1][0].id}"
+        else:
+            text = " ".join(self.system.due_text(i, missed) for i, missed, _ in queued)
+            run_id = f"due-{queued[0][0].kind}-{queued[-1][0].id}"
         await self._send_result(run_id, ExecResult("done", text))
+        if not self.overlay_connected():
+            self._due = queued + self._due  # the overlay went as it was sent: show it to the next one
+            return
+        for item, _, _ in queued:
+            self.system.scheduler.shown(item.id)
+        logger.info("due shown", items=len(queued))
         if self.speech_replies != "never" and not self._away:
             self._speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
-
-    async def _show_due_away(self) -> None:
-        """Back: one card for what came due while the owner was away."""
-        if self.system is None or not self._due_away:
-            return
-        held, self._due_away = self._due_away, []
-        if len(held) == 1:
-            item, _ = held[0]
-            text = f"While you were away: {self.system.due_text(item, False)[:-1]}, at {_hm(item.due)}."
-        else:
-            lines = "; ".join(f"{self.system.due_text(i, False)[:-1]} ({_hm(i.due)})" for i, _ in held)
-            text = f"While you were away: {lines}."
-        await self._show_due(f"due-away-{held[-1][0].id}", text)
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""
@@ -3021,8 +3066,8 @@ class Session:
         """The owner left (hide open confirm cards, stop their countdown) or came back (show them again,
         and what came due meanwhile: ``notify_due``)."""
         self._away = held
-        if not held and self._due_away:
-            asyncio.create_task(self._show_due_away())  # noqa: RUF006
+        if not held and self._due:
+            asyncio.create_task(self._kick_due())  # noqa: RUF006
         if self.attention is None:
             return
         shown = self._open_confirm()

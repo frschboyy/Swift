@@ -9,6 +9,11 @@ noticed, and calls ``on_fire`` once per item.
 An item found due at start-up, or after a long sleep, fires once and is marked ``missed`` so
 the card can say "this was due at 15:02". Nothing here speaks or draws: the session decides how
 a due item reaches the owner (``Session.notify_due``).
+
+**Kept until shown** (audit 2026-10, B-03). A due item isn't removed when it fires: it is marked
+``fired`` in the file and stays there until the session has shown it (``shown``). So a restart
+while the owner is away, or while its card waits behind another, fires it again (as missed)
+rather than losing it. Within one run of Swift it fires once; a fired item is no longer pending.
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ class Item:
     due: float  # epoch seconds
     label: str = ""
     created: float = 0.0
+    fired: bool = False  # due and handed to the session, not yet shown
 
     @property
     def title(self) -> str:
@@ -60,6 +66,7 @@ class Scheduler:
         self.clock = clock
         self.items: list[Item] = []
         self._next_id = 1
+        self._handed: set[int] = set()  # fired in this run of Swift
         self._wake = asyncio.Event()
         self._load()
 
@@ -90,7 +97,17 @@ class Scheduler:
             self._changed()
 
     def pending(self, kind: Kind | None = None) -> list[Item]:
-        return sorted((i for i in self.items if kind in (None, i.kind)), key=lambda i: (i.due, i.id))
+        """Items still to come due (a fired one rang already, whether or not its card was shown)."""
+        return sorted((i for i in self.items if not i.fired and kind in (None, i.kind)), key=lambda i: (i.due, i.id))
+
+    def shown(self, item_id: int) -> None:
+        """The owner has seen the card for a due item: it's done, here and in the file."""
+        for item in self.items:
+            if item.id == item_id:
+                self.items.remove(item)
+                self._handed.discard(item_id)
+                self._save()
+                return
 
     def find(self, kind: Kind | None = None, label: str = "") -> list[Item]:
         """The pending items of ``kind`` whose label contains ``label`` (all of ``kind`` if it is empty)."""
@@ -103,15 +120,19 @@ class Scheduler:
     # ---- firing ------------------------------------------------------------------------
 
     def due(self) -> list[Item]:
+        """Due and not yet handed over in this run: fired ones from before a restart come again."""
         now = self.clock()
-        return [i for i in self.pending() if i.due <= now]
+        due = (i for i in self.items if i.due <= now and i.id not in self._handed)
+        return sorted(due, key=lambda i: (i.due, i.id))
 
     async def run(self, on_fire: OnFire) -> None:
         while True:
             self._wake.clear()
             for item in self.due():
-                self.remove(item.id)
-                missed = self.clock() - item.due > MISSED_S
+                missed = item.fired or self.clock() - item.due > MISSED_S
+                item.fired = True
+                self._handed.add(item.id)
+                self._save()
                 try:
                     await on_fire(item, missed)
                 except Exception:

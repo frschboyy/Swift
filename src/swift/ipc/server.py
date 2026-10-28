@@ -57,6 +57,11 @@ class OverlayServer:
             self._server.close()
             await self._server.wait_closed()
 
+    @property
+    def connected(self) -> bool:
+        """An overlay is connected: what is sent now reaches the screen."""
+        return self._client is not None
+
     async def send(self, msg: Message) -> None:
         client = self._client
         if client is None:

@@ -50,7 +50,7 @@ Transcripts were not quoted.
 
 | What | Result |
 |---|---|
-| Python tests | 1052 at the start, 1080 at the end, all passing |
+| Python tests | 1052 at the start, 1083 at the end, all passing |
 | Overlay | `tsc --noEmit` clean; `npm test` 47 passing (a temporary `node_modules` junction, removed afterwards) |
 | Rust | `cargo test` 22 passing, in the worktree's own `target` |
 | Parity | 365/375 before and after |

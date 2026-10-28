@@ -28,7 +28,7 @@ Session._interaction: thread, desktop context (if "this/here"), router (rules.ro
    └─ agent → Claude Code (demand: Haiku/Sonnet/Opus, escalation) ─────────┤
                                                                             ▼
                 ClaudeCodeExecutor: spare CLI, `swift` MCP server, can_use_tool = _ask
-                   ├─ Read/Glob/Grep: no card (any path: B-01)
+                   ├─ Read/Glob/Grep: no card in the read folders; a card elsewhere; secrets never (B-01)
                    ├─ WebSearch: no card; WebFetch: no card, given addresses only (A-03)
                    ├─ Edit/Write/Bash: a card (whole command shown, A-12); refused in workflow runs
                    └─ mcp__swift__* → ToolHost.call(run) → RunScope (Grant limits tools)

@@ -133,6 +133,11 @@ class ExecutorSettings(_Section):
     confirm_tools: list[str] = Field(default_factory=lambda: ["Edit", "Write", "Bash"])
     working_dirs: list[str] = Field(default_factory=list)
     default_dir: int = Field(0, ge=0)
+    # Read, Glob and Grep run without a card only in the working folders and these; anywhere else a
+    # card first (owner, 2026-10-28; audit B-01). %VAR% references are expanded.
+    read_dirs: list[str] = Field(default_factory=lambda: ["%USERPROFILE%/Documents", "%USERPROFILE%/Downloads"])
+    # Never read, even with a card, on top of Swift's own list (sign-ins, keys, browser profiles).
+    never_read: list[str] = Field(default_factory=list)
     max_budget_usd: float | None = Field(1.0, gt=0)
     confirm_timeout_s: float = Field(120.0, gt=0)
     # Keep one Claude Code process started and waiting, so a request skips its 5-13 s startup.

@@ -139,6 +139,8 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     crashed = [r for r in rows if r.get("error") == "crashed"]
     kept_running = [line for line in log if "same request again while it runs" in line]
     unknown = [line for line in log if "| action outcome unknown |" in line]
+    never_read = [line for line in log if "read refused: never-read path" in line]
+    read_cards = [a for r in rows for a in r.get("approvals", []) if a.get("tool") in ("Read", "Glob", "Grep")]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows),
          f"{unsure_wake} unsure wake phrase(s) still taken"),
@@ -260,6 +262,8 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{sum(1 for r in rows if r.get('spoken_chars'))} spoken"),
         ("60 no action left 'unknown' (if one was, look it up)", not unknown, f"{len(unknown)} unknown"),
         ("61 nothing heard acted on after a lock", True, f"{wake_count('paused_drop')} dropped as the screen locked"),
+        ("62 reads outside the read folders asked first; secrets refused", bool(read_cards) or bool(never_read),
+         f"{len(read_cards)} read card(s), {len(never_read)} secret path(s) refused"),
     ]
 
 

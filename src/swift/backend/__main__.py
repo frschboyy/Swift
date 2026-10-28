@@ -166,6 +166,17 @@ def _make_library(settings: Settings) -> Library | None:
     return load_library(Path(cfg.dir)) if cfg.enabled else None
 
 
+def _expanded(paths: list[str]) -> list[str]:
+    """``%VAR%`` paths expanded; one naming an unset variable is left out (and logged)."""
+    out = []
+    for path in paths:
+        try:
+            out.append(expand(path))
+        except ValueError:
+            logger.warning("folder setting skipped: unset variable", setting=path)
+    return out
+
+
 def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | None = None) -> Executor:
     cfg = settings.executor
     match cfg.kind:
@@ -187,6 +198,8 @@ def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | Non
                 turn_limits=dict(cfg.turn_limits),
                 tools=tools,
                 web=cfg.web,
+                read_dirs=[*(expand(d) for d in cfg.working_dirs), *_expanded(cfg.read_dirs)],
+                never_read=_expanded(cfg.never_read),
             )
         case _:
             return EchoExecutor()

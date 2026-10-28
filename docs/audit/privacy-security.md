@@ -8,7 +8,7 @@
 | Transcripts | The local interaction log (`interactions.jsonl`, the owner's own). Redacted in `swift.log`. Sent to Claude Code as the request | ok |
 | Speech out | SAPI, local | ok |
 | The request, thread context, the desktop context line, the selected text (only when asked) | Anthropic, through Claude Code | ok, as decided (ADR-007; ADR-016 Q16 asks to state it plainly) |
-| Files Claude Code reads | Anthropic | **Any path, with no card** (B-01) |
+| Files Claude Code reads | Anthropic | No card in the working folders, Documents and Downloads; a card elsewhere; secrets never (B-01, fixed) |
 | Web pages fetched and search queries | Anthropic's tools; the page's server sees the fetch | Fetches are now limited to given addresses (A-03) |
 | Email (drafts, send), calendar (list, create, update, delete), People search | Google, under the owner's OAuth; the refresh token is in Credential Manager (`keyring`) | ok: T9 checked in code (`google.py`: `keyring.get_password`; no token written to a file) |
 | Calendar titles (a cache for matching) | Memory, refreshed every 10 min | ok |
@@ -27,7 +27,7 @@ Every path that reaches a side effect, checked:
 | Agent → `system_action` | The intent must be in the owner's words (`RunScope.said`); disruptive changes need a card | ok (`test_system_phase_a2`) |
 | Agent → Bash, Edit, Write | A card per call; refused in workflow runs | ok; the card now shows the whole command (A-12) |
 | Agent → WebFetch | Given addresses only (A-03) | fixed |
-| Agent → Read, Glob, Grep | Pre-approved, any path | **Gap B-01** (a read, not a side effect, but it widens what an injection reaches) |
+| Agent → Read, Glob, Grep | By path (`read_scope.py`): read folders free, elsewhere a card, secrets never | fixed (B-01) |
 | "Undo that" | `gateway.undo_last` with its own card | ok |
 | A change of mind ("actually…") | Goes to the same run as a new turn; `scope.said` is not widened by it | ok (safe direction) |
 | A resumed parked conversation | A new run; `said` is the new words ("go on"), so `system_action` can't act on the old text | ok (safe direction) |
@@ -71,7 +71,7 @@ Every path that reaches a side effect, checked:
 
 ## Remaining risks
 
-1. **B-01:** Claude Code reading outside the working folders, without a card. Owner decision.
+1. **B-01 (fixed):** a Grep over a read folder can still search a secret-looking file inside it.
 2. **B-02:** the agent typing into the app in front without the owner asking for writing.
 3. **The A-03 slow channel:** a page listing many links lets a run leak a few bits per fetch.
 4. **Bystander audio** in saved clips (B-06).

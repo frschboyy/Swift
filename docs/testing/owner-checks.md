@@ -138,6 +138,8 @@ About 15 minutes.
 | 60 | (Only if you ever see "it may have been added / sent") | The card says to look before trying again; check Google Calendar or Gmail Sent, and tell me what you found | No action left unknown |
 | 61 | "Hey Swift, set a timer for 10 seconds" and **at once** press Win+L. Wait 20 s; unlock | The timer card is waiting for you ("while you were away"). Then: say "hey Swift, turn the volume up" and press Win+L **while still saying it** | The volume didn't change while locked |
 
+| 62 | Hold the hotkey: "what's in my Pictures folder?", then "read the file .claude/.credentials.json in my home folder" | Pictures: a card "Look through Pictures" (outside your read folders); Reject it. The credentials file: no card, and the answer says Swift won't read it. A file in Documents or Downloads is read without a card | Reads asked about, secrets refused |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

@@ -433,3 +433,74 @@ async def test_a_command_too_long_for_a_card_is_refused_without_one(tmp_path) ->
     refused = await ex._ask(run, "cc-1", "Bash", {"command": "echo " + "x" * COMMAND_MAX})
     assert isinstance(refused, PermissionResultDeny) and "too long" in refused.message and not refused.interrupt
     assert run.queue.empty()  # no card the owner couldn't read
+
+
+# ---- B-01: Claude Code reads without a card only in the read folders; secrets never -----------
+
+
+def _reads(tmp_path):  # type: ignore[no-untyped-def]
+    from swift.executors.read_scope import ReadScope
+
+    home = tmp_path / "home"
+    for folder in ("Documents", "Downloads", "Projects/thesis", ".ssh", ".claude", "Pictures"):
+        (home / folder).mkdir(parents=True)
+    scope = ReadScope([str(home / "Projects/thesis"), str(home / "Documents"), str(home / "Downloads")], home=str(home))
+    return scope, home
+
+
+def test_reads_by_folder(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    scope, home = _reads(tmp_path)
+    assert scope.verdict(str(home / "Documents" / "report.pdf")) == "read"
+    assert scope.verdict(str(home / "Downloads" / "paper.pdf")) == "read"
+    assert scope.verdict(str(home / "Projects" / "thesis" / "main.tex")) == "read"
+    assert scope.verdict(str(home / "Pictures" / "a.txt")) == "ask"
+    assert scope.verdict(str(home)) == "ask"  # the home folder holds secrets: never a blanket read
+    assert scope.verdict(str(home / ".ssh" / "id_rsa")) == "never"
+    assert scope.verdict(str(home / ".claude" / ".credentials.json")) == "never"
+    assert scope.verdict(str(home / "Documents" / ".env")) == "never"  # secret-looking names anywhere
+    assert scope.verdict(str(home / "Documents" / "vault.kdbx")) == "never"
+    # ".." can't climb out of a read folder.
+    assert scope.verdict(str(home / "Documents" / ".." / ".ssh" / "config")) == "never"
+
+
+def test_the_folder_a_read_tool_looks_at(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import os
+
+    from swift.executors.read_scope import target_path
+
+    cwd = str(tmp_path)
+    assert target_path("Read", {"file_path": "notes.md"}, cwd) == os.path.join(cwd, "notes.md")
+    assert target_path("Grep", {"pattern": "TODO"}, cwd) == cwd
+    assert os.path.normpath(target_path("Glob", {"pattern": "../../.ssh/*"}, cwd)) == os.path.normpath(
+        os.path.join(cwd, "../../.ssh"))
+    assert target_path("Glob", {"pattern": "C:/Users/me/.aws/**"}, cwd).replace("\\", "/").endswith("/.aws")
+
+
+async def test_claude_code_asks_before_reading_elsewhere_and_never_reads_secrets(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import asyncio
+
+    from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
+
+    from swift.executors.claude_code import ClaudeCodeExecutor, _Run
+
+    home = tmp_path / "home"
+    (home / "Pictures").mkdir(parents=True)
+    work = home / "Projects"
+    work.mkdir()
+    ex = ClaudeCodeExecutor(cwd=str(work), claude="claude.exe", read_dirs=[str(home / "Documents")])
+    ex.reads = type(ex.reads)([str(work), str(home / "Documents")], home=str(home))
+    run = _Run()
+    ex._runs["cc-1"] = run
+    assert "Read" not in ex.options(run, "cc-1").allowed_tools  # decided per path, not pre-approved
+    inside = await ex._ask(run, "cc-1", "Read", {"file_path": str(work / "main.py")})
+    assert isinstance(inside, PermissionResultAllow) and run.queue.empty()
+    secret = await ex._ask(run, "cc-1", "Read", {"file_path": str(home / ".claude" / ".credentials.json")})
+    assert isinstance(secret, PermissionResultDeny) and "never" in secret.message and not secret.interrupt
+    assert run.queue.empty()  # no card for a secret: just no
+    # Elsewhere: a card, and a no lets the run go on.
+    asking = asyncio.create_task(ex._ask(run, "cc-1", "Read", {"file_path": str(home / "Pictures" / "list.txt")}))
+    card = await asyncio.wait_for(run.queue.get(), 2)
+    assert card.type == "confirm" and card.text == "Read list.txt" and "Outside your read folders" in card.detail
+    await ex.reply(card.request_id, False)
+    declined = await asyncio.wait_for(asking, 2)
+    assert isinstance(declined, PermissionResultDeny) and not declined.interrupt and run.stopped_by is None

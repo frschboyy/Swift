@@ -67,6 +67,7 @@ from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
 from swift.executors.claude_mapping import COMMAND_MAX, Outcome, confirm_card, outcome_for, steps_for
 from swift.executors.providers import CLAUDE_CODE
+from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.executors.web_scope import WebScope, result_text
 from swift.failures import classify, clean_detail
@@ -125,6 +126,11 @@ LONG_COMMAND_MESSAGE = (
     "That command is too long for Swift to show the user on a card (over {n} characters), so it wasn't run. "
     "Use shorter commands, one step at a time."
 )
+NEVER_READ_MESSAGE = (
+    "Swift never lets you read {path}: it holds sign-ins, keys or other secrets. Go on without it, "
+    "and don't try another way to read it."
+)
+READ_DECLINED_MESSAGE = "The user didn't allow reading {path}. Go on without it; don't try another way."
 NO_QUESTIONS_MESSAGE = (
     "The user can't answer questions in this mode. Make a reasonable assumption, "
     "say what you assumed in your final answer, and continue."
@@ -211,8 +217,13 @@ class ClaudeCodeExecutor:
         turn_limits: dict[str, int] | None = None,
         tools: ToolHost | None = None,
         web: bool = False,
+        read_dirs: Sequence[str] = (),
+        never_read: Sequence[str] = (),
     ) -> None:
         self.cwd = cwd
+        # Read, Glob and Grep without a card only in the working folder and these (Documents and
+        # Downloads by default); elsewhere a card; secrets never (audit 2026-10, B-01).
+        self.reads = ReadScope([d for d in (cwd, *read_dirs) if d], never_read)
         # Web search and fetch for ordinary requests ("research the history of tea"): read-only,
         # so no card; workflows still get them only by declaring them (owner checks 2026-10-28).
         self.web = web
@@ -395,7 +406,8 @@ class ClaudeCodeExecutor:
             cwd=self._check_cwd(),
             cli_path=self._resolve_claude(),
             tools=[*self.allowed_tools, *self.confirm_tools, *web_tools, *extra_tools],
-            allowed_tools=[*self.allowed_tools, *extra_tools],
+            # Reads are decided per path in _ask, so they aren't pre-approved.
+            allowed_tools=[*(t for t in self.allowed_tools if t not in READ_TOOLS), *extra_tools],
             permission_mode="default",
             can_use_tool=can_use_tool,
             setting_sources=[],
@@ -513,6 +525,8 @@ class ClaudeCodeExecutor:
 
         if name == "AskUserQuestion":
             return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
+        if name in READ_TOOLS:
+            return await self._ask_read(run, run_id, name, args)
         host = self.tools
         if name in PROVIDER_TOOLS:
             in_workflow = host is not None and host.in_workflow_for(run_id)
@@ -538,6 +552,24 @@ class ClaudeCodeExecutor:
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)
         return PermissionResultDeny(message=REJECTED_MESSAGE, interrupt=True)
+
+    async def _ask_read(self, run: _Run, run_id: str, name: str, args: dict[str, Any]) -> Any:
+        """Read, Glob, Grep: by where they look. A no is just a no: the run goes on without it."""
+        from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
+
+        path = target_path(name, args, self.cwd)
+        verdict = self.reads.verdict(path)
+        if verdict == "read":
+            return PermissionResultAllow(updated_input=args)
+        if verdict == "never":
+            logger.info("read refused: never-read path", run_id=run_id, tool=name)
+            return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=path), interrupt=False)
+        shown = Path(path).name or path
+        title = f"Read {shown}" if name == "Read" else f"Look through {shown}"
+        decision = await self._decide(run, run_id, title, f"Outside your read folders: {path}", name)
+        if decision == "approve":
+            return PermissionResultAllow(updated_input=args)
+        return PermissionResultDeny(message=READ_DECLINED_MESSAGE.format(path=path), interrupt=False)
 
     async def _confirm(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> bool:
         return await self._decide(run, run_id, title, detail, tool) == "approve"

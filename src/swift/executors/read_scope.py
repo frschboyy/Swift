@@ -1,0 +1,96 @@
+"""Which files Claude Code may read without asking (audit 2026-10, finding B-01; owner, 2026-10-28).
+
+Read, Glob and Grep used to be pre-approved for any path on the disk. What they read goes to the
+model, and a page or document a run read could steer it into reading Claude's own sign-in, SSH
+keys or a browser profile. Now:
+
+- **Inside the read folders** (the working folders, Documents and Downloads by default:
+  ``executor.read_dirs``): read without a card, as before.
+- **Anywhere else:** a confirm card first ("Read notes.txt?"). No answer or a no: not read, and the
+  run goes on without it.
+- **Never read**, card or not: secrets and credentials (``.ssh``, ``.claude``, ``.aws``, browser
+  profiles, Windows' credential folders, Swift's own config folder with the Google client file)
+  and secret-looking files anywhere (``.env``, private keys, password databases), plus whatever
+  the owner adds (``executor.never_read``).
+
+Paths are resolved (``..``, junctions and symbolic links followed) before they are compared, and
+compared without regard to case, as Windows does.
+"""
+
+from __future__ import annotations
+
+import fnmatch
+import os
+from collections.abc import Iterable
+from typing import Any, Literal
+
+READ_TOOLS = frozenset({"Read", "Glob", "Grep"})
+
+# Under the user's home folder.
+_HOME_NEVER = (
+    ".ssh", ".claude", ".aws", ".azure", ".gnupg", ".kube", ".docker", ".config/gcloud", ".config/gh",
+    "AppData/Roaming/Microsoft/Credentials", "AppData/Local/Microsoft/Credentials",
+    "AppData/Roaming/Microsoft/Protect", "AppData/Roaming/Microsoft/Crypto",
+    "AppData/Local/Google/Chrome/User Data", "AppData/Local/Microsoft/Edge/User Data",
+    "AppData/Local/BraveSoftware", "AppData/Roaming/Mozilla", "AppData/Roaming/Opera Software",
+    "AppData/Roaming/Swift",  # Swift's config: the Google OAuth client file
+    "AppData/Roaming/Claude", "AppData/Roaming/1Password", "AppData/Roaming/Bitwarden",
+)
+# File names never read, wherever they are.
+NEVER_NAMES = (
+    ".env", ".env.*", "*.pem", "*.key", "*.pfx", "*.p12", "id_rsa*", "id_ed25519*", "id_ecdsa*", "*.kdbx",
+    "client_secret*.json", "credentials.json", ".credentials.json", ".netrc", ".git-credentials", "*.ppk",
+)
+_WILDCARDS = "*?[{"
+
+Verdict = Literal["read", "ask", "never"]
+
+
+def _norm(path: str) -> str:
+    return os.path.normcase(os.path.realpath(os.path.expanduser(path)))
+
+
+def _inside(path: str, root: str) -> bool:
+    return path == root or path.startswith(root.rstrip("\\/") + os.sep)
+
+
+def default_never(home: str | None = None) -> tuple[str, ...]:
+    base = home or os.path.expanduser("~")
+    return tuple(os.path.join(base, *p.split("/")) for p in _HOME_NEVER)
+
+
+class ReadScope:
+    def __init__(self, read_dirs: Iterable[str], never: Iterable[str] = (), home: str | None = None) -> None:
+        self.read_dirs = tuple(_norm(d) for d in read_dirs if d)
+        self.never = tuple(_norm(p) for p in (*default_never(home), *never) if p)
+
+    def verdict(self, path: str) -> Verdict:
+        target = _norm(path)
+        name = os.path.basename(target)
+        if any(_inside(target, n) for n in self.never) or any(fnmatch.fnmatch(name, p) for p in NEVER_NAMES):
+            return "never"
+        # A folder that holds a never-read folder (a search of the whole home folder): ask, never blanket.
+        if any(_inside(n, target) and n != target for n in self.never):
+            return "ask"
+        return "read" if any(_inside(target, d) for d in self.read_dirs) else "ask"
+
+
+def target_path(tool: str, args: dict[str, Any], cwd: str | None) -> str:
+    """The file or folder a read tool will look at: its path, or a pattern's fixed start, else the working folder."""
+    base = cwd or os.getcwd()
+    if tool == "Read":
+        raw = str(args.get("file_path") or "")
+    else:
+        raw = str(args.get("path") or "")
+        pattern = str(args.get("pattern") or "") if tool == "Glob" else ""
+        if pattern:
+            # A pattern's fixed start is a folder too: "../../.ssh/*" or "C:/Users/me/.aws/**".
+            fixed = pattern
+            for i, ch in enumerate(pattern):
+                if ch in _WILDCARDS:
+                    fixed = os.path.dirname(pattern[:i])
+                    break
+            raw = os.path.join(raw or base, fixed) if fixed else raw
+    if not raw:
+        return base
+    return raw if os.path.isabs(raw) else os.path.join(base, raw)

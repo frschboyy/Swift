@@ -51,6 +51,8 @@ executor:
   allowed_tools: ["Read", "Glob", "Grep"]   # run without asking (keep read-only)
   confirm_tools: ["Edit", "Write", "Bash"]  # each call asks on the overlay first; anything else doesn't exist
   working_dirs: []                 # e.g. ["C:/Users/me/Projects/thesis"]; trusted folders only
+  read_dirs: ["%USERPROFILE%/Documents", "%USERPROFILE%/Downloads"]  # read without a card (plus working_dirs); elsewhere a card
+  never_read: []                   # never read, even with a card (on top of keys, sign-ins, browser profiles)
   default_dir: 0
   max_budget_usd: 1.0
   confirm_timeout_s: 120

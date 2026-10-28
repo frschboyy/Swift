@@ -98,7 +98,7 @@ def test_options_split_auto_and_confirm_tools_and_ignore_settings(tmp_path: Path
     opts = ex.options(_Run(), "cc-1")
     escalate = "mcp__swift__request_stronger_model"
     assert opts.tools == ["Read", "Glob", "Grep", "Edit", "Write", "Bash", escalate]  # Read not duplicated
-    assert opts.allowed_tools == ["Read", "Glob", "Grep", escalate]
+    assert opts.allowed_tools == [escalate]  # reads are decided per path in _ask (audit B-01)
     assert opts.permission_mode == "default" and opts.can_use_tool is not None
     assert opts.setting_sources == [] and opts.strict_mcp_config is True
     assert list(opts.mcp_servers) == ["swift"] and "request_stronger_model" in opts.system_prompt

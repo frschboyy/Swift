@@ -687,10 +687,12 @@ async def test_without_wake_listening_swift_records_the_answer_itself() -> None:
     for level in (0.9, 0.9, 0.9):
         rec.on_level(level)  # type: ignore[union-attr]
         await asyncio.sleep(0.01)
-    for _ in range(20):
+    # A free-text answer ends after the longer pause (EndOfTurn.free_s, 1.3 s), and the pause is only
+    # measured as levels arrive: keep the room's silence coming, as a real microphone does.
+    deadline = time.monotonic() + 4.0
+    while run_id not in agent.results and time.monotonic() < deadline:
         rec.on_level(0.0)  # type: ignore[union-attr]
-        await asyncio.sleep(0.01)
-    await until(lambda: run_id in agent.results)
+        await asyncio.sleep(0.02)
     assert agent.results[run_id].data["answer"] == "Paris"
     await finish_all(session, agent)
 

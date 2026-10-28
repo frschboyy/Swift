@@ -2830,10 +2830,12 @@ class Session:
             return await fn(*args)
 
     def _close_scope(self) -> None:
-        for future in self._swift_pending.values():
+        # Only this request's cards: another request's card may be waiting its turn (owner's log,
+        # 2026-10-28 01:43:00: a card that had just come up vanished when the one before it ended).
+        for request_id in [r for r in self._swift_pending if r in self._confirm_ids]:
+            future = self._swift_pending.pop(request_id)
             if not future.done():
                 future.cancel()
-        self._swift_pending.clear()
         self._swift_declined = None
         scope, self._scope = self._scope, None
         if scope is None or self.tools is None:

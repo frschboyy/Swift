@@ -305,3 +305,52 @@ def test_the_cli_pid_comes_from_the_sdk_process_not_a_guess(monkeypatch: pytest.
     assert cc.cli_pid(object(), known=set()) is None
     monkeypatch.setattr(cc, "_claude_children", lambda: {111, 333})
     assert cc.cli_pid(object(), known={111}) == 333  # one new child: that's it
+
+
+# ---- A-08: a request ending never takes another request's card with it ----------------------
+
+
+async def test_a_swift_card_waiting_behind_another_survives_that_request_ending() -> None:
+    """Owner's log, 2026-10-28 01:42-01:43: a calendar card waiting behind another came up when the
+    first was rejected, and vanished 3.6 s later, unanswered, when the first request ended."""
+    from test_runs import finish_all, make, runs, started, until
+
+    from swift.ipc.protocol import Message
+
+    from test_runs import Agent
+
+    class EmailsWhenAsked(Agent):
+        """Sends its email through Swift's tools once the test lets it (so both requests run first)."""
+
+        async def _work(self, run_id, run):  # type: ignore[no-untyped-def]
+            try:
+                await run["ask"].wait()
+                found = await self.tools.call("find_contact", {"query": "lecturer"}, run=run_id)
+                draft = await self.tools.call("draft_email", {"to": [found.data["candidates"][0]["email"]],
+                                                              "subject": "Thursday", "body": "I'll miss it."}, run=run_id)
+                await self.tools.call("send_email", {"draft_id": draft.data["draft_id"]}, run=run_id)
+                await run["go"].wait()
+                return ExecResult("done", f"Done {run_id}.")
+            finally:
+                run["queue"].put_nowait(None)
+
+    from swift.executors.base import ExecResult
+
+    session, out, records, agent, stt = make(EmailsWhenAsked)
+    first = await started(session, out, agent, stt, "Hey Swift, tidy the readme")
+    second = await started(session, out, agent, stt, "Hey Swift, rename the notes file")
+    agent.runs[first]["ask"].set()
+    await until(lambda: "swift:1" in session._swift_pending)
+    agent.runs[second]["ask"].set()
+    await until(lambda: "swift:2" in session._swift_pending and runs(out)["waiting"] == 1)
+    await session.handle(Message("confirm.reply", {"request_id": "swift:1", "decision": "reject"}))
+    agent.runs[first]["go"].set()  # the first request ends
+    await until(lambda: any(r.get("thread") and r["approvals"] and r["approvals"][0]["request_id"] == "swift:1"
+                            for r in records))
+    pending = session._swift_pending.get("swift:2")
+    assert pending is not None and not pending.done()  # still waiting for the owner
+    assert session._open_confirm() == "swift:2" and runs(out)["focus"] == second
+    await session.handle(Message("confirm.reply", {"request_id": "swift:2", "decision": "approve"}))
+    await finish_all(session, agent)
+    second_record = next(r for r in records if r["approvals"] and r["approvals"][0]["request_id"] == "swift:2")
+    assert second_record["approvals"][0]["decision"] == "approve"

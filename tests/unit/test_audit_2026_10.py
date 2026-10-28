@@ -288,3 +288,20 @@ async def test_an_unknown_outcome_is_journaled_and_told_as_unknown() -> None:
     result = await host.call("send_email", {"draft_id": draft.data["draft_id"]})
     assert not result.ok and result.text.startswith("It may have been sent") and "Sent folder" in result.text
     assert [e["state"] for e in journal.entries] == ["PENDING", "UNKNOWN"]
+
+
+# ---- A-07: a run's CLI is the one it started, never another run's -------------------------
+
+
+def test_the_cli_pid_comes_from_the_sdk_process_not_a_guess(monkeypatch: pytest.MonkeyPatch) -> None:
+    from swift.executors import claude_code as cc
+
+    # Two CLIs started at the same moment (a cold run and the spare): both are new children.
+    monkeypatch.setattr(cc, "_claude_children", lambda: {111, 222})
+    process = type("Process", (), {"pid": 222})()
+    client = type("Client", (), {"_transport": type("T", (), {"_process": process})()})()
+    assert cc.cli_pid(client, known=set()) == 222  # its own, from the SDK
+    # Without the SDK's handle, two candidates: no guess (ending this run must not kill the other).
+    assert cc.cli_pid(object(), known=set()) is None
+    monkeypatch.setattr(cc, "_claude_children", lambda: {111, 333})
+    assert cc.cli_pid(object(), known={111}) == 333  # one new child: that's it

@@ -25,7 +25,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift.executors.claude_code import _claude_children, _kill_tree
+from swift.executors.claude_code import _claude_children, _kill_tree, cli_pid
 from swift.routing.light import PROMPT
 
 DEFAULT_TIMEOUT_S = 20.0
@@ -86,7 +86,7 @@ class QuickModel:
         known = _claude_children()
         client = factory(self._options())
         await client.connect()
-        return client, next(iter(_claude_children() - known), None)
+        return client, cli_pid(client, known)
 
     async def _connect_spare(self) -> tuple[Any, int | None] | None:
         try:

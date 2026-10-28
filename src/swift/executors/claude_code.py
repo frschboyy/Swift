@@ -299,7 +299,7 @@ class ClaudeCodeExecutor:
         known = _claude_children()
         client = factory(options)
         await client.connect()
-        return client, next(iter(_claude_children() - known), None)
+        return client, cli_pid(client, known)
 
     async def _take_spare(self, wait: bool = True) -> _Spare | None:
         """The connected spare, if there is one (waiting for one still connecting if ``wait``)."""
@@ -717,6 +717,18 @@ def _model_label(model: str) -> str:
         if name.lower() in model:
             return name
     return model
+
+
+def cli_pid(client: Any, known: set[int]) -> int | None:
+    """The PID of the CLI this client started: the SDK's own process handle. Only when the SDK doesn't
+    say, the one new ``claude`` child since ``known``, and only if there is exactly one: with two CLIs
+    starting at once a guess could name the other run's, and ending this run would kill that one
+    (owner's log, 2026-10-28 01:52:23; audit 2026-10, A-07)."""
+    pid = getattr(getattr(getattr(client, "_transport", None), "_process", None), "pid", None)
+    if isinstance(pid, int):
+        return pid
+    new = _claude_children() - known
+    return next(iter(new)) if len(new) == 1 else None
 
 
 def _claude_children() -> set[int]:

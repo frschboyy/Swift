@@ -28,6 +28,12 @@ Two sessions were mid-task. Their branches had **no commits yet** when this was 
 | **ADR-016 Phase C: dialogue** | `claude/phase-c-dialogue-b22c15` | `.claude/worktrees/phase-c-dialogue-b22c15` | [`brief-phase-c.md`](brief-phase-c.md) |
 | **Recordings that improve hearing** (7-day loop) | `claude/busy-wiles-de06e3` | `.claude/worktrees/busy-wiles-de06e3` | [`brief-recordings.md`](brief-recordings.md) |
 
+**Safety snapshots** were taken at about 10:30 on 2026-10-28, without touching the sessions' folders or branches:
+- `backup/phase-c-wip`: Phase C's uncommitted work, 24 files;
+- `backup/recordings-wip`: the recordings loop, 25 files. That session also began committing on its own branch afterwards (`516fcf6`).
+
+If a session's folder is lost or broken, start from its backup branch. Otherwise prefer the session's own branch: it's newer.
+
 **To pick one up:**
 1. Look at what it left:
    ```bash

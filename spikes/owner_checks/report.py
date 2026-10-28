@@ -121,6 +121,17 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     timers = [line for line in log if "| due |" in line and "kind='timer'" in line]
     # The hardening slice after the audit (B-02, B-03, B-04): content-free log lines.
     not_asked = [line for line in log if "desktop write refused: not asked" in line]
+    # ADR-016 Phase C, the dialogue: content-free log lines (kinds, how answered) and record fields.
+    lane_asked = [line for line in log if "| question asked |" in line and "source='lane'" in line]
+    run_asked = [line for line in log if "| question asked |" in line and "source='run'" in line]
+    answered = [line for line in log if "| question answered |" in line]
+    reasked = [line for line in answered if "turn='reask'" in line]
+    shelved = [line for line in answered if "turn='shelve'" in line]
+    clicked = [line for line in answered if "source='click'" in line]
+    typed_answers = [line for line in answered if "source='typed'" in line]
+    unanswered = [line for line in log if "| question unanswered in time |" in line]
+    carried = [r for r in rows if r.get("carried")]
+    read_aloud = [line for line in log if "| confirm card read aloud |" in line]
     came_due = [line for line in log if "| due |" in line]
     due_again = [line for line in came_due if "missed=True" in line]
     due_shown = [_counter(line, "items") for line in log if "| due shown |" in line]
@@ -311,6 +322,18 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("93 Watch on a card or chip opened a live view", bool(watched), f"{len(watched)} time(s)"),
         ("94 Stop in a live view stopped that request", bool(live_stopped), f"{len(live_stopped)} time(s)"),
         ("95 Show in Word from the live view", bool(live_app), f"{len(live_app)} time(s)"),
+        # ADR-016 Phase C: the dialogue.
+        ("100-101 a lane asked for what was missing", bool(lane_asked), f"{len(lane_asked)} question(s)"),
+        ("102 carried on from the last request", bool(carried), f"{len(carried)} time(s)"),
+        ("103 Swift waited for the end of a sentence", wake_count("held") > 0 or any(r.get("endpoint_waits") for r in rows),
+         f"{wake_count('held')} held, {wake_count('stitched')} joined, "
+         f"{sum(r.get('endpoint_waits', 0) for r in rows)} wait(s) while recording"),
+        ("104 a request asked you something", bool(run_asked), f"{len(run_asked)} question(s), {len(clicked)} answered by a click"),
+        ("105 an answer it couldn't work out: asked once more, then set aside", bool(reasked),
+         f"{len(reasked)} asked again, {len(shelved)} set aside"),
+        ("106 a question unanswered in time went to the stack", bool(unanswered), f"{len(unanswered)} time(s)"),
+        ("107 a confirm card was read aloud", bool(read_aloud), f"{len(read_aloud)} time(s)"),
+        ("108 a typed request's question was answered by typing", bool(typed_answers), f"{len(typed_answers)} time(s)"),
     ]
 
 

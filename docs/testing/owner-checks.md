@@ -192,6 +192,24 @@ About 10 minutes. You asked to see research and the Word document **while** they
 
 Privacy: the log keeps only counts (sources, notes, paragraphs) and that a view opened or a button was pressed. The pages' titles and addresses and the written text stay in the overlay.
 
+### Talking it through: Swift asks, you answer (ADR-016 Phase C)
+
+About 10 minutes, with wake listening on. Swift now asks for what's missing instead of failing or guessing, opens the microphone by itself for your answer (for 25 s, only after it asked), carries a short conversation on ("make it twenty"), and waits a little longer when you stop mid-sentence. Nothing here sends anything: the email in 104 stays a draft.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 100 | "Hey Swift, set a timer". When it asks "For how long?", just say "**ten minutes**" (no "hey Swift") | The question shows and is said; then "Waiting for your answer" with a countdown. The timer is set for 10 minutes. A bare "ten" also works and the reply says "10 minutes" | A lane asked for what was missing |
+| 101 | "Hey Swift, remind me to call mum". Answer "**at six**" | "When should I remind you?", then the reminder for 18:00 (or 06:00 tomorrow if it's past six, as the reply says) | A lane asked for what was missing |
+| 102 | Within a minute of 100: "Hey Swift, **make it twenty**". Then "Hey Swift, **no, make it four**" | The same timer changes to 20, then to 4 minutes. No second timer. After a minute or more, "make it twenty" alone isn't taken as the timer | Carried on from the last request |
+| 103 | "Hey Swift, set a timer for twenty…" stop for about a second, then "…five minutes" | **One** timer for 25 minutes, not a 20-minute one and a stray "five minutes". Say "Hey Swift, forget that" and "turn Bluetooth on": both act **at once**, with no extra wait | Swift waited for the end of a sentence |
+| 104 | "Hey Swift, draft an email to **Sam** saying I'm running late" (any first name two of your contacts share) | "Which Sam: Sam Lee or Sam Okoro?" said and shown on the working card, with the names as **buttons**. Click one: the draft goes on to that person. Do **not** send it | A request asked you something |
+| 105 | Repeat 100, but answer "**purple**", then "**purple**" again | The question once more ("Sorry…", shown as **Once more**), then it gives up: the request goes to the stack as unanswered, nothing is set | An answer it couldn't work out: asked once more, then set aside |
+| 106 | Repeat 100, but don't answer | After about 25 s the card goes, and the stack holds the question; answering it there (Continue) carries on | A question unanswered in time went to the stack |
+| 107 | "Hey Swift, turn off Bluetooth" (A2's first check). When the card shows, listen, then say "**yes**" alone; then "**Swift, yes**" | The card is **read aloud** with how to approve. A bare "yes" does nothing; "Swift, yes" turns Bluetooth off. Then "Hey Swift, undo that" | A confirm card was read aloud |
+| 108 | **Type** "set a timer" (the text box). Say "five minutes" **without** "hey Swift", then type "5 minutes" | The question shows but isn't said, and the spoken "five minutes" is ignored: a typed request's question is answered by typing. The typed answer sets the timer | A typed request's question was answered by typing |
+
+Privacy: the log keeps the kind of question (duration, time, choice…), how it was answered (said, clicked, typed) and counts; never what was asked or what you said.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

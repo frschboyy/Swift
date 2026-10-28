@@ -424,3 +424,38 @@ Read this number with care: the set was written by the same person as the gramma
 - Confirm cards are not read out yet ("Send this email to Ada?"): the card's title should be said for eyes-free approval. Next, with the dialogue phase.
 - "Read it to me" for a whole long answer.
 - Voice barge-in and echo cancellation; Piper voices.
+
+## 16. Phase C: dialogue (2026-10-28)
+
+### 16.1 What exists
+
+| Piece | Where | Notes |
+|---|---|---|
+| Questions and answers | `swift/dialogue.py` | `Question`, `Answer`, `resolve`: yes/no, ordinals, names (with "not X"), numbers, durations, times, corrections ("no, make it four"), cancel, "never mind, <new request>". `Dialogue`: one question on screen, the others wait; one re-ask, then shelved. |
+| Slots | `system/intents.py` (`SLOTS`, `missing`), `system/lane.py` (`Outcome.ask`) | "Set a timer" asks "For how long?"; "remind me to X" with no day or time asks "When should I remind you?". |
+| A request asks the owner | `workflows/tools.py` (`ask_owner`, `RunScope.ask_fn`) | Shown on the working card (overlay `ask.ts`; options as buttons, an answer and never an approval) and said for a spoken request. `find_contact` asks "Which Sam: Sam Lee or Sam Okoro?". |
+| Answers | `Session` ("the dialogue" block) | From the open microphone (wake on), a recording that ends when the owner stops talking (wake off), the hotkey, typing or a click. Never while away: questions go to the stack and carry-over is forgotten. A confirm card on screen goes first. |
+| Carry-over | `Dialogue.carry`, `Session._carry_over` | 60 s or the same thread: "make it louder", "20 more", "no, make it four", "and tomorrow?". |
+| End of speech | `swift/endpoint.py` | `more_coming` (a trailing "and", "uh", "the", "twenty"…; but "forget that", "turn it on" are whole), `EndOfTurn`: 0.8 s, 1.3 s for free text, +1.2 s while more is coming, 3 s cap. Wake utterances held and joined; a recording checks its words at a pause. |
+| Confirm cards read aloud | `speech.card_speech`, `Session._read_card` | For a spoken request. Approving still needs "Swift, yes" or the hotkey; typing never approves. |
+| Protocol | `ask` out, `ask.reply` in | Phases `asking`, `listening`, `again`, `heard`; `open: false` closes it. |
+
+### 16.2 Defaults taken (reversible)
+
+- **§11 Q3:** the microphone opens by itself only after Swift asked something, for `wake.question_s` (25 s). A typed request's question is answered by typing.
+- One exchange at a time; no continuous conversation mode (decision 13).
+- A bare number answering "For how long?" means minutes; the reply says so.
+- A reminder with a day but no time, or "remind me about…", still goes to the agent.
+- Lane yes/no questions keep the 45 s window; slot questions use the question window.
+- Questions never show over a confirm card.
+
+### 16.3 Checked, and not
+
+- 1240 Python tests, 78 overlay tests, `tsc`. Routing parity 397/407, 0 harmful (the 10 misses are the web lane, step 4).
+- End of speech over the owner's 51 corpus clips (`spikes/endpointing/measure.py`, counts only): a fixed 0.8 s pause would cut 6 short (12%), 1.3 s 2, 2.0 s none. These are read-aloud clips; rerun once the recordings loop has saved live ones.
+- **Not on the real PC yet:** owner checks 100–108. The question card was checked by unit tests, not yet in the dev harness.
+
+### 16.4 Not in C
+
+- "Remind me to buy food for 5 people" reads "for 5" as a time (an older grammar bug).
+- Voice barge-in (§15.2) and a continuous conversation mode.

@@ -67,6 +67,25 @@ def spoken(text: str, limit: int = MAX_SPOKEN) -> str:
     return cut + "…"
 
 
+# Swift's own cards whose details are worth hearing (ADR-016 §15.4); a provider's card (a command,
+# a file edit) is said by its title only: code read aloud helps nobody.
+CARD_FACTS = frozenset({"send_email", "create_calendar_event", "update_calendar_event", "delete_calendar_event"})
+CARD_HINT = "Say “Swift, yes” to go ahead, or “no”."
+
+
+def card_speech(title: str, detail: str, tool: str) -> str:
+    """A confirm card read aloud, for approving eyes-free: "Send this email to Ada? Subject: Late
+    today. Say “Swift, yes” to go ahead, or “no”." A bare "yes" never approves (threat model T2)."""
+    head = spoken(title, 140).rstrip(" .")
+    head = head if head.endswith("?") else f"{head}?"
+    facts = ""
+    if tool in CARD_FACTS and detail.strip():
+        first = next((line for line in detail.splitlines() if line.strip()), "")
+        facts = spoken(first, 120).rstrip(" .")
+        facts = f" {facts}." if facts else ""
+    return f"{head}{facts} {CARD_HINT}"
+
+
 class Speaker:
     """Says things. The base class says nothing (speech off)."""
 

@@ -6,7 +6,8 @@ it as artifacts, and runs anything with a side effect through the gateway.
 
 | Tool | Side effect |
 |---|---|
-| ``find_contact(query)`` | none: resolves a person from the owner's contacts |
+| ``find_contact(query)`` | none: resolves a person from the owner's contacts; with several matches it asks the owner which |
+| ``ask_owner(question, kind, options?)`` | none: asks the owner and waits for the answer (ADR-016 §5.1) |
 | ``draft_email(to, subject, message, draft_id?)`` | none: a draft held by Swift, written as the owner; a revision keeps what it leaves out |
 | ``send_email(draft_id)`` | external: through ``ActionGateway`` and the confirm card |
 | ``present(kind, title, data)`` | none: shows a text, list or table |
@@ -57,7 +58,7 @@ from swift.connectors.base import (
     OutgoingEmail,
 )
 from swift.security.gateway import UNDO_WINDOW_S, Action, ActionGateway
-from swift.workflows.scope import Confirmer, Draft, Grant, Liver, Publisher, RunScope, Stepper
+from swift.workflows.scope import Asker, Confirmer, Draft, Grant, Liver, Publisher, RunScope, Stepper
 
 if TYPE_CHECKING:
     from swift.desktop.base import Desktop, WriteReceipt
@@ -179,12 +180,51 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
     if not candidates:
         return ToolResult(False, f"No contact matches “{raw}”. {problem}".strip() +
                           " Don't guess an address: tell the owner who couldn't be found.", data, expected=not problem)
+    if len(candidates) > 1 and (chosen := await _which(scope, raw, candidates)) is not None:
+        if isinstance(chosen, ToolResult):
+            return chosen
+        await scope.publish(
+            "recipient", "recipient", "resolving", f"Looking up “{raw}”",
+            {"query": raw, "candidates": [c.as_dict() for c in candidates], "chosen": candidates.index(chosen)},
+        )
+        return ToolResult(True, f"The owner chose {_described(chosen)}. Use this contact only.",
+                          {"candidates": [chosen.as_dict()], "chosen_by_owner": True})
     if len(candidates) > 1:
         listed = "; ".join(_described(c) for c in candidates)
         return ToolResult(True, f"Several contacts match: {listed}. Use the one the request clearly means; if it's "
                           "not clear, stop and ask the owner which one, naming each by email and the detail shown.",
                           data)
     return ToolResult(True, f"Found {_described(candidates[0])}.", data)
+
+
+# At most this many matches are offered as a spoken choice; more and the provider narrows it down.
+MAX_CHOICES = 4
+
+
+def _labels(candidates: list[Contact]) -> tuple[str, ...]:
+    """How each match is named in the question: the name, with the address only where names repeat."""
+    names = [c.name.strip() or c.email for c in candidates]
+    return tuple(n if names.count(n) == 1 else f"{n} ({c.email})" for n, c in zip(names, candidates, strict=True))
+
+
+async def _which(scope: RunScope, raw: str, candidates: list[Contact]) -> Contact | ToolResult | None:
+    """Several contacts match: ask the owner which ("Which Sam: Sam Lee or Sam Okoro?", ADR-016 §5.1).
+    The answer can only pick one of these matches, so a recipient still comes only from the contacts.
+    None: not asked, or no answer (the provider then asks in its own answer, as before)."""
+    if scope.ask_fn is None or len(candidates) > MAX_CHOICES:
+        return None
+    labels = _labels(candidates)
+    who = " ".join(w.capitalize() for w in raw.split()) if len(raw) <= 30 else "one"
+    question = f"Which {who}: {', '.join(labels[:-1])} or {labels[-1]}?"
+    answer = await scope.ask(question, "choice", labels)
+    if answer is None:
+        return None
+    if answer.kind == "choice" and answer.index is not None and 0 <= answer.index < len(candidates):
+        logger.info("contact chosen by the owner", options=len(candidates))
+        return candidates[answer.index]
+    if answer.kind == "cancel":
+        return ToolResult(False, "The owner said never mind: don't email anyone. Stop and say so.", expected=True)
+    return None
 
 
 def _described(contact: Contact) -> str:
@@ -377,6 +417,40 @@ def revise_text(feedback: str, tool: str, done: str) -> str:
     )
 
 
+# ``ask_owner``'s kinds (swift.dialogue.ASK_KINDS) and limits.
+ASK_KINDS = ("yes_no", "choice", "free")
+MAX_ASK = 300
+MAX_ASK_OPTIONS = 8
+
+
+async def ask_owner(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
+    """Ask the owner one short question and wait for the answer (ADR-016 §5.1). Swift shows it, says it
+    for a spoken request and listens for the answer. Never an approval: anything with a side effect
+    still goes through its confirm card."""
+    question = " ".join(str(args.get("question", "")).split())
+    options = [" ".join(str(o).split()) for o in (args.get("options") or []) if str(o).strip()][:MAX_ASK_OPTIONS]
+    kind = str(args.get("kind") or ("choice" if options else "free"))
+    if not question:
+        return ToolResult(False, "Say what to ask, as one short question.")
+    if len(question) > MAX_ASK:
+        return ToolResult(False, f"That question is too long to say aloud; keep it under {MAX_ASK} characters.")
+    if kind not in ASK_KINDS:
+        return ToolResult(False, f"kind must be one of {', '.join(ASK_KINDS)}.")
+    if kind == "choice" and len(options) < 2:
+        return ToolResult(False, "A choice needs at least two options.")
+    if scope.ask_fn is None:
+        return ToolResult(False, "Swift can't ask the owner right now. Ask in your answer instead.", expected=True)
+    answer = await scope.ask(question, kind, tuple(options) if kind == "choice" else ())
+    if answer is None:
+        return ToolResult(False, "No answer: the owner is away or didn't answer, and the question waits in their "
+                          "list. Don't guess. End your turn by asking it in one short sentence.",
+                          {"answered": False}, expected=True)
+    data = answer.for_run()
+    if not data.get("answered"):
+        return ToolResult(False, str(data.get("reason") or "No answer."), data, expected=True)
+    return ToolResult(True, "The owner answered.", data)
+
+
 async def present(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     kind = args.get("kind")
     title = str(args.get("title", "")).strip()[:120]
@@ -461,6 +535,18 @@ TOOLS: tuple[ToolSpec, ...] = (
         "Send a draft. Swift shows the owner the draft on a confirm card and sends only if they approve.",
         _obj(["draft_id"], draft_id={"type": "string"}),
         "external", send_email,
+    ),
+    ToolSpec(
+        "ask_owner",
+        "Ask the owner one short question and wait for their answer: Swift shows it, says it aloud for a spoken "
+        "request, and listens. Use it when you need a detail you can't safely guess (which file, what time, "
+        "which of two people). kind: 'yes_no', 'choice' (with 2-8 short options) or 'free'. Returns the answer, "
+        "or answered: false (then don't guess; end your turn by asking). It never approves anything: actions "
+        "still show their confirm card.",
+        _obj(["question"], question={"type": "string", "description": "One short question, as you'd say it"},
+             kind={"type": "string", "enum": list(ASK_KINDS)},
+             options={"type": "array", "items": {"type": "string"}, "description": "For 'choice': the options"}),
+        "none", ask_owner,
     ),
     ToolSpec(
         "present",
@@ -559,9 +645,9 @@ class ToolHost:
 
     def open(
         self, publish: Publisher, confirm: Confirmer, grant: Grant | None = None, step: Stepper | None = None,
-        live: Liver | None = None,
+        live: Liver | None = None, ask: Asker | None = None,
     ) -> RunScope:
-        scope = RunScope(publish, confirm, grant=grant, step_fn=step, live_fn=live)
+        scope = RunScope(publish, confirm, grant=grant, step_fn=step, live_fn=live, ask_fn=ask)
         self.scopes.append(scope)
         return scope
 

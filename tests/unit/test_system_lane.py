@@ -82,7 +82,6 @@ def test_intents(text: str, expected: list[str]) -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "remind me to call Sam",  # no time: the agent can ask
         "remind me to buy 15 apples",  # "15" is not a clock time
         "Remind me every weekday at 9 to check the lab bookings.",  # repeating: not a one-off
         "Cancel the Friday reminder.",  # may be a calendar event
@@ -98,7 +97,9 @@ def test_intents(text: str, expected: list[str]) -> None:
         "cancel my meeting",
         "mute",  # Swift's own mute
         "stop",
-        "set a timer",  # for how long? (the dialogue phase asks)
+        "remind me on friday to call Sam",  # a day but no time: the agent (Phase C asks only the plain shape)
+        "remind me what we decided about the logo",  # a question, not a reminder
+        "set a timer and write a haiku about tea",  # a missing detail only in a whole utterance
         "search the web for pasta recipes and email them to me",
         "turn the volume down and write a haiku about tea",  # one part isn't an intent
     ],

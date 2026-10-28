@@ -213,6 +213,12 @@ class MicRecorder:
     def stop(self) -> np.ndarray:
         return self._on_audio_thread(self._stop)
 
+    def snapshot(self) -> np.ndarray:
+        """What has been recorded so far, while it goes on (the end-of-turn check, swift/endpoint.py)."""
+        with self._lock:
+            blocks = list(self._blocks)
+        return np.concatenate(blocks).reshape(-1) if blocks else np.zeros(0, dtype=np.int16)
+
     def _open_stream(self) -> None:
         """Open and start the input stream. Audio thread only."""
         import sounddevice as sd

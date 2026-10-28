@@ -154,6 +154,10 @@ class WakeListener:
     utterance that is still going, once: enough for "hey Swift", so Swift can show it heard the
     name while the owner is still saying the request.
 
+    ``end_silence`` (if given) is asked for the pause that ends an utterance as it ends, so the
+    session can make it longer while Swift waits for a free-text answer (ADR-016 §5.1). ``speaking``
+    says whether an utterance is being collected right now.
+
     Except when ``accept_short()`` says so (a run is going, or a reply window is open): then
     one of at least ``short_s`` is handed on as ``on_utterance(audio, ended_at, True)``, because
     "stop" or "show me" said briskly is often under ``min_s`` of speech (owner checks,
@@ -175,8 +179,10 @@ class WakeListener:
         accept_short: Callable[[], bool] | None = None,
         on_peek: Callable[[np.ndarray], None] | None = None,
         accept_peek: Callable[[], bool] | None = None,
+        end_silence: Callable[[], float] | None = None,
     ) -> None:
         self._on_utterance = on_utterance
+        self.end_silence = end_silence
         self.accept_short = accept_short
         self._on_peek = on_peek
         self.accept_peek = accept_peek
@@ -201,6 +207,19 @@ class WakeListener:
             "forced_resets": 0, "peeks": 0,
         }
         self.loudest = 0.0
+
+    @property
+    def speaking(self) -> bool:
+        """An utterance is being collected now (read from the event loop: a snapshot is enough)."""
+        return bool(self._blocks) and not self._too_long
+
+    def _end_now(self) -> int:
+        if self.end_silence is None:
+            return self._end_blocks
+        try:
+            return max(1, round(self.end_silence() * SAMPLE_RATE / BLOCK))
+        except Exception:  # noqa: BLE001 - a session bug must not stop the stream
+            return self._end_blocks
 
     def reset(self) -> None:
         """Forget the current utterance and the room's level (e.g. after the stream was reopened)."""
@@ -257,7 +276,7 @@ class WakeListener:
                 self._peeked = True
                 self.stats["peeks"] += 1
                 self._on_peek(np.concatenate(self._blocks))
-        if self._quiet >= self._end_blocks:
+        if self._quiet >= self._end_blocks and self._quiet >= self._end_now():
             blocks, self._blocks = self._blocks, []
             self._too_long = False
             spoken = len(blocks) - self._lead - self._quiet

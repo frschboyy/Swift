@@ -36,6 +36,10 @@ The live view (ADR-017 §7): outbound ``live`` is one item of a request's live v
 "doing", "source", "note", "text" or "hint"), sent for every request, in front or not; outbound
 ``watch`` opens the view ("show me" while it runs). Inbound ``watch`` says it opened or closed,
 ``run.stop`` stops that request only, ``live.app`` brings the app it writes in to the front.
+The dialogue (ADR-016 §5.1): outbound ``ask`` is Swift's question during a request (``ask_owner``):
+open with its ``phase`` ("asking" while Swift says it, "listening" with ``seconds`` once the
+microphone is open for the answer, "again" after an answer it couldn't work out), or closed.
+Inbound ``ask.reply`` answers it from the card (an option clicked, or typed): never an approval.
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -89,12 +93,14 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "watch": {"run_id": (str, None), "open": (bool, None)},
     "run.stop": {"run_id": (str, None)},
     "live.app": {"run_id": (str, None)},
+    # The answer to Swift's question on the card (ADR-016 §5.1): an option clicked. Never approves a card.
+    "ask.reply": {"ask_id": (str, None), "text": (str, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard", "speech", "live", "watch"}
+     "runs", "stack", "heard", "speech", "live", "watch", "ask"}
 )
 
 

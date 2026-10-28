@@ -36,8 +36,10 @@ BASE: list[tuple[str, str, list[str], dict]] = [
     ("reminder", "system", ["remind me to call Sam at five", "remind me in 20 minutes to take the pizza out",
                             "remind me to call mum tomorrow at 9 am", "set a reminder to stretch in an hour",
                             "remind me to leave for the station at 5 pm"], {}),
-    ("reminder", "agent", ["remind me to call Sam", "remind me every weekday at 9 to check the lab bookings"],
-     {"note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}),
+    ("reminder", "system", ["remind me to call Sam"],
+     {"note": "no time: Swift asks \"When should I remind you?\" itself (ADR-016 Phase C)"}),
+    ("reminder", "agent", ["remind me every weekday at 9 to check the lab bookings"],
+     {"must_not": "system", "note": "repeating: the agent sets it up"}),
     # ---- sound and media ----------------------------------------------------------------
     ("volume", "system", ["volume up", "turn the volume down a bit", "set the volume to 30 percent", "louder",
                           "make it quieter", "what's the volume", "mute the sound", "unmute"], {}),
@@ -90,6 +92,14 @@ BASE: list[tuple[str, str, list[str], dict]] = [
     ("excluded", "excluded", ["call mum", "text Sam that I'm on my way", "take a photo", "how many steps did I take today",
                               "pay Sam 20 dollars", "navigate home"],
      {"note": "phone, camera, health, wallet and car features don't carry over to a PC"}),
+    # ---- the dialogue (ADR-016 Phase C): a missing detail is asked for, not sent to the agent -----
+    # Appended last so the ids above stay as they were (passing.txt is keyed by them).
+    ("dialogue", "system", ["set a timer", "start a timer for the pasta", "remind me to call the dentist",
+                            "set a reminder to water the plants"],
+     {"note": "Swift asks \"For how long?\" / \"When?\" and fills the slot (ADR-016 §5.1)"}),
+    ("dialogue", "agent", ["remind me to buy milk every morning", "set a timer and write a haiku about tea",
+                           "remind me what we decided about the logo", "remind me on friday to call the bank"],
+     {"must_not": "system", "note": "repeating, or not only a timer: never a question the lane can't finish"}),
 ]
 
 PREFIXES = ["", "hey swift ", "can you ", "please "]

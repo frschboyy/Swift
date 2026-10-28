@@ -830,6 +830,8 @@ def follow_up(text: str, previous: Moment) -> tuple[str, Moment] | None:
     if not t or len(t.split()) > 9:
         return None
     lead = refers_back(text)
+    if lead and not previous.timed and (other := _other_day(t, previous)) is not None:
+        return other  # "What's the date?" "It's Wednesday…" "And tomorrow?" (ADR-016 §5.1)
     m = _FU.fullmatch(t)
     if m is None:
         c = _FU_CITY.fullmatch(t) if lead and previous.timed else None
@@ -863,6 +865,20 @@ def follow_up(text: str, previous: Moment) -> tuple[str, Moment] | None:
     else:
         said = f"That's a {at.strftime('%A')}{where}."
     return said, Moment(at, previous.timed, city or previous.city)
+
+
+def _other_day(t: str, previous: Moment) -> tuple[str, Moment] | None:
+    """The same question about another day, after a date answer: "and tomorrow?", "what about Friday?"."""
+    phrase = re.sub(r"^(?:what about|how about) ", "", t)
+    today = datetime.now(previous.at.tzinfo).date()
+    found = _when(phrase, today)
+    if found is None:
+        return None
+    d, said = found
+    name = said[:1].upper() + said[1:]
+    verb = "was" if d < today else "is"
+    told = _say_date(d) if said.lower().split()[-1] in _WEEKDAYS else _day(d)  # "Friday is 30 October 2026."
+    return f"{name} {verb} {told}.", Moment(_on(d, previous.at), False, previous.city)
 
 
 def _city_name(city: str) -> str:

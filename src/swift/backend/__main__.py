@@ -321,7 +321,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
 
         # Very short clips ("stop", "show me" said briskly) only while a run or a reply window wants
         # them; the start of a long utterance checked for "hey Swift" only at rest.
-        listener = WakeListener(heard, accept_short=session.wants_short, on_peek=peek, accept_peek=session.wants_peek)
+        listener = WakeListener(heard, accept_short=session.wants_short, on_peek=peek, accept_peek=session.wants_peek,
+                                end_silence=session.answer_pause_s)
+        session.in_speech = lambda: listener.speaking  # an answer still being said joins what came before it
         recorder.tap = listener.feed
         recorder.on_reopen = listener.reset
         wake_report = asyncio.create_task(_report_wake(listener, session, recorder))  # noqa: F841

@@ -11,6 +11,12 @@ cancelled, are reversible: the lane keeps the inverse of the last utterance for 
 "undo that" runs it (``can_undo`` / ``undo``). Lock, media keys, windows, screenshots and
 settings pages have nothing to undo and are not offered one.
 
+*Asking* (ADR-016 §5.1). A disruptive change is asked about first ("Turn off Wi-Fi?"); an intent
+with a detail missing ("set a timer", "remind me to call Sam") is asked for it ("For how long?",
+"When?"). Either way the outcome holds the intents in ``pending`` and says what it asks
+(``Outcome.ask``); the session's dialogue gets the answer and calls ``confirmed`` or ``fill``.
+"No, make it four" right after a change is ``redo``: the change undone, then made again.
+
 *Failures* are sentences (``SystemUnavailable.message``), not stack traces: "This display doesn't
 let Windows change its brightness." The outcome is then ``ok=False`` and the session logs it as an error.
 
@@ -29,6 +35,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from loguru import logger
 
@@ -55,6 +62,11 @@ class Outcome:
     intents: tuple[str, ...] = ()
     # Asked about, not done ("Turn off Wi-Fi?"): run them with ``SystemLane.confirmed`` on a yes.
     pending: tuple[it.Intent, ...] = ()
+    # What was asked, as (dialogue kind, slot): ("yes_no", None) for a yes, ("duration", "seconds")
+    # for "For how long?", ("time", "when") for "When?". None: nothing asked.
+    ask: tuple[str, str | None] | None = None
+    # The intents that ran, for the dialogue's carry-over ("make it louder", "no, make it four").
+    done: tuple[it.Intent, ...] = ()
 
 
 Undo = Callable[[], Awaitable[str]]
@@ -102,9 +114,46 @@ class SystemLane:
         found = it.parse(text)
         if found is None:
             return None
+        return await self.start(found)
+
+    async def start(self, found: list[it.Intent]) -> Outcome:
+        """Carry out ``found``, or ask first: for a missing detail, or a yes to something disruptive."""
+        names = tuple(i.name for i in found)
+        for intent in found:
+            if (slot := it.missing(intent)) is not None:
+                return Outcome(self.ask_for(intent), True, names, pending=tuple(found), ask=(it.SLOTS[intent.name][1], slot))
         if any(it.disruptive(i) for i in found):
-            return Outcome(await self.question(found), True, tuple(i.name for i in found), pending=tuple(found))
+            return Outcome(await self.question(found), True, names, pending=tuple(found), ask=("yes_no", None))
         return await self._execute(found)
+
+    @staticmethod
+    def ask_for(intent: it.Intent) -> str:
+        """The question for ``intent``'s missing detail."""
+        if intent.name == "timer.set":
+            return f"For how long{' is the ' + intent['label'] + ' timer' if intent['label'] else ''}?"
+        return "When should I remind you?"
+
+    async def fill(self, intents: tuple[it.Intent, ...], slot: str, value: Any) -> Outcome:
+        """The owner answered the question for ``slot``: finish the intents with it (or ask again,
+        for a yes, if the change is disruptive)."""
+        filled: list[it.Intent] = []
+        for intent in intents:
+            if it.missing(intent) == slot:
+                slots = intent.slots | {slot: value}
+                intent = it.Intent(intent.name, slots)
+            filled.append(intent)
+        return await self.start(filled)
+
+    async def redo(self, intents: list[it.Intent]) -> Outcome:
+        """"No, make it four": the last change undone, then ``intents`` carried out instead."""
+        if self.can_undo():
+            steps, self._undo = self._undo, []
+            for step in reversed(steps):
+                try:
+                    await step()
+                except (SystemUnavailable, SchedulerError):
+                    pass
+        return await self.start(intents)
 
     async def confirmed(self, intents: tuple[it.Intent, ...]) -> Outcome:
         """The owner said yes to what ``run`` asked about."""
@@ -145,7 +194,7 @@ class SystemLane:
                 undos.append(undo)
         if undos:
             self._undo, self._undo_at = undos, time.monotonic()
-        return Outcome(" ".join(said), ok, tuple(i.name for i in found))
+        return Outcome(" ".join(said), ok, tuple(i.name for i in found), done=tuple(found) if ok else ())
 
     def can_undo(self) -> bool:
         return bool(self._undo) and time.monotonic() - self._undo_at <= UNDO_S

@@ -8,6 +8,12 @@ an intent on its own. There is no model and no network. The grammar is deliberat
 with no time, "turn it up" about a thing that isn't sound, "open the Bluetooth thing") returns
 None and goes on to the next lane, where the agent can ask.
 
+*Slots.* An intent whose one missing detail Swift can ask for is still an intent: "set a timer" is
+``timer.set`` with ``seconds`` None, "remind me to call Sam" is ``reminder.set`` with ``when`` None
+(``missing``). The system lane asks "For how long?" / "When?" through the dialogue (ADR-016 §5.1),
+so the grammar and the dialogue share one mechanism. Only a whole utterance may miss a slot, never
+a part of a compound.
+
 Families: timers, alarms and reminders (``schedule`` below), sound and media, brightness and
 dark mode, lock, battery / disk / CPU / memory / uptime, Windows settings pages, window
 management, screenshot, and a web search. Power actions (sleep, restart, shut down) are not
@@ -278,6 +284,21 @@ _ALARM = [
 _REMIND = re.compile(rf"(?:{_SET} )?(?:an? )?reminder(?: for me)?(?: (?:to|about|that|for))? ?(?P<rest>.*)|remind me (?:to |about |that |of )?(?P<rest2>.+)")
 
 
+# A reminder without a time is asked "When?" only in its plain shape: none of these in it.
+_NO_SLOT_NOT = re.compile(r"\d|\b(?:at|in|by|morning|afternoon|evening|night|noon)\b")
+_REMIND_TO = re.compile(r"\b(?:remind me|reminder(?: for me)?) to ")
+_QUESTION_WORD = re.compile(r"(?:what|who|how|where|when|why|whether|if|which) ")
+_JOINED = re.compile(r"\b(?:and|then|also)\b")
+# The slot each intent can ask for, and the dialogue kind of its answer (ADR-016 §5.1).
+SLOTS = {"timer.set": ("seconds", "duration"), "reminder.set": ("when", "time")}
+
+
+def missing(intent: Intent) -> str | None:
+    """The slot ``intent`` still needs ("seconds" for "set a timer"), or None."""
+    slot = SLOTS.get(intent.name)
+    return slot[0] if slot is not None and intent.get(slot[0]) is None else None
+
+
 def _label(text: str, article: bool = True) -> str:
     t = re.sub(r"^(?:to|about|that|of|for)\s+", "", text.strip())
     t = re.sub(r"\s+(?:and|then|to|that)$", "", t)
@@ -302,6 +323,9 @@ def _schedule(t: str) -> Intent | None:
     for pattern in (_TIMER_A, _TIMER_B):
         if m := pattern.fullmatch(t):
             return _timer(m)
+    if (m := _TIMER_C.fullmatch(t)) and not _NO_SLOT_NOT.search(m.group("label") or "") and not _JOINED.search(t):
+        # "Set a timer", "start a timer for the pasta": for how long? Asked (``missing``), never guessed.
+        return Intent("timer.set", {"seconds": None, "label": _label(m.groupdict().get("label") or "")})
     if m := _TIMER_LEFT.fullmatch(t):
         label = _label(m.groupdict().get("label") or m.groupdict().get("l2") or "")
         return Intent("timer.left", {"label": "" if label in ("timer", "timers", "the timer", "my timer") else label})
@@ -329,7 +353,19 @@ def _schedule(t: str) -> Intent | None:
         rest = (m.group("rest") if m.group("rest") is not None else m.group("rest2")) or ""
         found = find_when(rest)
         if found is None:
-            return None  # "remind me to call Sam": what time? Not guessed; the agent can ask
+            # "Remind me to call Sam": what time? Not guessed: asked (``missing``). Only that plain shape:
+            # a day without a time ("on Friday", "8am tomorrow"), a repeating one, a number, or "remind me
+            # what we decided" (a question, not a reminder) still goes on to the agent.
+            if _RECURRING.search(rest) or _DAY.search(rest) or _NO_SLOT_NOT.search(rest):
+                return None
+            if not _REMIND_TO.search(t):
+                return None  # "remind me what we decided", "remind me how": a question about something
+            label = _label(rest, article=False)
+            if not label or len(label.split()) > 10 or _QUESTION_WORD.match(label):
+                return None
+            if _JOINED.search(label):
+                return None  # maybe two requests: the agent sorts it out
+            return Intent("reminder.set", {"when": None, "label": label})
         label = _label(found[1], article=False)
         if not label:
             return None
@@ -613,4 +649,6 @@ def parse(text: str) -> list[Intent] | None:
     if not 2 <= len(parts) <= 3:
         return None
     found = [parse_one(p) for p in parts]
-    return [i for i in found if i is not None] if all(found) else None
+    if not all(found) or any(missing(i) for i in found if i is not None):
+        return None  # only a whole utterance may leave a detail to ask for
+    return [i for i in found if i is not None]

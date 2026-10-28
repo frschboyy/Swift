@@ -59,6 +59,9 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if not wanted:
         return ToolResult(False, f"“{phrase}” isn't a system action Swift knows (timers, volume, media, "
                                  "dark mode, brightness, radios, lock, settings pages, windows). Nothing was done.")
+    if any(it.missing(i) for i in wanted):
+        return ToolResult(False, "That needs a detail first (how long, or when). Ask the owner with ask_owner, then "
+                                 "pass the whole action (\"set a timer for 10 minutes\"). Nothing was done.", expected=True)
     asked = owner_intents(scope.said)
     missing = [i for i in wanted if not any(_same(i, a) for a in asked)]
     if missing:

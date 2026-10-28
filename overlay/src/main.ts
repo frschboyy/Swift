@@ -26,6 +26,7 @@ import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
+import { describeBackendProblem } from "./engine";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
 import * as Panes from "./panes";
@@ -607,6 +608,10 @@ async function trayAction(op: string, value?: string): Promise<void> {
     case "settings":
       tray = null;
       void invoke("open_settings").catch(() => {});
+      break;
+    case "restart":
+      tray = null;
+      restartSwift();
       break;
     case "quit":
       void invoke("quit_app").catch(() => {});
@@ -1466,6 +1471,8 @@ type Problem = {
   severity?: "error" | "info";
   retry?: boolean;
   logs?: boolean;
+  // Restart Swift (the engine stopped: audit 2026-10, B-04).
+  restart?: boolean;
   agent?: Agent | null;
   // Stays until dismissed: Swift can't work until it's fixed.
   sticky?: boolean;
@@ -1492,6 +1499,12 @@ function renderProblem(p: Problem): void {
     : null;
   const actions: HTMLElement[] = [];
   if (p.logs) actions.push(el("button", { class: "btn btn--ghost", onclick: () => void invoke("open_logs") }, "Open logs"));
+  if (p.restart) {
+    actions.push(el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
+      (ev.currentTarget as HTMLButtonElement).disabled = true;
+      restartSwift();
+    } }, "Restart Swift"));
+  }
   if (p.retry) {
     actions.push(
       el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
@@ -1564,38 +1577,21 @@ function renderConnection(asked: boolean): void {
   renderProblem({ ...describeBackendProblem(status.problem), sticky: true, logs: true });
 }
 
-function describeBackendProblem(problem: string): Problem {
-  if (problem.startsWith("config ")) {
-    return {
-      title: "There's a problem in config.yaml",
-      message: "Swift couldn't read its settings, so it can't start.",
-      hint: "Fix the setting shown in the details, then start Swift again.",
-      detail: problem.slice("config ".length),
-    };
-  }
-  if (problem.includes("could not start the backend")) {
-    return {
-      title: "Swift couldn't start",
-      message: "Its speech and agent engine didn't launch.",
-      hint: "Check the Python setup in the README (`uv sync`), then start Swift again.",
-      detail: problem,
-    };
-  }
-  if (problem.includes("session token")) {
-    return {
-      title: "Swift lost its connection",
-      message: "The overlay and Swift's engine stopped trusting each other.",
-      hint: "Quit Swift from the tray icon and start it again.",
-      detail: problem,
-    };
-  }
-  return {
-    title: "Swift's engine stopped",
-    message: "The part of Swift that listens and runs requests quit unexpectedly.",
-    hint: "Quit Swift from the tray icon and start it again. The logs say what happened.",
-    detail: problem,
-  };
+/** Restart Swift (the tray, or a stopped engine's card): Rust ends the old engine and starts a new
+ * one; this overlay reconnects by itself, and the card goes once it's back. */
+function restartSwift(): void {
+  void invoke("restart_backend").catch((err) => onRestartFailed(String(err)));
 }
+
+function onRestartFailed(problem: string): void {
+  renderProblem({ title: "Swift couldn't restart", message: problem, hint: "Quit Swift from the tray icon and start it again.", logs: true, sticky: true });
+}
+
+// From either Restart Swift (the native tray menu's too): say so until the new engine is connected.
+void listen("backend-restarting", () => {
+  renderProblem({ title: "Restarting Swift…", message: "It'll be ready in a few seconds.", severity: "info", glyph: "spin", sticky: true });
+});
+void listen<string>("backend-restart-failed", ({ payload }) => onRestartFailed(payload));
 
 // ---- hover, drag, Read more and scrolling hold an answer (the presenter keeps the time) -------
 

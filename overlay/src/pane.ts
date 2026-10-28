@@ -165,6 +165,7 @@ function drawTray(v: TrayView): void {
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("settings") }, icon("settings"), "Settings"),
       el("div", { class: "tray-sep" }),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("restart") }, icon("restart"), "Restart Swift"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("quit") }, icon("power"), "Quit Swift"),
     ),
   );

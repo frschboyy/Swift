@@ -22,6 +22,7 @@ mod theme;
 mod win;
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Instant;
 
@@ -640,6 +641,13 @@ async fn open_settings() -> Result<(), String> {
     Ok(())
 }
 
+/// The tray menu's (and a stopped engine's card's) Restart Swift.
+#[tauri::command]
+async fn restart_backend(app: AppHandle) -> Result<(), String> {
+    restart_swift(&app);
+    Ok(())
+}
+
 /// The tray menu's Quit Swift.
 #[tauri::command]
 async fn quit_app(app: AppHandle) -> Result<(), String> {
@@ -726,6 +734,26 @@ fn open_config() {
     let _ = std::process::Command::new("explorer.exe").arg(path).spawn();
 }
 
+/// Restart Swift without quitting (audit 2026-10, B-04): the backend and everything it started
+/// end first (`backend::restart`), off the UI thread; one restart at a time. The overlay
+/// reconnects to the new backend by itself.
+fn restart_swift(app: &AppHandle) {
+    static RESTARTING: AtomicBool = AtomicBool::new(false);
+    if RESTARTING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    let _ = app.emit_to("overlay", "backend-restarting", ());
+    std::thread::spawn(move || {
+        let shared = app.state::<SharedBackend>().inner().clone();
+        if let Err(problem) = backend::restart(&app, shared) {
+            eprintln!("[overlay] restart refused: {problem}");
+            let _ = app.emit_to("overlay", "backend-restart-failed", problem);
+        }
+        RESTARTING.store(false, Ordering::SeqCst);
+    });
+}
+
 fn quit(app: &AppHandle) {
     backend::stop(&app.state::<SharedBackend>());
     app.exit(0);
@@ -784,6 +812,7 @@ pub fn run() {
             set_anchor,
             set_smart,
             open_settings,
+            restart_backend,
             quit_app
         ])
         // The window is created visible (tauri.conf.json): tao shows a window
@@ -825,11 +854,13 @@ pub fn run() {
             let pause_item = MenuItem::with_id(app, "pause", "Pause or resume listening", true, None::<&str>)?;
             let settings_item = MenuItem::with_id(app, "settings", "Settings (config.yaml)", true, None::<&str>)?;
             let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", true, None::<&str>)?;
+            // Audit 2026-10, B-04: when the engine died or hangs, without quitting.
+            let restart_item = MenuItem::with_id(app, "restart", "Restart Swift", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit Swift", true, None::<&str>)?;
             let separator2 = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(
                 app,
-                &[&pause_item, &type_item, &position, &settings_item, &logs_item, &separator2, &quit_item],
+                &[&pause_item, &type_item, &position, &settings_item, &logs_item, &separator2, &restart_item, &quit_item],
             )?;
             app.manage(TrayItems { anchors, smart });
             let mut tray = TrayIconBuilder::with_id("swift")
@@ -853,6 +884,7 @@ pub fn run() {
                     "type" => {
                         let _ = app.emit("hotkey", HotkeyEvent { name: "type".into(), state: "down" });
                     }
+                    "restart" => restart_swift(app),
                     "quit" => quit(app),
                     "smart" => {
                         {

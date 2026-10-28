@@ -68,3 +68,51 @@ What the failed clips became:
 | A reply without "hey Swift" | any speech, sureness ≥ 0.5 | sureness ≥ 0.7 (`wake.followup_min_p`), at least 18 dB over the room between its words, no more than 18 dB below the owner's own requests, at most 8 s | A TV became two requests (17:31:39, 17:32:05). |
 
 The VAD choice stays as it was: level-based in Swift, no Silero VAD before Parakeet. The 24 Oct comparison found that Silero dropped short and quiet requests whole.
+
+## Recordings that earn their keep (audit B-06, 2026-10-28)
+
+Earlier spikes used the owner's clips by hand: this comparison, `docs/stt-noise.md`, `spikes/stt/learn_fixes.py` and the speaker check. Swift now keeps clips for these uses by itself, and only those clips. The code is in `swift/stt/recordings.py`. The privacy terms are in `docs/threat_model.md` (T14).
+
+**What is kept.** Every request's clip is saved as `<interaction id>.wav` in `stt.audio_dir`. It is flagged useful, with the reason written to `index.json` next to it, when:
+
+| Flag | When |
+|---|---|
+| `unsure` | the least sure word was under `stt.unclear_p` (0.4) |
+| `say_again` | Swift answered "I didn't catch that" (`unclear_speech`, `no_speech`) |
+| `repeated` | within 10 s (20 s after "say it again") the owner said it again (half the words shared), or corrected it ("no, I said …") |
+| `missed_wake` | speech the open microphone didn't take as addressed to Swift, up to 6 s before a wake phrase or the hotkey. It is held in RAM until then |
+| `failed` | the request ended in an error |
+
+- **Unflagged clips** are deleted 30 s after the request, once a repeat can no longer come. With `audio.keep_all` (or the old `stt.save_audio`), they stay for `keep_days` instead.
+- **Flagged clips** are deleted after `audio.keep_days` (7), at start-up and once a day. `keep_days: 0` saves nothing.
+
+**Known words and the test set.**
+
+- A repeat or correction heard surely gives the words for the clip before it. "Surely" means every word has p ≥ 0.6 and the request didn't fail.
+- That clip is then copied to `stt.test_set_dir` (`%LOCALAPPDATA%\Swift\stt_testset`), which outlives `keep_days`.
+- The test set holds at most `audio.test_set_max` clips (200), and the oldest go first.
+- The index holds:
+  - id, time, length and source;
+  - flags, sureness and outcome;
+  - the known words.
+
+  It never holds the transcript.
+- The tray's **Clear saved recordings** deletes the clips, both indexes and the test set.
+
+**The improvement pass.** It runs from the tray's **Improve speech recognition**, and once a week while the owner is here and nothing runs (`audio.improve_weekly`). The code is in `swift/stt/improve.py` and `swift/executors/improve.py`. Over the test set it:
+
+1. **Proposes word fixes.** It uses `learn_fixes.py`'s rules: no formatting-only differences, no errors at the start of a clip, at most three words, and nothing the owner also said for real. Fixes already kept or rejected are left out. The fixes are shown on **one confirm card**:
+   - Approve: they go to `stt.word_fixes_file` and are used at once.
+   - Reject: they are never proposed again.
+   - No answer within 5 minutes: they are asked again next time.
+
+   Nothing is applied without the card.
+2. **Checks accuracy, clean and in noise.** This is `model_compare.py`'s WER with Swift's model and fixes, plus `noise_bench.py`'s pink noise at 10 dB SNR.
+   - Each clip is compared with the last pass, on the clips both passes saw.
+   - A rise of more than 2 points is reported on the result card.
+   - `improve.json` keeps per-clip word and error counts only.
+3. **Feeds end-of-speech tuning.** It writes `endpoint_feed.json` in the test set's folder. Per clip, that file holds the length, the silence before and after the speech, the longest pause inside it, the flags, and for test-set clips the word count. It holds no words. ADR-016 §5.1 (`swift/endpoint.py`, `spikes/endpointing`) can read it.
+
+For the full comparison across models, `spikes/stt/model_compare.py --sets kept` runs the test set as its own set.
+
+Audio and transcripts never leave the PC. No model is trained on them.

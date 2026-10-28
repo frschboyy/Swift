@@ -49,6 +49,9 @@ const ICONS: Record<string, string> = {
   power: "M12 3v8M6.3 6.3a8 8 0 1011.4 0",
   restart: "M20 11a8 8 0 10-2.3 5.7M20 4v7h-7",
   slash: "M5 5l14 14",
+  // Saved recordings (audit B-06): clear them, improve speech recognition from them.
+  trash: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
+  wave: "M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2",
 };
 
 export function icon(name: keyof typeof ICONS | string): SVGSVGElement {

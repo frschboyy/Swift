@@ -89,6 +89,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "watch": {"run_id": (str, None), "open": (bool, None)},
     "run.stop": {"run_id": (str, None)},
     "live.app": {"run_id": (str, None)},
+    # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
+    "recordings": {"action": (str, ("clear", "improve"))},
 }
 
 OUTBOUND_TYPES = frozenset(

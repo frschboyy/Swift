@@ -10,6 +10,12 @@ audio:
   preroll_s: 0                     # >0 keeps the mic open and prepends this much audio from before the key-down
                                    # (try 0.5). Windows then shows the mic-in-use indicator whenever Swift runs.
   chime: true                      # a short soft chime the moment Swift hears "hey Swift" or the hotkey
+  # Recordings (swift/stt/recordings.py): kept only if they can improve transcription (heard unsurely,
+  # "say it again", said again or corrected, a missed wake phrase, a failed request), on this PC only.
+  keep_days: 7                     # deleted after this many days; 0 = no recording is saved
+  keep_all: false                  # true keeps every recording for keep_days (debugging)
+  test_set_max: 200                # clips with words you gave (a repeat, a correction), kept to check accuracy
+  improve_weekly: true             # once a week while you're here: word fixes to approve, an accuracy check
 
 wake:                              # start by voice: "hey / hello / good afternoon Swift" (swift/wake.py)
   enabled: false                   # on keeps the mic open (Windows' mic indicator stays on) and
@@ -43,8 +49,9 @@ stt:
   # Approving by voice in a noisy room (between words louder than noisy_db dBFS) takes a
   # second "approve" or a click. Rejecting never waits.
   noisy_db: -50
-  save_audio: false                # debug: keep each recording as a WAV in audio_dir
+  save_audio: false                # old debug switch: now the same as audio.keep_all
   audio_dir: "%LOCALAPPDATA%/Swift/audio"
+  test_set_dir: "%LOCALAPPDATA%/Swift/stt_testset"
 
 executor:
   kind: "echo"                     # "claude_code" runs Claude Code; "echo" only shows the transcript; "mock" plays fake steps

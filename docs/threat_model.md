@@ -35,7 +35,19 @@
 | T11 | **Data leaving the machine** | Library telemetry, implicit model downloads, web fetches carrying data | Offline env forced at import; audio and STT stay local; the model is Claude Code in the cloud (ADR-007), which gets the request, its context and what it reads; web fetches only to addresses the run was given (2026-10 audit, A-03); no local LLM | T0-06, P1-8, `test_audit_2026_10.py` |
 | T12 | **Policy misconfiguration** | Broken `permissions.toml` silently allows actions | Validation errors fail closed (all non-read actions denied); `fail_closed` cannot be set from the file | T0-04 |
 | T13 | **Malicious connector or plugin** (post-MVP) | A plugin claims a send tool is read-only | Swift assigns capabilities itself (ADR-005); connector output untrusted; gateway-only execution; MCP host deferred to Phase 7 with an allowlist | Phase 7 |
-| T14 | **Bystander privacy** | Audio of others captured | Audio kept in RAM; capture buffers dropped after STT; recordings are saved only with `stt.save_audio` (off by default; on for the voice work in 2026-10, see audit B-06) | §6.6 review |
+| T14 | **Bystander privacy** | Audio of others captured | Audio kept in RAM and dropped after STT, except recordings that can improve transcription (audit B-06, `swift/stt/recordings.py`): heard unsurely, "say it again", said again or corrected, a failed request, or speech just before a wake phrase. Others are deleted within 30 s; flagged ones after `audio.keep_days` (7; 0 saves nothing), at start-up and daily. Speech the open microphone hears and doesn't act on stays in RAM for 6 s and is saved only if the owner addresses Swift right after it. Clips with words the owner gave go to a local test set (at most 200, oldest dropped). The tray's **Clear saved recordings** deletes clips, index and test set. See *Privacy of saved recordings* below | §6.6 review; owner checks 110-116 |
+
+## Privacy of saved recordings
+
+Audit B-06, decided by the owner on 2026-10-28: recordings are kept for 7 days at most, and only when they can improve transcription.
+
+- **Stays on the PC.** Clips, the index and the test set are files in `%LOCALAPPDATA%\Swift` (`audio`, `stt_testset`). No code that touches them imports a network module, and a test runs the whole loop with sockets cut off.
+- **No training.** Clips are never used to train or fine-tune a model. The weekly improvement pass:
+  - proposes word fixes, which the owner approves or rejects on a card;
+  - measures accuracy;
+  - writes pause timings for end-of-speech tuning.
+- **Words written down.** The index records why a clip was kept, and the words the owner meant when they said them again or corrected them. Transcripts are not written down. Logs carry counts, flags and rates only.
+- **Bystanders.** A kept clip can still hold room or bystander audio. That is why clips are deleted within 7 days, and why one item clears everything.
 
 ## Out of scope for the MVP
 

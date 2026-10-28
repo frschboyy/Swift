@@ -286,7 +286,7 @@ CONTINUES_THREAD = frozenset({"followup", "correction", "retry"})
 KEEP_THREAD_SCOPES = 8
 # Messages that say which thread they belong to.
 THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
-CONFIRM_TIMEOUT_S = 120.0
+CONFIRM_TIMEOUT_S = 45.0
 # After an answer that asks something, Swift waits this long for the reply (``wake.question_s``).
 QUESTION_S = 25.0
 # Wake listening never waits longer than this for one utterance's transcription.
@@ -660,11 +660,15 @@ class Session:
         self._next_focus: Run | None = None
         self._none = Run()
         self._slots = asyncio.Semaphore(MAX_RUNS)
+        # Small fire-and-forget sends (``_background``), kept until done.
+        self._tasks_bg: set[asyncio.Task[Any]] = set()
         # Confirm cards in the order asked: (run, request id); the first is on screen (ADR-013 §5.2).
         self._cards: list[tuple[Run, str]] = []
         self._card_shown: dict[str, asyncio.Event] = {}
         # Cards the owner skipped ("Later", ADR-015 §9): off screen, countdown paused, in the stack.
         self._aside: list[tuple[Run, str]] = []
+        # Cards set aside because their countdown ran out (ADR-017): the stack says "held".
+        self._expired: set[str] = set()
         # When each card was asked (ms), and stack items skipped (id -> when): skipped go last.
         self._card_since: dict[str, int] = {}
         self._stack_skipped: dict[str, float] = {}
@@ -740,6 +744,10 @@ class Session:
         self.desktop = desktop
         # Holds confirm cards while the owner is away (ADR-014 §4); None: they time out as before.
         self.attention = attention
+        if attention is not None:
+            # ADR-017: a countdown that runs out sets the card aside in the stack ("held"); it is
+            # never approved or rejected for the owner.
+            attention.on_expire = self._expire_card
         # Conversations left unfinished (ADR-014 §5); None: nothing is parked.
         self.parked = parked
         # The light lane's tool-free model call (ADR-007 §10); None: those requests go to the agent.
@@ -782,6 +790,8 @@ class Session:
         self._returned: tuple[str, float] | None = None
         # Called when an overlay says it's ready (the lifecycle announces presence then).
         self.on_ready: Callable[[], Awaitable[None]] | None = None
+        # The tray's Pause listening / Resume (ADR-017): the lifecycle closes or reopens the microphone.
+        self.on_listen: Callable[[bool], Awaitable[None]] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
@@ -1061,6 +1071,7 @@ class Session:
     async def _card_done(self, request_id: str) -> None:
         """A card was answered or went away: the next one in line comes to the front."""
         self._card_since.pop(request_id, None)
+        self._expired.discard(request_id)
         self._stack_skipped.pop(card_id(request_id), None)
         if any(r == request_id for _, r in self._aside):
             self._aside = [c for c in self._aside if c[1] != request_id]
@@ -1111,7 +1122,8 @@ class Session:
                                    self._card_since.get(shown, 0), run.thread))
         for kind, cards in (("waiting", self._cards[1:]), ("later", self._aside)):
             for run, request_id in cards:
-                items.append(StackItem(card_id(request_id), kind, self._card_title(run, request_id), kind,
+                reason = "expired" if request_id in self._expired else kind
+                items.append(StackItem(card_id(request_id), kind, self._card_title(run, request_id), reason,
                                        self._card_since.get(request_id, 0), run.thread))
         if self.parked is not None:
             live = {r.thread for r in self._live() if r.thread}
@@ -1154,8 +1166,35 @@ class Session:
             elif self.parked is not None and action == "open":
                 self._resume_parked(key)
             elif self.parked is not None:
+                if self._question is not None and self._question[0].thread == key:
+                    # "Cancel request" on Swift's question (ADR-017): it doesn't wait any more.
+                    self._drop_question()
+                    await self._close_followup()
                 self.parked.drop(key)
+        if action == "skip" and kind == "parked" and self._question is not None and self._question[0].thread == key:
+            # "Answer later" on Swift's question (ADR-017): into the stack now, not after the window.
+            parked = self._question[0]
+            self._question[1].cancel()
+            self._park_question(parked)
+            await self._close_followup()
         await self._send_stack()
+
+    def _expire_card(self, request_id: str) -> bool:
+        """``Attention.on_expire``: a card's countdown ran out. It is set aside in the stack (like
+        "Later"; the stack says "held"), never answered for the owner (ADR-017). False: it isn't
+        the card on screen here, so it times out as before."""
+        if not self._cards or self._cards[0][1] != request_id:
+            return False
+        self._expired.add(request_id)
+        logger.info("card expired into the stack")
+        self._background(self._skip_card(request_id))
+        return True
+
+    def _background(self, coro: Any) -> None:
+        """Run ``coro`` on the loop, keeping a reference until it's done."""
+        task = asyncio.get_running_loop().create_task(coro)
+        self._tasks_bg.add(task)
+        task.add_done_callback(self._tasks_bg.discard)
 
     async def _skip_card(self, request_id: str) -> None:
         """"Later": a waiting card goes to the back of the line; the card on screen is set aside
@@ -1184,6 +1223,7 @@ class Session:
 
     async def _open_card(self, request_id: str) -> None:
         """A card opened from the stack comes on screen now; the one there waits behind it."""
+        self._expired.discard(request_id)
         entry = next((c for c in self._aside if c[1] == request_id), None)
         if entry is not None:
             self._aside.remove(entry)
@@ -1303,6 +1343,12 @@ class Session:
             case "cancel":
                 self.speaker.stop()
                 await self.cancel()
+            case "speech.stop":
+                self.speaker.stop()  # only the voice: the card and the run stay (ADR-017)
+            case "listen":
+                logger.info("listening", on=msg.data["on"])
+                if self.on_listen is not None:
+                    await self.on_listen(msg.data["on"])
             case "retry":
                 await self._start_retry()
             case "confirm.reply":
@@ -2057,7 +2103,7 @@ class Session:
             if not run.title or run.title == QUEUED_TITLE:
                 run.title = _short_title(transcript)
             run.words = run.words or _clip(strip_wake(transcript) or transcript, 120)
-            await self._send(outbound("transcript", text=transcript, final=True))
+            await self._send(outbound("transcript", text=transcript, final=True, typed=record.get("source") == "typed"))
 
             routed = self.router is not None and record.get("source") in (
                 "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside", "typed",
@@ -2445,12 +2491,25 @@ class Session:
             return
         said = spoken(text)
         if said:
-            self.speaker.speak(said)
+            self._speak(said)
             if record is not None:
                 record["spoken_chars"] = len(said)
 
+    def _speak(self, text: str) -> None:
+        """Start saying ``text``; the overlay shows Swift speaking until it stops (``speech_done``)."""
+        was = self.speaker.speaking
+        self.speaker.speak(text)
+        if self.speaker.speaking and not was:
+            self._speech_news(True)
+
+    def _speech_news(self, speaking: bool) -> None:
+        """Tell the overlay Swift started or stopped talking (the capsule, the question card)."""
+        with contextlib.suppress(RuntimeError):  # no running loop: nothing to tell
+            self._background(self._raw_send(outbound("speech", speaking=speaking)))
+
     def speech_done(self) -> None:
         """Swift finished talking (``Speaker.on_done``): the reply window starts now, not under its own voice."""
+        self._speech_news(False)
         if self._followup is not None and time.monotonic() <= self._followup[1]:
             asyncio.get_running_loop().create_task(self._open_followup(question=self._followup_question))
 
@@ -2475,7 +2534,7 @@ class Session:
             waited += 1.0
         await self._send_result(run_id, ExecResult("done", text))
         if self.speech_replies != "never" and not self._away:
-            self.speaker.speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
+            self._speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
 
     async def _show_due_away(self) -> None:
         """Back: one card for what came due while the owner was away."""

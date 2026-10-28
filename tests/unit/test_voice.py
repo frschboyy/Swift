@@ -116,7 +116,7 @@ async def test_hold_and_release_transcribes_and_shows_result() -> None:
 
     assert out.states() == ["listening", "transcribing", "working", "result"]
     assert [m.data["rms"] for m in out.messages if m.type == "level"] == [0.4, 0.7]
-    assert out.last("transcript") == {"text": "open my project", "final": True}
+    assert out.last("transcript") == {"text": "open my project", "final": True, "typed": False}
     assert "open my project" in out.last("result")["summary"]
     assert not rec.recording
     assert records[0]["status"] == "done" and records[0]["stt_ms"] == 420 and records[0]["audio_s"] == 1.5

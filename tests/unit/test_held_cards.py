@@ -124,7 +124,7 @@ async def test_a_card_left_while_away_waits_and_comes_back() -> None:
     card = out.last("confirm.request")
     await session.hold_cards(True)
     hold = out.last("confirm.hold")
-    assert hold == {"request_id": card["request_id"], "held": True, "timeout_s": pytest.approx(120, abs=1)}
+    assert hold == {"request_id": card["request_id"], "held": True, "timeout_s": pytest.approx(45, abs=1)}
     await session.hold_cards(False)
     assert out.last("confirm.hold")["held"] is False and out.last("confirm.hold")["timeout_s"] >= 60
     await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "approve"}))
@@ -133,22 +133,44 @@ async def test_a_card_left_while_away_waits_and_comes_back() -> None:
     assert records[0]["approvals"][0]["held_away"] == 1 and "parked" not in records[0]
 
 
-async def test_a_held_card_does_not_time_out_and_unanswered_after_return_is_parked() -> None:
+async def test_a_held_card_does_not_time_out_and_one_held_too_long_is_parked() -> None:
     parked = ParkedThreads(None)
     session, out, records, calendar, agent, stt = make(
-        attention=Attention(return_s=0.1), parked=parked, confirm_timeout_s=0.1,
+        attention=Attention(return_s=0.1, hold_s=0.6), parked=parked, confirm_timeout_s=0.1,
     )
     await start(session, out, stt)
     await session.hold_cards(True)
     await asyncio.sleep(0.3)  # three times the countdown
     assert session.state == "confirm" and records == []
+    await finish(session)  # held longer than hold_s: it gives up, as before
     await session.hold_cards(False)
-    await finish(session)
     assert calendar.created == [] and records[0]["approvals"][0]["decision"] == "no_answer"
     assert records[0]["parked"] == "unanswered"
     kept = parked.newest()
     assert kept is not None and kept.thread == records[0]["thread"] and "Professor Smith" in kept.request
     assert "Thu 29 Oct" in kept.proposed
+
+
+async def test_a_countdown_that_runs_out_sets_the_card_aside_in_the_stack() -> None:
+    # ADR-017: never approved or rejected for the owner. The card waits in the stack ("held"),
+    # and opened again it has its whole countdown.
+    session, out, records, calendar, agent, stt = make(
+        attention=Attention(require_seen=True), parked=ParkedThreads(None), confirm_timeout_s=0.2,
+    )
+    await start(session, out, stt)
+    card = out.last("confirm.request")
+    await session.handle(Message("card.seen", {"request_id": card["request_id"], "visible": True}))
+    await asyncio.sleep(0.4)
+    assert session.state == "confirm" and records == [] and calendar.created == []
+    assert out.last("confirm.hold") == {"request_id": card["request_id"], "held": True, "timeout_s": pytest.approx(0.2, abs=0.01)}
+    item = out.last("stack")["items"][0]
+    assert item["id"] == f"card:{card['request_id']}" and item["reason"] == "expired"
+    await session.handle(Message("stack.action", {"id": item["id"], "action": "open"}))
+    assert out.last("confirm.hold")["held"] is False
+    assert out.last("stack")["items"] == []
+    await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "approve"}))
+    await finish(session)
+    assert len(calendar.created) == 1 and records[0]["approvals"][0]["decision"] == "approve"
 
 
 async def test_no_card_no_hold_message() -> None:

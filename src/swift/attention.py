@@ -21,6 +21,12 @@ when it is shown.
 Seen (ADR-015 §4.2): with ``require_seen``, a card counts down only once the overlay says it
 has drawn it (``set_seen``, from the ``card.seen`` message), and stops again when the overlay
 hides it. A card the overlay never draws waits like a held card instead of running out unseen.
+
+Expiry (ADR-017, the Capsule redesign): with ``on_expire`` set, a countdown that runs out doesn't
+end the wait. ``on_expire(key)`` puts the card aside (the session moves it to the waiting stack)
+and returns True; the card then waits like a held one, with its whole countdown again for when it
+is opened. It is never approved or rejected for the owner. False (or no ``on_expire``): it times
+out as before.
 """
 
 from __future__ import annotations
@@ -43,6 +49,8 @@ class _Wait:
     deadline: float | None
     # When the card was put aside (clock time); None while running.
     held_at: float | None
+    # The whole countdown, given back when an expired card is set aside (ADR-017).
+    full: float = 0.0
 
 
 class Attention:
@@ -65,6 +73,8 @@ class Attention:
         # Cards the overlay says are drawn and visible (only matters with ``require_seen``).
         self._seen: set[str] = set()
         self._changed = asyncio.Event()
+        # ADR-017: a countdown that ran out; True when the card was set aside instead of timing out.
+        self.on_expire: Callable[[str], bool] | None = None
 
     def set_held(self, held: bool) -> list[str]:
         """The owner left (True) or came back (False). Returns the cards this changed."""
@@ -141,13 +151,17 @@ class Attention:
         """``future``'s result. TimeoutError when the countdown runs out, or the card was held too long."""
         now = self.clock()
         frozen = not self._runs(key)
-        w = _Wait(timeout_s, None, now) if frozen else _Wait(timeout_s, now + timeout_s, None)
+        w = _Wait(timeout_s, None, now, timeout_s) if frozen else _Wait(timeout_s, now + timeout_s, None, timeout_s)
         self._waits[key] = w
         try:
             while True:
                 now = self.clock()
                 budget = (w.deadline - now) if w.deadline is not None else (w.held_at or now) + self.hold_s - now
                 if budget <= 0:
+                    if w.deadline is not None and self.on_expire is not None and self.on_expire(key):
+                        # Set aside, not ended: it waits like a held card, its whole time back.
+                        w.left, w.deadline, w.held_at = w.full, None, now
+                        continue
                     raise TimeoutError
                 changed = asyncio.ensure_future(self._changed.wait())
                 try:

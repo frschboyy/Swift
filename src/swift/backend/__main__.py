@@ -341,6 +341,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         wake_enabled=wake.enabled,
     )
     session.on_ready = lifecycle.announce
+    session.on_listen = lifecycle.set_listening  # the tray's Pause listening (ADR-017)
     try:
         monitor = PresenceMonitor(WindowsProbe(), lifecycle.on_change)
     except (AttributeError, OSError) as exc:  # not Windows: no presence, everything stays on

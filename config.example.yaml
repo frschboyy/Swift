@@ -55,7 +55,7 @@ executor:
   never_read: []                   # never read, even with a card (on top of keys, sign-ins, browser profiles)
   default_dir: 0
   max_budget_usd: 1.0
-  confirm_timeout_s: 120
+  confirm_timeout_s: 45             # a card's countdown (only while shown and you're here); then it waits in the stack (ADR-017)
   prewarm: true                    # keep one Claude Code started and waiting (saves 5-13 s per request)
   quick_answers: true              # quick facts and wording: one tool-free call to the light model (ADR-007 §10)
   models:                          # starting model by how demanding a request looks (ADR-007)

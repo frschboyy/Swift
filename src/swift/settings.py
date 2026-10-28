@@ -139,7 +139,8 @@ class ExecutorSettings(_Section):
     # Never read, even with a card, on top of Swift's own list (sign-ins, keys, browser profiles).
     never_read: list[str] = Field(default_factory=list)
     max_budget_usd: float | None = Field(1.0, gt=0)
-    confirm_timeout_s: float = Field(120.0, gt=0)
+    # ADR-017: when it runs out the card waits in the stack, so it can be short.
+    confirm_timeout_s: float = Field(45.0, gt=0)
     # Keep one Claude Code process started and waiting, so a request skips its 5-13 s startup.
     prewarm: bool = True
     # Model per demand (ADR-007): light requests start on Haiku, the rest on Sonnet; strong is

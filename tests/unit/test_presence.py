@@ -164,7 +164,7 @@ async def test_locking_pauses_listening_and_coming_back_warms_up() -> None:
     probe.is_locked = True
     await change(life, m, clock)
     assert life.session.listening_paused and life.recorder.calls == ["pause"]
-    assert out.last("presence") == {"state": "away", "reason": "locked", "listening": False, "wake": True}
+    assert out.last("presence") == {"state": "away", "reason": "locked", "listening": False, "wake": True, "paused": False}
     probe.is_locked = False
     await change(life, m, clock)
     assert not life.session.listening_paused and life.recorder.calls == ["pause", "resume"]

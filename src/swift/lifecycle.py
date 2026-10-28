@@ -10,7 +10,12 @@
 | Here or idle, every few minutes | A warm Claude Code that exited on its own is replaced, so the first request after a quiet spell isn't slow |
 | Away, for any reason (L2) | An open confirm card is held: hidden, its countdown stopped (``Session.hold_cards``). Back: shown again |
 
-Each change is also announced to the overlay (``presence``) for the tray tooltip.
+Each change is also announced to the overlay (``presence``) for the tray tooltip and the capsule.
+
+Paused by the owner (ADR-017, the tray's "Pause listening"): hands-free listening off and the open
+microphone closed, as when the screen locks, until they resume. ``presence`` says ``paused``, and
+the capsule shows "Not listening · Mic off" for as long as it lasts. Push-to-talk still works: each
+press is the owner's own act.
 
 Changes are handled as they come, but the microphone always follows the newest one: a lock
 handled late (the audio thread busy) never closes it after the unlock (``MicRecorder.pause``).
@@ -70,6 +75,8 @@ class Lifecycle:
         self._warming: asyncio.Task[None] | None = None
         # Coming back: (reason, clock() then, what is ready so far: "mic" / "speech" -> seconds after).
         self._back: tuple[str, float, dict[str, float]] | None = None
+        # The owner paused listening from the tray (ADR-017).
+        self.paused = False
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
@@ -101,6 +108,8 @@ class Lifecycle:
         if self.wake_enabled and self.recorder is not None:
             if change.locked_or_asleep:
                 await asyncio.to_thread(self.recorder.pause)
+            elif self.paused:
+                self._ready("mic")  # paused by the owner: the microphone stays closed until they resume
             elif change.returned or (self.recorder.paused and listening):
                 await asyncio.to_thread(self.recorder.resume)
                 self._ready("mic")
@@ -121,6 +130,21 @@ class Lifecycle:
                 "listening again", reason=reason, ms=int(max(parts.values()) * 1000),
                 mic_ms=int(parts["mic"] * 1000), speech_ms=int(parts["speech"] * 1000),
             )
+
+    async def set_listening(self, on: bool) -> None:
+        """The tray's Pause listening (``on`` False) or Resume: the open microphone closes or reopens."""
+        if self.paused == (not on):
+            await self.announce()
+            return
+        self.paused = not on
+        self.session.listening_paused = self.wake_enabled and not self.listening
+        logger.info("listening paused" if self.paused else "listening resumed")
+        if self.wake_enabled and self.recorder is not None:
+            if self.paused:
+                await asyncio.to_thread(self.recorder.pause)
+            elif self.listening and self.recorder.paused:
+                await asyncio.to_thread(self.recorder.resume)
+        await self.announce()
 
     async def warm_up(self) -> None:
         """The owner is back: get the slow parts ready before they speak, the speech model first.
@@ -195,7 +219,7 @@ class Lifecycle:
 
     @property
     def listening(self) -> bool:
-        return self.monitor is None or self.monitor.listening_allowed
+        return (self.monitor is None or self.monitor.listening_allowed) and not self.paused
 
     async def announce(self) -> None:
         monitor = self.monitor
@@ -206,6 +230,7 @@ class Lifecycle:
                 reason=monitor.reason if monitor else "start",
                 listening=self.wake_enabled and self.listening,
                 wake=self.wake_enabled,
+                paused=self.paused,
             )
         )
 

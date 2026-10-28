@@ -86,8 +86,12 @@ async def test_a_card_never_drawn_does_not_run_out() -> None:
     assert session.state == "confirm" and records == []  # still waiting, not "no answer"
     card = out.last("confirm.request")
     await session.handle(Message("card.seen", {"request_id": card["request_id"], "visible": True}))
+    await asyncio.sleep(0.2)
+    # Seen, it ran out: into the stack (ADR-017), still unanswered.
+    assert records == [] and out.last("confirm.hold")["held"] is True
+    assert out.last("stack")["items"][0]["reason"] == "expired"
+    await session.handle(Message("stack.action", {"id": f"card:{card['request_id']}", "action": "end"}))
     await finish(session)
-    assert records[0]["approvals"][0]["decision"] == "no_answer"
 
 
 async def test_back_redraws_the_held_card_then_gives_its_time() -> None:

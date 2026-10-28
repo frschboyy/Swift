@@ -28,6 +28,10 @@ The waiting stack (ADR-015 §9): outbound ``stack`` lists what waits for the own
 set aside, held cards, unfinished conversations); inbound ``stack.action`` opens, skips or ends
 one. Inbound ``text`` is a request typed into the overlay (source ``typed``): routed like speech,
 but it never approves a card.
+The Capsule overlay (ADR-017): outbound ``speech`` says when Swift starts and stops talking (the
+capsule's Speaking state, the question card's "I'll listen when I'm done"); inbound
+``speech.stop`` stops it, inbound ``listen`` pauses or resumes listening (the tray). ``transcript``
+carries ``typed`` (the head row's keyboard or mic), ``presence`` carries ``paused``.
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -72,12 +76,16 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "text": {"text": (str, None)},
     # Sent once when the overlay is fully up; ``backend_ms`` is optional.
     "ready": {"startup_ms": (int, None)},
+    # The capsule's Stop (or Esc while Swift talks): Swift stops talking; nothing else changes (ADR-017).
+    "speech.stop": {},
+    # The tray's Pause listening / the capsule's Resume: the open microphone off or on (ADR-017).
+    "listen": {"on": (bool, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard"}
+     "runs", "stack", "heard", "speech"}
 )
 
 

@@ -211,7 +211,7 @@ async def test_phrase_with_request_runs_the_request_without_recording() -> None:
     await session.hear_wake(AUDIO, time.monotonic())
     await finish(session)
     assert rec.lead is None and not rec.recording
-    assert out.last("transcript") == {"text": "what time is it?", "final": True}
+    assert out.last("transcript") == {"text": "what time is it?", "final": True, "typed": False}
     assert out.states()[-1] == "result" and "It's " in out.last("result")["summary"]
     assert records[0]["source"] == "wake" and records[0]["status"] == "done"
 

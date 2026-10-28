@@ -262,7 +262,7 @@ async def test_a_change_on_a_provider_card_without_native_support_becomes_the_ne
     # Once the rejected run has finished, the change runs as the next request (here it reaches a
     # card again: the demo agent's script).
     await asyncio.wait_for(out.confirm.wait(), 2)
-    assert out.last("transcript") == {"text": "No, put the section in the README instead.", "final": True}
+    assert out.last("transcript") == {"text": "No, put the section in the README instead.", "final": True, "typed": False}
     await session.cancel()
     assert records[1]["source"] == "correction"
 

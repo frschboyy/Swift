@@ -4,7 +4,7 @@ Read this first when picking Swift up in a new Claude Code session or account. I
 
 ## 1. Where things stand
 
-**Local `main`** (not pushed anywhere) is at `50f8e0f` or later, and has all of this merged:
+**Local `main`** (not pushed anywhere) has all of this merged:
 
 | Area | What | Where it's described |
 |---|---|---|
@@ -16,35 +16,18 @@ Read this first when picking Swift up in a new Claude Code session or account. I
 | Live view | Watching research or Word writing while it runs | ADR-017 §7 |
 | Audit | 13 fixes from the October audit; the full report | `docs/audit/2026-10-audit.md` |
 | Hardening | B-02 (writes only when asked), B-03 (due items kept until shown), B-04 (Restart Swift) | audit doc §4–5 |
+| Recordings | Saved recordings that improve hearing (7-day loop, audit B-06) | `recordings-status.md` |
+| Dialogue | **ADR-016 Phase C**: Swift asks for what's missing, the question card, carry-over, end of speech, confirm cards read aloud | ADR-016 §16, `phase-c-status.md` |
 
-Tests on `main` at `50f8e0f`: 1131 Python, 73 overlay, 29 Rust, plus `tsc`. Routing parity: 365/375, 0 harmful.
+Tests on `main` after the Phase C merge: 1272 Python, 78 overlay, 29 Rust (unchanged by C), plus `tsc`. Routing parity: 397/407, 0 harmful (the 10 misses are the web lane, §4 step 4).
 
-## 2. Work that was running when the credits ran out
+## 2. Work in progress
 
-Two sessions were mid-task. Their branches had **no commits yet** when this was written; they were asked to commit their progress as `WIP …` commits and write a status file in `docs/handoff/`.
+None. Both sessions that were running when the credits ran out are finished and merged (2026-10-28):
+- **Recordings loop** (`claude/busy-wiles-de06e3`): owner checks 110–116.
+- **ADR-016 Phase C, dialogue** (`claude/phase-c-dialogue-b22c15`): owner checks 100–108. Checked in the dev harness; not yet on the real PC.
 
-| Task | Branch | Folder (worktree) | Brief to restart it |
-|---|---|---|---|
-| **ADR-016 Phase C: dialogue** | `claude/phase-c-dialogue-b22c15` | `.claude/worktrees/phase-c-dialogue-b22c15` | [`brief-phase-c.md`](brief-phase-c.md) |
-| **Recordings that improve hearing** (7-day loop): **finished and merged into `main`**. Owner checks 110–116 | `claude/busy-wiles-de06e3` | `.claude/worktrees/busy-wiles-de06e3` | [`brief-recordings.md`](brief-recordings.md) |
-
-**Safety snapshots** were taken at about 10:30 on 2026-10-28, without touching the sessions' folders or branches:
-- `backup/phase-c-wip`: Phase C's uncommitted work, 24 files;
-- `backup/recordings-wip`: the recordings loop, 25 files. That session also began committing on its own branch afterwards (`516fcf6`).
-
-If a session's folder is lost or broken, start from its backup branch. Otherwise prefer the session's own branch: it's newer.
-
-**To pick one up:**
-1. Look at what it left:
-   ```bash
-   git -C .claude/worktrees/phase-c-dialogue-b22c15 status --short
-   git log --oneline main..refs/heads/claude/phase-c-dialogue-b22c15
-   ```
-2. If there are uncommitted changes, commit them on that branch as `WIP …`. Never discard them.
-3. Read `docs/handoff/phase-c-status.md` (or `recordings-status.md`) on that branch, if it exists.
-4. Start a new session **in that worktree folder**, give it the brief file, and tell it to continue from the WIP state.
-
-If a branch has nothing (no commits, no changes), start the brief from scratch on a new branch cut from `main`.
+The safety snapshots `backup/phase-c-wip` and `backup/recordings-wip` are no longer needed; delete them when the owner agrees.
 
 ## 3. What the owner runs next (in order)
 
@@ -65,7 +48,7 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
      - "turn on airplane mode" → no;
      - "turn on do not disturb";
      - "turn the volume down and write a haiku about tea".
-   - When those branches are merged: **100+** (Phase C) and **110+** (recordings).
+   - **100–108:** Phase C, dialogue. **110–116:** saved recordings (remove `save_audio: true` first).
 3. Paste the report:
    ```bash
    uv run python spikes/owner_checks/report.py --since HH:MM
@@ -74,8 +57,8 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
 
 ## 4. The agreed order of work
 
-1. Owner checks 50–96, then fixes for what fails.
-2. **ADR-016 Phase C** (dialogue), in progress, and **the recordings loop**, in progress (§2).
+1. Owner checks 50–116, then fixes for what fails.
+2. ~~ADR-016 Phase C and the recordings loop~~: done and merged (2026-10-28); their owner checks are in step 1.
 3. **ADR-014 L3:** quiet modes and call detection. Small; it must come before Swift speaks up unprompted.
 4. **The web lane** (ADR-016 Phase I, cheap part): fast weather, news and "is it open now". These are the 10 parity misses, 10–17 s on the agent today.
 5. **ADR-011 W2 + W3:** file tools with permissions, and recipes (fixed-step workflows; faster, cheaper email and calendar).

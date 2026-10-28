@@ -453,7 +453,7 @@ Read this number with care: the set was written by the same person as the gramma
 
 - 1240 Python tests, 78 overlay tests, `tsc`. Routing parity 397/407, 0 harmful (the 10 misses are the web lane, step 4).
 - End of speech over the owner's 51 corpus clips (`spikes/endpointing/measure.py`, counts only): a fixed 0.8 s pause would cut 6 short (12%), 1.3 s 2, 2.0 s none. These are read-aloud clips; rerun once the recordings loop has saved live ones.
-- **Not on the real PC yet:** owner checks 100–108. The question card was checked by unit tests, not yet in the dev harness.
+- **Not on the real PC yet:** owner checks 100–108. The question card was checked in the dev harness (all phases, buttons, close).
 
 ### 16.4 Not in C
 

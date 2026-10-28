@@ -13,8 +13,9 @@ What was built is in ADR-016 §16.
 
 ## Left
 
-1. Dev-harness look at the question card (port 1431, never 1420): `window.__shim.inject("ask", {...})`
-   while state is `working`, with phases asking → listening → again → heard, and options as buttons.
+1. Done: the question card checked in the dev harness (asking, listening with countdown, again with
+   Yes/No, heard, close; a click sends `ask.reply`). The harness backend runs main's code until merged.
 2. Merge into `main` when the owner says so. `main` has moved on (the recordings loop); expect
-   conflicts in `session.py`, `owner-checks.md` and `report.py` (recordings uses checks 110–116).
+   three small conflicts (both sides added): `owner-checks.md`, `report.py`, `ipc/protocol.py`;
+   `session.py` merges cleanly (trial merge, 2026-10-28). Recordings uses checks 110–116.
 3. The owner runs checks 100–108.

@@ -1545,6 +1545,8 @@ function renderAsk(a: Q.Ask): void {
     ),
     `working card--question${asking ? "" : " card--waiting"}`,
   );
+  const bar = card.querySelector<HTMLElement>(":scope > .timebar");
+  if (bar) bar.hidden = true;  // the pill has the time
 }
 
 function onAskMessage(data: Q.AskData): void {

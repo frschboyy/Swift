@@ -392,3 +392,20 @@ def test_composing_words_that_mention_here_still_is(text: str) -> None:
     from swift.routing.light import kind
 
     assert kind(text) == "compose"
+
+
+# ---- A-11: the same request said again while it runs doesn't start it twice -----------------
+
+
+async def test_the_same_request_again_while_it_runs_is_one_run() -> None:
+    from test_runs import finish_all, make, say, started, until
+
+    session, out, records, agent, stt = make()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await say(session, stt, "Hey Swift, research the history of tea.")  # it seemed slow
+    await until(lambda: any(m.type == "run.voice" and m.data.get("text", "").startswith("Still on it")
+                            for m in out.messages))
+    assert len(agent.requests) == 1
+    await say(session, stt, "Hey Swift, what's the capital of Peru")  # something else still runs beside it
+    await until(lambda: len(agent.requests) == 2)
+    await finish_all(session, agent)

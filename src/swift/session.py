@@ -313,6 +313,12 @@ TYPED_APPROVE_HINT = "Typing can't approve. Click Approve, or say “Swift, appr
 # A typed request is at most this long (the frame limit is far above it).
 MAX_TYPED = 2000
 QUEUED_HINT = "That's waiting: {n} requests are running. It starts when one of them is done."
+# The same request said again while it runs: one run, not two.
+STILL_ON_IT = "Still on it: “{words}”."
+
+
+def _same_words(text: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9']+", text.lower()))
 REDIRECT_NAME_HINT = "To change it hands-free, say “Swift, actually …”."
 NO_TARGET_HINT = "I couldn't tell which request you mean."
 # After something that can't be taken back, the follow-up Swift offers (ADR-014 §7).
@@ -968,7 +974,13 @@ class Session:
         return run
 
     def _start_beside(self, text: str, source: str = "beside") -> Run:
-        """A clear new request said while another runs: it runs beside it (ADR-013 §5.1)."""
+        """A clear new request said while another runs: it runs beside it (ADR-013 §5.1). The same
+        words again, while the first is still going, are the owner thinking it was slow: they don't
+        start the work twice (two drafts, two cards; audit 2026-10, A-11)."""
+        if (same := self._same_request(text)) is not None:
+            logger.info("same request again while it runs: kept the one running")
+            asyncio.get_running_loop().create_task(self._still_on_it(same))
+            return same
         record: dict[str, Any] = {"source": source, "executor": getattr(self.executor, "name", "?")}
         logger.info("request started beside another", running=len(self._live()))
 
@@ -976,6 +988,17 @@ class Session:
             return text
 
         return self._chip_now(self._launch(record, capture, self.executor, self.executor.start, title=_short_title(text)), text)
+
+    def _same_request(self, text: str) -> Run | None:
+        """A running request with the same words (case, punctuation and the wake phrase aside)."""
+        words = _same_words(strip_wake(text) or text)
+        if not words:
+            return None
+        return next((r for r in self._live() if r.words and _same_words(r.words) == words), None)
+
+    async def _still_on_it(self, run: Run) -> None:
+        with self._as(self._focus or self._none):
+            await self._run_phase("hint", STILL_ON_IT.format(words=_clip(run.words, 50)))
 
     def _chip_now(self, run: Run, text: str) -> Run:
         """A request started beside another shows its chip at once, with its words, before it has

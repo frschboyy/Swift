@@ -168,6 +168,7 @@ from swift.stt.transcriber import (
     assess,
 )
 from swift.wake import CLOSE, NoiseGate, WakeMatch, close_control, match_address, match_wake
+from swift.speech import Speaker, spoken
 from swift.system import intents as system_intents
 from swift.system.lane import SystemLane
 from swift.system.scheduler import Item
@@ -233,6 +234,8 @@ SHORT_AT_REST = frozenset({"stop", "cancel", "resume", "show_last", "repeat", "n
 SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
 
 
+# Requests spoken to Swift: their answers are spoken back when speech replies are "auto".
+SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", "beside"})
 # How long "Turn off Wi-Fi?" waits for a yes or no.
 SYSTEM_CONFIRM_S = 45.0
 _YES = re.compile(r"^(?:yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|confirm|turn it off|switch it off)\b")
@@ -740,6 +743,11 @@ class Session:
         self._due_away: list[tuple[Item, bool]] = []
         # A disruptive system change Swift asked about ("Turn off Wi-Fi?"): the intents, and when asked.
         self._system_confirm: tuple[tuple[Any, ...], float] | None = None
+        # Swift's voice (ADR-016 §4). The base Speaker is silent; the backend sets the real one.
+        # replies: "auto" (spoken requests get a spoken answer), "always", "never".
+        self.speaker: Speaker = Speaker()
+        self.speech_replies = "auto"
+        self._followup_question = False
         # What "show me" with no run going brings back: the last run with artifacts, or (when it
         # wrote in an app since) that app; the write it was set for (ADR-007 §10).
         self._last_shown: Run | None = None
@@ -768,7 +776,7 @@ class Session:
         self.wake_stats = dict.fromkeys(
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
              "stt_failed", "stt_timeout", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
-             "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free"), 0,
+             "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -1213,6 +1221,7 @@ class Session:
         """A request typed into the overlay: routed and run like speech (source ``typed``). On an
         open card it answers like voice, except that typing never approves on its own. Mid-run it
         is the mid-run grammar; ``thread_id`` (the conversation on screen) makes it a follow-up."""
+        self.speaker.stop()
         text = " ".join(text.split())[:MAX_TYPED]
         if not text:
             return
@@ -1264,6 +1273,7 @@ class Session:
                 self._stack_sent = None
                 await self._send_stack()  # a new overlay: what waits, from before it started
             case "cancel":
+                self.speaker.stop()
                 await self.cancel()
             case "retry":
                 await self._start_retry()
@@ -1285,6 +1295,7 @@ class Session:
                 if self.attention is not None:
                     self.attention.set_seen(msg.data["request_id"], msg.data["visible"])
             case "ptt" if msg.data["state"] == "down":
+                self.speaker.stop()  # the owner wants to talk: Swift stops at once
                 self._talking(math.inf)  # the hotkey isn't the owner typing in the document
                 self._ptt_held = True
                 await self._start_voice()
@@ -1445,7 +1456,7 @@ class Session:
     def wants_short(self) -> bool:
         """Wake listening asks (on the audio thread) whether to hand on a very short clip: only
         while a run is going hands-free or a reply window is open, where "stop" or "show me" may come."""
-        if self.recorder is None or self.listening_paused:
+        if self.recorder is None or self.listening_paused or self.speaker.speaking:
             return False
         window = self._followup
         return self._hands_free() or (window is not None and time.monotonic() <= window[1] + 1.0)
@@ -1453,7 +1464,7 @@ class Session:
     def wants_peek(self) -> bool:
         """Wake listening asks (on the audio thread) whether to check the start of a long utterance
         for the wake phrase: only at rest, where it would start something."""
-        return self.recorder is not None and not self.listening_paused and not self.busy
+        return self.recorder is not None and not self.listening_paused and not self.busy and not self.speaker.speaking
 
     async def peek_wake(self, audio: Any) -> None:
         """The first second or so of an utterance still going: if it opens with the wake phrase, show
@@ -1497,6 +1508,10 @@ class Session:
             self.wake_stats["skipped_hearing"] += 1
             return
         started_at = ended_at - len(audio) / SAMPLE_RATE
+        if self.speaker.recently(started_at):
+            # Half-duplex (ADR-016 §4): while Swift talks, and just after, the microphone hears Swift.
+            self.wake_stats["own_voice"] += 1
+            return
         if (self._front_busy() or self._capturing()) and not self._hands_free() and not self._can_queue(started_at):
             self.wake_stats["skipped_busy"] += 1
             return  # e.g. recording after the hotkey: its own words, not even worth transcribing
@@ -1833,6 +1848,7 @@ class Session:
             logger.info("question window", seconds=seconds)  # owner check 26: how long Swift waits for the answer
         now = time.monotonic()
         self._followup = (now, now + seconds)
+        self._followup_question = question
         await self._send(outbound("followup", open=True, seconds=seconds, question=question))
 
     async def _close_followup(self) -> None:
@@ -2379,6 +2395,26 @@ class Session:
         self._system_confirm = None
         return decision
 
+    # ---- Swift's voice (ADR-016 §4) ------------------------------------------------------------
+
+    def _speak_reply(self, text: str, record: dict[str, Any] | None) -> None:
+        """Say the spoken form of ``text``, if this answer should be heard: never while the owner is
+        away, never for a typed request unless replies are "always"."""
+        if self.speech_replies == "never" or self._away or not text.strip():
+            return
+        if self.speech_replies == "auto" and (record is None or record.get("source") not in SPOKEN_SOURCES):
+            return
+        said = spoken(text)
+        if said:
+            self.speaker.speak(said)
+            if record is not None:
+                record["spoken_chars"] = len(said)
+
+    def speech_done(self) -> None:
+        """Swift finished talking (``Speaker.on_done``): the reply window starts now, not under its own voice."""
+        if self._followup is not None and time.monotonic() <= self._followup[1]:
+            asyncio.get_running_loop().create_task(self._open_followup(question=self._followup_question))
+
     async def notify_due(self, item: Item, missed: bool) -> None:
         """A timer, alarm or reminder came due (``Scheduler.run``): a sound, and a card once the
         owner isn't in the middle of something (at most ``DUE_WAIT_S`` later). While the owner is
@@ -2399,6 +2435,8 @@ class Session:
             await asyncio.sleep(1.0)
             waited += 1.0
         await self._send_result(run_id, ExecResult("done", text))
+        if self.speech_replies != "never" and not self._away:
+            self.speaker.speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
 
     async def _show_due_away(self) -> None:
         """Back: one card for what came due while the owner was away."""
@@ -3411,6 +3449,7 @@ class Session:
         await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
         message = failure.as_message() | {"retry": self._retry is not None}
         await self._send(outbound("error", **message, agent=agent))
+        self._speak_reply(f"{failure.title}. {failure.message}", record)
         await self._open_followup()
 
     async def _start_retry(self) -> None:
@@ -3451,6 +3490,7 @@ class Session:
             )
         )
         if result.status in ("done", "rejected"):
+            self._speak_reply(result.summary, self._record)
             await self._offer_parked()
         asks = result.status == "done" and self._record is not None and _asks(result.summary)
         if asks:

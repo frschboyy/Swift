@@ -1,6 +1,6 @@
 # ADR-016: Closing the gap with a built-in assistant (proposal)
 
-- **Status:** Proposed; **Phase A is built** (A1 §13, A2 §14; approved 2026-10-28). The rest needs the owner's go-ahead per phase and the decisions in §11.
+- **Status:** Proposed; **Phases A and B are built** (A1 §13, A2 §14, B §15; approved 2026-10-28). The rest needs the owner's go-ahead per phase and the decisions in §11.
 - **Date:** 2026-10-27
 - **Builds on:** ADR-007 (lanes), ADR-010 (gateway, artifacts), ADR-011 (workflows, connectors), ADR-012 (desktop), ADR-013 (attention), ADR-014 (presence)
 
@@ -393,3 +393,34 @@ Read this number with care: the set was written by the same person as the gramma
 
 - Timers don't pause or resume; no stopwatch; no recurring reminders (the agent can set those up in the calendar).
 - Asking for a missing detail ("For how long?") waits for Phase C; speaking replies and alarms for Phase B.
+
+## 15. Phase B: Swift speaks (2026-10-28)
+
+### 15.1 What exists
+
+| Piece | Where | Notes |
+|---|---|---|
+| Voice | `swift/speech.py` (`WindowsSpeaker`) | The Windows voices through SAPI (`pywin32`, already a dependency): no download, about 50 ms to create. Desktop and OneCore voices both work (`speech.voice: "Mark"`). One worker thread owns the voice; `stop()` cuts it off within about 0.3 s. Piper can replace it behind the same `speak` / `stop` / `close` once its voice license is recorded (§11 decision 1). |
+| Spoken form | `speech.spoken` | The first sentence or two, at most 220 characters, cut at a sentence end; headings, markdown, code, links and emoji removed. The card always shows everything. |
+| When | `Session._speak_reply` | `speech.replies: auto` (default): a request spoken to Swift (hotkey, wake phrase, follow-up, correction) gets its answer and any failure said aloud; a typed request stays silent. `always`, `never`. **Never while the owner is away** (locked, asleep, idle). A timer, alarm or reminder going off is said unless replies are `never`. |
+| Barge-in | `Session.handle` | The hotkey, Esc, and typing stop Swift mid-sentence. |
+| Half-duplex | `Session.hear_wake`, `wants_short`, `wants_peek` | What the open microphone hears while Swift talks, and for 0.6 s after, is dropped (`own_voice` counter in the wake log line), so Swift never wakes itself or takes its own words as a reply. |
+| Reply window | `Session.speech_done` | The follow-up window ("Listening for your answer") opens again when Swift finishes talking, so the owner has the full window after the voice, not under it. |
+| Settings | `speech:` in `config.yaml` | `enabled`, `replies`, `voice`, `rate`, `volume`. Debug mode records instead of speaking. |
+
+### 15.2 Decisions taken by default (§11)
+
+- **1 Voice:** Windows voices now; Piper later, after a listening test.
+- **2 Replies:** `auto`.
+- **Barge-in by voice:** not in B. Saying "stop" while Swift talks is dropped by the half-duplex rule; the hotkey or Esc stops it. Voice barge-in needs echo cancellation or headset detection (§4), which is a follow-up.
+
+### 15.3 Checked, and not
+
+- Mechanics on the development laptop at volume 0: the voice starts, finishes, and stops on demand (0.3 s). 18 unit tests cover the spoken form, the policy, barge-in, half-duplex and the reply window.
+- **Not heard by anyone yet.** **Owner check (REQUIRES-HW):** with speakers, "Hey Swift, what time is it?": the answer is said; then speak again straight after: the reply is heard (not Swift's own voice). Press the hotkey while Swift talks: it stops at once. Type a request: no voice. Lock the PC with a 1-minute timer: chime only; back: the card, and no speech for it. Try `voice: "Mark"` and `rate: 1`.
+
+### 15.4 Not in B
+
+- Confirm cards are not read out yet ("Send this email to Ada?"): the card's title should be said for eyes-free approval. Next, with the dialogue phase.
+- "Read it to me" for a whole long answer.
+- Voice barge-in and echo cancellation; Piper voices.

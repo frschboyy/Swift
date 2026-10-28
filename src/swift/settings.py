@@ -264,6 +264,22 @@ class SystemSettings(_Section):
         return expand(v)
 
 
+class SpeechSettings(_Section):
+    """Swift's voice (ADR-016 §4): answers said aloud, in short. The card always shows everything.
+
+    replies: "auto" speaks the answer to a spoken request and stays quiet for a typed one;
+    "always" speaks every answer; "never" keeps Swift silent. Never while you are away, locked
+    or asleep. Timers and alarms are said when they go off unless replies are "never".
+    """
+
+    enabled: bool = True
+    replies: Literal["auto", "always", "never"] = "auto"
+    # A Windows voice by name ("Mark", "Zira", "David"); empty: the Windows default.
+    voice: str = ""
+    rate: int = Field(0, ge=-10, le=10)
+    volume: int = Field(100, ge=0, le=100)
+
+
 class LoggingSettings(_Section):
     interactions: str = "%LOCALAPPDATA%/Swift/interactions.jsonl"
     app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
@@ -296,6 +312,7 @@ class Settings(_Section):
     workflows: WorkflowSettings = Field(default_factory=WorkflowSettings)
     desktop: DesktopSettings = Field(default_factory=DesktopSettings)
     system: SystemSettings = Field(default_factory=SystemSettings)
+    speech: SpeechSettings = Field(default_factory=SpeechSettings)
     # The only people Swift resolves besides your Google contacts (ADR-010 §4: addresses never
     # come from the model or from speech alone).
     contacts: list[ContactSettings] = Field(default_factory=list)

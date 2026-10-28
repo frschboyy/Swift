@@ -118,6 +118,20 @@ def _make_system(settings: Settings, session: Session) -> tuple[SystemLane, asyn
     return lane, asyncio.create_task(scheduler.run(session.notify_due), name="scheduler")
 
 
+def _make_speaker(settings: Settings, session: Session, loop: asyncio.AbstractEventLoop) -> None:
+    """Swift's voice (ADR-016 §4). Debug mode records instead of speaking, like the fake device."""
+    from swift.speech import FakeSpeaker, WindowsSpeaker
+
+    cfg = settings.speech
+    session.speech_replies = cfg.replies if cfg.enabled else "never"
+    if not cfg.enabled or cfg.replies == "never":
+        return
+    speaker = FakeSpeaker() if settings.debug else WindowsSpeaker(cfg.voice, cfg.rate, cfg.volume, loop=loop)
+    speaker.on_done = session.speech_done
+    session.speaker = speaker
+    logger.info("speech", replies=cfg.replies, voice=cfg.voice or "default", device="fake" if settings.debug else "windows")
+
+
 def _make_tools(settings: Settings, desktop: Desktop | None, opener: LocalOpener) -> ToolHost:
     """Swift's tools (ADR-010, ADR-011 W1, ADR-012). Debug mode always uses the fake connectors: a demo
     never touches Google."""
@@ -331,6 +345,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             # ADR-007 §10: the light lane, on the owner's existing Claude Code sign-in.
             session.quick = QuickModel(settings.executor.models["light"], prewarm=settings.executor.prewarm)
             session.quick.prepare()
+    _make_speaker(settings, session, loop)
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)
@@ -345,6 +360,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     finally:
         if scheduler_task is not None:
             scheduler_task.cancel()
+        session.speaker.close()
         await session.close()
         if isinstance(session.executor, ClaudeCodeExecutor):
             await session.executor.close()

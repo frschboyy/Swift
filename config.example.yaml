@@ -95,6 +95,12 @@ system:                            # ADR-016 A1: timers, alarms, reminders, volu
   enabled: true                    # false sends all of those to the agent as before. Never sleeps, restarts or shuts down
   schedule_file: "%LOCALAPPDATA%/Swift/schedule.json"  # timers and reminders survive a restart
   chime: true                      # a short sound when one comes due
+speech:                            # ADR-016 B: Swift says its answers, in short (the card shows everything)
+  enabled: true
+  replies: auto                    # auto: spoken requests get a spoken answer | always | never
+  voice: ""                        # a Windows voice: "Mark", "Zira", "David"; empty = the Windows default
+  rate: 0                          # -10 (slow) .. 10 (fast)
+  volume: 100
 contacts: []                       # who Swift may email; "my lecturer" finds them by alias. Addresses never come from speech alone
   # - name: "Dr Ada Lovelace"
   #   email: "ada.lovelace@example.edu"

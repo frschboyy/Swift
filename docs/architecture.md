@@ -64,6 +64,12 @@ The system lane (`swift/system/`) changes this PC directly, without a confirm ca
 - **Asking first (A2).** A change that takes something away the owner may be relying on (Wi-Fi or Bluetooth off, airplane mode on) is not done on the request: Swift asks ("Turn off Wi-Fi?") and does it only on a yes within 45 s. A short "yes" heard hands-free is not taken, the same rule as confirm cards.
 - **The agent's `system_action` (A2).** For a mixed request ("turn the volume down and write a haiku") the agent can do the system part, but only what the owner asked for: each intent must also be found in the owner's own words for that request (`RunScope.said`). This tool goes through the gateway like any other (`system_action` reversible, `system_action_disruptive` behind the confirm card), so model output, web pages or files can never trigger a system change by themselves.
 
+## Swift's voice (ADR-016 §4, Phase B)
+
+- `swift/speech.py`: `WindowsSpeaker` says the spoken form of an answer (`spoken`: a sentence or two, no markdown) through SAPI on its own thread; `FakeSpeaker` in tests and debug mode.
+- The session decides when (`_speak_reply`): spoken requests get spoken answers, typed ones don't; never while the owner is away. The hotkey, Esc and typing stop it.
+- Half-duplex: while Swift talks, and 0.6 s after, the open microphone's utterances are dropped (`own_voice`), and the reply window reopens when the voice ends.
+
 ## Workflows and "show me" (ADR-010)
 
 - **Swift's tools** (`swift/workflows/tools.py`): `find_contact`, `draft_email`, `send_email`, `present`, one `ToolHost` with one open `RunScope` per run. Claude Code gets them in its in-process `swift` MCP server; Codex and Hermes will get them over a loopback HTTP MCP server (phase B).

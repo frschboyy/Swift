@@ -87,6 +87,12 @@ _NOT_COMPOSE = re.compile(
     r"|this (?:message|email|text|thread|chat)|reply to (?!say)\w+|outlook|gmail|teams|slack|whatsapp|in word)\b"
 )
 
+# "Write a short note about tea here": into the app in front (the agent's desktop_write), not an answer
+# card; "say I'll be here at five" is still the owner's own words (audit 2026-10, A-10).
+_WRITE_HERE = re.compile(
+    r"\bhere\s*$|\b(?:write|type|put|paste|insert|add)\b"
+    r"(?:(?!\b(?:saying|to say|that says|telling|to tell|asking|to ask|about)\b).)*\b(?:here|in there|in this)\b"
+)
 # "What does this error mean", "a synonym for this": about what the owner is looking at.
 _ON_SCREEN = re.compile(r"\b(?:this|these|that one|my|here|error|warning|message)\b")
 
@@ -100,7 +106,7 @@ def kind(text: str) -> str | None:
         if not pattern.fullmatch(t):
             continue
         if name == "compose":
-            blocked = _NOT_COMPOSE.search(t)
+            blocked = _NOT_COMPOSE.search(t) or _WRITE_HERE.search(t)
         elif name == "fact":
             blocked = _NOT_LIGHT.search(t)
         else:  # a word or phrase asked about can be anything ("a synonym for today"), but not what's on screen

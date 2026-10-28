@@ -373,3 +373,22 @@ async def test_a_wake_phrase_whose_transcription_ends_after_the_lock_is_dropped(
     await hearing
     await asyncio.sleep(0.05)
     assert agent.requests == [] and records == [] and session.wake_stats["paused_drop"] == 1
+
+
+# ---- A-10: "write … here" goes to the agent (into the app), not the tool-free quick lane ---------
+
+
+@pytest.mark.parametrize("text", ["write a short note about tea here", "write me a polite reply saying thanks here",
+                                  "type a quick note saying I'm out in this"])
+def test_writing_here_is_not_a_quick_answer(text: str) -> None:
+    from swift.routing.light import kind
+
+    assert kind(text) is None
+
+
+@pytest.mark.parametrize("text", ["write a polite message saying I'll be here at five",
+                                  "write a short note saying thanks for dinner"])
+def test_composing_words_that_mention_here_still_is(text: str) -> None:
+    from swift.routing.light import kind
+
+    assert kind(text) == "compose"

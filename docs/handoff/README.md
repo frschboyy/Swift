@@ -27,7 +27,7 @@ None. Both sessions that were running when the credits ran out are finished and 
 - **Recordings loop** (`claude/busy-wiles-de06e3`): owner checks 110–116.
 - **ADR-016 Phase C, dialogue** (`claude/phase-c-dialogue-b22c15`): owner checks 100–108. Checked in the dev harness; not yet on the real PC.
 
-The safety snapshots `backup/phase-c-wip` and `backup/recordings-wip` are no longer needed; delete them when the owner agrees.
+Their branches and the safety snapshots `backup/phase-c-wip` and `backup/recordings-wip` were deleted after the merge (§6).
 
 ## 3. What the owner runs next (in order)
 
@@ -122,10 +122,18 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 ## 6. Leftover branches and folders
 
-Every `claude/*` branch listed by `git worktree list` other than the two in §2 is already merged into `main`. Their worktrees under `.claude/worktrees/` can be removed after the owner agrees:
+Cleaned up on 2026-10-28 with the owner's OK: every merged `claude/*` branch, its worktree under `.claude/worktrees/`, and the two `backup/*` snapshots are deleted. `main` is the only worktree.
+
+Two early branches are kept on purpose: `mvp/overlay` and `phase0/scaffold`. Both are merged into `main`.
+
+A new session that finishes and merges its work removes its own worktree and branch once the owner agrees:
 
 ```bash
 git worktree remove <path>
 ```
 
-One file is untracked in the owner's checkout and is kept on purpose: `C:\Users\frchi\Documents\Swift-design-screens` (outside the repo) holds the screenshots used for the redesign brief.
+```bash
+git branch -d <branch>
+```
+
+One folder outside the repo is kept on purpose: `C:\Users\frchi\Documents\Swift-design-screens` holds the screenshots used for the redesign brief.

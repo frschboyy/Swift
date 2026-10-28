@@ -20,7 +20,7 @@
 // long one opened in place), failed, stopped / not done in one row, the amber confirm card, Swift's
 // question, and timers and reminders that stay until handled. Dark or light follows Windows.
 //
-// ADR-017 §11: a request's live view (live.ts). ``live`` items arrive for every request; "show
+// ADR-017 §7: a request's live view (live.ts). ``live`` items arrive for every request; "show
 // me" (the backend's ``watch``) or Watch on the working card or a chip opens a pane window per
 // request, beside the card. Without pane windows (the dev harness) it is drawn beside the card.
 
@@ -135,7 +135,7 @@ let typing: Panes.TypeView | null = null;
 let typedDraft = "";
 // The tray menu pane (ADR-017): null while closed.
 let tray: Panes.TrayView | null = null;
-// What each request's live view shows, and which are open (ADR-017 §11).
+// What each request's live view shows, and which are open (ADR-017 §7).
 let live: L.Live = L.initialLive;
 // Requests seen in ``runs`` (for "Got it: …"), and the lines shown until when.
 const knownRows = new Set<string>();
@@ -570,11 +570,14 @@ function closeTyping(): void {
   void syncPanes();
 }
 
-// ---- the live view of a request (ADR-017 §11) -----------------------------------------------
+// ---- the live view of a request (ADR-017 §7) -----------------------------------------------
 
 function setLive(next: L.Live): void {
   if (next === live) return;
+  const watched = (l: L.Live): boolean => !!pres.runId && !!L.find(l, pres.runId)?.open;
+  const toggled = watched(next) !== watched(live);
   live = next;
+  if (toggled && state === "working") renderWorking();  // its Watch button comes and goes
   if (paneWindows) void syncPanes();
   else drawLiveInline();
 }
@@ -621,6 +624,8 @@ function drawLiveInline(): void {
   const views = paneWindows ? [] : L.openRuns(live).map(L.view);
   liveEl.hidden = views.length === 0;
   const tops = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run]")].map((n) => [n.dataset.run, n.querySelector<HTMLElement>(".live-body")?.scrollTop ?? 0]));
+  const docs = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run] .live-doc")].map((d) => [d.closest<HTMLElement>("[data-run]")!.dataset.run,
+    d.scrollHeight - d.scrollTop - d.clientHeight < 24 ? null : d.scrollTop]));
   liveEl.replaceChildren(...views.map((v) => {
     const node = el("div", { "data-hit": true, "data-run": v.runId }, V.liveCard(v, {
       close: () => liveAction("live-close", v.runId),
@@ -633,8 +638,11 @@ function drawLiveInline(): void {
   }));
   for (const node of liveEl.querySelectorAll<HTMLElement>("[data-run]")) {
     const body = node.querySelector<HTMLElement>(".live-body");
-    const view = views.find((v) => v.runId === node.dataset.run);
-    if (body) body.scrollTop = view?.written && view.running ? body.scrollHeight : tops.get(node.dataset.run) ?? 0;
+    if (body) body.scrollTop = tops.get(node.dataset.run) ?? 0;
+    // What is being written follows its newest paragraph, unless the owner scrolled up in it.
+    const doc = node.querySelector<HTMLElement>(".live-doc");
+    const kept = docs.get(node.dataset.run);
+    if (doc) doc.scrollTop = kept ?? doc.scrollHeight;
   }
   scheduleRegions();
 }

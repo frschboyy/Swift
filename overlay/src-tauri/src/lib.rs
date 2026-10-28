@@ -655,7 +655,7 @@ async fn copy_text(text: String) -> Result<(), String> {
     win::copy_text(&text)
 }
 
-/// A source in a live view (ADR-017 §11): the page in the owner's browser. Only a plain http(s)
+/// A source in a live view (ADR-017 §7): the page in the owner's browser. Only a plain http(s)
 /// address: nothing that could run a program or open a file.
 #[tauri::command]
 async fn open_link(url: String) -> Result<(), String> {

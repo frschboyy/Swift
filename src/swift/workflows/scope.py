@@ -28,7 +28,7 @@ Confirmer = Callable[[str, str, str, str | None], Awaitable[Decision]]
 Publisher = Callable[[Artifact], Awaitable[None]]
 # (text, activity, app) -> a step on the working card, from Swift itself.
 Stepper = Callable[[str, str, str | None], Awaitable[None]]
-# An item for the live view (ADR-017 §11): {"kind": "text", "text", "app"}, what Swift just wrote.
+# An item for the live view (ADR-017 §7): {"kind": "text", "text", "app"}, what Swift just wrote.
 Liver = Callable[[dict[str, Any]], Awaitable[None]]
 
 

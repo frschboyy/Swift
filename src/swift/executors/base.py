@@ -26,7 +26,7 @@ from typing import Any, Literal, Protocol, get_args
 
 from swift.failures import Failure
 
-# "live": what the live view shows (``data``): a source found or read, a note (ADR-017 §live view).
+# "live": what the live view shows (``data``): a source found or read, a note (ADR-017 §7).
 EventType = Literal["step", "confirm", "log", "live"]
 Status = Literal["done", "cancelled", "error", "rejected"]
 # What a provider is doing, whatever its own event format. The overlay turns it into

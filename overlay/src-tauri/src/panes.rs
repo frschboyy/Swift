@@ -29,7 +29,7 @@ pub enum PaneKind {
     Type,
     /// The tray menu (ADR-017): opened by a click on the tray icon, next to it.
     Tray,
-    /// A running request's live view (ADR-017 §11): on the reader's side, one per request, cascaded.
+    /// A running request's live view (ADR-017 §7): on the reader's side, one per request, cascaded.
     Live,
 }
 
@@ -138,7 +138,7 @@ pub fn to_fraction(area: Area, (x, y): (i32, i32)) -> (f64, f64) {
     )
 }
 
-/// A live view's source, fit to hand to the browser (ADR-017 §11): http(s) only, a host, no spaces,
+/// A live view's source, fit to hand to the browser (ADR-017 §7): http(s) only, a host, no spaces,
 /// quotes or control characters (nothing a shell or `url.dll` could read as more than an address).
 pub fn web_link(url: &str) -> Option<&str> {
     let url = url.trim();

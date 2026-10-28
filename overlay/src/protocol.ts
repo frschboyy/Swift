@@ -89,7 +89,7 @@ export type Inbound =
   | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } }
   // ADR-017: Swift started or stopped talking (the capsule's Speaking state, the question card).
   | { type: "speech"; data: { speaking: boolean } }
-  // ADR-017 §11: one item of a request's live view, for every request (in front or not); and
+  // ADR-017 §7: one item of a request's live view, for every request (in front or not); and
   // "show me" while it runs: open its live view.
   | { type: "live"; data: LiveData }
   | { type: "watch"; data: { run_id: string; open: boolean; title?: string; words?: string } };
@@ -165,7 +165,7 @@ export type Outbound =
   | { type: "speech.stop"; data: Record<string, never> }
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
   | { type: "listen"; data: { on: boolean } }
-  // ADR-017 §11: a live view opened or closed (for the log), its Stop (that request only), and
+  // ADR-017 §7: a live view opened or closed (for the log), its Stop (that request only), and
   // its "Show in Word" (the app the request writes in, to the front).
   | { type: "watch"; data: { run_id: string; open: boolean } }
   | { type: "run.stop"; data: { run_id: string } }

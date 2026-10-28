@@ -5,7 +5,7 @@ Pure functions, no I/O, so they can be tested against recorded runs
 CLI versions add events (``rate_limit_event``, ``system/task_summary``,
 ``system/thinking_tokens``, ...) and must not break the overlay.
 
-``LiveMapper`` feeds the live view (ADR-017 §11): the pages a web search found and the ones
+``LiveMapper`` feeds the live view (ADR-017 §7): the pages a web search found and the ones
 being read, from WebSearch / WebFetch calls and their results, and Claude's short notes between
 tool calls. Addresses, titles and notes go to the overlay only, never to the log.
 """
@@ -247,7 +247,7 @@ def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
     return summary, ({"kind": "text", "text": _short(rest, 400)} if rest else None)
 
 
-# ---- the live view (ADR-017 §11) ---------------------------------------------------------------
+# ---- the live view (ADR-017 §7) ---------------------------------------------------------------
 
 NOTE_MAX = 280
 TITLE_MAX = 120

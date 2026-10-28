@@ -135,7 +135,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                             since = await desktop.owner_input()
                     await writer.write(chunk, last=i == len(chunks) - 1)
                     report["written"] = i + 1
-                    await scope.live({"kind": "text", "text": chunk, "app": writer.app})  # the live view (ADR-017 §11)
+                    await scope.live({"kind": "text", "text": chunk, "app": writer.app})  # the live view (ADR-017 §7)
                     if writer.route in ("paste", "keys"):
                         since = await desktop.owner_input()  # Swift's own key presses
                     await asyncio.sleep(0)  # Esc (the run cancelled) stops here, between paragraphs

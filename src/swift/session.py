@@ -312,7 +312,7 @@ TAKES_FRONT = frozenset({"state", "step", "confirm.request", "result", "error", 
 TYPED_APPROVE_HINT = "Typing can't approve. Click Approve, or say “Swift, approve”."
 # A typed request is at most this long (the frame limit is far above it).
 MAX_TYPED = 2000
-# The live view (ADR-017 §11): one written paragraph is sent at most this long.
+# The live view (ADR-017 §7): one written paragraph is sent at most this long.
 LIVE_TEXT_MAX = 8000
 QUEUED_HINT = "That's waiting: {n} requests are running. It starts when one of them is done."
 # The same request said again while it runs: one run, not two.
@@ -907,7 +907,7 @@ class Session:
         await self._raw_send(msg)
 
     async def _send_live(self, run_id: str, item: dict[str, Any]) -> None:
-        """What the live view of a request shows (ADR-017 §11): what it is doing, a source, a note, the
+        """What the live view of a request shows (ADR-017 §7): what it is doing, a source, a note, the
         text it writes. Sent for every request, in front or not; the log gets counts only, never content."""
         if not run_id:
             return
@@ -3258,7 +3258,7 @@ class Session:
         self._current().title = ""  # it only shows another's work: no row of its own
         running = [r for r in self._live(besides=self._current()) if r.task is not None and r.title]
         if running:
-            # "Show me" said with the wake word while a request runs: its live view (ADR-017 §11).
+            # "Show me" said with the wake word while a request runs: its live view (ADR-017 §7).
             await self._watch(self._focus if self._focus in running else running[-1], "voice")  # type: ignore[arg-type]
             await self._set_state("idle")
             return

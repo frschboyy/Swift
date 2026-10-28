@@ -12,7 +12,7 @@
 // open, the text box 512 × 52 (a notice row above it while a confirm card is open: typing can't
 // approve), and the tray menu is a pane of its own, opened by a click on the tray icon.
 //
-// ADR-017 §11: a running request's live view (live.ts) is a pane of its own, one per request.
+// ADR-017 §7: a running request's live view (live.ts) is a pane of its own, one per request.
 
 import type { LiveView } from "./live";
 import type { ResultDetails } from "./protocol";

@@ -1,4 +1,4 @@
-"""The live view of a running request (ADR-017 §11).
+"""The live view of a running request (ADR-017 §7).
 
 Claude Code's WebSearch / WebFetch calls and their results become sources, its text between tool
 calls notes; the desktop writer sends each paragraph as it writes it. The session sends these for
@@ -294,3 +294,28 @@ async def test_a_long_paragraph_is_clipped_when_sent() -> None:
         await session._send_live(research, {"kind": "text", "text": "x" * 20000, "app": "Word"})
     assert len(sent_for(out, research, "live")[-1]["text"]) == 8000
     await finish_all(session, agent)
+
+
+# ---- the owner-checks report --------------------------------------------------------------------
+
+
+def test_the_owner_checks_report_sees_the_live_view_from_counts_and_lines() -> None:
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location("owner_report", root / "spikes" / "owner_checks" / "report.py")
+    report = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(report)  # type: ignore[union-attr]
+    rows = [{"views": [{"source": "voice", "kind": "live"}], "live": {"source": 5, "note": 2, "text": 7}}]
+    log = [
+        "10:00:01 | INFO | live view | run_id='cc-1' open=True",
+        "10:00:05 | INFO | request stopped from the live view | run_id='cc-1'",
+        "10:00:09 | INFO | live view: app shown | run_id='cc-1' shown=True",
+    ]
+    results = {name.split(" ")[0]: (ok, detail) for name, ok, detail in report.checks(rows, log)}
+    for check in ("90", "91", "92", "93", "94", "95"):
+        assert results[check][0], (check, results[check])
+    assert results["91"][1] == "5 source item(s), 2 note(s)"
+    # Nothing seen: each says NOT SEEN.
+    assert not any(ok for name, ok, _ in report.checks([], []) if name[:2] in ("90", "91", "92", "93", "94", "95"))

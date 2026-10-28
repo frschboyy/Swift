@@ -175,7 +175,7 @@ class _Run:
     redirects: list[str] = field(default_factory=list)
     # The web addresses this run was given: the only ones it may fetch (audit 2026-10, A-03).
     web: WebScope = field(default_factory=WebScope)
-    # What the live view shows: the pages found and read, notes (ADR-017 §11).
+    # What the live view shows: the pages found and read, notes (ADR-017 §7).
     live: LiveMapper = field(default_factory=LiveMapper)
 
 
@@ -194,7 +194,7 @@ def as_event(message: Any) -> dict[str, Any] | None:
                 content.append({"type": "text", "text": block.text})
         return {"type": "assistant", "parent_tool_use_id": message.parent_tool_use_id, "message": {"content": content}}
     if kind == "UserMessage" and isinstance(message.content, list):
-        # Tool results, for the live view's sources (ADR-017 §11); the steps ignore them.
+        # Tool results, for the live view's sources (ADR-017 §7); the steps ignore them.
         content = [
             {"type": "tool_result", "tool_use_id": block.tool_use_id, "content": result_text(getattr(block, "content", None)),
              "is_error": bool(getattr(block, "is_error", False))}

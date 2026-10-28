@@ -1,4 +1,4 @@
-// The live view of a running request (ADR-017 §11). Run: npm test.
+// The live view of a running request (ADR-017 §7). Run: npm test.
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 

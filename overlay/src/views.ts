@@ -1,7 +1,7 @@
 // The Capsule design's chip and waiting stack as elements (ADR-017), shared by the pane windows
 // (pane.ts) and the main window's inline fallback where there are no pane windows (the dev
 // harness). Text goes through textContent only (dom.ts ``el``).
-// ADR-017 §11: the live view of a running request, the same way.
+// ADR-017 §7: the live view of a running request, the same way.
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
@@ -105,7 +105,7 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
   );
 }
 
-// ---- the live view (ADR-017 §11) ----------------------------------------------------------
+// ---- the live view (ADR-017 §7) ----------------------------------------------------------
 
 export type LiveHandlers = {
   close: () => void;

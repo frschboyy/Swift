@@ -14,7 +14,7 @@
 // "Typing can't approve" while a confirm card is open, and the tray menu (opened by a click on
 // the tray icon, folded away by a click anywhere else). Dark or light follows Windows.
 //
-// ADR-017 §11: a request's live view. Its body keeps its place when an update redraws it, and
+// ADR-017 §7: a request's live view. Its body keeps its place when an update redraws it, and
 // follows the end of what is being written while the owner hasn't scrolled up. A source opens in
 // the browser (Rust checks it is a web address); Stop, Show in Word and the answer go to the main window.
 
@@ -177,11 +177,13 @@ function drawTray(v: TrayView): void {
   watchOutside();
 }
 
-/** The live view, redrawn on every update: the body keeps its scroll place, or stays at the end. */
+/** The live view, redrawn on every update: the body keeps its scroll place, and what is being
+ * written follows its newest paragraph unless the owner scrolled up in it to read. */
 function drawLive(v: LiveView): void {
-  const old = root.querySelector<HTMLElement>(".live-body");
-  const atEnd = !old || old.scrollHeight - old.scrollTop - old.clientHeight < 24;
-  const top = old?.scrollTop ?? 0;
+  const top = root.querySelector<HTMLElement>(".live-body")?.scrollTop ?? 0;
+  const doc = root.querySelector<HTMLElement>(".live-doc");
+  const atEnd = !doc || doc.scrollHeight - doc.scrollTop - doc.clientHeight < 24;
+  const docTop = doc?.scrollTop ?? 0;
   const runId = v.runId;
   root.replaceChildren(V.liveCard(v, {
     close: () => act("live-close", { runId }),
@@ -192,9 +194,10 @@ function drawLive(v: LiveView): void {
   }));
   const body = root.querySelector<HTMLElement>(".live-body");
   if (!body) return;
-  // Writing: follow the newest paragraph, unless the owner scrolled up to read.
-  body.scrollTop = atEnd && v.written && v.running ? body.scrollHeight : top;
+  body.scrollTop = top;
   body.addEventListener("scroll", touch, { passive: true });
+  const written = root.querySelector<HTMLElement>(".live-doc");
+  if (written) written.scrollTop = atEnd ? written.scrollHeight : docTop;
 }
 
 function draw(): void {

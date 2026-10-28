@@ -1,4 +1,4 @@
-// The live view of a running request (ADR-017 §11). Pure: no DOM, no Tauri, no timers.
+// The live view of a running request (ADR-017 §7). Pure: no DOM, no Tauri, no timers.
 //
 // The backend sends ``live`` items for every request, in front or not: what it is doing now
 // ("doing", from its steps), a page a search found or one being read ("source"), Claude's short

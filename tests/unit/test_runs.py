@@ -179,10 +179,19 @@ async def finish_all(session: Session, agent: Agent) -> None:
         for future in run["pending"].values():
             if not future.done():
                 future.set_result(True)
+    deadline = time.monotonic() + 2
     for run in list(session._runs):
+        while run.task is not None and not run.task.done():
+            # Swift's own cards too (an email a request sends): a request ending no longer cancels
+            # the cards of the others (audit 2026-10, A-08), so each is answered here.
+            for future in list(session._swift_pending.values()):
+                if not future.done():
+                    future.set_result(False)
+            assert time.monotonic() < deadline, "a request didn't finish"
+            await asyncio.sleep(0.005)
         if run.task is not None:
             with contextlib.suppress(asyncio.CancelledError):
-                await asyncio.wait_for(asyncio.shield(run.task), 2)
+                await run.task
 
 
 # ---- side by side ---------------------------------------------------------------------------

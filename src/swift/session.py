@@ -780,7 +780,8 @@ class Session:
         self.wake_stats = dict.fromkeys(
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
              "stt_failed", "stt_timeout", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
-             "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice"), 0,
+             "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice",
+             "paused_drop"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -1542,6 +1543,11 @@ class Session:
         finally:
             self._hearing = False
             self._heard_at = time.monotonic()
+        if self.listening_paused:
+            # The screen locked (or the PC slept) while this was transcribed: nothing heard by the open
+            # microphone acts while locked (threat model T7; audit 2026-10, A-09).
+            self.wake_stats["paused_drop"] += 1
+            return
         busy = self._front_busy() or self._capturing()
         if short:
             kept = self._short_kept(heard.text, busy)

@@ -354,3 +354,22 @@ async def test_a_swift_card_waiting_behind_another_survives_that_request_ending(
     await finish_all(session, agent)
     second_record = next(r for r in records if r["approvals"] and r["approvals"][0]["request_id"] == "swift:2")
     assert second_record["approvals"][0]["decision"] == "approve"
+
+
+# ---- A-09: a wake phrase transcribed while the screen locked doesn't act ----------------------
+
+
+async def test_a_wake_phrase_whose_transcription_ends_after_the_lock_is_dropped() -> None:
+    import asyncio
+    import time
+
+    from test_runs import SHORT, make
+
+    session, out, records, agent, stt = make()
+    stt.text, stt.delay = "Hey Swift, turn the volume up and write a haiku", 0.05
+    hearing = asyncio.create_task(session.hear_wake(SHORT, time.monotonic()))
+    await asyncio.sleep(0.01)
+    session.listening_paused = True  # Win+L while it was being transcribed
+    await hearing
+    await asyncio.sleep(0.05)
+    assert agent.requests == [] and records == [] and session.wake_stats["paused_drop"] == 1

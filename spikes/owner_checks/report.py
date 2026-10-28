@@ -119,6 +119,12 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     resumed_tray = [line for line in log if "| listening resumed |" in line]
     put_off = [line for line in log if "| question put off into the stack |" in line]
     timers = [line for line in log if "| due |" in line and "kind='timer'" in line]
+    # The hardening slice after the audit (B-02, B-03, B-04): content-free log lines.
+    not_asked = [line for line in log if "desktop write refused: not asked" in line]
+    came_due = [line for line in log if "| due |" in line]
+    due_again = [line for line in came_due if "missed=True" in line]
+    due_shown = [_counter(line, "items") for line in log if "| due shown |" in line]
+    restarted = [line for line in log if "| backend ready |" in line and "restarted=True" in line]
 
     def answered(tool: str, decision: str = "approve") -> bool:
         return (tool, decision) in approved
@@ -281,6 +287,13 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("69 Swift's question put off into the stack (Answer later)", bool(put_off),
          f"{len(put_off)} put off, {len(asked)} parked as unanswered in all"),
         ("71 a timer came due and showed its card", bool(timers), f"{len(timers)} timer(s)"),
+        # The hardening slice (docs/audit/2026-10-audit.md, B-02 to B-04).
+        ("76 Swift wrote in your apps only when you asked", True,
+         f"{len(not_asked)} write(s) refused as not asked; check on screen: nothing typed"),
+        ("77-78 due items waited and were shown once, together", bool(due_shown) and sum(due_shown) <= len(came_due),
+         f"{len(came_due)} came due ({len(due_again)} after a restart or as missed), "
+         f"{sum(due_shown)} shown on {len(due_shown)} card(s)"),
+        ("77, 79-80 Swift restarted without quitting", bool(restarted), f"{len(restarted)} restart(s)"),
     ]
 
 

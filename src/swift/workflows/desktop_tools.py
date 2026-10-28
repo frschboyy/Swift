@@ -36,6 +36,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
@@ -68,6 +70,11 @@ def owner_asked_to_write(said: str) -> bool:
 def owner_asked_for_email(said: str) -> bool:
     """The owner's words for this request are about an email."""
     return bool(_EMAIL_WORDS.search(said))
+
+
+def _not_asked(tool: str) -> ToolResult:
+    logger.info("desktop write refused: not asked", tool=tool)  # the tool only, never the words
+    return ToolResult(False, NOT_ASKED, expected=True)
 
 
 def _unavailable() -> ToolResult:
@@ -113,7 +120,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if desktop is None:
         return _unavailable()
     if scope.grant is None and not owner_asked_to_write(scope.said):
-        return ToolResult(False, NOT_ASKED, expected=True)
+        return _not_asked("desktop_write")
     text = str(args.get("text", ""))
     where = args.get("where", "focus")
     mode = args.get("mode", "insert")
@@ -264,7 +271,7 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if desktop is None:
         return _unavailable()
     if scope.grant is None and not owner_asked_for_email(scope.said):
-        return ToolResult(False, NOT_ASKED, expected=True)
+        return _not_asked("fill_in_email")
     draft_id = str(args.get("draft_id", "")).strip()
     app = str(args.get("app") or "gmail").lower()
     if app not in EMAIL_APPS:

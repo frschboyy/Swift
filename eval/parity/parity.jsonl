@@ -1,0 +1,397 @@
+{"id": "timer-000", "text": "set a timer for 10 minutes", "category": "timer", "ideal": "system", "base": "set a timer for 10 minutes", "variant": 0}
+{"id": "timer-001", "text": "hey swift set a timer for 10 minutes", "category": "timer", "ideal": "system", "base": "set a timer for 10 minutes", "variant": 1}
+{"id": "timer-002", "text": "can you set a timer for 10 minutes", "category": "timer", "ideal": "system", "base": "set a timer for 10 minutes", "variant": 2}
+{"id": "timer-003", "text": "please set a timer for 10 minutes", "category": "timer", "ideal": "system", "base": "set a timer for 10 minutes", "variant": 3}
+{"id": "timer-004", "text": "set a 5 minute timer for the pasta", "category": "timer", "ideal": "system", "base": "set a 5 minute timer for the pasta", "variant": 0}
+{"id": "timer-005", "text": "hey swift set a 5 minute timer for the pasta", "category": "timer", "ideal": "system", "base": "set a 5 minute timer for the pasta", "variant": 1}
+{"id": "timer-006", "text": "can you set a 5 minute timer for the pasta", "category": "timer", "ideal": "system", "base": "set a 5 minute timer for the pasta", "variant": 2}
+{"id": "timer-007", "text": "please set a 5 minute timer for the pasta", "category": "timer", "ideal": "system", "base": "set a 5 minute timer for the pasta", "variant": 3}
+{"id": "timer-008", "text": "timer for an hour and a half", "category": "timer", "ideal": "system", "base": "timer for an hour and a half", "variant": 0}
+{"id": "timer-009", "text": "hey swift timer for an hour and a half", "category": "timer", "ideal": "system", "base": "timer for an hour and a half", "variant": 1}
+{"id": "timer-010", "text": "can you timer for an hour and a half", "category": "timer", "ideal": "system", "base": "timer for an hour and a half", "variant": 2}
+{"id": "timer-011", "text": "please timer for an hour and a half", "category": "timer", "ideal": "system", "base": "timer for an hour and a half", "variant": 3}
+{"id": "timer-012", "text": "start a timer for 30 seconds", "category": "timer", "ideal": "system", "base": "start a timer for 30 seconds", "variant": 0}
+{"id": "timer-013", "text": "hey swift start a timer for 30 seconds", "category": "timer", "ideal": "system", "base": "start a timer for 30 seconds", "variant": 1}
+{"id": "timer-014", "text": "can you start a timer for 30 seconds", "category": "timer", "ideal": "system", "base": "start a timer for 30 seconds", "variant": 2}
+{"id": "timer-015", "text": "please start a timer for 30 seconds", "category": "timer", "ideal": "system", "base": "start a timer for 30 seconds", "variant": 3}
+{"id": "timer-016", "text": "set a timer for twenty minutes", "category": "timer", "ideal": "system", "base": "set a timer for twenty minutes", "variant": 0}
+{"id": "timer-017", "text": "hey swift set a timer for twenty minutes", "category": "timer", "ideal": "system", "base": "set a timer for twenty minutes", "variant": 1}
+{"id": "timer-018", "text": "can you set a timer for twenty minutes", "category": "timer", "ideal": "system", "base": "set a timer for twenty minutes", "variant": 2}
+{"id": "timer-019", "text": "please set a timer for twenty minutes", "category": "timer", "ideal": "system", "base": "set a timer for twenty minutes", "variant": 3}
+{"id": "timer-020", "text": "how long is left on the timer", "category": "timer", "ideal": "system", "base": "how long is left on the timer", "variant": 0}
+{"id": "timer-021", "text": "hey swift how long is left on the timer", "category": "timer", "ideal": "system", "base": "how long is left on the timer", "variant": 1}
+{"id": "timer-022", "text": "how much time is left on my timer", "category": "timer", "ideal": "system", "base": "how much time is left on my timer", "variant": 0}
+{"id": "timer-023", "text": "hey swift how much time is left on my timer", "category": "timer", "ideal": "system", "base": "how much time is left on my timer", "variant": 1}
+{"id": "timer-024", "text": "what timers do I have", "category": "timer", "ideal": "system", "base": "what timers do I have", "variant": 0}
+{"id": "timer-025", "text": "hey swift what timers do I have", "category": "timer", "ideal": "system", "base": "what timers do I have", "variant": 1}
+{"id": "timer-026", "text": "cancel the timer", "category": "timer", "ideal": "system", "base": "cancel the timer", "variant": 0}
+{"id": "timer-027", "text": "hey swift cancel the timer", "category": "timer", "ideal": "system", "base": "cancel the timer", "variant": 1}
+{"id": "timer-028", "text": "can you cancel the timer", "category": "timer", "ideal": "system", "base": "cancel the timer", "variant": 2}
+{"id": "timer-029", "text": "please cancel the timer", "category": "timer", "ideal": "system", "base": "cancel the timer", "variant": 3}
+{"id": "timer-030", "text": "cancel all my timers", "category": "timer", "ideal": "system", "base": "cancel all my timers", "variant": 0}
+{"id": "timer-031", "text": "hey swift cancel all my timers", "category": "timer", "ideal": "system", "base": "cancel all my timers", "variant": 1}
+{"id": "timer-032", "text": "can you cancel all my timers", "category": "timer", "ideal": "system", "base": "cancel all my timers", "variant": 2}
+{"id": "timer-033", "text": "please cancel all my timers", "category": "timer", "ideal": "system", "base": "cancel all my timers", "variant": 3}
+{"id": "timer-034", "text": "stop the pasta timer", "category": "timer", "ideal": "system", "base": "stop the pasta timer", "variant": 0}
+{"id": "timer-035", "text": "hey swift stop the pasta timer", "category": "timer", "ideal": "system", "base": "stop the pasta timer", "variant": 1}
+{"id": "timer-036", "text": "can you stop the pasta timer", "category": "timer", "ideal": "system", "base": "stop the pasta timer", "variant": 2}
+{"id": "timer-037", "text": "please stop the pasta timer", "category": "timer", "ideal": "system", "base": "stop the pasta timer", "variant": 3}
+{"id": "alarm-038", "text": "wake me up at seven", "category": "alarm", "ideal": "system", "base": "wake me up at seven", "variant": 0}
+{"id": "alarm-039", "text": "hey swift wake me up at seven", "category": "alarm", "ideal": "system", "base": "wake me up at seven", "variant": 1}
+{"id": "alarm-040", "text": "can you wake me up at seven", "category": "alarm", "ideal": "system", "base": "wake me up at seven", "variant": 2}
+{"id": "alarm-041", "text": "please wake me up at seven", "category": "alarm", "ideal": "system", "base": "wake me up at seven", "variant": 3}
+{"id": "alarm-042", "text": "set an alarm for 6:30 am", "category": "alarm", "ideal": "system", "base": "set an alarm for 6:30 am", "variant": 0}
+{"id": "alarm-043", "text": "hey swift set an alarm for 6:30 am", "category": "alarm", "ideal": "system", "base": "set an alarm for 6:30 am", "variant": 1}
+{"id": "alarm-044", "text": "can you set an alarm for 6:30 am", "category": "alarm", "ideal": "system", "base": "set an alarm for 6:30 am", "variant": 2}
+{"id": "alarm-045", "text": "please set an alarm for 6:30 am", "category": "alarm", "ideal": "system", "base": "set an alarm for 6:30 am", "variant": 3}
+{"id": "alarm-046", "text": "set an alarm for seven thirty tomorrow", "category": "alarm", "ideal": "system", "base": "set an alarm for seven thirty tomorrow", "variant": 0}
+{"id": "alarm-047", "text": "hey swift set an alarm for seven thirty tomorrow", "category": "alarm", "ideal": "system", "base": "set an alarm for seven thirty tomorrow", "variant": 1}
+{"id": "alarm-048", "text": "can you set an alarm for seven thirty tomorrow", "category": "alarm", "ideal": "system", "base": "set an alarm for seven thirty tomorrow", "variant": 2}
+{"id": "alarm-049", "text": "please set an alarm for seven thirty tomorrow", "category": "alarm", "ideal": "system", "base": "set an alarm for seven thirty tomorrow", "variant": 3}
+{"id": "alarm-050", "text": "wake me at half past six", "category": "alarm", "ideal": "system", "base": "wake me at half past six", "variant": 0}
+{"id": "alarm-051", "text": "hey swift wake me at half past six", "category": "alarm", "ideal": "system", "base": "wake me at half past six", "variant": 1}
+{"id": "alarm-052", "text": "can you wake me at half past six", "category": "alarm", "ideal": "system", "base": "wake me at half past six", "variant": 2}
+{"id": "alarm-053", "text": "please wake me at half past six", "category": "alarm", "ideal": "system", "base": "wake me at half past six", "variant": 3}
+{"id": "reminder-054", "text": "remind me to call Sam at five", "category": "reminder", "ideal": "system", "base": "remind me to call Sam at five", "variant": 0}
+{"id": "reminder-055", "text": "hey swift remind me to call Sam at five", "category": "reminder", "ideal": "system", "base": "remind me to call Sam at five", "variant": 1}
+{"id": "reminder-056", "text": "can you remind me to call Sam at five", "category": "reminder", "ideal": "system", "base": "remind me to call Sam at five", "variant": 2}
+{"id": "reminder-057", "text": "please remind me to call Sam at five", "category": "reminder", "ideal": "system", "base": "remind me to call Sam at five", "variant": 3}
+{"id": "reminder-058", "text": "remind me in 20 minutes to take the pizza out", "category": "reminder", "ideal": "system", "base": "remind me in 20 minutes to take the pizza out", "variant": 0}
+{"id": "reminder-059", "text": "hey swift remind me in 20 minutes to take the pizza out", "category": "reminder", "ideal": "system", "base": "remind me in 20 minutes to take the pizza out", "variant": 1}
+{"id": "reminder-060", "text": "can you remind me in 20 minutes to take the pizza out", "category": "reminder", "ideal": "system", "base": "remind me in 20 minutes to take the pizza out", "variant": 2}
+{"id": "reminder-061", "text": "please remind me in 20 minutes to take the pizza out", "category": "reminder", "ideal": "system", "base": "remind me in 20 minutes to take the pizza out", "variant": 3}
+{"id": "reminder-062", "text": "remind me to call mum tomorrow at 9 am", "category": "reminder", "ideal": "system", "base": "remind me to call mum tomorrow at 9 am", "variant": 0}
+{"id": "reminder-063", "text": "hey swift remind me to call mum tomorrow at 9 am", "category": "reminder", "ideal": "system", "base": "remind me to call mum tomorrow at 9 am", "variant": 1}
+{"id": "reminder-064", "text": "can you remind me to call mum tomorrow at 9 am", "category": "reminder", "ideal": "system", "base": "remind me to call mum tomorrow at 9 am", "variant": 2}
+{"id": "reminder-065", "text": "please remind me to call mum tomorrow at 9 am", "category": "reminder", "ideal": "system", "base": "remind me to call mum tomorrow at 9 am", "variant": 3}
+{"id": "reminder-066", "text": "set a reminder to stretch in an hour", "category": "reminder", "ideal": "system", "base": "set a reminder to stretch in an hour", "variant": 0}
+{"id": "reminder-067", "text": "hey swift set a reminder to stretch in an hour", "category": "reminder", "ideal": "system", "base": "set a reminder to stretch in an hour", "variant": 1}
+{"id": "reminder-068", "text": "can you set a reminder to stretch in an hour", "category": "reminder", "ideal": "system", "base": "set a reminder to stretch in an hour", "variant": 2}
+{"id": "reminder-069", "text": "please set a reminder to stretch in an hour", "category": "reminder", "ideal": "system", "base": "set a reminder to stretch in an hour", "variant": 3}
+{"id": "reminder-070", "text": "remind me to leave for the station at 5 pm", "category": "reminder", "ideal": "system", "base": "remind me to leave for the station at 5 pm", "variant": 0}
+{"id": "reminder-071", "text": "hey swift remind me to leave for the station at 5 pm", "category": "reminder", "ideal": "system", "base": "remind me to leave for the station at 5 pm", "variant": 1}
+{"id": "reminder-072", "text": "can you remind me to leave for the station at 5 pm", "category": "reminder", "ideal": "system", "base": "remind me to leave for the station at 5 pm", "variant": 2}
+{"id": "reminder-073", "text": "please remind me to leave for the station at 5 pm", "category": "reminder", "ideal": "system", "base": "remind me to leave for the station at 5 pm", "variant": 3}
+{"id": "reminder-074", "text": "remind me to call Sam", "category": "reminder", "ideal": "agent", "base": "remind me to call Sam", "variant": 0, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-075", "text": "hey swift remind me to call Sam", "category": "reminder", "ideal": "agent", "base": "remind me to call Sam", "variant": 1, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-076", "text": "can you remind me to call Sam", "category": "reminder", "ideal": "agent", "base": "remind me to call Sam", "variant": 2, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-077", "text": "please remind me to call Sam", "category": "reminder", "ideal": "agent", "base": "remind me to call Sam", "variant": 3, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-078", "text": "remind me every weekday at 9 to check the lab bookings", "category": "reminder", "ideal": "agent", "base": "remind me every weekday at 9 to check the lab bookings", "variant": 0, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-079", "text": "hey swift remind me every weekday at 9 to check the lab bookings", "category": "reminder", "ideal": "agent", "base": "remind me every weekday at 9 to check the lab bookings", "variant": 1, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-080", "text": "can you remind me every weekday at 9 to check the lab bookings", "category": "reminder", "ideal": "agent", "base": "remind me every weekday at 9 to check the lab bookings", "variant": 2, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "reminder-081", "text": "please remind me every weekday at 9 to check the lab bookings", "category": "reminder", "ideal": "agent", "base": "remind me every weekday at 9 to check the lab bookings", "variant": 3, "note": "no time / repeating: the agent asks or sets it up (the dialogue phase will ask itself)"}
+{"id": "volume-082", "text": "volume up", "category": "volume", "ideal": "system", "base": "volume up", "variant": 0}
+{"id": "volume-083", "text": "hey swift volume up", "category": "volume", "ideal": "system", "base": "volume up", "variant": 1}
+{"id": "volume-084", "text": "can you volume up", "category": "volume", "ideal": "system", "base": "volume up", "variant": 2}
+{"id": "volume-085", "text": "please volume up", "category": "volume", "ideal": "system", "base": "volume up", "variant": 3}
+{"id": "volume-086", "text": "turn the volume down a bit", "category": "volume", "ideal": "system", "base": "turn the volume down a bit", "variant": 0}
+{"id": "volume-087", "text": "hey swift turn the volume down a bit", "category": "volume", "ideal": "system", "base": "turn the volume down a bit", "variant": 1}
+{"id": "volume-088", "text": "can you turn the volume down a bit", "category": "volume", "ideal": "system", "base": "turn the volume down a bit", "variant": 2}
+{"id": "volume-089", "text": "please turn the volume down a bit", "category": "volume", "ideal": "system", "base": "turn the volume down a bit", "variant": 3}
+{"id": "volume-090", "text": "set the volume to 30 percent", "category": "volume", "ideal": "system", "base": "set the volume to 30 percent", "variant": 0}
+{"id": "volume-091", "text": "hey swift set the volume to 30 percent", "category": "volume", "ideal": "system", "base": "set the volume to 30 percent", "variant": 1}
+{"id": "volume-092", "text": "can you set the volume to 30 percent", "category": "volume", "ideal": "system", "base": "set the volume to 30 percent", "variant": 2}
+{"id": "volume-093", "text": "please set the volume to 30 percent", "category": "volume", "ideal": "system", "base": "set the volume to 30 percent", "variant": 3}
+{"id": "volume-094", "text": "louder", "category": "volume", "ideal": "system", "base": "louder", "variant": 0}
+{"id": "volume-095", "text": "hey swift louder", "category": "volume", "ideal": "system", "base": "louder", "variant": 1}
+{"id": "volume-096", "text": "please louder", "category": "volume", "ideal": "system", "base": "louder", "variant": 2}
+{"id": "volume-097", "text": "make it quieter", "category": "volume", "ideal": "system", "base": "make it quieter", "variant": 0}
+{"id": "volume-098", "text": "hey swift make it quieter", "category": "volume", "ideal": "system", "base": "make it quieter", "variant": 1}
+{"id": "volume-099", "text": "can you make it quieter", "category": "volume", "ideal": "system", "base": "make it quieter", "variant": 2}
+{"id": "volume-100", "text": "please make it quieter", "category": "volume", "ideal": "system", "base": "make it quieter", "variant": 3}
+{"id": "volume-101", "text": "what's the volume", "category": "volume", "ideal": "system", "base": "what's the volume", "variant": 0}
+{"id": "volume-102", "text": "hey swift what's the volume", "category": "volume", "ideal": "system", "base": "what's the volume", "variant": 1}
+{"id": "volume-103", "text": "mute the sound", "category": "volume", "ideal": "system", "base": "mute the sound", "variant": 0}
+{"id": "volume-104", "text": "hey swift mute the sound", "category": "volume", "ideal": "system", "base": "mute the sound", "variant": 1}
+{"id": "volume-105", "text": "can you mute the sound", "category": "volume", "ideal": "system", "base": "mute the sound", "variant": 2}
+{"id": "volume-106", "text": "please mute the sound", "category": "volume", "ideal": "system", "base": "mute the sound", "variant": 3}
+{"id": "volume-107", "text": "unmute", "category": "volume", "ideal": "system", "base": "unmute", "variant": 0}
+{"id": "volume-108", "text": "hey swift unmute", "category": "volume", "ideal": "system", "base": "unmute", "variant": 1}
+{"id": "volume-109", "text": "please unmute", "category": "volume", "ideal": "system", "base": "unmute", "variant": 2}
+{"id": "media-110", "text": "pause the music", "category": "media", "ideal": "system", "base": "pause the music", "variant": 0}
+{"id": "media-111", "text": "hey swift pause the music", "category": "media", "ideal": "system", "base": "pause the music", "variant": 1}
+{"id": "media-112", "text": "can you pause the music", "category": "media", "ideal": "system", "base": "pause the music", "variant": 2}
+{"id": "media-113", "text": "please pause the music", "category": "media", "ideal": "system", "base": "pause the music", "variant": 3}
+{"id": "media-114", "text": "play the music", "category": "media", "ideal": "system", "base": "play the music", "variant": 0}
+{"id": "media-115", "text": "hey swift play the music", "category": "media", "ideal": "system", "base": "play the music", "variant": 1}
+{"id": "media-116", "text": "can you play the music", "category": "media", "ideal": "system", "base": "play the music", "variant": 2}
+{"id": "media-117", "text": "please play the music", "category": "media", "ideal": "system", "base": "play the music", "variant": 3}
+{"id": "media-118", "text": "next song", "category": "media", "ideal": "system", "base": "next song", "variant": 0}
+{"id": "media-119", "text": "hey swift next song", "category": "media", "ideal": "system", "base": "next song", "variant": 1}
+{"id": "media-120", "text": "can you next song", "category": "media", "ideal": "system", "base": "next song", "variant": 2}
+{"id": "media-121", "text": "please next song", "category": "media", "ideal": "system", "base": "next song", "variant": 3}
+{"id": "media-122", "text": "skip this song", "category": "media", "ideal": "system", "base": "skip this song", "variant": 0}
+{"id": "media-123", "text": "hey swift skip this song", "category": "media", "ideal": "system", "base": "skip this song", "variant": 1}
+{"id": "media-124", "text": "can you skip this song", "category": "media", "ideal": "system", "base": "skip this song", "variant": 2}
+{"id": "media-125", "text": "please skip this song", "category": "media", "ideal": "system", "base": "skip this song", "variant": 3}
+{"id": "media-126", "text": "previous track", "category": "media", "ideal": "system", "base": "previous track", "variant": 0}
+{"id": "media-127", "text": "hey swift previous track", "category": "media", "ideal": "system", "base": "previous track", "variant": 1}
+{"id": "media-128", "text": "can you previous track", "category": "media", "ideal": "system", "base": "previous track", "variant": 2}
+{"id": "media-129", "text": "please previous track", "category": "media", "ideal": "system", "base": "previous track", "variant": 3}
+{"id": "media-130", "text": "stop the music", "category": "media", "ideal": "system", "base": "stop the music", "variant": 0}
+{"id": "media-131", "text": "hey swift stop the music", "category": "media", "ideal": "system", "base": "stop the music", "variant": 1}
+{"id": "media-132", "text": "can you stop the music", "category": "media", "ideal": "system", "base": "stop the music", "variant": 2}
+{"id": "media-133", "text": "please stop the music", "category": "media", "ideal": "system", "base": "stop the music", "variant": 3}
+{"id": "media-134", "text": "play some jazz", "category": "media", "ideal": "agent", "base": "play some jazz", "variant": 0, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-135", "text": "hey swift play some jazz", "category": "media", "ideal": "agent", "base": "play some jazz", "variant": 1, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-136", "text": "can you play some jazz", "category": "media", "ideal": "agent", "base": "play some jazz", "variant": 2, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-137", "text": "please play some jazz", "category": "media", "ideal": "agent", "base": "play some jazz", "variant": 3, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-138", "text": "play Taylor Swift on Spotify", "category": "media", "ideal": "agent", "base": "play Taylor Swift on Spotify", "variant": 0, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-139", "text": "hey swift play Taylor Swift on Spotify", "category": "media", "ideal": "agent", "base": "play Taylor Swift on Spotify", "variant": 1, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-140", "text": "can you play Taylor Swift on Spotify", "category": "media", "ideal": "agent", "base": "play Taylor Swift on Spotify", "variant": 2, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "media-141", "text": "please play Taylor Swift on Spotify", "category": "media", "ideal": "agent", "base": "play Taylor Swift on Spotify", "variant": 3, "note": "choosing what to play needs a music connector (Phase E)"}
+{"id": "theme-142", "text": "turn on dark mode", "category": "theme", "ideal": "system", "base": "turn on dark mode", "variant": 0}
+{"id": "theme-143", "text": "hey swift turn on dark mode", "category": "theme", "ideal": "system", "base": "turn on dark mode", "variant": 1}
+{"id": "theme-144", "text": "can you turn on dark mode", "category": "theme", "ideal": "system", "base": "turn on dark mode", "variant": 2}
+{"id": "theme-145", "text": "please turn on dark mode", "category": "theme", "ideal": "system", "base": "turn on dark mode", "variant": 3}
+{"id": "theme-146", "text": "switch to light mode", "category": "theme", "ideal": "system", "base": "switch to light mode", "variant": 0}
+{"id": "theme-147", "text": "hey swift switch to light mode", "category": "theme", "ideal": "system", "base": "switch to light mode", "variant": 1}
+{"id": "theme-148", "text": "can you switch to light mode", "category": "theme", "ideal": "system", "base": "switch to light mode", "variant": 2}
+{"id": "theme-149", "text": "please switch to light mode", "category": "theme", "ideal": "system", "base": "switch to light mode", "variant": 3}
+{"id": "theme-150", "text": "turn off dark mode", "category": "theme", "ideal": "system", "base": "turn off dark mode", "variant": 0}
+{"id": "theme-151", "text": "hey swift turn off dark mode", "category": "theme", "ideal": "system", "base": "turn off dark mode", "variant": 1}
+{"id": "theme-152", "text": "can you turn off dark mode", "category": "theme", "ideal": "system", "base": "turn off dark mode", "variant": 2}
+{"id": "theme-153", "text": "please turn off dark mode", "category": "theme", "ideal": "system", "base": "turn off dark mode", "variant": 3}
+{"id": "brightness-154", "text": "set brightness to 40", "category": "brightness", "ideal": "system", "base": "set brightness to 40", "variant": 0}
+{"id": "brightness-155", "text": "hey swift set brightness to 40", "category": "brightness", "ideal": "system", "base": "set brightness to 40", "variant": 1}
+{"id": "brightness-156", "text": "can you set brightness to 40", "category": "brightness", "ideal": "system", "base": "set brightness to 40", "variant": 2}
+{"id": "brightness-157", "text": "please set brightness to 40", "category": "brightness", "ideal": "system", "base": "set brightness to 40", "variant": 3}
+{"id": "brightness-158", "text": "turn the brightness down", "category": "brightness", "ideal": "system", "base": "turn the brightness down", "variant": 0}
+{"id": "brightness-159", "text": "hey swift turn the brightness down", "category": "brightness", "ideal": "system", "base": "turn the brightness down", "variant": 1}
+{"id": "brightness-160", "text": "can you turn the brightness down", "category": "brightness", "ideal": "system", "base": "turn the brightness down", "variant": 2}
+{"id": "brightness-161", "text": "please turn the brightness down", "category": "brightness", "ideal": "system", "base": "turn the brightness down", "variant": 3}
+{"id": "brightness-162", "text": "dim the screen", "category": "brightness", "ideal": "system", "base": "dim the screen", "variant": 0}
+{"id": "brightness-163", "text": "hey swift dim the screen", "category": "brightness", "ideal": "system", "base": "dim the screen", "variant": 1}
+{"id": "brightness-164", "text": "can you dim the screen", "category": "brightness", "ideal": "system", "base": "dim the screen", "variant": 2}
+{"id": "brightness-165", "text": "please dim the screen", "category": "brightness", "ideal": "system", "base": "dim the screen", "variant": 3}
+{"id": "brightness-166", "text": "make the screen brighter", "category": "brightness", "ideal": "system", "base": "make the screen brighter", "variant": 0}
+{"id": "brightness-167", "text": "hey swift make the screen brighter", "category": "brightness", "ideal": "system", "base": "make the screen brighter", "variant": 1}
+{"id": "brightness-168", "text": "can you make the screen brighter", "category": "brightness", "ideal": "system", "base": "make the screen brighter", "variant": 2}
+{"id": "brightness-169", "text": "please make the screen brighter", "category": "brightness", "ideal": "system", "base": "make the screen brighter", "variant": 3}
+{"id": "radio-170", "text": "turn off wifi", "category": "radio", "ideal": "system", "base": "turn off wifi", "variant": 0}
+{"id": "radio-171", "text": "hey swift turn off wifi", "category": "radio", "ideal": "system", "base": "turn off wifi", "variant": 1}
+{"id": "radio-172", "text": "can you turn off wifi", "category": "radio", "ideal": "system", "base": "turn off wifi", "variant": 2}
+{"id": "radio-173", "text": "please turn off wifi", "category": "radio", "ideal": "system", "base": "turn off wifi", "variant": 3}
+{"id": "radio-174", "text": "turn on bluetooth", "category": "radio", "ideal": "system", "base": "turn on bluetooth", "variant": 0}
+{"id": "radio-175", "text": "hey swift turn on bluetooth", "category": "radio", "ideal": "system", "base": "turn on bluetooth", "variant": 1}
+{"id": "radio-176", "text": "can you turn on bluetooth", "category": "radio", "ideal": "system", "base": "turn on bluetooth", "variant": 2}
+{"id": "radio-177", "text": "please turn on bluetooth", "category": "radio", "ideal": "system", "base": "turn on bluetooth", "variant": 3}
+{"id": "radio-178", "text": "is my wifi on", "category": "radio", "ideal": "system", "base": "is my wifi on", "variant": 0}
+{"id": "radio-179", "text": "hey swift is my wifi on", "category": "radio", "ideal": "system", "base": "is my wifi on", "variant": 1}
+{"id": "radio-180", "text": "turn on airplane mode", "category": "radio", "ideal": "system", "base": "turn on airplane mode", "variant": 0}
+{"id": "radio-181", "text": "hey swift turn on airplane mode", "category": "radio", "ideal": "system", "base": "turn on airplane mode", "variant": 1}
+{"id": "radio-182", "text": "can you turn on airplane mode", "category": "radio", "ideal": "system", "base": "turn on airplane mode", "variant": 2}
+{"id": "radio-183", "text": "please turn on airplane mode", "category": "radio", "ideal": "system", "base": "turn on airplane mode", "variant": 3}
+{"id": "radio-184", "text": "bluetooth off", "category": "radio", "ideal": "system", "base": "bluetooth off", "variant": 0}
+{"id": "radio-185", "text": "hey swift bluetooth off", "category": "radio", "ideal": "system", "base": "bluetooth off", "variant": 1}
+{"id": "radio-186", "text": "can you bluetooth off", "category": "radio", "ideal": "system", "base": "bluetooth off", "variant": 2}
+{"id": "radio-187", "text": "please bluetooth off", "category": "radio", "ideal": "system", "base": "bluetooth off", "variant": 3}
+{"id": "focus-188", "text": "turn on do not disturb", "category": "focus", "ideal": "system", "base": "turn on do not disturb", "variant": 0}
+{"id": "focus-189", "text": "hey swift turn on do not disturb", "category": "focus", "ideal": "system", "base": "turn on do not disturb", "variant": 1}
+{"id": "focus-190", "text": "can you turn on do not disturb", "category": "focus", "ideal": "system", "base": "turn on do not disturb", "variant": 2}
+{"id": "focus-191", "text": "please turn on do not disturb", "category": "focus", "ideal": "system", "base": "turn on do not disturb", "variant": 3}
+{"id": "focus-192", "text": "focus mode on", "category": "focus", "ideal": "system", "base": "focus mode on", "variant": 0}
+{"id": "focus-193", "text": "hey swift focus mode on", "category": "focus", "ideal": "system", "base": "focus mode on", "variant": 1}
+{"id": "focus-194", "text": "can you focus mode on", "category": "focus", "ideal": "system", "base": "focus mode on", "variant": 2}
+{"id": "focus-195", "text": "please focus mode on", "category": "focus", "ideal": "system", "base": "focus mode on", "variant": 3}
+{"id": "lock-196", "text": "lock the computer", "category": "lock", "ideal": "system", "base": "lock the computer", "variant": 0}
+{"id": "lock-197", "text": "hey swift lock the computer", "category": "lock", "ideal": "system", "base": "lock the computer", "variant": 1}
+{"id": "lock-198", "text": "can you lock the computer", "category": "lock", "ideal": "system", "base": "lock the computer", "variant": 2}
+{"id": "lock-199", "text": "please lock the computer", "category": "lock", "ideal": "system", "base": "lock the computer", "variant": 3}
+{"id": "lock-200", "text": "lock my pc", "category": "lock", "ideal": "system", "base": "lock my pc", "variant": 0}
+{"id": "lock-201", "text": "hey swift lock my pc", "category": "lock", "ideal": "system", "base": "lock my pc", "variant": 1}
+{"id": "lock-202", "text": "can you lock my pc", "category": "lock", "ideal": "system", "base": "lock my pc", "variant": 2}
+{"id": "lock-203", "text": "please lock my pc", "category": "lock", "ideal": "system", "base": "lock my pc", "variant": 3}
+{"id": "power-204", "text": "shut down the computer", "category": "power", "ideal": "agent", "base": "shut down the computer", "variant": 0, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-205", "text": "hey swift shut down the computer", "category": "power", "ideal": "agent", "base": "shut down the computer", "variant": 1, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-206", "text": "can you shut down the computer", "category": "power", "ideal": "agent", "base": "shut down the computer", "variant": 2, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-207", "text": "please shut down the computer", "category": "power", "ideal": "agent", "base": "shut down the computer", "variant": 3, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-208", "text": "restart my pc", "category": "power", "ideal": "agent", "base": "restart my pc", "variant": 0, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-209", "text": "hey swift restart my pc", "category": "power", "ideal": "agent", "base": "restart my pc", "variant": 1, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-210", "text": "can you restart my pc", "category": "power", "ideal": "agent", "base": "restart my pc", "variant": 2, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-211", "text": "please restart my pc", "category": "power", "ideal": "agent", "base": "restart my pc", "variant": 3, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-212", "text": "put the computer to sleep", "category": "power", "ideal": "agent", "base": "put the computer to sleep", "variant": 0, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-213", "text": "hey swift put the computer to sleep", "category": "power", "ideal": "agent", "base": "put the computer to sleep", "variant": 1, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-214", "text": "can you put the computer to sleep", "category": "power", "ideal": "agent", "base": "put the computer to sleep", "variant": 2, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "power-215", "text": "please put the computer to sleep", "category": "power", "ideal": "agent", "base": "put the computer to sleep", "variant": 3, "must_not": "system", "note": "power actions need a confirmation: the agent's card for now"}
+{"id": "info-216", "text": "what's my battery", "category": "info", "ideal": "system", "base": "what's my battery", "variant": 0}
+{"id": "info-217", "text": "hey swift what's my battery", "category": "info", "ideal": "system", "base": "what's my battery", "variant": 1}
+{"id": "info-218", "text": "how much space do I have left", "category": "info", "ideal": "system", "base": "how much space do I have left", "variant": 0}
+{"id": "info-219", "text": "hey swift how much space do I have left", "category": "info", "ideal": "system", "base": "how much space do I have left", "variant": 1}
+{"id": "info-220", "text": "how much ram am I using", "category": "info", "ideal": "system", "base": "how much ram am I using", "variant": 0}
+{"id": "info-221", "text": "hey swift how much ram am I using", "category": "info", "ideal": "system", "base": "how much ram am I using", "variant": 1}
+{"id": "info-222", "text": "what's my cpu usage", "category": "info", "ideal": "system", "base": "what's my cpu usage", "variant": 0}
+{"id": "info-223", "text": "hey swift what's my cpu usage", "category": "info", "ideal": "system", "base": "what's my cpu usage", "variant": 1}
+{"id": "info-224", "text": "how long has my computer been on", "category": "info", "ideal": "system", "base": "how long has my computer been on", "variant": 0}
+{"id": "info-225", "text": "hey swift how long has my computer been on", "category": "info", "ideal": "system", "base": "how long has my computer been on", "variant": 1}
+{"id": "settings-226", "text": "open bluetooth settings", "category": "settings", "ideal": "system", "base": "open bluetooth settings", "variant": 0}
+{"id": "settings-227", "text": "hey swift open bluetooth settings", "category": "settings", "ideal": "system", "base": "open bluetooth settings", "variant": 1}
+{"id": "settings-228", "text": "can you open bluetooth settings", "category": "settings", "ideal": "system", "base": "open bluetooth settings", "variant": 2}
+{"id": "settings-229", "text": "please open bluetooth settings", "category": "settings", "ideal": "system", "base": "open bluetooth settings", "variant": 3}
+{"id": "settings-230", "text": "open the wi-fi settings", "category": "settings", "ideal": "system", "base": "open the wi-fi settings", "variant": 0}
+{"id": "settings-231", "text": "hey swift open the wi-fi settings", "category": "settings", "ideal": "system", "base": "open the wi-fi settings", "variant": 1}
+{"id": "settings-232", "text": "can you open the wi-fi settings", "category": "settings", "ideal": "system", "base": "open the wi-fi settings", "variant": 2}
+{"id": "settings-233", "text": "please open the wi-fi settings", "category": "settings", "ideal": "system", "base": "open the wi-fi settings", "variant": 3}
+{"id": "settings-234", "text": "open display settings", "category": "settings", "ideal": "system", "base": "open display settings", "variant": 0}
+{"id": "settings-235", "text": "hey swift open display settings", "category": "settings", "ideal": "system", "base": "open display settings", "variant": 1}
+{"id": "settings-236", "text": "can you open display settings", "category": "settings", "ideal": "system", "base": "open display settings", "variant": 2}
+{"id": "settings-237", "text": "please open display settings", "category": "settings", "ideal": "system", "base": "open display settings", "variant": 3}
+{"id": "settings-238", "text": "open settings", "category": "settings", "ideal": "system", "base": "open settings", "variant": 0}
+{"id": "settings-239", "text": "hey swift open settings", "category": "settings", "ideal": "system", "base": "open settings", "variant": 1}
+{"id": "settings-240", "text": "can you open settings", "category": "settings", "ideal": "system", "base": "open settings", "variant": 2}
+{"id": "settings-241", "text": "please open settings", "category": "settings", "ideal": "system", "base": "open settings", "variant": 3}
+{"id": "window-242", "text": "minimize this window", "category": "window", "ideal": "system", "base": "minimize this window", "variant": 0}
+{"id": "window-243", "text": "hey swift minimize this window", "category": "window", "ideal": "system", "base": "minimize this window", "variant": 1}
+{"id": "window-244", "text": "can you minimize this window", "category": "window", "ideal": "system", "base": "minimize this window", "variant": 2}
+{"id": "window-245", "text": "please minimize this window", "category": "window", "ideal": "system", "base": "minimize this window", "variant": 3}
+{"id": "window-246", "text": "show the desktop", "category": "window", "ideal": "system", "base": "show the desktop", "variant": 0}
+{"id": "window-247", "text": "hey swift show the desktop", "category": "window", "ideal": "system", "base": "show the desktop", "variant": 1}
+{"id": "window-248", "text": "can you show the desktop", "category": "window", "ideal": "system", "base": "show the desktop", "variant": 2}
+{"id": "window-249", "text": "please show the desktop", "category": "window", "ideal": "system", "base": "show the desktop", "variant": 3}
+{"id": "window-250", "text": "snap this window to the left", "category": "window", "ideal": "system", "base": "snap this window to the left", "variant": 0}
+{"id": "window-251", "text": "hey swift snap this window to the left", "category": "window", "ideal": "system", "base": "snap this window to the left", "variant": 1}
+{"id": "window-252", "text": "can you snap this window to the left", "category": "window", "ideal": "system", "base": "snap this window to the left", "variant": 2}
+{"id": "window-253", "text": "please snap this window to the left", "category": "window", "ideal": "system", "base": "snap this window to the left", "variant": 3}
+{"id": "window-254", "text": "maximize the window", "category": "window", "ideal": "system", "base": "maximize the window", "variant": 0}
+{"id": "window-255", "text": "hey swift maximize the window", "category": "window", "ideal": "system", "base": "maximize the window", "variant": 1}
+{"id": "window-256", "text": "can you maximize the window", "category": "window", "ideal": "system", "base": "maximize the window", "variant": 2}
+{"id": "window-257", "text": "please maximize the window", "category": "window", "ideal": "system", "base": "maximize the window", "variant": 3}
+{"id": "screenshot-258", "text": "take a screenshot", "category": "screenshot", "ideal": "system", "base": "take a screenshot", "variant": 0}
+{"id": "screenshot-259", "text": "hey swift take a screenshot", "category": "screenshot", "ideal": "system", "base": "take a screenshot", "variant": 1}
+{"id": "screenshot-260", "text": "can you take a screenshot", "category": "screenshot", "ideal": "system", "base": "take a screenshot", "variant": 2}
+{"id": "screenshot-261", "text": "please take a screenshot", "category": "screenshot", "ideal": "system", "base": "take a screenshot", "variant": 3}
+{"id": "search-262", "text": "search the web for pasta recipes", "category": "search", "ideal": "system", "base": "search the web for pasta recipes", "variant": 0}
+{"id": "search-263", "text": "hey swift search the web for pasta recipes", "category": "search", "ideal": "system", "base": "search the web for pasta recipes", "variant": 1}
+{"id": "search-264", "text": "can you search the web for pasta recipes", "category": "search", "ideal": "system", "base": "search the web for pasta recipes", "variant": 2}
+{"id": "search-265", "text": "please search the web for pasta recipes", "category": "search", "ideal": "system", "base": "search the web for pasta recipes", "variant": 3}
+{"id": "search-266", "text": "google best laptops 2026", "category": "search", "ideal": "system", "base": "google best laptops 2026", "variant": 0}
+{"id": "search-267", "text": "hey swift google best laptops 2026", "category": "search", "ideal": "system", "base": "google best laptops 2026", "variant": 1}
+{"id": "search-268", "text": "can you google best laptops 2026", "category": "search", "ideal": "system", "base": "google best laptops 2026", "variant": 2}
+{"id": "search-269", "text": "please google best laptops 2026", "category": "search", "ideal": "system", "base": "google best laptops 2026", "variant": 3}
+{"id": "search-270", "text": "search the codebase for every place we call transcribe", "category": "search", "ideal": "agent", "base": "search the codebase for every place we call transcribe", "variant": 0, "must_not": "system", "note": "not a web search"}
+{"id": "search-271", "text": "hey swift search the codebase for every place we call transcribe", "category": "search", "ideal": "agent", "base": "search the codebase for every place we call transcribe", "variant": 1, "must_not": "system", "note": "not a web search"}
+{"id": "search-272", "text": "can you search the codebase for every place we call transcribe", "category": "search", "ideal": "agent", "base": "search the codebase for every place we call transcribe", "variant": 2, "must_not": "system", "note": "not a web search"}
+{"id": "search-273", "text": "please search the codebase for every place we call transcribe", "category": "search", "ideal": "agent", "base": "search the codebase for every place we call transcribe", "variant": 3, "must_not": "system", "note": "not a web search"}
+{"id": "search-274", "text": "search my email for the invoice", "category": "search", "ideal": "agent", "base": "search my email for the invoice", "variant": 0, "must_not": "system", "note": "not a web search"}
+{"id": "search-275", "text": "hey swift search my email for the invoice", "category": "search", "ideal": "agent", "base": "search my email for the invoice", "variant": 1, "must_not": "system", "note": "not a web search"}
+{"id": "search-276", "text": "can you search my email for the invoice", "category": "search", "ideal": "agent", "base": "search my email for the invoice", "variant": 2, "must_not": "system", "note": "not a web search"}
+{"id": "search-277", "text": "please search my email for the invoice", "category": "search", "ideal": "agent", "base": "search my email for the invoice", "variant": 3, "must_not": "system", "note": "not a web search"}
+{"id": "time-278", "text": "what time is it", "category": "time", "ideal": "fast", "base": "what time is it", "variant": 0}
+{"id": "time-279", "text": "hey swift what time is it", "category": "time", "ideal": "fast", "base": "what time is it", "variant": 1}
+{"id": "time-280", "text": "what time is it in Tokyo", "category": "time", "ideal": "fast", "base": "what time is it in Tokyo", "variant": 0}
+{"id": "time-281", "text": "hey swift what time is it in Tokyo", "category": "time", "ideal": "fast", "base": "what time is it in Tokyo", "variant": 1}
+{"id": "time-282", "text": "what's the date", "category": "time", "ideal": "fast", "base": "what's the date", "variant": 0}
+{"id": "time-283", "text": "hey swift what's the date", "category": "time", "ideal": "fast", "base": "what's the date", "variant": 1}
+{"id": "time-284", "text": "what day is it tomorrow", "category": "time", "ideal": "fast", "base": "what day is it tomorrow", "variant": 0}
+{"id": "time-285", "text": "hey swift what day is it tomorrow", "category": "time", "ideal": "fast", "base": "what day is it tomorrow", "variant": 1}
+{"id": "time-286", "text": "how many days until Christmas", "category": "time", "ideal": "fast", "base": "how many days until Christmas", "variant": 0}
+{"id": "time-287", "text": "hey swift how many days until Christmas", "category": "time", "ideal": "fast", "base": "how many days until Christmas", "variant": 1}
+{"id": "maths-288", "text": "what's 15 percent of 80", "category": "maths", "ideal": "fast", "base": "what's 15 percent of 80", "variant": 0}
+{"id": "maths-289", "text": "hey swift what's 15 percent of 80", "category": "maths", "ideal": "fast", "base": "what's 15 percent of 80", "variant": 1}
+{"id": "maths-290", "text": "12 times 7", "category": "maths", "ideal": "fast", "base": "12 times 7", "variant": 0}
+{"id": "maths-291", "text": "hey swift 12 times 7", "category": "maths", "ideal": "fast", "base": "12 times 7", "variant": 1}
+{"id": "maths-292", "text": "please 12 times 7", "category": "maths", "ideal": "fast", "base": "12 times 7", "variant": 2}
+{"id": "maths-293", "text": "convert 5 km to miles", "category": "maths", "ideal": "fast", "base": "convert 5 km to miles", "variant": 0}
+{"id": "maths-294", "text": "hey swift convert 5 km to miles", "category": "maths", "ideal": "fast", "base": "convert 5 km to miles", "variant": 1}
+{"id": "maths-295", "text": "can you convert 5 km to miles", "category": "maths", "ideal": "fast", "base": "convert 5 km to miles", "variant": 2}
+{"id": "maths-296", "text": "please convert 5 km to miles", "category": "maths", "ideal": "fast", "base": "convert 5 km to miles", "variant": 3}
+{"id": "maths-297", "text": "what's 30 celsius in fahrenheit", "category": "maths", "ideal": "fast", "base": "what's 30 celsius in fahrenheit", "variant": 0}
+{"id": "maths-298", "text": "hey swift what's 30 celsius in fahrenheit", "category": "maths", "ideal": "fast", "base": "what's 30 celsius in fahrenheit", "variant": 1}
+{"id": "maths-299", "text": "square root of 144", "category": "maths", "ideal": "fast", "base": "square root of 144", "variant": 0}
+{"id": "maths-300", "text": "hey swift square root of 144", "category": "maths", "ideal": "fast", "base": "square root of 144", "variant": 1}
+{"id": "maths-301", "text": "please square root of 144", "category": "maths", "ideal": "fast", "base": "square root of 144", "variant": 2}
+{"id": "language-302", "text": "what's a synonym for happy", "category": "language", "ideal": "light", "base": "what's a synonym for happy", "variant": 0}
+{"id": "language-303", "text": "hey swift what's a synonym for happy", "category": "language", "ideal": "light", "base": "what's a synonym for happy", "variant": 1}
+{"id": "language-304", "text": "how do you say thank you in French", "category": "language", "ideal": "light", "base": "how do you say thank you in French", "variant": 0}
+{"id": "language-305", "text": "hey swift how do you say thank you in French", "category": "language", "ideal": "light", "base": "how do you say thank you in French", "variant": 1}
+{"id": "language-306", "text": "what does ubiquitous mean", "category": "language", "ideal": "light", "base": "what does ubiquitous mean", "variant": 0}
+{"id": "language-307", "text": "hey swift what does ubiquitous mean", "category": "language", "ideal": "light", "base": "what does ubiquitous mean", "variant": 1}
+{"id": "facts-308", "text": "who wrote Middlemarch", "category": "facts", "ideal": "light", "base": "who wrote Middlemarch", "variant": 0}
+{"id": "facts-309", "text": "hey swift who wrote Middlemarch", "category": "facts", "ideal": "light", "base": "who wrote Middlemarch", "variant": 1}
+{"id": "facts-310", "text": "what's the capital of Peru", "category": "facts", "ideal": "light", "base": "what's the capital of Peru", "variant": 0}
+{"id": "facts-311", "text": "hey swift what's the capital of Peru", "category": "facts", "ideal": "light", "base": "what's the capital of Peru", "variant": 1}
+{"id": "facts-312", "text": "how tall is Mount Everest", "category": "facts", "ideal": "light", "base": "how tall is Mount Everest", "variant": 0}
+{"id": "facts-313", "text": "hey swift how tall is Mount Everest", "category": "facts", "ideal": "light", "base": "how tall is Mount Everest", "variant": 1}
+{"id": "web-314", "text": "what's the weather today", "category": "web", "ideal": "web", "base": "what's the weather today", "variant": 0, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-315", "text": "hey swift what's the weather today", "category": "web", "ideal": "web", "base": "what's the weather today", "variant": 1, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-316", "text": "will it rain tomorrow", "category": "web", "ideal": "web", "base": "will it rain tomorrow", "variant": 0, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-317", "text": "hey swift will it rain tomorrow", "category": "web", "ideal": "web", "base": "will it rain tomorrow", "variant": 1, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-318", "text": "who won the football last night", "category": "web", "ideal": "web", "base": "who won the football last night", "variant": 0, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-319", "text": "hey swift who won the football last night", "category": "web", "ideal": "web", "base": "who won the football last night", "variant": 1, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-320", "text": "what's the latest news", "category": "web", "ideal": "web", "base": "what's the latest news", "variant": 0, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-321", "text": "hey swift what's the latest news", "category": "web", "ideal": "web", "base": "what's the latest news", "variant": 1, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-322", "text": "is the pharmacy open now", "category": "web", "ideal": "web", "base": "is the pharmacy open now", "variant": 0, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "web-323", "text": "hey swift is the pharmacy open now", "category": "web", "ideal": "web", "base": "is the pharmacy open now", "variant": 1, "note": "Phase I: web answers lane; today the agent answers in 7-18 s"}
+{"id": "email-324", "text": "email Ada saying I'll be late", "category": "email", "ideal": "agent", "base": "email Ada saying I'll be late", "variant": 0}
+{"id": "email-325", "text": "hey swift email Ada saying I'll be late", "category": "email", "ideal": "agent", "base": "email Ada saying I'll be late", "variant": 1}
+{"id": "email-326", "text": "can you email Ada saying I'll be late", "category": "email", "ideal": "agent", "base": "email Ada saying I'll be late", "variant": 2}
+{"id": "email-327", "text": "please email Ada saying I'll be late", "category": "email", "ideal": "agent", "base": "email Ada saying I'll be late", "variant": 3}
+{"id": "email-328", "text": "read my latest email", "category": "email", "ideal": "agent", "base": "read my latest email", "variant": 0}
+{"id": "email-329", "text": "hey swift read my latest email", "category": "email", "ideal": "agent", "base": "read my latest email", "variant": 1}
+{"id": "email-330", "text": "can you read my latest email", "category": "email", "ideal": "agent", "base": "read my latest email", "variant": 2}
+{"id": "email-331", "text": "please read my latest email", "category": "email", "ideal": "agent", "base": "read my latest email", "variant": 3}
+{"id": "email-332", "text": "reply to the last email from Sam", "category": "email", "ideal": "agent", "base": "reply to the last email from Sam", "variant": 0}
+{"id": "email-333", "text": "hey swift reply to the last email from Sam", "category": "email", "ideal": "agent", "base": "reply to the last email from Sam", "variant": 1}
+{"id": "email-334", "text": "can you reply to the last email from Sam", "category": "email", "ideal": "agent", "base": "reply to the last email from Sam", "variant": 2}
+{"id": "email-335", "text": "please reply to the last email from Sam", "category": "email", "ideal": "agent", "base": "reply to the last email from Sam", "variant": 3}
+{"id": "calendar-336", "text": "what's on my calendar tomorrow", "category": "calendar", "ideal": "agent", "base": "what's on my calendar tomorrow", "variant": 0}
+{"id": "calendar-337", "text": "hey swift what's on my calendar tomorrow", "category": "calendar", "ideal": "agent", "base": "what's on my calendar tomorrow", "variant": 1}
+{"id": "calendar-338", "text": "add a meeting with Sam on Friday at 3", "category": "calendar", "ideal": "agent", "base": "add a meeting with Sam on Friday at 3", "variant": 0}
+{"id": "calendar-339", "text": "hey swift add a meeting with Sam on Friday at 3", "category": "calendar", "ideal": "agent", "base": "add a meeting with Sam on Friday at 3", "variant": 1}
+{"id": "calendar-340", "text": "can you add a meeting with Sam on Friday at 3", "category": "calendar", "ideal": "agent", "base": "add a meeting with Sam on Friday at 3", "variant": 2}
+{"id": "calendar-341", "text": "please add a meeting with Sam on Friday at 3", "category": "calendar", "ideal": "agent", "base": "add a meeting with Sam on Friday at 3", "variant": 3}
+{"id": "calendar-342", "text": "move my 2 pm meeting to 4", "category": "calendar", "ideal": "agent", "base": "move my 2 pm meeting to 4", "variant": 0}
+{"id": "calendar-343", "text": "hey swift move my 2 pm meeting to 4", "category": "calendar", "ideal": "agent", "base": "move my 2 pm meeting to 4", "variant": 1}
+{"id": "calendar-344", "text": "can you move my 2 pm meeting to 4", "category": "calendar", "ideal": "agent", "base": "move my 2 pm meeting to 4", "variant": 2}
+{"id": "calendar-345", "text": "please move my 2 pm meeting to 4", "category": "calendar", "ideal": "agent", "base": "move my 2 pm meeting to 4", "variant": 3}
+{"id": "personal-346", "text": "find the hotel confirmation number in my email", "category": "personal", "ideal": "agent", "base": "find the hotel confirmation number in my email", "variant": 0, "note": "Phase I personal index would make these instant"}
+{"id": "personal-347", "text": "hey swift find the hotel confirmation number in my email", "category": "personal", "ideal": "agent", "base": "find the hotel confirmation number in my email", "variant": 1, "note": "Phase I personal index would make these instant"}
+{"id": "personal-348", "text": "can you find the hotel confirmation number in my email", "category": "personal", "ideal": "agent", "base": "find the hotel confirmation number in my email", "variant": 2, "note": "Phase I personal index would make these instant"}
+{"id": "personal-349", "text": "please find the hotel confirmation number in my email", "category": "personal", "ideal": "agent", "base": "find the hotel confirmation number in my email", "variant": 3, "note": "Phase I personal index would make these instant"}
+{"id": "personal-350", "text": "when is my flight", "category": "personal", "ideal": "agent", "base": "when is my flight", "variant": 0, "note": "Phase I personal index would make these instant"}
+{"id": "personal-351", "text": "hey swift when is my flight", "category": "personal", "ideal": "agent", "base": "when is my flight", "variant": 1, "note": "Phase I personal index would make these instant"}
+{"id": "writing-352", "text": "rewrite this more formally", "category": "writing", "ideal": "agent", "base": "rewrite this more formally", "variant": 0}
+{"id": "writing-353", "text": "hey swift rewrite this more formally", "category": "writing", "ideal": "agent", "base": "rewrite this more formally", "variant": 1}
+{"id": "writing-354", "text": "can you rewrite this more formally", "category": "writing", "ideal": "agent", "base": "rewrite this more formally", "variant": 2}
+{"id": "writing-355", "text": "please rewrite this more formally", "category": "writing", "ideal": "agent", "base": "rewrite this more formally", "variant": 3}
+{"id": "writing-356", "text": "write a haiku about tea here", "category": "writing", "ideal": "agent", "base": "write a haiku about tea here", "variant": 0}
+{"id": "writing-357", "text": "hey swift write a haiku about tea here", "category": "writing", "ideal": "agent", "base": "write a haiku about tea here", "variant": 1}
+{"id": "writing-358", "text": "can you write a haiku about tea here", "category": "writing", "ideal": "agent", "base": "write a haiku about tea here", "variant": 2}
+{"id": "writing-359", "text": "please write a haiku about tea here", "category": "writing", "ideal": "agent", "base": "write a haiku about tea here", "variant": 3}
+{"id": "files-360", "text": "tidy my downloads folder", "category": "files", "ideal": "agent", "base": "tidy my downloads folder", "variant": 0}
+{"id": "files-361", "text": "hey swift tidy my downloads folder", "category": "files", "ideal": "agent", "base": "tidy my downloads folder", "variant": 1}
+{"id": "files-362", "text": "can you tidy my downloads folder", "category": "files", "ideal": "agent", "base": "tidy my downloads folder", "variant": 2}
+{"id": "files-363", "text": "please tidy my downloads folder", "category": "files", "ideal": "agent", "base": "tidy my downloads folder", "variant": 3}
+{"id": "files-364", "text": "how big is my downloads folder", "category": "files", "ideal": "agent", "base": "how big is my downloads folder", "variant": 0}
+{"id": "files-365", "text": "hey swift how big is my downloads folder", "category": "files", "ideal": "agent", "base": "how big is my downloads folder", "variant": 1}
+{"id": "control-366", "text": "stop", "category": "control", "ideal": "control", "base": "stop", "variant": 0}
+{"id": "control-367", "text": "hey swift stop", "category": "control", "ideal": "control", "base": "stop", "variant": 1}
+{"id": "control-368", "text": "please stop", "category": "control", "ideal": "control", "base": "stop", "variant": 2}
+{"id": "control-369", "text": "never mind", "category": "control", "ideal": "control", "base": "never mind", "variant": 0}
+{"id": "control-370", "text": "hey swift never mind", "category": "control", "ideal": "control", "base": "never mind", "variant": 1}
+{"id": "control-371", "text": "please never mind", "category": "control", "ideal": "control", "base": "never mind", "variant": 2}
+{"id": "control-372", "text": "repeat that", "category": "control", "ideal": "control", "base": "repeat that", "variant": 0}
+{"id": "control-373", "text": "hey swift repeat that", "category": "control", "ideal": "control", "base": "repeat that", "variant": 1}
+{"id": "control-374", "text": "please repeat that", "category": "control", "ideal": "control", "base": "repeat that", "variant": 2}
+{"id": "excluded-375", "text": "call mum", "category": "excluded", "ideal": "excluded", "base": "call mum", "variant": 0, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-376", "text": "hey swift call mum", "category": "excluded", "ideal": "excluded", "base": "call mum", "variant": 1, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-377", "text": "can you call mum", "category": "excluded", "ideal": "excluded", "base": "call mum", "variant": 2, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-378", "text": "please call mum", "category": "excluded", "ideal": "excluded", "base": "call mum", "variant": 3, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-379", "text": "text Sam that I'm on my way", "category": "excluded", "ideal": "excluded", "base": "text Sam that I'm on my way", "variant": 0, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-380", "text": "hey swift text Sam that I'm on my way", "category": "excluded", "ideal": "excluded", "base": "text Sam that I'm on my way", "variant": 1, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-381", "text": "can you text Sam that I'm on my way", "category": "excluded", "ideal": "excluded", "base": "text Sam that I'm on my way", "variant": 2, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-382", "text": "please text Sam that I'm on my way", "category": "excluded", "ideal": "excluded", "base": "text Sam that I'm on my way", "variant": 3, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-383", "text": "take a photo", "category": "excluded", "ideal": "excluded", "base": "take a photo", "variant": 0, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-384", "text": "hey swift take a photo", "category": "excluded", "ideal": "excluded", "base": "take a photo", "variant": 1, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-385", "text": "can you take a photo", "category": "excluded", "ideal": "excluded", "base": "take a photo", "variant": 2, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-386", "text": "please take a photo", "category": "excluded", "ideal": "excluded", "base": "take a photo", "variant": 3, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-387", "text": "how many steps did I take today", "category": "excluded", "ideal": "excluded", "base": "how many steps did I take today", "variant": 0, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-388", "text": "hey swift how many steps did I take today", "category": "excluded", "ideal": "excluded", "base": "how many steps did I take today", "variant": 1, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-389", "text": "pay Sam 20 dollars", "category": "excluded", "ideal": "excluded", "base": "pay Sam 20 dollars", "variant": 0, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-390", "text": "hey swift pay Sam 20 dollars", "category": "excluded", "ideal": "excluded", "base": "pay Sam 20 dollars", "variant": 1, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-391", "text": "can you pay Sam 20 dollars", "category": "excluded", "ideal": "excluded", "base": "pay Sam 20 dollars", "variant": 2, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-392", "text": "please pay Sam 20 dollars", "category": "excluded", "ideal": "excluded", "base": "pay Sam 20 dollars", "variant": 3, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-393", "text": "navigate home", "category": "excluded", "ideal": "excluded", "base": "navigate home", "variant": 0, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-394", "text": "hey swift navigate home", "category": "excluded", "ideal": "excluded", "base": "navigate home", "variant": 1, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-395", "text": "can you navigate home", "category": "excluded", "ideal": "excluded", "base": "navigate home", "variant": 2, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}
+{"id": "excluded-396", "text": "please navigate home", "category": "excluded", "ideal": "excluded", "base": "navigate home", "variant": 3, "note": "phone, camera, health, wallet and car features don't carry over to a PC"}

@@ -55,6 +55,9 @@ POLICY: dict[str, Literal["confirm", "reversible"]] = {
     "fill_in_email": "reversible",
     "desktop_write": "reversible",
     "desktop_open": "reversible",
+    # ADR-016 §3: a system action the owner asked for, done by the agent. Turning a radio off asks.
+    "system_action": "reversible",
+    "system_action_disruptive": "confirm",
 }
 
 

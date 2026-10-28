@@ -196,7 +196,7 @@ HELP_TEXT = (
     "Hold the hotkey (or say “Hey Swift”) and ask for anything: questions, writing, your email and "
     "calendar, or changes in your project. Swift also does everyday things itself, instantly: timers, alarms "
     "and reminders (“remind me to call Sam at 5”), volume and music (“louder”, “next song”), "
-    "dark mode and brightness, locking the PC, battery and disk space, Windows settings (“open Bluetooth "
+    "dark mode and brightness, Wi-Fi and Bluetooth, locking the PC, battery and disk space, Windows settings (“open Bluetooth "
     "settings”), windows (“show the desktop”) and web searches. Say “undo that” to take "
     "a change back, “stop” or Esc to cancel, and “use opus” at the start for the strongest model."
 )
@@ -231,6 +231,16 @@ SHORT_AT_REST = frozenset({"stop", "cancel", "resume", "show_last", "repeat", "n
 # System intents that are naturally a word or two ("louder", "next song", "unmute"): kept like the
 # commands above. Only these: a short clip is the likeliest to be a guess, and these are reversible.
 SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
+
+
+# How long "Turn off Wi-Fi?" waits for a yes or no.
+SYSTEM_CONFIRM_S = 45.0
+_YES = re.compile(r"^(?:yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|confirm|turn it off|switch it off)\b")
+_NO = re.compile(r"^(?:no|nope|don'?t|do not|leave it|keep it|never ?mind|cancel|forget it)\b")
+
+
+def _normalize_answer(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s']", " ", strip_wake(text).lower()).split())
 
 
 def _brisk_system(text: str) -> bool:
@@ -728,6 +738,8 @@ class Session:
         # Whether the owner is away (ADR-014: ``hold_cards``), and what came due meanwhile: shown on return.
         self._away = False
         self._due_away: list[tuple[Item, bool]] = []
+        # A disruptive system change Swift asked about ("Turn off Wi-Fi?"): the intents, and when asked.
+        self._system_confirm: tuple[tuple[Any, ...], float] | None = None
         # What "show me" with no run going brings back: the last run with artifacts, or (when it
         # wrote in an app since) that app; the write it was set for (ADR-007 §10).
         self._last_shown: Run | None = None
@@ -2026,6 +2038,8 @@ class Session:
                 answered = self._answer_fix(decision, fix, record)
             if answered is not None:
                 decision, workflow = answered
+            if decision is not None and self._system_confirm is not None:
+                decision = self._system_answer(decision)  # "Turn off Wi-Fi?" just asked: yes or no
             if decision is not None and decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
                 decision = _to_agent(decision)
             if (
@@ -2290,7 +2304,7 @@ class Session:
         if action == "show_last":
             await self._show_last(decision, record)
             return
-        if action in ("system", "system_undo") and self.system is not None:
+        if action in ("system", "system_undo", "system_yes", "system_no") and self.system is not None:
             await self._system_lane(decision, record)
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
@@ -2324,16 +2338,46 @@ class Session:
         assert self.system is not None
         if decision.action == "system_undo":
             said, ok, record["intents"] = await self.system.undo(), True, ["undo"]
+        elif decision.action in ("system_yes", "system_no"):
+            assert self._system_confirm is not None
+            intents, self._system_confirm = self._system_confirm[0], None
+            record["intents"] = [i.name for i in intents]
+            if decision.action == "system_yes":
+                outcome = await self.system.confirmed(intents)
+                said, ok = outcome.said, outcome.ok
+            else:
+                said, ok = "Okay, I've left it as it is.", True
+            record["confirmed"] = decision.action == "system_yes"
         else:
             outcome = await self.system.run(decision.text)
             if outcome is None:  # parsing is deterministic, so this is a bug; say so rather than do nothing
                 said, ok, record["intents"] = "Sorry, I couldn't work that out.", False, []
             else:
                 said, ok, record["intents"] = outcome.said, outcome.ok, list(outcome.intents)
+                if outcome.pending:
+                    self._system_confirm = (outcome.pending, time.monotonic())
+                    record["asked"] = True
         record["status"] = "done" if ok else "error"
         if not ok:
             record["error"] = "system_failed"
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+
+    def _system_answer(self, decision: Route) -> Route:
+        """After "Turn off Wi-Fi?": yes runs it, no drops it, anything else drops the question and
+        goes on as said. Only within ``SYSTEM_CONFIRM_S``; a brisk short "yes" never reaches here
+        hands-free (``_short_kept``), the same rule as confirm cards."""
+        assert self._system_confirm is not None
+        if time.monotonic() - self._system_confirm[1] > SYSTEM_CONFIRM_S or self.system is None:
+            self._system_confirm = None
+            return decision
+        said = _normalize_answer(decision.text)
+        short = len(said.split()) <= 5  # "okay, what's the weather" is a new request, not a yes
+        if decision.action == "approve" or (short and _YES.match(said)):
+            return Route("local", decision.text, action="system_yes")
+        if decision.action in ("reject", "cancel") or (short and _NO.match(said)):
+            return Route("local", decision.text, action="system_no")
+        self._system_confirm = None
+        return decision
 
     async def notify_due(self, item: Item, missed: bool) -> None:
         """A timer, alarm or reminder came due (``Scheduler.run``): a sound, and a card once the
@@ -2727,6 +2771,7 @@ class Session:
             partial(self._for_run, run, self._swift_step),
         )
         # Only a follow-up, a correction or a resumed conversation shares a thread with what came before.
+        self._scope.said = str(record.get("transcript") or "")
         if (before := self._left.get(record.get("thread") or "")) is not None:
             self._scope.carry_from(before)
         CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it

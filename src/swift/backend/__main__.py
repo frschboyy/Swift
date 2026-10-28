@@ -334,6 +334,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)
+        if session.tools is not None:
+            session.tools.system = session.system  # the agent's system_action (ADR-016 §3)
     logger.info("backend ready", port=bound, debug=settings.debug, wake=wake.enabled)
 
     # Exit when Tauri closes our stdin (normal quit). The Job Object covers crashes.

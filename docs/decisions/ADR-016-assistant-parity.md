@@ -1,6 +1,6 @@
 # ADR-016: Closing the gap with a built-in assistant (proposal)
 
-- **Status:** Proposed; **Phase A1 is built** (§13, approved 2026-10-28). The rest needs the owner's go-ahead per phase and the decisions in §11.
+- **Status:** Proposed; **Phase A is built** (A1 §13, A2 §14; approved 2026-10-28). The rest needs the owner's go-ahead per phase and the decisions in §11.
 - **Date:** 2026-10-27
 - **Builds on:** ADR-007 (lanes), ADR-010 (gateway, artifacts), ADR-011 (workflows, connectors), ADR-012 (desktop), ADR-013 (attention), ADR-014 (presence)
 
@@ -356,7 +356,7 @@ Measured on the development laptop, real device: reads and clock operations 0–
 - **"What can you do?"** now lists the system lane.
 - **Overlay checked** in the dev harness: the due card renders. The harness lacked the `#rows` and `#stack` elements that `index.html` has, which threw on every card change; added.
 
-### 13.4 Not in A1 (still Phase A)
+### 13.4 Not in A1 (done in A2, §14, except where §14.4 says)
 
 - **Wi-Fi, Bluetooth, airplane mode and Focus assist** (`Windows.Devices.Radios` needs a WinRT bridge; no packaged one is installed). Next.
 - **The same actions as agent tools**, so a compound with one non-system part ("turn the volume down and write a haiku") can use them. They are still only reachable from the lane.
@@ -364,3 +364,32 @@ Measured on the development laptop, real device: reads and clock operations 0–
 - **Speaking** the reply and the alarm: Phase B. A due item is a chime and a card for now.
 - **The "should have been local" section in `report.py`** and the 400-case parity set (§9).
 - Timers do not pause or resume; no stopwatch; no recurring reminders.
+
+## 14. Phase A2: the rest of Phase A (2026-10-28)
+
+### 14.1 What was added
+
+| Piece | Where | Notes |
+|---|---|---|
+| Wi-Fi, Bluetooth, airplane mode | `system/control.py` (`radios`, `set_radio`), `intents.py` (`radio`, `radio.get`, `airplane`) | `Windows.Devices.Radios` through PowerShell's WinRT bridge: no new package, about 1 s a call (measured: read 1.2 s, set 0.9 s). Windows' own airplane switch has no app API, so "airplane mode" switches every radio and says so. |
+| Do Not Disturb / Focus | `intents.py` (`dnd`), `lane.py` | Windows keeps it in a private settings store with no supported API. Swift opens the setting and says why, rather than pretend. |
+| Asking first | `lane.py` (`Outcome.pending`, `question`, `confirmed`), `session.py` (`_system_answer`) | Wi-Fi or Bluetooth off, airplane mode on: "Turn off Wi-Fi?" Yes (or "go ahead", "do it") within 45 s does it; no drops it; anything else drops the question and goes on as said. "Okay, what's…" with more than five words is a new request, not a yes. |
+| Agent tool | `workflows/system_tools.py` (`system_action`) | Same grammar; only intents found, with the same details, in a clause of the owner's own request. Through the gateway: reversible, or the confirm card for disruptive ones. Workflow capability `system.action`. |
+| Report | `spikes/owner_checks/report.py` | Requests and median time per lane; agent runs Swift could now answer itself ("now local") or partly ("partly system"). |
+| Parity set | `eval/parity/` (`build.py`, `parity.jsonl`, `score.py`, `passing.txt`) | 397 requests from §1.1 translated to a PC, each with its *ideal* lane, phrasing variants, `must_not` for harmful lanes, and 22 excluded rows with the reason. `tests/unit/test_parity.py` is a ratchet: what passes stays passing, nothing harmful. |
+
+### 14.2 Where parity stands (router, 2026-10-28)
+
+`uv run python eval/parity/score.py`: **365 of 375 (97.3%)** take the lane they should, 0 harmful. All 10 misses are current-information questions ("what's the weather", "who won last night") that need the Phase I web lane; today the agent answers them in 7–18 s.
+
+Read this number with care: the set was written by the same person as the grammar, so it measures coverage of the phrasings we thought of. The real test is the owner's own requests: the report's "Agent runs Swift could answer itself" list, after a day of normal use, is the next source of cases.
+
+### 14.3 Checked, and not
+
+- Real device: radios read (1.2 s) and set to their current state (0.9 s) on the development laptop. Not switched off for real (it would cut this session's connection).
+- **Owner check (REQUIRES-HW):** "turn off Bluetooth" → the question → "yes" → Bluetooth off; "undo that" → back on. "Turn on airplane mode" → question → "no" → nothing changes. "Turn on do not disturb" → Settings opens on Notifications. A mixed request, "turn the volume down and write a haiku about tea", with Claude Code: the volume changes and the haiku comes back.
+
+### 14.4 Still not done
+
+- Timers don't pause or resume; no stopwatch; no recurring reminders (the agent can set those up in the calendar).
+- Asking for a missing detail ("For how long?") waits for Phase C; speaking replies and alarms for Phase B.

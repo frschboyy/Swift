@@ -30,6 +30,7 @@ import psutil
 
 WindowAction = Literal["minimize", "maximize", "restore", "desktop", "snap_left", "snap_right"]
 MediaKey = Literal["play_pause", "next", "prev"]
+Radio = Literal["wifi", "bluetooth"]
 
 
 class SystemUnavailable(Exception):
@@ -113,6 +114,13 @@ class SystemControl:
     async def screenshot(self) -> None:
         raise SystemUnavailable("I can't take a screenshot here.")
 
+    async def radios(self) -> dict[Radio, bool]:
+        """Each radio this PC has, and whether it is on ("wifi", "bluetooth")."""
+        raise SystemUnavailable("I can't read the radios here.")
+
+    async def set_radio(self, kind: Radio, on: bool) -> None:
+        raise SystemUnavailable("I can't switch radios here.")
+
     async def chime(self, repeat: int = 3) -> None:
         """A short sound for a timer, alarm or reminder that is due."""
 
@@ -134,6 +142,7 @@ class FakeSystem(SystemControl):
     ram_used: float = 9.1
     ram_total: float = 16.0
     uptime: float = 3 * 3600 + 25 * 60
+    radio_state: dict[Radio, bool] = field(default_factory=lambda: {"wifi": True, "bluetooth": True})
     calls: list[tuple[str, tuple]] = field(default_factory=list)
 
     def _log(self, name: str, *args: object) -> None:
@@ -209,6 +218,15 @@ class FakeSystem(SystemControl):
 
     async def screenshot(self) -> None:
         self._log("screenshot")
+
+    async def radios(self) -> dict[Radio, bool]:
+        return dict(self.radio_state)
+
+    async def set_radio(self, kind: Radio, on: bool) -> None:
+        self._log("set_radio", kind, on)
+        if kind not in self.radio_state:
+            raise SystemUnavailable(f"This PC has no {'Wi-Fi' if kind == 'wifi' else 'Bluetooth'}.")
+        self.radio_state[kind] = on
 
     async def chime(self, repeat: int = 3) -> None:
         self._log("chime", repeat)
@@ -306,6 +324,46 @@ def _endpoint(kind: str):
 def _ps(script: str, timeout: float = 8.0) -> str:
     done = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True, text=True, timeout=timeout, creationflags=_NO_WINDOW, check=False,
+    )
+    if done.returncode != 0:
+        raise SystemUnavailable("Windows didn't accept that.")
+    return done.stdout.strip()
+
+
+# Windows.Devices.Radios through PowerShell's WinRT bridge: no extra package. About 1 s a call.
+_RADIO_PRELUDE = r"""
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
+function Await($op, [Type]$t) { $task = $asTask.MakeGenericMethod($t).Invoke($null, @($op)); $task.Wait(-1) | Out-Null; $task.Result }
+[Windows.Devices.Radios.Radio,Windows.System.Devices,ContentType=WindowsRuntime] | Out-Null
+$access = Await ([Windows.Devices.Radios.Radio]::RequestAccessAsync()) ([Windows.Devices.Radios.RadioAccessStatus])
+if ($access -ne 'Allowed') { Write-Output "denied"; exit 0 }
+$radios = Await ([Windows.Devices.Radios.Radio]::GetRadiosAsync()) ([System.Collections.Generic.IReadOnlyList[Windows.Devices.Radios.Radio]])
+"""
+_RADIO_LIST = _RADIO_PRELUDE + r"""
+foreach ($r in $radios) { Write-Output "$($r.Kind)|$($r.State)" }
+"""
+_RADIO_SET = _RADIO_PRELUDE + r"""
+$done = 0
+foreach ($r in $radios) {
+  if ($r.Kind -eq '__KIND__') {
+    $res = Await ($r.SetStateAsync([Windows.Devices.Radios.RadioState]::__STATE__)) ([Windows.Devices.Radios.RadioAccessStatus])
+    Write-Output "set|$res"; $done = 1
+  }
+}
+if ($done -eq 0) { Write-Output "none" }
+"""
+_RADIO_KIND = {"wifi": "WiFi", "bluetooth": "Bluetooth"}
+
+
+def _ps_script(script: str, timeout: float = 15.0) -> str:
+    """Run a longer PowerShell script (passed encoded, so quoting can't break it)."""
+    import base64
+
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    done = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
         capture_output=True, text=True, timeout=timeout, creationflags=_NO_WINDOW, check=False,
     )
     if done.returncode != 0:
@@ -453,6 +511,33 @@ class WindowsSystem(SystemControl):
 
     async def screenshot(self) -> None:
         await asyncio.to_thread(_keys, _VK_WIN, _VK_SHIFT, _VK_S)
+
+    async def radios(self) -> dict[Radio, bool]:
+        try:
+            out = await asyncio.to_thread(_ps_script, _RADIO_LIST)
+        except subprocess.SubprocessError as exc:
+            raise SystemUnavailable("Windows didn't answer about the radios.") from exc
+        if out == "denied":
+            raise SystemUnavailable("Windows doesn't let Swift control the radios. Check Settings, Privacy, Radios.")
+        found: dict[Radio, bool] = {}
+        for line in out.splitlines():
+            kind, _, state = line.partition("|")
+            for name, winrt in _RADIO_KIND.items():
+                if kind.strip() == winrt:
+                    found[name] = found.get(name, False) or state.strip() == "On"  # type: ignore[index]
+        return found
+
+    async def set_radio(self, kind: Radio, on: bool) -> None:
+        script = _RADIO_SET.replace("__KIND__", _RADIO_KIND[kind]).replace("__STATE__", "On" if on else "Off")
+        try:
+            out = await asyncio.to_thread(_ps_script, script)
+        except subprocess.SubprocessError as exc:
+            raise SystemUnavailable("Windows didn't answer about the radios.") from exc
+        name = "Wi-Fi" if kind == "wifi" else "Bluetooth"
+        if out == "none":
+            raise SystemUnavailable(f"This PC has no {name}.")
+        if out == "denied" or "Allowed" not in out:
+            raise SystemUnavailable(f"Windows didn't let Swift switch {name}. Check Settings, Privacy, Radios.")
 
     async def chime(self, repeat: int = 3) -> None:
         if sys.platform != "win32":

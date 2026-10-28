@@ -86,7 +86,8 @@ WORKFLOW_PROMPT = (
     " Swift has its own tools for the user's accounts and apps (mcp__swift__*). For email, use only them: "
     "find_contact to get an address (never type one yourself), draft_email to write it, then send_email; "
     "Swift shows the user the draft and sends only if they approve. To work in the app the user is in "
-    "(write here, open this), use the desktop_* tools. If a Swift tool says something wasn't "
+    "(write here, open this), use the desktop_* tools. For a timer, reminder, volume, music, dark mode, "
+    "Wi-Fi or other PC action the user asked for, use system_action with their words. If a Swift tool says something wasn't "
     "done, don't try another way: say so in your answer."
 )
 # Claude Code's own tools a workflow can declare: tool -> capability (ADR-011 §7.1).

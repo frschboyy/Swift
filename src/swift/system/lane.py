@@ -41,7 +41,7 @@ UNDO_S = 600.0
 # Intents that change the device or reach outside Swift: journaled.
 CHANGES = frozenset({
     "volume.step", "volume.set", "mute", "media", "theme", "brightness.set", "brightness.step", "lock",
-    "settings", "window", "screenshot", "search",
+    "settings", "window", "screenshot", "search", "radio", "airplane", "dnd",
 })
 # Where an intent sends something beyond this PC (the journal's ``domains``).
 DOMAINS = {"search": ["google.com"]}
@@ -53,6 +53,8 @@ class Outcome:
     ok: bool = True
     # Intent names that ran, for the interaction log ("timer.set", "volume.step").
     intents: tuple[str, ...] = ()
+    # Asked about, not done ("Turn off Wi-Fi?"): run them with ``SystemLane.confirmed`` on a yes.
+    pending: tuple[it.Intent, ...] = ()
 
 
 Undo = Callable[[], Awaitable[str]]
@@ -95,14 +97,38 @@ class SystemLane:
         )
 
     async def run(self, text: str) -> Outcome | None:
+        """Carry out what the owner said. A disruptive change (Wi-Fi or Bluetooth off, airplane mode
+        on) is not done: the outcome asks, and holds the intents in ``pending`` for ``confirmed``."""
         found = it.parse(text)
         if found is None:
             return None
+        if any(it.disruptive(i) for i in found):
+            return Outcome(await self.question(found), True, tuple(i.name for i in found), pending=tuple(found))
+        return await self._execute(found)
+
+    async def confirmed(self, intents: tuple[it.Intent, ...]) -> Outcome:
+        """The owner said yes to what ``run`` asked about."""
+        return await self._execute(list(intents))
+
+    async def run_intents(self, intents: list[it.Intent]) -> Outcome:
+        """For the agent's ``system_action`` tool: the gateway already confirmed and journals it."""
+        return await self._execute(intents, journaled=False)
+
+    async def question(self, found: list[it.Intent]) -> str:
+        names = {i.name: i for i in found}
+        if "airplane" in names:
+            return "That turns off Wi-Fi and Bluetooth, and Swift needs the internet for most requests. Turn on airplane mode?"
+        radio = next(i for i in found if it.disruptive(i))
+        if radio["kind"] == "wifi":
+            return "Swift needs the internet for most requests, so you'd only have quick commands until it's back. Turn off Wi-Fi?"
+        return "A Bluetooth headset, mouse or keyboard would disconnect. Turn off Bluetooth?"
+
+    async def _execute(self, found: list[it.Intent], journaled: bool = True) -> Outcome:
         said: list[str] = []
         undos: list[Undo] = []
         ok = True
         for intent in found:
-            action_id = self._pending(intent.name)
+            action_id = self._pending(intent.name) if journaled else None
             failed: str | None = None
             try:
                 line, undo = await self._do(intent)
@@ -376,6 +402,58 @@ class SystemLane:
     async def _search(self, i: it.Intent) -> tuple[str, Undo | None]:
         await self.control.open_uri(i["url"])
         return f"Searching the web for {i['query']}.", None
+
+    # ---- radios, airplane mode, Do Not Disturb -----------------------------------------
+
+    @staticmethod
+    def _radio_name(kind: str) -> str:
+        return "Wi-Fi" if kind == "wifi" else "Bluetooth"
+
+    async def _radio(self, i: it.Intent) -> tuple[str, Undo | None]:
+        kind, on, name = i["kind"], i["on"], self._radio_name(i["kind"])
+        state = await self.control.radios()
+        if kind not in state:
+            return f"This PC has no {name}.", None
+        if state[kind] == on:
+            return f"{name} is already {'on' if on else 'off'}.", None
+        await self.control.set_radio(kind, on)
+
+        async def undo() -> str:
+            await self.control.set_radio(kind, not on)
+            return f"{name} back {'off' if on else 'on'}."
+        return f"{name} {'on' if on else 'off'}.", undo
+
+    async def _radio_get(self, i: it.Intent) -> tuple[str, Undo | None]:
+        state = await self.control.radios()
+        name = self._radio_name(i["kind"])
+        if i["kind"] not in state:
+            return f"This PC has no {name}.", None
+        return f"{name} is {'on' if state[i['kind']] else 'off'}.", None
+
+    async def _airplane(self, i: it.Intent) -> tuple[str, Undo | None]:
+        """Windows' own airplane switch has no API for apps: this switches every radio instead, and says so."""
+        before = await self.control.radios()
+        if not before:
+            return "This PC has no radios to switch.", None
+        want = not i["on"]
+        changed = [k for k, v in before.items() if v != want]
+        for kind in changed:
+            await self.control.set_radio(kind, want)
+        names = " and ".join(self._radio_name(k) for k in before)
+        if not changed:
+            return f"{names} {'are' if len(before) > 1 else 'is'} already {'on' if want else 'off'}.", None
+
+        async def undo() -> str:
+            for kind in changed:
+                await self.control.set_radio(kind, before[kind])
+            return "Radios back as they were."
+        verb = "on" if want else "off"
+        return f"{names} {'are' if len(before) > 1 else 'is'} {verb}" + (" (airplane mode)." if not want else "."), undo
+
+    async def _dnd(self, i: it.Intent) -> tuple[str, Undo | None]:
+        # Do Not Disturb lives in Windows' private settings store: no supported way for an app to switch it.
+        await self.control.open_uri("ms-settings:notifications")
+        return "Windows doesn't let apps switch Do Not Disturb, so I've opened the setting: it's the switch at the top.", None
 
     # ---- something due ------------------------------------------------------------------
 

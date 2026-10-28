@@ -39,7 +39,7 @@ _LEAD = re.compile(
     r"|one more thing|actually)\b[\s,]*)+"
 )
 _ASK = re.compile(
-    r"^(?:(?:can|could|would|will) you (?:please )?(?:tell me|work out|figure out|calculate|check|say)|do you know"
+    r"^(?:(?:can|could|would|will) you (?:please )?(?:tell me|work out|figure out|calculate|check|say|(?=convert\b))|do you know"
     r"|tell me|i(?:'d| would) like to know|i want to know|i need to know|please|quickly)\b[\s,]*"
 )
 _TAIL = re.compile(r"(?:[\s,]+(?:please|then|again|for me|swift|thanks|thank you))+$")

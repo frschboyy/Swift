@@ -283,6 +283,49 @@ def _overlapping(rows: list[dict[str, Any]]) -> int:
     return sum(1 for i, (start, _) in enumerate(spans) if any(s < start < e for s, e in spans[:i]))
 
 
+# ---- lanes (ADR-016 §9.2): which path each request took, and which agent runs needn't have ----
+
+
+def lane_of(r: dict[str, Any]) -> str:
+    route, action = r.get("route"), r.get("action")
+    if route == "local":
+        return {"system": "system", "system_undo": "system", "system_yes": "system", "system_no": "system",
+                "answer": "fast"}.get(action or "", "local")
+    if route == "agent" and r.get("workflow"):
+        return "workflow"
+    return route or "-"
+
+
+def lanes(rows: list[dict[str, Any]]) -> dict[str, tuple[int, int | None]]:
+    """Lane -> (requests, median interaction_ms)."""
+    by: dict[str, list[int]] = {}
+    for r in rows:
+        by.setdefault(lane_of(r), []).append(int(r.get("interaction_ms") or 0))
+    out: dict[str, tuple[int, int | None]] = {}
+    for lane, times in sorted(by.items(), key=lambda kv: -len(kv[1])):
+        known = sorted(t for t in times if t)
+        out[lane] = (len(times), known[len(known) // 2] if known else None)
+    return out
+
+
+def could_be_local(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Agent or light runs that the router (as it is now) would answer locally, or that had a part
+    the system lane can do ("agent did it"). (verdict, transcript): "now local" or "partly system"."""
+    from swift.routing import route
+    from swift.workflows.system_tools import owner_intents
+
+    out: list[tuple[str, str]] = []
+    for r in rows:
+        text = r.get("transcript") or ""
+        if not text or lane_of(r) not in ("agent", "light", "workflow"):
+            continue
+        if route(text).route != "agent":
+            out.append(("now local", text))
+        elif owner_intents(text):
+            out.append(("partly system", text))
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", required=True, help="HH:MM, the time you started the checks")
@@ -300,6 +343,13 @@ def main() -> None:
     print("\nChecks (docs/testing/owner-checks.md)\n")
     for name, ok, note in checks(rows, log):
         print(f"  {'PASS    ' if ok else 'NOT SEEN'}  {name}" + (f"   ({note})" if note else ""))
+    print("\nLanes: requests, median time to the answer\n")
+    for lane, (n, ms) in lanes(rows).items():
+        print(f"  {lane:9} {n:4}   {'-' if ms is None else f'{ms / 1000:.1f} s'}")
+    missed = could_be_local(rows)
+    print(f"\nAgent runs Swift could answer itself now: {len(missed)} (ADR-016 §3.4: add the rest to the grammar)")
+    for verdict, text in missed[:20]:
+        print(f"  {verdict:13}  {text[:90]}")
     problems = [line for line in log if "| WARNING" in line or "| ERROR" in line]
     print(f"\nWarnings and errors in swift.log: {len(problems)}")
     for line in problems[-10:]:

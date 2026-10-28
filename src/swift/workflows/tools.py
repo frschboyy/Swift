@@ -501,6 +501,8 @@ class ToolHost:
         self.calendar = calendar
         self.desktop = desktop
         self.opener = opener
+        # The system lane (ADR-016 §3), for ``system_action``; set by the backend. None: not offered.
+        self.system: Any = None
         # Open scopes, oldest first, and the provider run ids bound to them.
         self.scopes: list[RunScope] = []
         self._bound: dict[str, RunScope] = {}

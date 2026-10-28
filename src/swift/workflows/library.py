@@ -67,6 +67,7 @@ CAPABILITIES: dict[str, tuple[str | None, Risk]] = {
     "desktop.context": ("desktop_context", "read"),
     "desktop.write": ("desktop_write", "reversible"),
     "desktop.open": ("desktop_open", "reversible"),
+    "system.action": ("system_action", "reversible"),
     "web.search": (None, "read"),
     "web.fetch": (None, "read"),
 }

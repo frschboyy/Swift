@@ -79,6 +79,8 @@ class RunScope:
     # Actions the gateway did in this run that needed the owner's approval, as (tool, title):
     # a sent email can't be taken back, so a change of mind afterwards is told so (ADR-014 §7).
     done: list[tuple[str, str]] = field(default_factory=list)
+    # The owner's own words for this request (the transcript): ``system_action`` does only what they asked.
+    said: str = ""
 
     def allows(self, tool: str) -> bool:
         return self.grant is None or tool in self.grant.tools

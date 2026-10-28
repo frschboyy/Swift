@@ -535,12 +535,70 @@ def _device(t: str) -> Intent | None:
     return None
 
 
+# ---- radios and Do Not Disturb (ADR-016 §3.2, Phase A2) ---------------------------------------
+
+_RADIO = r"(?:the |my )?(?P<radio>wi-?fi|wi fi|wireless|bluetooth|blue tooth)"
+_ONOFF = r"(?P<onoff>on|off)"
+_RADIO_SWITCH = [
+    re.compile(rf"(?:turn|switch|toggle|put|flip) {_RADIO} {_ONOFF}(?: now)?"),
+    re.compile(rf"(?:turn|switch|put|flip) {_ONOFF} {_RADIO}(?: now)?"),
+    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect) {_RADIO}"),
+    re.compile(rf"{_RADIO} {_ONOFF}"),
+]
+_RADIO_GET = re.compile(rf"(?:(?:is|are) {_RADIO} (?:on|off|enabled|working|switched on|turned on)"
+                        rf"|(?:what'?s|what is|check) {_RADIO.replace('radio>', 'radio2>')}(?: status| state)?)")
+_PLANE = r"(?:the )?(?:airplane|aeroplane|flight|plane) mode"
+_AIRPLANE = [
+    re.compile(rf"(?:turn|switch|put|flip) {_ONOFF} {_PLANE}"),
+    re.compile(rf"(?:turn|switch|put|flip) {_PLANE} {_ONOFF}"),
+    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|start|stop|exit|leave) {_PLANE}"),
+    re.compile(rf"{_PLANE} {_ONOFF}"),
+    re.compile(rf"(?:go|put (?:it|the (?:computer|pc|laptop)))(?: in| into) {_PLANE}"),
+]
+_DND = r"(?:do not disturb|dnd|focus(?: mode| assist)?)"
+_DND_SWITCH = [
+    re.compile(rf"(?:turn|switch|put|flip) {_ONOFF} {_DND}"),
+    re.compile(rf"(?:turn|switch|put|flip) {_DND} {_ONOFF}"),
+    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|start|stop) {_DND}"),
+    re.compile(rf"{_DND} {_ONOFF}"),
+]
+_OFF_VERBS = ("disable", "deactivate", "disconnect", "stop", "exit", "leave")
+
+
+def _on(m: re.Match[str]) -> bool:
+    g = m.groupdict()
+    if g.get("onoff"):
+        return g["onoff"] == "on"
+    return g.get("verb") not in _OFF_VERBS
+
+
+def _radios(t: str) -> Intent | None:
+    for pattern in _RADIO_SWITCH:
+        if m := pattern.fullmatch(t):
+            kind = "bluetooth" if "blue" in m.group("radio") else "wifi"
+            return Intent("radio", {"kind": kind, "on": _on(m)})
+    if m := _RADIO_GET.fullmatch(t):
+        return Intent("radio.get", {"kind": "bluetooth" if "blue" in (m.group("radio") or m.group("radio2")) else "wifi"})
+    for pattern in _AIRPLANE:
+        if m := pattern.fullmatch(t):
+            return Intent("airplane", {"on": _on(m)})
+    for pattern in _DND_SWITCH:
+        if m := pattern.fullmatch(t):
+            return Intent("dnd", {"on": _on(m)})
+    return None
+
+
+# Changes that take something away the owner may be relying on: Swift asks first (ADR-016 §3.1).
+def disruptive(intent: Intent) -> bool:
+    return (intent.name == "radio" and not intent["on"]) or (intent.name == "airplane" and intent["on"])
+
+
 def parse_one(text: str) -> Intent | None:
     """One intent from the whole of ``text``, or None."""
     t = normalize(text)
     if not t or len(t) > 160:
         return None
-    return _schedule(t) or _sound(t) or _display(t) or _device(t)
+    return _schedule(t) or _sound(t) or _display(t) or _radios(t) or _device(t)
 
 
 _SPLIT = re.compile(r"\s+(?:and then|and also|and|then|also|,)\s+|\s*,\s*(?:and |then )?")

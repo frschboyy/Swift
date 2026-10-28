@@ -70,11 +70,14 @@ class SttSettings(_Section):
     # noisy_db dBFS) takes a second "approve" or a click: with a TV on, "stop" was once
     # heard as "sure". Rejecting is never held up.
     noisy_db: float = Field(-50.0, le=0.0)
-    # Debug: keep every push-to-talk recording as a WAV file in audio_dir.
+    # Debug: keep every recording for audio.keep_days, not only the useful ones (audio.keep_all).
     save_audio: bool = False
     audio_dir: str = "%LOCALAPPDATA%/Swift/audio"
+    # Clips with words the owner gave (a repeat, a correction), kept after audio.keep_days to check
+    # transcription against (swift/stt/recordings.py). At most audio.test_set_max, oldest dropped first.
+    test_set_dir: str = "%LOCALAPPDATA%/Swift/stt_testset"
 
-    @field_validator("audio_dir", "word_fixes_file")
+    @field_validator("audio_dir", "word_fixes_file", "test_set_dir")
     @classmethod
     def _expand(cls, v: str) -> str:
         return expand(v)
@@ -91,6 +94,16 @@ class AudioSettings(_Section):
     # A short soft chime the moment Swift hears "hey Swift" or the hotkey (false: the overlay's
     # "Listening…" only).
     chime: bool = True
+    # Recordings (audit B-06, swift/stt/recordings.py): a clip is kept only when it can improve
+    # transcription (heard unsurely, "say it again", repeated or corrected, a missed wake phrase, a
+    # failed request), and for this many days at most. 0: no recording is saved. Never leaves the PC.
+    keep_days: int = Field(7, ge=0, le=90)
+    # Keep every recording for keep_days, useful or not (debugging; stt.save_audio means the same).
+    keep_all: bool = False
+    # Useful clips with known words, kept as a test set after keep_days (oldest dropped first).
+    test_set_max: int = Field(200, ge=0, le=2000)
+    # The improvement pass (word fixes to approve, an accuracy check): once a week, while idle.
+    improve_weekly: bool = True
 
 
 class WakeSettings(_Section):

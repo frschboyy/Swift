@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import re
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -134,6 +135,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     watched = [line for line in log if "| live view |" in line and "open=True" in line]
     live_stopped = [line for line in log if "| request stopped from the live view |" in line]
     live_app = [line for line in log if "| live view: app shown |" in line and "shown=True" in line]
+
+    # Saved recordings (audit B-06): counts and flags only.
+    swept = [line for line in log if "| recordings swept |" in line]
+    clip_flags = Counter(f for r in rows for f in r.get("clip_flags") or [])
+    to_test_set = [line for line in log if "| recordings: added to the test set |" in line]
+    missed_wake = [line for line in log if "| recordings: missed wake phrase kept |" in line]
+    improve_runs = [line for line in log if "| improvement pass |" in line]
+    fixes_decided = [line for line in log if "| word fixes decided |" in line]
+    cleared = [line for line in log if "| recordings cleared |" in line]
 
     def answered(tool: str, decision: str = "approve") -> bool:
         return (tool, decision) in approved
@@ -311,6 +321,17 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("93 Watch on a card or chip opened a live view", bool(watched), f"{len(watched)} time(s)"),
         ("94 Stop in a live view stopped that request", bool(live_stopped), f"{len(live_stopped)} time(s)"),
         ("95 Show in Word from the live view", bool(live_app), f"{len(live_app)} time(s)"),
+        # Saved recordings (audit B-06).
+        ("110 old recordings swept at start-up", bool(swept),
+         f"{sum(_counter(line, 'deleted_old') for line in swept)} old, "
+         f"{sum(_counter(line, 'deleted_unflagged') for line in swept)} unflagged deleted over {len(swept)} sweep(s)"),
+        ("111-113 clips flagged as useful", bool(clip_flags),
+         ", ".join(f"{k} {n}" for k, n in sorted(clip_flags.items())) or "none"),
+        ("112-113 a repeat or correction gave a clip its words", bool(to_test_set), f"{len(to_test_set)} added to the test set"),
+        ("114 a missed wake phrase was kept", bool(missed_wake), f"{len(missed_wake)} time(s)"),
+        ("115 the improvement pass ran", bool(improve_runs),
+         f"{len(improve_runs)} pass(es), {len(fixes_decided)} word-fix card(s) answered"),
+        ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
     ]
 
 

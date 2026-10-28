@@ -165,6 +165,7 @@ export type Outbound =
   | { type: "speech.stop"; data: Record<string, never> }
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
   | { type: "listen"; data: { on: boolean } }
+  | { type: "recordings"; data: { action: "clear" | "improve" } }
   // ADR-017 §7: a live view opened or closed (for the log), its Stop (that request only), and
   // its "Show in Word" (the app the request writes in, to the front).
   | { type: "watch"; data: { run_id: string; open: boolean } }

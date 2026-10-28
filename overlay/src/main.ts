@@ -713,6 +713,15 @@ async function trayAction(op: string, value?: string): Promise<void> {
       tray = null;
       restartSwift();
       break;
+    // Saved recordings (audit B-06): the backend answers with a card.
+    case "improve":
+      tray = null;
+      client.send({ type: "recordings", data: { action: "improve" } });
+      break;
+    case "clear-recordings":
+      tray = null;
+      client.send({ type: "recordings", data: { action: "clear" } });
+      break;
     case "quit":
       void invoke("quit_app").catch(() => {});
       return;

@@ -328,7 +328,8 @@ code {
 .result-body--long:not(.result-body--open) .summary { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .result-body--open { max-height: 380px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; user-select: text; cursor: text; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
 .result-body--open .summary { white-space: pre-wrap; line-height: 1.5; }
-.detail-text { overflow-wrap: anywhere; }
+/* A command on a card keeps its lines: the owner approves exactly what they read (audit A-12). */
+.detail-text { overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .card-foot {
   display: flex;

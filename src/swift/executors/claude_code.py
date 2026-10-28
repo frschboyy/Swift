@@ -65,7 +65,7 @@ from loguru import logger
 
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
-from swift.executors.claude_mapping import Outcome, confirm_card, outcome_for, steps_for
+from swift.executors.claude_mapping import COMMAND_MAX, Outcome, confirm_card, outcome_for, steps_for
 from swift.executors.providers import CLAUDE_CODE
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.executors.web_scope import WebScope, result_text
@@ -120,6 +120,10 @@ REDIRECT_MESSAGE = (
 )
 REJECTED_MESSAGE = (
     "The user rejected this action in Swift's voice overlay. Stop here; don't retry it or try a workaround."
+)
+LONG_COMMAND_MESSAGE = (
+    "That command is too long for Swift to show the user on a card (over {n} characters), so it wasn't run. "
+    "Use shorter commands, one step at a time."
 )
 NO_QUESTIONS_MESSAGE = (
     "The user can't answer questions in this mode. Make a reasonable assumption, "
@@ -522,6 +526,9 @@ class ClaudeCodeExecutor:
         if host is not None and host.in_workflow_for(run_id):
             # The workflow's manifest lists what it may do; nothing else, not even with a card.
             return PermissionResultDeny(message=NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
+        if name in ("Bash", "PowerShell") and len(str(args.get("command", "")).strip()) > COMMAND_MAX:
+            # Too long to show whole on a card: the owner would approve what they can't read.
+            return PermissionResultDeny(message=LONG_COMMAND_MESSAGE.format(n=COMMAND_MAX), interrupt=False)
         title, detail = confirm_card(name, args, cwd=self.cwd)
         decision = await self._decide(run, run_id, title, detail, name)
         if decision == "approve":

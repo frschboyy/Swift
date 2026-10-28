@@ -19,6 +19,9 @@ from swift.failures import Failure, classify, clean_detail
 
 STEP_MAX = 80
 SUMMARY_MAX = 300
+# A command on a confirm card is shown whole, its lines kept; a longer one isn't put on a card at all
+# (the owner can only approve what they can read; audit 2026-10, A-12).
+COMMAND_MAX = 1500
 LIST_MAX = 6
 
 
@@ -146,7 +149,7 @@ def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tup
         case "NotebookEdit":
             return f"Edit notebook {_base(path)}", path
         case "Bash" | "PowerShell":
-            return "Run a command", _short(str(args.get("command", "")), 300)
+            return "Run a command", str(args.get("command", "")).strip()[:COMMAND_MAX]
         case "WebFetch":
             url = str(args.get("url", ""))
             return f"Fetch {urlparse(url).netloc or 'a web page'}", _short(url, 300)

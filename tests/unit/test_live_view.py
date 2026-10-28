@@ -271,13 +271,15 @@ async def test_the_writer_sends_each_paragraph_as_it_writes_it() -> None:
     async def live(item: dict[str, Any]) -> None:
         items.append(item)
 
-    scope = RunScope(publish, confirm, live_fn=live)  # type: ignore[arg-type]
+    # The owner asked for the writing (the B-02 gate: only the owner's own words can).
+    scope = RunScope(publish, confirm, live_fn=live, said="write a short history of tea in Word")  # type: ignore[arg-type]
     result = await desktop_write(tools, scope, {"text": "Tea\n\nIt began in China.", "where": "word"})
     assert result.ok
     assert [i["text"] for i in items] == ["Tea", "", "It began in China."]
     assert {i["kind"] for i in items} == {"text"} and {i["app"] for i in items} == {"Word"}
     # Without a live view hooked up, writing works as before.
-    assert (await desktop_write(tools, RunScope(publish, confirm), {"text": "x", "where": "word"})).ok  # type: ignore[arg-type]
+    plain = RunScope(publish, confirm, said="write it in Word")  # type: ignore[arg-type]
+    assert (await desktop_write(tools, plain, {"text": "x", "where": "word"})).ok
 
 
 def test_long_written_text_is_clipped_for_the_overlay() -> None:

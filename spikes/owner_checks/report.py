@@ -130,6 +130,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     email_followups = [r for r in rows if r.get("source") in ("followup", "correction") and r.get("thread") in emails
                        and r.get("route") == "agent"]
     subject_fixed = [line for line in log if "gmail subject was wrong" in line]
+    # The 2026-10 audit's fixes (docs/audit/2026-10-audit.md, owner checks 50-61).
+    fetch_refused = [line for line in log if "web fetch refused: address not given" in line]
+    wifi_unnamed = [r for r in rows if r.get("action") == "system_yes_unnamed"]
+    # A Swift card that went unanswered while its request said "done": the A-08 vanishing card.
+    vanished = [r for r in rows if r.get("status") == "done"
+                and any(a.get("by") == "swift" and a.get("decision") == "no_answer" for a in r.get("approvals", []))]
+    crashed = [r for r in rows if r.get("error") == "crashed"]
+    kept_running = [line for line in log if "same request again while it runs" in line]
+    unknown = [line for line in log if "| action outcome unknown |" in line]
     return [
         ("1  hands-free request (wake)", any(r.get("source") == "wake" for r in rows),
          f"{unsure_wake} unsure wake phrase(s) still taken"),
@@ -235,6 +244,22 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("46 unsure speech: asked to say it again", True, f"{len(asked_again)} time(s)"),
         ("47 a request recorded while the last one started (20, 21)", bool(next_recorded) or wake_count("queued") > 0,
          f"{len(next_recorded)} request(s), {wake_count('queued')} by voice"),
+        ("50 line breaks typed into a chat app didn't send it", True, "check on screen: one message, several lines"),
+        ("51 Swift refused to write into a terminal", True, "check on screen"),
+        ("52 web pages fetched only from given addresses", True,
+         f"{len(fetch_refused)} fetch(es) of a made-up address refused"),
+        ("53 a yes to 'Turn off Wi-Fi?' without the name didn't do it", True,
+         f"{len(wifi_unnamed)} time(s) asked for 'Swift, yes'"),
+        ("54 no Swift card vanished when another request ended", not vanished,
+         ", ".join(f"{r['_t']:%H:%M:%S}" for r in vanished) or "none"),
+        ("55 no request crashed while others ran", not crashed,
+         ", ".join(f"{r['_t']:%H:%M:%S}" for r in crashed) or "none"),
+        ("56 the same request said twice ran once", bool(kept_running), f"{len(kept_running)} kept running"),
+        ("57 a long command's card showed all of it", True, "check on screen"),
+        ("59 spoken answers (Phase B)", any(r.get("spoken_chars") for r in rows),
+         f"{sum(1 for r in rows if r.get('spoken_chars'))} spoken"),
+        ("60 no action left 'unknown' (if one was, look it up)", not unknown, f"{len(unknown)} unknown"),
+        ("61 nothing heard acted on after a lock", True, f"{wake_count('paused_drop')} dropped as the screen locked"),
     ]
 
 
@@ -290,7 +315,7 @@ def lane_of(r: dict[str, Any]) -> str:
     route, action = r.get("route"), r.get("action")
     if route == "local":
         return {"system": "system", "system_undo": "system", "system_yes": "system", "system_no": "system",
-                "answer": "fast"}.get(action or "", "local")
+                "system_yes_unnamed": "system", "answer": "fast"}.get(action or "", "local")
     if route == "agent" and r.get("workflow"):
         return "workflow"
     return route or "-"

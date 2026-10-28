@@ -116,6 +116,28 @@ About 10 minutes. Speak at your **normal** volume, from where you usually sit; d
 | 47 | Hold the hotkey: "set up a meeting with Test Me on Friday at four". Let go and **at once** hold it again: "what time is it" | "Got it. Listening for the next one…", then both: the time, and the calendar card. Nothing dropped. Reject the card | A request recorded while the last one started (`queued_behind`) |
 | 48 | Start "hey Swift, research the history of coffee". While it works, say a brisk "show me", then a brisk "stop" | "show me" opens it, "stop" stops it | Short clips kept (or heard as close) during a run |
 
+### The October 2026 audit's fixes (docs/audit/2026-10-audit.md)
+
+About 15 minutes.
+- For check 50, have a chat app open (Slack, Teams, WhatsApp or a web chat) **with yourself or a test chat**, not with someone else.
+- For check 51, open Windows Terminal.
+- Nothing here sends anything to anyone without a card.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 50 | In the chat with yourself, click in the message box. Hold the hotkey: "write three short lines about tea here" | Three lines **in the message box, not sent**. Press Send yourself, or clear it. (Before the audit, each line could be sent on its own.) | (seen on screen) |
+| 51 | Click in Windows Terminal. Hold the hotkey: "write 'dir' here" | "Windows Terminal is a terminal… Swift doesn't write there." Nothing typed | (seen on screen) |
+| 52 | "Hey Swift, research the history of tea and summarise it, with sources" | It searches and reads pages, with no card. Sources are named | Fetches of made-up addresses refused (usually 0) |
+| 53 | Hold the hotkey: "turn off the Wi-Fi". When it asks "Turn off Wi-Fi?", say just "yes" **without** the hotkey or "Swift" | "To go ahead, say “Swift, yes”…". Wi-Fi stays on. Then say "no, leave it" | Asked for the name |
+| 54 | Hold the hotkey: "set up a meeting with Test Me on Friday at four". At once: "hey Swift, add lunch with Test Me on Friday at noon". When the first card shows, click **Reject** | The second card comes up and **stays** (2 minutes, or until you answer). Reject it too. (On 2026-10-28 at 01:43 it vanished after 3 s.) | No Swift card vanished |
+| 55 | Start three research requests one after another ("research tea", "research coffee", "research cocoa"), and let them all finish | All three finish; none ends with "Something went wrong" / "crashed". (On 2026-10-28 at 01:52 one crashed when another ended.) | No request crashed |
+| 56 | "Hey Swift, research the history of tea". While it works, say exactly the same again | "Still on it: …" on the card, and **one** research chip, not two | Same request ran once |
+| 57 | Hold the hotkey: "use Bash to list the files in this folder, then show the git log". When a "Run a command" card shows | The **whole** command on the card, line breaks kept. Reject it | (seen on screen) |
+| 58 | With Windows display scaling at **150%** (Settings → Display → Scale), drag a card to the middle of the screen and let go; also a research chip | Each stays where you dropped it. Set scaling back afterwards | (seen on screen) |
+| 59 | "Hey Swift, what time is it" | Swift **says** the time as well as showing it. Hold the hotkey while it talks: it stops | Spoken answers |
+| 60 | (Only if you ever see "it may have been added / sent") | The card says to look before trying again; check Google Calendar or Gmail Sent, and tell me what you found | No action left unknown |
+| 61 | "Hey Swift, set a timer for 10 seconds" and **at once** press Win+L. Wait 20 s; unlock | The timer card is waiting for you ("while you were away"). Then: say "hey Swift, turn the volume up" and press Win+L **while still saying it** | The volume didn't change while locked |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

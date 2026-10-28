@@ -31,11 +31,11 @@
 | T7 | **Acting while the owner is away** | Commands arrive while the PC is locked | Wake listener paused while locked; hard rule that nothing executes outside `ACTIVE` | P1-4 |
 | T8 | **Secret leakage via logs** | A token or email body ends up in a log file | Mandatory redaction patcher on all sinks; content fields replaced by their length; diagnose/backtrace off; audit log holds metadata only | P0-3 (`test_redaction.py`) |
 | T9 | **Token theft from disk** | Malware reads a config file | Only the refresh token is stored, in Credential Manager; no secrets in files; `.gitignore` blocks `client_secret*.json` and `.env` | P5-7 |
-| T10 | **Duplicate side effects** after a crash | Email sent twice | Journal written before execute; `PENDING` entries never resumed; `drafts.send` at most once per approval; client-supplied event ids | P3-8, P5-8 |
-| T11 | **Data leaving the machine** | Library telemetry, implicit model downloads, cloud LLM | Offline env forced at import; cloud LLM off and not implemented; Ollama endpoint must be loopback; standby network test | T0-06, P1-8 |
+| T10 | **Duplicate side effects** after a crash or a dropped connection | Email sent twice | Journal written before execute; `PENDING` entries never resumed; `drafts.send` at most once per approval, and after a drop the draft says whether it went; client-supplied event ids (since the 2026-10 audit, A-05); an outcome Swift can't tell is `UNKNOWN`, never "failed" | P3-8, P5-8, `test_audit_2026_10.py` |
+| T11 | **Data leaving the machine** | Library telemetry, implicit model downloads, web fetches carrying data | Offline env forced at import; audio and STT stay local; the model is Claude Code in the cloud (ADR-007), which gets the request, its context and what it reads; web fetches only to addresses the run was given (2026-10 audit, A-03); no local LLM | T0-06, P1-8, `test_audit_2026_10.py` |
 | T12 | **Policy misconfiguration** | Broken `permissions.toml` silently allows actions | Validation errors fail closed (all non-read actions denied); `fail_closed` cannot be set from the file | T0-04 |
 | T13 | **Malicious connector or plugin** (post-MVP) | A plugin claims a send tool is read-only | Swift assigns capabilities itself (ADR-005); connector output untrusted; gateway-only execution; MCP host deferred to Phase 7 with an allowlist | Phase 7 |
-| T14 | **Bystander privacy** | Audio of others captured | Audio kept in RAM only; capture buffers dropped after STT; debug recording off by default and shown in the tray | §6.6 review |
+| T14 | **Bystander privacy** | Audio of others captured | Audio kept in RAM; capture buffers dropped after STT; recordings are saved only with `stt.save_audio` (off by default; on for the voice work in 2026-10, see audit B-06) | §6.6 review |
 
 ## Out of scope for the MVP
 

@@ -1177,6 +1177,7 @@ class Session:
             self._question[1].cancel()
             self._park_question(parked)
             await self._close_followup()
+            logger.info("question put off into the stack")
         await self._send_stack()
 
     def _expire_card(self, request_id: str) -> bool:
@@ -1344,6 +1345,7 @@ class Session:
                 self.speaker.stop()
                 await self.cancel()
             case "speech.stop":
+                logger.info("speech stopped by the owner")
                 self.speaker.stop()  # only the voice: the card and the run stay (ADR-017)
             case "listen":
                 logger.info("listening", on=msg.data["on"])

@@ -1298,7 +1298,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
   const drawBody = (): void => {
     const parts: (HTMLElement | null)[] = shape === "line"
-      ? [el("p", {}, data.summary)]
+      ? renderBlocks(data.summary)
       : [
           ...renderBlocks(data.summary),
           renderDetails(data.details, expanded),
@@ -1398,10 +1398,13 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   if (!presentAnswer("result", null, data.run_id, data.thread_id, clipLine(data.summary))) return;
   const kind = data.run_id.split("-")[1];
   const label = { timer: "Timer", alarm: "Alarm", reminder: "Reminder", away: "While you were away" }[kind] ?? "Reminder";
+  // The label says what it is; the title is the rest ("Reminder: call mum." → "Call mum.").
+  const rest = data.summary.replace(/^(While you were away|Reminder): /, "");
+  const title = rest.charAt(0).toUpperCase() + rest.slice(1);
   showCard(
     el("div", { class: "card-in due" },
       el("span", { class: "due-icon" }, icon(kind === "timer" ? "timer" : "bell")),
-      el("span", { class: "due-text" }, el("p", { class: "due-label" }, label), el("p", { class: "due-title" }, data.summary.replace(/^(While you were away|Reminder): /, ""))),
+      el("span", { class: "due-text" }, el("p", { class: "due-label" }, label), el("p", { class: "due-title" }, title)),
       el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done")),
     "result card--due",
     "alert",

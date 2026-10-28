@@ -112,6 +112,13 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     side_by_side = _overlapping(rows)
     redirects = [r.get("redirected") for r in rows if r.get("redirected")]
     approved = [(a.get("tool"), a.get("decision")) for r in rows for a in r.get("approvals", [])]
+    # The Capsule redesign (ADR-017): content-free log lines.
+    expired = [line for line in log if "card expired into the stack" in line]
+    voice_stopped = [line for line in log if "| speech stopped by the owner |" in line]
+    paused_tray = [line for line in log if "| listening paused |" in line]
+    resumed_tray = [line for line in log if "| listening resumed |" in line]
+    put_off = [line for line in log if "| question put off into the stack |" in line]
+    timers = [line for line in log if "| due |" in line and "kind='timer'" in line]
 
     def answered(tool: str, decision: str = "approve") -> bool:
         return (tool, decision) in approved
@@ -180,8 +187,9 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"skip {_stack(log, 'skip')}, end {_stack(log, 'end')}"),
         ("16 a conversation resumed from the stack", any(r.get("source") == "stack" and r.get("resumed") for r in rows),
          f"opened from the stack: {_stack(log, 'open')}"),
-        ("16 'Later' on a card on screen, then answered from the stack", any(
-            "stack action | kind='card' action='skip'" in line for line in log)
+        # ADR-017: no Later button; a card whose countdown ran out goes to the stack (see 16 below).
+        ("16 a card opened from the stack, then answered", any(
+            "stack action | kind='card' action='open'" in line for line in log)
          and any(r.get("source") != "stack" and set(decisions(r)) & {"approve", "reject"} for r in rows), ""),
         ("16b a typed request, and typed 'approve' didn't approve", any(r.get("source") == "typed" for r in rows)
          and not any(r.get("source") == "typed" and r.get("route") == "control" and r.get("action") == "approve"
@@ -264,6 +272,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("61 nothing heard acted on after a lock", True, f"{wake_count('paused_drop')} dropped as the screen locked"),
         ("62 reads outside the read folders asked first; secrets refused", bool(read_cards) or bool(never_read),
          f"{len(read_cards)} read card(s), {len(never_read)} secret path(s) refused"),
+        # The Capsule redesign (ADR-017).
+        ("16 a card that ran out went to the stack, not refused", bool(expired) and not timed_out,
+         f"{len(expired)} into the stack, {len(timed_out)} refused on time-out"),
+        ("64 Stop on the capsule stopped only the voice", bool(voice_stopped), f"{len(voice_stopped)} time(s)"),
+        ("66 listening paused and resumed from the tray", bool(paused_tray) and bool(resumed_tray),
+         f"{len(paused_tray)} paused, {len(resumed_tray)} resumed"),
+        ("69 Swift's question put off into the stack (Answer later)", bool(put_off),
+         f"{len(put_off)} put off, {len(asked)} parked as unanswered in all"),
+        ("71 a timer came due and showed its card", bool(timers), f"{len(timers)} timer(s)"),
     ]
 
 

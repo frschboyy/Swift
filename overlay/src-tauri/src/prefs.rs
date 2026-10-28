@@ -32,6 +32,8 @@ pub struct PanePlaces {
     /// The waiting stack: where its bottom-left corner was dropped (it grows upwards).
     pub stack: Option<(f64, f64)>,
     pub typing: Option<(f64, f64)>,
+    /// The live view of a request (ADR-017 §11).
+    pub live: Option<(f64, f64)>,
 }
 
 impl Default for Prefs {

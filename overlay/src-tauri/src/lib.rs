@@ -533,6 +533,7 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
         PaneKind::Reader => places.reader = place,
         PaneKind::Stack => places.stack = place,
         PaneKind::Type => places.typing = place,
+        PaneKind::Live => places.live = place,
         PaneKind::Tray => return Ok(true),  // it opens by the tray icon each time
     }
     prefs::save(&p.prefs);
@@ -545,6 +546,7 @@ fn remembered_place(places: &prefs::PanePlaces, kind: PaneKind) -> Option<(f64, 
         PaneKind::Reader => places.reader,
         PaneKind::Stack => places.stack,
         PaneKind::Type => places.typing,
+        PaneKind::Live => places.live,
         PaneKind::Tray => None,
     }
 }
@@ -651,6 +653,18 @@ async fn quit_app(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn copy_text(text: String) -> Result<(), String> {
     win::copy_text(&text)
+}
+
+/// A source in a live view (ADR-017 §11): the page in the owner's browser. Only a plain http(s)
+/// address: nothing that could run a program or open a file.
+#[tauri::command]
+async fn open_link(url: String) -> Result<(), String> {
+    let url = panes::web_link(&url).ok_or("not a web address")?;
+    std::process::Command::new("rundll32.exe")
+        .args(["url.dll,FileProtocolHandler", url])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// "Open logs" on an error card.
@@ -777,6 +791,7 @@ pub fn run() {
             watch_outside,
             pane_labels,
             copy_text,
+            open_link,
             open_logs,
             set_status,
             get_theme,

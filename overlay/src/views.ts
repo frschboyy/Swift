@@ -1,8 +1,10 @@
 // The Capsule design's chip and waiting stack as elements (ADR-017), shared by the pane windows
 // (pane.ts) and the main window's inline fallback where there are no pane windows (the dev
 // harness). Text goes through textContent only (dom.ts ``el``).
+// ADR-017 §11: the live view of a running request, the same way.
 
 import { el, icon } from "./dom";
+import type { LiveView, Source } from "./live";
 import type { PaneView } from "./panes";
 import { countLine, nextLine, type StackView } from "./stack";
 
@@ -29,14 +31,22 @@ export function chipLine(v: RequestView): string {
   return v.label;
 }
 
-/** Another request, as a chip: click brings it forward, drag moves it (the caller wires both). */
-export function chip(v: RequestView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}): HTMLElement {
+/** Another request, as a chip: click brings it forward, drag moves it (the caller wires both).
+ * While it works, Watch (shown on hover) opens its live view: ``watch``, or its ``data-click``. */
+export function chip(v: RequestView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}, watch?: () => void): HTMLElement {
+  const watchable = v.running && v.state !== "confirm" && v.state !== "queued";
   return el(
     "div",
     { class: `chip chip--${v.state}`, role: "button", title: `${v.words}\nClick to bring it forward`, "aria-label": `${v.title}: ${chipLine(v)}`, ...attrs },
     chipIcon(v),
     el("span", { class: "chip-text" }, el("span", { class: "chip-title" }, v.title), el("span", { class: "chip-sub" }, chipLine(v))),
     v.running ? el("span", { class: "chip-time" }, elapsed(v.startedMs)) : null,
+    watchable
+      ? el("span", {
+          class: "chip-watch", role: "button", "data-click": "watch", title: "Watch it work",
+          ...(watch ? { onclick: (ev: Event) => { ev.stopPropagation(); watch(); } } : {}),
+        }, "Watch")
+      : null,
     el("span", { class: "chip-open" }, "Open"),
   );
 }
@@ -92,5 +102,95 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       el("span", {}, String(v.items.length)),
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
     el("ul", { class: "stack-list" }, ...v.items.map(row)),
+  );
+}
+
+// ---- the live view (ADR-017 §11) ----------------------------------------------------------
+
+export type LiveHandlers = {
+  close: () => void;
+  stop: () => void;
+  link: (url: string) => void;
+  app: () => void;
+  answer: () => void;
+  copy?: () => void;
+};
+
+const SOURCE_STATE: Record<Source["state"], string> = { found: "Found", reading: "Reading", read: "Read", failed: "Couldn't read" };
+
+function sourceIcon(s: Source): HTMLElement {
+  if (s.state === "reading") return el("span", { class: "src-state src-state--reading" }, el("span", { class: "spinner spinner--small" }));
+  if (s.state === "read") return el("span", { class: "src-state src-state--read" }, icon("check"));
+  if (s.state === "failed") return el("span", { class: "src-state src-state--failed" }, icon("x"));
+  return el("span", { class: "src-state src-state--found" }, el("span", { class: "src-dot" }));
+}
+
+function sourceRow(s: Source, link: (url: string) => void): HTMLElement {
+  return el(
+    "li",
+    {},
+    el(
+      "button",
+      { class: `live-src live-src--${s.state}`, title: `${s.url}\nOpen in your browser`, "aria-label": `${s.title || s.site}, ${s.site}: ${SOURCE_STATE[s.state]}. Open in your browser`, onclick: () => link(s.url) },
+      sourceIcon(s),
+      el("span", { class: "src-text" }, el("span", { class: "src-title" }, s.title || s.site), el("span", { class: "src-site" }, `${s.site} · ${SOURCE_STATE[s.state]}`)),
+      icon("external"),
+    ),
+  );
+}
+
+/** A request's live view: what it does now, what it wrote, the sources so far, its notes; Stop, or
+ * once it ended the answer linked. The body scrolls; the caller keeps its place across updates. */
+export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLElement {
+  const sections: HTMLElement[] = [];
+  if (v.written) {
+    const doc = el("div", { class: "live-doc", "aria-label": `What Swift wrote in ${v.written.app}` },
+      ...v.written.text.split("\n").map((p) => el("p", {}, p)));
+    sections.push(el("section", { class: "live-sec" }, el("h3", { class: "section-title" }, `Writing in ${v.written.app}`), doc));
+  }
+  if (v.sources.length) {
+    const read = v.sources.filter((s) => s.state === "read").length;
+    sections.push(el("section", { class: "live-sec" },
+      el("h3", { class: "section-title" }, `Sources · ${v.sources.length}${read ? ` · ${read} read` : ""}`),
+      el("ul", { class: "live-sources" }, ...v.sources.map((s) => sourceRow(s, h.link)))));
+  }
+  if (v.notes.length) {
+    sections.push(el("section", { class: "live-sec" },
+      el("h3", { class: "section-title" }, "Notes"),
+      el("ul", { class: "live-notes" }, ...v.notes.map((n) => el("li", {}, n)))));
+  }
+  if (!sections.length) {
+    sections.push(el("p", { class: "muted live-empty" }, v.running ? "Sources, notes and what it writes show up here as they come." : "Nothing was found or written."));
+  }
+  const status = v.running
+    ? el("span", { class: "spinner", "aria-hidden": "true" })
+    : v.ended?.status === "done"
+      ? el("span", { class: "ok-dot" }, icon("check"))
+      : el("span", { class: "ended-icon" });
+  const foot: (HTMLElement | null)[] = v.running
+    ? [
+        el("span", { class: "hint foot-gap" }, "Live"),
+        v.written ? el("button", { class: "btn btn--ghost", title: `Bring ${v.written.app} to the front`, onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
+        el("button", { class: "btn btn--ghost", title: "Stop this request only", onclick: () => h.stop() }, icon("stop"), "Stop"),
+      ]
+    : [
+        el("span", { class: "hint foot-gap" }, "Closes by itself"),
+        v.written ? el("button", { class: "btn btn--ghost", onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
+        v.ended?.answer ? el("button", { class: "btn btn--primary", onclick: () => h.answer() }, "Open the answer") : null,
+      ];
+  return el(
+    "section",
+    { class: `live${v.running ? " live--running" : " live--ended"}`, role: "region", "aria-label": `Live: ${v.title}` },
+    el("header", { class: "card-head", title: "Drag to move" },
+      el("span", { class: "live-badge" }, v.running ? "LIVE" : "DONE"),
+      el("p", { class: "words" }, v.title),
+      el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
+    el("div", { class: "status live-now" }, status,
+      el("span", { class: "status-verb live-doing", "aria-live": "polite" }, v.doing),
+      v.running ? el("span", { class: "elapsed chip-time" }, elapsed(v.startedMs, now)) : null),
+    v.ended && v.ended.summary ? el("p", { class: "live-summary" }, v.ended.summary) : null,
+    el("div", { class: "live-body", tabindex: "0" }, ...sections),
+    v.hint ? el("p", { class: "voice-hint live-hint", "data-phase": "hint", "aria-live": "polite" }, v.hint) : null,
+    el("footer", { class: "card-foot" }, ...foot),
   );
 }

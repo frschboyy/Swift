@@ -11,12 +11,15 @@
 // The Capsule redesign (ADR-017): chips are 280 × 56, the stack 280 × 80 closed and 320 wide
 // open, the text box 512 × 52 (a notice row above it while a confirm card is open: typing can't
 // approve), and the tray menu is a pane of its own, opened by a click on the tray icon.
+//
+// ADR-017 §11: a running request's live view (live.ts) is a pane of its own, one per request.
 
+import type { LiveView } from "./live";
 import type { ResultDetails } from "./protocol";
 import type { Presenter, Row } from "./presenter";
 import type { StackView } from "./stack";
 
-export type PaneKind = "request" | "reader" | "stack" | "type" | "tray";
+export type PaneKind = "request" | "reader" | "stack" | "type" | "tray" | "live";
 
 /** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any.
  * ``confirm``: a confirm card is open, so the box says typing can't approve it (Enter = Change). */
@@ -40,7 +43,8 @@ export type PaneView =
   | { kind: "reader"; title: string; summary: string; details: ResultDetails | null; chip: boolean }
   | StackView
   | TypeView
-  | TrayView;
+  | TrayView
+  | LiveView;
 
 export type PaneSpec = { label: string; kind: PaneKind; index: number; view: PaneView };
 
@@ -75,10 +79,12 @@ const ENDED: ReadonlySet<string> = new Set(["result", "error", "done"]);
 
 /** Window labels: Tauri allows letters, digits and - / : _. */
 export const paneLabel = (kind: PaneKind, id = ""): string =>
-  kind === "request" ? `pane-run-${id.replace(/[^A-Za-z0-9_-]/g, "_")}` : `pane-${kind}`;
+  kind === "request" || kind === "live"
+    ? `pane-${kind === "request" ? "run" : "live"}-${id.replace(/[^A-Za-z0-9_-]/g, "_")}`
+    : `pane-${kind}`;
 
 /** Besides the requests and the reader: the waiting stack and the text box, when they show. */
-export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; now?: number };
+export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[]; now?: number };
 
 /** The panes that should exist now. ``label`` says what a row is doing, in words. */
 export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => string, extra: Extra = {}): PaneSpec[] {
@@ -99,6 +105,7 @@ export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => str
     });
   if (extra.stack) out.push({ label: paneLabel("stack"), kind: "stack", index: 0, view: extra.stack });
   if (extra.typing) out.push({ label: paneLabel("type"), kind: "type", index: 0, view: extra.typing });
+  (extra.live ?? []).forEach((v, index) => out.push({ label: paneLabel("live", v.runId), kind: "live", index, view: v }));
   if (extra.tray) out.push({ label: paneLabel("tray"), kind: "tray", index: 0, view: extra.tray });
   if (reader) {
     out.push({
@@ -186,6 +193,8 @@ export function paneSize(spec: PaneSpec): { w: number; h: number } {
       return { w: 512, h: 52 + (v.confirm ? 44 : 0) + (v.follows ? 44 : 0) };
     case "tray":
       return { w: 280, h: 400 };
+    case "live":
+      return { w: 420, h: 480 };
   }
 }
 

@@ -807,11 +807,71 @@ code {
 .reader { width: 560px; padding: 12px 18px 14px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--panel-edge); box-shadow: var(--shadow); }
 .reader-body { max-height: var(--reader-max, 480px); overflow-y: auto; overscroll-behavior: contain; user-select: text; cursor: text; scrollbar-width: thin; }
 
+/* ---- the live view of a running request (ADR-017 §11): the reader's layout, a glass panel ---- */
+
+.live {
+  width: 420px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 18px 14px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--glass);
+  animation: cap-in var(--dur-slow) var(--ease);
+}
+.live--running { border-color: var(--accent-edge); }
+.live .card-head { align-items: center; }
+.live .words { -webkit-line-clamp: 1; color: var(--text); font-weight: 600; }
+.live-badge { flex: none; height: 20px; padding: 0 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font: 700 11px/20px var(--font-text); letter-spacing: 0.06em; }
+.live--running .live-badge::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 6px 1px 0; border-radius: 50%; background: var(--accent); animation: live-pulse 1.6s var(--ease) infinite; }
+.live--ended .live-badge { background: var(--raise); color: var(--muted); }
+@keyframes live-pulse { 50% { opacity: 0.3; } }
+.live-now { gap: 10px; }
+.live-doing { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 15px; }
+.live-now .elapsed { margin-left: auto; }
+.live-summary { margin: 6px 0 0; color: var(--text); font-size: 15px; line-height: 22px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.live-body { max-height: var(--live-max, 380px); margin-top: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; display: flex; flex-direction: column; gap: 4px; }
+.live-sec .section-title { margin: 8px 0 6px; }
+.live-doc { padding: 10px 12px; border-radius: 8px; background: var(--panel-solid); border: 1px solid var(--panel-edge); font-size: 14px; line-height: 21px; user-select: text; cursor: text; overflow-wrap: anywhere; }
+.live-doc p { margin: 0; min-height: 21px; }
+.live-doc p:last-child::after { content: ""; display: inline-block; width: 2px; height: 15px; margin-left: 2px; vertical-align: -2px; background: var(--accent); animation: live-pulse 1s steps(2) infinite; }
+.live--ended .live-doc p:last-child::after { display: none; }
+.live-sources, .live-notes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.live-src { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; animation: step-in var(--dur-slow) var(--ease); }
+.live-src:hover, .live-src:focus-visible { background: var(--raise); outline: none; }
+.live-src > .icon { width: 14px; height: 14px; color: var(--faint); opacity: 0; transition: opacity var(--dur-fast); }
+.live-src:hover > .icon, .live-src:focus-visible > .icon { opacity: 1; color: var(--accent); }
+.src-state { display: grid; place-items: center; width: 18px; height: 18px; flex: none; border-radius: 50%; }
+.src-state .icon { width: 12px; height: 12px; stroke-width: 2.5; }
+.src-state--read { background: var(--ok); color: var(--on-ok); }
+.src-state--failed { background: var(--raise); color: var(--muted); }
+.src-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+.src-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.src-title { font-size: 14px; line-height: 19px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-src--failed .src-title { color: var(--muted); }
+.src-site { font-size: 12px; line-height: 16px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-notes li { position: relative; padding: 4px 0 4px 14px; color: var(--muted); font-size: 14px; line-height: 20px; overflow-wrap: anywhere; user-select: text; animation: step-in var(--dur-slow) var(--ease); }
+.live-notes li::before { content: ""; position: absolute; left: 2px; top: 12px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.live-empty { margin: 10px 0 4px; }
+.live-hint { margin-top: 8px; }
+.live .card-foot { border-top: 1px solid var(--panel-edge); padding-top: 10px; }
+/* the harness has no pane windows: the live views sit beside the card */
+.live-inline { display: flex; flex-direction: column; gap: 8px; align-items: inherit; flex: none; }
+.live-inline[hidden] { display: none; }
+
+/* Watch on a running chip, beside Open (hover) */
+.chip-watch { display: none; flex: none; color: var(--accent); font-size: 13px; font-weight: 600; padding: 2px 6px; border-radius: 6px; }
+.chip-watch:hover { background: var(--accent-soft); }
+.chip:hover .chip-watch { display: inline; }
+
 /* ---- accessibility ---------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-property: opacity !important; transition-duration: 120ms !important; animation: none !important; }
-  .card, .card--out, .capsule, .gotit, .stack-open { transform: none !important; }
+  .card, .card--out, .capsule, .gotit, .stack-open, .live { transform: none !important; }
   .orb { transform: none !important; }
   .bars i { transition: none !important; }
   /* the heard pulse is a static ring, spinners a static three-quarter arc */
@@ -822,7 +882,7 @@ code {
 }
 
 @media (forced-colors: active) {
-  .card, .capsule, .chip, .stack-top, .stack-layer, .stack-open, .type-box, .tray, .gotit { background: Canvas; color: CanvasText; border: 1px solid CanvasText; backdrop-filter: none; }
+  .card, .capsule, .chip, .stack-top, .stack-layer, .stack-open, .type-box, .tray, .gotit, .live, .live-doc { background: Canvas; color: CanvasText; border: 1px solid CanvasText; backdrop-filter: none; }
   .btn, .icon-btn, .switch, .picker button { border: 1px solid ButtonText; }
   .band, .badge, .needs-icon { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   .card--confirm { border: 2px solid Highlight; }

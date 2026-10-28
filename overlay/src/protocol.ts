@@ -88,7 +88,19 @@ export type Inbound =
   // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
   | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } }
   // ADR-017: Swift started or stopped talking (the capsule's Speaking state, the question card).
-  | { type: "speech"; data: { speaking: boolean } };
+  | { type: "speech"; data: { speaking: boolean } }
+  // ADR-017 §11: one item of a request's live view, for every request (in front or not); and
+  // "show me" while it runs: open its live view.
+  | { type: "live"; data: LiveData }
+  | { type: "watch"; data: { run_id: string; open: boolean; title?: string; words?: string } };
+
+export type LiveData = { run_id: string } & (
+  | { kind: "doing"; text: string; activity?: Activity | null; app?: string | null }
+  | { kind: "source"; url: string; title?: string; site?: string; state?: "found" | "reading" | "read" | "failed" }
+  | { kind: "note"; text: string }
+  | { kind: "text"; text: string; app?: string | null }
+  | { kind: "hint"; text: string }
+);
 
 // One card in the waiting stack: a card in line ("waiting") or skipped ("later"), the card on
 // screen while the owner is away ("held"), or an unfinished conversation ("parked"). A "later"
@@ -152,7 +164,12 @@ export type Outbound =
   // ADR-017: the capsule's Stop (or Esc while Swift talks): only the voice stops.
   | { type: "speech.stop"; data: Record<string, never> }
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
-  | { type: "listen"; data: { on: boolean } };
+  | { type: "listen"; data: { on: boolean } }
+  // ADR-017 §11: a live view opened or closed (for the log), its Stop (that request only), and
+  // its "Show in Word" (the app the request writes in, to the front).
+  | { type: "watch"; data: { run_id: string; open: boolean } }
+  | { type: "run.stop"; data: { run_id: string } }
+  | { type: "live.app"; data: { run_id: string } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });

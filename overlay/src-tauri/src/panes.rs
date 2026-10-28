@@ -16,6 +16,8 @@ use crate::placement::{card_zone, Anchor, Area, MARGIN};
 pub const GAP: f64 = 8.0;
 /// Room kept at the bottom of the chips' side for the compressed stack, CSS px.
 pub const STACK_RESERVE: f64 = 84.0;
+/// How far a second live view sits from the first (down and in), CSS px.
+pub const CASCADE: f64 = 32.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PaneKind {
@@ -27,6 +29,8 @@ pub enum PaneKind {
     Type,
     /// The tray menu (ADR-017): opened by a click on the tray icon, next to it.
     Tray,
+    /// A running request's live view (ADR-017 §11): on the reader's side, one per request, cascaded.
+    Live,
 }
 
 impl PaneKind {
@@ -37,6 +41,7 @@ impl PaneKind {
             "stack" => Some(PaneKind::Stack),
             "type" => Some(PaneKind::Type),
             "tray" => Some(PaneKind::Tray),
+            "live" => Some(PaneKind::Live),
             _ => None,
         }
     }
@@ -52,8 +57,8 @@ fn side(kind: PaneKind, main: Anchor) -> i32 {
     match (kind, main.column()) {
         (PaneKind::Request | PaneKind::Stack | PaneKind::Type, 1) => -1,
         (PaneKind::Request | PaneKind::Stack | PaneKind::Type, _) => 1,
-        (PaneKind::Reader, -1) => 1,
-        (PaneKind::Reader, _) => -1,
+        (PaneKind::Reader | PaneKind::Live, -1) => 1,
+        (PaneKind::Reader | PaneKind::Live, _) => -1,
         (PaneKind::Tray, _) => 1,
     }
 }
@@ -97,6 +102,12 @@ pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, inde
         let y = if main.is_top() { zy } else { zy + zh - size.1 };
         return clamp(area, (x, y), size);
     }
+    if kind == PaneKind::Live {
+        // Under where the reader opens, a second and third view a step further in and down.
+        let shift = (CASCADE * scale).round() as i32 * index as i32;
+        let x = if side(kind, main) < 0 { area.x + m + shift } else { area.x + area.w as i32 - size.0 - m - shift };
+        return clamp(area, (x, area.y + m + shift), size);
+    }
     let x = if side(kind, main) < 0 { area.x + m } else { area.x + area.w as i32 - size.0 - m };
     let reserve = (STACK_RESERVE * scale).round() as i32;
     let y = match kind {
@@ -105,6 +116,7 @@ pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, inde
         PaneKind::Request if chips_from_top(main) => area.y + m + step * index as i32,
         PaneKind::Request | PaneKind::Type => area.y + area.h as i32 - m - reserve - size.1 - step * index as i32,
         PaneKind::Tray => area.y + area.h as i32 - m - size.1,
+        PaneKind::Live => unreachable!("placed above"),
     };
     clamp(area, (x, y), size)
 }
@@ -124,6 +136,20 @@ pub fn to_fraction(area: Area, (x, y): (i32, i32)) -> (f64, f64) {
         ((x - area.x) as f64 / area.w.max(1) as f64).clamp(0.0, 1.0),
         ((y - area.y) as f64 / area.h.max(1) as f64).clamp(0.0, 1.0),
     )
+}
+
+/// A live view's source, fit to hand to the browser (ADR-017 §11): http(s) only, a host, no spaces,
+/// quotes or control characters (nothing a shell or `url.dll` could read as more than an address).
+pub fn web_link(url: &str) -> Option<&str> {
+    let url = url.trim();
+    let lower = url.to_ascii_lowercase();
+    let rest = lower.strip_prefix("https://").or_else(|| lower.strip_prefix("http://"))?;
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let ok = url.len() <= 2048
+        && !host.is_empty()
+        && !host.starts_with(['.', '-', ':', '@'])
+        && url.chars().all(|c| c.is_ascii_graphic() && !matches!(c, '"' | '\'' | '<' | '>' | '`' | '\\' | '^' | '|' | '{' | '}'));
+    ok.then_some(url)
 }
 
 /// The reader's height at most: 70 % of the work area.
@@ -195,6 +221,7 @@ mod tests {
         assert_eq!(PaneKind::from_id("stack"), Some(PaneKind::Stack));
         assert_eq!(PaneKind::from_id("type"), Some(PaneKind::Type));
         assert_eq!(PaneKind::from_id("tray"), Some(PaneKind::Tray));
+        assert_eq!(PaneKind::from_id("live"), Some(PaneKind::Live));
         assert_eq!(PaneKind::from_id("main"), None);
         assert!(PaneKind::Stack.grows_up() && !PaneKind::Request.grows_up());
     }
@@ -232,6 +259,35 @@ mod tests {
         // No click known: the bottom-right corner.
         let (x, y) = tray_origin(FHD, 1.0, None, size);
         assert_eq!((x + size.0, y + size.1), (FHD.w as i32 - MARGIN as i32, FHD.h as i32 - MARGIN as i32));
+    }
+
+    #[test]
+    fn only_web_addresses_go_to_the_browser() {
+        assert_eq!(web_link(" https://www.britannica.com/topic/tea "), Some("https://www.britannica.com/topic/tea"));
+        assert_eq!(web_link("http://example.com/?q=tea#x"), Some("http://example.com/?q=tea#x"));
+        for bad in [
+            "file:///C:/Windows/System32/calc.exe", "javascript:alert(1)", "https://", "https:///path", "C:\\x.exe",
+            "https://a.example/ x", "https://a.example/\"&calc", "ms-settings:privacy", "https://a.example/\u{7}",
+        ] {
+            assert_eq!(web_link(bad), None, "{bad}");
+        }
+        assert_eq!(web_link(&format!("https://a.example/{}", "x".repeat(3000))), None);
+    }
+
+    const LIVE: (i32, i32) = (420, 480);
+
+    #[test]
+    fn live_views_stay_off_the_card_and_cascade_on_screen() {
+        for main in Anchor::ALL {
+            let zone = card_zone(FHD, 1.0, main);
+            let first = default_origin(FHD, 1.0, main, PaneKind::Live, 0, LIVE);
+            let second = default_origin(FHD, 1.0, main, PaneKind::Live, 1, LIVE);
+            assert!(!overlaps((first.0, first.1, LIVE.0, LIVE.1), zone), "live view over the card at {main:?}");
+            assert_ne!(first, second, "{main:?}: two views on top of each other");
+            for (x, y) in [first, second, default_origin(FHD, 1.0, main, PaneKind::Live, 2, LIVE)] {
+                assert!(x >= 0 && x + LIVE.0 <= FHD.w as i32 && y >= 0 && y + LIVE.1 <= FHD.h as i32);
+            }
+        }
     }
 
     #[test]

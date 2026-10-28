@@ -155,3 +155,136 @@ async def test_a_no_heard_in_the_reply_window_still_leaves_it() -> None:
     session._start_followup(Transcription("No, leave it.", 300, 1.0))
     await _settle(session)
     assert rec.last("result")["summary"] == "Okay, I've left it as it is." and session._system_confirm is None
+
+
+# ---- A-05 / A-06: a change whose connection dropped is checked, never reported as failed -----
+
+
+class _Google:
+    """Google's events and drafts, enough to drop a connection after (or before) doing the work."""
+
+    def __init__(self, drop_after: bool) -> None:
+        self.drop_after = drop_after
+        self.events: dict[str, dict] = {}
+        self.inserts = 0
+        self.drafts: set[str] = set()
+        self.sent: list[str] = []
+        self.sends = 0
+
+    # Calendar events()
+    def insert(self, calendarId: str, body: dict, sendUpdates: str, conferenceDataVersion: int):  # noqa: N803
+        from test_google_contacts import Call, Status, aborted
+
+        def run() -> dict:
+            self.inserts += 1
+            if body["id"] in self.events:
+                raise Status(409)
+            if not self.drop_after and self.inserts == 1:
+                raise aborted()  # dropped before Google did anything
+            self.events[body["id"]] = body | {"status": "confirmed", "htmlLink": "https://cal/x"}
+            if self.drop_after and self.inserts == 1:
+                raise aborted()  # Google added it, then the connection dropped
+            return self.events[body["id"]]
+
+        return Call(run)
+
+    def get(self, calendarId: str = "", eventId: str = "", userId: str = "", id: str = "",  # noqa: N803, A002
+            format: str = ""):  # noqa: A002
+        from test_google_contacts import Call
+
+        if eventId:
+            found = self.events.get(eventId)
+            return Call(found if found is not None else Exception("<HttpError 404 Not Found>"))
+        return Call({"id": id} if id in self.drafts else Exception("<HttpError 404 Not Found>"))
+
+    # Gmail drafts()
+    def create(self, userId: str, body: dict):  # noqa: N803
+        from test_google_contacts import Call
+
+        self.drafts.add("d1")
+        return Call({"id": "d1"})
+
+    def send(self, userId: str, body: dict):  # noqa: N803
+        from test_google_contacts import Call, Status, aborted
+
+        def run() -> dict:
+            self.sends += 1
+            if body["id"] not in self.drafts:
+                raise Status(404)
+            if not self.drop_after and self.sends == 1:
+                raise aborted()
+            self.drafts.discard(body["id"])
+            self.sent.append(body["id"])
+            if self.drop_after and self.sends == 1:
+                raise aborted()
+            return {"id": "m1"}
+
+        return Call(run)
+
+
+def _calendar(google: _Google):  # type: ignore[no-untyped-def]
+    from swift.connectors.google_calendar import GoogleCalendarConnector
+
+    connector = GoogleCalendarConnector()
+    connector._google._services["calendar"] = type("Cal", (), {"events": lambda self: google})()
+    return connector
+
+
+def _gmail(google: _Google):  # type: ignore[no-untyped-def]
+    from swift.connectors.gmail import GmailConnector
+
+    connector = GmailConnector()
+    users = type("Users", (), {"drafts": lambda self: google})()
+    connector._google._services["gmail"] = type("Gmail", (), {"users": lambda self: users})()
+    return connector
+
+
+@pytest.mark.parametrize("drop_after", [True, False])
+async def test_an_event_is_added_once_when_the_connection_drops(drop_after: bool) -> None:
+    from datetime import datetime, timedelta
+
+    from swift.connectors.base import CalendarEvent
+
+    google = _Google(drop_after)
+    start = datetime(2026, 10, 30, 10).astimezone()
+    created = await _calendar(google).create_event(CalendarEvent("Lunch", start, start + timedelta(hours=1)))
+    assert len(google.events) == 1 and created.event_id in google.events  # added, once, and said so
+    assert google.inserts == (1 if drop_after else 2)  # added already: not tried again
+
+
+@pytest.mark.parametrize("drop_after", [True, False])
+async def test_an_email_is_sent_once_when_the_connection_drops(drop_after: bool) -> None:
+    from swift.connectors.base import Contact, OutgoingEmail
+
+    google = _Google(drop_after)
+    email = OutgoingEmail((Contact("Ada", "ada@example.edu"),), "Lunch", "Hello Ada,\n\nLunch?")
+    sent = await _gmail(google).send(email)
+    assert google.sent == ["d1"] and sent.message_id  # sent once, and reported as sent
+    assert google.sends == (1 if drop_after else 2)
+
+
+async def test_an_unknown_outcome_is_journaled_and_told_as_unknown() -> None:
+    from test_workflows import LECTURER, Owner
+
+    from swift.connectors.base import ConnectorError
+    from swift.connectors.fake import FakeMailConnector
+    from swift.security.gateway import ActionGateway
+    from swift.security.journal import Journal
+    from swift.workflows.tools import ToolHost
+    from swift.workflows.toolset import ALL_TOOLS
+
+    class Dropping(FakeMailConnector):
+        async def send(self, email):  # type: ignore[no-untyped-def]
+            raise ConnectorError("Swift lost the connection to Gmail before it answered, so it can't tell "
+                                 "whether that was done.", code="unknown")
+
+    journal = Journal(None)
+    host = ToolHost(Dropping(), (LECTURER,), ActionGateway(journal), ALL_TOOLS)
+    owner = Owner("approve")
+    host.open(owner.publish, owner.confirm)
+    await host.call("find_contact", {"query": "my lecturer"})
+    draft = await host.call("draft_email", {"to": [LECTURER.email], "subject": "Lecture notes",
+                                            "message": "Could you send me the notes from Tuesday?"})
+    result = await host.call("send_email", {"draft_id": draft.data["draft_id"]})
+    assert not result.ok and result.text.startswith("It may have been sent") and "Sent folder" in result.text
+    assert [e["state"] for e in journal.entries] == ["PENDING", "UNKNOWN"]

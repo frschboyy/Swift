@@ -361,6 +361,9 @@ async def send_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> T
                               expected=True)
         case "denied":
             return ToolResult(False, f"Not sent: {outcome.reason}")
+        case "unknown":
+            return ToolResult(False, f"It may have been sent: {outcome.reason} Don't send it again or try another "
+                              "way; tell the owner to look in their Gmail Sent folder.")
         case _:
             return ToolResult(False, f"Sending failed: {outcome.reason} Don't retry; tell the owner.")
 

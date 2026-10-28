@@ -129,8 +129,10 @@ class GoogleSession:
             self._services[name] = build(name, version, credentials=self._credentials(), cache_discovery=False)
         return self._services[name]
 
-    async def call(self, fn: Callable[[], T], *, retry: bool = False) -> T:
-        """Run ``fn`` on a thread. ``retry``: it is safe to repeat, so a dropped connection is tried again."""
+    async def call(self, fn: Callable[[], T], *, retry: bool = False, changes: bool = False) -> T:
+        """Run ``fn`` on a thread. ``retry``: it is safe to repeat, so a dropped connection is tried again.
+        ``changes``: it changes something, so a connection that stays dropped means Swift can't tell
+        whether it was done (``code="unknown"``), not that it failed."""
         delays = RETRY_DELAYS_S if retry else ()
         for attempt in range(len(delays) + 1):
             try:
@@ -143,6 +145,11 @@ class GoogleSession:
                                 error=type(exc).__name__)
                     await asyncio.sleep(delays[attempt])
                     continue
+                if changes and transient(exc):
+                    raise ConnectorError(
+                        f"Swift lost the connection to {self.service_name} before it answered, so it can't tell "
+                        "whether that was done.", f"Check {self.service_name} before trying again.", code="unknown",
+                    ) from None
                 raise self._failure(exc) from None
         raise AssertionError("unreachable")
 

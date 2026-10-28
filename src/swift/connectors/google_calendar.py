@@ -27,7 +27,7 @@ from datetime import date, datetime
 from typing import Any
 
 from swift.connectors.base import CalendarEvent, ConnectorError, Contact, CreatedEvent, Manifest, StoredEvent
-from swift.connectors.google import GoogleSession
+from swift.connectors.google import GoogleSession, transient
 
 
 def _when(moment: datetime | date) -> dict[str, str]:
@@ -154,14 +154,26 @@ class GoogleCalendarConnector:
         return await self._google.call(fetch, retry=True)
 
     async def create_event(self, event: CalendarEvent) -> CreatedEvent:
+        # Swift's own id for the event (threat model T10): if the connection drops, Swift asks Google
+        # whether it was added, and a second try can't add it twice (Google answers 409 for that id).
+        event_id = uuid.uuid4().hex  # base32hex: 0-9 and a-f are allowed
+
         def insert() -> CreatedEvent:
-            created = self._events().insert(
-                calendarId="primary", body=body(event), sendUpdates=_notify(event),
-                conferenceDataVersion=1 if event.meet else 0,
-            ).execute()
+            try:
+                created = self._events().insert(
+                    calendarId="primary", body=body(event, request_id=event_id) | {"id": event_id},
+                    sendUpdates=_notify(event), conferenceDataVersion=1 if event.meet else 0,
+                ).execute()
+            except Exception as exc:
+                if not (transient(exc) or "409" in str(exc)):
+                    raise
+                found = self._get(event_id)  # did the try whose connection dropped add it?
+                if found is None:
+                    raise  # not added: trying again is safe
+                created = found
             return CreatedEvent(str(created.get("id", "")), str(created.get("htmlLink", "")), _meet_link(created))
 
-        return await self._google.call(insert)
+        return await self._google.call(insert, retry=True, changes=True)
 
     async def update_event(self, event_id: str, event: CalendarEvent) -> CreatedEvent:
         def update() -> CreatedEvent:
@@ -176,7 +188,7 @@ class GoogleCalendarConnector:
             return CreatedEvent(str(updated.get("id", "")), str(updated.get("htmlLink", "")), _meet_link(updated))
 
         # A patch sets the same fields again: safe to repeat after a dropped connection.
-        return await self._google.call(update, retry=True)
+        return await self._google.call(update, retry=True, changes=True)
 
     async def delete_event(self, event_id: str) -> str:
         tried = False
@@ -192,4 +204,4 @@ class GoogleCalendarConnector:
             self._events().delete(calendarId="primary", eventId=event_id, sendUpdates=_notify(current)).execute()
             return event_id  # Google answers a delete with an empty body; no error means it's gone
 
-        return await self._google.call(delete, retry=True)
+        return await self._google.call(delete, retry=True, changes=True)

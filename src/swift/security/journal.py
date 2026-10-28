@@ -19,7 +19,8 @@ from typing import Any, Literal
 
 from loguru import logger
 
-State = Literal["PENDING", "DONE", "FAILED"]
+# UNKNOWN: the connection dropped before the service answered, and Swift couldn't tell whether it was done.
+State = Literal["PENDING", "DONE", "FAILED", "UNKNOWN"]
 
 
 class Journal:

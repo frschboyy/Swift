@@ -24,7 +24,8 @@ from email.message import EmailMessage
 from typing import Any
 
 from swift.connectors.base import Contact, ConnectorError, Manifest, OutgoingEmail, SentMessage
-from swift.connectors.google import SCOPES, SIGNIN_HINT, GoogleSession, client_secret_path, main as google_main
+from swift.connectors.google import SCOPES, SIGNIN_HINT, GoogleSession, client_secret_path, transient
+from swift.connectors.google import main as google_main
 
 __all__ = ["SCOPES", "SIGNIN_HINT", "GmailConnector", "client_secret_path", "main", "mime"]
 
@@ -117,13 +118,44 @@ class GmailConnector:
         return self._owner
 
     async def send(self, email: OutgoingEmail) -> SentMessage:
-        def send() -> SentMessage:
-            drafts = self._google.service("gmail", "v1").users().drafts()
-            draft = drafts.create(userId="me", body={"message": {"raw": mime(email)}}).execute()
-            sent = drafts.send(userId="me", body={"id": draft["id"]}).execute()
-            return SentMessage(str(sent.get("id", "")))
+        """A draft, then sending it. If the connection drops while sending, the draft says what
+        happened: still in Drafts means not sent (so trying again is safe), gone means sent
+        (audit 2026-10, A-06). Never sent twice, never "failed" when it may have gone."""
 
-        return await self._google.call(send)
+        def drafts() -> Any:
+            return self._google.service("gmail", "v1").users().drafts()
+
+        def create() -> str:
+            return str(drafts().create(userId="me", body={"message": {"raw": mime(email)}}).execute()["id"])
+
+        draft_id = await self._google.call(create)  # not repeated: a dropped create sends nothing
+        tried = False
+
+        def send() -> SentMessage:
+            nonlocal tried
+            try:
+                sent = drafts().send(userId="me", body={"id": draft_id}).execute()
+                return SentMessage(str(sent.get("id", "")))
+            except Exception as exc:
+                gone = tried and "404" in str(exc)  # the try whose connection dropped did send it
+                tried = True
+                if not (transient(exc) or gone):
+                    raise
+                if gone or not self._draft_exists(drafts(), draft_id):
+                    return SentMessage(f"draft-{draft_id}")  # sent: Gmail moves a sent draft out of Drafts
+                raise  # still a draft: not sent; trying again is safe
+
+        return await self._google.call(send, retry=True, changes=True)
+
+    @staticmethod
+    def _draft_exists(drafts: Any, draft_id: str) -> bool:
+        try:
+            drafts.get(userId="me", id=draft_id, format="minimal").execute()
+        except Exception as exc:
+            if "404" in str(exc):
+                return False
+            raise
+        return True
 
 
 def main(argv: list[str] | None = None) -> None:

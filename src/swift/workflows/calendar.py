@@ -181,6 +181,9 @@ def _answer(outcome: Outcome, done: str, verb: str, tool: str, data: dict[str, A
             return ToolResult(False, revise_text(outcome.reason, tool, verb), expected=True)
         case "denied":
             return ToolResult(False, f"Not {verb}: {outcome.reason}")
+        case "unknown":
+            return ToolResult(False, f"It may have been {verb}: {outcome.reason} Don't retry or try another way; "
+                              "tell the owner to look in their calendar.")
         case _:
             doing = {"added": "Adding", "changed": "Changing", "removed": "Removing"}[verb]
             return ToolResult(False, f"{doing} it failed: {outcome.reason} Don't retry; tell the owner.")

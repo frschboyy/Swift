@@ -40,7 +40,8 @@ from swift.security.journal import Journal
 from swift.workflows.scope import RunScope
 
 # "revise": the owner wants a change first; ``reason`` holds their words (nothing was done).
-OutcomeStatus = Literal["done", "rejected", "denied", "failed", "revise"]
+# "unknown": the service may have done it; Swift couldn't tell (a dropped connection). Never "failed".
+OutcomeStatus = Literal["done", "rejected", "denied", "failed", "revise", "unknown"]
 Status = Literal["waiting_approval", "sending", "sent", "failed", "rejected"]
 
 # Tool -> what it needs. Swift's table, never a connector's claim (ADR-005). There is no "auto":
@@ -198,6 +199,11 @@ class ActionGateway:
         try:
             receipt = await action.perform()
         except ConnectorError as exc:
+            if exc.code == "unknown":  # it may have been done: say so, never "failed" (audit 2026-10, A-05)
+                self.journal.write(action_id, "UNKNOWN", reason=str(exc)[:200])
+                await status("failed", reason=str(exc)[:200])
+                logger.warning("action outcome unknown", tool=action.tool, action=action_id)
+                return Outcome("unknown", str(exc))
             return await self._failed(action, action_id, str(exc), status)
         except asyncio.CancelledError:
             self.journal.write(action_id, "FAILED", reason="interrupted")

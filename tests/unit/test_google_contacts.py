@@ -244,18 +244,25 @@ async def test_a_delete_whose_connection_dropped_is_done_on_the_retry() -> None:
     assert events.deletes == 1 and not events.stored  # the retry saw it gone; nothing removed twice
 
 
-async def test_a_new_event_is_never_added_twice() -> None:
-    class Inserts(FakeEvents):
-        made = 0
+async def test_a_new_event_whose_connection_keeps_dropping_is_unknown_not_failed() -> None:
+    """Every try drops before Google answers: tried again with the same id (never a second event),
+    then "can't tell" rather than "failed" (audit 2026-10, A-05)."""
 
-        def insert(self, **_: Any) -> Call:
-            self.made += 1
+    class Inserts(FakeEvents):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stored = False
+            self.ids: list[str] = []
+
+        def insert(self, **kw: Any) -> Call:
+            self.ids.append(kw["body"]["id"])
             return Call(aborted())
 
     events = Inserts()
     connector = GoogleCalendarConnector()
     connector._google._services["calendar"] = FakeCalendar(events)
     start = datetime(2026, 10, 30, 10).astimezone()
-    with pytest.raises(ConnectorError):
+    with pytest.raises(ConnectorError) as raised:
         await connector.create_event(CalendarEvent("Lunch", start, start + timedelta(hours=1)))
-    assert events.made == 1
+    assert raised.value.code == "unknown" and "can't tell" in str(raised.value)
+    assert len(events.ids) == 3 and len(set(events.ids)) == 1  # one id: Google can't add it twice

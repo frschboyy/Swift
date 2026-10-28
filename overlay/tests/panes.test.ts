@@ -171,3 +171,19 @@ test("the stack is a pane while something waits; the text box while it's open", 
   assert.deepEqual(specs.map((s) => [s.label, s.kind]), [["pane-stack", "stack"], ["pane-type", "type"]]);
   assert.deepEqual(wantedPanes(initial, null, label, { stack: stackView(initialStack, 0) }), []);
 });
+
+// ---- ADR-017: the Capsule design's pane sizes, the text box's notice, the tray menu -----------
+
+test("the text box grows a row for 'Typing can't approve', and the tray menu is a pane", async () => {
+  const Pn = await import("../src/panes.ts");
+  const { initial } = await import("../src/presenter.ts");
+  const type = (confirm: boolean) => ({ label: "pane-type", kind: "type" as const, index: 0, view: { kind: "type" as const, draft: "", follows: null, confirm } });
+  assert.deepEqual(Pn.paneSize(type(false)), { w: 512, h: 52 });
+  assert.deepEqual(Pn.paneSize(type(true)), { w: 512, h: 96 });
+  const tray = { kind: "tray" as const, status: "Listening for “Hey Swift”", paused: false, anchor: "bottom-center", smart: true, typeKey: "ctrl+space" };
+  const specs = Pn.wantedPanes(initial, null, () => "", { tray });
+  assert.deepEqual(specs.map((s) => s.label), ["pane-tray"]);
+  assert.deepEqual(Pn.paneSize(specs[0]), { w: 280, h: 400 });
+  assert.equal(Pn.ACK_MS, 2500);
+  assert.equal(Pn.WORKING_QUIET_MS, 12_000);
+});

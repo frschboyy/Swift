@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swift pane (dev harness)</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <!-- Dev only (ADR-017): one pane window's page, as Swift opens it, with the views it is sent.
+         http://localhost:1431/dev/pane.html?label=pane-type&state=typeConfirm[&theme=light][&wall=white]
+         or __pane("trayMenu") from the console. The shim answers its commands. -->
+    <style>
+      body { background: #3a5f7d linear-gradient(135deg, #d9dee6, #5b7a99); padding: 24px; }
+      body[data-wall="white"] { background: #fff; }
+      body[data-wall="black"] { background: #000; }
+      .pane-body #stage { position: static; display: inline-block; }
+    </style>
+  </head>
+  <body>
+    <main id="stage" data-state="idle" data-theme="dark"></main>
+    <script type="module">
+      const params = new URLSearchParams(location.search);
+      if (params.get("wall")) document.body.dataset.wall = params.get("wall");
+    </script>
+    <script type="module" src="/dev/shim.ts"></script>
+    <script type="module">
+      import "/src/pane.ts";
+      const label = new URLSearchParams(location.search).get("label") ?? "pane-type";
+      const now = Date.now();
+      const STACK = [
+        { id: "card:swift:1", kind: "later", title: "Add lunch with Sam Okafor at Café Nord on Thursday at half past twelve", line: "Waiting for your OK · held, no answer in time · 4 min ago", open: "Open", fresh: false, icon: "shield" },
+        { id: "parked:t2", kind: "parked", title: "Which day and time works for you for the design review?", line: "Unanswered question · 12 min ago", open: "Open", fresh: false, icon: "question" },
+        { id: "parked:t3", kind: "parked", title: "Draft an email to Priya about the tea report", line: "Unfinished · stopped before it was done · 1 h 05 min ago", open: "Open", fresh: false, icon: "pause" },
+      ];
+      const VIEWS = {
+        typeEmpty: { kind: "type", draft: "", follows: null, confirm: false },
+        typeTyped: { kind: "type", draft: "Remind me to call mum at 6", follows: null, confirm: false },
+        typeConfirm: { kind: "type", draft: "make it 5 pm instead", follows: null, confirm: true },
+        typeFollows: { kind: "type", draft: "", follows: "It's 3:42 pm", confirm: false },
+        trayMenu: { kind: "tray", status: "Listening for “Hey Swift”", paused: false, anchor: "bottom-center", smart: true, typeKey: "ctrl+space" },
+        trayPaused: { kind: "tray", status: "Not listening · Mic off", paused: true, anchor: "bottom-right", smart: false, typeKey: "ctrl+space" },
+        chipRunning: { kind: "request", runId: "c1", title: "Green tea research", words: "Look up green tea research", label: "Reading", startedMs: now - 96_000, running: true, state: "working" },
+        chipNeedsYou: { kind: "request", runId: "c2", title: "Email to Priya", words: "Email Priya the tea report", label: "Needs your OK", startedMs: now - 40_000, running: true, state: "confirm" },
+        chipReady: { kind: "request", runId: "c3", title: "Tea history", words: "Tea history", label: "Ready to read", startedMs: now - 200_000, running: false, state: "result" },
+        stackClosed: { kind: "stack", expanded: false, items: STACK },
+        stackOpen: { kind: "stack", expanded: true, items: STACK },
+      };
+      window.__pane = (name) => window.__shim.emit("pane", { label, view: VIEWS[name] });
+      window.__pane.list = Object.keys(VIEWS);
+      setTimeout(() => window.__pane(new URLSearchParams(location.search).get("state") ?? "typeEmpty"), 100);
+    </script>
+  </body>
+</html>

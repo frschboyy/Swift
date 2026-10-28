@@ -1,6 +1,7 @@
 // Dev-only stand-in for Tauri's injected internals, so the overlay UI can be
 // developed in a plain browser against a backend started by hand.
-// Usage: http://localhost:1420/dev/harness.html?port=<n>&token=<token>[&anchor=top-right]
+// Usage: http://localhost:1420/dev/harness.html?port=<n>&token=<token>[&anchor=top-right][&theme=light]
+// A pane window's page (dev/pane.html) passes ?label=pane-…: the shim says it is that window.
 // Never loaded by index.html or the production build.
 
 export {};
@@ -15,8 +16,12 @@ let nextId = 1;
 const log: { cmd: string; args: unknown }[] = [];
 const copied: string[] = [];
 
+const windowLabel = params.get("label") ?? "overlay";
+// What a pane sent to the main window (``pane-action``), for checks by eye.
+const emitted: unknown[] = [];
+
 const internals = {
-  metadata: { currentWindow: { label: "overlay" }, currentWebview: { label: "overlay", windowLabel: "overlay" } },
+  metadata: { currentWindow: { label: windowLabel }, currentWebview: { label: windowLabel, windowLabel } },
   transformCallback(cb: Callback): number {
     const id = nextId++;
     callbacks.set(id, cb);
@@ -37,6 +42,21 @@ const internals = {
       case "begin_drag":
       case "open_logs":
       case "set_status":
+      case "fit_pane":
+      case "close_pane":
+      case "reveal":
+      case "set_anchor":
+      case "set_smart":
+        return null;
+      case "drag_pane":
+        return false;  // a press that doesn't move: a click
+      case "watch_outside":
+        return new Promise(() => {});  // no click outside in the harness
+      case "get_prefs":
+        return { anchor: params.get("anchor") ?? "bottom-center", smart: true };
+      case "plugin:event|emit_to":
+      case "plugin:event|emit":
+        emitted.push(args);
         return null;
       case "copy_text":
         copied.push(String(args.text));
@@ -78,6 +98,7 @@ window.WebSocket = class extends NativeWebSocket {
   log,
   frames,
   copied,
+  emitted,
   /** Send a frame to the backend as the overlay would, e.g. send("debug.say", {text: "show me"}). */
   send(type: string, data: Record<string, unknown> = {}): boolean {
     if (!socket || socket.readyState !== NativeWebSocket.OPEN) return false;

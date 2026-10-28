@@ -36,6 +36,18 @@ const ICONS: Record<string, string> = {
   expand: "M6 9l6 6 6-6",
   grip: "M9 6v.01M15 6v.01M9 12v.01M15 12v.01M9 18v.01M15 18v.01",
   mic: "M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3",
+  // The Capsule redesign (ADR-017): 24-unit, 2 px round strokes.
+  keyboard: "M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10",
+  bell: "M6 16v-5a6 6 0 0112 0v5l2 2H4l2-2zM10 21a2 2 0 004 0",
+  timer: "M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l3 2M10 2h4",
+  pause: "M9 6v12M15 6v12",
+  lock: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3",
+  question: "M12 21a9 9 0 100-18 9 9 0 000 18zM9.6 9.6a2.5 2.5 0 114.1 1.9c-.9.7-1.7 1.2-1.7 2.5M12 17v.01",
+  play: "M8 5l11 7-11 7z",
+  external: "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5",
+  settings: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 13a7.5 7.5 0 000-2l2-1.5-2-3.4-2.4 1a7.5 7.5 0 00-1.7-1L15 3h-4l-.3 2.6a7.5 7.5 0 00-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 000 2l-2 1.5 2 3.4 2.4-1a7.5 7.5 0 001.7 1L11 21h4l.3-2.6a7.5 7.5 0 001.7-1l2.4 1 2 3.4z",
+  power: "M12 3v8M6.3 6.3a8 8 0 1011.4 0",
+  slash: "M5 5l14 14",
 };
 
 export function icon(name: keyof typeof ICONS | string): SVGSVGElement {

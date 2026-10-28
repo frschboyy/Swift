@@ -9,14 +9,19 @@
 // ADR-015 §9, §10: the waiting stack (compressed; a double click expands it, a click anywhere
 // else compresses it) and the text box, the one pane that takes the keyboard (Enter sends,
 // Esc or clicking away closes it, keeping what was typed).
+//
+// ADR-017, the Capsule design: chips and the stack as views.ts draws them, the text box with
+// "Typing can't approve" while a confirm card is open, and the tray menu (opened by a click on
+// the tray icon, folded away by a click anywhere else). Dark or light follows Windows.
 
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { el, icon } from "./dom";
-import type { PaneView } from "./panes";
+import { el, icon, keys } from "./dom";
+import type { PaneView, TrayView } from "./panes";
 import type { ResultDetails } from "./protocol";
-import { countLine, type StackView } from "./stack";
+import { followTheme } from "./theme";
+import * as V from "./views";
 
 const label = getCurrentWindow().label;
 const root = document.getElementById("stage")!;
@@ -25,41 +30,35 @@ let lastTouch = 0;
 // Two clicks this close make a double click (the press goes to Rust first, so no dblclick event).
 const DOUBLE_MS = 450;
 let lastClick = 0;
-// Waiting for a click outside the expanded stack.
+// Waiting for a click outside the expanded stack (or the tray menu).
 let watching = false;
+// The open stack's row the owner last pointed at.
+let selected: string | null = null;
 
 document.body.classList.add("pane-body");
 root.dataset.pane = "true";
 // The reader is at most 70 % of the screen's height; past that its body scrolls.
 root.style.setProperty("--reader-max", `${Math.max(240, Math.round(screen.availHeight * 0.7) - 64)}px`);
 root.replaceChildren();
+followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 
 const act = (action: string, extra: Record<string, unknown> = {}): void => {
   void emitTo("overlay", "pane-action", { label, action, ...extra }).catch(() => {});
-};
-
-const elapsed = (startedMs: number): string => {
-  const s = Math.max(0, Math.floor((Date.now() - startedMs) / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
 function details(d: ResultDetails | null): HTMLElement | null {
   if (!d) return null;
   switch (d.kind) {
     case "text":
-      return el("p", { class: "reader-text" }, d.text);
+      return el("p", { class: "summary" }, d.text);
     case "list":
       return el("ul", { class: "result-list" }, ...d.items.map((i) => el("li", {}, i)));
     case "table":
       return el(
-        "div",
-        { class: "table-wrap" },
-        el(
-          "table",
-          { class: "result-table" },
-          el("thead", {}, el("tr", {}, ...d.columns.map((c) => el("th", { scope: "col" }, c)))),
-          el("tbody", {}, ...d.rows.map((r) => el("tr", {}, ...r.map((c) => el("td", {}, c))))),
-        ),
+        "table",
+        { class: "answer-table" },
+        el("thead", {}, el("tr", {}, ...d.columns.map((c) => el("th", { scope: "col" }, c)))),
+        el("tbody", {}, ...d.rows.map((r) => el("tr", {}, ...r.map((c) => el("td", {}, c))))),
       );
   }
 }
@@ -71,70 +70,47 @@ function plain(v: Extract<PaneView, { kind: "reader" }>): string {
   return [v.summary, extra].filter(Boolean).join("\n\n");
 }
 
-/** The stack: the top card with the others behind it, or every card with Show / Skip / End. */
-function drawStack(v: StackView): void {
-  const top = v.items[0];
-  if (!v.expanded) {
-    root.replaceChildren(
-      el(
-        "div",
-        { class: `stack stack--${Math.min(v.items.length, 3)}${v.items.some((i) => i.fresh) ? " stack--fresh" : ""}`, role: "button",
-          title: "Double-click to see the cards waiting for you", "data-click": "stack" },
-        el("div", { class: "stack-top" },
-          el("span", { class: "stack-badge" }, String(v.items.length)),
-          el("span", { class: "stack-text" },
-            el("span", { class: "stack-count" }, countLine(v.items.length)),
-            el("span", { class: "row-title" }, top.title))),
-      ),
-    );
-    return;
-  }
-  const item = (i: StackView["items"][number]) =>
-    el(
-      "li",
-      { class: `stack-item stack-item--${i.kind}${i.fresh ? " stack-item--fresh" : ""}`, "data-click": "item", "data-id": i.id, title: `${i.open}: ${i.title}` },
-      el("span", { class: "stack-text" }, el("span", { class: "row-title" }, i.title), el("span", { class: "row-activity" }, i.line)),
-      el("span", { class: "actions actions--inline" },
-        el("button", { class: "btn btn--primary btn--small", onclick: () => act("stack-item", { id: i.id, item: "open" }) }, i.open),
-        el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => act("stack-item", { id: i.id, item: "skip" }) }, "Skip"),
-        el("button", { class: "icon-btn", "aria-label": "End it", title: "End it: it won't come back", onclick: () => act("stack-item", { id: i.id, item: "end" }) }, icon("x"))),
-    );
-  root.replaceChildren(
-    el(
-      "section",
-      { class: "card card--in stack-open", role: "region", "aria-label": "Waiting for you" },
-      el("header", { class: "card-head", title: "Drag to move" },
-        icon("info"),
-        el("span", { class: "card-title card-title--sentence" }, countLine(v.items.length)),
-        el("span", { class: "head-extra" }),
-        el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up", onclick: () => act("stack-collapse") }, icon("collapse"))),
-      el("ul", { class: "stack-list" }, ...v.items.map(item)),
-    ),
-  );
-  watchOutside();
-}
-
-/** A press anywhere outside the expanded stack folds it up again (the owner's design). */
+/** A press anywhere outside the expanded stack or the tray menu folds it away (the owner's design). */
 function watchOutside(): void {
   if (watching) return;
   watching = true;
+  const open = (): boolean => (view?.kind === "stack" && view.expanded) || view?.kind === "tray";
   void invoke<boolean>("watch_outside", { label })
     .then((outside) => {
-      if (outside && view?.kind === "stack" && view.expanded) act("stack-collapse");
+      if (!outside || !open()) return;
+      if (view?.kind === "tray") act("tray", { value: "close" });
+      else act("stack-collapse");
     })
     .catch(() => {})
     .finally(() => {
       watching = false;
-      if (view?.kind === "stack" && view.expanded) watchOutside();  // folded and opened again meanwhile
+      if (open()) watchOutside();  // folded and opened again meanwhile
     });
 }
 
-/** The text box: Enter sends, Esc closes; what was typed is kept if it closes unsent. */
+/** The text box: Enter sends, Esc closes; what was typed is kept if it closes unsent. While a
+ * confirm card is open it says typing can't approve (Enter sends a change). */
 function drawType(v: Extract<PaneView, { kind: "type" }>): void {
+  const notices = (): HTMLElement[] => ([
+    v.confirm
+      ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"),
+          el("span", {}, el("b", {}, "Typing can't approve."), " Click Approve, or say “approve”."))
+      : null,
+    v.follows ? el("p", { class: "type-note type-note--follow" }, icon("info"), `Following up: ${v.follows}`) : null,
+  ] as (HTMLElement | null)[]).filter((n): n is HTMLElement => n !== null);
+  const hint = (): HTMLElement =>
+    el("span", { class: "hint" }, ...(v.confirm ? [el("kbd", {}, "Enter"), "= Change"] : [el("kbd", {}, "Enter"), "sends ·", el("kbd", {}, "Esc"), "closes"]));
   const known = root.querySelector<HTMLInputElement>(".type-input");
-  if (known) return;  // an update while typing must not wipe what's being typed
+  if (known) {
+    // An update while typing must not wipe what's being typed: only the notice and the hint change.
+    const box = root.querySelector<HTMLElement>(".type-box")!;
+    box.querySelectorAll(".type-note").forEach((n) => n.remove());
+    box.prepend(...notices());
+    box.querySelector(".hint")?.replaceWith(hint());
+    return;
+  }
   const input = el("input", {
-    class: "type-input", type: "text", value: v.draft, placeholder: "Type to Swift…", "aria-label": "Type to Swift",
+    class: "type-input", type: "text", value: v.draft, placeholder: "Type to Swift", "aria-label": "Type to Swift",
     autocomplete: "off", spellcheck: "true", maxlength: "2000",
   }) as HTMLInputElement;
   input.value = v.draft;
@@ -150,72 +126,114 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
   root.replaceChildren(
     el(
       "section",
-      { class: "card card--in type-box", role: "dialog", "aria-label": "Type to Swift" },
-      v.follows ? el("p", { class: "type-follows" }, icon("info"), `Following up: ${v.follows}`) : null,
-      el("div", { class: "type-row" }, icon("edit"), input, el("span", { class: "hint" }, el("kbd", {}, "Enter"), " to send · ", el("kbd", {}, "Esc"), " to close")),
+      { class: "type-box", role: "dialog", "aria-label": "Type to Swift" },
+      ...notices(),
+      el("div", { class: "type-row" }, icon("keyboard"), input, hint()),
     ),
   );
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
 }
 
+const ANCHORS = ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"];
+const anchorName = (a: string): string =>
+  a.replace("top", "Top").replace("bottom", "Bottom").replace("-left", " left").replace("-center", " centre").replace("-right", " right");
+
+/** The tray menu: Swift and its status, where it sits, smart placement, then the actions. */
+function drawTray(v: TrayView): void {
+  const tray = (value: string, extra: Record<string, unknown> = {}) => () => act("tray", { value, ...extra });
+  const typeKeys = v.typeKey ? keys(v.typeKey) : null;
+  root.replaceChildren(
+    el(
+      "section",
+      { class: "tray", role: "menu", "aria-label": "Swift" },
+      el("div", { class: "tray-head" }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", {}, v.status))),
+      el("div", { class: "tray-sep" }),
+      el("div", { class: "tray-block" },
+        el("div", { class: "tray-row" }, "Position", el("span", {}, anchorName(v.anchor))),
+        el("div", { class: "picker", role: "radiogroup", "aria-label": "Position" },
+          ...ANCHORS.map((a) => el("button", {
+            role: "radio", "aria-checked": String(a === v.anchor), "aria-label": anchorName(a), title: anchorName(a),
+            onclick: tray("anchor", { text: a }),
+          })))),
+      el("div", { class: "tray-block" },
+        el("div", { class: "tray-row" }, "Smart placement",
+          el("button", { class: "switch", role: "switch", "aria-checked": String(v.smart), "aria-label": "Smart placement", onclick: tray("smart") })),
+        el("p", { class: "tray-help" }, "Moves away from the text cursor and full-screen apps.")),
+      el("div", { class: "tray-sep" }),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("pause") }, icon(v.paused ? "play" : "pause"), v.paused ? "Resume listening" : "Pause listening"),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("settings") }, icon("settings"), "Settings"),
+      el("div", { class: "tray-sep" }),
+      el("button", { class: "tray-item", role: "menuitem", onclick: tray("quit") }, icon("power"), "Quit Swift"),
+    ),
+  );
+  watchOutside();
+}
+
+
 function draw(): void {
   if (!view) return;
-  if (view.kind === "stack") {
-    drawStack(view);
-  } else if (view.kind === "type") {
-    drawType(view);
-  } else if (view.kind === "request") {
-    const v = view;
-    root.replaceChildren(
-      el(
-        "div",
-        { class: `chip chip--${v.state}`, role: "button", title: `${v.words}\nClick to bring it to the front`, "data-click": "focus" },
-        el("span", { class: v.running ? "spinner spinner--small" : "row-dot", "aria-hidden": "true" }),
-        el("span", { class: "row-title" }, v.title),
-        el("span", { class: "row-activity" }, v.label),
-        v.running ? el("span", { class: "elapsed" }, elapsed(v.startedMs)) : null,
-      ),
-    );
-  } else if (view.chip) {
-    root.replaceChildren(
-      el(
-        "div",
-        { class: "chip chip--reader", role: "button", title: "Open the answer again", "data-click": "open" },
-        icon("info"),
-        el("span", { class: "row-title" }, view.title),
-        el("span", { class: "row-activity" }, "Open"),
-      ),
-    );
-  } else {
-    const v = view;
-    const copy = el("button", { class: "btn btn--ghost btn--small", title: "Copy the answer" }, icon("copy"), "Copy");
-    copy.addEventListener("click", async () => {
-      try {
-        await invoke("copy_text", { text: plain(v) });
-        copy.replaceChildren(icon("check"), "Copied");
-      } catch {
-        copy.replaceChildren("Couldn't copy");
+  switch (view.kind) {
+    case "stack":
+      if (view.expanded) {
+        root.replaceChildren(V.stackOpen(view, {
+          item: (id, item) => act("stack-item", { id, item }),
+          collapse: () => act("stack-collapse"),
+          selected,
+          select: (id) => {
+            selected = id;
+            for (const row of root.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id));
+          },
+        }));
+        watchOutside();
+      } else {
+        root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }));
       }
-      window.setTimeout(() => copy.replaceChildren(icon("copy"), "Copy"), 1600);
-    });
-    const body = el("div", { class: "reader-body", tabindex: "0" }, el("p", { class: "summary" }, v.summary), details(v.details));
-    body.addEventListener("scroll", touch, { passive: true });
-    root.replaceChildren(
-      el(
-        "section",
-        { class: "card card--in reader", role: "region", "aria-label": v.title },
-        el(
-          "header",
-          { class: "card-head", title: "Drag to move" },
-          icon("info"),
-          el("span", { class: "card-title card-title--sentence" }, v.title),
-          el("span", { class: "head-extra" }, copy),
-          el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => act("close") }, icon("x")),
-        ),
-        body,
-      ),
-    );
+      break;
+    case "type":
+      drawType(view);
+      break;
+    case "tray":
+      drawTray(view);
+      break;
+    case "request":
+      root.replaceChildren(V.chip(view, { "data-click": "focus" }));
+      break;
+    case "reader":
+      if (view.chip) {
+        root.replaceChildren(
+          el("div", { class: "chip", role: "button", title: "Open the answer again", "data-click": "open" },
+            el("span", { class: "chip-icon" }, icon("info")),
+            el("span", { class: "chip-text" }, el("span", { class: "chip-title" }, view.title), el("span", { class: "chip-sub" }, "Open the answer"))),
+        );
+      } else {
+        const v = view;
+        const copy = el("button", { class: "btn btn--ghost", title: "Copy the answer" }, icon("copy"), "Copy");
+        copy.addEventListener("click", async () => {
+          try {
+            await invoke("copy_text", { text: plain(v) });
+            copy.replaceChildren(icon("check"), "Copied");
+          } catch {
+            copy.replaceChildren("Couldn't copy");
+          }
+          window.setTimeout(() => copy.replaceChildren(icon("copy"), "Copy"), 1600);
+        });
+        const body = el("div", { class: "reader-body answer", tabindex: "0" }, el("p", {}, v.summary), details(v.details));
+        body.addEventListener("scroll", touch, { passive: true });
+        root.replaceChildren(
+          el(
+            "section",
+            { class: "reader", role: "region", "aria-label": v.title },
+            el("header", { class: "card-head", title: "Drag to move" },
+              el("p", { class: "words" }, v.title),
+              el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => act("close") }, icon("x"))),
+            body,
+            el("footer", { class: "card-foot" }, el("span", { class: "foot-gap" }), copy),
+          ),
+        );
+      }
+      break;
   }
   fit();
 }
@@ -239,11 +257,11 @@ root.addEventListener("pointermove", touch, { passive: true });
 
 root.addEventListener("pointerdown", async (ev) => {
   const target = ev.target as HTMLElement;
-  if (ev.button !== 0 || target.closest("button, input, .reader-body")) return;
+  if (ev.button !== 0 || target.closest("button, input, .reader-body") || view?.kind === "tray") return;
   // No text selection or native drag while Rust moves the window (check 19, 2026-10-27).
   ev.preventDefault();
-  const clicked = target.closest<HTMLElement>("[data-click]");
-  const click = clicked?.dataset.click;
+  const clicked = target.closest<HTMLElement>("[data-click], .stack-row");
+  const click = clicked?.dataset.click ?? (clicked?.classList.contains("stack-row") ? "item" : undefined);
   let moved = false;
   try {
     moved = await invoke<boolean>("drag_pane", { label });
@@ -256,7 +274,9 @@ root.addEventListener("pointerdown", async (ev) => {
     if (now - lastClick < DOUBLE_MS) act("stack-expand");
     lastClick = now;
   } else if (click === "item" && clicked?.dataset.id) {
-    act("stack-item", { id: clicked.dataset.id, item: "open" });
+    // A click on a row selects it (its buttons show); Open is one of them.
+    selected = clicked.dataset.id;
+    for (const row of root.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === selected));
   } else if (view?.kind === "request") {
     act(click, { runId: view.runId });
   } else {
@@ -279,8 +299,8 @@ void listen<{ label: string; view: PaneView }>("pane", ({ payload }) => {
 // Elapsed time on a request chip.
 window.setInterval(() => {
   if (view?.kind !== "request" || !view.running) return;
-  const node = root.querySelector<HTMLElement>(".elapsed");
-  if (node) node.textContent = elapsed(view.startedMs);
+  const node = root.querySelector<HTMLElement>(".chip-time");
+  if (node) node.textContent = V.elapsed(view.startedMs);
 }, 1000);
 
 // The main window sends what to show once this window is listening.

@@ -8,12 +8,17 @@
 //! upwards and folds up on a click anywhere else (`watch_outside`); the text box is the one pane
 //! that takes the keyboard, opened by `hotkeys.type` or the tray's "Type to Swift". `pane_labels`
 //! lets the main window close any pane it no longer wants.
+//! ADR-017 (the Capsule redesign): the overlay follows Windows' light or dark app theme, live
+//! (`theme.rs`); a left click on the tray icon opens the tray menu as a pane next to it (the
+//! native menu stays on the right click), with Position, smart placement, Pause listening, Type
+//! to Swift, Settings (config.yaml in its default app) and Quit.
 
 mod backend;
 mod hit;
 mod panes;
 mod placement;
 mod prefs;
+mod theme;
 mod win;
 
 use std::collections::HashMap;
@@ -22,7 +27,7 @@ use std::time::Instant;
 
 use serde::Serialize;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::tray::TrayIconBuilder;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder, Wry};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
@@ -43,6 +48,10 @@ struct Panes(Mutex<HashMap<String, (isize, PaneKind)>>);
 
 /// When this process started, for the startup-time measurement.
 struct Started(Instant);
+
+/// Where the tray icon was last clicked (physical px): the tray menu pane opens next to it.
+#[derive(Default)]
+struct TrayClick(Mutex<Option<(i32, i32)>>);
 
 /// Registered shortcut id -> logical name ("push_to_talk", "debug", "escape").
 #[derive(Default)]
@@ -401,6 +410,7 @@ async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f
         (p.current, remembered_place(&p.prefs.panes, kind))
     };
     let (x, y) = match remembered {
+        _ if kind == PaneKind::Tray => panes::tray_origin(area, scale, *app.state::<TrayClick>().0.lock().unwrap(), size),
         // The stack remembers its bottom edge: it grows upwards.
         Some(f) if kind.grows_up() => {
             let (x, bottom) = panes::remembered_origin(area, scale, f, index, (size.0, 0));
@@ -523,6 +533,7 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
         PaneKind::Reader => places.reader = place,
         PaneKind::Stack => places.stack = place,
         PaneKind::Type => places.typing = place,
+        PaneKind::Tray => return Ok(true),  // it opens by the tray icon each time
     }
     prefs::save(&p.prefs);
     Ok(true)
@@ -534,6 +545,7 @@ fn remembered_place(places: &prefs::PanePlaces, kind: PaneKind) -> Option<(f64, 
         PaneKind::Reader => places.reader,
         PaneKind::Stack => places.stack,
         PaneKind::Type => places.typing,
+        PaneKind::Tray => None,
     }
 }
 
@@ -579,6 +591,60 @@ async fn pane_labels(app: AppHandle) -> Result<Vec<String>, String> {
 async fn get_placement(placement: State<'_, Placement>) -> Result<PlacementEvent, String> {
     let p = placement.0.lock().unwrap();
     Ok(PlacementEvent { anchor: p.current.id(), flipped: p.current != p.prefs.anchor })
+}
+
+/// Whether Windows apps use the light theme (ADR-017); null when Windows doesn't say.
+#[tauri::command]
+async fn get_theme() -> Result<Option<bool>, String> {
+    Ok(theme::apps_use_light())
+}
+
+#[derive(Serialize)]
+struct TrayPrefs {
+    anchor: &'static str,
+    smart: bool,
+}
+
+/// The tray menu's Position and smart placement (ADR-017).
+#[tauri::command]
+async fn get_prefs(placement: State<'_, Placement>) -> Result<TrayPrefs, String> {
+    let p = placement.0.lock().unwrap();
+    Ok(TrayPrefs { anchor: p.prefs.anchor.id(), smart: p.prefs.smart })
+}
+
+/// The tray menu's anchor picker: the same as the native menu's Position items.
+#[tauri::command]
+async fn set_anchor(app: AppHandle, anchor: String) -> Result<(), String> {
+    let anchor = Anchor::from_id(&anchor).ok_or("unknown anchor")?;
+    choose_anchor(&app, anchor, None);
+    Ok(())
+}
+
+/// The tray menu's smart placement switch.
+#[tauri::command]
+async fn set_smart(app: AppHandle, on: bool) -> Result<(), String> {
+    {
+        let state = app.state::<Placement>();
+        let mut p = state.0.lock().unwrap();
+        p.prefs.smart = on;
+        prefs::save(&p.prefs);
+    }
+    sync_tray(&app);
+    Ok(())
+}
+
+/// The tray menu's Settings: config.yaml in its default app (Swift itself never writes it).
+#[tauri::command]
+async fn open_settings() -> Result<(), String> {
+    open_config();
+    Ok(())
+}
+
+/// The tray menu's Quit Swift.
+#[tauri::command]
+async fn quit_app(app: AppHandle) -> Result<(), String> {
+    quit(&app);
+    Ok(())
 }
 
 /// "Copy" on a result card.
@@ -655,6 +721,11 @@ fn open_logs_folder() {
     }
 }
 
+fn open_config() {
+    let path = backend::config_path();
+    let _ = std::process::Command::new("explorer.exe").arg(path).spawn();
+}
+
 fn quit(app: &AppHandle) {
     backend::stop(&app.state::<SharedBackend>());
     app.exit(0);
@@ -688,6 +759,7 @@ pub fn run() {
             PlacementState { prefs, current: prefs.anchor, ..Default::default() }
         })))
         .manage(started)
+        .manage(TrayClick::default())
         .invoke_handler(tauri::generate_handler![
             backend_info,
             register_hotkeys,
@@ -706,7 +778,13 @@ pub fn run() {
             pane_labels,
             copy_text,
             open_logs,
-            set_status
+            set_status,
+            get_theme,
+            get_prefs,
+            set_anchor,
+            set_smart,
+            open_settings,
+            quit_app
         ])
         // The window is created visible (tauri.conf.json): tao shows a window
         // with SW_SHOWNOACTIVATE only at creation when `focus` is false, and a
@@ -743,17 +821,35 @@ pub fn run() {
             let position = Submenu::with_items(app, "Position", true, &position_items)?;
             // ADR-015 §10: the same as hotkeys.type, for when the shortcut isn't to hand.
             let type_item = MenuItem::with_id(app, "type", "Type to Swift…", true, None::<&str>)?;
+            // ADR-017: the same as the tray menu pane's (the overlay knows whether it's paused).
+            let pause_item = MenuItem::with_id(app, "pause", "Pause or resume listening", true, None::<&str>)?;
+            let settings_item = MenuItem::with_id(app, "settings", "Settings (config.yaml)", true, None::<&str>)?;
             let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit Swift", true, None::<&str>)?;
             let separator2 = PredefinedMenuItem::separator(app)?;
-            let menu = Menu::with_items(app, &[&type_item, &position, &logs_item, &separator2, &quit_item])?;
+            let menu = Menu::with_items(
+                app,
+                &[&pause_item, &type_item, &position, &settings_item, &logs_item, &separator2, &quit_item],
+            )?;
             app.manage(TrayItems { anchors, smart });
             let mut tray = TrayIconBuilder::with_id("swift")
                 .tooltip("Swift: starting")
                 .menu(&menu)
-                .show_menu_on_left_click(true)
+                // ADR-017: a left click opens the tray menu pane; the native menu is on the right click.
+                .show_menu_on_left_click(false)
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, position, .. } = event {
+                        let app = tray.app_handle();
+                        *app.state::<TrayClick>().0.lock().unwrap() = Some((position.x.round() as i32, position.y.round() as i32));
+                        let _ = app.emit_to("overlay", "tray-open", ());
+                    }
+                })
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "logs" => open_logs_folder(),
+                    "settings" => open_config(),
+                    "pause" => {
+                        let _ = app.emit_to("overlay", "tray-action", "pause");
+                    }
                     "type" => {
                         let _ = app.emit("hotkey", HotkeyEvent { name: "type".into(), state: "down" });
                     }
@@ -779,6 +875,7 @@ pub fn run() {
             tray.build(app)?;
 
             backend::start(app.handle(), shared_backend.clone());
+            theme::watch(app.handle().clone());
             Ok(())
         })
         .build(tauri::generate_context!())

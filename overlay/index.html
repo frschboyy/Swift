@@ -7,16 +7,19 @@
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <main id="stage" data-state="idle">
-      <section id="card" class="card" aria-live="polite"></section>
+    <main id="stage" data-state="idle" data-theme="dark">
+      <ul id="gotit" class="gotit-list" aria-live="polite" hidden></ul>
       <ul id="rows" class="rows" aria-label="Other requests" hidden></ul>
       <section id="stack" class="stack-inline" aria-label="Waiting for you" hidden></section>
-      <div id="voice" class="voice">
-        <div id="orb" class="orb"><div class="orb-core"></div><div class="orb-ring"></div></div>
-        <p id="transcript" class="transcript"></p>
-      </div>
-      <div id="heard" class="heard" role="status" aria-live="polite">
-        <span class="heard-dot" aria-hidden="true"></span><span id="heard-text"></span>
+      <section id="card" class="card" aria-live="polite"></section>
+      <div id="capsule" class="capsule" data-p="idle" role="status" aria-live="polite">
+        <span class="orb" aria-hidden="true"></span>
+        <span class="cap-ring" aria-hidden="true"></span>
+        <span class="spinner spinner--big cap-spin" aria-hidden="true"></span>
+        <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="cap-text"><span id="cap-label" class="cap-label"></span><span id="cap-sub" class="cap-sub"></span></span>
+        <button id="cap-btn" class="btn btn--ghost cap-btn" hidden></button>
       </div>
     </main>
     <script type="module" src="/src/entry.ts"></script>

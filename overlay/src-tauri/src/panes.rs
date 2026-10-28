@@ -25,6 +25,8 @@ pub enum PaneKind {
     Stack,
     /// The text box (ADR-015 §10): the one pane that takes the keyboard.
     Type,
+    /// The tray menu (ADR-017): opened by a click on the tray icon, next to it.
+    Tray,
 }
 
 impl PaneKind {
@@ -34,6 +36,7 @@ impl PaneKind {
             "reader" => Some(PaneKind::Reader),
             "stack" => Some(PaneKind::Stack),
             "type" => Some(PaneKind::Type),
+            "tray" => Some(PaneKind::Tray),
             _ => None,
         }
     }
@@ -51,7 +54,22 @@ fn side(kind: PaneKind, main: Anchor) -> i32 {
         (PaneKind::Request | PaneKind::Stack | PaneKind::Type, _) => 1,
         (PaneKind::Reader, -1) => 1,
         (PaneKind::Reader, _) => -1,
+        (PaneKind::Tray, _) => 1,
     }
+}
+
+/// Where the tray menu goes: next to the tray icon that was clicked (`click`, physical px), on the
+/// side of the screen the taskbar is on; without a click, the bottom-right corner.
+pub fn tray_origin(area: Area, scale: f64, click: Option<(i32, i32)>, size: (i32, i32)) -> (i32, i32) {
+    let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
+    let m = (MARGIN * scale).round() as i32;
+    let Some((cx, cy)) = click else {
+        return clamp(area, (area.x + area.w as i32 - size.0 - m, area.y + area.h as i32 - size.1 - m), size);
+    };
+    let x = cx - size.0 / 2;
+    // The taskbar is outside the work area: above it if the click is below the middle, else under it.
+    let y = if cy >= area.y + area.h as i32 / 2 { area.y + area.h as i32 - size.1 - m } else { area.y + m };
+    clamp(area, (x, y), size)
 }
 
 /// Request chips stack from the top unless the reader shares their side (then from the bottom).
@@ -86,6 +104,7 @@ pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, inde
         PaneKind::Stack => area.y + area.h as i32 - m - size.1,
         PaneKind::Request if chips_from_top(main) => area.y + m + step * index as i32,
         PaneKind::Request | PaneKind::Type => area.y + area.h as i32 - m - reserve - size.1 - step * index as i32,
+        PaneKind::Tray => area.y + area.h as i32 - m - size.1,
     };
     clamp(area, (x, y), size)
 }
@@ -175,6 +194,7 @@ mod tests {
         assert_eq!(PaneKind::from_id("reader"), Some(PaneKind::Reader));
         assert_eq!(PaneKind::from_id("stack"), Some(PaneKind::Stack));
         assert_eq!(PaneKind::from_id("type"), Some(PaneKind::Type));
+        assert_eq!(PaneKind::from_id("tray"), Some(PaneKind::Tray));
         assert_eq!(PaneKind::from_id("main"), None);
         assert!(PaneKind::Stack.grows_up() && !PaneKind::Request.grows_up());
     }
@@ -196,6 +216,22 @@ mod tests {
                 assert!(!overlaps(stack, (cx, cy, CHIP.0, CHIP.1)), "stack under chip {index} at {main:?}");
             }
         }
+    }
+
+    #[test]
+    fn the_tray_menu_opens_by_its_icon_on_the_taskbar_side() {
+        let size = (280, 400);
+        // Taskbar at the bottom: the menu sits above it, centred on the icon, inside the screen.
+        let (x, y) = tray_origin(FHD, 1.0, Some((1800, 1060)), size);
+        assert_eq!(y + size.1, FHD.h as i32 - MARGIN as i32);
+        assert_eq!(x, FHD.w as i32 - size.0);  // clamped at the right edge
+        // Taskbar at the top.
+        let top = Area { x: 0, y: 40, w: 1920, h: 1040 };
+        let (_, y) = tray_origin(top, 1.0, Some((900, 20)), size);
+        assert_eq!(y, 40 + MARGIN as i32);
+        // No click known: the bottom-right corner.
+        let (x, y) = tray_origin(FHD, 1.0, None, size);
+        assert_eq!((x + size.0, y + size.1), (FHD.w as i32 - MARGIN as i32, FHD.h as i32 - MARGIN as i32));
     }
 
     #[test]

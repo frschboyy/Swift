@@ -6,18 +6,25 @@
 // working card's body in place (the card never moves mid-run); Swift picks what it shows.
 // Several requests (ADR-013 phase B): the others are one line each under the card (``runs``);
 // a click on one, or the card in front fading while one still runs, brings it forward.
-// ADR-015: those others get a small window each instead (panes.ts, pane.ts), a long answer can
-// open in a reader window, and the backend hears when a confirm card is actually on screen
-// (``card.seen``): its countdown runs only then. Without pane windows (the dev harness), the
-// rows come back.
+// ADR-015: those others get a small window each instead (panes.ts, pane.ts), and the backend
+// hears when a confirm card is actually on screen (``card.seen``): its countdown runs only then.
+// Without pane windows (the dev harness), the chips and the stack are drawn under the card.
 // ADR-015 §9, §10 (the owner checks of 2026-10-27): what waits for the owner is a stack of cards in
 // a bottom corner (stack.ts), and a hotkey or the tray opens a text box to type to Swift. Pane
 // windows are opened and closed one change at a time, and a pane Swift doesn't want is closed
 // whatever it shows (a chip used to outlive its request).
+//
+// ADR-017, the owner's Capsule design (docs/design/swift-overlay): a small pill at the anchor is
+// Swift's body (capsule.ts: heard, listening, working, speaking, not listening), and every card
+// grows out of it. Cards: working (status and steps), answers (one line, paragraphs, a table, a
+// long one opened in place), failed, stopped / not done in one row, the amber confirm card, Swift's
+// question, and timers and reminders that stay until handled. Dark or light follows Windows.
 
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
+import * as A from "./answer";
+import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
@@ -26,20 +33,20 @@ import * as H from "./heard";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 import * as S from "./stack";
+import { followTheme } from "./theme";
+import * as V from "./views";
 
 const INFO_FADE_MS = 5000;
 const ERROR_FADE_MS = 12000;
 // An error with "Try again" waits longer: the button is an answer the owner may want to give.
 const RETRY_FADE_MS = 20000;
 const READY_FADE_MS = 4000;
-const CANCELLED_FADE_MS = 2200;
+// Stopped / Not done: one row, gone after 4 s (the reply window can keep it longer).
+const ROW_FADE_MS = 4000;
 const MAX_STEPS = 5;
 // Show the elapsed time once a run takes longer than this; say it's still going after STALL_MS without news.
 const ELAPSED_AFTER_MS = 3000;
 const STALL_MS = 20000;
-// Listening this long with the level under QUIET_LEVEL: the mic probably isn't hearing anything.
-const QUIET_MS = 1500;
-const QUIET_LEVEL = 0.05;
 const ACTIVE: ReadonlySet<UiState> = new Set(["listening", "transcribing", "working", "confirm"]);
 // Failures where the log has the cause.
 const LOGGED: ReadonlySet<string> = new Set(["internal", "crashed", "executor_failed", "service"]);
@@ -47,13 +54,21 @@ const LOGGED: ReadonlySet<string> = new Set(["internal", "crashed", "executor_fa
 const stage = document.getElementById("stage")!;
 const card = document.getElementById("card")!;
 const rowsEl = document.getElementById("rows")!;
-const transcriptEl = document.getElementById("transcript")!;
-const orb = new Orb(document.getElementById("orb")!);
-const heardText = document.getElementById("heard-text")!;
+const gotitEl = document.getElementById("gotit")!;
+const capsuleEl = document.getElementById("capsule")!;
+const capLabel = document.getElementById("cap-label")!;
+const capSub = document.getElementById("cap-sub")!;
+const capBtn = document.getElementById("cap-btn") as HTMLButtonElement;
+const capRing = capsuleEl.querySelector<HTMLElement>(".cap-ring")!;
+const orb = new Orb(capsuleEl);
 
 let state: UiState = "idle";
 let steps: string[] = [];
 let request = "";
+// The request was typed (the card's keyboard icon), not said.
+let typed = false;
+// The live words on the capsule while listening.
+let transcriptText = "";
 // The provider working on the current run, and what it last reported doing.
 let agent: Agent | null = null;
 let current: { activity?: Activity; agent: Agent | null; subagent: boolean; app?: string | null } | null = null;
@@ -71,6 +86,7 @@ const recent: string[] = [];
 let escapeActive = false;
 let debugEnabled = false;
 let pttSpec = "";
+let typeSpec = "";
 let scenarioIndex = 0;
 let lastRegions = "";
 let readyReported = false;
@@ -78,6 +94,12 @@ let connection: ConnectionStatus = { phase: "starting" };
 let everConnected = false;
 let listenStarted = 0;
 let loudest = 0;
+// Listening, and nothing above room noise for C.QUIET_MS: "I can't hear you".
+let quietNow = false;
+// Swift is talking (``speech``): the capsule says so, with Stop.
+let speaking = false;
+// Whether hands-free listening is on, and why not (``presence``).
+let presence: Extract<Inbound, { type: "presence" }>["data"] | null = null;
 // The current run's artifacts (latest version of each), and what the detail view shows:
 // undefined closed, null the steps, else an artifact id.
 let artifacts = new Map<string, Artifact>();
@@ -89,7 +111,7 @@ let promoted: string | null = null;
 // Push-to-talk on the working card (mid-run grammar).
 let runVoice: { phase: string; text: string } | null = null;
 let runVoiceTimer = 0;
-// The "Listening…" pulse (heard.ts): shown via stage[data-heard] until it fades.
+// The "Listening…" pulse (heard.ts): the capsule's heard state until it fades.
 let heardNow: H.Heard | null = null;
 let heardTimer = 0;
 const DRAFT_LINES = 8;
@@ -103,13 +125,22 @@ let quiet = false;
 let lastLookAt = 0;
 // The waiting stack (ADR-015 §9) and the text box (§10): null while closed.
 let stack: S.Stack = S.initialStack;
+let stackSelected: string | null = null;
 let typing: Panes.TypeView | null = null;
 let typedDraft = "";
+// The tray menu pane (ADR-017): null while closed.
+let tray: Panes.TrayView | null = null;
 // Requests seen in ``runs`` (for "Got it: …"), and the lines shown until when.
 const knownRows = new Set<string>();
 let acks: { runId: string; words: string; until: number }[] = [];
+// The answer on screen asked something (``followup`` with question): Swift's question card.
+let question: { data: Extract<Inbound, { type: "result" }>["data"]; words: string; typed: boolean } | null = null;
+// Screen position of the last press on the card: a press that moved was a drag, not a click.
+let pressAt: { x: number; y: number } | null = null;
 
 const client = new BackendClient(onMessage, onStatus);
+
+followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 
 /** The push-to-talk hotkey for sentences: "Ctrl+Shift+Space". */
 const pttText = (): string => (pttSpec ? hotkeyParts(pttSpec).join("+") : "the push-to-talk hotkey");
@@ -131,6 +162,48 @@ function writePref(key: string, value: string): void {
   }
 }
 
+function ico(name: string, cls: string): SVGSVGElement {
+  const node = icon(name);
+  node.classList.add(cls);
+  return node;
+}
+
+// ---- the capsule (capsule.ts) ------------------------------------------------------------
+
+/** Long live words: the end of them, which is what is being said now. */
+const tail = (text: string, max = 60): string => (text.length <= max ? text : `…${text.slice(-max + 1).trimStart()}`);
+
+function drawCapsule(): void {
+  const paused = C.pausedBy(presence);
+  const p = C.presence({ state, heard: H.heardVisible(heardNow, state, Date.now()), quiet: quietNow, speaking, paused });
+  const elapsed = state === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "";
+  const v = C.view(p, transcriptText, elapsed, paused);
+  const was = capsuleEl.dataset.p;
+  capsuleEl.dataset.p = p;
+  stage.dataset.presence = p;
+  if (capLabel.textContent !== v.label) capLabel.textContent = v.label;
+  const sub = tail(v.sub);
+  if (capSub.textContent !== sub) capSub.textContent = sub;
+  if (was !== p) {
+    capRing.replaceChildren(p === "paused-mic" ? icon("slash") : p === "paused-locked" ? icon("lock") : "");
+    if (v.button === "stop") capBtn.replaceChildren(icon("stop"), "Stop", el("kbd", {}, "Esc"));
+    else if (v.button === "resume") capBtn.replaceChildren(icon("play"), "Resume");
+    capBtn.hidden = v.button === null;
+    capBtn.dataset.action = v.button ?? "";
+    capsuleEl.toggleAttribute("data-hit", v.clickable);
+    scheduleRegions();
+  }
+}
+
+capBtn.addEventListener("click", () => {
+  if (capBtn.dataset.action === "stop") stopSpeaking();
+  else if (capBtn.dataset.action === "resume") client.send({ type: "listen", data: { on: true } });
+});
+
+function stopSpeaking(): void {
+  client.send({ type: "speech.stop", data: {} });
+}
+
 // ---- rendering ---------------------------------------------------------------
 
 /** A new request: forget the last one's steps, artifacts and timers. */
@@ -138,6 +211,7 @@ function resetRun(keepRequest: boolean): void {
   steps = [];
   if (!keepRequest) {
     request = "";  // the transcript of a request that skipped "listening" arrived just before
+    typed = false;
     agent = null;  // the "state" message that starts a run sets it just before
   }
   current = null;
@@ -148,22 +222,28 @@ function resetRun(keepRequest: boolean): void {
   fullDraft = false;
   runVoice = null;
   quiet = false;
+  question = null;
 }
 
 /** Debug builds: a broken presenter rule is reported with the messages that led to it. */
 function checkPresenter(): void {
   reportSeen();
+  syncTypingNotice();
   if (!debugEnabled) return;
   const broken = P.violations(pres);
   if (broken.length) console.warn("[overlay] presenter rule broken:", broken, "after", recent.slice(-12));
 }
 
-/** The card's drain bar and sticky state follow the presenter's deadline. */
+/** The card's time bar and sticky state follow the presenter's deadline. */
 function showDeadline(): void {
   const fadeAt = pres.card.fadeAt;
   card.classList.toggle("card--sticky", fadeAt === null && !ACTIVE.has(state));
   if (fadeAt !== null) card.style.setProperty("--fade-ms", `${Math.max(0, fadeAt - Date.now())}ms`);
   card.classList.toggle("card--paused", pres.pausedLeft !== null);
+  // The confirm card's bar is its countdown, the question card's is in its pill: not this one.
+  const own = card.classList.contains("card--confirm") || card.classList.contains("card--question");
+  const bar = card.querySelector<HTMLElement>(":scope > .timebar");
+  if (bar && !own) bar.hidden = fadeAt === null;
 }
 
 /** An answer, error or notice is being drawn: ``false`` means it mustn't be (busy screen, or stale). */
@@ -174,7 +254,8 @@ function presentAnswer(kind: "result" | "error" | "notice", ms: number | null, r
   return r.shown;
 }
 
-/** Tell the backend which confirm card is on screen: it counts down only while one is (ADR-015 §4.2). */
+/** Tell the backend which confirm card is on screen: it counts down only while one is (ADR-015 §4.2),
+ * and only while the owner is here (ADR-017). */
 function reportSeen(): void {
   const now = P.seenCard(pres);
   if (now === seen) return;
@@ -183,15 +264,15 @@ function reportSeen(): void {
   seen = now;
 }
 
-// ---- other requests: a window each (ADR-015 §3), or one line each under the card -------------
+// ---- other requests: a window each (ADR-015 §3), or chips under the card -------------
 
 const ROW_STATE: Record<string, string> = {
   queued: "Waiting to start",
   idle: "Starting",
   listening: "Listening",
   transcribing: "Transcribing",
-  confirm: "Waiting for your answer",
-  result: "Done",
+  confirm: "Needs your OK",
+  result: "Ready to read",
   error: "Didn't finish",
   done: "Stopped",
 };
@@ -199,14 +280,14 @@ const ROW_STATE: Record<string, string> = {
 function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   const rows: P.Row[] = data.rows.map((r) => ({
     runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
-    startedMs: r.started_ms, summary: r.summary,
+    startedMs: r.started_ms, summary: r.summary, words: r.words,
   }));
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
   checkPresenter();
   if (pres.focus !== promoted) promoted = null;
   // A request said beside the one in front: say at once that it registered, in its words (bug 4).
   const now = Date.now();
-  for (const r of Panes.newRows(knownRows, pres.rows)) acks.push({ runId: r.runId, words: r.words || r.title, until: now + Panes.ACK_MS });
+  for (const r of Panes.newRows(knownRows, pres.rows)) acks.push({ runId: r.runId, words: r.title || r.words || "", until: now + Panes.ACK_MS });
   for (const r of rows) knownRows.add(r.runId);
   drawRows();
 }
@@ -214,61 +295,61 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
 function rowLabel(r: P.Row): string {
   if (r.state === "working") return activityLabel(null, (r.activity ?? undefined) as Activity | undefined, false, r.app);
   const label = ROW_STATE[r.state] ?? "Working on it";
-  return r.summary ? `${label}: ${r.summary}` : label;
+  return r.summary && (r.state === "error" || r.state === "done") ? `${label}: ${r.summary}` : label;
 }
 
 function drawRows(): void {
+  drawGotIt();
   if (paneWindows) {
     drawWaiting();
     void syncPanes();
     return;
   }
+  // No pane windows (the dev harness): the chips under the card, as the pane windows draw them.
   const { rows, more } = P.visibleRows(pres);
   const items: HTMLElement[] = rows.map((r) => {
-    const running = !["result", "error", "done"].includes(r.state);
-    const s = Math.max(0, Math.floor((Date.now() - r.startedMs) / 1000));
-    return el(
-      "li",
-      { class: `row row--${r.state}`, "data-hit": true },
-      el(
-        "button",
-        { class: "row-btn", title: "Bring this request to the front", onclick: () => askFocus(r.runId) },
-        el("span", { class: running ? "spinner spinner--small" : "row-dot", "aria-hidden": "true" }),
-        el("span", { class: "row-title" }, r.title),
-        el("span", { class: "row-activity" }, rowLabel(r)),
-        running ? el("span", { class: "elapsed" }, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`) : null,
-      ),
-    );
+    const view = { kind: "request" as const, runId: r.runId, title: r.title, words: r.words ?? r.title, label: rowLabel(r), startedMs: r.startedMs,
+      running: !["result", "error", "done"].includes(r.state), state: r.state };
+    return el("li", { "data-hit": true }, V.chip(view, { tabindex: "0", onclick: () => askFocus(r.runId) }));
   });
-  if (more) items.push(el("li", { class: "row row--more" }, `+${more} more`));
-  items.unshift(...ackLines());
-  if (pres.waiting) items.unshift(el("li", { class: "row row--waiting" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
+  if (more) items.push(el("li", { class: "row--note" }, `+${more} more`));
+  items.unshift(...waitingNotes());
   rowsEl.replaceChildren(...items);
   rowsEl.hidden = items.length === 0;
   scheduleRegions();
 }
 
-/** "Got it: …" for a request just said beside the one in front (bug 4, 2026-10-27). */
-function ackLines(): HTMLElement[] {
+/** "Got it: …": a request just said beside the one in front registered (bug 4, 2026-10-27).
+ * Click-through, gone after 2.5 s. */
+function drawGotIt(): void {
   const now = Date.now();
   acks = acks.filter((a) => a.until > now && pres.rows.some((r) => r.runId === a.runId));
-  return acks.map((a) => el("li", { class: "row row--ack", "aria-live": "polite" }, icon("check"), el("span", { class: "row-title" }, `Got it: “${a.words}”`)));
+  const pills = acks.map((a) =>
+    el("li", { class: "gotit" }, el("span", { class: "ok-dot" }, icon("check")), el("b", {}, "Got it:"), el("span", {}, a.words)));
+  gotitEl.replaceChildren(...pills);
+  gotitEl.hidden = pills.length === 0;
 }
 
-/** With pane windows, only what waits stays on the card in front: cards, and requests without a slot. */
-function drawWaiting(): void {
-  const items: HTMLElement[] = ackLines();
-  if (pres.waiting) items.push(el("li", { class: "row row--waiting" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
+/** Cards waiting behind the one on screen, and requests without a slot yet: a line each. */
+function waitingNotes(): HTMLElement[] {
+  const items: HTMLElement[] = [];
+  if (pres.waiting) items.push(el("li", { class: "row--note" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
   const queued = Panes.queuedRows(pres).length;
-  if (queued) items.push(el("li", { class: "row row--more" }, `${queued} more ${queued === 1 ? "request" : "requests"} waiting to start`));
+  if (queued) items.push(el("li", { class: "row--note" }, `${queued} more ${queued === 1 ? "request" : "requests"} waiting to start`));
+  return items;
+}
+
+/** With pane windows, only what waits stays by the card in front. */
+function drawWaiting(): void {
+  const items = waitingNotes();
   rowsEl.replaceChildren(...items);
   rowsEl.hidden = items.length === 0;
   scheduleRegions();
 }
 
-/** The panes wanted now: requests, the reader, the stack and the text box. */
+/** The panes wanted now: requests, the reader, the stack, the text box and the tray menu. */
 const wanted = (): Panes.PaneSpec[] =>
-  Panes.wantedPanes(pres, reader, rowLabel, { stack: S.stackView(stack, Date.now()), typing, now: Date.now() });
+  Panes.wantedPanes(pres, reader, rowLabel, { stack: S.stackView(stack, Date.now()), typing, tray, now: Date.now() });
 
 // One change at a time, and a window nobody wants is closed even if it opened late (bug 1).
 const paneSync = new Panes.PaneSync(
@@ -282,11 +363,12 @@ const paneSync = new Panes.PaneSync(
   },
   wanted,
   (err) => {
-    // No pane windows here (the dev harness, or an older shell): the rows under the card instead.
+    // No pane windows here (the dev harness, or an older shell): chips under the card instead.
     console.warn("[overlay] pane windows unavailable:", err);
     paneWindows = false;
     reader = null;
     typing = null;
+    tray = null;
     drawRows();
     drawStackInline();
   },
@@ -314,7 +396,9 @@ function sendPane(label: string, view: Panes.PaneView): void {
   void emitTo(label, "pane", { label, view }).catch(() => {});
 }
 
-type PaneAction = { label: string; action: string; runId?: string; id?: string; item?: "open" | "skip" | "end"; text?: string };
+type PaneAction = {
+  label: string; action: string; runId?: string; id?: string; item?: "open" | "skip" | "end"; text?: string; value?: string;
+};
 
 void listen<PaneAction>("pane-action", ({ payload }) => {
   switch (payload.action) {
@@ -326,11 +410,11 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
     }
     case "stack-expand":
       stack = S.expand(stack);
+      void syncEscape();
       void syncPanes();
       break;
     case "stack-collapse":
-      stack = S.collapse(stack);
-      void syncPanes();
+      collapseStack();
       break;
     case "stack-item":
       if (payload.id && payload.item) stackAction(payload.id, payload.item);
@@ -356,18 +440,29 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       reader = null;
       void syncPanes();
       break;
+    case "tray":
+      void trayAction(payload.value ?? "", payload.text);
+      break;
   }
 });
+
+function collapseStack(): void {
+  stack = S.collapse(stack);
+  void syncEscape();
+  void syncPanes();
+  drawStackInline();
+}
 
 /** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
 function stackAction(id: string, action: "open" | "skip" | "end"): void {
   stack = S.afterAction(stack, action);
   client.send({ type: "stack.action", data: { id, action } });
+  void syncEscape();
   void syncPanes();
   drawStackInline();
 }
 
-/** Without pane windows (the dev harness): the stack is a short list under the card. */
+/** Without pane windows (the dev harness): the stack is drawn under the card, as its pane would. */
 const stackEl = document.getElementById("stack");
 function drawStackInline(): void {
   if (!stackEl) return;
@@ -375,23 +470,35 @@ function drawStackInline(): void {
   stackEl.hidden = !view;
   if (!view) {
     stackEl.replaceChildren();
+    scheduleRegions();
     return;
   }
+  let lastClick = 0;
   stackEl.replaceChildren(
-    el("p", { class: "stack-count" }, S.countLine(view.items.length)),
-    ...view.items.map((i) =>
-      el("div", { class: "stack-item", "data-hit": true },
-        el("span", { class: "row-title" }, i.title),
-        el("span", { class: "row-activity" }, i.line),
-        el("button", { class: "btn btn--ghost btn--small", onclick: () => stackAction(i.id, "open") }, i.open),
-        el("button", { class: "btn btn--ghost btn--small", onclick: () => stackAction(i.id, "skip") }, "Skip"),
-        el("button", { class: "btn btn--ghost btn--small", onclick: () => stackAction(i.id, "end") }, "End"))),
+    view.expanded
+      ? el("div", { "data-hit": true }, V.stackOpen(view, {
+          item: stackAction, collapse: collapseStack, selected: stackSelected,
+          select: (id) => { stackSelected = id; for (const row of stackEl.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id)); },
+        }))
+      : el("div", { "data-hit": true }, V.stackClosed(view, {
+          tabindex: "0",
+          onclick: () => {
+            const now = Date.now();
+            if (now - lastClick < 450) {
+              stack = S.expand(stack);
+              void syncEscape();
+              drawStackInline();
+            }
+            lastClick = now;
+          },
+        })),
   );
   scheduleRegions();
 }
 
 function onStackMessage(items: S.Stack["items"]): void {
   stack = S.onStack(stack, items, Date.now());
+  void syncEscape();
   void syncPanes();
   drawStackInline();
 }
@@ -400,6 +507,9 @@ function onStackMessage(items: S.Stack["items"]): void {
 
 // The conversation the open text box follows up (the one on screen when it opened).
 let typingThread: string | null = null;
+
+/** A confirm card is open (and on screen): the text box says typing can't approve it. */
+const confirmOpen = (): boolean => pres.pendingConfirm !== null && pres.held === null;
 
 /** The hotkey or the tray: open the text box (or close it, if it's open). */
 function toggleTyping(): void {
@@ -410,15 +520,22 @@ function toggleTyping(): void {
   const onScreen = ["result", "error", "confirm", "working"].includes(pres.card.kind) ? pres.card.threadId ?? pres.threadId : null;
   typingThread = onScreen;
   const follows = onScreen && pres.lastAnswer?.threadId === onScreen ? pres.lastAnswer.text : null;
-  typing = { kind: "type", draft: typedDraft, follows };
+  typing = { kind: "type", draft: typedDraft, follows, confirm: confirmOpen() };
   if (!paneWindows) {
     // The dev harness has no pane windows: a prompt stands in for the text box.
-    const text = window.prompt("Type to Swift");
+    const text = window.prompt(confirmOpen() ? "Type a change (typing can't approve)" : "Type to Swift");
     typing = null;
     if (text?.trim()) client.send({ type: "text", data: { text, thread_id: follows ? onScreen : null } });
     return;
   }
   void syncEscape();  // Esc belongs to the text box while it's open
+  void syncPanes();
+}
+
+/** The box's "Typing can't approve" row follows the confirm card. */
+function syncTypingNotice(): void {
+  if (!typing || !!typing.confirm === confirmOpen()) return;
+  typing = { ...typing, confirm: confirmOpen() };
   void syncPanes();
 }
 
@@ -435,6 +552,82 @@ function askFocus(runId: string): void {
   client.send({ type: "focus", data: { run_id: runId } });
 }
 
+// ---- the tray menu (ADR-017) --------------------------------------------------------------------
+
+/** One line for the tray: whether Swift is listening, and why not. */
+function trayStatus(): string {
+  if (connection.phase === "starting") return "Starting…";
+  if (connection.phase === "lost") return "Reconnecting…";
+  if (connection.phase === "failed") return "Stopped. The logs say why.";
+  const paused = C.pausedBy(presence);
+  if (paused === "mic") return "Not listening · Mic off";
+  if (paused === "locked") return "Not listening · Screen locked";
+  if (paused === "asleep") return "Not listening · PC was asleep";
+  if (presence?.wake && presence.listening) return "Listening for “Hey Swift”";
+  return `Hold ${pttText()} to talk`;
+}
+
+async function openTray(): Promise<void> {
+  if (!paneWindows) return;
+  try {
+    const prefs = await invoke<{ anchor: string; smart: boolean }>("get_prefs");
+    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null };
+  } catch {
+    return;  // an older shell: its native menu
+  }
+  void syncPanes();
+}
+
+function refreshTray(): void {
+  if (!tray) return;
+  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused };
+  void syncPanes();
+}
+
+async function trayAction(op: string, value?: string): Promise<void> {
+  switch (op) {
+    case "anchor":
+      if (value) await invoke("set_anchor", { anchor: value }).catch(() => {});
+      if (tray && value) tray = { ...tray, anchor: value };
+      break;
+    case "smart": {
+      const on = !(tray?.smart ?? true);
+      await invoke("set_smart", { on }).catch(() => {});
+      if (tray) tray = { ...tray, smart: on };
+      break;
+    }
+    case "pause":
+      client.send({ type: "listen", data: { on: !!presence?.paused } });
+      tray = null;
+      break;
+    case "type":
+      tray = null;
+      toggleTyping();
+      break;
+    case "settings":
+      tray = null;
+      void invoke("open_settings").catch(() => {});
+      break;
+    case "quit":
+      void invoke("quit_app").catch(() => {});
+      return;
+    default:
+      tray = null;  // closed (a click outside it)
+  }
+  void syncPanes();
+}
+
+void listen("tray-open", () => {
+  if (tray) {
+    tray = null;
+    void syncPanes();
+  } else void openTray();
+});
+// The native menu (right click): the same actions.
+void listen<string>("tray-action", ({ payload }) => void trayAction(payload));
+
+// ---- cards -----------------------------------------------------------------------------------
+
 /** Earlier turns of this conversation, one line each, above the card (ADR-013 §4.2). */
 function threadLines(): HTMLElement | null {
   if (!pres.history.length) return null;
@@ -443,12 +636,11 @@ function threadLines(): HTMLElement | null {
 
 function setStage(next: UiState, runId: string | null = null, threadId: string | null = null): void {
   const change = P.onState(pres, next, runId, threadId);
-  if (change.ignored) return;  // another request's news: its row says it
+  if (change.ignored) return;  // another request's news: its chip says it
   pres = change.p;
   checkPresenter();
   state = next;
   stage.dataset.state = next;
-  drawHeard();
   void syncEscape();
   if (ACTIVE.has(next)) card.classList.remove("card--sticky");
   // A new request, however it started (follow-up, correction, "hey Swift, X" in one breath).
@@ -462,20 +654,18 @@ function setStage(next: UiState, runId: string | null = null, threadId: string |
     resetRun(false);
     listenStarted = performance.now();
     loudest = 0;
-    delete transcriptEl.dataset.quiet;
-    transcriptEl.textContent = "";
+    quietNow = false;
+    transcriptText = "";
     card.replaceChildren();
     card.className = "card";
-  }
-  if (next === "transcribing") {
-    transcriptEl.dataset.pending = "true";
-    delete transcriptEl.dataset.quiet;
+    card.removeAttribute("data-hit");
   }
   if (next === "working") {
     if (!runStarted) runStarted = lastStepAt = Date.now();
     renderWorking();
   }
   if (next === "idle") hideCard();
+  drawCapsule();
 }
 
 /** A card the backend didn't ask for (connection, hotkeys, startup): at rest, like a result. */
@@ -483,20 +673,23 @@ function rest(next: "result" | "error"): void {
   state = next;
   stage.dataset.state = next;
   void syncEscape();
+  drawCapsule();
 }
 
 function showCard(node: HTMLElement, variant: string, role: "status" | "alert" = "status"): void {
   // A new card: whatever was opened with "Read more" is gone with the old one.
-  if (expanded && !node.querySelector(".result-body--open")) setExpanded(false);
-  card.className = `card card--${variant} card--in${hovering ? " card--hover" : ""}`;
+  if (expanded && !node.querySelector(".answer--open")) setExpanded(false);
+  card.className = `card ${variant.split(" ").map((v) => (v.startsWith("card--") ? v : `card--${v}`)).join(" ")} card--in${hovering ? " card--hover" : ""}`;
   card.setAttribute("role", role);
-  card.replaceChildren(node);
+  card.setAttribute("data-hit", "");
+  card.replaceChildren(node, el("span", { class: "timebar", "aria-hidden": "true" }));
   scheduleRegions();
 }
 
 function hideCard(): void {
   card.classList.remove("card--in");
   card.classList.add("card--out");
+  card.removeAttribute("data-hit");
   scheduleRegions();
   window.setTimeout(() => {
     if (card.classList.contains("card--out")) {
@@ -505,7 +698,7 @@ function hideCard(): void {
       stage.dataset.state = state === "result" || state === "error" ? "idle" : state;
       scheduleRegions();
     }
-  }, 260);
+  }, 200);
 }
 
 function dismiss(): void {
@@ -514,15 +707,14 @@ function dismiss(): void {
   if (r.hide) setStage("idle");
 }
 
-/** Card header: drag handle (data-drag) for moving the overlay, with an optional close button. */
-function head(glyph: Node | null, title: Node | string, extra: (Node | null)[] = [], closable = true): HTMLElement {
+/** Head row: how it was asked (mic or keyboard) · the owner's words · close. The whole card drags. */
+function headRow(close: (() => void) | null = dismiss, label = "Close"): HTMLElement {
   return el(
     "header",
-    { class: "card-head", "data-hit": true, "data-drag": true, title: "Drag to move Swift" },
-    glyph,
-    typeof title === "string" ? el("span", { class: "card-title" }, title) : title,
-    el("span", { class: "head-extra" }, ...extra),
-    closable ? el("button", { class: "icon-btn", "aria-label": "Dismiss", title: "Dismiss", onclick: () => dismiss() }, icon("x")) : null,
+    { class: "card-head" },
+    ico(typed ? "keyboard" : "mic", "head-icon"),
+    el("p", { class: "words", title: request }, request ? `“${request}”` : ""),
+    close ? el("button", { class: "icon-btn", "aria-label": label, title: label, onclick: (ev: Event) => { ev.stopPropagation(); close(); } }, icon("x")) : null,
   );
 }
 
@@ -531,60 +723,69 @@ function elapsedText(): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
+/** The working card shrinks to one line (its × , or no news for a while); the pointer opens it again. */
+function shrinkWorking(): void {
+  quiet = true;
+  renderWorking();
+}
+
 function renderWorking(): void {
   const busyAt = Date.now();
   // A new step re-renders the card: keep the reader's place in an open draft.
   const scrolled = card.querySelector<HTMLElement>(".draft-body")?.scrollTop ?? 0;
-  const list = el("ol", { class: "steps" });
-  steps.forEach((text, i) => {
-    const latest = i === steps.length - 1;
-    list.append(el("li", { class: latest ? "step step--latest" : "step" }, el("span", { class: "step-dot" }), el("span", { class: "step-text" }, text)));
-  });
   const title = current ? activityLabel(current.agent, current.activity, current.subagent, current.app) : handoffLabel(agent);
-  const toggle = el(
-    "button",
-    {
-      class: "icon-btn",
-      "aria-label": compact ? "Show steps" : "Hide steps",
-      title: compact ? "Show steps" : "Hide steps",
-      "aria-expanded": compact ? "false" : "true",
-      onclick: () => {
-        compact = !compact;
-        writePref("swift.compact", compact ? "1" : "0");
-        renderWorking();
-      },
-    },
-    icon(compact ? "expand" : "collapse"),
-  );
   const elapsed = el("span", { class: "elapsed", "aria-hidden": "true" }, runStarted && busyAt - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "");
   // "Show me" on the steps (viewing null) opens them even in compact mode.
   const shown = viewing ? artifacts.get(viewing) : undefined;
   const small = (compact || quiet) && viewing === undefined;
+  if (small) {
+    showCard(
+      el("div", { class: "card-in row-line" },
+        el("span", { class: "spinner", "aria-hidden": "true" }),
+        el("span", { class: "row-word", "aria-live": "polite" }, title),
+        el("span", { class: "row-desc" }, request ? `“${request}”` : ""),
+        elapsed,
+        el("button", { class: "icon-btn", "aria-label": "Show the steps", title: "Show the steps", onclick: (ev: Event) => {
+          ev.stopPropagation();
+          quiet = false;
+          compact = false;
+          writePref("swift.compact", "0");
+          lastLookAt = Date.now();
+          renderWorking();
+        } }, icon("expand"))),
+      "working card--row",
+    );
+    return;
+  }
   const stalled = isStalled(busyAt);
+  const list = el("ol", { class: "steps" });
+  steps.forEach((text, i) => {
+    const latest = i === steps.length - 1;
+    list.append(el("li", { class: latest ? "step step--now" : "step" }, icon(latest ? "play" : "check"), el("span", { class: "step-text" }, text)));
+  });
   const showButton = artifacts.size && !shown
-    ? el("button", { class: "btn btn--ghost btn--small", "data-hit": true, title: "Show what Swift is working on", onclick: () => askView("show") }, "Show")
+    ? el("button", { class: "btn btn--ghost", title: "Show what Swift is working on", onclick: () => askView("show") }, icon("external"), "Show")
     : null;
-  const backButton = shown
-    ? el("button", { class: "btn btn--ghost btn--small", "data-hit": true, onclick: () => askView("hide") }, "Back to steps")
-    : null;
+  const backButton = shown ? el("button", { class: "btn btn--ghost", onclick: () => askView("hide") }, "Back to steps") : null;
   showCard(
     el(
       "div",
-      {},
-      head(el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "card-title card-title--live" }, title), [elapsed, toggle], false),
-      small ? null : threadLines(),
-      small || shown ? null : request ? el("p", { class: "request" }, request) : null,
-      shown ? artifactView(shown) : small ? null : steps.length ? list : null,
-      stalled ? el("p", { class: "note note--soft" }, "Still working. Bigger requests can take a few minutes.") : null,
+      { class: "card-in" },
+      headRow(shrinkWorking, "Shrink to one line"),
+      threadLines(),
+      el("div", { class: "status" }, el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "status-verb", "aria-live": "polite" }, title), elapsed),
+      shown ? artifactView(shown) : steps.length ? list : null,
+      stalled ? el("p", { class: "note" }, "Still working. Bigger requests can take a few minutes.") : null,
       runVoice ? runVoiceLine(runVoice) : null,
       el(
         "footer",
         { class: "card-foot" },
-        el("span", { class: "hint" }, el("kbd", {}, "Esc"), " to stop"),
-        el("span", { class: "actions actions--inline" }, backButton ?? showButton, el("button", { class: "btn btn--ghost btn--small", "data-hit": true, onclick: () => cancelRun() }, "Stop")),
+        el("span", { class: "hint foot-gap" }, el("kbd", {}, "Esc"), "stops"),
+        backButton ?? showButton,
+        el("button", { class: "btn btn--ghost", onclick: () => cancelRun() }, icon("stop"), "Stop"),
       ),
     ),
-    small ? "working card--compact" : "working",
+    "working",
   );
   const body = card.querySelector<HTMLElement>(".draft-body");
   if (body && scrolled) body.scrollTop = scrolled;
@@ -664,7 +865,7 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
         el("p", { class: `summary send-${a.data.state}` }, SEND_TEXT[a.data.state] ?? a.data.state),
         a.data.reason ? el("p", { class: "muted" }, a.data.reason) : null,
         draft?.kind === "email_draft"
-          ? el("dl", { class: "kv kv--after" }, el("dt", {}, "To"), el("dd", {}, draft.data.to.map((p) => p.name || p.email).join(", ")), el("dt", {}, "Subject"), el("dd", {}, draft.data.subject))
+          ? el("dl", { class: "kv" }, el("dt", {}, "To"), el("dd", {}, draft.data.to.map((p) => p.name || p.email).join(", ")), el("dt", {}, "Subject"), el("dd", {}, draft.data.subject))
           : null,
       );
       break;
@@ -689,16 +890,16 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
     default:
       body = renderDetails(a.data) ?? el("p", { class: "muted" }, "");
   }
-  return el("section", { class: "artifact", role: "region", "aria-label": label, "data-hit": true }, titled ? el("h3", { class: "artifact-title" }, label) : null, body);
+  return el("section", { class: "artifact", role: "region", "aria-label": label }, titled ? el("h3", { class: "artifact-title" }, label) : null, body);
 }
 
 /** After the run: "show me" (or Show) on a result opens the artifact as its own card. */
 function renderArtifactCard(a: Artifact): void {
-  if (!presentAnswer("result", readingMs(a.kind === "email_draft" ? a.data.body : a.title), a.run_id, pres.threadId ?? undefined)) return;
+  if (!presentAnswer("result", A.readingMs(a.kind === "email_draft" ? a.data.body : a.title), a.run_id, pres.threadId ?? undefined)) return;
   rest("result");
   showCard(
-    el("div", { "data-hit": true, class: "hit-area", onclick: dismissUnlessControl }, head(icon("info"), a.title), artifactView(a, 0, false)),
-    "result card--neutral",
+    el("div", { class: "card-in", onclick: dismissUnlessControl }, headRow(), el("p", { class: "answer-note" }, a.title), artifactView(a, 0, false)),
+    "result",
   );
   showDeadline();
 }
@@ -728,31 +929,46 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
   else if (!v.open && card.querySelector(".artifact")) setStage("idle");
 }
 
-// ---- presence: the tray tooltip says whether Swift is listening, and why not (ADR-014 §8) ----
+// ---- presence: whether Swift is listening, and why not (ADR-014 §8, ADR-017) -------------------
 
 function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
+  presence = p;
   const hold = `Hold ${pttText()} to talk.`;
   let text = `Swift: ready. ${hold}`;
-  if (p.wake && p.listening) text = `Swift: listening for “hey Swift”. Or ${hold.toLowerCase()}`;
+  if (p.paused) text = `Swift: not listening (paused from the tray). ${hold}`;
+  else if (p.wake && p.listening) text = `Swift: listening for “hey Swift”. Or ${hold.toLowerCase()}`;
   else if (p.wake && p.reason === "locked") text = "Swift: paused while the screen is locked.";
   else if (p.wake && p.reason === "asleep") text = "Swift: paused (the PC was asleep).";
   void invoke("set_status", { text }).catch(() => {});
+  // A confirm countdown runs only while the owner is here.
+  const before = pres.away;
+  pres = P.onPresent(pres, p.state === "here", Date.now());
+  checkPresenter();
+  if (before !== pres.away && state === "confirm" && lastConfirm) renderConfirm(lastConfirm);
+  drawCapsule();
+  refreshTray();
 }
 
 // ---- follow-up window: reply without the wake phrase, just after an answer ---------------
 
-// The answer asked something: Swift waits longer, and the line says it's waiting for the answer.
-let followupQuestion = false;
-
 function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
   // The presenter keeps the answer up at least as long as Swift listens for a reply.
-  followupQuestion = data.open && !!data.question;
   pres = P.onFollowup(pres, data.open, data.seconds, Date.now());
   showDeadline();
+  if (data.open && data.question && lastResult && (state === "result") && pres.card.runId === lastResult.run_id) {
+    // The answer asked something: it becomes Swift's question card.
+    question = { data: lastResult, words: request, typed };
+  }
+  if (question) renderQuestion();
   drawFollowup(pres.followupUntil ? Math.ceil((pres.followupUntil - Date.now()) / 1000) : 0);
 }
 
 function drawFollowup(left: number): void {
+  if (question) {
+    const time = card.querySelector<HTMLElement>(".q-pill .elapsed");
+    if (time) time.textContent = `0:${String(Math.max(0, left)).padStart(2, "0")}`;
+    return;
+  }
   let line = card.querySelector<HTMLElement>(".followup");
   if (left <= 0 || (state !== "result" && state !== "error")) {
     line?.remove();
@@ -760,10 +976,12 @@ function drawFollowup(left: number): void {
   }
   if (!line) {
     line = el("p", { class: "voice-hint followup", "data-phase": "listening", "aria-live": "off" });
-    (card.firstElementChild ?? card).append(line);
+    const foot = card.querySelector(".card-foot");
+    if (foot) foot.before(line);
+    else (card.firstElementChild ?? card).append(line);
     scheduleRegions();
   }
-  line.replaceChildren(icon("mic"), `${followupQuestion ? "Listening for your answer" : "Listening for a reply"}… ${left} s`);
+  line.replaceChildren(icon("mic"), `Listening for a reply · ${left} s`);
 }
 
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
@@ -779,8 +997,66 @@ function cancelRun(): void {
   card.querySelectorAll("button").forEach((b) => (b.disabled = true));
 }
 
+// ---- the confirm card: solid, amber, its own countdown (ADR-017) ---------------------------------
+
+const countdownText = (ms: number): string => {
+  const s = Math.ceil(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
+/** What the card asks to do, as facts: an event (or its change), an email, or the request's own detail. */
+function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"], shown: Artifact | undefined): HTMLElement | null {
+  if (shown?.kind === "calendar_event") {
+    const e = shown.data;
+    const b = e.before;
+    if (b && !e.removing) {
+      const rows: [string, string, string][] = [];
+      if (b.title !== e.title) rows.push(["What", b.title, e.title]);
+      if (b.when !== e.when) rows.push(["When", b.when, e.when]);
+      if ((b.location || "") !== (e.location || "")) rows.push(["Where", b.location || "–", e.location || "–"]);
+      if ((b.attendees || "") !== (e.attendees || "")) rows.push(["Who", b.attendees || "–", e.attendees || "–"]);
+      return el(
+        "dl",
+        { class: "facts facts--change" },
+        el("dt", {}), el("dd", { class: "col-head" }, "Now"), el("dd", {}), el("dd", { class: "col-head" }, "After"),
+        ...rows.flatMap(([k, was, now]) => [el("dt", {}, k), el("dd", { class: "was" }, was), el("dd", { class: "arrow", "aria-label": "becomes" }, "→"), el("dd", { class: "now" }, now)]),
+        ...(rows.length ? [] : [el("dt", {}, "What"), el("dd", { class: "wide key" }, e.title)]),
+        ...(Array.isArray(e.changes) && e.changes.length ? [el("p", { class: "facts-note" }, e.changes.join(" · "))] : []),
+      );
+    }
+    return el(
+      "dl",
+      { class: "facts" },
+      el("dt", {}, "What"), el("dd", { class: `key${e.removing ? " was" : ""}` }, e.title),
+      el("dt", {}, "When"), el("dd", {}, e.when),
+      ...(e.location ? [el("dt", {}, "Where"), el("dd", {}, e.location)] : []),
+      ...(e.attendees ? [el("dt", {}, "Invites"), el("dd", {}, e.attendees)] : []),
+      ...(e.meet ? [el("dt", {}, "Also"), el("dd", {}, "Adds a Google Meet link")] : []),
+    );
+  }
+  if (shown?.kind === "email_draft") {
+    const d = shown.data;
+    const long = d.body.split("\n").length > DRAFT_LINES;
+    return el(
+      "dl",
+      { class: "facts" },
+      el("dt", {}, "To"), el("dd", { class: "key" }, d.to.map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join(", ")),
+      el("dt", {}, "Subject"), el("dd", {}, d.subject),
+      el("div", { class: `mail-body${fullDraft ? " mail-body--full" : ""}`, tabindex: "0", role: "document", "aria-label": "The email" }, d.body),
+      long ? el("button", { class: "link link--quiet wide", "aria-expanded": String(fullDraft), onclick: () => askView(fullDraft ? "hide" : "show") }, fullDraft ? "Show less" : "Show the whole email") : null,
+    );
+  }
+  if (shown) return el("div", { class: "facts" }, el("div", { class: "facts-text" }, artifactView(shown, 0, false)));
+  // A request's own detail (a command, a file): all of it, exactly as it will run (audit A-12).
+  if (!data.detail) return null;
+  const mono = /[\\/`$|;]|\s--?\w/.test(data.detail);
+  return el("div", { class: "facts" }, el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail));
+}
+
 function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data"]): void {
   const reply = (decision: "approve" | "reject") => () => {
+    // A stray click just as the card appears isn't an answer (ADR-017: 400 ms).
+    if (decision === "approve" && !P.approveReady(pres, Date.now())) return;
     client.send({ type: "confirm.reply", data: { request_id: data.request_id, decision } });
     card.querySelectorAll("button").forEach((b) => (b.disabled = true));
   };
@@ -788,50 +1064,42 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   const again = lastConfirm?.request_id === data.request_id;
   if (!again) fullDraft = false;
   lastConfirm = data;
-  // The countdown and "since" are the presenter's: a card put aside and back gets a fresh one.
-  const confirmDeadline = pres.pendingConfirm === data.request_id ? pres.confirmDeadline : 0;
   const since = pres.pendingConfirm === data.request_id ? P.waitingSince(pres) : null;
-  // Swift's own card (send_email) shows the draft itself (ADR-010 §4).
+  // Swift's own card (send_email, calendar) shows what it will do (ADR-010 §4).
   const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
-  const longDraft = shown?.kind === "email_draft" && shown.data.body.split("\n").length > DRAFT_LINES;
+  const email = shown?.kind === "email_draft";
+  const approve = el("button", { class: "btn btn--warn btn--big", onclick: reply("approve") }, icon("check"), email ? "Send" : "Approve");
   showCard(
     el(
       "div",
-      { "data-hit": true },
-      head(icon("shield"), "Approval needed", [
-        data.tool && !shown ? el("span", { class: "chip" }, data.tool) : null,
-        // ADR-015 §9: put it in the waiting stack for later, or end the request.
-        el("button", { class: "btn btn--ghost btn--small", title: "Put this card with your waiting cards for later", onclick: () => stackAction(`card:${data.request_id}`, "skip") }, "Later"),
-        el("button", { class: "icon-btn", "aria-label": "End this request", title: "End this request", onclick: () => stackAction(`card:${data.request_id}`, "end") }, icon("stop")),
-      ], false),
-      since !== null
-        ? el("p", { class: "voice-hint waiting", "data-phase": "hint" }, icon("info"), `1 card waiting, since ${clock(since)}`)
-        : null,
+      { class: "card-in" },
+      el("div", { class: "band", role: "heading", "aria-level": "2" },
+        icon("shield"), "Needs your OK", el("span", { class: "band-time", "aria-live": "off" })),
       threadLines(),
-      data.agent ? el("p", { class: "asker" }, `${data.agent.name} wants to:`) : null,
       el("p", { class: "confirm-title" }, data.title),
-      shown ? artifactView(shown, fullDraft ? 0 : DRAFT_LINES) : data.detail ? el("p", { class: "muted detail-text" }, data.detail) : null,
-      longDraft
-        ? el("button", { class: "link", "aria-expanded": String(fullDraft), onclick: () => askView(fullDraft ? "hide" : "show") }, fullDraft ? "Show less" : "Show full draft")
-        : null,
+      since !== null ? el("p", { class: "confirm-since" }, `Held while you were away, since ${clock(since)}`) : null,
+      confirmFacts(data, shown),
       el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint(data)),
-      el("p", { class: "countdown", "aria-live": "off" }),
       el(
         "div",
-        { class: "actions" },
-        el("button", { class: "btn btn--ghost", onclick: reply("reject") }, "Reject"),
-        el("button", { class: "btn btn--primary", onclick: reply("approve") }, "Approve"),
+        { class: "confirm-actions" },
+        el("button", { class: "btn btn--ghost btn--big", onclick: reply("reject") }, icon("x"), "Reject"),
+        el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => changeByTyping() }, icon("edit"), "Change"),
+        el("span", { class: "foot-gap" }),
+        approve,
       ),
     ),
-    "confirm",
+    `confirm${pres.away ? " card--away" : ""}`,
+    "alert",
   );
-  if (confirmDeadline) {
-    card.style.setProperty("--fade-ms", `${Math.max(0, confirmDeadline - Date.now())}ms`);
-    card.classList.add("card--timed");
-  }
   // Redrawn while the owner is away (a new draft version): it stays put aside.
   if (pres.held === data.request_id) card.classList.add("card--held");
   tickConfirm();
+}
+
+/** "Change" on a confirm card: the text box, where Enter sends a change; it never approves. */
+function changeByTyping(): void {
+  if (!typing) toggleTyping();
 }
 
 const clock = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -847,7 +1115,7 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
     card.classList.add("card--held");
   } else {
     if (state !== "confirm") setStage("confirm");
-    renderConfirm(lastConfirm);  // the same card, with a fresh countdown and the "waiting" line
+    renderConfirm(lastConfirm);  // the same card, with a fresh countdown and the "held" line
     // Locking the screen can leave the overlay hidden or behind other windows, and no hotkey
     // brought it forward this time (owner check 14, 2026-10-27).
     void invoke("reveal").catch(() => {});
@@ -859,29 +1127,49 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
 function onResumeOffer(data: Extract<Inbound, { type: "resume.offer" }>["data"]): void {
   if (state !== "result" && state !== "error") return;
   card.querySelector(".resume")?.remove();
-  const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("info"), `Unfinished: ${data.title}. It's with your waiting cards.`);
-  (card.firstElementChild ?? card).append(line);
+  const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("pause"), `Unfinished: ${data.title}. It's with what needs you.`);
+  const foot = card.querySelector(".card-foot");
+  if (foot) foot.before(line);
+  else (card.firstElementChild ?? card).append(line);
   scheduleRegions();
 }
 
-/** The voice line on a confirm card: any card takes a change ("no, make it Friday"), whichever agent asked. */
+/** The voice line on a confirm card: approving by voice takes push-to-talk (or Swift's name). */
 function voiceHint(_data: unknown): (Node | string)[] {
-  return ["Or hold ", pttKeys(), " and say “approve”, “reject”, or what to change."];
+  return [icon("mic"), "Or hold ", pttKeys(), " and say “approve”, “reject”, or what to change."];
 }
 
+/** The band's countdown and the bar: running, or stopped while the owner is away. */
 function tickConfirm(): void {
-  const node = card.querySelector<HTMLElement>(".countdown");
-  const confirmDeadline = pres.confirmDeadline;
-  if (!node || state !== "confirm" || !confirmDeadline) return;
-  const left = Math.max(0, Math.ceil((confirmDeadline - Date.now()) / 1000));
-  // Only the last half minute: earlier, a ticking clock is just pressure.
-  node.textContent = left <= 30 ? `No answer in ${left} s stops the request.` : "";
+  const node = card.querySelector<HTMLElement>(".band-time");
+  if (!node || state !== "confirm") return;
+  const left = P.confirmLeftMs(pres, Date.now());
+  const bar = card.querySelector<HTMLElement>(":scope > .timebar");
+  if (!left) {
+    node.textContent = "";
+    if (bar) bar.hidden = true;
+    return;
+  }
+  node.textContent = left.paused ? "Paused · you're away" : countdownText(left.ms);
+  card.classList.toggle("card--away", left.paused);
+  if (bar) {
+    bar.hidden = false;
+    if (!bar.dataset.started || left.paused !== (bar.dataset.paused === "1")) {
+      // (Re)start the drain from what is left; stopped, it holds.
+      bar.dataset.started = "1";
+      bar.dataset.paused = left.paused ? "1" : "0";
+      bar.style.animation = "none";
+      void bar.offsetWidth;
+      bar.style.animation = "";
+      card.style.setProperty("--fade-ms", `${left.ms}ms`);
+      bar.classList.toggle("timebar--paused", left.paused);
+    }
+  }
 }
 
-// The owner is answering the confirm card by voice: show it on the card, not as the
-// listening orb (which would cover the card and clear it).
+// The owner is answering the confirm card by voice: show it on the card, not on the capsule.
 function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["data"]): void {
-  const hint = card.querySelector<HTMLElement>(".voice-hint");
+  const hint = card.querySelector<HTMLElement>(".voice-hint[data-request]");
   if (state !== "confirm" || !hint || hint.dataset.request !== data.request_id) return;
   hint.dataset.phase = data.phase;
   if (data.phase === "listening") hint.replaceChildren(icon("mic"), "Listening…");
@@ -891,6 +1179,8 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
   else if (data.phase === "again") hint.replaceChildren(icon("alert"), data.text);
   else hint.replaceChildren(...voiceHint(lastConfirm));
 }
+
+// ---- answers ---------------------------------------------------------------------------------
 
 function detailsText(details: ResultDetails | null | undefined): string {
   if (!details) return "";
@@ -904,46 +1194,48 @@ function detailsText(details: ResultDetails | null | undefined): string {
   }
 }
 
+/** Paragraphs and lists with their marks, as elements (text only, never HTML). */
+function renderBlocks(text: string): HTMLElement[] {
+  const runs = (rs: A.Run[]): Node[] =>
+    rs.map((r) => (r.marks.includes("b") ? el("strong", {}, r.text) : r.marks.includes("i") ? el("em", {}, r.text) : r.marks.includes("code") ? el("code", {}, r.text) : document.createTextNode(r.text)));
+  return A.blocks(text).map((b) => (b.kind === "p" ? el("p", {}, ...runs(b.runs)) : el("ul", {}, ...b.items.map((i) => el("li", {}, ...runs(i))))));
+}
+
 /** ``full``: every row, for an answer opened with "Read more" (otherwise the first six). */
 function renderDetails(details: ResultDetails | null | undefined, full = false): HTMLElement | null {
   if (!details) return null;
   const shown = full ? Infinity : 6;
   switch (details.kind) {
     case "text":
-      return el("p", { class: "muted" }, details.text);
+      return el("div", {}, ...renderBlocks(details.text));
     case "list": {
       const more = details.items.length - shown;
       return el(
         "div",
         {},
-        el("ul", { class: "result-list" }, ...details.items.slice(0, shown).map((item) => el("li", {}, item))),
-        more > 0 ? el("p", { class: "more" }, `and ${more} more (Read more shows them)`) : null,
+        el("ul", {}, ...details.items.slice(0, shown).map((item) => el("li", {}, item))),
+        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more (Read more shows them)`) : null,
       );
     }
     case "table": {
       const more = details.rows.length - shown;
       return el(
         "div",
-        { class: "table-wrap" },
+        {},
         el(
           "table",
-          { class: "result-table" },
+          { class: "answer-table" },
           el("thead", {}, el("tr", {}, ...details.columns.map((c) => el("th", { scope: "col" }, c)))),
           el("tbody", {}, ...details.rows.slice(0, shown).map((row) => el("tr", {}, ...row.map((c) => el("td", {}, c))))),
         ),
-        more > 0 ? el("p", { class: "more" }, `and ${more} more rows (Read more shows them)`) : null,
+        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more rows (Read more shows them)`) : null,
       );
     }
   }
 }
 
-/** Long answers stay up longer: about 4 s to notice plus reading time, within 6 to 20 s. */
-function readingMs(text: string): number {
-  return Math.min(20000, Math.max(6000, 4000 + text.length * 45));
-}
-
 function copyButton(text: string): HTMLElement {
-  const button = el("button", { class: "btn btn--ghost btn--small", title: "Copy the answer" }, icon("copy"), "Copy");
+  const button = el("button", { class: "btn btn--ghost", title: "Copy the answer" }, icon("copy"), "Copy");
   button.addEventListener("click", async (ev) => {
     ev.stopPropagation();
     try {
@@ -957,17 +1249,39 @@ function copyButton(text: string): HTMLElement {
   return button;
 }
 
+/** Stopped / Not done: one row, then gone. */
+function renderRowCard(glyph: string, word: string, desc: string, runId?: string, threadId?: string, summary?: string): void {
+  if (!presentAnswer("result", ROW_FADE_MS, runId, threadId, summary)) return;
+  showCard(
+    el("div", { class: "card-in row-line", onclick: dismissUnlessControl },
+      icon(glyph),
+      el("span", { class: "row-word" }, word),
+      el("span", { class: "row-desc", title: desc }, desc),
+      el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, icon("x"))),
+    "result card--row",
+  );
+  showDeadline();
+}
+
+// The result on screen, for the question card it may become.
+let lastResult: Extract<Inbound, { type: "result" }>["data"] | null = null;
+
 function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void {
+  question = null;
   if (data.status === "cancelled") {
     // Esc or "stop": the owner knows what happened, so just acknowledge it.
-    if (!presentAnswer("result", CANCELLED_FADE_MS, data.run_id, data.thread_id)) return;
-    showCard(el("div", { "data-hit": true, class: "hit-area", onclick: dismiss }, head(icon("stop"), "Cancelled")), "result card--neutral card--compact");
-    showDeadline();
+    renderRowCard("stop", "Stopped", request ? `“${request}”` : data.summary || "The request was stopped.", data.run_id, data.thread_id);
     return;
   }
-  const variant = data.status === "done" ? "done" : "neutral";
-  const glyph = data.status === "done" ? "check" : "x";
-  const label = { done: "Done", rejected: "Not approved", error: "Failed" }[data.status];
+  if (data.status === "rejected") {
+    renderRowCard("x", "Not done", data.summary, data.run_id, data.thread_id, `Not approved: ${clipLine(data.summary)}`);
+    return;
+  }
+  if (data.run_id.startsWith("due-")) {
+    renderDue(data);
+    return;
+  }
+  lastResult = data;
   // What the run finished showing (the calendar's table, ADR-015 §6) is part of the answer.
   const finished = finishedArtifacts();
   const extra = [detailsText(data.details), ...finished.map((a) => `${a.title}\n${detailsText(a.data)}`)].filter(Boolean).join("\n\n");
@@ -977,52 +1291,120 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   // A long answer opens in place, on this card (owner checks 2026-10-28: a separate reader
   // window wasn't easy to read). Open, it stays until "Read less", Esc or a click on it.
   const long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
-  const readMore = long
-    ? el("button", { class: "btn btn--ghost btn--small read-more", onclick: (ev: Event) => {
-        ev.stopPropagation();
-        setExpanded(!expanded);
-        body.classList.toggle("result-body--open", expanded);
-        (ev.currentTarget as HTMLElement).textContent = expanded ? "Read less" : "Read more";
-        drawBody();
-      } }, "Read more")
-    : null;
-  const body = el("div", { class: long ? "result-body result-body--long" : "result-body" });
+  const shape = A.shape(data.summary, fuller, long);
+  if (!presentAnswer("result", A.readingMs(copyable), data.run_id, data.thread_id, clipLine(data.summary))) return;
+  setExpanded(false);
+  const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
+  body.addEventListener("scroll", () => noteScroll(), { passive: true });
   const drawBody = (): void => {
-    const parts = [
-      el("p", { class: "summary" }, data.summary),
-      renderDetails(data.details, expanded),
-      ...finished.map((a) => el("section", { class: "artifact", "aria-label": a.title }, el("h3", { class: "artifact-title" }, a.title), renderDetails(a.data, expanded))),
-    ];
+    const parts: (HTMLElement | null)[] = shape === "line"
+      ? [el("p", {}, data.summary)]
+      : [
+          ...renderBlocks(data.summary),
+          renderDetails(data.details, expanded),
+          ...finished.flatMap((a) => [el("p", { class: "section-title" }, a.title), renderDetails(a.data, expanded)]),
+        ];
     body.replaceChildren(...parts.filter((n): n is HTMLElement => n !== null));
     scheduleRegions();
   };
-  const line = `${data.status === "rejected" ? "Not approved: " : ""}${clipLine(data.summary)}`;
-  if (!presentAnswer("result", readingMs(copyable), data.run_id, data.thread_id, line)) return;
-  setExpanded(false);
+  const foot = el("footer", { class: "card-foot" });
+  const showBtn = artifacts.size > finished.length
+    ? el("button", { class: "btn btn--ghost", onclick: (ev: Event) => { ev.stopPropagation(); askView("show"); } }, icon("external"), "Show")
+    : null;
+  const drawFoot = (): void => {
+    if (long) {
+      foot.replaceChildren(
+        el("button", { class: "link", "aria-expanded": String(expanded), onclick: (ev: Event) => {
+          ev.stopPropagation();
+          setExpanded(!expanded);
+          body.classList.toggle("answer--open", expanded);
+          card.classList.toggle("card--open", expanded);
+          drawBody();
+          drawFoot();
+        } }, expanded ? "Read less" : "Read more", icon(expanded ? "collapse" : "expand")),
+        el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : `· ${A.minutesToRead(copyable)}`),
+        ...(showBtn ? [showBtn] : []),
+        copyButton(copyable),
+      );
+    } else {
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), copyButton(copyable));
+    }
+  };
   drawBody();
+  drawFoot();
   showCard(
     el(
       "div",
-      { "data-hit": true, class: "hit-area", onclick: dismissUnlessControl },
-      head(icon(glyph), label),
+      { class: "card-in", onclick: dismissUnlessControl },
+      headRow(),
       threadLines(),
-      data.note ? el("p", { class: "note" }, data.note) : null,
+      data.note ? el("p", { class: "answer-note" }, data.note) : null,
       body,
-      el(
-        "footer",
-        { class: "card-foot" },
-        el("span", { class: "byline" }, byline(data.agent)),
-        el(
-          "span",
-          { class: "actions actions--inline" },
-          readMore,
-          // What the run produced (the sent email) stays one click (or "show me") away.
-          artifacts.size > finished.length ? el("button", { class: "btn btn--ghost btn--small", onclick: () => askView("show") }, "Show") : null,
-          data.status === "done" ? copyButton(copyable) : null,
-        ),
-      ),
+      foot,
     ),
-    `result card--${variant}`,
+    "result",
+  );
+  showDeadline();
+}
+
+/** Swift's question (ADR-017): asking while it speaks, then waiting for the answer for the
+ * backend's whole reply window. Never "Done"; unanswered, the backend puts it in the stack. */
+function renderQuestion(): void {
+  if (!question || state !== "result") return;
+  const q = question;
+  const thread = q.data.thread_id ?? pres.threadId;
+  const left = pres.followupUntil ? Math.max(0, pres.followupUntil - Date.now()) : 0;
+  const asking = speaking;
+  const later = (): void => {
+    if (thread) stackAction(`parked:${thread}`, "skip");
+    question = null;
+    dismiss();
+  };
+  const cancel = (): void => {
+    if (thread) stackAction(`parked:${thread}`, "end");
+    question = null;
+    dismiss();
+  };
+  const pill = asking
+    ? el("div", { class: "q-pill q-pill--speaking" }, el("span", { class: "wave", "aria-hidden": "true" }, ...Array.from({ length: 6 }, () => el("i", {}))),
+        el("span", { class: "q-pill-text" }, "Speaking… I'll listen when I'm done"))
+    : el("div", { class: "q-pill" }, el("span", { class: "orb", "aria-hidden": "true" }),
+        el("span", { class: "q-pill-text" }, "Listening for your answer"),
+        el("span", { class: "elapsed" }, `0:${String(Math.ceil(left / 1000)).padStart(2, "0")}`),
+        left ? el("span", { class: "timebar", style: `--fade-ms:${left}ms` }) : null);
+  const about = q.words ? `about “${clipLine(q.words, 48)}”` : "";
+  showCard(
+    el(
+      "div",
+      { class: "card-in" },
+      el("div", { class: "q-tags" },
+        el("span", { class: asking ? "tag" : "tag tag--fill" }, asking ? "Swift is asking" : "Waiting for you"),
+        el("span", { class: "q-about" }, about)),
+      el("p", { class: "q-title" }, A.plainText(q.data.summary)),
+      pill,
+      el("footer", { class: "card-foot" },
+        typeSpec ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
+        el("button", { class: "btn btn--ghost", onclick: later }, "Answer later"),
+        el("button", { class: "btn btn--ghost", onclick: cancel }, "Cancel request")),
+    ),
+    `result card--question${asking ? "" : " card--waiting"}`,
+  );
+  showDeadline();
+  card.querySelector<HTMLElement>(":scope > .timebar")!.hidden = true;  // the pill has the time
+}
+
+/** A timer, alarm or reminder came due: it stays until Done (ADR-017). */
+function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
+  if (!presentAnswer("result", null, data.run_id, data.thread_id, clipLine(data.summary))) return;
+  const kind = data.run_id.split("-")[1];
+  const label = { timer: "Timer", alarm: "Alarm", reminder: "Reminder", away: "While you were away" }[kind] ?? "Reminder";
+  showCard(
+    el("div", { class: "card-in due" },
+      el("span", { class: "due-icon" }, icon(kind === "timer" ? "timer" : "bell")),
+      el("span", { class: "due-text" }, el("p", { class: "due-label" }, label), el("p", { class: "due-title" }, data.summary.replace(/^(While you were away|Reminder): /, ""))),
+      el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done")),
+    "result card--due",
+    "alert",
   );
   showDeadline();
 }
@@ -1034,14 +1416,17 @@ function finishedArtifacts(): Finished[] {
 }
 
 /** One line of an answer, for the thread's history. */
-function clipLine(text: string): string {
+function clipLine(text: string, max = 90): string {
   const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length <= 90 ? flat : `${flat.slice(0, 89).trimEnd()}…`;
+  return flat.length <= max ? flat : `${flat.slice(0, max - 1).trimEnd()}…`;
 }
 
-/** Clicking a card dismisses it, except on its buttons and expandable details. */
+/** Clicking a card dismisses it, except on its controls, open text, or after dragging it. */
 function dismissUnlessControl(ev: Event): void {
-  if ((ev.target as HTMLElement).closest("button, .detail, details")) return;
+  const e = ev as MouseEvent;
+  if ((ev.target as HTMLElement).closest("button, a, .detail, details, .answer--open, .draft-body, .mail-body")) return;
+  if (pressAt && Math.abs(e.screenX - pressAt.x) + Math.abs(e.screenY - pressAt.y) > 4) return;  // it was a drag
+  if (window.getSelection()?.toString()) return;  // selecting text
   dismiss();
 }
 
@@ -1049,25 +1434,23 @@ function dismissUnlessControl(ev: Event): void {
 function renderAlreadyRunning(): void {
   if (!presentAnswer("notice", READY_FADE_MS + 1500)) return; // never over a request
   rest("result");
-  showCard(
-    el(
-      "div",
-      { "data-hit": true, class: "hit-area", onclick: dismiss },
-      head(icon("check"), "Swift is already running"),
-      el("p", { class: "summary" }, "Hold ", pttKeys(), " and speak."),
-      el("p", { class: "muted" }, "Only one copy of Swift runs at a time. Its icon is in the system tray."),
-    ),
-    "result card--done",
-  );
-  showDeadline();
+  renderNotice("ok", "Swift is already running", el("span", {}, "Hold ", pttKeys(), " and speak. Its icon is in the system tray."));
 }
 
 function renderReady(): void {
   if (card.classList.contains("card--in") || !presentAnswer("notice", READY_FADE_MS)) return;
   rest("result");
+  renderNotice("ok", "Swift is ready", el("span", {}, "Hold ", pttKeys(), " and speak."));
+}
+
+/** One of Swift's own notices (ready, already running): a check, a title, a line. */
+function renderNotice(_kind: "ok", title: string, line: HTMLElement): void {
   showCard(
-    el("div", { "data-hit": true, class: "hit-area", onclick: dismiss }, head(icon("check"), "Swift is ready"), el("p", { class: "summary" }, "Hold ", pttKeys(), " and speak.")),
-    "result card--done card--compact-body",
+    el("div", { class: "card-in", onclick: dismissUnlessControl },
+      el("div", { class: "fail" }, el("span", { class: "ok-dot" }, icon("check")),
+        el("div", {}, el("p", { class: "fail-title" }, title), el("p", { class: "fail-why" }, line))),
+    ),
+    "result",
   );
   showDeadline();
 }
@@ -1095,50 +1478,62 @@ function renderProblem(p: Problem): void {
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
   const toggle = detail
-    ? el("button", { class: "link", "aria-expanded": "false", onclick: () => {
+    ? el("button", { class: "link link--quiet", "aria-expanded": "false", onclick: (ev: Event) => {
+        ev.stopPropagation();
         open = !open;
         detail.hidden = !open;
         toggle!.setAttribute("aria-expanded", String(open));
-        toggle!.textContent = open ? "Hide details" : "Show details";
+        toggle!.textContent = open ? "Hide details" : "Details";
         scheduleRegions();
-      } }, "Show details")
+      } }, "Details")
     : null;
   const actions: HTMLElement[] = [];
-  if (p.logs) actions.push(el("button", { class: "btn btn--ghost btn--small", onclick: () => void invoke("open_logs") }, "Open logs"));
+  if (p.logs) actions.push(el("button", { class: "btn btn--ghost", onclick: () => void invoke("open_logs") }, "Open logs"));
   if (p.retry) {
     actions.push(
-      el("button", { class: "btn btn--primary btn--small", onclick: (ev: Event) => {
+      el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
         (ev.currentTarget as HTMLButtonElement).disabled = true;
         if (!client.send({ type: "retry", data: {} })) renderConnection(true);
       } }, "Try again"),
     );
   }
+  const bang = p.glyph === "spin"
+    ? el("span", { class: "spinner", "aria-hidden": "true" })
+    : el("span", { class: info ? "bang bang--info" : "bang", "aria-hidden": "true" }, info ? "i" : "!");
   showCard(
     el(
       "div",
-      { "data-hit": true, class: "hit-area", onclick: dismissUnlessControl },
-      head(icon(p.glyph ?? (info ? "info" : "alert")), el("span", { class: "card-title card-title--sentence" }, p.title)),
-      el("p", { class: "summary" }, withKeys(p.message, pttSpec)),
-      p.hint ? el("p", { class: "muted" }, withKeys(p.hint, pttSpec)) : null,
+      { class: "card-in", onclick: dismissUnlessControl },
+      p.runId || p.threadId ? headRow() : null,
+      el("div", { class: "fail" }, bang,
+        el("div", {},
+          el("p", { class: "fail-title" }, p.title),
+          el("p", { class: "fail-why" }, withKeys(p.message, pttSpec)),
+          p.hint ? el("p", { class: "fail-why" }, withKeys(p.hint, pttSpec)) : null)),
       detail,
       toggle || actions.length || p.agent
         ? el(
             "footer",
             { class: "card-foot" },
-            toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : el("span")),
-            actions.length ? el("span", { class: "actions actions--inline" }, ...actions) : null,
+            toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null),
+            el("span", { class: "foot-gap" }),
+            ...actions,
           )
         : null,
     ),
     info ? "error card--info" : "error",
     info ? "status" : "alert",
   );
+  if (!(p.runId || p.threadId)) {
+    // No request to name: the close button sits in the corner.
+    card.firstElementChild?.prepend(el("button", { class: "icon-btn", style: "position:absolute;top:8px;right:8px", "aria-label": "Close", title: "Close", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, icon("x")));
+  }
   showDeadline();
 }
 
 function renderError(data: ErrorData): void {
   renderProblem({
-    title: data.title || (data.agent ? `${data.agent.name} ran into a problem` : "Something went wrong"),
+    title: data.title || "Something went wrong",
     message: data.message,
     hint: data.hint,
     detail: data.detail,
@@ -1160,11 +1555,7 @@ function renderConnection(asked: boolean): void {
     return;
   }
   if (status.phase === "lost") {
-    rest("error");
-    showCard(
-      el("div", { "data-hit": true }, head(el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "card-title card-title--sentence" }, "Reconnecting to Swift…"), [], true), el("p", { class: "muted" }, "Your next request will work once it's back.")),
-      "error card--info card--compact-body",
-    );
+    renderProblem({ title: "Reconnecting to Swift…", message: "Your next request will work once it's back.", severity: "info", glyph: "spin", sticky: true });
     return;
   }
   renderProblem({ ...describeBackendProblem(status.problem), sticky: true, logs: true });
@@ -1203,7 +1594,7 @@ function describeBackendProblem(problem: string): Problem {
   };
 }
 
-// ---- hover and drag hold an answer (the presenter keeps the time) -------------------
+// ---- hover, drag, Read more and scrolling hold an answer (the presenter keeps the time) -------
 
 /** "Read more" holds the answer while it's open; "Read less" gives back the time it had left. */
 function setExpanded(open: boolean): void {
@@ -1212,10 +1603,22 @@ function setExpanded(open: boolean): void {
   setHold(!open);
 }
 
+// Scrolling a long answer holds it too, until a moment after the last scroll.
+let scrollHold = 0;
+let scrolling = false;
+function noteScroll(): void {
+  scrolling = true;
+  setHold();
+  window.clearTimeout(scrollHold);
+  scrollHold = window.setTimeout(() => { scrolling = false; setHold(); }, 400);
+}
+
 function setHold(restore = false): void {
-  pres = P.onHold(pres, hovering || dragging || expanded, Date.now(), restore);
+  const selecting = !!window.getSelection()?.toString() && card.contains(window.getSelection()?.anchorNode ?? null);
+  pres = P.onHold(pres, hovering || dragging || expanded || scrolling || selecting, Date.now(), restore);
   showDeadline();
 }
+document.addEventListener("selectionchange", () => setHold());
 
 function setHover(inside: boolean): void {
   hovering = inside;
@@ -1233,7 +1636,10 @@ function setHover(inside: boolean): void {
 window.setInterval(() => {
   const r = P.tick(pres, Date.now());
   pres = r.p;
-  if (r.hide) setStage("idle");
+  if (r.hide) {
+    question = null;
+    setStage("idle");
+  }
   drawFollowup(r.followupLeft);
   // The card in front is gone but another request still runs: bring it forward.
   const next = P.promotion(pres);
@@ -1247,16 +1653,17 @@ window.setInterval(() => {
 let regionTimers: number[] = [];
 
 function sendRegions(): void {
-  const visible = (card.classList.contains("card--in") && !card.classList.contains("card--held")) || !rowsEl.hidden || !(stackEl?.hidden ?? true);
-  // Outermost hit areas only: a nested one adds nothing.
-  const rects = visible
-    ? Array.from(document.querySelectorAll<HTMLElement>("[data-hit]"))
-        .filter((node) => !node.parentElement?.closest("[data-hit]"))
-        .map((node) => {
-          const r = node.getBoundingClientRect();
-          return { x: r.left, y: r.top, w: r.width, h: r.height };
-        })
-    : [];
+  const cardShown = card.classList.contains("card--in") && !card.classList.contains("card--held");
+  // Outermost hit areas only: a nested one adds nothing. The capsule is one only with a button.
+  const rects = Array.from(document.querySelectorAll<HTMLElement>("[data-hit]"))
+    .filter((node) => !node.parentElement?.closest("[data-hit]"))
+    .filter((node) => (node === card ? cardShown : true))
+    .filter((node) => !node.closest("[hidden]"))
+    .map((node) => {
+      const r = node.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height };
+    })
+    .filter((r) => r.w > 0 && r.h > 0);
   const key = JSON.stringify(rects);
   if (key === lastRegions) return;
   lastRegions = key;
@@ -1265,19 +1672,21 @@ function sendRegions(): void {
 
 function scheduleRegions(): void {
   regionTimers.forEach((t) => window.clearTimeout(t));
-  // Now, and again once the card's entry transform (240 ms) has settled.
-  regionTimers = [window.setTimeout(sendRegions, 0), window.setTimeout(sendRegions, 300)];
+  // Now, and again once the card's entry transform (160 ms) has settled.
+  regionTimers = [window.setTimeout(sendRegions, 0), window.setTimeout(sendRegions, 220)];
   if (!card.classList.contains("card--in")) sendRegions();
 }
 new ResizeObserver(scheduleRegions).observe(card);
+new ResizeObserver(scheduleRegions).observe(capsuleEl);
 
 // ---- moving the overlay -----------------------------------------------------------
 
-// Pressing a card's header hands the drag to Rust, which follows the cursor
-// and snaps to the nearest anchor on release (a press without moving is a click).
+// Pressing a card anywhere but a control hands the drag to Rust, which follows the cursor; the
+// card stays where it is dropped (a press without moving is a click).
 card.addEventListener("pointerdown", (ev) => {
   const target = ev.target as HTMLElement;
-  if (ev.button !== 0 || target.closest("button") || !target.closest("[data-drag]")) return;
+  pressAt = { x: ev.screenX, y: ev.screenY };
+  if (ev.button !== 0 || target.closest("button, a, input, .answer--open, .detail, .draft-body, .mail-body--full, .facts-text")) return;
   void invoke("begin_drag");
 });
 
@@ -1294,15 +1703,16 @@ window.setInterval(() => {
   if (state === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
-    if (isStalled(Date.now()) !== !!card.querySelector(".note--soft")) renderWorking();
-    // No news and nobody looking: collapse to the one line (ADR-015 §3.3).
+    if (isStalled(Date.now()) !== !!card.querySelector(".note")) renderWorking();
+    // No news and nobody looking: shrink to the one line (ADR-015 §3.3, ADR-017: 12 s).
     if (!quiet && Panes.workingQuiet(Math.max(lastStepAt, runStarted, lastLookAt), Date.now(), hovering)) {
       quiet = true;
       renderWorking();
     }
+    drawCapsule();
   } else if (state === "confirm") tickConfirm();
   if (pres.rows.length && !paneWindows) drawRows();  // their elapsed time (pane windows keep their own)
-  else if (acks.length) drawRows();  // "Got it" lines go after a few seconds
+  else if (acks.length || !gotitEl.hidden) drawGotIt();  // "Got it" goes after 2.5 s
   // Young requests get their chip, the stack's glow fades: both are in what's wanted.
   if (paneWindows && (pres.rows.length || stack.items.length)) void syncPanes();
   if (++sweepTick % 3 === 0) void sweepPanes();
@@ -1313,10 +1723,10 @@ window.setInterval(() => {
   }
 }, 1000);
 
-// ---- Esc: only grabbed while Swift is active ------------------------------------
+// ---- Esc: only grabbed while Swift is active, speaking, or the stack is open -----------
 
 async function syncEscape(): Promise<void> {
-  const want = ACTIVE.has(state) && !typing;
+  const want = (ACTIVE.has(state) || speaking || stack.expanded) && !typing;
   if (want === escapeActive) return;
   escapeActive = want;
   try {
@@ -1324,6 +1734,13 @@ async function syncEscape(): Promise<void> {
   } catch (err) {
     console.warn("Esc hotkey:", err);
   }
+}
+
+/** Esc: Swift stops talking first, then the request stops, then the open stack folds up. */
+function onEscape(): void {
+  if (speaking) stopSpeaking();
+  else if (ACTIVE.has(state)) client.send({ type: "cancel", data: {} });
+  else if (stack.expanded) collapseStack();
 }
 
 // ---- backend messages ----------------------------------------------------------
@@ -1334,6 +1751,7 @@ function onMessage(msg: Inbound): void {
     case "hello.ok":
       debugEnabled = msg.data.debug;
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
+      typeSpec = msg.data.hotkeys.type ?? "";
       void registerHotkeys(msg.data.hotkeys);
       void invoke("set_status", { text: `Swift: ready. Hold ${pttText()} to talk.` }).catch(() => {});
       break;
@@ -1346,12 +1764,13 @@ function onMessage(msg: Inbound): void {
       noteLevel(msg.data.rms);
       break;
     case "transcript":
-      transcriptEl.textContent = msg.data.text;
-      if (msg.data.text) delete transcriptEl.dataset.quiet;
+      transcriptText = msg.data.text;
+      if (msg.data.text && quietNow) quietNow = false;
       if (msg.data.final) {
-        delete transcriptEl.dataset.pending;
         request = msg.data.text;
+        typed = !!msg.data.typed;
       }
+      drawCapsule();
       break;
     case "step":
       steps = [...steps, msg.data.text].slice(-MAX_STEPS);
@@ -1404,35 +1823,49 @@ function onMessage(msg: Inbound): void {
     case "heard":
       onHeard(msg.data);
       break;
+    case "speech":
+      onSpeech(msg.data.speaking);
+      break;
   }
 }
 
-/** Swift heard its name or the hotkey: the pulse at once, before any transcription (heard.ts). */
+/** Swift started or stopped talking: the capsule's Speaking and Stop, and the question card. */
+function onSpeech(now: boolean): void {
+  if (speaking === now) return;
+  speaking = now;
+  drawCapsule();
+  void syncEscape();
+  if (question) renderQuestion();
+}
+
+/** Swift heard its name or the hotkey: the capsule says so at once, before any transcription. */
 function onHeard(data: Extract<Inbound, { type: "heard" }>["data"]): void {
+  const arrived = performance.now();
   heardNow = H.heard(Date.now(), data.source, data.text);
-  heardText.textContent = heardNow.text;
-  drawHeard();
+  drawCapsule();
+  // The design asks for the heard capsule within 100 ms of the wake word: log how long drawing took.
+  if (debugEnabled) requestAnimationFrame(() => console.debug(`[overlay] heard drawn ${Math.round(performance.now() - arrived)} ms after the message`));
   window.clearTimeout(heardTimer);
-  heardTimer = window.setTimeout(() => { heardNow = null; drawHeard(); }, H.HEARD_MS);
+  heardTimer = window.setTimeout(() => { heardNow = null; drawCapsule(); }, H.HEARD_MS);
 }
 
-function drawHeard(): void {
-  if (H.heardVisible(heardNow, state, Date.now()) && heardNow) stage.dataset.heard = heardNow.source;
-  else delete stage.dataset.heard;
-}
-
-/** While listening: flag a mic that hears nothing, so silence isn't mistaken for "Swift is broken". */
+/** While listening: flag a mic that hears nothing for 4 s, so silence isn't mistaken for "Swift is broken". */
 function noteLevel(rms: number): void {
   if (state !== "listening") return;
   loudest = Math.max(loudest, rms);
-  if (rms >= QUIET_LEVEL) delete transcriptEl.dataset.quiet;
-  else if (loudest < QUIET_LEVEL && performance.now() - listenStarted > QUIET_MS) transcriptEl.dataset.quiet = "true";
+  const quietThen = rms < C.QUIET_LEVEL && loudest < C.QUIET_LEVEL && performance.now() - listenStarted > C.QUIET_MS;
+  const next = rms >= C.QUIET_LEVEL ? false : quietThen || quietNow;
+  if (next !== quietNow) {
+    quietNow = next;
+    drawCapsule();
+  }
 }
 
 function onStatus(status: ConnectionStatus): void {
   const was = connection.phase;
   connection = status;
   stage.dataset.backend = status.phase;
+  refreshTray();
   if (status.phase === "connected") {
     // Clear a connection card, and say hello once per launch.
     if (was === "lost" || was === "failed") setStage("idle");
@@ -1448,6 +1881,7 @@ function onStatus(status: ConnectionStatus): void {
   } else if (status.phase === "lost" && ACTIVE.has(state)) {
     // The run it was doing is gone with the connection.
     orb.stop();
+    speaking = false;
     renderConnection(true);
   }
 }
@@ -1474,6 +1908,7 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
     console.warn("hotkeys:", problems);
   }
   const typeKey = problems.find((p) => p.name === "type");
+  if (typeKey) typeSpec = "";
   if (typeKey && !ptt) {
     renderProblem({
       title: "The typing shortcut isn't working",
@@ -1495,7 +1930,7 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
 
 void listen<{ name: string; state: "down" | "up" }>("hotkey", ({ payload }) => {
   if (payload.name === "escape" && payload.state === "down") {
-    client.send({ type: "cancel", data: {} });
+    onEscape();
   } else if (payload.name === "debug" && payload.state === "down" && debugEnabled && !ACTIVE.has(state)) {
     // Ignored while busy (the backend would ignore it too), so the cycle doesn't skip a scenario.
     const scenario: Scenario = SCENARIOS[scenarioIndex++ % SCENARIOS.length];
@@ -1520,4 +1955,12 @@ void listen<boolean>("drag", ({ payload }) => {
 });
 
 void invoke<{ anchor: string }>("get_placement").then((p) => setAnchor(p.anchor)).catch(() => {});
+drawCapsule();
 client.start();
+
+// Dev harness: the presenter and the capsule's inputs, for checks by eye (never used by the app).
+(window as unknown as Record<string, unknown>).__overlay = {
+  get pres() { return pres; },
+  get presence() { return capsuleEl.dataset.p; },
+  get speaking() { return speaking; },
+};

@@ -10,6 +10,11 @@
 // front (``focus``) and the others as rows. While there are rows, only the request in front can
 // change the card; the others' news is in their rows. When the card in front is gone and a row
 // still runs, ``promote`` names the one to bring forward (main.ts asks the backend).
+//
+// The Capsule redesign (ADR-017): a confirm card counts down only while the owner is here. Idle
+// or away (``onPresent``), its countdown stops where it was and the card says so; the backend's
+// stops too, since the card is reported as not seen. Approve ignores clicks for its first 400 ms.
+// Letting go of a held answer gives it 1.5 s.
 
 import type { UiState } from "./protocol";
 
@@ -17,7 +22,9 @@ export type CardKind = "none" | "listening" | "transcribing" | "working" | "conf
 
 const ACTIVE: ReadonlySet<CardKind> = new Set(["listening", "transcribing", "working", "confirm"]);
 /** Mouse back off a paused card: at least this long before it fades. */
-export const RESUME_MS = 2500;
+export const RESUME_MS = 1500;
+/** Approve ignores clicks this long after its card appears (a stray click meant for something else). */
+export const APPROVE_DELAY_MS = 400;
 /** Earlier turns of a thread shown above its card. */
 export const HISTORY = 2;
 /** Background rows drawn under the card; past that, "+N more" (ADR-013 §3.3). */
@@ -68,6 +75,12 @@ export type Presenter = {
   heldSince: number | null;
   // When the waiting card's countdown runs out (0: no countdown, or stopped while it is put aside).
   confirmDeadline: number;
+  // The countdown stopped because the owner isn't here (idle or away): the time it had left (ms).
+  confirmLeft: number | null;
+  // When the waiting card appeared (Approve waits APPROVE_DELAY_MS after it).
+  confirmShownAt: number;
+  // The owner is idle or away (presence): confirm countdowns stop.
+  away: boolean;
   // The backend takes a reply without the wake phrase until then (0: not).
   followupUntil: number;
   // Hover or drag holds the card: the time left when it started.
@@ -88,6 +101,9 @@ export const initial: Presenter = {
   held: null,
   heldSince: null,
   confirmDeadline: 0,
+  confirmLeft: null,
+  confirmShownAt: 0,
+  away: false,
   followupUntil: 0,
   pausedLeft: null,
   focus: null,
@@ -98,7 +114,7 @@ export const initial: Presenter = {
 export const isActive = (p: Presenter): boolean => ACTIVE.has(p.card.kind);
 
 /** No confirm card waiting any more. */
-const noConfirm = { pendingConfirm: null, held: null, heldSince: null, confirmDeadline: 0 } as const;
+const noConfirm = { pendingConfirm: null, held: null, heldSince: null, confirmDeadline: 0, confirmLeft: null, confirmShownAt: 0 } as const;
 
 /** Another request's message while there are rows: it updates its row, never the card. */
 const notInFront = (p: Presenter, runId: string | null | undefined): boolean =>
@@ -181,7 +197,33 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
 export function onConfirm(p: Presenter, requestId: string, runId: string | null, timeoutS = 0, now = 0): Presenter {
   const card = { ...p.card, kind: "confirm" as const, runId: runId ?? p.card.runId, fadeAt: null };
   if (p.pendingConfirm === requestId) return { ...p, card };
-  return { ...p, card, ...noConfirm, pendingConfirm: requestId, confirmDeadline: deadline(timeoutS, now) };
+  const timed = { ...p, card, ...noConfirm, pendingConfirm: requestId, confirmShownAt: now };
+  if (p.away) return { ...timed, confirmLeft: timeoutS > 0 ? timeoutS * 1000 : null };
+  return { ...timed, confirmDeadline: deadline(timeoutS, now) };
+}
+
+/** The owner is here (input lately) or not (idle or away, from ``presence``). Not here, a waiting
+ * card's countdown stops where it is; back, it goes on from there. */
+export function onPresent(p: Presenter, present: boolean, now: number): Presenter {
+  if (present === !p.away) return p;
+  if (!present) {
+    const left = p.confirmDeadline ? Math.max(0, p.confirmDeadline - now) : p.confirmLeft;
+    return { ...p, away: true, confirmDeadline: 0, confirmLeft: p.pendingConfirm && p.held === null ? left : p.confirmLeft };
+  }
+  if (p.confirmLeft !== null && p.pendingConfirm && p.held === null) {
+    return { ...p, away: false, confirmDeadline: now + p.confirmLeft, confirmLeft: null };
+  }
+  return { ...p, away: false };
+}
+
+/** Approve takes clicks now (the card has been up APPROVE_DELAY_MS). */
+export const approveReady = (p: Presenter, now: number): boolean => now - p.confirmShownAt >= APPROVE_DELAY_MS;
+
+/** Time left on the waiting card's countdown (ms), and whether it is stopped; null: no countdown. */
+export function confirmLeftMs(p: Presenter, now: number): { ms: number; paused: boolean } | null {
+  if (p.confirmLeft !== null) return { ms: p.confirmLeft, paused: true };
+  if (p.confirmDeadline) return { ms: Math.max(0, p.confirmDeadline - now), paused: false };
+  return null;
 }
 
 const deadline = (timeoutS: number, now: number): number => (timeoutS > 0 ? now + timeoutS * 1000 : 0);
@@ -191,8 +233,10 @@ const deadline = (timeoutS: number, now: number): number => (timeoutS > 0 ? now 
  * Other cards are untouched. */
 export function onConfirmHold(p: Presenter, requestId: string, held: boolean, timeoutS = 0, now = 0): Presenter {
   if (p.pendingConfirm !== requestId) return p;
-  if (held) return { ...p, held: requestId, heldSince: p.heldSince ?? now, confirmDeadline: 0 };
-  return { ...p, held: null, confirmDeadline: deadline(timeoutS, now) };
+  if (held) return { ...p, held: requestId, heldSince: p.heldSince ?? now, confirmDeadline: 0, confirmLeft: null };
+  const back = { ...p, held: null, confirmShownAt: now };
+  if (p.away) return { ...back, confirmDeadline: 0, confirmLeft: timeoutS > 0 ? timeoutS * 1000 : null };
+  return { ...back, confirmDeadline: deadline(timeoutS, now), confirmLeft: null };
 }
 
 /** The waiting card is on screen (not put aside while the owner is away). */
@@ -200,7 +244,8 @@ export const confirmVisible = (p: Presenter): boolean => p.pendingConfirm !== nu
 
 /** The confirm card the owner can see right now, or null. main.ts tells the backend when this
  * changes (``card.seen``): a card counts down only while it is seen (ADR-015 §4.2). */
-export const seenCard = (p: Presenter): string | null => (confirmVisible(p) && p.card.kind === "confirm" ? p.pendingConfirm : null);
+export const seenCard = (p: Presenter): string | null =>
+  confirmVisible(p) && p.card.kind === "confirm" && !p.away ? p.pendingConfirm : null;
 
 /** The line on a card that came back: when it was put aside (ms), or null. */
 export const waitingSince = (p: Presenter): number | null => (confirmVisible(p) ? p.heldSince : null);
@@ -280,7 +325,9 @@ export function violations(p: Presenter): string[] {
   if (p.pendingConfirm && p.card.kind !== "confirm") out.push(`confirm ${p.pendingConfirm} is waiting but not on screen`);
   if (p.held && p.held !== p.pendingConfirm) out.push(`card ${p.held} is put aside but isn't waiting`);
   if (p.held && p.confirmDeadline) out.push(`card ${p.held} is put aside but still counting down`);
-  if (!p.pendingConfirm && (p.heldSince !== null || p.confirmDeadline)) out.push("a countdown with no card waiting");
+  if (!p.pendingConfirm && (p.heldSince !== null || p.confirmDeadline || p.confirmLeft !== null)) out.push("a countdown with no card waiting");
+  if (p.confirmDeadline && p.confirmLeft !== null) out.push("a countdown both running and stopped");
+  if (p.away && p.confirmDeadline) out.push("a countdown running while the owner is away");
   if (p.history.length > HISTORY) out.push("too many earlier turns");
   if (p.history.some((t) => t.threadId !== p.threadId)) out.push("an earlier turn from another thread");
   // Several requests: never two cards fighting (ADR-013 §3.2).

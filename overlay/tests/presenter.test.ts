@@ -420,3 +420,46 @@ test("owner check 18: back after the overlay lost the card still draws it, becau
   assert.equal(seenCard(o.p), "c1");
   assert.equal(o.p.confirmDeadline, 3000 + 60_000);
 });
+
+// ---- ADR-017: the confirm countdown runs only while the owner is here; Approve waits 400 ms ----
+
+test("idle or away, a confirm countdown stops where it is and the card isn't reported seen", async () => {
+  const P = await import("../src/presenter.ts");
+  let p = P.onState(P.initial, "confirm", "r1", "t1").p;
+  p = P.onConfirm(p, "c1", "r1", 45, 1000);
+  assert.equal(P.seenCard(p), "c1");
+  assert.deepEqual(P.confirmLeftMs(p, 11_000), { ms: 35_000, paused: false });
+  p = P.onPresent(p, false, 11_000);
+  assert.deepEqual(P.violations(p), []);
+  assert.equal(P.seenCard(p), null);  // the backend's countdown stops too
+  assert.deepEqual(P.confirmLeftMs(p, 99_000), { ms: 35_000, paused: true });
+  p = P.onPresent(p, true, 100_000);
+  assert.deepEqual(P.confirmLeftMs(p, 100_000), { ms: 35_000, paused: false });
+  assert.equal(P.seenCard(p), "c1");
+  assert.deepEqual(P.violations(p), []);
+});
+
+test("a card that arrives while the owner is away starts stopped", async () => {
+  const P = await import("../src/presenter.ts");
+  let p = P.onPresent(P.initial, false, 0);
+  p = P.onState(p, "confirm", "r1", null).p;
+  p = P.onConfirm(p, "c1", "r1", 45, 500);
+  assert.deepEqual(P.confirmLeftMs(p, 9000), { ms: 45_000, paused: true });
+  assert.deepEqual(P.violations(p), []);
+});
+
+test("Approve ignores clicks for the first 400 ms, again after the card comes back", async () => {
+  const P = await import("../src/presenter.ts");
+  let p = P.onState(P.initial, "confirm", "r1", null).p;
+  p = P.onConfirm(p, "c1", "r1", 45, 1000);
+  assert.equal(P.approveReady(p, 1000 + P.APPROVE_DELAY_MS - 1), false);
+  assert.equal(P.approveReady(p, 1000 + P.APPROVE_DELAY_MS), true);
+  p = P.onConfirmHold(p, "c1", true, 0, 5000);
+  p = P.onConfirmHold(p, "c1", false, 60, 9000);
+  assert.equal(P.approveReady(p, 9100), false);
+  assert.equal(P.approveReady(p, 9400), true);
+});
+
+test("letting go of a held answer gives it 1.5 s (the design's resume)", () => {
+  assert.equal(RESUME_MS, 1500);
+});

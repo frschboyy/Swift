@@ -52,7 +52,8 @@ export type Inbound =
   | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string> } }
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
-  | { type: "transcript"; data: { text: string; final: boolean } }
+  // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
+  | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // timeout_s: how long the card waits before the run stops without an answer.
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
@@ -73,7 +74,8 @@ export type Inbound =
   // question: the answer asked something, so the window is longer and the card says "your answer".
   | { type: "followup"; data: { open: boolean; seconds: number; question?: boolean } }
   // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
-  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean } }
+  // paused: the owner paused listening from the tray (ADR-017): "Not listening · Mic off".
+  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
   // held false: they're back, and the card has timeout_s left.
   | { type: "confirm.hold"; data: { request_id: string; held: boolean; timeout_s: number } }
@@ -84,10 +86,13 @@ export type Inbound =
   // ADR-015 §9: what waits for the owner (the waiting stack), in the order to show it.
   | { type: "stack"; data: { items: StackEntry[] } }
   // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
-  | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } };
+  | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } }
+  // ADR-017: Swift started or stopped talking (the capsule's Speaking state, the question card).
+  | { type: "speech"; data: { speaking: boolean } };
 
 // One card in the waiting stack: a card in line ("waiting") or skipped ("later"), the card on
-// screen while the owner is away ("held"), or an unfinished conversation ("parked").
+// screen while the owner is away ("held"), or an unfinished conversation ("parked"). A "later"
+// card whose countdown ran out has reason "expired" (ADR-017).
 export type StackEntry = {
   id: string;
   kind: "waiting" | "later" | "held" | "parked";
@@ -143,7 +148,11 @@ export type Outbound =
   // The waiting stack: open (bring back / resume), skip (back to the stack), end (gone).
   | { type: "stack.action"; data: { id: string; action: "open" | "skip" | "end" } }
   // A request typed into the text box; thread_id: the conversation on screen it follows up.
-  | { type: "text"; data: { text: string; thread_id: string | null } };
+  | { type: "text"; data: { text: string; thread_id: string | null } }
+  // ADR-017: the capsule's Stop (or Esc while Swift talks): only the voice stops.
+  | { type: "speech.stop"; data: Record<string, never> }
+  // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
+  | { type: "listen"; data: { on: boolean } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });

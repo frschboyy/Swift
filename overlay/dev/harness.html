@@ -5,18 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Swift (dev harness)</title>
     <link rel="stylesheet" href="/src/styles.css" />
+    <!-- ?wall=white|black|busy (default: the blue-grey stand-in); ?bare hides the dev buttons. -->
+    <style>
+      body { background: #3a5f7d linear-gradient(135deg, #d9dee6, #5b7a99); }
+      body[data-wall="white"] { background: #ffffff; }
+      body[data-wall="black"] { background: #000000; }
+      body[data-wall="busy"] { background: repeating-linear-gradient(45deg, #e8d04a 0 18px, #1d3b6e 18px 36px, #f4f4f4 36px 54px, #b23a48 54px 72px); }
+      body[data-bare] #dev { display: none !important; }
+    </style>
   </head>
-  <body style="background: #3a5f7d linear-gradient(135deg, #d9dee6, #5b7a99)">
-    <main id="stage" data-state="idle">
-      <section id="card" class="card" aria-live="polite"></section>
+  <body>
+    <main id="stage" data-state="idle" data-theme="dark">
+      <ul id="gotit" class="gotit-list" aria-live="polite" hidden></ul>
       <ul id="rows" class="rows" aria-label="Other requests" hidden></ul>
       <section id="stack" class="stack-inline" aria-label="Waiting for you" hidden></section>
-      <div id="voice" class="voice">
-        <div id="orb" class="orb"><div class="orb-core"></div><div class="orb-ring"></div></div>
-        <p id="transcript" class="transcript"></p>
-      </div>
-      <div id="heard" class="heard" role="status" aria-live="polite">
-        <span class="heard-dot" aria-hidden="true"></span><span id="heard-text"></span>
+      <section id="card" class="card" aria-live="polite"></section>
+      <div id="capsule" class="capsule" data-p="idle" role="status" aria-live="polite">
+        <span class="orb" aria-hidden="true"></span>
+        <span class="cap-ring" aria-hidden="true"></span>
+        <span class="spinner spinner--big cap-spin" aria-hidden="true"></span>
+        <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="cap-text"><span id="cap-label" class="cap-label"></span><span id="cap-sub" class="cap-sub"></span></span>
+        <button id="cap-btn" class="btn btn--ghost cap-btn" hidden></button>
       </div>
     </main>
     <!-- Dev only: drive a debug backend without a microphone (ADR-010: the email demo and "show me"). -->
@@ -30,12 +41,20 @@
       <!-- ADR-013: replay message sequences into the overlay, no backend request -->
       <button data-replay="correctionAfterReject">Replay: correction after reject</button>
       <button data-replay="threeTurnThread">Replay: 3-turn thread</button>
+      <!-- ADR-017: every Capsule design state, one call each: __design("confirmAdd") -->
+      <select id="design" aria-label="Design state"><option value="">Design state…</option></select>
     </aside>
     <script type="module">
+      const params = new URLSearchParams(location.search);
+      if (params.get("wall")) document.body.dataset.wall = params.get("wall");
+      if (params.has("bare")) document.body.dataset.bare = "";
       document.getElementById("dev").addEventListener("click", (ev) => {
         const button = ev.target.closest("button");
         if (button?.dataset.send) window.__shim.send(...JSON.parse(button.dataset.send));
         if (button?.dataset.replay) window.__replay(button.dataset.replay);
+      });
+      document.getElementById("design").addEventListener("change", (ev) => {
+        if (ev.target.value) window.__design(ev.target.value);
       });
     </script>
     <script type="module" src="/dev/shim.ts"></script>

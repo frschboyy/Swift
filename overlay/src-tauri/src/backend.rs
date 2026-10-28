@@ -52,6 +52,11 @@ fn new_token() -> String {
     buf.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// config.yaml, which the tray menu's Settings opens (ADR-017).
+pub fn config_path() -> PathBuf {
+    repo_root().join("config.yaml")
+}
+
 fn repo_root() -> PathBuf {
     if let Ok(root) = std::env::var("SWIFT_ROOT") {
         return PathBuf::from(root);

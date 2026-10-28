@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import type { StackEntry } from "../src/protocol.ts";
-import { afterAction, collapse, countLine, expand, initialStack, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
+import { afterAction, collapse, countLine, expand, initialStack, itemIcon, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
 
 const item = (id: string, kind: StackEntry["kind"] = "parked", reason = "stopped", since = 0): StackEntry =>
   ({ id, kind, title: `Title ${id}`, reason, since_ms: since, thread_id: null });
@@ -34,14 +34,32 @@ test("a card that just joined glows for a few seconds", () => {
   assert.deepEqual(stackView(s, 10_000 + FRESH_MS)?.items.map((i) => i.fresh), [false, false]);
 });
 
-test("each card says why it waits, in plain words; the open button says what happens", () => {
+test("each card says why it waits, in plain words (the Capsule design's wording)", () => {
   const now = 5 * 60_000;
-  assert.equal(reasonLine(item("card:1", "waiting", "waiting"), now), "Waiting behind another card");
-  assert.equal(reasonLine(item("parked:a", "parked", "asked"), now), "Swift asked you something · 5 min ago");
-  assert.equal(reasonLine(item("parked:a", "parked", "stopped", now - 30_000), now), "Stopped before it finished · just now");
-  assert.equal(reasonLine(item("card:1", "held", "held"), now), "Kept while you were away");
+  assert.equal(reasonLine(item("card:1", "waiting", "waiting"), now), "Waiting for your OK · behind another card");
+  assert.equal(reasonLine(item("parked:a", "parked", "asked"), now), "Unanswered question · 5 min ago");
+  assert.equal(reasonLine(item("parked:a", "parked", "stopped", now - 30_000), now), "Unfinished · stopped before it was done · just now");
+  assert.equal(reasonLine(item("card:1", "held", "held"), now), "Waiting for your OK · held while you were away");
+  assert.equal(reasonLine(item("card:1", "later", "expired", now - 120_000), now), "Waiting for your OK · held, no answer in time · 2 min ago");
+  assert.equal(reasonLine(item("card:1", "later", "later", now - 60_000), now), "Waiting for your OK · put off 1 min ago");
   const view = stackView(onStack(initialStack, [item("parked:a"), item("card:1", "waiting", "waiting")], 0), 0)!;
-  assert.deepEqual(view.items.map((i) => i.open), ["Resume", "Show"]);
-  assert.equal(countLine(1), "1 card needs you");
-  assert.equal(countLine(3), "3 cards need you");
+  assert.deepEqual(view.items.map((i) => i.open), ["Open", "Open"]);
+  assert.equal(countLine(1), "1 thing needs you");
+  assert.equal(countLine(3), "3 things need you");
+  assert.equal(nextLine(view), "Next: Title parked:a");
+});
+
+test("each row's icon says what kind of thing it is, beside its words", () => {
+  assert.equal(itemIcon(item("card:1", "held", "held")), "shield");
+  assert.equal(itemIcon(item("card:1", "later", "expired")), "shield");
+  assert.equal(itemIcon(item("card:1", "waiting", "waiting")), "shield");
+  assert.equal(itemIcon(item("parked:a", "parked", "asked")), "question");
+  assert.equal(itemIcon(item("parked:a", "parked", "stopped")), "pause");
+  assert.equal(itemIcon(item("parked:a", "parked", "unanswered")), "pause");
+});
+
+test("titles are passed whole: the view never cuts them (the owner's bug: truncated titles)", () => {
+  const long = { ...item("card:9", "later", "later"), title: "Add lunch with Test Person at the Italian place on Thursday at one" };
+  const view = stackView(onStack(initialStack, [long], 0), 0)!;
+  assert.equal(view.items[0].title, long.title);
 });

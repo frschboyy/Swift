@@ -6,6 +6,10 @@
 // Compressed it takes little space; a double click expands it; a click anywhere else, or
 // opening a card, compresses it again. Each card can be opened, skipped (to the back) or ended.
 // The backend owns the list (``stack``); this decides how it looks.
+//
+// The Capsule redesign (ADR-017): "3 things need you" and "Next: …" when closed; open, each row
+// has a type icon (a shield for a card waiting for an OK, a question mark for Swift's question,
+// a pause for anything unfinished), its whole title (never cut) and why it waits.
 
 import type { StackEntry } from "./protocol";
 
@@ -54,30 +58,38 @@ export function reasonLine(item: StackEntry, now: number): string {
   const since = ago(now - item.since_ms);
   switch (item.reason) {
     case "waiting":
-      return "Waiting behind another card";
+      return "Waiting for your OK · behind another card";
     case "later":
-      return `Put off for later · ${since}`;
+      return `Waiting for your OK · put off ${since}`;
     case "held":
-      return "Kept while you were away";
+      return "Waiting for your OK · held while you were away";
+    case "expired":
+      return `Waiting for your OK · held, no answer in time · ${since}`;
     case "stopped":
-      return `Stopped before it finished · ${since}`;
+      return `Unfinished · stopped before it was done · ${since}`;
     case "unanswered":
-      return `A card went unanswered · ${since}`;
+      return `Unfinished · a card went unanswered · ${since}`;
     case "asked":
-      return `Swift asked you something · ${since}`;
+      return `Unanswered question · ${since}`;
     default:
       return since;
   }
 }
 
-/** What each card's buttons say: a conversation is resumed, a card is shown. */
-export const openLabel = (item: StackEntry): string => (item.kind === "parked" ? "Resume" : "Show");
+/** Every row's first button: open it (a card comes back, a conversation goes on). */
+export const openLabel = (_item: StackEntry): string => "Open";
+
+/** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
+export function itemIcon(item: StackEntry): "shield" | "question" | "pause" {
+  if (item.kind !== "parked") return "shield";
+  return item.reason === "asked" ? "question" : "pause";
+}
 
 /** What the stack pane draws. */
 export type StackView = {
   kind: "stack";
   expanded: boolean;
-  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean }[];
+  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon> }[];
 };
 
 /** The stack pane's view, or null when nothing waits (no window). */
@@ -87,9 +99,14 @@ export function stackView(s: Stack, now: number): StackView | null {
   return {
     kind: "stack",
     expanded: s.expanded,
-    items: s.items.map((i) => ({ id: i.id, kind: i.kind, title: i.title, line: reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id) })),
+    items: s.items.map((i) => ({
+      id: i.id, kind: i.kind, title: i.title, line: reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
+    })),
   };
 }
 
-/** The compressed stack's one line: "3 cards need you". */
-export const countLine = (n: number): string => (n === 1 ? "1 card needs you" : `${n} cards need you`);
+/** The compressed stack's one line: "3 things need you". */
+export const countLine = (n: number): string => (n === 1 ? "1 thing needs you" : `${n} things need you`);
+
+/** Under it: the one that comes next. */
+export const nextLine = (v: StackView): string => (v.items.length ? `Next: ${v.items[0].title}` : "");

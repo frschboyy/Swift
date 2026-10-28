@@ -7,22 +7,40 @@
 //
 // ADR-015 §9, §10 (2026-10-27): the waiting stack is a pane of its own in a bottom corner, and
 // typing to Swift opens a text box pane, the one window that takes the keyboard.
+//
+// The Capsule redesign (ADR-017): chips are 280 × 56, the stack 280 × 80 closed and 320 wide
+// open, the text box 512 × 52 (a notice row above it while a confirm card is open: typing can't
+// approve), and the tray menu is a pane of its own, opened by a click on the tray icon.
 
 import type { ResultDetails } from "./protocol";
 import type { Presenter, Row } from "./presenter";
 import type { StackView } from "./stack";
 
-export type PaneKind = "request" | "reader" | "stack" | "type";
+export type PaneKind = "request" | "reader" | "stack" | "type" | "tray";
 
-/** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any. */
-export type TypeView = { kind: "type"; draft: string; follows: string | null };
+/** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any.
+ * ``confirm``: a confirm card is open, so the box says typing can't approve it (Enter = Change). */
+export type TypeView = { kind: "type"; draft: string; follows: string | null; confirm?: boolean };
+
+/** The tray menu (ADR-017): Swift's status, where the overlay sits, and the menu's actions. */
+export type TrayView = {
+  kind: "tray";
+  status: string;
+  // Listening paused by the owner: the item says Resume listening.
+  paused: boolean;
+  anchor: string;
+  smart: boolean;
+  // The typing hotkey as written in config.yaml ("ctrl+space"), or null when there is none.
+  typeKey: string | null;
+};
 
 /** What a pane window draws. */
 export type PaneView =
   | { kind: "request"; runId: string; title: string; words: string; label: string; startedMs: number; running: boolean; state: string }
   | { kind: "reader"; title: string; summary: string; details: ResultDetails | null; chip: boolean }
   | StackView
-  | TypeView;
+  | TypeView
+  | TrayView;
 
 export type PaneSpec = { label: string; kind: PaneKind; index: number; view: PaneView };
 
@@ -44,11 +62,11 @@ export const MAX_PANES = 5;
  * and a window that opens and closes at once is noise. The main card says "Got it" meanwhile. */
 export const CHIP_DELAY_MS = 600;
 /** "Got it: …" on the main card for a request that started beside the one in front. */
-export const ACK_MS = 5000;
+export const ACK_MS = 2500;
 /** No pointer or scrolling on the reader this long: it shrinks to a chip (ADR-015 §3.3). */
 export const READER_QUIET_MS = 60_000;
 /** No news and no pointer on a working card this long: it collapses to its one line. */
-export const WORKING_QUIET_MS = 30_000;
+export const WORKING_QUIET_MS = 12_000;
 /** An answer longer than this, or with more rows than this, gets "Read all". */
 export const READ_ALL_CHARS = 600;
 export const READ_ALL_ROWS = 6;
@@ -60,7 +78,7 @@ export const paneLabel = (kind: PaneKind, id = ""): string =>
   kind === "request" ? `pane-run-${id.replace(/[^A-Za-z0-9_-]/g, "_")}` : `pane-${kind}`;
 
 /** Besides the requests and the reader: the waiting stack and the text box, when they show. */
-export type Extra = { stack?: StackView | null; typing?: TypeView | null; now?: number };
+export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; now?: number };
 
 /** The panes that should exist now. ``label`` says what a row is doing, in words. */
 export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => string, extra: Extra = {}): PaneSpec[] {
@@ -81,6 +99,7 @@ export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => str
     });
   if (extra.stack) out.push({ label: paneLabel("stack"), kind: "stack", index: 0, view: extra.stack });
   if (extra.typing) out.push({ label: paneLabel("type"), kind: "type", index: 0, view: extra.typing });
+  if (extra.tray) out.push({ label: paneLabel("tray"), kind: "tray", index: 0, view: extra.tray });
   if (reader) {
     out.push({
       label: paneLabel("reader"),
@@ -158,13 +177,15 @@ export function paneSize(spec: PaneSpec): { w: number; h: number } {
   const v = spec.view;
   switch (v.kind) {
     case "request":
-      return { w: 300, h: 44 };
+      return { w: 280, h: 56 };
     case "reader":
-      return v.chip ? { w: 300, h: 44 } : { w: 560, h: 420 };
+      return v.chip ? { w: 280, h: 56 } : { w: 560, h: 420 };
     case "stack":
-      return v.expanded ? { w: 360, h: 56 + 68 * v.items.length } : { w: 300, h: 72 };
+      return v.expanded ? { w: 320, h: 64 + 76 * Math.min(6, v.items.length) } : { w: 280, h: 80 };
     case "type":
-      return { w: 560, h: v.follows ? 92 : 68 };
+      return { w: 512, h: 52 + (v.confirm ? 44 : 0) + (v.follows ? 44 : 0) };
+    case "tray":
+      return { w: 280, h: 400 };
   }
 }
 

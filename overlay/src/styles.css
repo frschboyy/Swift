@@ -596,6 +596,8 @@ code {
 .q-pill .timebar { opacity: 1; }
 .q-pill--speaking { background: var(--raise); color: var(--muted); }
 .q-pill--speaking .q-pill-text { font-weight: 400; }
+/* Swift's question during a request (ask.ts): its answers as buttons, when there are few. */
+.q-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
 /* ---- 5. timers, alarms, reminders: they stay until handled ---------------------------- */
 

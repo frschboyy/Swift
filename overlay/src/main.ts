@@ -28,6 +28,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
+import * as Q from "./ask";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
@@ -143,6 +144,8 @@ const knownRows = new Set<string>();
 let acks: { runId: string; words: string; until: number }[] = [];
 // The answer on screen asked something (``followup`` with question): Swift's question card.
 let question: { data: Extract<Inbound, { type: "result" }>["data"]; words: string; typed: boolean } | null = null;
+// Swift's question while a request runs (ask.ts): shown on its working card until the backend closes it.
+let asked: Q.Ask | null = null;
 // Screen position of the last press on the card: a press that moved was a drag, not a click.
 let pressAt: { x: number; y: number } | null = null;
 
@@ -835,6 +838,10 @@ function shrinkWorking(): void {
 }
 
 function renderWorking(): void {
+  if (Q.askVisible(asked, state, pres.focus)) {
+    renderAsk(asked!);
+    return;
+  }
   const busyAt = Date.now();
   // A new step re-renders the card: keep the reader's place in an open draft.
   const scrolled = card.querySelector<HTMLElement>(".draft-body")?.scrollTop ?? 0;
@@ -1501,6 +1508,50 @@ function renderQuestion(): void {
   card.querySelector<HTMLElement>(":scope > .timebar")!.hidden = true;  // the pill has the time
 }
 
+/** Swift's question while a request runs (ADR-016 §5.1): said, then waiting for the answer, said,
+ * typed or clicked. The backend closes it; unanswered, it goes to the stack with its conversation. */
+function renderAsk(a: Q.Ask): void {
+  const asking = speaking || a.phase === "asking";
+  const left = Q.askLeft(a, Date.now());
+  const reply = (text: string) => (ev: Event): void => {
+    ev.stopPropagation();
+    client.send({ type: "ask.reply", data: { ask_id: a.id, text } });
+  };
+  const pill = asking
+    ? el("div", { class: "q-pill q-pill--speaking" }, el("span", { class: "wave", "aria-hidden": "true" }, ...Array.from({ length: 6 }, () => el("i", {}))),
+        el("span", { class: "q-pill-text" }, Q.askPill(a, speaking)))
+    : el("div", { class: "q-pill" }, el("span", { class: "orb", "aria-hidden": "true" }),
+        el("span", { class: "q-pill-text", "aria-live": "polite" }, Q.askPill(a, speaking)),
+        left ? el("span", { class: "elapsed" }, `0:${String(left).padStart(2, "0")}`) : null,
+        left ? el("span", { class: "timebar", style: `--fade-ms:${left * 1000}ms` }) : null);
+  const about = request ? `about “${clipLine(request, 48)}”` : "";
+  const buttons = Q.askButtons(a).map((o) => el("button", { class: "btn", onclick: reply(o) }, o));
+  showCard(
+    el(
+      "div",
+      { class: "card-in" },
+      el("div", { class: "q-tags" },
+        el("span", { class: asking ? "tag" : "tag tag--fill" }, asking ? "Swift is asking" : "Waiting for you"),
+        el("span", { class: "q-about" }, about)),
+      el("p", { class: "q-title" }, a.question),
+      pill,
+      buttons.length ? el("div", { class: "q-options" }, ...buttons) : null,
+      el("footer", { class: "card-foot" },
+        typeSpec ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
+        el("button", { class: "btn btn--ghost", onclick: (ev: Event) => {
+          ev.stopPropagation();
+          client.send({ type: "run.stop", data: { run_id: a.runId } });
+        } }, "Stop request")),
+    ),
+    `working card--question${asking ? "" : " card--waiting"}`,
+  );
+}
+
+function onAskMessage(data: Q.AskData): void {
+  asked = Q.onAsk(asked, data, Date.now());
+  if (state === "working") renderWorking();
+}
+
 /** A timer, alarm or reminder came due: it stays until Done (ADR-017). */
 function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   if (!presentAnswer("result", null, data.run_id, data.thread_id, clipLine(data.summary))) return;
@@ -1903,6 +1954,7 @@ function onMessage(msg: Inbound): void {
       renderConfirmVoice(msg.data);
       break;
     case "result":
+      if (asked?.runId === msg.data.run_id) asked = null;  // its request ended: the question with it
       setLive(L.ended(live, msg.data.run_id, msg.data.status, msg.data.summary, msg.data.details ?? null, Date.now()));
       renderResult(msg.data);
       break;
@@ -1950,6 +2002,9 @@ function onMessage(msg: Inbound): void {
     case "speech":
       onSpeech(msg.data.speaking);
       break;
+    case "ask":
+      onAskMessage(msg.data);
+      break;
   }
 }
 
@@ -1960,6 +2015,7 @@ function onSpeech(now: boolean): void {
   drawCapsule();
   void syncEscape();
   if (question) renderQuestion();
+  if (asked && state === "working") renderWorking();
 }
 
 /** Swift heard its name or the hotkey: the capsule says so at once, before any transcription. */

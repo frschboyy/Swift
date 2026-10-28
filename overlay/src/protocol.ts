@@ -1,4 +1,5 @@
 // Mirror of src/swift/ipc/protocol.py (PLAN.md §3). Keep the two in sync.
+import type { AskData } from "./ask";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -92,7 +93,9 @@ export type Inbound =
   // ADR-017 §7: one item of a request's live view, for every request (in front or not); and
   // "show me" while it runs: open its live view.
   | { type: "live"; data: LiveData }
-  | { type: "watch"; data: { run_id: string; open: boolean; title?: string; words?: string } };
+  | { type: "watch"; data: { run_id: string; open: boolean; title?: string; words?: string } }
+  // ADR-016 §5.1: Swift's question during a request (ask_owner), open with its phase, or closed (ask.ts).
+  | { type: "ask"; data: AskData };
 
 export type LiveData = { run_id: string } & (
   | { kind: "doing"; text: string; activity?: Activity | null; app?: string | null }
@@ -169,7 +172,9 @@ export type Outbound =
   // its "Show in Word" (the app the request writes in, to the front).
   | { type: "watch"; data: { run_id: string; open: boolean } }
   | { type: "run.stop"; data: { run_id: string } }
-  | { type: "live.app"; data: { run_id: string } };
+  | { type: "live.app"; data: { run_id: string } }
+  // ADR-016 §5.1: an option clicked on Swift's question. An answer, never an approval.
+  | { type: "ask.reply"; data: { ask_id: string; text: string } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });

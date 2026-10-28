@@ -312,6 +312,8 @@ TAKES_FRONT = frozenset({"state", "step", "confirm.request", "result", "error", 
 TYPED_APPROVE_HINT = "Typing can't approve. Click Approve, or say “Swift, approve”."
 # A typed request is at most this long (the frame limit is far above it).
 MAX_TYPED = 2000
+# The live view (ADR-017 §11): one written paragraph is sent at most this long.
+LIVE_TEXT_MAX = 8000
 QUEUED_HINT = "That's waiting: {n} requests are running. It starts when one of them is done."
 # The same request said again while it runs: one run, not two.
 STILL_ON_IT = "Still on it: “{words}”."
@@ -439,6 +441,8 @@ class Run:
     record: dict[str, Any] | None = None
     active: tuple[Executor, str] | None = None
     scope: RunScope | None = None
+    # Its tool scope, kept after it closed: "Show in Word" from the live view after the run ended.
+    last_scope: RunScope | None = None
     thread: str | None = None
     thread_before: str | None = None
     confirm_ids: set[str] = field(default_factory=set)
@@ -875,6 +879,11 @@ class Session:
         """Every message to the overlay. Run messages are tagged with their thread (ADR-013 §4.3);
         a request that isn't in front updates its row instead (ADR-013 §3.2)."""
         run = self._current()
+        if msg.type == "step":
+            await self._send_live(str(msg.data.get("run_id") or ""), {
+                "kind": "doing", "text": msg.data.get("text", ""), "activity": msg.data.get("activity"),
+                "app": msg.data.get("app"),
+            })
         if run is self._none:
             await self._raw_send(msg)
             return
@@ -896,6 +905,64 @@ class Session:
         elif renamed:
             await self._send_rows()  # the overlay learns the new id in front before its messages
         await self._raw_send(msg)
+
+    async def _send_live(self, run_id: str, item: dict[str, Any]) -> None:
+        """What the live view of a request shows (ADR-017 §11): what it is doing, a source, a note, the
+        text it writes. Sent for every request, in front or not; the log gets counts only, never content."""
+        if not run_id:
+            return
+        if item.get("kind") == "text":
+            item = {**item, "text": str(item.get("text", ""))[:LIVE_TEXT_MAX]}
+        if (record := self._record) is not None and item.get("kind") in ("source", "note", "text"):
+            counts = record.setdefault("live", {})
+            counts[item["kind"]] = counts.get(item["kind"], 0) + 1
+        await self._raw_send(outbound("live", run_id=run_id, **item))
+
+    async def _swift_live(self, item: dict[str, Any]) -> None:
+        """Swift's own live item, from its tools: the paragraph it just wrote in the owner's app."""
+        await self._send_live(self._run_id(), item)
+
+    async def _watch(self, run: Run, source: str) -> None:
+        """Open the live view on a running request ("show me", "show me the research one")."""
+        run_id = run.ui_id or run.row()["run_id"]
+        if run.record is not None:
+            run.record.setdefault("views", []).append({"source": source, "kind": "live"})
+        logger.info("live view asked for", run_id=run_id, source=source)
+        await self._raw_send(outbound("watch", run_id=run_id, title=run.title, words=run.words, open=True))
+
+    def _run_by_ui(self, run_id: str) -> Run | None:
+        return next((r for r in (*self._runs, *self._gone) if r.ui_id == run_id or r.row()["run_id"] == run_id), None)
+
+    async def _stop_run(self, run_id: str) -> None:
+        """"Stop" in a request's live view: that request only."""
+        run = self._run_by_ui(run_id)
+        if run is None or not run.alive or run.task is None:
+            logger.info("stop from the live view ignored", known=run is not None)
+            return
+        if run.record is not None:
+            run.record.setdefault("midrun", []).append("stop_live")
+        logger.info("request stopped from the live view", run_id=run_id)
+        run.task.cancel()
+
+    async def _live_app(self, run_id: str) -> None:
+        """"Show in Word" in a request's live view: the app it writes (or wrote) in, to the front."""
+        run, tools = self._run_by_ui(run_id), self.tools
+        scope = (run.scope or run.last_scope) if run is not None else None
+        receipt = None
+        if tools is not None and scope is not None:
+            live = tools.live_write
+            receipt = live[1] if live is not None and live[0] is scope else None
+            if receipt is None and tools.last_write_scope is scope:
+                receipt = tools.last_write
+        if receipt is None or self.desktop is None:
+            said = "It hasn't written in an app."
+        else:
+            try:
+                said = await self.desktop.show(receipt)
+            except ConnectorError as exc:
+                said = f"{exc} {exc.hint}".strip()
+        logger.info("live view: app shown", run_id=run_id, shown=receipt is not None)
+        await self._send_live(run_id, {"kind": "hint", "text": said})
 
     async def _send_rows(self, *, force: bool = False) -> None:
         """The ``runs`` message: who is in front, the others' rows, the cards waiting. Only while
@@ -1361,6 +1428,13 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
+            case "watch":
+                # The live view opened (a click on Watch) or closed: content-free, for the log.
+                logger.info("live view", run_id=msg.data["run_id"], open=msg.data["open"])
+            case "run.stop":
+                await self._stop_run(msg.data["run_id"])
+            case "live.app":
+                await self._live_app(msg.data["run_id"])
             case "stack.action":
                 await self._stack_action(msg.data["id"], msg.data["action"])
             case "text":
@@ -2633,6 +2707,8 @@ class Session:
                         activity=event.activity, agent=agent, subagent=event.subagent,
                     )
                 )
+            elif event.type == "live" and event.data:
+                await self._send_live(run_id, event.data)
             elif event.type == "confirm" and event.request_id is not None:
                 self._confirm_ids.add(event.request_id)
                 self._confirm_titles[event.request_id] = event.text
@@ -2724,8 +2800,10 @@ class Session:
             run = self._find(words, besides=besides)
             if run is None or (view and run is self._focus):
                 return None
+            if run.alive and run.task is not None:
+                await self._watch(run, "voice")  # its live view, in front or not
             if not await self._bring(run):
-                return "Answer the card on screen first."
+                return "" if run.alive else "Answer the card on screen first."
             logger.info("request brought to the front by name")
             return ""
         run = self._find(words, besides=besides) or self._find(words, besides=besides, gone=True)
@@ -2907,7 +2985,9 @@ class Session:
             partial(self._for_run, run, self._swift_confirm),
             grant,
             partial(self._for_run, run, self._swift_step),
+            live=partial(self._for_run, run, self._swift_live),
         )
+        run.last_scope = self._scope
         # Only a follow-up, a correction or a resumed conversation shares a thread with what came before.
         self._scope.said = str(record.get("transcript") or "")
         if (before := self._left.get(record.get("thread") or "")) is not None:
@@ -3137,6 +3217,10 @@ class Session:
         artifact = None
         if kind != "steps" and store is not None:
             artifact = store.pick(kind) or store.pick()
+        if artifact is None and kind is None and source == "voice" and run.alive and run.task is not None and run.state == "working":
+            # "Show me" said while it works: the live view as well (owner checks 2026-10-28: "show me
+            # ... the document as it is writing"). On a confirm card, the card's own detail only.
+            await self._watch(run, source)
         if artifact is None and kind is None and await self._show_app():
             # Nothing on the card to show, but it writes in an app: that's the live work (owner
             # checks, 2026-10-27: "show me" during "research … into Word" opened an empty view).
@@ -3172,6 +3256,12 @@ class Session:
         """"Show me" with no run going (ADR-007 §10): the last run's result card, or the app it wrote in."""
         record["status"] = "done"
         self._current().title = ""  # it only shows another's work: no row of its own
+        running = [r for r in self._live(besides=self._current()) if r.task is not None and r.title]
+        if running:
+            # "Show me" said with the wake word while a request runs: its live view (ADR-017 §11).
+            await self._watch(self._focus if self._focus in running else running[-1], "voice")  # type: ignore[arg-type]
+            await self._set_state("idle")
+            return
         last = self._last_shown
         wrote = self.tools.last_write if self.tools is not None else None
         named_app = re.search(r"\b(word|document|doc)\b", decision.text.lower()) is not None

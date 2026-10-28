@@ -4,10 +4,15 @@ Pure functions, no I/O, so they can be tested against recorded runs
 (``tests/fixtures/claude_*.jsonl``). Unknown event types are ignored: newer
 CLI versions add events (``rate_limit_event``, ``system/task_summary``,
 ``system/thinking_tokens``, ...) and must not break the overlay.
+
+``LiveMapper`` feeds the live view (ADR-017 §11): the pages a web search found and the ones
+being read, from WebSearch / WebFetch calls and their results, and Claude's short notes between
+tool calls. Addresses, titles and notes go to the overlay only, never to the log.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field, replace
 from pathlib import PureWindowsPath
@@ -240,3 +245,118 @@ def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
         return summary, {"kind": "list", "items": items}
     rest = " ".join(p for p in paragraphs if p != first)
     return summary, ({"kind": "text", "text": _short(rest, 400)} if rest else None)
+
+
+# ---- the live view (ADR-017 §11) ---------------------------------------------------------------
+
+NOTE_MAX = 280
+TITLE_MAX = 120
+URL_MAX = 2048
+# Sources one search adds at most (a results page lists about ten).
+SEARCH_SOURCES = 8
+_LINKS = re.compile(r"Links:\s*(?=\[)")
+_MD_LINK = re.compile(r"\[([^\]\n]{1,200})\]\((https?://[^\s)]+)\)")
+_BARE_URL = re.compile(r"https?://[^\s\"'<>()\[\]{}`|\\^]+")
+
+
+def site_of(url: str) -> str:
+    """"https://www.britannica.com/topic/tea" -> "britannica.com"."""
+    try:
+        host = urlparse(url).hostname or ""
+    except ValueError:
+        return ""
+    return host.lower().removeprefix("www.")
+
+
+def _web_url(url: Any) -> str:
+    """An http(s) address fit to show and open, or ""."""
+    url = str(url or "").strip().rstrip(".,;:!?")
+    if len(url) > URL_MAX or not re.match(r"https?://", url, re.I) or not site_of(url):
+        return ""
+    return url
+
+
+def search_links(text: str) -> list[tuple[str, str]]:
+    """(title, url) pairs from a WebSearch result: its ``Links: [{"title", "url"}, …]`` line, or
+    markdown links, or bare addresses. At most SEARCH_SOURCES, each address once."""
+    found: list[tuple[str, str]] = []
+    if (m := _LINKS.search(text)) is not None:
+        try:
+            links, _ = json.JSONDecoder().raw_decode(text[m.end():])
+        except ValueError:
+            links = []
+        for link in links if isinstance(links, list) else []:
+            if isinstance(link, dict):
+                found.append((str(link.get("title") or ""), str(link.get("url") or "")))
+    if not found:
+        found = [(t, u) for t, u in _MD_LINK.findall(text)]
+    if not found:
+        found = [("", u) for u in _BARE_URL.findall(text)]
+    return _links(found)
+
+
+def _links(found: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Addresses fit to show, each once, titles shortened; at most SEARCH_SOURCES."""
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for title, url in found:
+        url = _web_url(url)
+        if url and url not in seen:
+            seen.add(url)
+            out.append((_short(title, TITLE_MAX), url))
+        if len(out) >= SEARCH_SOURCES:
+            break
+    return out
+
+
+def structured_links(result: Any) -> list[tuple[str, str]]:
+    """(title, url) pairs from the CLI's structured WebSearch result
+    (``{"results": [{"content": [{"title", "url"}, …]}, "text", …]}``), when it sends one."""
+    if not isinstance(result, dict) or not isinstance(result.get("results"), list):
+        return []
+    found = [
+        (str(link.get("title") or ""), str(link.get("url") or ""))
+        for part in result["results"] if isinstance(part, dict) and isinstance(part.get("content"), list)
+        for link in part["content"] if isinstance(link, dict)
+    ]
+    return _links(found)
+
+
+def _source(url: str, state: str, title: str = "") -> dict[str, Any]:
+    return {"kind": "source", "url": url, "title": title, "site": site_of(url), "state": state}
+
+
+@dataclass
+class LiveMapper:
+    """One run's tool calls, to turn their results into live-view items. Not thread-safe: one per run."""
+
+    # tool_use id -> (tool name, the address a WebFetch reads)
+    calls: dict[str, tuple[str, str]] = field(default_factory=dict)
+
+    def feed(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+        kind = event.get("type")
+        content = event.get("message", {}).get("content", [])
+        if not isinstance(content, list):
+            return []
+        out: list[dict[str, Any]] = []
+        if kind == "assistant":
+            helper = event.get("parent_tool_use_id") is not None
+            for block in content:
+                if block.get("type") == "tool_use" and block.get("name") in ("WebSearch", "WebFetch"):
+                    url = _web_url((block.get("input") or {}).get("url")) if block["name"] == "WebFetch" else ""
+                    self.calls[str(block.get("id"))] = (block["name"], url)
+                    if url:
+                        out.append(_source(url, "reading"))
+                elif block.get("type") == "text" and not helper and (text := _plain(block.get("text", "")).strip()):
+                    out.append({"kind": "note", "text": _short(text, NOTE_MAX)})
+        elif kind == "user":
+            for block in content:
+                if block.get("type") != "tool_result":
+                    continue
+                name, url = self.calls.pop(str(block.get("tool_use_id")), ("", ""))
+                if name == "WebFetch" and url:
+                    out.append(_source(url, "failed" if block.get("is_error") else "read"))
+                elif name == "WebSearch" and not block.get("is_error"):
+                    links = structured_links(event.get("tool_use_result")) or search_links(str(block.get("content") or ""))
+                    out += [_source(u, "found", t) for t, u in links]
+        return out

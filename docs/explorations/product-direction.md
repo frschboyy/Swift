@@ -52,7 +52,7 @@ From `%LOCALAPPDATA%\Swift\interactions.jsonl` (counts only):
 | On the busiest day | 236 (2026-10-27, an owner-check day) |
 | Sent to the agent | 65% (217) |
 | Answered by Swift locally (fast, system, control) | 25% (83) |
-| Agent run, median, press to result | 13.6 s |
+| Agent run done, median, press to result | 12.3 s (p90 31.2 s) |
 | Local answer, median | 2.9 s |
 | Not done (error, rejected, cancelled) | 22% (73) |
 | Agent cost, all runs | $2.43 |
@@ -320,7 +320,7 @@ Measured weekly from run records, counts only. Today's values are from the log a
 |---|---|---|---|
 | Is it used? | Days used per week; requests per real day | Unknown | 5 days; 15 a day |
 | Is it useful? | Share of requests done with no retry, rejection or correction | 78% | 90% |
-| Is it fast? | Share answered locally; agent median | 25%; 13.6 s | 35%; under 10 s |
+| Is it fast? | Share answered locally; agent median | 25%; 12.3 s | 35%; under 10 s |
 | Does it do recurring work? | Watchers and recipes in weekly use; runs they did without being asked | 0 | 3; 20 a week |
 | Does it learn? | The same correction made twice; suggestion acceptance | Not measured | Falling; over 30% accepted |
 | Is it trusted? | Product-rule breaches; approvals reversed by undo | Not measured | 0; falling |

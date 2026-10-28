@@ -54,7 +54,11 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
    uv run python spikes/owner_checks/report.py --since HH:MM
    ```
    The next session diagnoses it against `%LOCALAPPDATA%\Swift\logs\swift.log` and fixes what failed.
-4. Once the checks pass, **use Swift for real, every day, for two weeks**: the requests you would make anyway, not test phrases. Once a week, paste the usage report (§4 step 2 builds it). Its numbers decide what comes after step 3, so long testing sessions shouldn't be mixed in; note the dates of any.
+4. Once the checks pass, **use Swift for real, every day, for two weeks**: the requests you would make anyway, not test phrases. Once a week, paste the usage report (counts only, nothing you said):
+   ```bash
+   uv run python spikes/usage/report.py --since 2026-10-29
+   ```
+   Add `--exclude YYYY-MM-DD` for a day spent testing; the report flags days with over 100 requests. Its numbers decide what comes after step 3, so long testing sessions shouldn't be mixed in; note the dates of any.
 
 ## 4. The agreed order of work
 
@@ -63,7 +67,9 @@ Adopted 2026-10-28 from [`docs/explorations/product-direction.md`](../exploratio
 **Now**
 
 1. **Owner checks 50–116**, then fixes for what fails (§3).
-2. **A usage report** (small): counts only, from `interactions.jsonl`, per week: days used, requests per day, share answered locally, share done without retry, rejection or correction, agent median time, cost. Then two weeks of daily use (§3 step 4). Targets are in product-direction §9.
+2. ~~**A usage report**~~: built (2026-10-28), `spikes/usage/report.py`. Counts only, per ISO week: days used, requests per day, where requests went (Swift, light model, agent, not heard), share done cleanly (no card change, mid-run change or Try again), agent p50/p90, escalations, cost, workflows. Then two weeks of daily use (§3 step 4). Targets are in product-direction §9.
+   - From a Claude Code session, the sandbox shows an old copy of `%LOCALAPPDATA%\Swift`; pass `--interactions //localhost/c$/Users/frchi/AppData/Local/Swift/interactions.jsonl` to read the real log.
+   - Baseline before daily use (all testing, 2026-10-23 to 28): 332 requests, 25% answered by Swift, 78% done cleanly, agent p50 12.3 s, $2.43.
 3. **Groundwork**, while the owner uses Swift. No behaviour change the owner should notice:
    - split `session.py` (4,400 lines): run launching, follow-ups, workflows and the local lanes into their own modules;
    - **run records**: one append-only event log per run (steps, tool calls, approvals, artifacts, which worker and why), generalizing the action journal; the interaction log becomes a view of it;

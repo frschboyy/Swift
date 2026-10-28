@@ -26,7 +26,7 @@ Two sessions were mid-task. Their branches had **no commits yet** when this was 
 | Task | Branch | Folder (worktree) | Brief to restart it |
 |---|---|---|---|
 | **ADR-016 Phase C: dialogue** | `claude/phase-c-dialogue-b22c15` | `.claude/worktrees/phase-c-dialogue-b22c15` | [`brief-phase-c.md`](brief-phase-c.md) |
-| **Recordings that improve hearing** (7-day loop): **finished** (`2c4e1a8`, 1161 tests). Not merged yet; owner checks 110–116 | `claude/busy-wiles-de06e3` | `.claude/worktrees/busy-wiles-de06e3` | [`brief-recordings.md`](brief-recordings.md) |
+| **Recordings that improve hearing** (7-day loop): **finished and merged into `main`**. Owner checks 110–116 | `claude/busy-wiles-de06e3` | `.claude/worktrees/busy-wiles-de06e3` | [`brief-recordings.md`](brief-recordings.md) |
 
 **Safety snapshots** were taken at about 10:30 on 2026-10-28, without touching the sessions' folders or branches:
 - `backup/phase-c-wip`: Phase C's uncommitted work, 24 files;

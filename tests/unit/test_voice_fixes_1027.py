@@ -228,7 +228,7 @@ async def test_desktop_write_publishes_the_live_receipt_while_it_writes() -> Non
     async def confirm(*a: Any) -> str:
         return "approve"
 
-    scope = RunScope(publish, confirm)
+    scope = RunScope(publish, confirm, said="write it in Word")
     result = await desktop_write(tools, scope, {"text": "one\n\ntwo", "where": "word"})
     assert result.ok
     assert seen and all(s is not None and s[0] is scope and s[1].app == "Word" for s in seen)

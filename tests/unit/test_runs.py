@@ -352,7 +352,9 @@ async def test_one_writer_in_the_owners_apps() -> None:
         async def step(text: str, activity: str, app: str | None) -> None:
             steps[name].append(text)
 
-        host.bind(host.open(publish, confirm, step=step), name)
+        opened = host.open(publish, confirm, step=step)
+        opened.said = "put it in Word"
+        host.bind(opened, name)
 
     scope("a")
     scope("b")

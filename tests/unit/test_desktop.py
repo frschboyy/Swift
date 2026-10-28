@@ -36,11 +36,11 @@ class Opener:
 
 
 def make(front: FakeApp | None = None, decision: str = "approve", grant: Grant | None = None,
-         ) -> tuple[ToolHost, FakeDesktop, Owner, Journal]:
+         said: str = "write this here") -> tuple[ToolHost, FakeDesktop, Owner, Journal]:
     desktop, journal = FakeDesktop(front), Journal(None)
     host = ToolHost(None, (LECTURER,), ActionGateway(journal), ALL_TOOLS, desktop=desktop, opener=Opener())  # type: ignore[arg-type]
     owner = Owner(decision)
-    host.open(owner.publish, owner.confirm, grant)
+    host.open(owner.publish, owner.confirm, grant).said = said  # the owner's words for this request
     return host, desktop, owner, journal
 
 
@@ -222,7 +222,7 @@ async def test_open_by_name_uses_the_local_names_only() -> None:
 
 
 async def test_fill_in_email_never_sends_and_only_to_contacts() -> None:
-    host, desktop, owner, journal = make()
+    host, desktop, owner, journal = make(said="email my lecturer that I'll miss Thursday")
     found = await host.call("find_contact", {"query": "lecturer"})
     draft = await host.call("draft_email", {"to": [found.data["candidates"][0]["email"]], "subject": "Thursday",
                                             "message": "I'll miss Thursday's lecture."})
@@ -242,7 +242,7 @@ async def test_fill_in_email_never_sends_and_only_to_contacts() -> None:
 
 
 async def test_fill_in_reports_an_unavailable_app() -> None:
-    host, desktop, _, _ = make()
+    host, desktop, _, _ = make(said="email my lecturer")
     desktop.unavailable.add("gmail")
     found = await host.call("find_contact", {"query": "lecturer"})
     draft = await host.call("draft_email", {"to": [found.data["candidates"][0]["email"]], "subject": "x", "body": "y"})

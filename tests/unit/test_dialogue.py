@@ -172,6 +172,10 @@ def test_a_correction_replaces_the_timer_in_its_unit() -> None:
         ("remind me to call Sam and", True), ("set a timer for twenty", True), ("um, set a timer for uh", True),
         ("write to the", True), ("I think,", True), ("twenty", False), ("set a timer for twenty minutes", False),
         ("what time is it?", False), ("and?", False), ("", False),
+        # A particle or a demonstrative that ends the request isn't held (1.2 s on every "forget that").
+        ("forget that", False), ("undo that", False), ("turn Bluetooth on", False), ("let's go on", False),
+        ("zoom in", False), ("remind me that", True), ("tell him that", True), ("call Sam in the", True),
+        ("that", True),
     ],
 )
 def test_more_coming(text: str, more: bool) -> None:

@@ -27,6 +27,15 @@ TRAILING = frozenset(
 NUMBER_PARTS = frozenset(
     "twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million point oh".split()
 )
+# Trailing words that also end a whole request: a phrasal verb's particle ("turn it on", "go on",
+# "zoom in") and a demonstrative as the object ("forget that", "undo that", "read this"). Held,
+# they cost every such request 1.2 s.
+PARTICLES = frozenset("on in over".split())
+DEMONSTRATIVES = frozenset("that this these those".split())
+# ...unless the demonstrative opens a clause: "remind me that", "tell him that", "I think that".
+CLAUSE_BEFORE = frozenset(
+    "say said tell told remind know think sure so me him her them us you is was and but".split()
+)
 _WORD = re.compile(r"[a-z']+|\d+")
 
 
@@ -43,6 +52,11 @@ def more_coming(text: str) -> bool:
     if not words:
         return False
     last = words[-1]
+    before = words[-2] if len(words) > 1 else ""
+    if last in PARTICLES and before and before not in TRAILING:
+        return False
+    if last in DEMONSTRATIVES and before and before not in CLAUSE_BEFORE:
+        return False
     if last in TRAILING:
         return True
     # "Twenty" alone is a whole answer ("For how long?" "Twenty."); after other words it may go on.
@@ -72,4 +86,4 @@ class EndOfTurn:
         return max(0.0, min(self.extend_s, self.cap_s - waited_s))
 
 
-__all__ = ["NUMBER_PARTS", "TRAILING", "EndOfTurn", "more_coming"]
+__all__ = ["DEMONSTRATIVES", "NUMBER_PARTS", "PARTICLES", "TRAILING", "EndOfTurn", "more_coming"]

@@ -2202,7 +2202,7 @@ class Session:
                 await self._send(outbound("level", rms=round(level, 3)))
                 if auto is None or self._ptt_held:
                     continue  # the hotkey held during it: it ends when the key is released
-                now = time.monotonic()
+                now = time.monotonic(); print("FL", level, last_speech, pause_s, now - began, self._ptt_held)
                 if gate.speech(level):
                     last_speech, spoke = now, True
                 elif now - (last_speech if last_speech is not None else began) > (

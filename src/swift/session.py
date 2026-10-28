@@ -238,6 +238,10 @@ SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
 SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", "beside"})
 # How long "Turn off Wi-Fi?" waits for a yes or no.
 SYSTEM_CONFIRM_S = 45.0
+# A yes to "Turn off Wi-Fi?" from these sources needs Swift's name ("Swift, yes"): the reply window
+# hears the room, and typing never approves on its own (ADR-015 §10).
+SYSTEM_YES_NEEDS_NAME = frozenset({"followup", "typed"})
+SYSTEM_YES_NAME_HINT = "To go ahead, say “Swift, yes”, or hold the hotkey and say yes."
 _YES = re.compile(r"^(?:yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|confirm|turn it off|switch it off)\b")
 _NO = re.compile(r"^(?:no|nope|don'?t|do not|leave it|keep it|never ?mind|cancel|forget it)\b")
 
@@ -2055,7 +2059,7 @@ class Session:
             if answered is not None:
                 decision, workflow = answered
             if decision is not None and self._system_confirm is not None:
-                decision = self._system_answer(decision)  # "Turn off Wi-Fi?" just asked: yes or no
+                decision = self._system_answer(decision, record)  # "Turn off Wi-Fi?" just asked: yes or no
             if decision is not None and decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
                 decision = _to_agent(decision)
             if (
@@ -2342,6 +2346,7 @@ class Session:
             "resume": "There's nothing unfinished to pick up.",
             "not_now": "Okay.",
             "fix_declined": "Okay, I'll leave it as it is.",
+            "system_yes_unnamed": SYSTEM_YES_NAME_HINT,
         }
         record["status"] = "done"
         said = answers.get(action or "", "Done.")
@@ -2378,10 +2383,12 @@ class Session:
             record["error"] = "system_failed"
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
 
-    def _system_answer(self, decision: Route) -> Route:
+    def _system_answer(self, decision: Route, record: dict[str, Any]) -> Route:
         """After "Turn off Wi-Fi?": yes runs it, no drops it, anything else drops the question and
         goes on as said. Only within ``SYSTEM_CONFIRM_S``; a brisk short "yes" never reaches here
-        hands-free (``_short_kept``), the same rule as confirm cards."""
+        hands-free (``_short_kept``), the same rule as confirm cards. A yes heard without Swift's
+        name (the reply window) or typed doesn't do it either, the same rules as confirm cards: a
+        TV or a bystander can't turn the Wi-Fi off (threat model T2; audit 2026-10, A-04)."""
         assert self._system_confirm is not None
         if time.monotonic() - self._system_confirm[1] > SYSTEM_CONFIRM_S or self.system is None:
             self._system_confirm = None
@@ -2389,6 +2396,9 @@ class Session:
         said = _normalize_answer(decision.text)
         short = len(said.split()) <= 5  # "okay, what's the weather" is a new request, not a yes
         if decision.action == "approve" or (short and _YES.match(said)):
+            if record.get("source") in SYSTEM_YES_NEEDS_NAME:
+                self._system_confirm = (self._system_confirm[0], time.monotonic())  # still asked: say it with the name
+                return Route("local", decision.text, action="system_yes_unnamed")
             return Route("local", decision.text, action="system_yes")
         if decision.action in ("reject", "cancel") or (short and _NO.match(said)):
             return Route("local", decision.text, action="system_no")

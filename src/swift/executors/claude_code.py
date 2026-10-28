@@ -67,6 +67,8 @@ from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
 from swift.executors.claude_mapping import Outcome, confirm_card, outcome_for, steps_for
 from swift.executors.providers import CLAUDE_CODE
+from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
+from swift.executors.web_scope import WebScope, result_text
 from swift.failures import classify, clean_detail
 from swift.workflows.tools import ToolHost, ToolSpec
 
@@ -161,6 +163,8 @@ class _Run:
     swift_tools: bool = False
     # Changes of mind waiting for the next turn (``redirect``).
     redirects: list[str] = field(default_factory=list)
+    # The web addresses this run was given: the only ones it may fetch (audit 2026-10, A-03).
+    web: WebScope = field(default_factory=WebScope)
 
 
 def as_event(message: Any) -> dict[str, Any] | None:
@@ -419,6 +423,7 @@ class ClaudeCodeExecutor:
         run_id = f"cc-{next(self._ids)}"
         level = OVERRIDE_LEVEL.get(override or "") or (demand if demand in LEVELS else "standard")
         run = _Run(level=level)
+        run.web.note_request(request)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
         spare = await self._take_spare()
         if spare is not None:
@@ -469,6 +474,8 @@ class ClaudeCodeExecutor:
         future = run.pending.get(request_id) if run else None
         if future is None or future.done():
             return False
+        assert run is not None
+        run.web.note_request(text)  # the owner's words
         future.set_result(text)
         return True
 
@@ -477,6 +484,7 @@ class ClaudeCodeExecutor:
         run = self._runs.get(run_id)
         if run is None or run.finished.is_set() or run.cancelled:
             return False
+        run.web.note_request(text)
         waiting = [f for f in run.pending.values() if not f.done()]
         if waiting:  # a card is open: the change answers it, and the turn goes on
             waiting[-1].set_result(text)
@@ -505,6 +513,10 @@ class ClaudeCodeExecutor:
         if name in PROVIDER_TOOLS:
             in_workflow = host is not None and host.in_workflow_for(run_id)
             if (host is not None and host.permits(PROVIDER_TOOLS[name], run_id)) or (self.web and not in_workflow):
+                if name == "WebFetch" and not run.web.allows(str(args.get("url", ""))):
+                    # An address the model put together could carry what it read to someone else.
+                    logger.info("web fetch refused: address not given", run_id=run_id)
+                    return PermissionResultDeny(message=NOT_GIVEN_URL_MESSAGE)
                 return PermissionResultAllow(updated_input=args)
             return PermissionResultDeny(message=NO_WEB_MESSAGE)
         if host is not None and host.in_workflow_for(run_id):
@@ -579,6 +591,7 @@ class ClaudeCodeExecutor:
             for block in message.content:
                 if type(block).__name__ != "ToolResultBlock":
                     continue
+                run.web.note(result_text(getattr(block, "content", None)))  # addresses it may fetch next
                 if block.is_error and run.expected:
                     run.expected -= 1  # the owner decided, or nobody matched: not the model struggling
                 else:

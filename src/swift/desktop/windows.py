@@ -41,7 +41,7 @@ import psutil
 from loguru import logger
 
 from swift.desktop.base import (
-    BROWSERS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name,
+    BROWSERS, TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name,
 )
 
 T = TypeVar("T")
@@ -74,7 +74,7 @@ ES_PASSWORD = 0x20
 EM_GETSEL = 0x00B0
 WM_GETTEXT, WM_GETTEXTLENGTH = 0x000D, 0x000E
 INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 1, 0x2, 0x4
-VK_RETURN, VK_CONTROL, VK_RIGHT = 0x0D, 0x11, 0x27
+VK_RETURN, VK_SHIFT, VK_CONTROL, VK_RIGHT = 0x0D, 0x10, 0x11, 0x27
 CF_TEXT, CF_OEMTEXT, CF_UNICODETEXT, CF_LOCALE = 1, 7, 13, 16
 ULONG_PTR = ctypes.c_size_t
 
@@ -157,18 +157,24 @@ def _chord(modifier: int, key: int, times: int = 1) -> None:
     _send([_key(modifier), *([_key(key), _key(key, True)] * times), _key(modifier, True)])
 
 
-def _type(text: str) -> None:
+def _keystrokes(text: str) -> list[INPUT]:
+    """The key presses that type ``text``. A line break is Shift+Enter, never a bare Enter: in a chat
+    app, a form or a search box Enter sends or submits, and nothing Swift writes is sent without a card."""
     inputs = []
     for char in text:
         if char == "\n":
-            inputs += [_key(VK_RETURN), _key(VK_RETURN, True)]
+            inputs += [_key(VK_SHIFT), _key(VK_RETURN), _key(VK_RETURN, True), _key(VK_SHIFT, True)]
             continue
         units = char.encode("utf-16-le")
         for i in range(0, len(units), 2):
             code = int.from_bytes(units[i:i + 2], "little")
             inputs += [INPUT(type=INPUT_KEYBOARD, u=_INPUT_UNION(ki=KEYBDINPUT(wScan=code, dwFlags=flags)))
                        for flags in (KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)]
-    _send(inputs)
+    return inputs
+
+
+def _type(text: str) -> None:
+    _send(_keystrokes(text))
 
 
 def _edit_selection(hwnd: int) -> int:
@@ -584,9 +590,9 @@ class WindowsDesktop:
         context = self._context()
         if not context.hwnd:
             raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.")
-        if context.private or context.password:
-            raise DesktopError(f"Swift doesn't write in {context.app} there.", "")
         exe = context.exe.lower()
+        if context.private or context.password or exe in TERMINALS:
+            raise DesktopError(f"Swift doesn't write in {context.app} there.", "")
         if exe == "winword.exe":
             return _WordWriter(self, mode, False)
         uia = self._uia()

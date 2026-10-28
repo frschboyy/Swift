@@ -42,6 +42,14 @@ PRIVATE_TITLES = ("(incognito)", "incognito -", "inprivate", "private browsing",
 PROGRAMS = (".exe", ".msi", ".bat", ".cmd", ".com", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".scr", ".lnk",
             ".reg", ".hta", ".cpl", ".appref-ms")
 
+# Terminals and shells: a line typed there runs as a command, so Swift never writes into them.
+# Claude Code's Bash needs a confirm card; writing into a terminal must not be a way around it.
+TERMINALS = frozenset({
+    "windowsterminal.exe", "wt.exe", "openconsole.exe", "conhost.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
+    "powershell_ise.exe", "mintty.exe", "bash.exe", "wsl.exe", "wslhost.exe", "alacritty.exe", "wezterm-gui.exe",
+    "putty.exe", "kitty.exe", "hyper.exe", "tabby.exe", "conemu64.exe", "conemu.exe", "cmder.exe", "warp.exe",
+})
+
 APP_NAMES = {
     "winword.exe": "Word", "excel.exe": "Excel", "outlook.exe": "Outlook", "powerpnt.exe": "PowerPoint",
     "chrome.exe": "Chrome", "msedge.exe": "Edge", "brave.exe": "Brave", "firefox.exe": "Firefox",

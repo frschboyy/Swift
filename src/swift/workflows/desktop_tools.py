@@ -29,7 +29,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from swift.desktop.base import PROGRAMS, DesktopError
+from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
 from swift.workflows.scope import RunScope
@@ -100,6 +100,9 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             return ToolResult(False, f"{context.app} is on the never-read list, so Swift doesn't write there.")
         if context.password:
             return ToolResult(False, "That's a password field: Swift never types there.")
+        if context.exe.lower() in TERMINALS:
+            return ToolResult(False, f"{context.app} is a terminal: a line typed there runs as a command, so "
+                              "Swift doesn't write there. Nothing was written.")
     chunks = paragraphs(text)
     n = next(scope.ids)
     digest = hashlib.sha256(f"{n}\n{where}\n{text}".encode()).hexdigest()

@@ -338,6 +338,7 @@ async def test_web_and_own_tools_follow_the_workflow_grant(tmp_path: Path) -> No
     research = Grant("research-into-word", frozenset({"desktop_write"}), frozenset({"web.search", "web.fetch"}))
     host.close(plain)  # one request at a time here (each has its own scope)
     host.open(nothing, nothing, research)
+    run.web.note("https://example.com")  # a search result: an address the run was given (audit A-03)
     assert isinstance(await ex._ask(run, "cc-1", "WebFetch", {"url": "https://example.com"}), PermissionResultAllow)
     bash = await ex._ask(run, "cc-1", "Bash", {"command": "dir"})
     assert isinstance(bash, PermissionResultDeny) and "doesn't allow Bash" in bash.message
@@ -358,6 +359,7 @@ async def test_web_for_ordinary_requests_but_never_an_undeclaring_workflow(tmp_p
     ex, run = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host, web=True), _Run()
     ex._runs["cc-1"] = run
     plain = host.open(nothing, nothing)
+    run.web.note("https://example.com")  # a search result: an address the run was given (audit A-03)
     assert isinstance(await ex._ask(run, "cc-1", "WebSearch", {"query": "history of tea"}), PermissionResultAllow)
     assert isinstance(await ex._ask(run, "cc-1", "WebFetch", {"url": "https://example.com"}), PermissionResultAllow)
     assert run.queue.empty()  # no card

@@ -2,7 +2,7 @@
 
 The owner asked for a critical look at Swift as a product, not only as code: what makes it different, what to build next, what to drop, how it should adapt to its user and be configured, and whether it needs a dashboard. This document answers from the code on `main` (`32ec68b`), the ADRs, and the owner's own interaction log (counts only, no transcripts).
 
-It is a proposal. Nothing here changes the agreed order in the handoff until the owner says so.
+**Adopted by the owner on 2026-10-28.** The handoff's agreed order ([`docs/handoff/README.md`](../handoff/README.md) §4) now follows §8 of this document.
 
 ## 0. The short answer
 

@@ -31,6 +31,12 @@
         { id: "parked:t2", kind: "parked", title: "Which day and time works for you for the design review?", line: "Unanswered question · 12 min ago", open: "Open", fresh: false, icon: "question" },
         { id: "parked:t3", kind: "parked", title: "Draft an email to Priya about the tea report", line: "Unfinished · stopped before it was done · 1 h 05 min ago", open: "Open", fresh: false, icon: "pause" },
       ];
+      const LIVE_SOURCES = [
+        { url: "https://www.britannica.com/topic/tea-beverage", title: "Tea | Origin, History, Types, & Facts", site: "britannica.com", state: "read" },
+        { url: "https://en.wikipedia.org/wiki/History_of_tea", title: "History of tea - Wikipedia", site: "en.wikipedia.org", state: "reading" },
+        { url: "https://www.teaclass.com/lesson_0102.html", title: "Tea History: Ancient China to the West", site: "teaclass.com", state: "found" },
+        { url: "https://slow.example/tea", title: "", site: "slow.example", state: "failed" },
+      ];
       const VIEWS = {
         typeEmpty: { kind: "type", draft: "", follows: null, confirm: false },
         typeTyped: { kind: "type", draft: "Remind me to call mum at 6", follows: null, confirm: false },
@@ -43,6 +49,15 @@
         chipReady: { kind: "request", runId: "c3", title: "Tea history", words: "Tea history", label: "Ready to read", startedMs: now - 200_000, running: false, state: "result" },
         stackClosed: { kind: "stack", expanded: false, items: STACK },
         stackOpen: { kind: "stack", expanded: true, items: STACK },
+        liveRunning: { kind: "live", runId: "cc-1", title: "Research the history of tea", doing: "Reading britannica.com", activity: "browsing",
+          sources: LIVE_SOURCES, notes: ["Tea was first drunk in south-west China, in Yunnan, as a medicinal drink."],
+          written: { app: "Word", text: "The history of tea\n\nTea began in south-west China, where it was drunk as a medicine." }, hint: null,
+          running: true, ended: null, startedMs: now - 74_000 },
+        liveSources: { kind: "live", runId: "cc-2", title: "Compare three e-readers", doing: "Searching: best e-readers 2026", activity: "searching",
+          sources: LIVE_SOURCES, notes: [], written: null, hint: null, running: true, ended: null, startedMs: now - 20_000 },
+        liveDone: { kind: "live", runId: "cc-1", title: "Research the history of tea", doing: "Done", activity: null, sources: LIVE_SOURCES, notes: [],
+          written: { app: "Word", text: "The history of tea\n\nTea began in south-west China." }, hint: "Here it is in Word.",
+          running: false, ended: { status: "done", summary: "I wrote a one-page history of tea into your Word document.", answer: true }, startedMs: now - 200_000 },
       };
       window.__pane = (name) => window.__shim.emit("pane", { label, view: VIEWS[name] });
       window.__pane.list = Object.keys(VIEWS);

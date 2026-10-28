@@ -19,6 +19,10 @@
 // grows out of it. Cards: working (status and steps), answers (one line, paragraphs, a table, a
 // long one opened in place), failed, stopped / not done in one row, the amber confirm card, Swift's
 // question, and timers and reminders that stay until handled. Dark or light follows Windows.
+//
+// ADR-017 §7: a request's live view (live.ts). ``live`` items arrive for every request; "show
+// me" (the backend's ``watch``) or Watch on the working card or a chip opens a pane window per
+// request, beside the card. Without pane windows (the dev harness) it is drawn beside the card.
 
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
@@ -31,6 +35,7 @@ import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
 import * as Panes from "./panes";
 import * as H from "./heard";
+import * as L from "./live";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
 import * as S from "./stack";
@@ -131,6 +136,8 @@ let typing: Panes.TypeView | null = null;
 let typedDraft = "";
 // The tray menu pane (ADR-017): null while closed.
 let tray: Panes.TrayView | null = null;
+// What each request's live view shows, and which are open (ADR-017 §7).
+let live: L.Live = L.initialLive;
 // Requests seen in ``runs`` (for "Got it: …"), and the lines shown until when.
 const knownRows = new Set<string>();
 let acks: { runId: string; words: string; until: number }[] = [];
@@ -285,6 +292,7 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   }));
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
   checkPresenter();
+  setLive(L.onRows(live, rows, Date.now()));
   if (pres.focus !== promoted) promoted = null;
   // A request said beside the one in front: say at once that it registered, in its words (bug 4).
   const now = Date.now();
@@ -311,7 +319,7 @@ function drawRows(): void {
   const items: HTMLElement[] = rows.map((r) => {
     const view = { kind: "request" as const, runId: r.runId, title: r.title, words: r.words ?? r.title, label: rowLabel(r), startedMs: r.startedMs,
       running: !["result", "error", "done"].includes(r.state), state: r.state };
-    return el("li", { "data-hit": true }, V.chip(view, { tabindex: "0", onclick: () => askFocus(r.runId) }));
+    return el("li", { "data-hit": true }, V.chip(view, { tabindex: "0", onclick: () => askFocus(r.runId) }, () => openLive(r.runId, r.title, r.words ?? "")));
   });
   if (more) items.push(el("li", { class: "row--note" }, `+${more} more`));
   items.unshift(...waitingNotes());
@@ -350,7 +358,9 @@ function drawWaiting(): void {
 
 /** The panes wanted now: requests, the reader, the stack, the text box and the tray menu. */
 const wanted = (): Panes.PaneSpec[] =>
-  Panes.wantedPanes(pres, reader, rowLabel, { stack: S.stackView(stack, Date.now()), typing, tray, now: Date.now() });
+  Panes.wantedPanes(pres, reader, rowLabel, {
+    stack: S.stackView(stack, Date.now()), typing, tray, live: L.openRuns(live).map(L.view), now: Date.now(),
+  });
 
 // One change at a time, and a window nobody wants is closed even if it opened late (bug 1).
 const paneSync = new Panes.PaneSync(
@@ -372,6 +382,7 @@ const paneSync = new Panes.PaneSync(
     tray = null;
     drawRows();
     drawStackInline();
+    drawLiveInline();
   },
 );
 const panes = paneSync.shown;
@@ -431,6 +442,18 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       break;
     case "focus":
       if (payload.runId) askFocus(payload.runId);
+      break;
+    case "watch": {
+      const row = pres.rows.find((r) => r.runId === payload.runId);
+      if (payload.runId) openLive(payload.runId, row?.title ?? "", row?.words ?? "");
+      break;
+    }
+    case "live-close":
+    case "live-stop":
+    case "live-app":
+    case "live-answer":
+    case "live-touch":
+      if (payload.runId) liveAction(payload.action, payload.runId);
       break;
     case "open":
     case "touch":
@@ -546,6 +569,83 @@ function closeTyping(): void {
   typingThread = null;
   void syncEscape();
   void syncPanes();
+}
+
+// ---- the live view of a request (ADR-017 §7) -----------------------------------------------
+
+function setLive(next: L.Live): void {
+  if (next === live) return;
+  const watched = (l: L.Live): boolean => !!pres.runId && !!L.find(l, pres.runId)?.open;
+  const toggled = watched(next) !== watched(live);
+  live = next;
+  if (toggled && state === "working") renderWorking();  // its Watch button comes and goes
+  if (paneWindows) void syncPanes();
+  else drawLiveInline();
+}
+
+/** Watch: the live view of a request, beside the card. The backend hears of it for the log only. */
+function openLive(runId: string, title: string, words: string): void {
+  setLive(L.watch(live, runId, title, words, Date.now()));
+  client.send({ type: "watch", data: { run_id: runId, open: true } });
+}
+
+function liveAction(action: string, runId: string): void {
+  const r = L.find(live, runId);
+  switch (action) {
+    case "live-close":
+      setLive(L.close(live, runId));
+      client.send({ type: "watch", data: { run_id: runId, open: false } });
+      break;
+    case "live-stop":
+      client.send({ type: "run.stop", data: { run_id: runId } });
+      break;
+    case "live-app":
+      client.send({ type: "live.app", data: { run_id: runId } });
+      break;
+    case "live-touch":
+      setLive(L.touch(live, runId, Date.now()));
+      break;
+    case "live-answer":
+      // The whole answer when this window had it (the request in front); else that request forward.
+      if (r?.ended && (r.ended.details || runId === pres.runId)) {
+        if (paneWindows) {
+          reader = Panes.openReader(r.title, r.ended.summary, r.ended.details, runId, Date.now());
+        } else askFocus(runId);
+      } else askFocus(runId);
+      setLive(L.close(live, runId));
+      client.send({ type: "watch", data: { run_id: runId, open: false } });
+      break;
+  }
+}
+
+/** Without pane windows (the dev harness): the open live views beside the card. */
+const liveEl = document.getElementById("live");
+function drawLiveInline(): void {
+  if (!liveEl) return;
+  const views = paneWindows ? [] : L.openRuns(live).map(L.view);
+  liveEl.hidden = views.length === 0;
+  const tops = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run]")].map((n) => [n.dataset.run, n.querySelector<HTMLElement>(".live-body")?.scrollTop ?? 0]));
+  const docs = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run] .live-doc")].map((d) => [d.closest<HTMLElement>("[data-run]")!.dataset.run,
+    d.scrollHeight - d.scrollTop - d.clientHeight < 24 ? null : d.scrollTop]));
+  liveEl.replaceChildren(...views.map((v) => {
+    const node = el("div", { "data-hit": true, "data-run": v.runId }, V.liveCard(v, {
+      close: () => liveAction("live-close", v.runId),
+      stop: () => liveAction("live-stop", v.runId),
+      link: (url) => void invoke("open_link", { url }).catch(() => window.open(url, "_blank", "noopener")),
+      app: () => liveAction("live-app", v.runId),
+      answer: () => liveAction("live-answer", v.runId),
+    }));
+    return node;
+  }));
+  for (const node of liveEl.querySelectorAll<HTMLElement>("[data-run]")) {
+    const body = node.querySelector<HTMLElement>(".live-body");
+    if (body) body.scrollTop = tops.get(node.dataset.run) ?? 0;
+    // What is being written follows its newest paragraph, unless the owner scrolled up in it.
+    const doc = node.querySelector<HTMLElement>(".live-doc");
+    const kept = docs.get(node.dataset.run);
+    if (doc) doc.scrollTop = kept ?? doc.scrollHeight;
+  }
+  scheduleRegions();
 }
 
 function askFocus(runId: string): void {
@@ -787,6 +887,9 @@ function renderWorking(): void {
         { class: "card-foot" },
         el("span", { class: "hint foot-gap" }, el("kbd", {}, "Esc"), "stops"),
         backButton ?? showButton,
+        pres.runId && !L.find(live, pres.runId)?.open
+          ? el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
+          : null,
         el("button", { class: "btn btn--ghost", onclick: () => cancelRun() }, icon("stop"), "Stop"),
       ),
     ),
@@ -1715,12 +1818,24 @@ window.setInterval(() => {
   // Young requests get their chip, the stack's glow fades: both are in what's wanted.
   if (paneWindows && (pres.rows.length || stack.items.length)) void syncPanes();
   if (++sweepTick % 3 === 0) void sweepPanes();
+  setLive(L.tick(live, Date.now(), liveHovered()));
+  if (!paneWindows && L.openRuns(live).some((r) => !r.ended)) {
+    for (const node of liveEl?.querySelectorAll<HTMLElement>(".live--running .elapsed") ?? []) {
+      const r = L.find(live, node.closest<HTMLElement>("[data-run]")?.dataset.run ?? "");
+      if (r) node.textContent = V.elapsed(r.startedMs);
+    }
+  }
   const shrunk = Panes.readerTick(reader, Date.now(), false);
   if (shrunk !== reader) {
     reader = shrunk;
     void syncPanes();
   }
 }, 1000);
+
+/** Inline live views the pointer is on (the harness); a pane window reports its own (live-touch). */
+function liveHovered(): Set<string> {
+  return new Set([...(liveEl?.querySelectorAll<HTMLElement>("[data-run]:hover") ?? [])].map((n) => n.dataset.run ?? ""));
+}
 
 // ---- Esc: only grabbed while Swift is active, speaking, or the stack is open -----------
 
@@ -1757,6 +1872,7 @@ function onMessage(msg: Inbound): void {
     case "state":
       if (msg.data.agent !== undefined) agent = msg.data.agent;
       setStage(msg.data.state, msg.data.run_id ?? null, msg.data.thread_id ?? null);
+      if (msg.data.run_id && request) setLive(L.name(live, msg.data.run_id, request, request));
       break;
     case "level":
       orb.setLevel(msg.data.rms);
@@ -1787,10 +1903,19 @@ function onMessage(msg: Inbound): void {
       renderConfirmVoice(msg.data);
       break;
     case "result":
+      setLive(L.ended(live, msg.data.run_id, msg.data.status, msg.data.summary, msg.data.details ?? null, Date.now()));
       renderResult(msg.data);
       break;
     case "error":
+      if (pres.runId) setLive(L.ended(live, pres.runId, "error", msg.data.title ?? msg.data.message, null, Date.now()));
       renderError(msg.data);
+      break;
+    case "live":
+      setLive(L.onItem(live, msg.data.run_id, msg.data, Date.now()));
+      break;
+    case "watch":
+      if (msg.data.open) setLive(L.watch(live, msg.data.run_id, msg.data.title ?? "", msg.data.words ?? "", Date.now()));
+      else setLive(L.close(live, msg.data.run_id));
       break;
     case "artifact":
       onArtifact(msg.data);

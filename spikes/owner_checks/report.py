@@ -125,6 +125,15 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     due_again = [line for line in came_due if "missed=True" in line]
     due_shown = [_counter(line, "items") for line in log if "| due shown |" in line]
     restarted = [line for line in log if "| backend ready |" in line and "restarted=True" in line]
+    # The live view (ADR-017 §7): counts and content-free lines only.
+    live_shown = [v for r in rows for v in (r.get("views") or []) if v.get("kind") == "live"]
+    live_counts = [r.get("live") or {} for r in rows]
+    live_sources = sum(c.get("source", 0) for c in live_counts)
+    live_notes = sum(c.get("note", 0) for c in live_counts)
+    live_text = sum(c.get("text", 0) for c in live_counts)
+    watched = [line for line in log if "| live view |" in line and "open=True" in line]
+    live_stopped = [line for line in log if "| request stopped from the live view |" in line]
+    live_app = [line for line in log if "| live view: app shown |" in line and "shown=True" in line]
 
     def answered(tool: str, decision: str = "approve") -> bool:
         return (tool, decision) in approved
@@ -294,6 +303,14 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(came_due)} came due ({len(due_again)} after a restart or as missed), "
          f"{sum(due_shown)} shown on {len(due_shown)} card(s)"),
         ("77, 79-80 Swift restarted without quitting", bool(restarted), f"{len(restarted)} restart(s)"),
+        # The live view of a running request (ADR-017 §7).
+        ("90 'show me' during a run opened its live view", bool(live_shown), f"{len(live_shown)} time(s)"),
+        ("91 sources and notes reached the live view", live_sources > 0,
+         f"{live_sources} source item(s), {live_notes} note(s)"),
+        ("92 the text being written showed in the live view", live_text > 0, f"{live_text} paragraph(s)"),
+        ("93 Watch on a card or chip opened a live view", bool(watched), f"{len(watched)} time(s)"),
+        ("94 Stop in a live view stopped that request", bool(live_stopped), f"{len(live_stopped)} time(s)"),
+        ("95 Show in Word from the live view", bool(live_app), f"{len(live_app)} time(s)"),
     ]
 
 

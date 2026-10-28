@@ -258,7 +258,45 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null });
     await sleep(200);
   },
+  // 11. the live view of a running request (ADR-017 §7): research, then writing it into Word
+  liveResearch: async (s) => { await liveResearch(s, false); },
+  liveDone: async (s) => { await liveResearch(s, true); },
 };
+
+async function liveResearch(s: Shim, end: boolean): Promise<void> {
+  const id = run();
+  const live = (d: Record<string, unknown>) => s.inject("live", { run_id: id, ...d });
+  const step = (text: string, activity: string, app: string | null = null) => {
+    s.inject("step", { run_id: id, text, kind: "tool", ts: Date.now(), activity, agent: AGENT, subagent: false, app });
+    live({ kind: "doing", text, activity, app });
+  };
+  s.inject("transcript", { text: "Research the history of tea and write it into Word", final: true });
+  s.inject("state", { state: "working", run_id: id, agent: AGENT });
+  step("Searching the web: history of tea", "searching");
+  for (const [title, url] of [
+    ["Tea | Origin, History, Types, & Facts", "https://www.britannica.com/topic/tea-beverage"],
+    ["History of tea - Wikipedia", "https://en.wikipedia.org/wiki/History_of_tea"],
+    ["Tea History: Ancient China to the West", "https://www.teaclass.com/lesson_0102.html"],
+  ]) live({ kind: "source", url, title, state: "found" });
+  s.inject("watch", { run_id: id, open: true, title: "Research the history of tea", words: "" });
+  await sleep(150);
+  step("Fetching britannica.com", "browsing");
+  live({ kind: "source", url: "https://www.britannica.com/topic/tea-beverage", state: "read" });
+  live({ kind: "source", url: "https://en.wikipedia.org/wiki/History_of_tea", state: "reading" });
+  live({ kind: "note", text: "Tea was first drunk in south-west China, in Yunnan, as a medicinal drink." });
+  live({ kind: "note", text: "It reached Europe through Portuguese and Dutch traders in the 16th and 17th centuries." });
+  step("Writing in Word", "writing", "Word");
+  for (const text of ["The history of tea", "", "Tea began in south-west China, where it was drunk as a medicine long before it became an everyday drink.",
+    "By the Tang dynasty it was traded across the empire, pressed into bricks.", "Portuguese and Dutch ships brought it to Europe."]) {
+    live({ kind: "text", text, app: "Word" });
+    await sleep(60);
+  }
+  if (!end) return;
+  live({ kind: "source", url: "https://en.wikipedia.org/wiki/History_of_tea", state: "read" });
+  s.inject("state", { state: "result", run_id: id, agent: AGENT });
+  s.inject("result", { run_id: id, status: "done", summary: "I wrote a one-page history of tea into your Word document: its start in China, the Tang trade and how it reached Europe.", details: null, agent: AGENT, note: null });
+  await sleep(150);
+}
 
 const design = async (name: string): Promise<void> => {
   const shim = (window as unknown as { __shim: Shim }).__shim;

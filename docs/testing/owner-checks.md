@@ -176,6 +176,22 @@ About 15 minutes.
 | 79 | Left-click the tray icon: **Restart Swift**. While it restarts, look at Task Manager → Details, sorted by name | "Restarting Swift…", then back. **One** `python.exe` for Swift (the old one is gone), no `claude.exe` left from before, and Windows' microphone indicator goes off and comes back. Then "hey Swift, what time is it" works | A restart |
 | 80 | In Task Manager → Details, end Swift's `python.exe` (the one using about 700 MB) | Within a few seconds: "Swift's engine stopped" with **Restart Swift** and Open logs (never "quit and start again"). Click Restart Swift: Swift is back, and "hey Swift, what time is it" works | A restart |
 
+### Watching a request work: the live view (ADR-017 §7)
+
+About 10 minutes. You asked to see research and the Word document **while** they happen. A running request now has a **live view**: a window beside the card with what it is doing, the pages it found and read, its notes, and the text as Swift writes it.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 90 | "Hey Swift, research the history of tea". While it works, hold the hotkey and say "**show me**" | A window opens beside the card (not over it), marked **LIVE**, with the request's title. Its top line says what it's doing now ("Searching: history of tea", "Reading britannica.com"). **Sources** fill in as it searches: a title and a site each, a grey dot when found, a spinner while it reads one, a green check once read. Short **Notes** appear between steps | 'show me' opened the live view |
+| 91 | Click a source in the live view | The page opens in your browser. Swift doesn't take the keyboard from the app you were in before the click | Sources and notes reached the live view |
+| 92 | "Hey Swift, research the history of tea and write it into Word". Say "**show me**" once it starts writing | Word comes forward and the live view shows **Writing in Word** with the text appearing paragraph by paragraph, following the newest line. Scroll up inside the text: it stays where you are. Click **Show in Word**: Word comes forward again | The text being written showed in the live view; Show in Word |
+| 93 | Start two requests ("hey Swift, research the history of tea", then "hey Swift, compare three e-readers"). Hover the research **chip** and click **Watch**; on the card in front click **Watch** too | One live view per request, the second a little further in and down; the chip is **not** brought to the front. Drag one view somewhere else and let go: it stays there, and the next live view opens there. Click outside the views: clicks go to whatever is under them | Watch opened a live view |
+| 94 | In one of the two views click **Stop** | Only that request stops ("Stopped"); the other keeps going and its view keeps updating | Stop in a live view stopped that request |
+| 95 | Let a watched request finish, and don't touch its view | It says **Done** with the answer's first lines, the text and sources stay, and **Open the answer** opens the whole answer. About 45 s later the view closes by itself (pointing at it keeps it open). **×** closes it at once | (seen on screen) |
+| 96 | Switch Windows between Dark and Light with a live view open (as in check 63) | It switches at once and stays readable over a white page and a busy photo | (seen on screen) |
+
+Privacy: the log keeps only counts (sources, notes, paragraphs) and that a view opened or a button was pressed. The pages' titles and addresses and the written text stay in the overlay.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

@@ -26,7 +26,8 @@ from typing import Any, Literal, Protocol, get_args
 
 from swift.failures import Failure
 
-EventType = Literal["step", "confirm", "log"]
+# "live": what the live view shows (``data``): a source found or read, a note (ADR-017 §7).
+EventType = Literal["step", "confirm", "log", "live"]
 Status = Literal["done", "cancelled", "error", "rejected"]
 # What a provider is doing, whatever its own event format. The overlay turns it into
 # "<provider> is reading"; anything a provider can't classify is "working". "writing" is
@@ -80,6 +81,8 @@ class ExecEvent:
     activity: Activity = "working"
     # True when a sub-agent the provider started did this step ("Claude Code's helper is reading").
     subagent: bool = False
+    # Set on "live" events only: {"kind": "source", "url", "title", "site", "state"} or {"kind": "note", "text"}.
+    data: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

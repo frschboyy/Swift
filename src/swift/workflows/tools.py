@@ -57,7 +57,7 @@ from swift.connectors.base import (
     OutgoingEmail,
 )
 from swift.security.gateway import UNDO_WINDOW_S, Action, ActionGateway
-from swift.workflows.scope import Confirmer, Draft, Grant, Publisher, RunScope, Stepper
+from swift.workflows.scope import Confirmer, Draft, Grant, Liver, Publisher, RunScope, Stepper
 
 if TYPE_CHECKING:
     from swift.desktop.base import Desktop, WriteReceipt
@@ -558,9 +558,10 @@ class ToolHost:
         return self.scopes[-1] if self.scopes else None
 
     def open(
-        self, publish: Publisher, confirm: Confirmer, grant: Grant | None = None, step: Stepper | None = None
+        self, publish: Publisher, confirm: Confirmer, grant: Grant | None = None, step: Stepper | None = None,
+        live: Liver | None = None,
     ) -> RunScope:
-        scope = RunScope(publish, confirm, grant=grant, step_fn=step)
+        scope = RunScope(publish, confirm, grant=grant, step_fn=step, live_fn=live)
         self.scopes.append(scope)
         return scope
 

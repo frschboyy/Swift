@@ -32,6 +32,10 @@ The Capsule overlay (ADR-017): outbound ``speech`` says when Swift starts and st
 capsule's Speaking state, the question card's "I'll listen when I'm done"); inbound
 ``speech.stop`` stops it, inbound ``listen`` pauses or resumes listening (the tray). ``transcript``
 carries ``typed`` (the head row's keyboard or mic), ``presence`` carries ``paused``.
+The live view (ADR-017 §7): outbound ``live`` is one item of a request's live view (``kind``
+"doing", "source", "note", "text" or "hint"), sent for every request, in front or not; outbound
+``watch`` opens the view ("show me" while it runs). Inbound ``watch`` says it opened or closed,
+``run.stop`` stops that request only, ``live.app`` brings the app it writes in to the front.
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -80,12 +84,17 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "speech.stop": {},
     # The tray's Pause listening / the capsule's Resume: the open microphone off or on (ADR-017).
     "listen": {"on": (bool, None)},
+    # The live view of a request (ADR-017 §7): opened or closed (for the log), its Stop (that request
+    # only), and its "Show in Word" (the app it writes in, to the front).
+    "watch": {"run_id": (str, None), "open": (bool, None)},
+    "run.stop": {"run_id": (str, None)},
+    "live.app": {"run_id": (str, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard", "speech"}
+     "runs", "stack", "heard", "speech", "live", "watch"}
 )
 
 

@@ -13,11 +13,16 @@
 // ADR-017, the Capsule design: chips and the stack as views.ts draws them, the text box with
 // "Typing can't approve" while a confirm card is open, and the tray menu (opened by a click on
 // the tray icon, folded away by a click anywhere else). Dark or light follows Windows.
+//
+// ADR-017 §7: a request's live view. Its body keeps its place when an update redraws it, and
+// follows the end of what is being written while the owner hasn't scrolled up. A source opens in
+// the browser (Rust checks it is a web address); Stop, Show in Word and the answer go to the main window.
 
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { el, icon, keys } from "./dom";
+import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
 import type { ResultDetails } from "./protocol";
 import { followTheme } from "./theme";
@@ -39,6 +44,7 @@ document.body.classList.add("pane-body");
 root.dataset.pane = "true";
 // The reader is at most 70 % of the screen's height; past that its body scrolls.
 root.style.setProperty("--reader-max", `${Math.max(240, Math.round(screen.availHeight * 0.7) - 64)}px`);
+root.style.setProperty("--live-max", `${Math.max(200, Math.min(380, Math.round(screen.availHeight * 0.7) - 200))}px`);
 root.replaceChildren();
 followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 
@@ -172,6 +178,28 @@ function drawTray(v: TrayView): void {
   watchOutside();
 }
 
+/** The live view, redrawn on every update: the body keeps its scroll place, and what is being
+ * written follows its newest paragraph unless the owner scrolled up in it to read. */
+function drawLive(v: LiveView): void {
+  const top = root.querySelector<HTMLElement>(".live-body")?.scrollTop ?? 0;
+  const doc = root.querySelector<HTMLElement>(".live-doc");
+  const atEnd = !doc || doc.scrollHeight - doc.scrollTop - doc.clientHeight < 24;
+  const docTop = doc?.scrollTop ?? 0;
+  const runId = v.runId;
+  root.replaceChildren(V.liveCard(v, {
+    close: () => act("live-close", { runId }),
+    stop: () => act("live-stop", { runId }),
+    link: (url) => void invoke("open_link", { url }).catch(() => {}),
+    app: () => act("live-app", { runId }),
+    answer: () => act("live-answer", { runId }),
+  }));
+  const body = root.querySelector<HTMLElement>(".live-body");
+  if (!body) return;
+  body.scrollTop = top;
+  body.addEventListener("scroll", touch, { passive: true });
+  const written = root.querySelector<HTMLElement>(".live-doc");
+  if (written) written.scrollTop = atEnd ? written.scrollHeight : docTop;
+}
 
 function draw(): void {
   if (!view) return;
@@ -200,6 +228,9 @@ function draw(): void {
       break;
     case "request":
       root.replaceChildren(V.chip(view, { "data-click": "focus" }));
+      break;
+    case "live":
+      drawLive(view);
       break;
     case "reader":
       if (view.chip) {
@@ -250,15 +281,16 @@ new ResizeObserver(fit).observe(root);
 
 /** The owner is looking at the reader: it doesn't shrink to a chip yet. At most every few seconds. */
 function touch(): void {
-  if (view?.kind !== "reader" || Date.now() - lastTouch < 3000) return;
+  if ((view?.kind !== "reader" && view?.kind !== "live") || Date.now() - lastTouch < 3000) return;
   lastTouch = Date.now();
-  act("touch");
+  if (view.kind === "live") act("live-touch", { runId: view.runId });
+  else act("touch");
 }
 root.addEventListener("pointermove", touch, { passive: true });
 
 root.addEventListener("pointerdown", async (ev) => {
   const target = ev.target as HTMLElement;
-  if (ev.button !== 0 || target.closest("button, input, .reader-body") || view?.kind === "tray") return;
+  if (ev.button !== 0 || target.closest("button, input, .reader-body, .live-body") || view?.kind === "tray") return;
   // No text selection or native drag while Rust moves the window (check 19, 2026-10-27).
   ev.preventDefault();
   const clicked = target.closest<HTMLElement>("[data-click], .stack-row");
@@ -297,9 +329,9 @@ void listen<{ label: string; view: PaneView }>("pane", ({ payload }) => {
   draw();
 });
 
-// Elapsed time on a request chip.
+// Elapsed time on a request chip or a live view.
 window.setInterval(() => {
-  if (view?.kind !== "request" || !view.running) return;
+  if ((view?.kind !== "request" && view?.kind !== "live") || !view.running) return;
   const node = root.querySelector<HTMLElement>(".chip-time");
   if (node) node.textContent = V.elapsed(view.startedMs);
 }, 1000);

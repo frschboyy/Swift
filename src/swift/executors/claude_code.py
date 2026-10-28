@@ -65,7 +65,7 @@ from loguru import logger
 
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
-from swift.executors.claude_mapping import COMMAND_MAX, Outcome, confirm_card, outcome_for, steps_for
+from swift.executors.claude_mapping import COMMAND_MAX, LiveMapper, Outcome, confirm_card, outcome_for, steps_for
 from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
@@ -175,6 +175,8 @@ class _Run:
     redirects: list[str] = field(default_factory=list)
     # The web addresses this run was given: the only ones it may fetch (audit 2026-10, A-03).
     web: WebScope = field(default_factory=WebScope)
+    # What the live view shows: the pages found and read, notes (ADR-017 §7).
+    live: LiveMapper = field(default_factory=LiveMapper)
 
 
 def as_event(message: Any) -> dict[str, Any] | None:
@@ -191,6 +193,20 @@ def as_event(message: Any) -> dict[str, Any] | None:
             elif block_kind == "TextBlock":
                 content.append({"type": "text", "text": block.text})
         return {"type": "assistant", "parent_tool_use_id": message.parent_tool_use_id, "message": {"content": content}}
+    if kind == "UserMessage" and isinstance(message.content, list):
+        # Tool results, for the live view's sources (ADR-017 §7); the steps ignore them.
+        content = [
+            {"type": "tool_result", "tool_use_id": block.tool_use_id, "content": result_text(getattr(block, "content", None)),
+             "is_error": bool(getattr(block, "is_error", False))}
+            for block in message.content if type(block).__name__ == "ToolResultBlock"
+        ]
+        if not content:
+            return None
+        structured = getattr(message, "tool_use_result", None)
+        return {
+            "type": "user", "parent_tool_use_id": getattr(message, "parent_tool_use_id", None),
+            "message": {"content": content}, "tool_use_result": structured if isinstance(structured, dict) else None,
+        }
     if kind == "ResultMessage":
         data = asdict(message) if is_dataclass(message) else dict(vars(message))
         return {"type": "result", **data}
@@ -675,6 +691,8 @@ class ClaudeCodeExecutor:
                             run.queue.put_nowait(
                                 ExecEvent("step", step.text, activity=step.activity, subagent=step.subagent)  # type: ignore[arg-type]
                             )
+                        for item in run.live.feed(event):
+                            run.queue.put_nowait(ExecEvent("live", item["kind"], data=item))
                         outcome = outcome_for(event) or outcome
                 except Exception as exc:  # noqa: BLE001 - only the model check is retried
                     if retried or outcome is not None or not model_unconfirmed(exc):

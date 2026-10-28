@@ -28,6 +28,8 @@ Confirmer = Callable[[str, str, str, str | None], Awaitable[Decision]]
 Publisher = Callable[[Artifact], Awaitable[None]]
 # (text, activity, app) -> a step on the working card, from Swift itself.
 Stepper = Callable[[str, str, str | None], Awaitable[None]]
+# An item for the live view (ADR-017 §7): {"kind": "text", "text", "app"}, what Swift just wrote.
+Liver = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -73,6 +75,7 @@ class RunScope:
     # None: not a workflow run, every tool is available (ADR-010 behaviour).
     grant: Grant | None = None
     step_fn: Stepper | None = None
+    live_fn: Liver | None = None
     # time.monotonic() until which the owner is talking to Swift (push-to-talk held): their
     # key presses then aren't "typing in the window" (ADR-012 §6).
     talking_until: float = 0.0
@@ -97,6 +100,11 @@ class RunScope:
     async def step(self, text: str, activity: str = "working", app: str | None = None) -> None:
         if self.step_fn is not None:
             await self.step_fn(text, activity, app)
+
+    async def live(self, item: dict[str, Any]) -> None:
+        """For the live view only: shown in the overlay, never logged."""
+        if self.live_fn is not None:
+            await self.live_fn(item)
 
     async def publish(self, id: str, kind: Kind, phase: Phase, title: str, data: dict[str, Any]) -> Artifact:
         artifact = self.artifacts.put(id, kind, phase, title, data)

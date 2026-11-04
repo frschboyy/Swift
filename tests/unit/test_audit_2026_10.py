@@ -108,7 +108,10 @@ async def _wifi_asked():  # type: ignore[no-untyped-def]
 
     session, rec, spy, records = await _session()
     await ask("turn off the wifi", session)
-    assert rec.last("result")["summary"].endswith("Turn off Wi-Fi?")
+    # Its own card: the question, a quiet line on what it means, Yes and No (owner, 2026-11-04).
+    card = rec.last("ask")
+    assert card["question"] == "Turn off Wi-Fi?" and card["kind"] == "yes_no" and card["open"] is True
+    assert "internet" in card["note"]
     return session, rec, records
 
 
@@ -123,19 +126,31 @@ async def _settle(session) -> None:  # type: ignore[no-untyped-def]
             return
 
 
-async def test_a_yes_heard_in_the_reply_window_needs_the_name() -> None:
-    from test_routing import ask
+async def test_a_plain_yes_heard_in_the_reply_window_turns_it_off() -> None:
+    import asyncio
 
+    # Owner, 2026-11-04: a reversible change the owner just asked for needs no name. The reply
+    # window's own checks (loud, near, sure enough) still decide whether it was the owner.
     from swift.stt.transcriber import Transcription
 
     session, rec, records = await _wifi_asked()
-    # A TV in the reply window: "yeah, go ahead", no "Swift".
     session._start_followup(Transcription("Yeah, go ahead.", 300, 1.2))
     await _settle(session)
-    assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
-    assert rec.last("result")["summary"].startswith("To go ahead, say “Swift, yes”")
-    assert session._system_confirm is not None  # still asked
-    await ask("yes", session)  # the hotkey (or "hey Swift, yes"): the owner's own yes
+    assert rec.last("result")["summary"] == "Wi-Fi off."
+    assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
+    for _ in range(20):
+        if rec.last("ask")["open"] is False:
+            break
+        await asyncio.sleep(0.01)
+    assert rec.last("ask")["open"] is False  # the question's card closed
+
+
+async def test_a_click_on_yes_turns_it_off() -> None:
+    from swift.ipc.protocol import Message
+
+    session, rec, records = await _wifi_asked()
+    await session.handle(Message("ask.reply", {"ask_id": rec.last("ask")["ask_id"], "text": "Yes"}))
+    await _settle(session)
     assert rec.last("result")["summary"] == "Wi-Fi off."
     assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
 
@@ -145,7 +160,7 @@ async def test_a_typed_yes_doesnt_turn_the_wifi_off() -> None:
     await session._start_typed("yes")
     await _settle(session)
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
-    assert rec.last("result")["summary"].startswith("To go ahead, say “Swift, yes”")
+    assert rec.last("result")["summary"].startswith("Typing can't turn it off")
 
 
 async def test_a_no_heard_in_the_reply_window_still_leaves_it() -> None:

@@ -3,7 +3,8 @@
 // text box, for a typed request) takes the answer for ``seconds`` ("listening"); "again" after an
 // answer Swift couldn't work out; "heard" while the answer is transcribed. Closed by the backend
 // (``open: false``) once answered, or unanswered and put in the stack. An option clicked is an
-// answer (``ask.reply``), never an approval.
+// answer (``ask.reply``). Swift's own yes/no ("Turn off Wi-Fi?") comes the same way, with a quiet
+// ``note`` on what it means; there, a click on Yes does it (owner, 2026-11-04).
 
 export type AskPhase = "asking" | "listening" | "again" | "heard";
 
@@ -19,6 +20,8 @@ export type AskData = {
   // "again": the question as Swift says it once more ("Sorry, which one: Sam Lee or Sam Okoro?").
   text?: string;
   seconds?: number;
+  // What the question means, shown small under it and never said ("Swift needs the internet …").
+  note?: string;
 };
 
 export type Ask = {
@@ -31,6 +34,7 @@ export type Ask = {
   phase: AskPhase;
   // When the answer window closes (ms), or null while Swift is still saying it.
   until: number | null;
+  note: string;
 };
 
 // More than this and the options are read, not clicked (the card has room for a row of buttons).
@@ -50,6 +54,7 @@ export function onAsk(cur: Ask | null, d: AskData, now: number): Ask | null {
     question,
     kind: d.kind ?? same?.kind ?? "free",
     options: d.options ?? same?.options ?? [],
+    note: d.note ?? same?.note ?? "",
     phase,
     until: timed ? now + (d.seconds as number) * 1000 : phase === "heard" ? null : same?.until ?? null,
   };
@@ -68,6 +73,9 @@ export function askPill(a: Ask, speaking: boolean): string {
   if (speaking || a.phase === "asking") return "Speaking… I'll listen when I'm done";
   return a.phase === "again" ? "Once more: waiting for your answer" : "Waiting for your answer";
 }
+
+/** Swift's own question (the system lane's yes/no): no request runs behind it, so nothing to stop. */
+export const ownQuestion = (a: Ask): boolean => a.runId.startsWith("local-");
 
 /** Whether the question shows now: on the working card of its own request, the one in front. */
 export function askVisible(a: Ask | null, state: string, focus: string | null): boolean {

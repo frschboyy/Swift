@@ -67,6 +67,8 @@ class Outcome:
     ask: tuple[str, str | None] | None = None
     # The intents that ran, for the dialogue's carry-over ("make it louder", "no, make it four").
     done: tuple[it.Intent, ...] = ()
+    # With a question: what it means, shown under it on the card, never said ("Swift needs the internet").
+    note: str = ""
 
 
 Undo = Callable[[], Awaitable[str]]
@@ -123,7 +125,8 @@ class SystemLane:
             if (slot := it.missing(intent)) is not None:
                 return Outcome(self.ask_for(intent), True, names, pending=tuple(found), ask=(it.SLOTS[intent.name][1], slot))
         if any(it.disruptive(i) for i in found):
-            return Outcome(await self.question(found), True, names, pending=tuple(found), ask=("yes_no", None))
+            said, note = await self.question(found)
+            return Outcome(said, True, names, pending=tuple(found), ask=("yes_no", None), note=note)
         return await self._execute(found)
 
     @staticmethod
@@ -163,14 +166,16 @@ class SystemLane:
         """For the agent's ``system_action`` tool: the gateway already confirmed and journals it."""
         return await self._execute(intents, journaled=False)
 
-    async def question(self, found: list[it.Intent]) -> str:
+    async def question(self, found: list[it.Intent]) -> tuple[str, str]:
+        """The question, short ("Turn off Wi-Fi?"), and what it means, for a quiet line under it (owner,
+        2026-11-04: the explanation was said first and got in the way)."""
         names = {i.name: i for i in found}
         if "airplane" in names:
-            return "That turns off Wi-Fi and Bluetooth, and Swift needs the internet for most requests. Turn on airplane mode?"
+            return "Turn on airplane mode?", "Wi-Fi and Bluetooth go off; Swift needs the internet for most requests."
         radio = next(i for i in found if it.disruptive(i))
         if radio["kind"] == "wifi":
-            return "Swift needs the internet for most requests, so you'd only have quick commands until it's back. Turn off Wi-Fi?"
-        return "A Bluetooth headset, mouse or keyboard would disconnect. Turn off Bluetooth?"
+            return "Turn off Wi-Fi?", "Swift needs the internet for most requests: only quick commands until it's back."
+        return "Turn off Bluetooth?", "A Bluetooth headset, mouse or keyboard would disconnect."
 
     async def _execute(self, found: list[it.Intent], journaled: bool = True) -> Outcome:
         said: list[str] = []

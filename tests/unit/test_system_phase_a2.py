@@ -79,7 +79,7 @@ async def test_do_not_disturb_opens_the_setting_honestly() -> None:
 async def test_the_session_asks_and_a_yes_does_it() -> None:
     session, rec, spy, records = await _session()
     await ask("turn off the wifi", session)
-    assert rec.last("result")["summary"].endswith("Turn off Wi-Fi?") and records[0]["asked"] is True
+    assert rec.last("ask")["question"] == "Turn off Wi-Fi?" and records[0]["asked"] is True
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
     await ask("yes", session)
     assert rec.last("result")["summary"] == "Wi-Fi off." and records[1]["confirmed"] is True

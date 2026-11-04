@@ -297,6 +297,8 @@ class SpeechSettings(_Section):
     voice: str = ""
     rate: int = Field(0, ge=-10, le=10)
     volume: int = Field(100, ge=0, le=100)
+    # Read confirm cards and "Turn off Wi-Fi?" aloud. Off: shown only, with Yes and No (owner, 2026-11-04).
+    read_confirms: bool = False
 
 
 class LoggingSettings(_Section):

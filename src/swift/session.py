@@ -251,10 +251,13 @@ SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
 SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", "beside", "answer"})
 # How long "Turn off Wi-Fi?" waits for a yes or no.
 SYSTEM_CONFIRM_S = 45.0
-# A yes to "Turn off Wi-Fi?" from these sources needs Swift's name ("Swift, yes"): the reply window
-# hears the room, and typing never approves on its own (ADR-015 §10).
-SYSTEM_YES_NEEDS_NAME = frozenset({"followup", "typed", "answer"})
-SYSTEM_YES_NAME_HINT = "To go ahead, say “Swift, yes”, or hold the hotkey and say yes."
+# A yes to "Turn off Wi-Fi?" typed doesn't do it: typing never approves on its own (ADR-015 §10).
+# Said (a plain "yes" while the question is open, from a voice that passed the reply checks) or
+# clicked, it does: these are reversible changes the owner just asked for (owner, 2026-11-04).
+SYSTEM_YES_NEEDS_NAME = frozenset({"typed"})
+SYSTEM_YES_NAME_HINT = "Typing can't turn it off: click Yes, or say yes."
+# The lane's question closed without an answer.
+LANE_NO_ANSWER = "No answer, so I've left it as it is."
 _YES = re.compile(r"^(?:yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|confirm|turn it off|switch it off)\b")
 _NO = re.compile(r"^(?:no|nope|don'?t|do not|leave it|keep it|never ?mind|cancel|forget it)\b")
 
@@ -818,6 +821,8 @@ class Session:
         # replies: "auto" (spoken requests get a spoken answer), "always", "never".
         self.speaker: Speaker = Speaker()
         self.speech_replies = "auto"
+        # Confirm cards and "Turn off Wi-Fi?" read aloud (speech.read_confirms; off: owner, 2026-11-04).
+        self.read_confirms = False
         self._followup_question = False
         # What "show me" with no run going brings back: the last run with artifacts, or (when it
         # wrote in an app since) that app; the write it was set for (ADR-007 §10).
@@ -1415,7 +1420,7 @@ class Session:
 
     # ---- typing to Swift (ADR-015 §10) ----------------------------------------------------------
 
-    async def _start_typed(self, text: str, thread_id: str | None = None) -> None:
+    async def _start_typed(self, text: str, thread_id: str | None = None, source: str = "typed") -> None:
         """A request typed into the overlay: routed and run like speech (source ``typed``). On an
         open card it answers like voice, except that typing never approves on its own. Mid-run it
         is the mid-run grammar; ``thread_id`` (the conversation on screen) makes it a follow-up."""
@@ -1445,8 +1450,8 @@ class Session:
         if self._front_busy() and focus is not None and focus.state == "working":
             await self._midrun_text(text, self._run_phase, source="typed")
             return
-        record: dict[str, Any] = {"source": "typed", "executor": getattr(self.executor, "name", "?")}
-        if thread_id is not None and thread_id == self._last_thread:
+        record: dict[str, Any] = {"source": source, "executor": getattr(self.executor, "name", "?")}
+        if thread_id is not None and (thread_id == self._last_thread or source == "click"):
             record["continues"] = thread_id
 
         async def capture(rec: dict[str, Any]) -> str:
@@ -1525,7 +1530,7 @@ class Session:
                     self._owner_here()
                     await self._take_answer(msg.data["text"][:MAX_TYPED], source="click")
                 else:
-                    await self._start_typed(msg.data["text"], asked.thread)
+                    await self._start_typed(msg.data["text"], asked.thread, source="click")
             case "text":
                 thread = msg.data.get("thread_id")
                 await self._start_typed(msg.data["text"], thread if isinstance(thread, str) else None)
@@ -2061,10 +2066,9 @@ class Session:
         if not text.strip():
             return None
         if (asked := self._listening_for()) is not None:
-            # A brisk answer ("yes", "two", "ten minutes") while Swift listens for one. Not a bare yes to
-            # something disruptive: that needs Swift's name, which a clip this short can't carry.
+            # A brisk answer ("yes", "two", "ten minutes") while Swift listens for one.
             found = resolve_answer(asked, text)
-            if found.kind not in ("unclear", "elsewhere") and not (asked.yes_needs_name and found.kind == "yes"):
+            if found.kind not in ("unclear", "elsewhere"):
                 self.wake_stats["short_answer"] += 1
                 return text
         for said in (text, close_control(text)):
@@ -2415,6 +2419,9 @@ class Session:
 
             routed = self.router is not None and record.get("source") in (
                 "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside", "typed",
+                # An answer to a lane's question, said or clicked: it has to reach the question
+                # (owner checks 2026-11-04: "Swift, yes" went to the agent and Wi-Fi stayed on).
+                "answer", "click",
             )
             decision = self.router(transcript) if routed else None  # type: ignore[misc]
             if decision is not None:
@@ -2758,7 +2765,7 @@ class Session:
             outcome = await (self.system.redo(intents) if replaces else self.system.start(intents))
             said, ok, record["intents"] = outcome.said, outcome.ok, list(outcome.intents)
             if outcome.ask is not None:
-                self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record)
+                self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record, outcome.note)
             elif outcome.done:
                 self._carry_system(record, outcome.done)
         elif decision.action in ("system_yes", "system_no"):
@@ -2780,18 +2787,45 @@ class Session:
             else:
                 said, ok, record["intents"] = outcome.said, outcome.ok, list(outcome.intents)
                 if outcome.ask is not None:
-                    self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record)
+                    self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record, outcome.note)
                 elif outcome.done:
                     self._carry_system(record, outcome.done)
         record["status"] = "done" if ok else "error"
         if not ok:
             record["error"] = "system_failed"
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+        if (asked := self._lane_question()) is not None and asked.kind == "yes_no" and asked.run_id is None:
+            await self._confirm_lane(asked, record)
+            return
+        await self._send_result(record.pop("lane_card", None) or f"local-{next(self._local_ids)}", ExecResult("done", said))
         if (asked := self._lane_question()) is not None and asked.thread == record.get("thread"):
             # The microphone opens by itself for the answer once Swift has said the question (§11 Q3).
             asked.spoken = self.speaker.speaking
             if not asked.spoken:
                 await self._listen_for(asked, voice=record.get("source") in SPOKEN_SOURCES)
+
+    async def _confirm_lane(self, q: Question, record: dict[str, Any]) -> None:
+        """"Turn off Wi-Fi?" on its own card: the question, a quiet line on what it means, Yes and No
+        (owner, 2026-11-04). Said aloud only when confirmations are (``speech.read_confirms``); the
+        microphone listens for a plain yes or no either way."""
+        q.run_id = f"local-{next(self._local_ids)}"
+        voice = record.get("source") in SPOKEN_SOURCES
+        if self.read_confirms and voice:
+            self._speak_reply(q.text, record)
+        q.spoken = self.speaker.speaking
+        await self._set_state("working", run_id=q.run_id)
+        await self._send(outbound("ask", **q.as_message(), run_id=q.run_id, open=True,
+                                  phase="asking" if q.spoken else "listening", seconds=round(self.wake_question_s, 1)))
+        if not q.spoken:
+            await self._listen_for(q, voice=voice)
+
+    async def _close_lane_ask(self, q: Question, said: str | None) -> None:
+        """A lane's question card closes; ``said``: a line in its place (no answer came)."""
+        # Straight to the overlay: the request that asked has ended, and the one that answered may not be in front.
+        await self._raw_send(outbound("ask", ask_id=q.id, run_id=q.run_id, open=False))
+        if said is not None and not self._front_busy():
+            assert q.run_id is not None
+            await self._raw_send(outbound("state", state="result", run_id=q.run_id))
+            await self._raw_send(outbound("result", run_id=q.run_id, status="done", summary=said, details=None))
 
     # ---- the dialogue (ADR-016 §5.1, swift/dialogue.py) -----------------------------------------
 
@@ -2819,12 +2853,13 @@ class Session:
             return None
         return q
 
-    def _ask_lane(self, said: str, kind: str, slot: str | None, intents: tuple[Any, ...], record: dict[str, Any]) -> Question:
+    def _ask_lane(self, said: str, kind: str, slot: str | None, intents: tuple[Any, ...], record: dict[str, Any],
+                  note: str = "") -> Question:
         """A lane asks ("Turn off Wi-Fi?", "For how long?"): its question waits for the answer."""
         if (before := self.dialogue.pending) is not None and before.source == "lane":
             self._question_done(before)
         q = Question(said, kind, source="lane", thread=record.get("thread"), slot=slot, payload=intents,
-                     yes_needs_name=kind == "yes_no", request=str(record.get("transcript") or ""))
+                     yes_needs_name=kind == "yes_no", request=str(record.get("transcript") or ""), note=note)
         self.dialogue.ask(q)
         record["asked"] = True
         record["dialogue"] = {"kind": kind}
@@ -2849,6 +2884,8 @@ class Session:
             return (self.router or default_router)(rest)
         if q.thread:
             self._thread = record["thread"] = q.thread  # the answer goes on in the question's thread
+        if q.run_id is not None:
+            record["lane_card"] = q.run_id  # the outcome takes the question's own card
         self._current().turn = turn
         answer = turn.answer
         if turn.action == "answered" and q.kind == "yes_no":
@@ -2876,7 +2913,7 @@ class Session:
             outcome = await self.system.fill(q.payload, q.slot or "", turn.answer.value)
             record["intents"] = list(outcome.intents)
             if outcome.ask is not None:
-                self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record)
+                self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record, outcome.note)
             elif outcome.done:
                 self._carry_system(record, outcome.done)
             return outcome.said, outcome.ok
@@ -2916,11 +2953,19 @@ class Session:
         if q.source == "run":
             self._settle(q, None)
             return
+        if q.run_id is not None and not q.closed:
+            q.closed = True
+            with contextlib.suppress(RuntimeError):
+                self._background(self._close_lane_ask(q, LANE_NO_ANSWER))
         self._question_done(q)
         self._shelve(q)
 
     def _question_done(self, q: Question) -> None:
         """``q`` no longer waits: its timer and microphone stop; a question behind it comes forward."""
+        if q.source == "lane" and q.run_id is not None and not q.closed:
+            q.closed = True  # its own card closes, however it ended
+            with contextlib.suppress(RuntimeError):
+                self._background(self._close_lane_ask(q, None))
         on_screen = self.dialogue.pending is q
         nxt = self.dialogue.done(q)
         if not on_screen:
@@ -3189,7 +3234,7 @@ class Session:
             return
         data = card.data
         said = card_speech(str(data.get("title") or ""), str(data.get("detail") or ""), str(data.get("tool") or ""))
-        if self.speech_replies == "never" or self._away:
+        if self.speech_replies == "never" or self._away or not self.read_confirms:
             return
         entry = next((c for c in record.get("approvals", []) if c.get("request_id") == request_id), None)
         before = self.speaker.speaking

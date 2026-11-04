@@ -577,6 +577,7 @@ code {
 .tag--fill { background: var(--accent); color: var(--on-accent); }
 .q-about { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .q-title { margin: 0; font: 600 20px/26px var(--font-display); }
+.q-note { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 18px; }
 .q-pill {
   position: relative;
   display: flex;

@@ -64,8 +64,9 @@ class Question:
     # The slot a lane asked for ("seconds", "when") and what to finish with it (the intents).
     slot: str | None = None
     payload: Any = None
-    # A yes to this one goes ahead with something disruptive ("Turn off Wi-Fi?"): from the open
-    # microphone or typed it needs Swift's name, like an approval (threat model T2, audit A-04).
+    # A yes to this one goes ahead with a change the owner just asked for ("Turn off Wi-Fi?"). Said or
+    # clicked, a plain yes does it (owner, 2026-11-04: reversible changes need no name); typed, it
+    # never does, since typing never approves (ADR-015 §10).
     yes_needs_name: bool = False
     # Who asked: the session's request object, so only that request's end drops it (audit A-08).
     owner: Any = None
@@ -75,12 +76,17 @@ class Question:
     future: asyncio.Future[Answer] | None = None
     # Said aloud: the microphone opens when Swift has finished saying it.
     spoken: bool = False
+    # A lane's question on its own card: the card's run id, and a quiet line under the question
+    # ("Swift needs the internet for most requests") that is shown, never said.
+    run_id: str | None = None
+    note: str = ""
+    closed: bool = False
     # The owner's words that led to it, for the stack if it goes unanswered (never logged).
     request: str = ""
 
     def as_message(self) -> dict[str, Any]:
         return {"ask_id": self.id, "question": self.text, "kind": self.kind, "options": list(self.options),
-                "thread_id": self.thread}
+                "thread_id": self.thread, **({"note": self.note} if self.note else {})}
 
     @property
     def expects_free_text(self) -> bool:

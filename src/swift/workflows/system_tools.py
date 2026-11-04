@@ -80,12 +80,12 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             return intent.name  # the receipt: the intent only, never its words
 
         token = uuid.uuid4().hex  # each call is its own action: "volume up" twice is two changes
-        question = (await lane.question([intent])) if disruptive else ""
+        question, note = (await lane.question([intent])) if disruptive else ("", "")
         action = Action(
             tool="system_action_disruptive" if disruptive else "system_action",
             targets=(),
-            title=question.rsplit(". ", 1)[-1] if disruptive else intent.name,
-            detail=question.rsplit(". ", 1)[0] + "." if disruptive and ". " in question else "",
+            title=question if disruptive else intent.name,
+            detail=note,
             artifact_id=None,
             digest=lambda token=token: hashlib.sha256(token.encode()).hexdigest(),
             perform=perform,

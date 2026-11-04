@@ -340,7 +340,8 @@ async def test_cancel_drops_it() -> None:
     assert session.dialogue.pending is None
 
 
-async def test_swift_yes_in_the_reply_window_turns_the_wifi_off_a_bare_yes_doesnt() -> None:
+async def test_a_plain_yes_in_the_reply_window_turns_the_wifi_off() -> None:
+    # Owner, 2026-11-04: a reversible change the owner just asked for needs no name.
     from test_audit_2026_10 import _settle, _wifi_asked
 
     from swift.stt.transcriber import Transcription
@@ -348,20 +349,31 @@ async def test_swift_yes_in_the_reply_window_turns_the_wifi_off_a_bare_yes_doesn
     session, rec, _ = await _wifi_asked()
     session._start_followup(Transcription("Yes.", 300, 0.6))
     await _settle(session)
-    assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
-    session._start_followup(Transcription("Swift, yes.", 300, 0.9))
+    assert rec.last("result")["summary"] == "Wi-Fi off."
+    assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
+
+
+async def test_swift_yes_said_into_the_questions_window_reaches_the_question() -> None:
+    # Owner checks 2026-11-04, 16:51: "Swift, yes" heard as the answer went to the agent instead.
+    from test_audit_2026_10 import _settle, _wifi_asked
+
+    session, rec, _ = await _wifi_asked()
+    asked = session.dialogue.pending
+    assert asked is not None
+    await session._hear_answer(asked, "Swift, yes.", named=True)
     await _settle(session)
     assert rec.last("result")["summary"] == "Wi-Fi off."
+    assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
 
 
-async def test_a_brisk_yes_to_the_wifi_is_never_kept_from_a_short_clip() -> None:
+async def test_a_brisk_yes_or_no_to_the_wifi_is_kept_from_a_short_clip() -> None:
     session, rec, _, _ = await _session()
     session.recorder = object()  # type: ignore[assignment]
     await ask("turn off the wifi", session)
     asked = session.dialogue.pending
     assert asked is not None
     session._answer_window = (asked, time.monotonic() + 10)
-    assert session._short_kept("yes", busy=False) is None
+    assert session._short_kept("yes", busy=False) == "yes"
     assert session._short_kept("no", busy=False) == "no"
 
 
@@ -630,6 +642,7 @@ def test_card_speech_says_the_title_and_key_facts() -> None:
 
 async def test_a_spoken_requests_card_is_read_aloud_and_a_bare_yes_doesnt_approve() -> None:
     session, out, records, agent, stt = make(wake_followup_s=8.0)
+    session.read_confirms = True  # off by default since 2026-11-04 (speech.read_confirms)
     speaker = FakeSpeaker()
     session.speaker, speaker.on_done = speaker, session.speech_done
     await started(session, out, agent, stt, "Hey Swift, email my lecturer that I'll miss Thursday")
@@ -648,6 +661,16 @@ async def test_a_spoken_requests_card_is_read_aloud_and_a_bare_yes_doesnt_approv
     assert records == [] or True
     await finish_all(session, agent)
     assert records[0]["approvals"][0]["decision"] == "approve" and records[0]["approvals"][0]["read_aloud"] is True
+
+
+async def test_confirm_cards_are_not_read_aloud_by_default() -> None:
+    session, out, records, agent, stt = make(wake_followup_s=8.0)
+    speaker = FakeSpeaker()
+    session.speaker, speaker.on_done = speaker, session.speech_done
+    await started(session, out, agent, stt, "Hey Swift, email my lecturer that I'll miss Thursday")
+    await until(lambda: out.last("confirm.request"))
+    assert not any(s.startswith("Send this email") for s in speaker.said)
+    await finish_all(session, agent)
 
 
 async def test_a_typed_requests_card_is_not_read_aloud() -> None:

@@ -129,7 +129,7 @@ About 15 minutes.
 | 50 | In the chat with yourself, click in the message box. Hold the hotkey: "write three short lines about tea here" | Three lines **in the message box, not sent**. Press Send yourself, or clear it. (Before the audit, each line could be sent on its own.) | (seen on screen) |
 | 51 | Click in Windows Terminal. Hold the hotkey: "write 'dir' here" | "Windows Terminal is a terminal… Swift doesn't write there." Nothing typed | (seen on screen) |
 | 52 | "Hey Swift, research the history of tea and summarise it, with sources" | It searches and reads pages, with no card. Sources are named | Fetches of made-up addresses refused (usually 0) |
-| 53 | Hold the hotkey: "turn off the Wi-Fi". When it asks "Turn off Wi-Fi?", say just "yes" **without** the hotkey or "Swift" | "To go ahead, say “Swift, yes”…". Wi-Fi stays on. Then say "no, leave it" | Asked for the name |
+| 53 | Hold the hotkey: "turn off the Wi-Fi". When it asks "Turn off Wi-Fi?", say just "no, leave it" **without** the hotkey or "Swift" | Wi-Fi stays on: "Okay, I've left it as it is." (Since 2026-11-04 a plain "yes" turns it off: check 128) | (seen on screen) |
 | 54 | Hold the hotkey: "set up a meeting with Test Me on Friday at four". At once: "hey Swift, add lunch with Test Me on Friday at noon". When the first card shows, click **Reject** | The second card comes up and **stays** (0:45, then into the stack; or until you answer). Reject it too. (On 2026-10-28 at 01:43 it vanished after 3 s.) | No Swift card vanished |
 | 55 | Start three research requests one after another ("research tea", "research coffee", "research cocoa"), and let them all finish | All three finish; none ends with "Something went wrong" / "crashed". (On 2026-10-28 at 01:52 one crashed when another ended.) | No request crashed |
 | 56 | "Hey Swift, research the history of tea". While it works, say exactly the same again | "Still on it: …" on the card, and **one** research chip, not two | Same request ran once |
@@ -205,7 +205,7 @@ About 10 minutes, with wake listening on. Swift now asks for what's missing inst
 | 104 | "Hey Swift, draft an email to **Sam** saying I'm running late" (any first name two of your contacts share) | "Which Sam: Sam Lee or Sam Okoro?" said and shown on the working card, with the names as **buttons**. Click one: the draft goes on to that person. Do **not** send it | A request asked you something |
 | 105 | Repeat 100, but answer "**purple**", then "**purple**" again | The question once more ("Sorry…", shown as **Once more**), then it gives up: the request goes to the stack as unanswered, nothing is set | An answer it couldn't work out: asked once more, then set aside |
 | 106 | Repeat 100, but don't answer | After about 25 s the card goes, and the stack holds the question; answering it there (Continue) carries on | A question unanswered in time went to the stack |
-| 107 | "Hey Swift, turn off Bluetooth" (A2's first check). When the card shows, listen, then say "**yes**" alone; then "**Swift, yes**" | The card is **read aloud** with how to approve. A bare "yes" does nothing; "Swift, yes" turns Bluetooth off. Then "Hey Swift, undo that" | A confirm card was read aloud |
+| 107 | Only with `speech: read_confirms: true` in `config.yaml` (off by default since 2026-11-04). "Hey Swift, email Test Me that I'm running late"; when the send card shows, listen | The card is **read aloud** with how to approve. A bare "yes" does nothing on an email; "Swift, yes" approves it. Reject it | A confirm card was read aloud |
 | 108 | **Type** "set a timer" (the text box). Say "five minutes" **without** "hey Swift", then type "5 minutes" | The question shows but isn't said, and the spoken "five minutes" is ignored: a typed request's question is answered by typing. The typed answer sets the timer | A typed request's question was answered by typing |
 
 Privacy: the log keeps the kind of question (duration, time, choice…), how it was answered (said, clicked, typed) and counts; never what was asked or what you said.
@@ -245,10 +245,21 @@ About 10 minutes, with wake listening on. Each one failed on 2026-11-04.
 
 | # | Do | You should see | Report checks |
 |---|---|---|---|
-| 124 | Repeat 53: hold the hotkey, "turn off the Wi-Fi". When it asks, say just "**Yes**" (no hotkey, no "Swift"). Then "**no, leave it**" | "To go ahead, say “Swift, yes”…", never "I didn't catch that". Wi-Fi stays on. "No, leave it" ends it. (Before: a clear "Yes." was refused as too unsure four times) | A short 'yes' or 'no' heard as a reply |
+| 124 | Hold the hotkey, "turn off the Wi-Fi". When it asks, say just "**Yes**" (no hotkey, no "Swift") | Never "I didn't catch that": Wi-Fi goes off (check 128). (Before: a clear "Yes." was refused as too unsure four times) | A short 'yes' or 'no' heard as a reply |
 | 125 | "**Hey Swift research the history of tea**" in one breath, with no pause after "Swift" | The chime and the request start, as with a pause. (Before: heard as one word, "Hayswift", and missed) | 'hey Swift' said without a pause started requests |
 | 126 | Let the research from 125 finish. Read the card, then **Read more** | Every point whole, never cut off with "…", and no "…and 5 more" that can't be opened. No "(Blocked: WebFetch.)" after the answer; a page Swift refused shows as "Skipped a page whose address wasn't from a search" among the steps | (seen on screen) |
 | 127 | Start another research request and click **Watch** on its card. Let it run to the end | The whole live view is on screen, its buttons at the bottom visible; when sources pile up, the list scrolls inside it. Also at 150 % scaling | (seen on screen) |
+
+### Confirming without friction (2026-11-04)
+
+About 5 minutes, with wake listening on. Swift's own question about a change you just asked for ("Turn off Wi-Fi?") is a card with the question, a quiet line on what it means, and **Yes** and **No**. A plain spoken "yes", or a click on Yes, does it at once; typing "yes" doesn't. Nothing is read aloud unless `speech: read_confirms: true`. Turn Wi-Fi back on after each check ("hey Swift, turn on the Wi-Fi").
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 128 | Hold the hotkey: "turn off the Wi-Fi". When the card shows, say just "**yes**" | The card: "**Turn off Wi-Fi?**", a small grey line under it (Swift needs the internet…), Yes and No, a countdown, **nothing said aloud**. After "yes": "**Wi-Fi off.**" on the same card, and Wi-Fi is off | A plain yes did it |
+| 129 | Again, but **click Yes** | "Wi-Fi off." at once | A click on Yes did it |
+| 130 | "Hey Swift, turn off Bluetooth", then "**Swift, yes**" | "Bluetooth off." (on 2026-11-04 "Swift, yes" went to the agent and nothing happened) | 'Swift, yes' reached the question |
+| 131 | "Hey Swift, turn on airplane mode" and don't answer for 30 s | "**No answer, so I've left it as it is.**" on the card; it's in the stack if you want it | (seen on screen) |
 
 ## After the checks: the report
 

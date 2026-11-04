@@ -188,7 +188,12 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     subject_fixed = [line for line in log if "gmail subject was wrong" in line]
     # The 2026-10 audit's fixes (docs/audit/2026-10-audit.md, owner checks 50-61).
     fetch_refused = [line for line in log if "web fetch refused: address not given" in line]
-    wifi_unnamed = [r for r in rows if r.get("action") == "system_yes_unnamed"]
+    # Confirming without friction (2026-11-04, 128-131).
+    lane_yes = [r for r in rows if r.get("action") == "system_yes" and r.get("confirmed")]
+    yes_said = [r for r in lane_yes if r.get("source") in ("followup", "answer", "voice", "wake")]
+    yes_clicked = [r for r in lane_yes if r.get("source") == "click"]
+    yes_to_agent = [r for r in rows if r.get("source") == "answer" and r.get("provider") == "claude_code"
+                    and re.match(r"\W*swift\W+yes\b", str(r.get("transcript") or "").lower())]
     # A Swift card that went unanswered while its request said "done": the A-08 vanishing card.
     vanished = [r for r in rows if r.get("status") == "done"
                 and any(a.get("by") == "swift" and a.get("decision") == "no_answer" for a in r.get("approvals", []))]
@@ -307,8 +312,7 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("51 Swift refused to write into a terminal", True, "check on screen"),
         ("52 web pages fetched only from given addresses", True,
          f"{len(fetch_refused)} fetch(es) of a made-up address refused"),
-        ("53 a yes to 'Turn off Wi-Fi?' without the name didn't do it", True,
-         f"{len(wifi_unnamed)} time(s) asked for 'Swift, yes'"),
+        ("53 'no, leave it' to 'Turn off Wi-Fi?' left it on", True, "check on screen; a plain yes does it since 2026-11-04 (128)"),
         ("54 no Swift card vanished when another request ended", not vanished,
          ", ".join(f"{r['_t']:%H:%M:%S}" for r in vanished) or "none"),
         ("55 no request crashed while others ran", not crashed,
@@ -375,6 +379,11 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(wake_rows)} hands-free request(s), {len(missed_wakes)} wake phrase(s) missed"),
         ("126-127 the whole research answer; the live view inside the screen", True,
          "check on screen: Read more shows every line, no 'Blocked: WebFetch', the live view's buttons visible"),
+        # Confirming without friction (2026-11-04).
+        ("128 a plain yes did it", bool(yes_said), f"{len(yes_said)} time(s)"),
+        ("129 a click on Yes did it", bool(yes_clicked), f"{len(yes_clicked)} time(s)"),
+        ("130 'Swift, yes' reached the question, never the agent", not yes_to_agent,
+         f"{len(yes_to_agent)} sent to the agent"),
         # Sign-ins checked and offered again (swift/signin.py).
         ("120 sign-ins checked", bool(signin_checked),
          ", ".join(sorted({m.group(1) for line in signin_checked if (m := re.search(r"status='(\w+)'", line))}))

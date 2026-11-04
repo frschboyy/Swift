@@ -1543,11 +1543,12 @@ function renderAsk(a: Q.Ask): void {
         el("span", { class: asking ? "tag" : "tag tag--fill" }, asking ? "Swift is asking" : "Waiting for you"),
         el("span", { class: "q-about" }, about)),
       el("p", { class: "q-title" }, a.question),
+      a.note ? el("p", { class: "q-note" }, a.note) : null,
       pill,
       buttons.length ? el("div", { class: "q-options" }, ...buttons) : null,
       el("footer", { class: "card-foot" },
-        typeSpec ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
-        el("button", { class: "btn btn--ghost", onclick: (ev: Event) => {
+        typeSpec && !Q.ownQuestion(a) ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
+        Q.ownQuestion(a) ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => {
           ev.stopPropagation();
           client.send({ type: "run.stop", data: { run_id: a.runId } });
         } }, "Stop request")),

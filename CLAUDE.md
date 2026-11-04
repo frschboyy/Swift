@@ -20,7 +20,9 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
 - **Port 1420 is the owner's running Swift.** Never start a dev server on it; the harness uses 1431.
 - **Product rules** (a path that breaks one is a critical bug):
   - recipients only from contacts or `find_contact`;
-  - approving hands-free needs Swift's name, and a bare "yes" never approves;
+  - approving hands-free needs Swift's name, and a bare "yes" never approves; the one exception is
+    Swift's own question about a reversible change the owner just asked for ("Turn off Wi-Fi?"),
+    where a plain spoken "yes" or a click on Yes does it while the question is open;
   - typing never approves;
   - no hands-free listening while locked;
   - logs content-free (transcripts redacted), except the owner's local interaction log;

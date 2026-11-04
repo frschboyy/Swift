@@ -107,6 +107,7 @@ Audit B-05 (the first request after start is 8–25 s slower) is worth fixing du
 **Answered:**
 - Saved recordings: keep **7 days**, and only if they serve a purpose. That's the recordings loop task.
 - B-01 reads: allowed without a card in the working folders, Documents and Downloads.
+- Confirming a reversible change (2026-11-04): Swift's own "Turn off Wi-Fi?" is a card with Yes and No; a plain spoken "yes" or a click does it, typing doesn't. Emails, calendar changes and anything that can't be undone still need "Swift, yes" or a click on Approve. Confirmations aren't read aloud (`speech.read_confirms: false`). Owner checks 128–131.
 
 **Running on a default** (change any time):
 

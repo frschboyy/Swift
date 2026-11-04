@@ -841,6 +841,8 @@ class Session:
         self.on_unaddressed: Callable[[Any], None] | None = None
         # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
         self.on_recordings: Callable[[str], Awaitable[None]] | None = None
+        # The agent refused for its sign-in: Swift offers to sign in again (``swift.signin``).
+        self.on_signin_refused: Callable[[str], None] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
         self.wake_stats = dict.fromkeys(
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
@@ -2150,7 +2152,7 @@ class Session:
     def _start_followup(self, heard: Transcription, unclear: bool = False, audio: Any = None) -> None:
         """A reply just after an answer, without the wake phrase: an ordinary request. ``unclear``:
         too much of it was a guess, so the card asks to say it again instead."""
-        logger.info("follow-up heard", stt_ms=heard.stt_ms, unclear=unclear)
+        logger.info("follow-up heard", stt_ms=heard.stt_ms, unclear_reply=unclear)  # a flag; "unclear" names words and is redacted
         record: dict[str, Any] = {
             "source": "followup", "executor": getattr(self.executor, "name", "?"), "stt_ms": heard.stt_ms,
         }
@@ -4340,6 +4342,8 @@ class Session:
         self._retry = (source, again) if failure.retry and source and again else None
         if failure.detail:
             logger.info("failure shown", code=failure.code, detail=failure.detail)
+        if failure.code == "auth" and self.on_signin_refused is not None:
+            self.on_signin_refused("claude")  # the only provider with a sign-in today
         await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
         message = failure.as_message() | {"retry": self._retry is not None}
         await self._send(outbound("error", **message, agent=agent))

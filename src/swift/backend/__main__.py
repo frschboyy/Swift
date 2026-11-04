@@ -12,6 +12,7 @@ import asyncio
 import dataclasses
 import functools
 import os
+import shutil
 import sys
 import time
 from collections.abc import Awaitable, Callable
@@ -47,8 +48,11 @@ from swift.security.journal import Journal
 from swift.system.lane import SystemLane
 from swift.session import Session
 from swift.settings import Settings, SettingsError, expand, load_settings
+from swift.signin import Service, SigninWatch, claude_status, open_claude_login
 from swift.executors.improve import REQUEST as IMPROVE_REQUEST
 from swift.executors.improve import ImproveExecutor
+from swift.executors.signin import REQUEST as SIGNIN_REQUEST
+from swift.executors.signin import SigninExecutor
 from swift.stt.fixes import WordFixes
 from swift.stt.recordings import Recordings
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
@@ -156,6 +160,50 @@ def _recordings_action(
             session.start_own(improve, IMPROVE_REQUEST, "improve")
 
     return act
+
+
+def _watch_signins(settings: Settings, session: Session) -> SigninWatch | None:
+    """Google's and Claude Code's sign-ins, checked at start-up, daily and when refused; one card
+    each to sign in again (``swift.signin``). Never in debug mode: a demo never touches Google."""
+    if settings.debug:
+        return None
+    uses_google = settings.connectors.email == "gmail" or settings.connectors.calendar == "google"
+    executor = session.executor if isinstance(session.executor, ClaudeCodeExecutor) else None
+    google_signin = google_check = None
+    if uses_google:
+        from swift.connectors import google
+
+        google_signin, google_check = google.signin_flow, google.check
+    if google_check is None and executor is None:
+        return None
+
+    def claude() -> str | None:
+        return shutil.which("claude") if executor is not None else None
+
+    async def claude_back() -> None:
+        if executor is not None:  # the spare process started on the old sign-in
+            await executor.release_spare()
+            await executor.ensure_spare()
+
+    signin = SigninExecutor(
+        google_signin=google_signin, claude=claude, claude_check=lambda: claude_status(claude()),
+        open_claude=open_claude_login, on_claude_back=claude_back,
+    )
+
+    def offer(services: set[Service]) -> None:
+        if signin.want(services):
+            session.start_own(signin, SIGNIN_REQUEST, "signin")
+
+    watch = SigninWatch(
+        offer, google=google_check, claude=(lambda: claude_status(claude())) if executor else None,
+        busy=lambda: session.busy,
+    )
+    session.on_signin_refused = watch.refused
+    if uses_google:
+        from swift.connectors import google
+
+        google.expired_listeners.append(lambda: watch.refused("google"))
+    return watch
 
 
 DEMO_LECTURER = KnownContact("Dr Ada Lovelace", "ada.lovelace@example.edu", ("lecturer", "professor"))
@@ -443,6 +491,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             session.quick = QuickModel(settings.executor.models["light"], prewarm=settings.executor.prewarm)
             session.quick.prepare()
     _make_speaker(settings, session, loop)
+    if (signins := _watch_signins(settings, session)) is not None:
+        signin_task = asyncio.create_task(signins.run())  # noqa: F841 - lives as long as the backend
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)

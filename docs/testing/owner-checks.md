@@ -226,6 +226,19 @@ About 10 minutes, with wake listening on. Before you start, remove `save_audio: 
 
 Privacy: `swift.log` gets counts and flags only. Search it for "Lisbon" and "London": nothing. The words meant are only in the two `index.json` files, on this PC.
 
+### Sign-ins that never stop Swift by surprise (2026-11-04)
+
+About 10 minutes. Google and Claude can end Swift's sign-ins while you're away (Google after 7 days while its app is in Testing). Swift now checks both about 20 s after it starts, once a day, and when a request is refused, and offers one card per sign-in. Approving opens the provider's own page; you sign in there, never Swift. Nothing here sends anything.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 120 | Restart Swift. Wait 30 s and do nothing | If both sign-ins work: **no card** at all. Otherwise one "Sign in again" chip with a card for each one that needs you (121) | Sign-ins checked |
+| 121 | Only if Google's sign-in has expired (or: run `uv run --group spikes python -m swift.connectors.gmail signout`, restart Swift). When "**Sign in to Google again?**" shows, click **Reject** | The card says why (calendar and email stop working) and what Approve does. After Reject: "Google: not signed in; I'll ask again next time I check." Nothing opens. Restart Swift: the card is back | A sign-in offered on a card |
+| 122 | At the card again, say "**Swift, yes**" (or click Approve) | Your browser opens Google's page. Choose your account, allow Swift. The card says "Google: signed in again." Then "hey Swift, what's on my calendar tomorrow" works **without restarting**. (For Claude: the card is "Sign in to Claude again?"; Approve opens a window that opens Claude's sign-in page; once you're signed in, close the window) | Signed in again |
+| 123 | After any check that asked you something (e.g. 26 or 104) and any "and the date?" reply (46), search `swift.log` for the words you said | Nothing: the question, the reply and the unsure words show only as `[REDACTED:N chars]` (before 2026-11-04 Swift's unanswered question was written in full) | swift.log kept your words out |
+
+Privacy: the log gets the service (google, claude) and its status only; never your account, email or a token.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

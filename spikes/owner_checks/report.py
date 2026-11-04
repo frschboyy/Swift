@@ -153,6 +153,12 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     to_test_set = [line for line in log if "| recordings: added to the test set |" in line]
     missed_wake = [line for line in log if "| recordings: missed wake phrase kept |" in line]
     improve_runs = [line for line in log if "| improvement pass |" in line]
+    # Sign-ins (2026-11-04): checked, offered on a card, signed in again; and words kept out of the log.
+    signin_checked = [line for line in log if "| sign-in checked |" in line]
+    signin_offered = [line for line in log if "| sign-in offered |" in line]
+    signed_in = [line for line in signin_offered if "signed_in=True" in line]
+    words_logged = [line for line in log
+                    if re.search(r"(asked_unanswered|transcript_heard|unclear)=(?!'\[REDACTED)(?!\[\])", line)]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
 
@@ -355,6 +361,13 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("115 the improvement pass ran", bool(improve_runs),
          f"{len(improve_runs)} pass(es), {len(fixes_decided)} word-fix card(s) answered"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
+        # Sign-ins checked and offered again (swift/signin.py).
+        ("120 sign-ins checked", bool(signin_checked),
+         ", ".join(sorted({m.group(1) for line in signin_checked if (m := re.search(r"status='(\w+)'", line))}))
+         or "none"),
+        ("121-122 a sign-in offered on a card", bool(signin_offered),
+         f"{len(signin_offered)} card(s), {len(signed_in)} signed in again"),
+        ("123 swift.log kept your words out", not words_logged, f"{len(words_logged)} line(s) with words"),
     ]
 
 

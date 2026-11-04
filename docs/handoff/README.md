@@ -18,6 +18,7 @@ Read this first when picking Swift up in a new Claude Code session or account. I
 | Hardening | B-02 (writes only when asked), B-03 (due items kept until shown), B-04 (Restart Swift) | audit doc §4–5 |
 | Recordings | Saved recordings that improve hearing (7-day loop, audit B-06) | `recordings-status.md` |
 | Dialogue | **ADR-016 Phase C**: Swift asks for what's missing, the question card, carry-over, end of speech, confirm cards read aloud | ADR-016 §16, `phase-c-status.md` |
+| Sign-ins | Google's and Claude Code's sign-ins checked at start-up, daily and when refused; a card per sign-in opens the provider's page (2026-11-04). Swift's question, replies and unsure words kept out of `swift.log` | `swift/signin.py`, owner checks 120–123 |
 
 Tests on `main` after the Phase C merge: 1272 Python, 78 overlay, 29 Rust (unchanged by C), plus `tsc`. Routing parity: 397/407, 0 harmful (the 10 misses are the web lane, §4 step 4).
 
@@ -49,6 +50,7 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
      - "turn on do not disturb";
      - "turn the volume down and write a haiku about tea".
    - **100–108:** Phase C, dialogue. **110–116:** saved recordings (remove `save_audio: true` first).
+   - **120–123:** sign-ins and the log fix. First, in Google Cloud Console → Google Auth Platform → Audience, **publish the app** (In production, unverified): in Testing, Google ends the sign-in every 7 days.
 3. Paste the report:
    ```bash
    uv run python spikes/owner_checks/report.py --since HH:MM

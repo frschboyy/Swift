@@ -279,6 +279,14 @@ QUEUED_TITLE = "Next request"
 # 2026-10-27: a TV's "We'll push west, haven't been through there..." became a request):
 # this sure of its words (the bar for acting on a hotkey request too)...
 FOLLOWUP_MIN_P = 0.7
+# ...except a whole reply that is one short answer ("yes", "no, leave it"): the model is rarely sure
+# of a lone word, and a bare "yes" never approves anything (owner checks 2026-11-04: "Yes." heard
+# right four times at 0.54-0.65 and refused). Still has to be loud and near, like any reply.
+ANSWER_MIN_P = 0.5  # no lower than wake.min_p, below which nothing is taken at all
+_SHORT_ANSWER = re.compile(
+    r"^(?:(?:yes|yeah|yep|yup|ok|okay|sure|no|nope|nah)(?: please| thanks| thank you)?"
+    r"|no (?:leave it|keep it|thanks|thank you)|leave it|keep it|cancel|never ?mind|go ahead|do it)$"
+)
 # ...this far above the room between its words...
 FOLLOWUP_SNR_DB = 18.0
 # ...no quieter than this below how loud the owner's own requests have been...
@@ -2002,6 +2010,8 @@ class Session:
             return "long"
         mean_p = heard.mean_p
         if self.followup_min_p and mean_p is not None and mean_p < self.followup_min_p:
+            if mean_p >= ANSWER_MIN_P and _SHORT_ANSWER.match(_normalize_answer(heard.text)):
+                return None
             return "unsure"
         return None
 

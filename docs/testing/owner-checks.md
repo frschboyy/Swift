@@ -239,6 +239,17 @@ About 10 minutes. Google and Claude can end Swift's sign-ins while you're away (
 
 Privacy: the log gets the service (google, claude) and its status only; never your account, email or a token.
 
+### Fixes from the checks of 2026-11-04 (50–54)
+
+About 10 minutes, with wake listening on. Each one failed on 2026-11-04.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 124 | Repeat 53: hold the hotkey, "turn off the Wi-Fi". When it asks, say just "**Yes**" (no hotkey, no "Swift"). Then "**no, leave it**" | "To go ahead, say “Swift, yes”…", never "I didn't catch that". Wi-Fi stays on. "No, leave it" ends it. (Before: a clear "Yes." was refused as too unsure four times) | A short 'yes' or 'no' heard as a reply |
+| 125 | "**Hey Swift research the history of tea**" in one breath, with no pause after "Swift" | The chime and the request start, as with a pause. (Before: heard as one word, "Hayswift", and missed) | 'hey Swift' said without a pause started requests |
+| 126 | Let the research from 125 finish. Read the card, then **Read more** | Every point whole, never cut off with "…", and no "…and 5 more" that can't be opened. No "(Blocked: WebFetch.)" after the answer; a page Swift refused shows as "Skipped a page whose address wasn't from a search" among the steps | (seen on screen) |
+| 127 | Start another research request and click **Watch** on its card. Let it run to the end | The whole live view is on screen, its buttons at the bottom visible; when sources pile up, the list scrolls inside it. Also at 150 % scaling | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

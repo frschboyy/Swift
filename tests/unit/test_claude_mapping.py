@@ -105,4 +105,34 @@ def test_split_answer_paragraphs_and_numbered_lists() -> None:
     summary, details = split_answer("Short answer.\n\nMore context here.")
     assert summary == "Short answer." and details == {"kind": "text", "text": "More context here."}
     summary, details = split_answer("\n".join(f"- item {i}" for i in range(9)))
-    assert details["items"][-1] == "…and 3 more" and len(details["items"]) == 7
+    assert details["items"] == [f"item {i}" for i in range(9)]  # every item: the card shows six, Read more the rest
+
+
+def test_split_answer_keeps_the_whole_answer() -> None:
+    # Owner checks 2026-11-04: research arrived as six bullets cut at 120 characters.
+    long = "Origins: legend dates tea in China to about 2700 BCE, and it spread along trade routes."
+    summary, details = split_answer("History of tea, in brief\n\n" + "\n".join(f"- {long} {i}" for i in range(11)))
+    assert summary == "History of tea, in brief"
+    assert details is not None and details["items"] == [f"{long} {i}" for i in range(11)]
+    text = "Tea came from China.\n\n## Europe\nThe Dutch shipped it in 1610.\n\n- **Britain**: a staple by 1700.\n\nSources."
+    summary, details = split_answer(text)
+    assert summary == "Tea came from China."
+    assert details == {
+        "kind": "text", "text": "## Europe\nThe Dutch shipped it in 1610.\n\n- **Britain**: a staple by 1700.\n\nSources.",
+    }
+
+
+def test_split_answer_keeps_a_long_opening_below_the_summary() -> None:
+    opening = "word " * 100
+    summary, details = split_answer(opening)
+    assert summary.endswith("…") and details is not None and details["text"].strip() == opening.strip()
+
+
+def test_made_up_address_refusal_isnt_added_to_the_answer() -> None:
+    from swift.executors.claude_mapping import outcome_for, steps_for
+
+    steps = steps_for({"type": "system", "subtype": "permission_denied", "tool_name": "WebFetch"})
+    assert [s.text for s in steps] == ["Skipped a page whose address wasn't from a search"]
+    outcome = outcome_for({"type": "result", "subtype": "success", "result": "Tea is old.",
+                           "permission_denials": [{"tool_name": "WebFetch"}]})
+    assert outcome is not None and outcome.summary == "Tea is old." and outcome.meta["denied"] == ["WebFetch"]

@@ -154,6 +154,13 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     missed_wake = [line for line in log if "| recordings: missed wake phrase kept |" in line]
     improve_runs = [line for line in log if "| improvement pass |" in line]
     # Sign-ins (2026-11-04): checked, offered on a card, signed in again; and words kept out of the log.
+    # The fixes from the checks of 2026-11-04 (124-127).
+    short_answers = [r for r in rows if r.get("source") in ("followup", "answer")
+                     and re.fullmatch(r"(yes|yeah|yep|ok|okay|no|nope)\W*", str(r.get("transcript") or "").lower())]
+    answers_refused = [r for r in rows if r.get("error") == "unclear_speech"
+                       and re.fullmatch(r"(yes|yeah|yep|ok|okay|no|nope)\W*", str(r.get("transcript_heard") or "").lower())]
+    wake_rows = [r for r in rows if r.get("source") == "wake"]
+    missed_wakes = [line for line in log if "missed wake phrase kept" in line]
     signin_checked = [line for line in log if "| sign-in checked |" in line]
     signin_offered = [line for line in log if "| sign-in offered |" in line]
     signed_in = [line for line in signin_offered if "signed_in=True" in line]
@@ -361,6 +368,13 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("115 the improvement pass ran", bool(improve_runs),
          f"{len(improve_runs)} pass(es), {len(fixes_decided)} word-fix card(s) answered"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
+        # Fixes from the checks of 2026-11-04.
+        ("124 a short 'yes' or 'no' heard as a reply", bool(short_answers) and not answers_refused,
+         f"{len(short_answers)} taken, {len(answers_refused)} refused as unclear"),
+        ("125 'hey Swift' said without a pause started requests", bool(wake_rows),
+         f"{len(wake_rows)} hands-free request(s), {len(missed_wakes)} wake phrase(s) missed"),
+        ("126-127 the whole research answer; the live view inside the screen", True,
+         "check on screen: Read more shows every line, no 'Blocked: WebFetch', the live view's buttons visible"),
         # Sign-ins checked and offered again (swift/signin.py).
         ("120 sign-ins checked", bool(signin_checked),
          ", ".join(sorted({m.group(1) for line in signin_checked if (m := re.search(r"status='(\w+)'", line))}))

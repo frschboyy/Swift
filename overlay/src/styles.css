@@ -814,6 +814,9 @@ code {
 .live {
   width: 420px;
   max-width: 100%;
+  /* Never taller than its window may be (70 % of the screen): the body gives way and scrolls, so the
+     footer stays in sight (owner checks 2026-11-04: cut off at the bottom on a 150 % laptop screen). */
+  max-height: var(--pane-max, none);
   display: flex;
   flex-direction: column;
   padding: 12px 18px 14px;
@@ -835,6 +838,8 @@ code {
 .live-doing { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 15px; }
 .live-now .elapsed { margin-left: auto; }
 .live-summary { margin: 6px 0 0; color: var(--text); font-size: 15px; line-height: 22px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.live > * { flex: none; }
+.live > .live-body { flex: 0 1 auto; min-height: 96px; }
 .live-body { max-height: var(--live-max, 380px); margin-top: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; display: flex; flex-direction: column; gap: 4px; }
 .live-sec .section-title { margin: 8px 0 6px; }
 .live-doc { max-height: 168px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 10px 12px; border-radius: 8px; background: var(--panel-solid); border: 1px solid var(--panel-edge); font-size: 14px; line-height: 21px; user-select: text; cursor: text; overflow-wrap: anywhere; }

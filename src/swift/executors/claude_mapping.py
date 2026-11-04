@@ -24,10 +24,16 @@ from swift.failures import Failure, classify, clean_detail
 
 STEP_MAX = 80
 SUMMARY_MAX = 300
+# Denials that are Swift's own rules working, not something the owner can act on: a page whose
+# address the agent made up is refused (audit 2026-10), and the agent goes on without it. Kept in
+# the log (``denied``), not added to the answer (owner checks 2026-11-04: "Blocked: WebFetch").
+QUIET_DENIALS = frozenset({"WebFetch"})
 # A command on a confirm card is shown whole, its lines kept; a longer one isn't put on a card at all
 # (the owner can only approve what they can read; audit 2026-10, A-12).
 COMMAND_MAX = 1500
-LIST_MAX = 6
+# Every item and the whole text go to the card; these only keep one message well inside an IPC frame (64 KB).
+LIST_MAX = 200
+DETAILS_MAX = 24_000
 
 
 # Result subtypes the CLI uses when it stops without finishing.
@@ -183,6 +189,8 @@ def steps_for(event: dict[str, Any]) -> list[Step]:
     if kind == "system" and sub == "init":
         return []  # no "Starting Claude Code" line (owner, 2026-10-26): later steps and the byline name the provider
     if kind == "system" and sub == "permission_denied":
+        if event.get("tool_name") in QUIET_DENIALS:
+            return [Step("Skipped a page whose address wasn't from a search", "info", "blocked")]
         return [Step(f"Blocked: {event.get('tool_name', 'a tool')} isn't allowed", "info", "blocked")]
     if kind == "system" and sub == "api_retry":
         error = str(event.get("error") or "")
@@ -225,26 +233,38 @@ def outcome_for(event: dict[str, Any]) -> Outcome | None:
         return Outcome("error", message, None, meta, failure)
 
     summary, details = split_answer(text)
-    if meta["denied"]:
-        blocked = ", ".join(sorted(set(meta["denied"])))
+    if meta["denied"] and set(meta["denied"]) - QUIET_DENIALS:
+        blocked = ", ".join(sorted(set(meta["denied"]) - QUIET_DENIALS))
         summary = _short(f"{summary} (Blocked: {blocked}.)", SUMMARY_MAX + 40)
     return Outcome("done", summary or "Done.", details, meta)
 
 
+_BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+
+
 def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
-    """First paragraph -> summary; markdown bullets -> a list; the rest -> text."""
-    lines = [line.rstrip() for line in _plain(text).splitlines()]
-    bullets = [re.sub(r"^\s*(?:[-*•]|\d+[.)])\s+", "", line) for line in lines if re.match(r"^\s*(?:[-*•]|\d+[.)])\s+", line)]
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", "\n".join(lines)) if p.strip()]
-    first = next((p for p in paragraphs if not re.match(r"^\s*(?:[-*•]|\d+[.)])\s+", p)), "")
+    """The answer's opening lines -> summary; the rest whole, for the card's "Read more".
+
+    Nothing the agent wrote is cut short (owner checks 2026-11-04: a research answer arrived as six
+    bullets cut at 120 characters, "...and 5 more", and nothing more to read). Only bullets: a list,
+    every item. Anything else: the text with its markdown, which the overlay draws as paragraphs and lists.
+    """
+    lines = text.replace("\r\n", "\n").strip().split("\n")
+    head: list[str] = []
+    while lines and lines[0].strip() and not _BULLET.match(lines[0]):
+        head.append(lines.pop(0))
+    first = _plain("\n".join(head))
     summary = _short(first, SUMMARY_MAX)
-    if bullets:
-        items = [_short(b, 120) for b in bullets[:LIST_MAX]]
-        if len(bullets) > LIST_MAX:
-            items.append(f"…and {len(bullets) - LIST_MAX} more")
-        return summary, {"kind": "list", "items": items}
-    rest = " ".join(p for p in paragraphs if p != first)
-    return summary, ({"kind": "text", "text": _short(rest, 400)} if rest else None)
+    if summary != " ".join(first.split()):
+        lines = [*head, "", *lines]  # too long for the summary: kept whole below it
+    body = [line for line in lines if line.strip()]
+    if not body:
+        return summary, None
+    if all(_BULLET.match(line) for line in body):
+        items = [_plain(_BULLET.sub("", line)).strip() for line in body]
+        return summary, {"kind": "list", "items": items[:LIST_MAX]}
+    rest = "\n".join(lines).strip()
+    return summary, {"kind": "text", "text": rest if len(rest) <= DETAILS_MAX else rest[: DETAILS_MAX - 1] + "…"}
 
 
 # ---- the live view (ADR-017 §7) ---------------------------------------------------------------

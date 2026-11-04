@@ -44,6 +44,8 @@ document.body.classList.add("pane-body");
 root.dataset.pane = "true";
 // The reader is at most 70 % of the screen's height; past that its body scrolls.
 root.style.setProperty("--reader-max", `${Math.max(240, Math.round(screen.availHeight * 0.7) - 64)}px`);
+// A pane's window is at most 70 % of the work area (``panes::max_height``): what it shows fits inside.
+root.style.setProperty("--pane-max", `${Math.round(screen.availHeight * 0.7)}px`);
 root.style.setProperty("--live-max", `${Math.max(200, Math.min(380, Math.round(screen.availHeight * 0.7) - 200))}px`);
 root.replaceChildren();
 followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });

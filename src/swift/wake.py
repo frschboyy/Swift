@@ -67,6 +67,16 @@ def _greeting_len(words: list[str], i: int, extra: tuple[tuple[str, ...], ...]) 
     return 0
 
 
+def _joined(word: str, close: float) -> bool:
+    """A greeting and the name heard as one word: said without a pause, the speech model writes
+    "Hayswift" or "heyswift" (owner checks, 2026-11-04)."""
+    for greeting in GREETINGS:
+        rest = word[len(greeting):]
+        if word.startswith(greeting) and len(rest) >= 4 and _close(rest.removesuffix("'s"), NAME, close):
+            return True
+    return False
+
+
 def match_wake(text: str, extra_greetings: Iterable[str] = (), *, close: float = CLOSE) -> WakeMatch | None:
     """The wake phrase at the start of ``text`` (case, punctuation and mishearings forgiven).
 
@@ -81,6 +91,9 @@ def match_wake(text: str, extra_greetings: Iterable[str] = (), *, close: float =
         if n and i + n < len(words) and _close(words[i + n].removesuffix("'s"), NAME, close):
             end = found[i + n][1]
             return WakeMatch(" ".join(words[i : i + n + 1]), text[end:].lstrip(_TRIM).strip())
+        if _joined(words[i], close):
+            # The word as heard, so the phrase still counts the words the model wrote.
+            return WakeMatch(words[i], text[found[i][1]:].lstrip(_TRIM).strip())
     return None
 
 

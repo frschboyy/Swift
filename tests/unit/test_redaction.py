@@ -123,6 +123,20 @@ def test_content_extra_replaced_by_length(logs: AppPaths) -> None:
     assert "[REDACTED:25 chars]" in log
 
 
+def test_interaction_record_words_redacted(logs: AppPaths) -> None:
+    # Fields of the interaction record that hold the owner's or Swift's words (found in the
+    # owner's swift.log on 2026-11-04): only their length reaches the file.
+    logger.bind(
+        transcript_heard="Yes, Friday works",
+        unclear=["TestMe"],
+        asked_unanswered='Did you mean "Test Me" as the contact\'s name?',
+        status="done",
+    ).info("interaction finished")
+    log = _read_log(logs)
+    assert "Friday works" not in log and "TestMe" not in log and "Test Me" not in log
+    assert "status='done'" in log
+
+
 def test_non_content_extra_secrets_redacted(logs: AppPaths) -> None:
     logger.bind(headers={"Authorization": "Bearer abcdefSECRET"}).info("request")
     log = _read_log(logs)

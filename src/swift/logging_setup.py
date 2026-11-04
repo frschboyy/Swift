@@ -31,7 +31,12 @@ if TYPE_CHECKING:
 REDACTED = "[REDACTED]"
 
 CONTENT_KEYS: frozenset[str] = frozenset(
-    {"transcript", "body", "content", "text", "file_content", "email_body", "prompt", "completion", "subject"}
+    {
+        "transcript", "body", "content", "text", "file_content", "email_body", "prompt", "completion", "subject",
+        # The interaction record's own word fields: what was heard as a reply, the words the
+        # speech model was unsure of, and Swift's question left unanswered (ADR-016 §16).
+        "transcript_heard", "unclear", "asked_unanswered",
+    }
 )
 
 _SECRET_KEY_NAME = (

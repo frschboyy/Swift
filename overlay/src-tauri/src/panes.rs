@@ -89,6 +89,26 @@ pub fn clamp(area: Area, (x, y): (i32, i32), (w, h): (i32, i32)) -> (i32, i32) {
     (x.clamp(area.x, max_x), y.clamp(area.y, max_y))
 }
 
+/// The text box moved off the card on screen (`card`: its top and bottom, physical px): under it when
+/// the cards come from the top, else over it; the other side when there's no room. Opened from
+/// "Change" on a confirm card, the box sat under the card and only showed once the card had gone
+/// (owner checks 2026-11-04, 4).
+pub fn clear_of(area: Area, (x, y): (i32, i32), (w, h): (i32, i32), (top, bottom): (i32, i32), gap: i32, below: bool) -> (i32, i32) {
+    if y + h <= top || y >= bottom {
+        return (x, y);
+    }
+    let under = bottom + gap;
+    let over = top - gap - h;
+    let fits_under = under + h <= area.y + area.h as i32;
+    let fits_over = over >= area.y;
+    let y = match (below, fits_under, fits_over) {
+        (true, true, _) | (false, true, false) => under,
+        (false, _, true) | (true, false, true) => over,
+        _ => y,
+    };
+    clamp(area, (x, y), (w, h))
+}
+
 /// Where a pane of `size` (physical px) goes the first time: free space away from the main window.
 /// `index` stacks the second and third of a kind beside the first.
 pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, index: u32, size: (i32, i32)) -> (i32, i32) {
@@ -163,6 +183,17 @@ mod tests {
     use crate::placement::card_zone;
 
     const FHD: Area = Area { x: 0, y: 0, w: 1920, h: 1040 };
+
+    #[test]
+    fn the_text_box_moves_off_the_card() {
+        // Over the card: under it for cards from the top, over it for cards from the bottom.
+        assert_eq!(clear_of(FHD, (700, 100), (512, 52), (80, 400), 8, true), (700, 408));
+        assert_eq!(clear_of(FHD, (700, 700), (512, 52), (600, 1000), 8, false), (700, 540));
+        // Already clear: left where it was.
+        assert_eq!(clear_of(FHD, (700, 500), (512, 52), (80, 400), 8, true), (700, 500));
+        // No room under a card that fills the bottom: over it instead.
+        assert_eq!(clear_of(FHD, (700, 900), (512, 52), (600, 1030), 8, true), (700, 540));
+    }
     const CHIP: (i32, i32) = (300, 44);
     const READER: (i32, i32) = (560, 600);
 

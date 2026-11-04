@@ -108,6 +108,13 @@ Audit B-05 (the first request after start is 8–25 s slower) is worth fixing du
 - Saved recordings: keep **7 days**, and only if they serve a purpose. That's the recordings loop task.
 - B-01 reads: allowed without a card in the working folders, Documents and Downloads.
 - Confirming a reversible change (2026-11-04): Swift's own "Turn off Wi-Fi?" is a card with Yes and No; a plain spoken "yes" or a click does it, typing doesn't. Emails, calendar changes and anything that can't be undone still need "Swift, yes" or a click on Approve. Confirmations aren't read aloud (`speech.read_confirms: false`). Owner checks 128–131.
+- Offline and the checks of 2026-11-04 evening (owner checks 132–138):
+  - Offline, an agent request is answered at once with what still works (`swift/network.py`), and "what can I do when the Wi-Fi is off" is answered locally. "Turn it back on" follows the last Wi-Fi, Bluetooth or airplane switch.
+  - Contact matches are narrowed by the whole name and the owner's own words (`workflows/names.py`).
+  - A brief "no"/"stop" said over Swift's voice is kept when a card or question waits.
+  - Cards scroll instead of being cut off.
+  - The text box opens clear of the card, and one failed window no longer turns pane windows off.
+  - Still open: when Swift speaks and how much; echo cancellation; local models for offline questions; a simpler way to type than the hotkey; the Watch window shrinking (#10); a held card not coming back on screen (#14).
 
 **Running on a default** (change any time):
 

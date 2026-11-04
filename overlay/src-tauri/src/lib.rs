@@ -394,7 +394,9 @@ fn area_at(window: &WebviewWindow, point: Option<(i32, i32)>) -> Option<(placeme
 /// among panes of its kind, size in CSS px until it measures itself (`fit_pane`). Already open:
 /// left where it is, so nothing moves under the owner's eyes.
 #[tauri::command]
-async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f64, h: f64) -> Result<(), String> {
+async fn open_pane(
+    app: AppHandle, label: String, kind: String, index: u32, w: f64, h: f64, card: Option<(f64, f64)>,
+) -> Result<(), String> {
     let kind = PaneKind::from_id(&kind).ok_or("unknown pane kind")?;
     if !label.starts_with("pane-") || !label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
         return Err("bad pane label".into());
@@ -421,6 +423,16 @@ async fn open_pane(app: AppHandle, label: String, kind: String, index: u32, w: f
         None => panes::default_origin(area, scale, anchor, kind, index, size),
     };
     let typing = kind == PaneKind::Type;
+    // The text box never opens over the card on screen (`card`: its top and bottom in the overlay, CSS px).
+    let (x, y) = match (typing, card, main.inner_position()) {
+        (true, Some((top, bottom)), Ok(at)) => {
+            let s = main.scale_factor().unwrap_or(scale);
+            let span = (at.y + (top * s).round() as i32, at.y + (bottom * s).round() as i32);
+            let below = app.state::<Placement>().0.lock().unwrap().current.is_top();
+            panes::clear_of(area, (x, y), size, span, (panes::GAP * scale).round() as i32, below)
+        }
+        _ => (x, y),
+    };
     // Created shown and unfocused (tao shows it with SW_SHOWNOACTIVATE), as the main window;
     // the text box is created focused, since typing is what it's for.
     let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App("index.html".into()))

@@ -238,3 +238,42 @@ async def test_a_follow_up_continues_the_thread_and_a_new_request_starts_one() -
     assert [r["thread"] for r in records] == [first, first, new]
     # Every run message of a request carries its thread.
     assert all(m.data.get("thread_id") for m in out.messages if m.type in ("state", "result"))
+
+
+# ---- said over Swift's own voice (owner checks 2026-11-04, 7) ----------------------------------
+
+
+def _talking(session: Session, said: str) -> Any:
+    from swift.speech import FakeSpeaker
+
+    speaker = FakeSpeaker()
+    session.speaker, speaker.on_done = speaker, session.speech_done
+    speaker.speak(said)
+    session._said_aloud = said
+    return speaker
+
+
+async def test_a_no_said_while_swift_talks_still_rejects_the_card() -> None:
+    session, out, records, stt = make()
+    await until_confirm(session, out)
+    speaker = _talking(session, "Here's the event for Thursday at three.")
+    await say(session, stt, "No.")
+    await finish(session)
+    assert out.last("result")["status"] == "rejected"
+    assert session.wake_stats["over_speech"] == 1 and not speaker.speaking  # Swift stops talking
+
+
+async def test_swifts_own_words_heard_back_are_not_the_owner() -> None:
+    session, out, records, stt = make()
+    await until_confirm(session, out)
+    _talking(session, "No answer, so I've left it as it is.")
+    await say(session, stt, "No.")  # Swift's own "No" through the microphone
+    assert session.state == "confirm" and session.wake_stats["own_voice"] == 1
+
+
+async def test_a_yes_said_while_swift_talks_is_never_taken() -> None:
+    session, out, records, stt = make()
+    await until_confirm(session, out)
+    _talking(session, "Here's the event for Thursday at three.")
+    await say(session, stt, "Swift, approve.")
+    assert session.state == "confirm" and session.wake_stats["own_voice"] == 1

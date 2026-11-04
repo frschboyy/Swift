@@ -139,14 +139,32 @@ test("windows Swift doesn't want are strays to close, but not while a sync is op
   assert.deepEqual(sync.strays(["pane-run-b", "pane-run-old"]), ["pane-run-old"]);
 });
 
-test("a window that can't open: no pane windows, and the caller is told", async () => {
+test("a shell without pane windows: none, and the caller is told", async () => {
   let told = 0;
   const p = onRuns(initial, "a", [row("b")], 0);
-  const sync = new PaneSync({ open: () => Promise.reject(new Error("no")), close: () => {}, send: () => {} }, () => wantedPanes(p, null, label), () => told++);
+  const fail = () => Promise.reject(new Error("dev shim: unhandled command open_pane"));
+  const sync = new PaneSync({ open: fail, close: () => {}, send: () => {} }, () => wantedPanes(p, null, label), () => told++);
   await sync.sync();
   assert.equal(sync.available, false);
   assert.equal(told, 1);
   assert.equal(sync.shown.size, 0);
+});
+
+test("a window that can't open just now: pane windows stay on, and it opens on the next change (16b)", async () => {
+  let told = 0;
+  let opened = 0;
+  let fail = true;
+  const p = onRuns(initial, "a", [row("b")], 0);
+  const open = () => (fail ? Promise.reject(new Error("no monitor")) : Promise.resolve(void opened++));
+  const sync = new PaneSync({ open, close: () => {}, send: () => {} }, () => wantedPanes(p, null, label), () => told++);
+  await sync.sync();
+  assert.equal(sync.available, true);
+  assert.equal(told, 0);
+  assert.equal(sync.shown.size, 0);
+  fail = false;
+  await sync.sync();
+  assert.equal(opened, 1);
+  assert.equal(sync.shown.size, 1);
 });
 
 // ---- bug 4: a request said beside another shows at once --------------------------------------

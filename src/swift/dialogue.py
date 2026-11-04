@@ -453,6 +453,12 @@ _UP = re.compile(r"^(?:and |a (?:bit|little|touch) |bit |little |slightly |even 
                  r"turn it up|make it (?:louder|brighter|higher)|(?:a )?(?:bit|little) (?:more|louder|higher|brighter))$")
 _DOWN = re.compile(r"^(?:and |a (?:bit|little|touch) |bit |little |slightly |even )?(?:less|quieter|softer|lower|down|dimmer|darker|"
                    r"turn it down|make it (?:quieter|softer|lower|dimmer|darker)|(?:a )?(?:bit|little) (?:less|quieter|lower|dimmer))$")
+# "Turn it back on" after Wi-Fi, Bluetooth or airplane mode was switched (owner checks 2026-11-04:
+# with Wi-Fi off it went to the agent, which can't work offline). "Put it back": the other way.
+_SWITCH = re.compile(r"^(?:no |actually |ok |okay |and |now |please )*(?:(?:turn|switch|flip|put) (?:it|that|them) "
+                     r"(?:back )?(?P<a>on|off)|(?:turn|switch|flip) (?:back )?(?P<b>on|off) (?:it|that|them)|back (?P<c>on|off)"
+                     r"|(?P<d>on|off) again|(?P<back>put (?:it|that|them) back|change (?:it|that) back|switch (?:it|that) back))"
+                     r"(?: again| now| please)*$")
 _BY = re.compile(r"^(?:and |another |(?:and )?another )?(?P<n>\d{1,3})(?: percent| %|%)? (?P<dir>more|less|up|down|higher|lower)$")
 _TO = re.compile(r"^(?:no |actually |nope )?(?:make it|make that|set it to|change it to|to|put it (?:at|on)|let'?s say|"
                  r"no make it|actually make it)? ?(?P<rest>.+)$")
@@ -485,6 +491,12 @@ def elide(text: str, before: tuple[it.Intent, ...]) -> tuple[list[it.Intent], bo
             if 0 <= level <= 100:
                 return [it.Intent(f"{family}.set", {"level": level})], False
         return None
+    if last.name in ("radio", "airplane"):
+        if (s := _SWITCH.match(t)) is None:
+            return None
+        said = s.group("a") or s.group("b") or s.group("c") or s.group("d")
+        on = (said == "on") if said else not last["on"]
+        return [it.Intent(i.name, {**i.slots, "on": on}) for i in before if i.name in ("radio", "airplane")], False
     if last.name not in ("timer.set", "alarm.set", "reminder.set"):
         return None
     m = re.match(r"^(?:no |nope |actually |sorry |wait )*(?:make (?:it|that)|change (?:it|that) to|set (?:it|that) (?:to|for)|"

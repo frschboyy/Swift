@@ -79,6 +79,12 @@ CONTROL: dict[str, str] = {
 LOCAL: dict[str, str] = {
     "identity": r"who are you|what are you|what'?s your name|what is your name|who am i (talking|speaking) (to|with)"
     rf"|are you ({_AGENT}|swift)|is (this|that) ({_AGENT})",
+    # What still works without the internet (swift/network.py).
+    "offline_help": r"(?:what|which)(?: \w+){0,6} (?:do|use|say|ask|ask for|work|works|working|available|possible|handle)"
+    r"(?: \w+){0,2} (?:(?:if|when|while) (?:the |my |there'?s no |there is no )?(?:wi ?fi|internet|network|connection)"
+    r"(?: is| was| gets| goes| are)?(?: turned| switched)?(?: off| down| out| disconnected| gone)?"
+    r"|without (?:the |a |an |any )?(?:wi ?fi|internet|network|connection)|offline|with no (?:wi ?fi|internet|connection))"
+    r"|what (?:can|could) (?:you|i) do offline|what works offline",
     "time": r"what time is it( now)?|what'?s the time( now| right now)?|what is the time( now)?|tell me the time",
     "date": r"what'?s the date( today)?|what is the date( today)?|what'?s today'?s date|what is today'?s date"
     r"|what day is it( today)?|(which|what) day of the week is it( today)?|what'?s the day today",

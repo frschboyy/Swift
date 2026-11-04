@@ -58,6 +58,7 @@ from swift.connectors.base import (
     OutgoingEmail,
 )
 from swift.security.gateway import UNDO_WINDOW_S, Action, ActionGateway
+from swift.workflows import names
 from swift.workflows.scope import Asker, Confirmer, Draft, Grant, Liver, Publisher, RunScope, Stepper
 
 if TYPE_CHECKING:
@@ -162,11 +163,20 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
             found += await host.connector.directory(query)
         except ConnectorError as exc:
             problem = f"{exc} {exc.hint}".strip()
-    unique: dict[str, Contact] = {}
-    for contact in found:
-        if _EMAIL.match(contact.email):
-            unique.setdefault(contact.email.lower(), contact)
-    candidates = list(unique.values())
+    candidates = _unique(found)
+    guessed = False
+    if not candidates and host.connector is not None and 2 <= len(names.words(raw)) <= 4:
+        # Nobody by the whole name as heard ("Francis Chernu"): each name alone, then those close to all of it.
+        more: list[Contact] = []
+        for word in dict.fromkeys(w for w in names.words(raw) if len(w) > 2):
+            try:
+                more += await host.connector.directory(word)
+            except ConnectorError:
+                break
+        candidates = [c for c in names.by_query(raw, _unique(more), exact=False) if isinstance(c, Contact)]
+        guessed = bool(candidates)
+    # The ones the owner named ("Francis Chianu", not every Francis): by the whole name, then their words.
+    candidates = [c for c in names.narrow(raw, scope.said, candidates) if isinstance(c, Contact)]
     # Content-free: how many, and where from ("gmail_emailed": someone the owner has emailed).
     logger.info("contact lookup", found=len(candidates), sources=sorted({c.source for c in candidates}),
                 problem=bool(problem))
@@ -180,6 +190,9 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
     if not candidates:
         return ToolResult(False, f"No contact matches “{raw}”. {problem}".strip() +
                           " Don't guess an address: tell the owner who couldn't be found.", data, expected=not problem)
+    if guessed and len(candidates) == 1:
+        return ToolResult(True, f"No contact is named exactly “{raw}”; the closest is {_described(candidates[0])}. "
+                          "Ask the owner whether that's who they mean before using it.", data)
     if len(candidates) > 1 and (chosen := await _which(scope, raw, candidates)) is not None:
         if isinstance(chosen, ToolResult):
             return chosen
@@ -195,6 +208,15 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
                           "not clear, stop and ask the owner which one, naming each by email and the detail shown.",
                           data)
     return ToolResult(True, f"Found {_described(candidates[0])}.", data)
+
+
+def _unique(found: list[Contact]) -> list[Contact]:
+    """Each address once, and only real addresses."""
+    unique: dict[str, Contact] = {}
+    for contact in found:
+        if _EMAIL.match(contact.email):
+            unique.setdefault(contact.email.lower(), contact)
+    return list(unique.values())
 
 
 # At most this many matches are offered as a spoken choice; more and the provider narrows it down.

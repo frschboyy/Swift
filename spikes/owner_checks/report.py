@@ -194,6 +194,11 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     yes_clicked = [r for r in lane_yes if r.get("source") == "click"]
     yes_to_agent = [r for r in rows if r.get("source") == "answer" and r.get("provider") == "claude_code"
                     and re.match(r"\W*swift\W+yes\b", str(r.get("transcript") or "").lower())]
+    # Offline, contacts, said over Swift's voice (2026-11-04 evening, 132-138).
+    switched_back = [r for r in rows if r.get("action") == "system_carry" and "radio" in (r.get("intents") or [])]
+    offline = [r for r in rows if r.get("action") == "offline"]
+    offline_help = [r for r in rows if r.get("action") == "offline_help"]
+    over_speech = [line for line in log if "a refusal heard over Swift's voice" in line]
     # A Swift card that went unanswered while its request said "done": the A-08 vanishing card.
     vanished = [r for r in rows if r.get("status") == "done"
                 and any(a.get("by") == "swift" and a.get("decision") == "no_answer" for a in r.get("approvals", []))]
@@ -384,6 +389,14 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("129 a click on Yes did it", bool(yes_clicked), f"{len(yes_clicked)} time(s)"),
         ("130 'Swift, yes' reached the question, never the agent", not yes_to_agent,
          f"{len(yes_to_agent)} sent to the agent"),
+        # Offline, contacts, overlay, said over Swift's voice (2026-11-04 evening).
+        ("132 'turn it back on' done here", bool(switched_back), f"{len(switched_back)} time(s)"),
+        ("133 offline: answered at once, no agent", bool(offline), f"{len(offline)} time(s)"),
+        ("134 'what works offline' listed", bool(offline_help), f"{len(offline_help)} time(s)"),
+        ("135 the whole name kept one contact", True, "check on screen: no 'Which Francis' after 'Francis Chianu'"),
+        ("136 a 'no' said while Swift talked", bool(over_speech), f"{len(over_speech)} time(s)"),
+        ("137 a card taller than the window scrolled", True, "check on screen: a scrollbar, the buttons in sight"),
+        ("138 Change opened the text box beside the card", True, "check on screen"),
         # Sign-ins checked and offered again (swift/signin.py).
         ("120 sign-ins checked", bool(signin_checked),
          ", ".join(sorted({m.group(1) for line in signin_checked if (m := re.search(r"status='(\w+)'", line))}))

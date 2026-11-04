@@ -376,6 +376,11 @@ code {
 .card--in { opacity: 1; transform: none; pointer-events: auto; }
 .card--out { opacity: 0; transform: translateY(calc(var(--enter) * 0.6)) scale(0.98); transition-timing-function: var(--ease-exit); }
 .card-in { display: flex; flex-direction: column; min-height: 0; }
+/* Never cut off: a card taller than the window scrolls inside it, and its buttons stay in sight
+   (owner checks 2026-11-04: a list of answers and an email draft were cut, with nothing to scroll). */
+.card-in { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+.card-in > * { flex-shrink: 0; }
+.card-in > .card-foot, .card-in > .confirm-actions { position: sticky; bottom: 0; z-index: 1; background: var(--panel-solid); }
 .card--hover:not(.card--confirm):not(.card--question) { border-color: rgba(138, 180, 255, 0.35); }
 #stage[data-dragging="true"] .card { box-shadow: var(--shadow), 0 0 0 1px var(--accent-edge); }
 #stage[data-dragging="true"] .card [data-drag] { cursor: grabbing; }

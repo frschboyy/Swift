@@ -370,7 +370,10 @@ const paneSync = new Panes.PaneSync(
   {
     open: (spec) => {
       const { w, h } = Panes.paneSize(spec);
-      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h });
+      // The text box opens clear of the card on screen ("Change" on a confirm card, owner checks 2026-11-04).
+      const r = spec.kind === "type" && card.classList.contains("card--in") ? card.getBoundingClientRect() : null;
+      const at = r && r.height > 0 ? [r.top, r.bottom] : null;
+      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h, card: at });
     },
     close: (label) => void invoke("close_pane", { label }).catch(() => {}),
     send: (label, view) => sendPane(label, view),
@@ -800,6 +803,8 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   card.setAttribute("role", role);
   card.setAttribute("data-hit", "");
   card.replaceChildren(node, el("span", { class: "timebar", "aria-hidden": "true" }));
+  // Scrolling a card that didn't fit holds it, like scrolling a long answer.
+  node.addEventListener("scroll", () => noteScroll(), { passive: true });
   scheduleRegions();
 }
 

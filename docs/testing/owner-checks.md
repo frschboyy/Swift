@@ -261,6 +261,20 @@ About 5 minutes, with wake listening on. Swift's own question about a change you
 | 130 | "Hey Swift, turn off Bluetooth", then "**Swift, yes**" | "Bluetooth off." (on 2026-11-04 "Swift, yes" went to the agent and nothing happened) | 'Swift, yes' reached the question |
 | 131 | "Hey Swift, turn on airplane mode" and don't answer for 30 s | "**No answer, so I've left it as it is.**" on the card; it's in the stack if you want it | (seen on screen) |
 
+### Offline, contacts, cards that fit, a "no" over Swift's voice (2026-11-04, evening)
+
+About 10 minutes. Swift asks Windows whether the PC is online (no network call). Offline, a request that needs the agent is answered at once with what still works; quick commands go on as usual.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 132 | "Hey Swift, turn off the Wi-Fi", say "yes". Then, within a minute, "**turn it back on**" | "Wi-Fi on." within a second, **no** agent and no "Connection hiccup". (On 2026-11-04 it went to the agent and hung for 45 s) | 'Turn it back on' done here |
+| 133 | Turn the Wi-Fi off again. "Hey Swift, research the history of tea" | At once: "**I'm offline, so I can't do that until the internet is back.**" with the list of what still works. Then "turn on the Wi-Fi" | Offline: answered at once |
+| 134 | With Wi-Fi on or off: "Hey Swift, what can I do when the Wi-Fi is off?" | The same list, from Swift itself, every line readable (Read more shows the rest) | 'What works offline' listed |
+| 135 | "Hey Swift, draft an email to Francis Chianu about lunch" | **No** "Which Francis"; the draft is to Francis Chianu. A surname heard a little wrong ("Cianu") still finds him, and Swift checks it's who you meant | (seen on screen) |
+| 136 | Hold the hotkey: "set up a meeting with Test Me on Friday at four". While Swift is still talking, say "**no**" | Swift stops talking; "Not approved". (On 2026-11-04 the "no" was lost under Swift's voice) | A 'no' said while Swift talked |
+| 137 | Any long answer or a long email draft, on the main card | Nothing cut off: the card **scrolls**, and its buttons (Copy, Approve, Reject) stay in sight at the bottom | (seen on screen) |
+| 138 | On a calendar card, click **Change** | The text box opens **just under** (or over) the card, never behind it. Also: tray → **Type to Swift** opens it even after the screen was locked earlier | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

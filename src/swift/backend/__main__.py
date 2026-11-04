@@ -228,7 +228,14 @@ def _make_system(settings: Settings, session: Session) -> tuple[SystemLane, asyn
     scheduler = Scheduler(None if settings.debug else Path(settings.system.schedule_file))
     # The same journal as the gateway's: one place lists every change Swift made.
     journal = session.tools.gateway.journal if session.tools is not None else Journal(Path(settings.logging.journal))
-    lane = SystemLane(FakeSystem() if settings.debug else WindowsSystem(), scheduler, journal=journal)
+    control = FakeSystem() if settings.debug else WindowsSystem()
+    lane = SystemLane(control, scheduler, journal=journal)
+    if isinstance(control, FakeSystem):  # the harness: its pretend Wi-Fi off is offline
+        session.online = lambda: None if control.radio_state.get("wifi", True) else False
+    else:
+        from swift.network import online
+
+        session.online = online
     session.system_chime = settings.system.chime
     logger.info("system lane", pending=len(scheduler.items), device="fake" if settings.debug else "windows")
     return lane, asyncio.create_task(scheduler.run(session.notify_due), name="scheduler")

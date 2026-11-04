@@ -151,6 +151,7 @@ from swift.dialogue import Answer, Dialogue, Question, Turn, elide, reask_text
 from swift.dialogue import resolve as resolve_answer
 from swift.endpoint import EndOfTurn
 from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
+from swift.network import OFFLINE_HELP, OFFLINE_ITEMS, OFFLINE_NOT, OFFLINE_SAID
 from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
 from swift.executors.quick import QuickModel
@@ -203,6 +204,11 @@ DEMO_TRANSCRIPTS = {
 }
 
 MIN_SPEECH_S = 0.3
+# Said over Swift's own voice while a card or question waits: a brief refusal is still heard
+# (owner checks 2026-11-04, 7: "no" was lost under Swift talking). Never a yes: approving needs
+# words Swift could have said itself, and the microphone hears Swift too.
+OVER_SPEECH_MAX_S = 2.0
+OVER_SPEECH = re.compile(r"(?:swift,? )?(?:no|nope|no thanks|no thank you|reject(?: it| that)?|stop|cancel|don'?t)[.!]?")
 # After saying "No, I'm Swift" once, don't say it again for this long.
 CLARIFY_EVERY_S = 3600.0
 
@@ -823,6 +829,9 @@ class Session:
         self.speech_replies = "auto"
         # Confirm cards and "Turn off Wi-Fi?" read aloud (speech.read_confirms; off: owner, 2026-11-04).
         self.read_confirms = False
+        self._said_aloud = ""  # what Swift said last: a word of it heard back is Swift's own voice
+        # Whether the PC is online (swift/network.py): False answers an agent request here, at once.
+        self.online: Callable[[], bool | None] = lambda: None
         self._followup_question = False
         # What "show me" with no run going brings back: the last run with artifacts, or (when it
         # wrote in an app since) that app; the write it was set for (ADR-007 §10).
@@ -861,7 +870,7 @@ class Session:
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
              "stt_failed", "stt_timeout", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
              "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice",
-             "paused_drop", "answer", "short_answer", "held", "stitched"), 0,
+             "paused_drop", "answer", "short_answer", "held", "stitched", "over_speech"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -1760,10 +1769,14 @@ class Session:
             self.wake_stats["skipped_hearing"] += 1
             return
         started_at = ended_at - len(audio) / SAMPLE_RATE
+        over = False
         if self.speaker.recently(started_at):
             # Half-duplex (ADR-016 §4): while Swift talks, and just after, the microphone hears Swift.
-            self.wake_stats["own_voice"] += 1
-            return
+            # Except something brief while a card or question waits: it may be the owner's "no".
+            if len(audio) / SAMPLE_RATE > OVER_SPEECH_MAX_S or not self._awaiting_answer():
+                self.wake_stats["own_voice"] += 1
+                return
+            over = True
         if (self._front_busy() or self._capturing()) and not self._hands_free() and not self._can_queue(started_at):
             self.wake_stats["skipped_busy"] += 1
             return  # e.g. recording after the hotkey: its own words, not even worth transcribing
@@ -1808,9 +1821,30 @@ class Session:
             # microphone acts while locked (threat model T7; audit 2026-10, A-09).
             self.wake_stats["paused_drop"] += 1
             return
+        if over:
+            if not self._said_over_speech(heard.text):
+                self.wake_stats["own_voice"] += 1
+                return
+            self.wake_stats["over_speech"] += 1
+            logger.info("a refusal heard over Swift's voice")
+            self.speaker.stop()
+            short = False  # a word that matters, kept whole
         if not short and self._hold(heard, audio, ended_at, started_at, waited):
             return
         await self._hear_transcribed(heard, audio, ended_at, started_at, short)
+
+    def _awaiting_answer(self) -> bool:
+        """A confirm card or a question waits for the owner's answer."""
+        return bool(self._cards) or self.dialogue.pending is not None or (self._hands_free() and self.state == "confirm")
+
+    def _said_over_speech(self, text: str) -> bool:
+        """Whether ``text``, heard while Swift talked, is the owner refusing or stopping: one of those
+        words, and not one Swift was saying (then it's Swift's own voice through the microphone)."""
+        t = " ".join(text.lower().split()).strip(" ,.!?")
+        if not OVER_SPEECH.fullmatch(t):
+            return False
+        mine = set(re.findall(r"[a-z']+", self._said_aloud.lower()))
+        return not any(w in mine for w in re.findall(r"[a-z']+", t) if w != "swift")
 
     def _hold(self, heard: Transcription, audio: Any, ended_at: float, started_at: float, waited: float) -> bool:
         """An utterance that stops mid-thought ("remind me to call Sam and", "set a timer for twenty"),
@@ -2522,6 +2556,9 @@ class Session:
                         workflow = Match(package, "run")
                 if workflow is not None and workflow.package.demand and not decision.override:
                     decision = replace(decision, demand=workflow.package.demand)
+            if decision is not None and decision.route == "agent" and self.online() is False:
+                # No agent without the internet: say so now, and what still works (owner checks 2026-11-04).
+                decision = Route("local", decision.text, action="offline")
             if decision is not None:
                 record["route"] = decision.route
                 if decision.addressed_as:
@@ -2730,6 +2767,12 @@ class Session:
             said = found[0] if found is not None else "Sorry, I couldn't work that out."
             self._local_answer(record, decision.text, said, found[1] if found is not None else None)
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+            return
+        if action in ("offline", "offline_help"):
+            record["status"] = "done"
+            said = OFFLINE_SAID if action == "offline" else OFFLINE_HELP
+            details = {"kind": "list", "items": [*OFFLINE_ITEMS, OFFLINE_NOT]}
+            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
             return
         now = datetime.now()
         answers = {
@@ -3262,6 +3305,7 @@ class Session:
     def _speak(self, text: str) -> None:
         """Start saying ``text``; the overlay shows Swift speaking until it stops (``speech_done``)."""
         was = self.speaker.speaking
+        self._said_aloud = text
         self.speaker.speak(text)
         if self.speaker.speaking and not was:
             self._speech_news(True)

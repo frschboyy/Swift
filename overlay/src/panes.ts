@@ -212,6 +212,11 @@ export type PaneHost = {
  * exist yet; the window opened then and nothing closed it, so a chip outlived its request and
  * counted up for minutes (bug 1, 2026-10-27: "What time is it? Working on it 2:44"). Here a sync
  * asked for while one runs runs again right after it, and sees the window it just opened. */
+/** Whether ``err`` says this shell has no pane windows at all (the dev harness, an older shell). */
+export function noPaneWindows(err: unknown): boolean {
+  return /unhandled command|not found|unknown command|not allowed|isn't available/i.test(String(err));
+}
+
 export class PaneSync {
   /** What each open window shows. */
   readonly shown = new Map<string, PaneView>();
@@ -270,6 +275,14 @@ export class PaneSync {
       try {
         await this.host.open(spec);
       } catch (err) {
+        if (!noPaneWindows(err)) {
+          // One window that couldn't open now (no monitor under the cursor while locked, …): tried
+          // again on the next change. Turning pane windows off for good left the text box a
+          // browser prompt that never shows in the app (owner checks 2026-11-04, 16b).
+          this.shown.delete(spec.label);
+          console.warn("[overlay] a pane window didn't open:", err);
+          return;
+        }
         this.available = false;
         this.shown.clear();
         this.onUnavailable(err);

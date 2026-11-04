@@ -215,6 +215,34 @@ Presence already knows when the owner was away and for how long. On return after
 - Every memory has a source ("you said, 28 Oct", "you approved, 2 Nov") and a last-used date. "What do you know about me?", "forget that", "forget everything about Ada" work by voice and in settings.
 - Retention per kind: patterns decay, unfinished threads expire, preferences stay until changed.
 
+### 5.5 Keeping memory safe (added 2026-11-04)
+
+From Anthropic's talk "Context Engineering, Memory and Dreaming" (AI DevCon), which describes the problems memory systems hit in production. Swift has one owner, not a fleet, so only the parts below apply.
+
+- **Only the owner's words write memory.** A memory is written only from something the owner said or typed, or from a card the owner approved. Never from content a worker read: a web page, an email, a document or a tool result that says "remember …" is data. A worker may *propose* a memory; it shows as a card. This joins the product rules in `CLAUDE.md`: a path that breaks it is a critical bug, because an injected memory would steer every later run.
+- **One writer.** Only Swift's backend writes the memory store. Workers never get write access to it, the same as side effects go only through the gateway (§8.3 item 4). Each write checks the record's version first, so two requests ending at once can't overwrite each other: if the version changed, re-read and apply again.
+- **Versions.** Every change keeps the previous version, so a memory can be rolled back, and "undo that" works on "remember …" and "forget …" as it does on calendar changes. Each version records its source (said, approved, inferred), when, and the **run id** it came from (item 4), so "Why do you think that?" can point to the run.
+- **Kept apart by who may change them.** Preferences and facts change only by the owner. Patterns are written only by the review job (§5.6). Each run's working notes are its own and end with the run. Nothing a worker writes lands in the owner's preferences.
+- **Plain files.** One small markdown file per memory, with a one-line description at the top, in a folder under `%LOCALAPPDATA%\Swift`. The context pack matches on the descriptions first and loads a memory's body only when it fits, so the store can grow without every request carrying it all.
+
+### 5.6 The review job
+
+A second, separate process, done later instead of during a request: what the talk calls "dreaming". A request shouldn't spend its time curating memory, and it only sees itself; patterns show across runs.
+
+Swift already has one: Tray → **Improve speech recognition** (audit B-06). It reviews the saved clips, proposes word fixes on a card with the evidence, and the owner approves or rejects. Generalize it:
+
+- **When:** once a day while the owner is away, or on demand. Its proposals wait for the "while you were away" card (§5.3, item 8), and later the Swift window.
+- **Over:** the run records since the last review (item 4) and the memory store.
+- **Looks for:**
+  - the same correction made twice, e.g. "You've changed the sign-off twice. Always use 'Best, Francis'?" (§5.2);
+  - the same request repeated, e.g. "You asked for tech news three mornings this week. Every morning at 8?" (recipes, item 10);
+  - a lane, tool or workflow that keeps failing or is slow, as a line for the owner and for the next Claude Code session, never a change Swift makes to itself;
+  - memories unused for a long time: "Still true that your manager is Janet?", or offered for forgetting.
+- **Proposes, never applies.** Each proposal comes with its evidence: how many times, and links to the example runs. At most one suggestion a day (ADR-011 §8); "stop suggesting this" is permanent. Accepted proposals are written by the one writer, as "approved".
+- **Local and counts-based first,** like the usage report. Sending whole runs to a cloud model to review them is a privacy decision for the owner (like decisions 25 and 28) and isn't done without a yes.
+
+Not adopted from the talk: a provider-hosted memory service (Claude Managed Agents' memory and dreaming API). It would put the owner's memory with one provider, which fails the test in §2.3: swapping Claude Code for another agent must lose nothing.
+
 ## 6. Configuring Swift
 
 ### 6.1 Where settings live
@@ -279,7 +307,7 @@ Swift is the owner's own operator on their PC. It handles everyday requests inst
 | 2 | **Two weeks of daily use, with the metrics in §9** | The roadmap lacks its most important input | Owner time; a report script S |
 | 3 | Split `session.py`: run launching, follow-ups, workflows, local lanes into modules | Every later item edits it | M |
 | 4 | **Run records**: one append-only event log per run (steps, tool calls, approvals, artifacts, the worker and why), generalizing the journal | History, "Why?", recipes from runs, watchers and the Activity view all need it | M |
-| 5 | **Settings and memory store** with provenance (said, approved, inferred), plus "remember", "forget" and "what do you know about me" | Conversational settings, adaptation and the window all need it | M |
+| 5 | **Settings and memory store** with provenance (said, approved, inferred), versions and one writer (§5.5), plus "remember", "forget" and "what do you know about me" | Conversational settings, adaptation and the window all need it | M |
 | 6 | **`WorkerTask` contract** + context pack + a contract test against mock and Claude Code | Cheap now, expensive after a second worker | S–M |
 | 7 | ADR-014 L3, quiet modes and call detection | Before anything proactive | S |
 
@@ -298,7 +326,7 @@ Swift is the owner's own operator on their PC. It handles everyday requests inst
 
 - The cheap web lane, when watchers or daily use show it is in the way.
 - A second worker, when a task needs it (a local or cheap model for the light lane; an API research agent for watchers).
-- L1 suggestions from patterns, after a month of real data.
+- L1 suggestions from patterns, after a month of real data: the review job (§5.6) over run records, its first proposals on the "while you were away" card.
 - A Chrome extension for Gmail web, if daily use shows it.
 
 **Deferred or dropped:** screen vision (F, D4/D5), offline, voice ID, the phone companion, smart home, Apple Calendar, timer polish.
@@ -306,7 +334,7 @@ Swift is the owner's own operator on their PC. It handles everyday requests inst
 ### 8.3 Changes to make now, to avoid an expensive redesign later
 
 1. Run records as the single history (item 4); the interaction log becomes a view of it.
-2. Settings and memory in a Swift-owned store, separate from `config.yaml`, with provenance on every record (item 5).
+2. Settings and memory in a Swift-owned store, separate from `config.yaml`, with provenance on every record (item 5). Only the owner's words or an approved card write it, only Swift's backend writes it, and every change is versioned with the run it came from (§5.5).
 3. Executors take a `WorkerTask`; context is a structured pack built by Swift, not text prepended to the request (item 6).
 4. Every side effect only through Swift's gateway: worker-native write tools off, or intercepted, for any new provider.
 5. Autonomy as data: a per-action policy table (do, ask, never) that the gateway reads, instead of rules spread through code. The product rules stay hard-coded floors that no setting can lower.

@@ -26,7 +26,8 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
   - logs content-free (transcripts redacted), except the owner's local interaction log;
   - status labels generic (never "Claude Code is…");
   - audio never leaves the PC;
-  - Swift writes into apps only when the owner's own words asked.
+  - Swift writes into apps only when the owner's own words asked;
+  - memory is written only from the owner's words or an approved card, never from what a worker read.
 - **Code:**
   - `session.py` is large: add small modules with narrow interfaces.
   - No new dependencies without a clear need.

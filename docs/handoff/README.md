@@ -73,7 +73,7 @@ Adopted 2026-10-28 from [`docs/explorations/product-direction.md`](../exploratio
 3. **Groundwork**, while the owner uses Swift. No behaviour change the owner should notice:
    - split `session.py` (4,400 lines): run launching, follow-ups, workflows and the local lanes into their own modules;
    - **run records**: one append-only event log per run (steps, tool calls, approvals, artifacts, which worker and why), generalizing the action journal; the interaction log becomes a view of it;
-   - **a settings and memory store** owned by Swift, separate from `config.yaml` (which still wins), every record with its source (said, approved, inferred), plus "remember", "forget" and "what do you know about me";
+   - **a settings and memory store** owned by Swift, separate from `config.yaml` (which still wins), every record with its source (said, approved, inferred), plus "remember", "forget" and "what do you know about me". Keep it safe as in product-direction §5.5: only the owner's words or an approved card write memory, only Swift's backend writes it, every change versioned with its run. The review job that proposes patterns from run records is §5.6;
    - **a `WorkerTask` contract**: executors take the request, a context pack Swift builds, the grant, a budget and a privacy class; a contract test runs the same tasks on the mock and on Claude Code;
    - **ADR-014 L3:** quiet modes and call detection.
 

@@ -9,6 +9,7 @@ What is in it:
 - **waiting:** confirm cards in line behind the one on screen (ADR-013 §5.2);
 - **later:** a confirm card the owner skipped ("Later"): off screen, its countdown paused;
 - **held:** the card on screen while the owner is away (ADR-014 §4);
+- **due:** a timer, alarm or reminder that came due while something else is in front;
 - **parked:** conversations left unfinished: stopped, a card unanswered, or Swift's question
   left unanswered (swift/parked.py), including a question pushed off the screen by a card.
 
@@ -30,9 +31,9 @@ MAX_PARKED = 10
 
 @dataclass(frozen=True)
 class StackItem:
-    # "card:<request id>" or "parked:<thread>": what ``stack.action`` names.
+    # "card:<request id>", "parked:<thread>" or "due:<item id>": what ``stack.action`` names.
     id: str
-    # "waiting" | "later" | "held" | "parked"
+    # "waiting" | "later" | "held" | "parked" | "due"
     kind: str
     title: str
     # Why it waits: "waiting", "later", "held", or the parked reason ("stopped", "unanswered", "asked").
@@ -56,16 +57,20 @@ def parked_id(thread: str) -> str:
     return f"parked:{thread}"
 
 
+def due_id(item: int) -> str:
+    return f"due:{item}"
+
+
 def split_id(item_id: str) -> tuple[str, str] | None:
-    """("card", request id) or ("parked", thread); None for anything else."""
+    """("card", request id), ("parked", thread) or ("due", item id); None for anything else."""
     kind, sep, key = item_id.partition(":")
-    return (kind, key) if sep and key and kind in ("card", "parked") else None
+    return (kind, key) if sep and key and kind in ("card", "parked", "due") else None
 
 
 def order(items: list[StackItem], skipped: dict[str, float]) -> list[StackItem]:
     """Cards first (in the order they were asked), then conversations, newest first. Skipped
     items go last, in the order they were skipped. ``skipped``: item id -> when (any clock)."""
-    rank = {"held": 0, "waiting": 1, "later": 1, "parked": 2}
+    rank = {"due": 0, "held": 0, "waiting": 1, "later": 1, "parked": 2}
 
     def key(i: tuple[int, StackItem]) -> tuple[float, ...]:
         n, item = i

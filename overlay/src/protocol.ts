@@ -111,7 +111,7 @@ export type LiveData = { run_id: string } & (
 // card whose countdown ran out has reason "expired" (ADR-017).
 export type StackEntry = {
   id: string;
-  kind: "waiting" | "later" | "held" | "parked";
+  kind: "waiting" | "later" | "held" | "parked" | "due";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;

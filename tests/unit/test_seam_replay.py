@@ -305,5 +305,49 @@ async def test_one_request_is_one_record_however_many_turns() -> None:
     await say(session, stt, "yes")
     await until(lambda: records)
     assert records[0]["status"] == "done" and records[0]["confirmed"] is True and control.radio_state["wifi"] is False
+    await finish_all(session, agent)
+
+
+async def test_a_timer_during_a_run_waits_in_the_stack_and_is_never_refused() -> None:
+    session, out, agent, stt, _control, sched = _lane()
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    tea = _timer(session, sched)
+    await session.notify_due(tea, False)
+    await asyncio.sleep(0.1)
+    assert agree(session, out)["cardRun"] == rid
+    assert not any(m.type == "result" for m in out.messages), "sent to be refused"
+    assert [i["kind"] for i in out.last("stack")["items"]] == ["due"]
+    agent.runs[rid]["go"].set()
+    await finish_all(session, agent)
+    await until(lambda: _screen(out)["cardRun"].startswith("due-"), timeout=4.0)
+    agree(session, out)
+    assert out.last("stack")["items"] == []
+
+
+async def test_a_timer_cleared_from_the_stack_doesn_t_come_up_too() -> None:
+    session, out, agent, stt, _control, sched = _lane()
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    tea = _timer(session, sched)
+    await session.notify_due(tea, False)
+    await asyncio.sleep(0.05)
+    await session.handle(Message("stack.action", {"id": f"due:{tea.id}", "action": "open"}))
+    assert out.last("stack")["items"] == [] and not sched.items
+    agent.runs[rid]["go"].set()
+    await finish_all(session, agent)
+    await asyncio.sleep(1.2)
+    assert not any(m.type == "result" and m.data["run_id"].startswith("due-") for m in out.messages)
+
+
+async def test_skipping_a_waiting_timer_keeps_it() -> None:
+    session, out, agent, stt, _control, sched = _lane()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    tea = _timer(session, sched)
+    await session.notify_due(tea, False)
+    await asyncio.sleep(0.05)
+    await session.handle(Message("stack.action", {"id": f"due:{tea.id}", "action": "skip"}))
+    assert [i["id"] for i in out.last("stack")["items"]] == [f"due:{tea.id}"] and sched.items
     await finish_all(session, agent)
 

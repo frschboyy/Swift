@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import type { StackEntry } from "../src/protocol.ts";
-import { afterAction, collapse, countLine, expand, initialStack, itemIcon, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
+import { afterAction, openLabel, collapse, countLine, expand, initialStack, itemIcon, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
 
 const item = (id: string, kind: StackEntry["kind"] = "parked", reason = "stopped", since = 0): StackEntry =>
   ({ id, kind, title: `Title ${id}`, reason, since_ms: since, thread_id: null });
@@ -62,4 +62,11 @@ test("titles are passed whole: the view never cuts them (the owner's bug: trunca
   const long = { ...item("card:9", "later", "later"), title: "Add lunch with Test Person at the Italian place on Thursday at one" };
   const view = stackView(onStack(initialStack, [long], 0), 0)!;
   assert.equal(view.items[0].title, long.title);
+});
+
+test("a timer waiting in the stack has its own icon, line and Done", () => {
+  const due = item("due:7", "due", "due");
+  assert.equal(itemIcon(due), "bell");
+  assert.match(reasonLine(due, due.since_ms), /^Came due/);
+  assert.equal(openLabel(due), "Done");
 });

@@ -71,16 +71,19 @@ export function reasonLine(item: StackEntry, now: number): string {
       return `Unfinished · a card went unanswered · ${since}`;
     case "asked":
       return `Unanswered question · ${since}`;
+    case "due":
+      return `Came due · ${since}`;
     default:
       return since;
   }
 }
 
 /** Every row's first button: open it (a card comes back, a conversation goes on). */
-export const openLabel = (_item: StackEntry): string => "Open";
+export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "Done" : "Open");
 
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
-export function itemIcon(item: StackEntry): "shield" | "question" | "pause" {
+export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" {
+  if (item.kind === "due") return "bell";
   if (item.kind !== "parked") return "shield";
   return item.reason === "asked" ? "question" : "pause";
 }

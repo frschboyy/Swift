@@ -80,14 +80,13 @@ def test_check_123_sees_the_fields_the_audit_found_still_open() -> None:
     assert _find(_results([], [clean]), "123")[0] is report.PASS
 
 
-def _due_log(sent: int, drawn: int, again: int) -> list[str]:
-    return (["x | due sent | items=1"] * sent + ["x | due shown | items=1"] * drawn
-            + ["x | due card not drawn: kept for later | items=1"] * again)
+def _due_log(sent: int, drawn: int) -> list[str]:
+    return ["x | due sent | items=1"] * sent + ["x | due shown | items=1"] * drawn
 
 
 def test_check_149_fails_when_a_due_card_was_sent_and_not_drawn() -> None:
     """The timer loop of 2026-11-05 printed PASS: 8 sent, 1 drawn, 7 kept for later."""
-    assert _find(_results([], _due_log(8, 1, 7)), "149")[0] is report.FAIL
-    assert _find(_results([], _due_log(2, 1, 1)), "149")[0] is report.FAIL
-    assert _find(_results([], _due_log(1, 1, 0)), "149")[0] is report.PASS
+    assert _find(_results([], _due_log(8, 1)), "149")[0] is report.FAIL
+    assert _find(_results([], _due_log(2, 1)), "149")[0] is report.FAIL
+    assert _find(_results([], _due_log(1, 1)), "149")[0] is report.PASS
     assert _find(_results([], []), "149")[0] is report.NOT_SEEN

@@ -213,7 +213,6 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
     resynced_card = [line for line in resynced if "card=True" in line]
     due_sent = [line for line in log if "| due sent |" in line]
     due_drawn = [line for line in log if "| due shown |" in line]
-    due_again = [line for line in log if "| due card not drawn: kept for later |" in line]
     lost_mid_run = [line for line in log if "| internet lost during a request |" in line]
     stalled = [line for line in log if "| claude run stalled |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
@@ -471,7 +470,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         # Every card sent should be drawn: "kept for later" still means the overlay refused it (8 sent,
         # 1 drawn printed PASS while "Your timer is up" repeated, 2026-11-05).
         ("149 due cards drawn before leaving the schedule", unless(len(due_sent) > len(due_drawn), due_drawn),
-         f"{len(due_sent)} sent, {len(due_drawn)} drawn, {len(due_again)} not drawn and kept for later"),
+         f"{len(due_sent)} sent, {len(due_drawn)} drawn"),
         # Nothing waits for ever (seams audit S4).
         ("152 a quick command beside three requests", LOOK, "check on screen: done at once, not 'That's waiting'"),
         ("153 the internet went during a request", seen(lost_mid_run), f"{len(lost_mid_run)} time(s)"),

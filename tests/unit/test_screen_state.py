@@ -63,7 +63,7 @@ def test_a_request_with_two_cards_replays_the_one_on_screen() -> None:
     assert [m.data["request_id"] for m in run.replay() if m.type == "confirm.request"] == ["a-1:2"]
 
 
-async def test_a_due_card_not_drawn_goes_back_in_line_and_stays_in_the_schedule() -> None:
+async def test_a_due_card_sent_as_the_overlay_goes_is_shown_to_the_next_one() -> None:
     from test_hardening_2026_10 import _settle
     from test_system_lane import _session
 
@@ -76,11 +76,8 @@ async def test_a_due_card_not_drawn_goes_back_in_line_and_stays_in_the_schedule(
     await _settle()
     sent = [m.data["run_id"] for m in rec.messages if m.type == "result" and m.data["run_id"].startswith("due-")]
     assert len(sent) == 1 and [i.id for i in sched.items] == [tea.id]  # sent, not yet drawn: still in the file
-    session._open_confirm = lambda: "req-1"  # type: ignore[method-assign]  # now a card is in the way
-    session._due_not_drawn(sent[0])  # nothing drew it in time
-    await _settle()
+    session.overlay_gone()  # it went before drawing it
     assert [i.id for i, _, _ in session._due] == [tea.id] and [i.id for i in sched.items] == [tea.id]
-    session._open_confirm = lambda: None  # type: ignore[method-assign]
     await session._kick_due()
     await _settle()
     again = [m.data["run_id"] for m in rec.messages if m.type == "result" and m.data["run_id"].startswith("due-")]
@@ -110,24 +107,24 @@ async def test_a_lane_question_put_into_the_stack_ends_its_own_card() -> None:
     assert any(m.type == "ask" and m.data.get("ask_id") == card["ask_id"] and not m.data["open"] for m in out.messages)
 
 
-async def test_a_due_card_is_said_once_however_often_it_is_sent() -> None:
+async def test_a_due_item_is_said_once_when_it_comes_due_even_if_its_card_waits() -> None:
     from test_hardening_2026_10 import _settle
     from test_system_lane import _session
 
-    session, rec, _, _ = await _session()
+    session, _rec, _, _ = await _session()
     assert session.system is not None
     said: list[str] = []
     session._speak = lambda text, *a, **k: said.append(text)  # type: ignore[method-assign]
     session.speech_replies = "auto"
+    session._open_confirm = lambda: "req-1"  # type: ignore[method-assign]  # a card is in the way
     sched = session.system.scheduler
     tea = sched.add("timer", sched.clock(), "tea")
     sched.items[-1].fired = True
     await session.notify_due(tea, False)
+    await session.notify_due(tea, False)
     await _settle()
-    for _ in range(3):  # the overlay never draws it
-        run_id = next(iter(session._due_sent))
-        session._due_not_drawn(run_id)
-        await session._kick_due()
-        await _settle()
     assert len(said) == 1, said
-    assert session._due_tries, "each undrawn try is counted, so the next waits longer"
+    session._open_confirm = lambda: None  # type: ignore[method-assign]
+    await session._kick_due()
+    await _settle()
+    assert len(said) == 1, said

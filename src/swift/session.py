@@ -174,7 +174,7 @@ from swift.routing.rules import (
     strip_wake,
 )
 from swift.security.gateway import UNDO_WINDOW_S, Approved
-from swift.stack import MAX_PARKED, StackItem, card_id, parked_id, split_id
+from swift.stack import MAX_PARKED, StackItem, card_id, due_id, parked_id, split_id
 from swift.stack import order as stack_order
 from swift.stt.transcriber import (
     REJECT_P,
@@ -228,8 +228,6 @@ HELP_TEXT = (
 TAIL_S = 0.3
 # A request this soon after the previous Claude answer carries that exchange as context.
 FOLLOWUP_S = 300.0
-# A timer, alarm or reminder that comes due while a request is on screen waits this long for it to end.
-DUE_WAIT_S = 120.0
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
 # On Swift's own cards (an email, an event) anything else said is a change to make.
 CHANGE_HINT = "Say “approve”, “reject”, or what to change."
@@ -326,9 +324,6 @@ OFFLINE_RETRIES = 2
 # Failures that end a request through no fault of the request: it waits in the stack to pick up again.
 PARKED_FAILURES = frozenset({"timeout", "offline"})
 # How long a due card may take to be drawn before it goes back in line (``due.shown``, O-08).
-DUE_ACK_S = 10.0
-# The longest a due card not drawn waits before it is sent again.
-DUE_RETRY_MAX_S = 120.0
 # Wake listening never waits longer than this for one utterance's transcription.
 WAKE_STT_TIMEOUT_S = 20.0
 # A workflow offer waits this long for "yes" or "no".
@@ -758,10 +753,6 @@ class Session:
         self._rows_sent: dict[str, Any] | None = None
         # Due cards sent and not yet drawn (``due.shown``), by their card's run id (O-08).
         self._due_sent: dict[str, list[Any]] = {}
-        # Due items already said aloud (once each, however often the card is sent: 2026-11-05) and
-        # how many times each card went undrawn (its next try waits longer, never a tight loop).
-        self._due_said: set[str] = set()
-        self._due_tries: dict[str, int] = {}
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
         self._last_thread: str | None = None
         # After something that can't be undone: the follow-up offered, its thread, and when.
@@ -1301,6 +1292,9 @@ class Session:
     def _stack_items(self) -> list[StackItem]:
         """Everything waiting for the owner, in the order the stack shows it."""
         items: list[StackItem] = []
+        if self.system is not None:
+            items += [StackItem(due_id(item.id), "due", self.system.due_text(item, False), "due", int(item.due * 1000))
+                      for item, _, _ in self._due]
         shown = self._open_confirm()
         if shown is not None and self.attention is not None and self.attention.held:
             run = self._cards[0][0]
@@ -1337,6 +1331,10 @@ class Session:
             return
         kind, key = parts
         logger.info("stack action", kind=kind, action=action)
+        if kind == "due" and action != "skip":
+            self._due_cleared(key)
+            await self._send_stack()
+            return
         if action == "skip":
             self._stack_skipped[item_id] = clock.now()
             if kind == "card":
@@ -3394,18 +3392,19 @@ class Session:
             asyncio.get_running_loop().create_task(self._open_followup(question=self._followup_question))
 
     async def notify_due(self, item: Item, missed: bool) -> None:
-        """A timer, alarm or reminder came due (``Scheduler.run``): a sound now, and a card once the
-        owner can see it. It waits while the owner is away (locked, asleep, idle: ADR-014), while
-        no overlay is connected, while a card waits for an answer or the owner is speaking, and
-        while the request in front is going (at most ``DUE_WAIT_S``). Items due together share one
-        card, and each leaves the schedule only once shown (audit 2026-10, B-03). The sound still
-        plays at once, so an alarm rings."""
+        """A timer, alarm or reminder came due (``Scheduler.run``): a sound and its words now, once,
+        and a card as soon as nothing is in front of it. Until then it waits in the stack, where
+        the owner can see it and clear it: never sent to be refused (reliability review, item 8).
+        Items due together share one card, and each leaves the schedule only once shown (B-03).
+        Away, it waits for them to come back (ADR-014), and says nothing to an empty room."""
         assert self.system is not None
         logger.info("due", kind=item.kind, missed=missed, away=self._away)
         if self.system_chime:
             asyncio.create_task(self.system.control.chime(3 if item.kind != "reminder" else 2))  # noqa: RUF006
         if any(i.id == item.id for i, _, _ in self._due):
             return
+        if self.speech_replies != "never" and not self._away:
+            self._speak(spoken(self.system.due_text(item, missed)))  # nobody asked by voice, but it should be heard
         self._due.append((item, missed, self._away))
         await self._kick_due()
 
@@ -3422,25 +3421,25 @@ class Session:
         return "busy" if self._front_busy() else None
 
     async def _kick_due(self) -> None:
-        """Show what came due, now if nothing is in the way, else once it isn't."""
+        """Show what came due, now if nothing is in the way, else once it isn't (in the stack till then)."""
         if not self._due:
             return
         blocked = self._due_blocked()
         if blocked is None:
             await self._show_queued_due()
-        elif blocked not in ("away", "overlay") and (self._due_wait is None or self._due_wait.done()):
+            return
+        await self._send_stack()
+        if blocked not in ("away", "overlay") and (self._due_wait is None or self._due_wait.done()):
             # Coming back (``hold_cards``) and a new overlay (``ready``) kick again by themselves.
             self._due_wait = asyncio.create_task(self._wait_due())
 
     async def _wait_due(self) -> None:
-        waited = 0.0
         while self._due:
             await asyncio.sleep(1.0)
-            waited += 1.0
             blocked = self._due_blocked()
             if blocked in ("away", "overlay"):
                 return
-            if blocked is None or (blocked == "busy" and waited >= DUE_WAIT_S):
+            if blocked is None:
                 await self._show_queued_due()
                 return
 
@@ -3460,22 +3459,14 @@ class Session:
         else:
             text = " ".join(self.system.due_text(i, missed) for i, missed, _ in queued)
             run_id = f"due-{queued[0][0].kind}-{queued[-1][0].id}"
-        # Off the schedule only once the overlay says it drew it (``due.shown``); not drawn in time (a
-        # request in front, a reload), it goes back in line and is shown again (seams audit O-08).
+        # Off the schedule only once the overlay says it drew it (``due.shown``, O-08). If the overlay goes
+        # first, it's shown to the next one (``overlay_gone``).
         self._due_sent[run_id] = queued
+        await self._send_stack()
         await self._send_result(run_id, ExecResult("done", text))
+        logger.info("due sent", items=len(queued))
         if not self.overlay_connected():
-            self._due_sent.pop(run_id, None)
-            self._due = queued + self._due  # the overlay went as it was sent: show it to the next one
-            return
-        with contextlib.suppress(RuntimeError):
-            asyncio.get_running_loop().call_later(DUE_ACK_S, self._due_not_drawn, run_id)
-        logger.info("due sent", items=len(queued), tries=self._due_tries.get(run_id, 0))
-        fresh = [i for i, _, _ in queued if i.id not in self._due_said]
-        if fresh and self.speech_replies != "never" and not self._away:
-            # Said once: sent again (not drawn yet), it stays quiet (2026-11-05: "Your timer is up" on repeat).
-            self._due_said.update(i.id for i in fresh)
-            self._speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
+            self.overlay_gone()
 
     def _due_drawn(self, run_id: str) -> None:
         """The overlay drew the due card ``run_id``: its items leave the schedule (B-03, O-08)."""
@@ -3484,23 +3475,15 @@ class Session:
             return
         for item, _, _ in queued:
             self.system.scheduler.shown(item.id)
-            self._due_said.discard(item.id)
-        self._due_tries.pop(run_id, None)
         logger.info("due shown", items=len(queued))
 
-    def _due_not_drawn(self, run_id: str) -> None:
-        """No ``due.shown`` in time: back in line, shown again once nothing is in the way."""
-        queued = self._due_sent.pop(run_id, None)
-        if not queued:
-            return
-        tries = self._due_tries[run_id] = self._due_tries.get(run_id, 0) + 1
-        logger.info("due card not drawn: kept for later", items=len(queued), tries=tries)
-        self._due = queued + self._due
-        # Something on screen refused it: try again later, each time later (10 s, 20 s … 2 min), or at
-        # once when the overlay says what is on screen again (``ready``) or a request ends.
-        with contextlib.suppress(RuntimeError):
-            asyncio.get_running_loop().call_later(min(DUE_RETRY_MAX_S, DUE_ACK_S * 2 ** (tries - 1)),
-                                                  lambda: self._background(self._kick_due()))
+    def _due_cleared(self, key: str) -> None:
+        """Cleared from the stack: the owner has seen it, so it won't come up as a card too."""
+        kept = [entry for entry in self._due if str(entry[0].id) != key]
+        for item, _, _ in self._due:
+            if str(item.id) == key and self.system is not None:
+                self.system.scheduler.shown(item.id)
+        self._due = kept
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""
@@ -3992,6 +3975,10 @@ class Session:
         shown = self._open_confirm()
         if shown is not None and self.attention is not None:
             self.attention.set_seen(shown, False)
+        # A due card sent and not confirmed may never have been drawn: back in line for the next overlay.
+        sent, self._due_sent = self._due_sent, {}
+        for queued in sent.values():
+            self._due = queued + self._due
 
     async def _resync(self) -> None:
         """A new overlay (a reload, a restart, a reconnect) is told everything that is on screen: the rows,

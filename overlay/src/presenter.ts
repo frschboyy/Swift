@@ -113,6 +113,12 @@ export const initial: Presenter = {
 
 export const isActive = (p: Presenter): boolean => ACTIVE.has(p.card.kind);
 
+/** What the screen is doing, read from the card: nothing else may say so. A notice rests like a result. */
+export function stageOf(p: Presenter): UiState {
+  if (p.card.kind === "none") return "idle";
+  return p.card.kind === "notice" ? "result" : p.card.kind;
+}
+
 /** No confirm card waiting any more. */
 const noConfirm = { pendingConfirm: null, held: null, heldSince: null, confirmDeadline: 0, confirmLeft: null, confirmShownAt: 0 } as const;
 

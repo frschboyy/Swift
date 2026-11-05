@@ -2,6 +2,8 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
+import * as P from "../src/presenter.ts";
+
 import {
   confirmVisible, initial, isActive, onAnswer, onConfirm, onConfirmHold, onDismiss, onFollowup, onHold, onRuns, onState,
   promotion, seenCard, tick, visibleRows, violations, waitingSince, MAX_ROWS, RESUME_MS,
@@ -462,4 +464,36 @@ test("Approve ignores clicks for the first 400 ms, again after the card comes ba
 
 test("letting go of a held answer gives it 1.5 s (the design's resume)", () => {
   assert.equal(RESUME_MS, 1500);
+});
+
+// ---- one state (review 2026-11-05, M3) ---------------------------------------------------------
+
+test("the stage is the card: another request's result frame changes nothing", () => {
+  let p = P.onState(P.initial, "working", "a-1", "t1").p;
+  assert.equal(P.stageOf(p), "working");
+  p = P.onState(p, "result", "local-1", null).p;
+  assert.equal(P.stageOf(p), "working", "half-applied: the run's card would stop updating");
+});
+
+test("the stage follows an answer only when the answer is shown", () => {
+  let p = P.onState(P.initial, "working", "a-1", "t1").p;
+  const refused = P.onAnswer(p, { kind: "result", runId: "local-1", summary: "x", ms: null }, 0);
+  assert.equal(refused.shown, false);
+  assert.equal(P.stageOf(refused.p), "working");
+  p = P.onAnswer(p, { kind: "result", runId: "a-1", summary: "x", ms: null }, 0).p;
+  assert.equal(P.stageOf(p), "result");
+});
+
+test("an error for no request doesn't move a card waiting for an answer", () => {
+  let p = P.onState(P.initial, "confirm", "a-1", "t1").p;
+  p = P.onConfirm(p, "a-1:1", "a-1", 45, 0);
+  p = P.onState(p, "error", null, null).p;
+  p = P.onAnswer(p, { kind: "error", ms: 1000 }, 0).p;
+  assert.equal(P.stageOf(p), "confirm");
+});
+
+test("a notice rests like a result, and no card is idle", () => {
+  assert.equal(P.stageOf(P.initial), "idle");
+  const p = P.onAnswer(P.initial, { kind: "notice", ms: 1000 }, 0).p;
+  assert.equal(P.stageOf(p), "result");
 });

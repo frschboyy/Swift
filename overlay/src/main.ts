@@ -69,7 +69,9 @@ const capBtn = document.getElementById("cap-btn") as HTMLButtonElement;
 const capRing = capsuleEl.querySelector<HTMLElement>(".cap-ring")!;
 const orb = new Orb(capsuleEl);
 
-let state: UiState = "idle";
+/** The one state of the screen: what the presenter says is on it. Never kept apart from it, so a
+ * frame the presenter ignored can't change it (review 2026-11-05, M3). */
+const stageNow = (): UiState => P.stageOf(pres);
 let steps: string[] = [];
 let request = "";
 // The request was typed (the card's keyboard icon), not said.
@@ -189,8 +191,8 @@ const tail = (text: string, max = 60): string => (text.length <= max ? text : `�
 
 function drawCapsule(): void {
   const paused = C.pausedBy(presence);
-  const p = C.presence({ state, heard: H.heardVisible(heardNow, state, Date.now()), quiet: quietNow, speaking, paused });
-  const elapsed = state === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "";
+  const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused });
+  const elapsed = stageNow() === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "";
   const v = C.view(p, transcriptText, elapsed, paused);
   const was = capsuleEl.dataset.p;
   capsuleEl.dataset.p = p;
@@ -241,6 +243,7 @@ function resetRun(keepRequest: boolean): void {
 
 /** Debug builds: a broken presenter rule is reported with the messages that led to it. */
 function checkPresenter(): void {
+  syncStage();
   reportSeen();
   syncTypingNotice();
   if (!debugEnabled) return;
@@ -248,10 +251,19 @@ function checkPresenter(): void {
   if (broken.length) console.warn("[overlay] presenter rule broken:", broken, "after", recent.slice(-12));
 }
 
+/** The stage, Esc and the capsule follow the presenter, whatever changed it. */
+function syncStage(): void {
+  const now = stageNow();
+  if (stage.dataset.state === now) return;
+  stage.dataset.state = now;
+  void syncEscape();
+  drawCapsule();
+}
+
 /** The card's time bar and sticky state follow the presenter's deadline. */
 function showDeadline(): void {
   const fadeAt = pres.card.fadeAt;
-  card.classList.toggle("card--sticky", fadeAt === null && !ACTIVE.has(state));
+  card.classList.toggle("card--sticky", fadeAt === null && !ACTIVE.has(stageNow()));
   if (fadeAt !== null) card.style.setProperty("--fade-ms", `${Math.max(0, fadeAt - Date.now())}ms`);
   card.classList.toggle("card--paused", pres.pausedLeft !== null);
   // The confirm card's bar is its countdown, the question card's is in its pill: not this one.
@@ -587,7 +599,7 @@ function setLive(next: L.Live): void {
   const watched = (l: L.Live): boolean => !!pres.runId && !!L.find(l, pres.runId)?.open;
   const toggled = watched(next) !== watched(live);
   live = next;
-  if (toggled && state === "working") renderWorking();  // its Watch button comes and goes
+  if (toggled && stageNow() === "working") renderWorking();  // its Watch button comes and goes
   if (paneWindows) void syncPanes();
   else drawLiveInline();
 }
@@ -762,9 +774,11 @@ function setStage(next: UiState, runId: string | null = null, threadId: string |
   if (change.ignored) return;  // another request's news: its chip says it
   pres = change.p;
   checkPresenter();
-  state = next;
-  stage.dataset.state = next;
-  void syncEscape();
+  if (next === "result" || next === "error") {
+    // Only announces its answer, which sets the card (or is refused) when it comes.
+    if (!runId || runId === pres.card.runId) orb.stop();
+    return;
+  }
   if (ACTIVE.has(next)) card.classList.remove("card--sticky");
   // A new request, however it started (follow-up, correction, "hey Swift, X" in one breath).
   if (change.newRun && next !== "listening") resetRun(true);
@@ -791,14 +805,6 @@ function setStage(next: UiState, runId: string | null = null, threadId: string |
   drawCapsule();
 }
 
-/** A card the backend didn't ask for (connection, hotkeys, startup): at rest, like a result. */
-function rest(next: "result" | "error"): void {
-  state = next;
-  stage.dataset.state = next;
-  void syncEscape();
-  drawCapsule();
-}
-
 function showCard(node: HTMLElement, variant: string, role: "status" | "alert" = "status"): void {
   // A new card: whatever was opened with "Read more" is gone with the old one.
   if (expanded && !node.querySelector(".answer--open")) setExpanded(false);
@@ -820,7 +826,6 @@ function hideCard(): void {
     if (card.classList.contains("card--out")) {
       card.replaceChildren();
       card.className = "card";
-      stage.dataset.state = state === "result" || state === "error" ? "idle" : state;
       scheduleRegions();
     }
   }, 200);
@@ -855,7 +860,7 @@ function shrinkWorking(): void {
 }
 
 function renderWorking(): void {
-  if (Q.askVisible(asked, state, pres.focus)) {
+  if (Q.askVisible(asked, stageNow(), pres.focus)) {
     renderAsk(asked!);
     return;
   }
@@ -1028,7 +1033,6 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
 /** After the run: "show me" (or Show) on a result opens the artifact as its own card. */
 function renderArtifactCard(a: Artifact): void {
   if (!presentAnswer("result", A.readingMs(a.kind === "email_draft" ? a.data.body : a.title), a.run_id, pres.threadId ?? undefined)) return;
-  rest("result");
   showCard(
     el("div", { class: "card-in", onclick: dismissUnlessControl }, headRow(), el("p", { class: "answer-note" }, a.title), artifactView(a, 0, false)),
     "result",
@@ -1041,23 +1045,23 @@ function onArtifact(a: Artifact): void {
   if (known && known.version >= a.version) return; // late or repeated
   const first = artifacts.size === 0;
   artifacts.set(a.id, a);
-  if (state === "working" && (first || viewing === a.id)) renderWorking();
+  if (stageNow() === "working" && (first || viewing === a.id)) renderWorking();
 }
 
 function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
-  if (state === "confirm" && lastConfirm) {
+  if (stageNow() === "confirm" && lastConfirm) {
     // On the send card the draft is already there: "show me" opens all of it.
     fullDraft = v.open;
     renderConfirm(lastConfirm);
     return;
   }
-  if (state === "working") {
+  if (stageNow() === "working") {
     viewing = v.open ? v.artifact_id : undefined;
     renderWorking();
     return;
   }
   const a = v.artifact_id ? artifacts.get(v.artifact_id) : undefined;
-  if (v.open && a && (state === "result" || state === "error" || state === "idle")) renderArtifactCard(a);
+  if (v.open && a && (stageNow() === "result" || stageNow() === "error" || stageNow() === "idle")) renderArtifactCard(a);
   else if (!v.open && card.querySelector(".artifact")) setStage("idle");
 }
 
@@ -1076,7 +1080,7 @@ function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
   const before = pres.away;
   pres = P.onPresent(pres, p.state === "here", Date.now());
   checkPresenter();
-  if (before !== pres.away && state === "confirm" && lastConfirm) renderConfirm(lastConfirm);
+  if (before !== pres.away && stageNow() === "confirm" && lastConfirm) renderConfirm(lastConfirm);
   drawCapsule();
   refreshTray();
 }
@@ -1087,7 +1091,7 @@ function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void 
   // The presenter keeps the answer up at least as long as Swift listens for a reply.
   pres = P.onFollowup(pres, data.open, data.seconds, Date.now());
   showDeadline();
-  if (data.open && data.question && lastResult && (state === "result") && pres.card.runId === lastResult.run_id) {
+  if (data.open && data.question && lastResult && (stageNow() === "result") && pres.card.runId === lastResult.run_id) {
     // The answer asked something: it becomes Swift's question card.
     question = { data: lastResult, words: request, typed };
   }
@@ -1102,7 +1106,7 @@ function drawFollowup(left: number): void {
     return;
   }
   let line = card.querySelector<HTMLElement>(".followup");
-  if (left <= 0 || (state !== "result" && state !== "error")) {
+  if (left <= 0 || (stageNow() !== "result" && stageNow() !== "error")) {
     line?.remove();
     return;
   }
@@ -1120,8 +1124,8 @@ function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
   window.clearTimeout(runVoiceTimer);
   runVoice = v.phase === "idle" ? null : v;
   // A hint stays long enough to read, then the card goes back to normal.
-  if (v.phase === "hint") runVoiceTimer = window.setTimeout(() => { runVoice = null; if (state === "working") renderWorking(); }, 4000);
-  if (state === "working") renderWorking();
+  if (v.phase === "hint") runVoiceTimer = window.setTimeout(() => { runVoice = null; if (stageNow() === "working") renderWorking(); }, 4000);
+  if (stageNow() === "working") renderWorking();
 }
 
 function cancelRun(): void {
@@ -1246,7 +1250,7 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
   if (data.held) {
     card.classList.add("card--held");
   } else {
-    if (state !== "confirm") setStage("confirm");
+    if (stageNow() !== "confirm") setStage("confirm");
     renderConfirm(lastConfirm);  // the same card, with a fresh countdown and the "held" line
     // Locking the screen can leave the overlay hidden or behind other windows, and no hotkey
     // brought it forward this time (owner check 14, 2026-10-27).
@@ -1257,7 +1261,7 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
 
 /** After an answer: one line naming a conversation left unfinished. */
 function onResumeOffer(data: Extract<Inbound, { type: "resume.offer" }>["data"]): void {
-  if (state !== "result" && state !== "error") return;
+  if (stageNow() !== "result" && stageNow() !== "error") return;
   card.querySelector(".resume")?.remove();
   const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("pause"), `Unfinished: ${data.title}. It's with what needs you.`);
   const foot = card.querySelector(".card-foot");
@@ -1274,7 +1278,7 @@ function voiceHint(_data: unknown): (Node | string)[] {
 /** The band's countdown and the bar: running, or stopped while the owner is away. */
 function tickConfirm(): void {
   const node = card.querySelector<HTMLElement>(".band-time");
-  if (!node || state !== "confirm") return;
+  if (!node || stageNow() !== "confirm") return;
   const left = P.confirmLeftMs(pres, Date.now());
   const bar = card.querySelector<HTMLElement>(":scope > .timebar");
   if (!left) {
@@ -1302,7 +1306,7 @@ function tickConfirm(): void {
 // The owner is answering the confirm card by voice: show it on the card, not on the capsule.
 function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["data"]): void {
   const hint = card.querySelector<HTMLElement>(".voice-hint[data-request]");
-  if (state !== "confirm" || !hint || hint.dataset.request !== data.request_id) return;
+  if (stageNow() !== "confirm" || !hint || hint.dataset.request !== data.request_id) return;
   hint.dataset.phase = data.phase;
   if (data.phase === "listening") hint.replaceChildren(icon("mic"), "Listening…");
   else if (data.phase === "transcribing") hint.textContent = "Transcribing…";
@@ -1482,7 +1486,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
 /** Swift's question (ADR-017): asking while it speaks, then waiting for the answer for the
  * backend's whole reply window. Never "Done"; unanswered, the backend puts it in the stack. */
 function renderQuestion(): void {
-  if (!question || state !== "result") return;
+  if (!question || stageNow() !== "result") return;
   const q = question;
   const thread = q.data.thread_id ?? pres.threadId;
   const left = pres.followupUntil ? Math.max(0, pres.followupUntil - Date.now()) : 0;
@@ -1569,7 +1573,7 @@ function renderAsk(a: Q.Ask): void {
 
 function onAskMessage(data: Q.AskData): void {
   asked = Q.onAsk(asked, data, Date.now());
-  if (state === "working") renderWorking();
+  if (stageNow() === "working") renderWorking();
 }
 
 /** A timer, alarm or reminder came due: it stays until Done (ADR-017). */
@@ -1617,13 +1621,11 @@ function dismissUnlessControl(ev: Event): void {
 // Shown when Swift is launched again while already running (single-instance plugin).
 function renderAlreadyRunning(): void {
   if (!presentAnswer("notice", READY_FADE_MS + 1500)) return; // never over a request
-  rest("result");
   renderNotice("ok", "Swift is already running", el("span", {}, "Hold ", pttKeys(), " and speak. Its icon is in the system tray."));
 }
 
 function renderReady(): void {
   if (card.classList.contains("card--in") || !presentAnswer("notice", READY_FADE_MS)) return;
-  rest("result");
   renderNotice("ok", "Swift is ready", el("span", {}, "Hold ", pttKeys(), " and speak."));
 }
 
@@ -1660,7 +1662,6 @@ type Problem = {
 function renderProblem(p: Problem): void {
   const info = p.severity === "info";
   if (!presentAnswer("error", p.sticky ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
-  rest("error");
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
   const toggle = detail
@@ -1801,7 +1802,7 @@ function setHover(inside: boolean): void {
   if (inside) lastLookAt = Date.now();
   if (inside && quiet) {
     quiet = false;
-    if (state === "working") renderWorking();
+    if (stageNow() === "working") renderWorking();
   }
   setHold();
 }
@@ -1875,7 +1876,7 @@ function setAnchor(anchor: string): void {
 let sweepTick = 0;
 
 window.setInterval(() => {
-  if (state === "working") {
+  if (stageNow() === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
     if (isStalled(Date.now()) !== !!card.querySelector(".note")) renderWorking();
@@ -1885,7 +1886,7 @@ window.setInterval(() => {
       renderWorking();
     }
     drawCapsule();
-  } else if (state === "confirm") tickConfirm();
+  } else if (stageNow() === "confirm") tickConfirm();
   if (pres.rows.length && !paneWindows) drawRows();  // their elapsed time (pane windows keep their own)
   else if (acks.length || !gotitEl.hidden) drawGotIt();  // "Got it" goes after 2.5 s
   // Young requests get their chip, the stack's glow fades: both are in what's wanted.
@@ -1913,7 +1914,7 @@ function liveHovered(): Set<string> {
 // ---- Esc: only grabbed while Swift is active, speaking, or the stack is open -----------
 
 async function syncEscape(): Promise<void> {
-  const want = (ACTIVE.has(state) || speaking || stack.expanded) && !typing;
+  const want = (ACTIVE.has(stageNow()) || speaking || stack.expanded) && !typing;
   if (want === escapeActive) return;
   escapeActive = want;
   try {
@@ -1926,7 +1927,7 @@ async function syncEscape(): Promise<void> {
 /** Esc: Swift stops talking first, then the request stops, then the open stack folds up. */
 function onEscape(): void {
   if (speaking) stopSpeaking();
-  else if (ACTIVE.has(state)) client.send({ type: "cancel", data: {} });
+  else if (ACTIVE.has(stageNow())) client.send({ type: "cancel", data: {} });
   else if (stack.expanded) collapseStack();
 }
 
@@ -1967,7 +1968,7 @@ function onMessage(msg: Inbound): void {
       lastStepAt = Date.now();
       quiet = false;
       current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false, app: msg.data.app };
-      if (state === "working") renderWorking();
+      if (stageNow() === "working") renderWorking();
       break;
     case "confirm.request":
       pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id, msg.data.timeout_s ?? 0, Date.now());
@@ -2044,7 +2045,7 @@ function onSpeech(now: boolean): void {
   drawCapsule();
   void syncEscape();
   if (question) renderQuestion();
-  if (asked && state === "working") renderWorking();
+  if (asked && stageNow() === "working") renderWorking();
 }
 
 /** Swift heard its name or the hotkey: the capsule says so at once, before any transcription. */
@@ -2060,7 +2061,7 @@ function onHeard(data: Extract<Inbound, { type: "heard" }>["data"]): void {
 
 /** While listening: flag a mic that hears nothing for 4 s, so silence isn't mistaken for "Swift is broken". */
 function noteLevel(rms: number): void {
-  if (state !== "listening") return;
+  if (stageNow() !== "listening") return;
   loudest = Math.max(loudest, rms);
   const quietThen = rms < C.QUIET_LEVEL && loudest < C.QUIET_LEVEL && performance.now() - listenStarted > C.QUIET_MS;
   const next = rms >= C.QUIET_LEVEL ? false : quietThen || quietNow;
@@ -2087,7 +2088,7 @@ function onStatus(status: ConnectionStatus): void {
   if (status.phase === "failed") {
     // Reported once; the retries behind it stay quiet until something changes.
     if (was !== "failed") renderConnection(false);
-  } else if (status.phase === "lost" && ACTIVE.has(state)) {
+  } else if (status.phase === "lost" && ACTIVE.has(stageNow())) {
     // The run it was doing is gone with the connection.
     orb.stop();
     speaking = false;
@@ -2150,7 +2151,7 @@ function forgetBackend(): void {
 void listen<{ name: string; state: "down" | "up" }>("hotkey", ({ payload }) => {
   if (payload.name === "escape" && payload.state === "down") {
     onEscape();
-  } else if (payload.name === "debug" && payload.state === "down" && debugEnabled && !ACTIVE.has(state)) {
+  } else if (payload.name === "debug" && payload.state === "down" && debugEnabled && !ACTIVE.has(stageNow())) {
     // Ignored while busy (the backend would ignore it too), so the cycle doesn't skip a scenario.
     const scenario: Scenario = SCENARIOS[scenarioIndex++ % SCENARIOS.length];
     client.send({ type: "debug.run", data: { scenario } });

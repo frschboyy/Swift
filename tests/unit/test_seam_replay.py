@@ -1,0 +1,284 @@
+"""The seam between the backend and the overlay (reliability review, item 6). The real ``Session`` runs a
+scenario against fake devices and a fake agent; its frames go through the real presenter
+(``overlay/tests/seam/replay.ts``, under Node); then both sides must agree on what is on screen. Every
+one of the bugs in the review's scenarios passed the whole suite, because each side's tests used a fake
+of the other. Nothing real is switched.
+
+Not covered: the DOM (what's drawn from this state), and a one-way replay can't see the overlay's replies.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any
+
+import pytest
+from test_dialogue import asker, asks
+from test_runs import finish_all, say, started, until
+from test_system_lane import lane
+
+from swift.executors.base import ExecEvent
+from swift.ipc.protocol import Message
+from swift.parked import ParkedThreads
+
+REPLAY = Path(__file__).resolve().parents[2] / "overlay" / "tests" / "seam" / "replay.ts"
+NODE = shutil.which("node")
+
+
+def _screen(out: Any) -> dict[str, Any]:
+    assert NODE, "the seam test needs Node (the overlay's own tests do too)"
+    frames = [{"type": m.type, "data": m.data} for m in out.messages if m.type != "level"]
+    done = subprocess.run([NODE, str(REPLAY)], input=json.dumps(frames, default=str), capture_output=True,
+                          text=True, encoding="utf-8", timeout=30, check=False)
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
+def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str, Any]:
+    """What must hold whatever happened: both sides agree on the screen, and nothing is lost in silence."""
+    screen = _screen(out)
+    assert not screen["broken"], screen["broken"]
+    lost = [line for line in screen["lost"] if not any(word in line for word in may_lose)]
+    assert not lost, f"answers nobody saw: {lost}"
+    q = session.dialogue.pending
+    owners = {r.ui_id for r in session._live() if r.ui_id} | ({q.run_id} if q is not None and q.run_id else set())
+    if screen["stage"] in ("working", "confirm") and screen["cardRun"] is not None:
+        assert screen["cardRun"] in owners, f"a {screen['stage']} card with nothing behind it: {screen}, owners {owners}"
+    if screen["question"] is not None:
+        assert q is not None and q.text == screen["question"], f"a dead question on screen: {screen}"
+        assert session._on_screen(q), f"on screen, but the backend thinks not, so speech can't answer it: {screen}"
+    if q is not None and q.source == "lane" and q.run_id and q.window is not None and q.window.state == "listening":
+        assert (screen["question"] == q.text) == session._on_screen(q), (
+            f"the backend listens for what the owner can't see, or the reverse: {screen}")
+    assert screen["confirm"] == session._open_confirm(), f"card on screen and in the backend differ: {screen}"
+    return screen
+
+
+def _lane(seconds: float = 5.0) -> tuple[Any, Any, Any, Any, Any, Any]:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None), wake_question_s=seconds)
+    session.system, control, sched = lane()
+    return session, out, agent, stt, control, sched
+
+
+async def _wifi(session: Any, out: Any, stt: Any) -> None:
+    await say(session, stt, "Hey Swift, turn off the wifi")
+    await until(lambda: asks(out) and asks(out)[-1].get("open") and asks(out)[-1]["question"] == "Turn off Wi-Fi?")
+
+
+async def _beside(session: Any, out: Any, agent: Any, stt: Any, request: str = "Hey Swift, research the history of tea") -> str:
+    rid = await started(session, out, agent, stt, request)
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, turn off the wifi")
+    await until(lambda: any(a.get("open") and a.get("question") == "Turn off Wi-Fi?" for a in asks(out)))
+    await asyncio.sleep(0.05)
+    return rid
+
+
+async def _unsure(session: Any, stt: Any, text: str = "uh maybe do it") -> None:
+    stt.probs = dict.fromkeys(text.split(), 0.2)
+    await say(session, stt, text)
+    await asyncio.sleep(0.05)
+    stt.probs = None
+
+
+def _timer(session: Any, sched: Any) -> Any:
+    tea = sched.add("timer", sched.clock(), "tea")
+    sched.items[-1].fired = True
+    session._owner_here()
+    return tea
+
+
+# ---- the review's scenarios ----------------------------------------------------------------------
+
+
+async def test_a_unsure_answers_put_it_in_the_stack_and_a_timer_shows() -> None:
+    session, out, agent, stt, _control, sched = _lane(30.0)
+    await _wifi(session, out, stt)
+    agree(session, out)
+    for _ in range(3):
+        await _unsure(session, stt)
+    assert agree(session, out)["stage"] == "result"
+    await session.notify_due(_timer(session, sched), False)
+    await asyncio.sleep(0.1)
+    assert agree(session, out)["cardRun"].startswith("due-")
+    await finish_all(session, agent)
+
+
+async def test_b_the_question_runs_out_behind_a_run_that_goes_on() -> None:
+    session, out, agent, stt, _control, _sched = _lane(0.6)
+    rid = await _beside(session, out, agent, stt)
+    await session._bring(next(r for r in session._runs if r.alive))
+    await asyncio.sleep(0.8)
+    agent.runs[rid]["queue"].put_nowait(ExecEvent("step", "Reading more", activity="reading"))
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["stage"] == "working"
+    await finish_all(session, agent)
+
+
+async def test_c_the_screen_locks_during_a_question() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await session.hold_cards(True)
+    await asyncio.sleep(0.2)
+    agree(session, out)
+    await session.hold_cards(False)
+    await asyncio.sleep(0.2)
+    assert agree(session, out)["question"] is None
+    await finish_all(session, agent)
+
+
+async def test_d_a_quick_answer_during_a_question_is_seen() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await say(session, stt, "Hey Swift, what time is it")
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["question"] is None
+    await finish_all(session, agent)
+
+
+async def test_e_a_timer_after_that_answer_shows() -> None:
+    session, out, agent, stt, _control, sched = _lane()
+    await _wifi(session, out, stt)
+    await say(session, stt, "Hey Swift, what time is it")
+    await asyncio.sleep(0.15)
+    await session.notify_due(_timer(session, sched), False)
+    await asyncio.sleep(0.1)
+    assert agree(session, out)["cardRun"].startswith("due-")
+    await finish_all(session, agent)
+
+
+async def test_f_a_question_said_over_a_card_waits_for_the_card() -> None:
+    session, out, agent, stt, control, _sched = _lane()
+    rid = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    agent.runs[rid]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    await say(session, stt, "Swift, turn off the wifi")
+    await asyncio.sleep(0.15)
+    assert agree(session, out)["question"] is None
+    await say(session, stt, "yes")
+    await asyncio.sleep(0.2)
+    assert control.radio_state["wifi"] is True, "a yes for a question nobody could see"
+    await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"], "decision": "approve"}))
+    await asyncio.sleep(0.15)
+    assert agree(session, out)["question"] == "Turn off Wi-Fi?"
+    await finish_all(session, agent)
+
+
+async def test_g_a_request_brought_forward_hides_the_question() -> None:
+    session, out, agent, stt, control, _sched = _lane()
+    await _beside(session, out, agent, stt)
+    assert agree(session, out)["question"] == "Turn off Wi-Fi?"
+    await session._bring(next(r for r in session._runs if r.alive))
+    assert agree(session, out)["question"] is None
+    await say(session, stt, "yes")
+    await asyncio.sleep(0.2)
+    assert control.radio_state["wifi"] is True, "a yes for a question nobody could see"
+    await finish_all(session, agent)
+
+
+async def test_h_a_question_running_out_leaves_an_answer_being_read() -> None:
+    session, out, agent, stt, _control, _sched = _lane(0.8)
+    rid = await _beside(session, out, agent, stt)
+    await session._bring(next(r for r in session._runs if r.alive))
+    agent.runs[rid]["go"].set()
+    await asyncio.sleep(1.2)
+    assert agree(session, out)["cardRun"] == rid
+    assert "No answer" not in out.last("result")["summary"]
+    await finish_all(session, agent)
+
+
+# ---- what must keep working ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("answer", "off"), [("yes", True), ("no", False)])
+async def test_a_plain_answer_on_screen(answer: str, off: bool) -> None:
+    session, out, agent, stt, control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await until(lambda: session._listening_for() is not None)
+    agree(session, out)
+    await say(session, stt, answer)
+    await asyncio.sleep(0.2)
+    assert agree(session, out)["question"] is None
+    assert control.radio_state["wifi"] is (not off)
+    await finish_all(session, agent)
+
+
+async def test_running_out_at_rest_and_beside_a_run() -> None:
+    session, out, agent, stt, _control, _sched = _lane(0.2)
+    await _wifi(session, out, stt)
+    await asyncio.sleep(0.6)
+    assert "No answer" in out.last("result")["summary"] and agree(session, out)["stage"] == "result"
+    await finish_all(session, agent)
+    session, out, agent, stt, _control, _sched = _lane(0.3)
+    await _beside(session, out, agent, stt)
+    await asyncio.sleep(0.8)
+    agree(session, out)
+    await finish_all(session, agent)
+
+
+async def test_a_new_request_during_a_question_takes_the_card() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await say(session, stt, "Hey Swift, write a haiku about tea")
+    await asyncio.sleep(0.2)
+    assert agree(session, out)["stage"] == "working"
+    await finish_all(session, agent)
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["stage"] == "result"
+
+
+async def test_a_second_system_question_replaces_the_first() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await say(session, stt, "Hey Swift, turn off bluetooth")
+    await asyncio.sleep(0.2)
+    assert agree(session, out)["question"] == "Turn off Bluetooth?"
+    await finish_all(session, agent)
+
+
+async def test_a_run_s_own_question_survives_the_same_events() -> None:
+    session, out, agent, stt, _control, _sched = _lane(0.8)
+    await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    await asyncio.sleep(0.05)
+    agree(session, out)
+    await say(session, stt, "Hey Swift, what time is it")
+    await asyncio.sleep(0.2)
+    assert agree(session, out)["question"] is None  # the answer is in front, so "Paris" wouldn't answer it now
+    await asyncio.sleep(1.0)  # it runs out out of sight, and goes to the stack with its conversation
+    agree(session, out)
+    await finish_all(session, agent)
+
+
+async def test_a_timer_waits_for_a_question_on_screen() -> None:
+    session, out, agent, stt, _control, sched = _lane()
+    await _wifi(session, out, stt)
+    await until(lambda: session._listening_for() is not None)
+    await session.notify_due(_timer(session, sched), False)
+    await asyncio.sleep(0.1)
+    assert agree(session, out)["question"] == "Turn off Wi-Fi?", "the timer was sent over the question and refused"
+    await say(session, stt, "no")
+    await until(lambda: _screen(out)["cardRun"].startswith("due-"), timeout=4.0)
+    agree(session, out)
+    await finish_all(session, agent)
+
+
+async def test_a_run_s_question_comes_back_after_another_request_s_card() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    rid = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    agent.runs[rid]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    agree(session, out)
+    await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"], "decision": "approve"}))
+    await asyncio.sleep(0.2)
+    assert agree(session, out)["question"] == "Paris or Rome?"
+    await say(session, stt, "Paris")
+    await finish_all(session, agent)

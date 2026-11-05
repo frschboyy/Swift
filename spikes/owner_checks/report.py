@@ -448,6 +448,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("121-122 a sign-in offered on a card", bool(signin_offered),
          f"{len(signin_offered)} card(s), {len(signed_in)} signed in again"),
         ("123 swift.log kept your words out", unless(words_logged, log), f"{len(words_logged)} line(s) with words"),
+        # The seams audit's first fixes (2026-11-05).
+        ("139 a held 'Swift, approve and…' did nothing after a lock", unless(acted_away, locked and unlocked),
+         f"{wake_count('paused_drop')} dropped as the screen locked; check on screen: the card still waiting"),
     ]
 
 

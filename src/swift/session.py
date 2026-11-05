@@ -853,6 +853,9 @@ class Session:
         self._wake_warned = False
         # Screen locked or PC asleep (ADR-014): the open microphone is ignored (threat model T7).
         self.listening_paused = False
+        # The screen is locked, the PC asleep or listening paused from the tray, with wake listening on or
+        # off (``Lifecycle``): nothing heard acts, however late it arrives (seams audit T-07).
+        self.hands_free_blocked = False
         # Set when the owner comes back (``mark_return``): the first wake phrase after it logs how long it was.
         self._returned: tuple[str, float] | None = None
         # Called when an overlay says it's ready (the lifecycle announces presence then).
@@ -1833,6 +1836,22 @@ class Session:
             return
         await self._hear_transcribed(heard, audio, ended_at, started_at, short)
 
+    def _deaf(self) -> bool:
+        """Nothing heard may act now (threat model T7): checked where heard speech acts, not only where it
+        enters, since a held utterance or a recorded answer arrives after the lock (seams audit T-07)."""
+        return self.listening_paused or self.hands_free_blocked
+
+    def _drop_heard(self) -> None:
+        """The screen locked: forget what was heard and not yet acted on."""
+        if (held := self._held_utterance) is not None:
+            self._held_utterance = None
+            if held[3] is not None:
+                held[3].cancel()
+            self.wake_stats["paused_drop"] += 1
+        task, self._answer_task = self._answer_task, None
+        if task is not None and not task.done() and task is not asyncio.current_task():
+            task.cancel()
+
     def _awaiting_answer(self) -> bool:
         """A confirm card or a question waits for the owner's answer."""
         return bool(self._cards) or self.dialogue.pending is not None or (self._hands_free() and self.state == "confirm")
@@ -1868,6 +1887,9 @@ class Session:
         held = self._held_utterance
         if held is None:
             return
+        if self._deaf():
+            self._drop_heard()
+            return
         if self.in_speech() and held[2] < self.endpoint.cap_s + 6.0:
             self._held_utterance = (*held[:2], held[2] + 0.3, asyncio.get_running_loop().call_later(0.3, self._flush_held),
                                     *held[4:])
@@ -1880,6 +1902,9 @@ class Session:
         self, heard: Transcription, audio: Any, ended_at: float, started_at: float, short: bool,
     ) -> None:
         """``hear_wake`` once the utterance is transcribed (and whole)."""
+        if self._deaf():
+            self.wake_stats["paused_drop"] += 1  # locked while it was held (T-07)
+            return
         busy = self._front_busy() or self._capturing()
         if short:
             kept = self._short_kept(heard.text, busy)
@@ -2146,6 +2171,8 @@ class Session:
         or a bystander saying "yes" can never approve an action (threat model T2). The
         noisy-room double check still applies.
         """
+        if self._deaf():
+            return  # never an answer on a card while locked (T-07)
         text = (match.remainder if match else heard.text).strip()
         decision = route_midrun(text) if text else None
         open_request = self._open_confirm()
@@ -3160,7 +3187,7 @@ class Session:
                 self._released = None
         if self._answer_task is asyncio.current_task():
             self._answer_task = None
-        if said is None or self.dialogue.pending is not q:
+        if said is None or self.dialogue.pending is not q or self._deaf():
             return
         await self._hear_answer(q, said, heard=self._heard, named=match_address(said, self.wake_greetings) is not None)
 
@@ -3882,6 +3909,8 @@ class Session:
         """The owner left (hide open confirm cards, stop their countdown) or came back (show them again,
         and what came due meanwhile: ``notify_due``)."""
         self._away = held
+        if held and self._deaf():
+            self._drop_heard()  # locked, not merely idle: the owner may be talking hands-free while idle
         if held:
             self.dialogue.forget()  # nothing said before carries over to what is said after (§5.1)
             self._away_questions()

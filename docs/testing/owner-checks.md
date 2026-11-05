@@ -275,6 +275,15 @@ About 10 minutes. Swift asks Windows whether the PC is online (no network call).
 | 137 | Any long answer or a long email draft, on the main card | Nothing cut off: the card **scrolls**, and its buttons (Copy, Approve, Reject) stay in sight at the bottom | (seen on screen) |
 | 138 | On a calendar card, click **Change** | The text box opens **just under** (or over) the card, never behind it. Also: tray → **Type to Swift** opens it even after the screen was locked earlier | (seen on screen) |
 
+### The seams audit's first fixes (2026-11-05)
+
+About 3 minutes. Something you said just before locking used to act after the lock when it sounded unfinished (seams audit T-07).
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 139 | Open a calendar card ("Hey Swift, add lunch with Sam tomorrow at one"). Say "**Swift, approve and…**", stop, and press Win+L within a second. Unlock after 10 s | The card is **still waiting**: nothing was added. Then reject it | Nothing heard acted on after a lock (61) |
+| 140 | Run the report below | Each check says PASS, FAIL, NOT SEEN or LOOK, and the last line counts each. "Check on screen" lines say LOOK, never PASS | (the report itself) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

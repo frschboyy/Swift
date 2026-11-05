@@ -13,6 +13,7 @@ import time
 from typing import Any
 
 import numpy as np
+import pytest
 
 from swift.audio.recorder import SAMPLE_RATE
 from swift.executors.echo import EchoExecutor
@@ -277,3 +278,35 @@ async def test_a_yes_said_while_swift_talks_is_never_taken() -> None:
     _talking(session, "Here's the event for Thursday at three.")
     await say(session, stt, "Swift, approve.")
     assert session.state == "confirm" and session.wake_stats["own_voice"] == 1
+
+
+# ---- the lock (seams audit T-07) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("locked", [False, True])
+async def test_a_held_swift_approve_does_nothing_once_the_screen_locked(locked: bool) -> None:
+    """"Swift, approve and…" held for the rest of the sentence, then Win+L: when its timer fires, the card
+    is still waiting. The unlocked case is the control: the same held words approve."""
+    from swift.stt.transcriber import Transcription
+
+    session, out, records, stt = make()
+    await until_confirm(session, out)
+    now = time.monotonic()
+    heard = Transcription(text="Swift, approve.", stt_ms=10, audio_s=0.1)
+    session._held_utterance = (SHORT, now, 0.0, None, heard, now)
+    if locked:
+        session.listening_paused = session.hands_free_blocked = True  # Lifecycle.handle on the lock
+        await session.hold_cards(True)
+        assert session._held_utterance is None and session.wake_stats["paused_drop"] == 1
+        session._held_utterance = (SHORT, now, 0.0, None, heard, now)  # a timer that fired anyway
+    session._flush_held()
+    await asyncio.sleep(0.2)
+    if locked:
+        assert session.state == "confirm" and not any(a.get("decision") == "approve" for r in records
+                                                      for a in r.get("approvals", []))
+        session.listening_paused = session.hands_free_blocked = False
+        await session.hold_cards(False)
+        await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"],
+                                                       "decision": "reject"}))
+    await finish(session)
+    assert records[0]["approvals"][0]["decision"] == ("reject" if locked else "approve")

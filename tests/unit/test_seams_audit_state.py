@@ -236,12 +236,10 @@ async def test_s07_a_new_overlay_is_not_shown_the_card_the_backend_thinks_is_on_
         await finish(session)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-07: open finding; remove this marker with the fix")
-async def test_s08_an_utterance_held_mid_thought_still_starts_a_request_after_the_screen_locks() -> None:
-    """"Hey Swift, remind me to call Sam and" (held: more is coming), then Win+L. ``hear_wake`` refuses audio
-    while ``listening_paused``, but the held utterance's ``call_later(_flush_held)`` timer isn't cancelled on
-    lock and ``_hear_transcribed`` doesn't check ``listening_paused``: the request starts with the screen
-    locked (threat model T7: no hands-free listening while locked)."""
+async def test_s08_an_utterance_held_mid_thought_does_not_start_a_request_after_the_screen_locks() -> None:
+    """Fixed (T-07): "Hey Swift, remind me to call Sam and" (held: more is coming), then Win+L. The lock
+    drops the held utterance, and ``_flush_held`` / ``_hear_transcribed`` check ``_deaf()`` where heard
+    speech acts, so no request starts while locked (threat model T7)."""
     from test_dialogue import until as until_d
     from test_wake import make as make_wake
 

@@ -282,3 +282,28 @@ async def test_a_run_s_question_comes_back_after_another_request_s_card() -> Non
     assert agree(session, out)["question"] == "Paris or Rome?"
     await say(session, stt, "Paris")
     await finish_all(session, agent)
+
+
+async def test_stopping_during_swift_s_question_ends_it_all() -> None:
+    session, out, agent, stt, control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await session.handle(Message("cancel", {}))
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    assert screen["question"] is None and session.dialogue.pending is None and not session._live()
+    assert control.radio_state["wifi"] is True
+    await finish_all(session, agent)
+
+
+async def test_one_request_is_one_record_however_many_turns() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None), wake_question_s=5.0)
+    records = _records
+    session.system, control, _ = lane()
+    await _wifi(session, out, stt)
+    await until(lambda: session._listening_for() is not None)
+    assert not records, "it says done only when it is"
+    await say(session, stt, "yes")
+    await until(lambda: records)
+    assert records[0]["status"] == "done" and records[0]["confirmed"] is True and control.radio_state["wifi"] is False
+    await finish_all(session, agent)
+

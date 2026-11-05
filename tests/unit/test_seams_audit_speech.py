@@ -6,6 +6,8 @@ microphone, voice or device: the fakes, the system lane's FakeSystem, and the se
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import sys
 import time
@@ -35,10 +37,7 @@ async def _settle(session: Session) -> None:
     for _ in range(100):
         await asyncio.sleep(0)
         if session._task is not None and not session._task.done():
-            try:
-                await asyncio.wait_for(asyncio.shield(session._task), 2)
-            except asyncio.CancelledError:
-                pass
+            await settled(session)
         if not session._live():
             return
 
@@ -279,7 +278,9 @@ async def test_s14_a_question_behind_doesnt_cancel_the_timer_of_the_one_on_scree
     assert session.dialogue.ask(on_screen)
     session._question_timer(on_screen, 0.1)
     # "hey Swift, set a timer" meanwhile: "For how long?" is asked now, the run's question waits behind it.
-    lane_q = session._ask_lane("For how long?", "duration", "seconds", (), {"thread": "t2", "transcript": "set a timer"})
+    lane_q = Question("For how long?", "duration", source="run", own=True, future=asyncio.get_running_loop().create_future())
+    session._window(on_screen).pause()
+    session.dialogue.ask_first(lane_q)
     assert session.dialogue.pending is lane_q and session.dialogue.waiting == [on_screen]
     assert on_screen.window.timer is None  # stopped while it waits: one deadline at a time
     session._question_timer(lane_q, 0.1)

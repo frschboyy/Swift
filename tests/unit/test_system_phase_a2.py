@@ -79,10 +79,10 @@ async def test_do_not_disturb_opens_the_setting_honestly() -> None:
 async def test_the_session_asks_and_a_yes_does_it() -> None:
     session, rec, spy, records = await _session()
     await ask("turn off the wifi", session)
-    assert rec.last("ask")["question"] == "Turn off Wi-Fi?" and records[0]["asked"] is True
+    assert rec.last("ask")["question"] == "Turn off Wi-Fi?"
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
     await ask("yes", session)
-    assert rec.last("result")["summary"] == "Wi-Fi off." and records[1]["confirmed"] is True
+    assert rec.last("result")["summary"] == "Wi-Fi off." and records[0]["confirmed"] is True and records[0]["asked"] is True
     assert session.system.control.radio_state["wifi"] is False and spy.calls == []  # type: ignore[union-attr]
 
 
@@ -90,7 +90,7 @@ async def test_the_session_asks_and_a_no_leaves_it() -> None:
     session, rec, _, records = await _session()
     await ask("turn off bluetooth", session)
     await ask("no, leave it", session)
-    assert rec.last("result")["summary"] == "Okay, I've left it as it is." and records[1]["confirmed"] is False
+    assert rec.last("result")["summary"] == "Okay, I've left it as it is." and records[0]["confirmed"] is False
     assert session.system.control.radio_state["bluetooth"] is True  # type: ignore[union-attr]
 
 
@@ -98,7 +98,7 @@ async def test_another_request_drops_the_question() -> None:
     session, _, _, _ = await _session(volume=40)
     await ask("turn off wifi", session)
     await ask("volume up", session)
-    assert session._system_confirm is None
+    assert session.dialogue.pending is None
     await ask("yes", session)  # nothing pending any more: not a yes to the Wi-Fi
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
 

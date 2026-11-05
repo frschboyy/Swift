@@ -6,6 +6,8 @@ sent, fetched or changed.
 
 from __future__ import annotations
 
+from settling import settled
+
 import os
 
 import pytest
@@ -121,7 +123,7 @@ async def _settle(session) -> None:  # type: ignore[no-untyped-def]
     for _ in range(50):
         await asyncio.sleep(0)
         if session._task is not None:
-            await asyncio.wait_for(session._task, 2)
+            await settled(session)
         if not session._live():
             return
 
@@ -134,7 +136,7 @@ async def test_a_plain_yes_heard_in_the_reply_window_turns_it_off() -> None:
     from swift.stt.transcriber import Transcription
 
     session, rec, records = await _wifi_asked()
-    session._start_followup(Transcription("Yeah, go ahead.", 300, 1.2))
+    await session._take_answer("Yeah, go ahead.", source="answer")
     await _settle(session)
     assert rec.last("result")["summary"] == "Wi-Fi off."
     assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
@@ -160,16 +162,16 @@ async def test_a_typed_yes_doesnt_turn_the_wifi_off() -> None:
     await session._start_typed("yes")
     await _settle(session)
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
-    assert rec.last("result")["summary"].startswith("Typing can't turn it off")
+    assert rec.last("ask")["text"].startswith("Typing can't turn it off")
 
 
 async def test_a_no_heard_in_the_reply_window_still_leaves_it() -> None:
     from swift.stt.transcriber import Transcription
 
     session, rec, _ = await _wifi_asked()
-    session._start_followup(Transcription("No, leave it.", 300, 1.0))
+    await session._take_answer("No, leave it.", source="answer")
     await _settle(session)
-    assert rec.last("result")["summary"] == "Okay, I've left it as it is." and session._system_confirm is None
+    assert rec.last("result")["summary"] == "Okay, I've left it as it is." and session.dialogue.pending is None
 
 
 # ---- A-05 / A-06: a change whose connection dropped is checked, never reported as failed -----

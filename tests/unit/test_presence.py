@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import time
 import types
@@ -344,7 +346,7 @@ async def test_coming_back_readies_the_speech_model_before_the_warm_claude() -> 
     await session.hear_wake(np.zeros(SAMPLE_RATE, dtype=np.int16), time.monotonic())
     assert "spare" not in spare.order  # no Claude Code started yet
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
     assert records[0]["source"] == "wake" and records[0]["stt_ms"] == 300  # not 9 s
     assert life._warming is not None
     await life._warming

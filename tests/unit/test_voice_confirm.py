@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import contextlib
 from typing import Any
@@ -53,7 +55,7 @@ def phases(out: Outbox) -> list[str]:
 
 async def finish(session: Session) -> None:
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
 
 
 async def test_saying_yes_approves_the_open_card() -> None:

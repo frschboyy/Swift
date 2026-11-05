@@ -103,7 +103,7 @@ async def test_a_lane_question_put_into_the_stack_ends_its_own_card() -> None:
     q = session.dialogue.pending
     assert q is not None
     q.reasked = 99  # the last unsure answer it gets
-    await session._unsure_answer(q, Transcription("mm", 200, 0.2))
+    await session._take_answer("", source="answer", unsure=True)
     await asyncio.sleep(0.05)
     ends = [m.data for m in out.messages if m.type == "result" and m.data.get("run_id") == card["run_id"]]
     assert ends and "later" in ends[-1]["summary"], "the lane card was left on screen"

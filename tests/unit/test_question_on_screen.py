@@ -59,7 +59,7 @@ async def test_a_bare_yes_never_answers_a_question_after_another_request_came_fo
     await until(lambda: asks(out) and asks(out)[-1].get("open"))
     q = session.dialogue.pending
     assert q is not None and session._on_screen(q), "drawn beside the run"
-    run = next(r for r in session._runs if r is not q.front and r.alive)
+    run = next(r for r in session._runs if r is not q.owner and r.alive)
     await session._bring(run)
     assert not session._on_screen(q)
     await say(session, stt, "yes")
@@ -68,21 +68,7 @@ async def test_a_bare_yes_never_answers_a_question_after_another_request_came_fo
     await finish_all(session, agent)
 
 
-async def test_saying_swift_yes_to_a_hidden_question_shows_it_and_does_not_answer_it() -> None:
-    session, out, agent, stt, control = _session()
-    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
-    await say(session, stt, "Hey Swift, turn off the wifi")
-    await until(lambda: asks(out) and asks(out)[-1].get("open"))
-    q = session.dialogue.pending
-    await session._bring(next(r for r in session._runs if r is not q.front and r.alive))
-    await finish_all(session, agent)  # that request's answer is on screen now, and nothing is running
-    assert session.dialogue.pending is q and not session._on_screen(q)
-    before = len(agent.runs)
-    await say(session, stt, "Swift, yes")
-    await asyncio.sleep(0.3)
-    assert control.radio_state.get("wifi") is not False and len(agent.runs) == before
-    assert session.dialogue.pending is q and session._on_screen(q), "it came back to be seen"
-    await finish_all(session, agent)
+
 
 
 async def test_a_yes_to_a_question_on_screen_still_works() -> None:
@@ -101,20 +87,7 @@ def _frames(out, *types):  # type: ignore[no-untyped-def]
     return [(m.type, m.data) for m in out.messages if m.type in types]
 
 
-async def test_a_new_answer_during_a_question_goes_out_after_its_card_has_closed() -> None:
-    session, out, agent, stt, _control = _session()
-    await say(session, stt, "Hey Swift, turn off the wifi")
-    await until(lambda: session._listening_for() is not None)
-    card = asks(out)[-1]["run_id"]
-    await say(session, stt, "Hey Swift, what time is it")
-    await until(lambda: out.last("result"))
-    frames = _frames(out, "ask", "state", "result")
-    closed = next(i for i, (t, d) in enumerate(frames) if t == "ask" and not d["open"])
-    cleared = next(i for i, (t, d) in enumerate(frames) if t == "state" and d["state"] == "idle" and d.get("run_id") == card)
-    answered = next(i for i, (t, d) in enumerate(frames) if t == "result")
-    assert closed < cleared < answered, frames
-    assert frames[answered][1]["run_id"] != card
-    await finish_all(session, agent)
+
 
 
 async def test_a_timer_waits_for_a_question_on_screen_and_then_shows() -> None:

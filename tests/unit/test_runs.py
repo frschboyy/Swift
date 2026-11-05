@@ -180,6 +180,8 @@ async def finish_all(session: Session, agent: Agent) -> None:
             if not future.done():
                 future.set_result(True)
     deadline = time.monotonic() + 2
+    for q in [*([session.dialogue.pending] if session.dialogue.pending else []), *session.dialogue.waiting]:
+        session._settle(q, None)  # nobody answers it: it goes where an unanswered question goes
     for run in list(session._runs):
         while run.task is not None and not run.task.done():
             # Swift's own cards too (an email a request sends): a request ending no longer cancels

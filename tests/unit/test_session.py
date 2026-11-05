@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 from typing import Any
 
@@ -40,7 +42,7 @@ def make(speed: float = 0) -> tuple[Session, Recorder, list[dict[str, Any]]]:
 async def run_demo(session: Session, scenario: str) -> None:
     await session.handle(Message("debug.run", {"scenario": scenario}))
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
 
 
 async def test_happy_path_walks_the_states() -> None:
@@ -72,7 +74,7 @@ async def test_confirm_approve() -> None:
     session, rec, records = make()
     await session.handle(Message("debug.run", {"scenario": "confirm"}))
     await answer_confirm(session, rec, "approve")
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert rec.states() == ["listening", "transcribing", "working", "confirm", "working", "result"]
     assert records[0]["approvals"][0]["decision"] == "approve"
 
@@ -81,7 +83,7 @@ async def test_confirm_reject() -> None:
     session, rec, records = make()
     await session.handle(Message("debug.run", {"scenario": "confirm"}))
     await answer_confirm(session, rec, "reject")
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert rec.states()[-1] == "result"
     assert rec.last("result")["status"] == "rejected"
     assert records[0]["status"] == "rejected"
@@ -153,7 +155,7 @@ async def test_debug_ask_runs_the_real_executor_on_typed_text() -> None:
     records: list[dict[str, Any]] = []
     session = Session(rec, EchoExecutor(), debug_executor=MockExecutor(speed=0), on_finish=records.append)
     await session.handle(Message("debug.ask", {"text": "  what is in this folder?  "}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert rec.states() == ["working", "result"]
     assert "what is in this folder?" in rec.last("result")["summary"]
     assert records[0]["source"] == "debug.ask" and records[0]["executor"] == "echo"
@@ -174,7 +176,7 @@ async def test_unavailable_executor_shows_its_hint() -> None:
     rec = Recorder()
     session = Session(rec, ClaudeCodeExecutor(cwd=None), debug_executor=MockExecutor(speed=0))
     await session.handle(Message("debug.ask", {"text": "hello"}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     err = rec.last("error")
     assert err["code"] == "executor_unavailable" and "working_dirs" in err["hint"]
 

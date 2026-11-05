@@ -6,6 +6,8 @@ fake one, so nothing is ever sent.
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import contextlib
 from typing import Any
@@ -58,7 +60,7 @@ async def start(session: Session) -> None:
 
 async def finish(session: Session) -> None:
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
 
 
 def of(out: Outbox, kind: str) -> list[dict[str, Any]]:

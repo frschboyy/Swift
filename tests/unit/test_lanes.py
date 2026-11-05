@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 from types import SimpleNamespace
 from typing import Any
@@ -218,5 +220,5 @@ async def test_show_me_is_not_sent_to_the_agent_as_a_new_request() -> None:
     rec, records, spy = Recorder(), [], SpyExecutor()
     session = Session(rec, spy, debug_executor=MockExecutor(speed=0), on_finish=records.append)
     await session.handle(Message("debug.ask", {"text": "Show me the Word document"}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert spy.calls == []

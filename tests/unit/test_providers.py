@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 from typing import Any
 
@@ -39,7 +41,7 @@ def make(*executors: Any) -> tuple[Session, Recorder, list[dict[str, Any]]]:
 
 async def ask(session: Session, text: str) -> None:
     await session.handle(Message("debug.ask", {"text": text}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
 
 
 def of(rec: Recorder, kind: str) -> list[dict[str, Any]]:
@@ -129,7 +131,7 @@ async def test_confirm_card_names_who_asks() -> None:
     await asyncio.wait_for(rec.confirm.wait(), 2)
     assert rec.last("confirm.request")["agent"] == AGENT
     await session.handle(Message("confirm.reply", {"request_id": rec.last("confirm.request")["request_id"], "decision": "approve"}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     after = [s for s in of(rec, "state") if s["state"] == "working"][-1]
     assert after["agent"] == AGENT
 

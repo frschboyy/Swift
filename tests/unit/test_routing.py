@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import json
 from pathlib import Path
@@ -141,7 +143,7 @@ async def ask(text: str, session: Session | None = None) -> tuple[Session, Recor
         session._test = (rec, spy, records)  # type: ignore[attr-defined]
     rec, spy, records = session._test  # type: ignore[attr-defined]
     await session.handle(Message("debug.ask", {"text": text}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     return session, rec, spy, records
 
 

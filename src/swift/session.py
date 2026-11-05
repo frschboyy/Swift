@@ -536,8 +536,6 @@ class Run:
     state: str = "idle"
     ui_id: str | None = None
     title: str = ""
-    # The question waiting when this request started was on screen, so what was said may answer it.
-    saw_question: bool = False
     # The request in the owner's words, longer than the title: its chip says it at once (bug 4, 2026-10-27).
     words: str = ""
     activity: str | None = None
@@ -730,8 +728,6 @@ class Session:
         on_heard: Callable[[str], None] | None = None,
     ) -> None:
         self._raw_send = send
-        # A lane's question card closing: sent in this order, ahead of what comes next (``_close_lane_ask``).
-        self._lane_frames: list[Message] = []
         self.executor = executor
         # Requests running, or ended but still shown (in front, or as a finished row); oldest first.
         self._runs: list[Run] = []
@@ -1160,8 +1156,6 @@ class Session:
         """Start an interaction. With others running it starts beside them: it takes the front
         when it first shows something, unless a confirm card is on screen (ADR-013 §3.1)."""
         run = Run(title=title)
-        asked = self.dialogue.pending
-        run.saw_question = asked is not None and self._on_screen(asked)
         self._runs.append(run)
         run.task = asyncio.create_task(self._interaction(run, record, capture, executor, start))
         if self._cards:
@@ -1366,7 +1360,7 @@ class Session:
                     await self._close_followup()
                 self.parked.drop(key)
         asked = self.dialogue.pending
-        if kind == "parked" and asked is not None and asked.source == "run" and asked.thread == key:
+        if kind == "parked" and asked is not None and asked.thread == key:
             if action == "skip":
                 logger.info("question put off into the stack", kind=asked.kind, source="run")
                 self._settle(asked, None)  # "Answer later": its request goes on without it, then waits
@@ -1522,7 +1516,7 @@ class Session:
             # "Turn it back on" while a request works: carried out beside it, not the mid-run grammar (D-05).
             self._start_beside(text, source="typed")
             return
-        if (asked := self.dialogue.pending) is not None and asked.source == "run" and asked.owner is not None:
+        if (asked := self.dialogue.pending) is not None and asked.owner is not None:
             with self._as(asked.owner):
                 await self._midrun_text(text, self._run_phase, source="typed")
             return
@@ -1560,7 +1554,13 @@ class Session:
             case "debug.run":
                 await self._start_demo(msg.data["scenario"])
             case "debug.ask":
-                await self._start_text(msg.data["text"])
+                asked = self.dialogue.pending
+                text = msg.data["text"]
+                if asked is not None and self._on_screen(asked) and self._for_question(asked, text):
+                    # It stands for the hotkey: said while a question is on screen, it's the answer.
+                    await self._take_answer(text, source="debug.ask", named=match_address(text, self.wake_greetings) is not None)
+                else:
+                    await self._start_text(text)
             case "ready":
                 logger.info("overlay ready", startup_ms=msg.data["startup_ms"], backend_ms=msg.data.get("backend_ms"))
                 if self.on_ready is not None:
@@ -1608,13 +1608,11 @@ class Session:
                 asked = self.dialogue.pending
                 if asked is None or asked.id != msg.data["ask_id"]:
                     logger.info("ask.reply for a question no longer asked ignored")
-                elif asked.source == "run":
-                    self._owner_here()
-                    await self._take_answer(msg.data["text"][:MAX_TYPED], source="click")
                 else:
                     # Straight to its question: never through the text box, where an open confirm card
                     # would take the click first (D-07).
-                    await self._hear_answer(asked, msg.data["text"][:MAX_TYPED], source="click")
+                    self._owner_here()
+                    await self._take_answer(msg.data["text"][:MAX_TYPED], source="click")
             case "text":
                 thread = msg.data.get("thread_id")
                 await self._start_typed(msg.data["text"], thread if isinstance(thread, str) else None)
@@ -2041,16 +2039,9 @@ class Session:
                 self.wake_stats[f"followup_{doubt}"] += 1
                 return
             self.wake_stats["answer"] += 1
-            if asked.source == "run":
-                self._owner_here()
-                await self._take_answer(addressed.remainder if addressed else heard.text, source="answer",
-                                        named=addressed is not None, unsure=doubt == "unsure")
-                return
-            if doubt == "unsure":
-                self._owner_here()
-                await self._unsure_answer(asked, heard)
-                return
-            await self._hear_answer(asked, heard.text, heard=heard)
+            self._owner_here()
+            await self._take_answer(addressed.remainder if addressed else heard.text, source="answer",
+                                    named=addressed is not None, unsure=doubt == "unsure")
             return
         if busy:
             if self._hands_free():  # not if the hotkey was pressed meanwhile
@@ -2216,22 +2207,7 @@ class Session:
         """Whether speech heard while ``q`` listens is for it, not a mid-run control ("stop", "show me")
         while a request runs: for any question, a lane's too (D-08; ``intake.for_question``)."""
         midrun = route_midrun(strip_wake(text) or text)
-        working = q.source == "run" or (self._focus is not None and self._focus.state in ("working", "confirm"))
-        return intake.for_question(midrun.action if midrun else None, run_working=working)
-
-    async def _unsure_answer(self, q: Question, heard: Transcription) -> None:
-        """An answer the model was unsure of, for a lane's question: the question again on its own card
-        (T-06), twice at most, then into the stack. A question shown only as a line gets "say it again"."""
-        if q.run_id is None:
-            self._start_followup(heard, unclear=True)
-            return
-        if q.reasked >= REASKS:
-            self._question_done(q)  # its card closes
-            self._shelve(q)
-            return
-        q.reasked += 1
-        logger.info("question answered", kind=q.kind, turn="reask", source="answer", unsure=True)
-        await self._lane_reprompt(q, reask_text(q), {"source": "answer"})
+        return intake.for_question(midrun.action if midrun else None, run_working=True)
 
     def _short_kept(self, text: str, busy: bool) -> str | None:
         """A very short clip: the control phrase it is, or None. During a run the mid-run ones (on
@@ -2625,21 +2601,7 @@ class Session:
                 answered = self._answer_fix(decision, fix, record)
             if answered is not None:
                 decision, workflow = answered
-            hidden = self._lane_question()
-            # Whether the owner could see it when they spoke: this request has taken the front by now.
-            seen = run.saw_question or record.get("source") == "click"
-            if (
-                decision is not None and hidden is not None and not seen
-                and resolve_answer(hidden, transcript).kind in ("yes", "no")
-            ):
-                # "Swift, yes" with the question out of sight: it comes back to be seen, and isn't answered.
-                record["route"], record["action"], record["status"] = "local", "question_not_shown", "done"
-                self._background(self._show_after(run, hidden))
-                return
-            if decision is not None and (asked := hidden) is not None and seen:
-                decision = self._lane_answer(asked, decision, transcript, record)  # "Turn off Wi-Fi?", "For how long?"
-                await self._send_lane_frames()  # its card closes before this request's answer goes out
-            elif decision is not None and decision.action != "system":
+            if decision is not None and decision.action != "system":
                 decision = self._carry_over(decision, transcript, record)  # "make it louder", "no, make it four"
             if decision is not None and decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
                 decision = _to_agent(decision)
@@ -2937,8 +2899,7 @@ class Session:
         if action == "show_last":
             await self._show_last(decision, record)
             return
-        if (action in ("system", "system_undo", "system_yes", "system_no", "system_carry")
-                or (action or "").startswith("dialogue_")) and self.system is not None:
+        if action in ("system", "system_undo", "system_carry") and self.system is not None:
             await self._system_lane(decision, record)
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
@@ -2966,7 +2927,6 @@ class Session:
             "resume": "There's nothing unfinished to pick up.",
             "not_now": "Okay.",
             "fix_declined": "Okay, I'll leave it as it is.",
-            "system_yes_unnamed": SYSTEM_YES_NAME_HINT,
         }
         record["status"] = "done"
         said = answers.get(action or "", "Done.")
@@ -2975,277 +2935,64 @@ class Session:
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
 
     async def _system_lane(self, decision: Route, record: dict[str, Any]) -> None:
-        """The system lane (ADR-016 §3): carry the request out, then say what was done."""
+        """The system lane (ADR-016 §3): carry the request out, ask what it needs, say what was done.
+        Its questions are this request's, so it stays alive until they're answered: its card, Stop,
+        replay and the stack are every request's (reliability review, item 7)."""
         assert self.system is not None
+        card = f"local-{next(self._local_ids)}"
         if decision.action == "system_undo":
             said, ok, record["intents"] = await self.system.undo(), True, ["undo"]
-        elif (decision.action or "").startswith("dialogue_"):
-            said, ok = await self._lane_turn(decision.action or "", record)
-        elif decision.action == "system_carry":
-            turn = self._current().turn
-            assert turn is not None
-            intents, replaces = turn.answer.value
-            outcome = await (self.system.redo(intents) if replaces else self.system.start(intents))
-            said, ok, record["intents"] = outcome.said, outcome.ok, list(outcome.intents)
-            if outcome.ask is not None:
-                self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record, outcome.note)
-            elif outcome.done:
-                self._carry_system(record, outcome.done)
-        elif decision.action in ("system_yes", "system_no"):
-            assert self._system_confirm is not None
-            intents, self._system_confirm = self._system_confirm[0], None
-            record["intents"] = [i.name for i in intents]
-            if decision.action == "system_yes":
-                outcome = await self.system.confirmed(intents)
-                said, ok = outcome.said, outcome.ok
-                if outcome.done:
-                    self._carry_system(record, outcome.done)
-            else:
-                said, ok = "Okay, I've left it as it is.", True
-            record["confirmed"] = decision.action == "system_yes"
         else:
-            outcome = await self.system.run(decision.text)
+            if decision.action == "system_carry":
+                turn = self._current().turn
+                assert turn is not None
+                intents, replaces = turn.answer.value
+                outcome = await (self.system.redo(intents) if replaces else self.system.start(intents))
+            else:
+                outcome = await self.system.run(decision.text)
             if outcome is None:  # parsing is deterministic, so this is a bug; say so rather than do nothing
                 said, ok, record["intents"] = "Sorry, I couldn't work that out.", False, []
             else:
-                said, ok, record["intents"] = outcome.said, outcome.ok, list(outcome.intents)
-                if outcome.ask is not None:
-                    self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record, outcome.note)
-                elif outcome.done:
-                    self._carry_system(record, outcome.done)
+                said, ok = await self._system_questions(outcome, card, record, decision.text)
         record["status"] = "done" if ok else "error"
         if not ok:
             record["error"] = "system_failed"
-        if (asked := self._lane_question()) is not None and asked.kind == "yes_no" and asked.run_id is None:
-            await self._confirm_lane(asked, record)
-            return
-        if decision.action in ("dialogue_reask", "dialogue_wait") and asked is not None and asked.run_id is not None:
-            record.pop("lane_card", None)
-            await self._lane_reprompt(asked, said, record)
-            return
-        await self._send_result(record.pop("lane_card", None) or f"local-{next(self._local_ids)}", ExecResult("done", said))
-        if (asked := self._lane_question()) is not None and asked.thread == record.get("thread"):
-            # The microphone opens by itself for the answer once Swift has said the question (§11 Q3).
-            asked.spoken = self.speaker.speaking
-            if not asked.spoken:
-                await self._listen_for(asked, voice=record.get("source") in SPOKEN_SOURCES)
+        await self._send_result(card, ExecResult("done", said))
 
-    async def _confirm_lane(self, q: Question, record: dict[str, Any]) -> None:
-        """"Turn off Wi-Fi?" on its own card: the question, a quiet line on what it means, Yes and No
-        (owner, 2026-11-04). Said aloud only when confirmations are (``speech.read_confirms``); the
-        microphone listens for a plain yes or no either way."""
-        q.run_id = f"local-{next(self._local_ids)}"
-        voice = record.get("source") in SPOKEN_SOURCES
-        await self._front_for_question()
-        if not self._on_screen(q):
-            # A card is in the way: drawn when it goes (``_kick_question``), never listening unseen.
-            self._window(q).asking(self.wake_question_s + 30.0)
-            return
-        if self.read_confirms and voice:
-            self._speak_reply(q.text, record)
-        q.spoken = self.speaker.speaking
-        await self._set_state("working", run_id=q.run_id)
-        if q.spoken:
-            self._window(q).asking(self.wake_question_s + 30.0)
-            await self._send(outbound("ask", **q.as_message(), run_id=q.run_id, open=True, phase="asking", seconds=0))
-        else:
-            await self._listen_for(q, voice=voice)  # it sends the card, with its deadline
-
-    async def _front_for_question(self) -> None:
-        """The request asking the owner something comes to the front, so its question is seen: one said
-        beside a run ("turn off the Wi-Fi" instead of answering it) would otherwise be a row (T-01)."""
-        run = self._current()
-        if run is not self._none and run is not self._focus:
-            await self._bring(run)
-
-    async def _show_lane_question(self, q: Question) -> None:
-        """A lane's question that was out of sight comes on screen, with a whole window for its answer."""
-        if q.front is None or q.run_id is None or not await self._bring(q.front):
-            return
-        with self._as(q.front):
-            await self._set_state("working", run_id=q.run_id)
-            await self._listen_for(q, voice=False)
-
-    async def _show_after(self, run: Run, q: Question) -> None:
-        """``q`` comes on screen once ``run`` has ended (its own end would take the front back)."""
-        if run.task is not None:
-            await asyncio.wait({run.task})
-        if self.dialogue.pending is q:
-            await self._show_lane_question(q)
-
-    async def _lane_reprompt(self, q: Question, said: str, record: dict[str, Any]) -> None:
-        """A lane's question on its own card, asked again ("Sorry, was that a yes or a no?"): the card
-        says it, and its window starts again once Swift has said it (seams audit T-03)."""
-        voice = record.get("source") in SPOKEN_SOURCES
-        q.reask_text = said
-        await self._front_for_question()
-        self._speak_reply(said, record)
-        q.spoken = self.speaker.speaking
-        await self._set_state("working", run_id=q.run_id)
-        if q.spoken:
-            self._window(q).asking(self.wake_question_s + 30.0)
-            await self._send(outbound("ask", **q.as_message(), run_id=q.run_id, open=True, phase="again",
-                                      text=said, seconds=0))
-        else:
-            await self._listen_for(q, voice=voice)
-
-    def _close_lane_ask(self, q: Question, said: str | None = None, *, clear: bool = False) -> None:
-        """A lane's question card closes, in order, ahead of whatever comes next. ``said``: a line in
-        its place, only if the owner can see that card: never over another request or an answer
-        being read. ``clear``: nothing follows on it, so the card goes (else "Working on it" for ever,
-        and the next answer refused behind it). Straight to the overlay: the request that asked has ended."""
-        assert q.run_id is not None
-        self._lane_frames.append(outbound("ask", ask_id=q.id, run_id=q.run_id, open=False))
-        if clear:
-            self._lane_frames.append(outbound("state", state="idle", run_id=q.run_id))
-        elif said is not None and self._on_screen(q):
-            self._lane_frames.append(outbound("state", state="result", run_id=q.run_id))
-            self._lane_frames.append(outbound("result", run_id=q.run_id, status="done", summary=said, details=None))
-        with contextlib.suppress(RuntimeError):
-            self._background(self._send_lane_frames())
-
-    async def _send_lane_frames(self) -> None:
-        frames, self._lane_frames = self._lane_frames, []
-        for frame in frames:
-            await self._raw_send(frame)
+    async def _system_questions(self, outcome: Any, card: str, record: dict[str, Any], decision_text: str) -> tuple[str, bool]:
+        """Ask until the lane has what it needs ("For how long?", "Turn off Wi-Fi?"), then do it."""
+        assert self.system is not None
+        record["intents"] = list(outcome.intents)
+        while outcome.ask is not None:
+            self._artifacts_run = card  # Swift's own question: the overlay knows it by this id
+            await self._set_state("working", run_id=card)
+            kind, slot = outcome.ask
+            record["asked"] = True
+            record["dialogue"] = {"kind": kind}
+            intents = outcome.pending
+            answer = await self._ask_owner(outcome.said, kind, (), own=True, note=outcome.note, slot=slot, payload=intents)
+            if answer is None:
+                self._request = self._said = str(record.get("transcript") or decision_text)
+                self._run_started = self._run_started or clock.now()
+                self._park(record)
+                return (LANE_KEPT if self._away or record.get("moved_on") else LANE_NO_ANSWER), True
+            if kind == "yes_no" and answer.kind == "yes":
+                record["confirmed"], record["action"] = True, "system_yes"
+                record["intents"] = [i.name for i in intents]
+                outcome = await self.system.confirmed(intents)
+            elif kind == "yes_no":
+                record["confirmed"], record["action"] = False, "system_no"
+                return "Okay, I've left it as it is.", True
+            elif answer.kind == "cancel":
+                return "Okay, I won't.", True
+            else:
+                outcome = await self.system.fill(intents, slot or "", answer.value)
+                record["intents"] = list(outcome.intents)
+        if outcome.done:
+            self._carry_system(record, outcome.done)
+        return outcome.said, outcome.ok
 
     # ---- the dialogue (ADR-016 §5.1, swift/dialogue.py) -----------------------------------------
-
-    @property
-    def _system_confirm(self) -> tuple[tuple[Any, ...], float] | None:
-        """The disruptive change Swift asked about ("Turn off Wi-Fi?") while that question waits:
-        the intents, and when it was asked."""
-        q = self.dialogue.pending
-        if q is None or q.source != "lane" or q.kind != "yes_no":
-            return None
-        return q.payload, q.asked_at
-
-    @_system_confirm.setter
-    def _system_confirm(self, value: None) -> None:
-        if value is None and (q := self.dialogue.pending) is not None and q.source == "lane":
-            self._question_done(q)
-
-    def _lane_question(self) -> Question | None:
-        """The question a lane asked, while it still waits (its window closes it: T-11)."""
-        q = self.dialogue.pending
-        if q is None or q.source != "lane":
-            return None
-        if self.system is None or (q.window is not None and q.window.state == "closed"):
-            self._question_done(q)
-            return None
-        return q
-
-    def _ask_lane(self, said: str, kind: str, slot: str | None, intents: tuple[Any, ...], record: dict[str, Any],
-                  note: str = "") -> Question:
-        """A lane asks ("Turn off Wi-Fi?", "For how long?"): its question waits for the answer."""
-        if (before := self.dialogue.pending) is not None and before.source == "lane":
-            self._question_done(before)
-        q = Question(said, kind, source="lane", thread=record.get("thread"), slot=slot, payload=intents,
-                     yes_needs_name=kind == "yes_no", request=str(record.get("transcript") or ""), note=note)
-        if (before := self.dialogue.pending) is not None:
-            # The owner moved on from a request's question to this request: this one is asked now,
-            # and that one waits behind it, its window stopped until it comes back (seams audit T-01).
-            self._window(before).pause()
-            self._stop_capture()
-            logger.info("question set aside for another", kind=before.kind, source=before.source)
-        self.dialogue.ask_first(q)
-        run = self._current()
-        q.front = run if run is not self._none else self._focus  # the request whose card shows it
-        record["asked"] = True
-        record["dialogue"] = {"kind": kind}
-        # Until Swift has said it and the microphone opens (``_listen_for``): never stuck.
-        self._window(q).asking(self.wake_question_s + 30.0)
-        logger.info("question asked", kind=kind, source="lane")
-        return q
-
-    def _lane_answer(self, q: Question, decision: Route, transcript: str, record: dict[str, Any]) -> Route:
-        """What was said while a lane's question waits: its answer (yes, no, the missing detail), a
-        cancel, an unclear answer (asked once more, then into the stack), or a new request, which
-        drops the question. A yes that turns something off needs Swift's name from the open
-        microphone or the keyboard (threat model T2; audit 2026-10, A-04)."""
-        turn = self.dialogue.answer(transcript, is_request=self._new_request)
-        assert turn is not None
-        q.front = self._current()  # the answering request has its card now
-        record["dialogue"] = {"kind": q.kind, "turn": turn.action}
-        logger.info("question answered", kind=q.kind, turn=turn.action, source=record.get("source"))
-        if turn.action == "elsewhere":
-            # A new request, with its own card: "what time is it" was refused behind this one (review D).
-            self._question_done(q, clear=True)
-            rest = turn.answer.rest
-            if _same_words(strip_wake(rest) or rest) == _same_words(strip_wake(transcript) or transcript):
-                return decision
-            return (self.router or default_router)(rest)
-        if q.thread:
-            self._thread = record["thread"] = q.thread  # the answer goes on in the question's thread
-        if q.run_id is not None:
-            record["lane_card"] = q.run_id  # the outcome takes the question's own card
-        self._current().turn = turn
-        answer = turn.answer
-        if turn.action == "answered" and q.kind == "yes_no":
-            if answer.kind == "yes":
-                verdict = intake.approves(str(record.get("source") or ""), named=answer.named, target="reversible")
-                if q.yes_needs_name and not verdict.allowed:
-                    q.asked_at = clock.now()  # still asked: say it with the name
-                    return Route("local", decision.text, action="system_yes_unnamed")
-                return Route("local", decision.text, action="system_yes")
-            return Route("local", decision.text, action="system_no")
-        if turn.action == "cancelled" and q.yes_needs_name:
-            return Route("local", decision.text, action="system_no")
-        return Route("local", decision.text, action={
-            "answered": "dialogue_fill", "cancelled": "dialogue_cancel", "reask": "dialogue_reask",
-            "shelve": "dialogue_shelve", "wait": "dialogue_wait",
-        }[turn.action])
-
-    async def _lane_turn(self, action: str, record: dict[str, Any]) -> tuple[str, bool]:
-        """The system lane's question answered (``_lane_answer``): finish, ask again, or let it wait."""
-        assert self.system is not None
-        turn = self._current().turn
-        assert turn is not None
-        q = turn.question
-        if action == "dialogue_fill":
-            self._question_done(q)
-            outcome = await self.system.fill(q.payload, q.slot or "", turn.answer.value)
-            record["intents"] = list(outcome.intents)
-            if outcome.ask is not None:
-                self._ask_lane(outcome.said, outcome.ask[0], outcome.ask[1], outcome.pending, record, outcome.note)
-            elif outcome.done:
-                self._carry_system(record, outcome.done)
-            return outcome.said, outcome.ok
-        if action == "dialogue_wait":
-            # "Hold on", "I'm not sure": the question stays, with a whole window again (D-02).
-            self._window(q).asking(self.wake_question_s + 30.0)
-            record["asked"] = True
-            return f"Okay, take your time. {q.text}", True
-        if action == "dialogue_reask":
-            q.asked_at = clock.now()
-            # Its window starts again once the re-ask is said (``_listen_for``), never from the old one (T-03).
-            self._window(q).asking(self.wake_question_s + 30.0)
-            record["asked"] = True
-            return reask_text(q), True
-        self._question_done(q)
-        if action == "dialogue_shelve":
-            self._shelve(q, tell=False)  # its own line says so
-            return "I still didn't catch that, so I've kept it in your list for later.", True
-        return "Okay, I won't.", True
-
-    def _shelve(self, q: Question, tell: bool = True) -> None:
-        """A lane's question goes unanswered: into the waiting stack ("Unanswered question"). Opened
-        from there, or "continue", asks it again (ADR-015 §9, ADR-017). Its own card says where it
-        went and fades (``tell``), so it is never both on screen and in the stack (2026-11-05)."""
-        logger.info("question put off into the stack", kind=q.kind, source=q.source)
-        if tell and q.source == "lane" and q.run_id is not None:
-            self._close_lane_ask(q, LANE_KEPT)
-        if self.parked is None or not q.thread or not q.request:
-            return
-        keep = QUESTION_KEEP_S if q.source == "lane" else 0.0
-        self.parked.park(Parked(thread=q.thread, request=q.request, reason="asked", at=time.time(),
-                                progress=f"Swift asked: {q.text}", said=q.request, keep_s=keep))
-        with contextlib.suppress(RuntimeError):
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._send_stack())
-            if keep:
-                # Gone from the stack on screen when it expires, not only at the next change.
-                loop.call_later(keep + 1.0, lambda: self._background(self._send_stack()))
 
     def _window(self, q: Question) -> AnswerWindow:
         """``q``'s own window for its answer (made the first time it's needed)."""
@@ -3279,21 +3026,10 @@ class Session:
         if self.dialogue.pending is not q:
             return
         logger.info("question unanswered in time", kind=q.kind, source=q.source)
-        if q.source == "run":
-            self._settle(q, None)
-            return
-        if q.run_id is not None and not q.closed:
-            q.closed = True
-            self._close_lane_ask(q, LANE_NO_ANSWER)
-        self._question_done(q)
-        self._shelve(q, tell=False)
+        self._settle(q, None)
 
-    def _question_done(self, q: Question, *, clear: bool = False) -> None:
-        """``q`` no longer waits: its timer and microphone stop; a question behind it comes forward.
-        ``clear``: its card goes too, because its outcome won't be drawn on it (``_close_lane_ask``)."""
-        if q.source == "lane" and q.run_id is not None and not q.closed:
-            q.closed = True  # its own card closes, however it ended
-            self._close_lane_ask(q, clear=clear)
+    def _question_done(self, q: Question) -> None:
+        """``q`` no longer waits: its timer and microphone stop; a question behind it comes forward."""
         if q.window is not None:
             q.window.close()
         on_screen = self.dialogue.pending is q
@@ -3301,7 +3037,7 @@ class Session:
         if not on_screen:
             return
         self._stop_capture()
-        if q.source == "run" and q.owner is not None:
+        if q.owner is not None:
             with contextlib.suppress(RuntimeError):
                 self._background(self._close_ask(q))
         if nxt is not None:
@@ -3322,14 +3058,17 @@ class Session:
             q.future.set_result(answer)  # type: ignore[arg-type]
         self._question_done(q)
 
-    async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...]) -> Answer | None:
+    async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...], *, own: bool = False,
+                         note: str = "", slot: str | None = None, payload: Any = None) -> Answer | None:
         """A request asks the owner something while it runs (``ask_owner``). Shown on its card and said
         aloud for a spoken request, then the microphone opens by itself for the answer. None: no
         answer (the owner is away, or didn't answer in time); it waits in the stack with its conversation."""
         run = self._current()
         record = self._record
         q = Question(_clip(text, 300), kind, options, source="run", thread=run.thread, owner=run,
-                     future=asyncio.get_running_loop().create_future(), request=self._said or "")
+                     future=asyncio.get_running_loop().create_future(),
+                     request=self._said or str((record or {}).get("transcript") or ""),
+                     note=note, yes_needs_name=own and kind == "yes_no", own=own, slot=slot, payload=payload)
         entry: dict[str, Any] = {"kind": kind, "options": len(options)}
         if record is not None:
             record.setdefault("asks", []).append(entry)
@@ -3340,7 +3079,15 @@ class Session:
                 record["asked_unanswered"] = q.text
             logger.info("question kept for later: the owner is away", kind=kind)
             return None
-        on_screen = self.dialogue.ask(q)
+        if own:
+            # The owner moved on to this request: asked now, the one before waits behind it (T-01).
+            if (before := self.dialogue.pending) is not None:
+                self._window(before).pause()
+                self._stop_capture()
+            self.dialogue.ask_first(q)
+            on_screen = True
+        else:
+            on_screen = self.dialogue.ask(q)
         logger.info("question asked", kind=kind, options=len(options), source="run", waiting=not on_screen)
         if on_screen:
             await self._show_question(q)
@@ -3371,7 +3118,8 @@ class Session:
         record = run.record or {}
         q.reask_text = None
         with self._as(run):
-            self._speak_reply(self._spoken_question(q), record)
+            if not q.own or self.read_confirms or q.kind != "yes_no":
+                self._speak_reply(self._spoken_question(q), record)
             speaking = self.speaker.speaking
             q.spoken = speaking
             if speaking:
@@ -3411,13 +3159,9 @@ class Session:
     async def _send_question(self, q: Question, seconds: float) -> None:
         """``q`` on its card, listening, with ``seconds`` left: a request's question, or a lane's on its own card."""
         again = {"phase": "again", "text": q.reask_text} if q.reask_text else {"phase": "listening"}
-        if q.source == "run" and q.owner is not None:
+        if q.owner is not None:
             with self._as(q.owner):
                 await self._send(outbound("ask", **q.as_message(), run_id=self._run_id(), open=True,
-                                          seconds=round(seconds, 1), **again))
-        elif q.run_id is not None:
-            # Straight to the overlay: its own card, drawn by ``_confirm_lane`` (like ``_close_lane_ask``).
-            await self._raw_send(outbound("ask", **q.as_message(), run_id=q.run_id, open=True,
                                           seconds=round(seconds, 1), **again))
 
     def _replay(self, run: Run) -> list[Message]:
@@ -3451,7 +3195,7 @@ class Session:
         or another request in front hides it. A click needs no check: it was on the question."""
         if self._cards:
             return False
-        return (q.owner if q.source == "run" else q.front) is self._focus
+        return q.owner is self._focus
 
     async def _capture_answer(self, q: Question, seconds: float) -> None:
         """No open microphone (wake listening off): record the answer, ending when the owner stops
@@ -3465,7 +3209,7 @@ class Session:
         run = q.owner if q.owner is not None else self._focus or self._none
 
         async def phase(name: str, text: str = "") -> None:
-            if q.source == "run" and name == "transcribing":
+            if name == "transcribing":
                 with self._as(run):
                     await self._send(outbound("ask", **q.as_message(), run_id=self._run_id(), open=True,
                                               phase="heard", seconds=0))
@@ -3482,31 +3226,14 @@ class Session:
             self._answer_task = None
         if said is None or not intake.has_words(said) or self.dialogue.pending is not q or self._deaf():
             return
-        await self._hear_answer(q, said, heard=self._heard, named=match_address(said, self.wake_greetings) is not None)
-
-    async def _hear_answer(self, q: Question, text: str, *, heard: Transcription | None = None,
-                           named: bool = False, source: str = "answer") -> None:
-        """An answer for ``q`` from the microphone (no hotkey). A lane's question takes it as a request
-        in its thread (``_lane_answer`` resolves it); a run's question takes it directly."""
         self._owner_here()
-        if q.source == "run":
-            await self._take_answer(text, source=source, named=named)
-            return
-        record: dict[str, Any] = {"source": source, "executor": getattr(self.executor, "name", "?"),
-                                  "continues": q.thread}
-
-        async def capture(rec: dict[str, Any]) -> str:
-            if heard is not None:
-                self._heard = heard
-            return text.strip()
-
-        self._launch(record, capture, self.executor, self.executor.start)
+        await self._take_answer(said, source="answer", named=match_address(said, self.wake_greetings) is not None)
 
     async def _take_answer(self, text: str, *, source: str, named: bool = False, unsure: bool = False) -> bool:
         """Something said or typed while a run's question waits. True: it was about the question.
         Mid-run controls ("stop", "show me") are not answers; the callers check them first."""
         q = self.dialogue.pending
-        if q is None or q.source != "run" or q.future is None or q.future.done():
+        if q is None or q.future is None or q.future.done():
             return False
         if not unsure and not intake.has_words(text):
             return True  # no words: about nothing, and not an answer (D-06)
@@ -3518,8 +3245,15 @@ class Session:
             record["asks"][-1].setdefault("turns", []).append(turn.action)
         match turn.action:
             case "answered" | "cancelled":
+                if q.yes_needs_name and turn.action == "answered" and turn.answer.kind == "yes" and not intake.approves(
+                    source, named=named or turn.answer.named, target="reversible",
+                ).allowed:
+                    await self._reask(q, f"{SYSTEM_YES_NAME_HINT} {q.text}")  # typing: it needs the name
+                    return True
                 self._settle(q, turn.answer)
             case "shelve":
+                if q.own and record is not None:
+                    record["moved_on"] = True  # asked twice: its card says it's kept for later
                 self._settle(q, None)
             case "reask":
                 await self._reask(q)
@@ -3528,6 +3262,11 @@ class Session:
             case "elsewhere":
                 if turn.answer.dropped:
                     self._settle(q, Answer("cancel"))  # "never mind, what time is it": the question goes
+                elif q.own:
+                    # Swift's own question doesn't wait behind what the owner moved on to: it goes to the stack.
+                    if record is not None:
+                        record["moved_on"] = True
+                    self._settle(q, None)
                 self._start_beside(turn.answer.rest, source="beside" if source == "answer" else source)
         return True
 
@@ -3552,10 +3291,7 @@ class Session:
     async def _kick_question(self) -> None:
         """A card went: a question that waited for it comes on screen now."""
         q = self.dialogue.pending
-        if q is not None and q.source == "lane" and not self._cards and not self._on_screen(q):
-            await self._show_lane_question(q)
-            return
-        if q is None or q.source != "run" or self._cards or q.owner is None:
+        if q is None or self._cards or q.owner is None:
             return
         if q.owner.ask is None:
             await self._show_question(q)
@@ -3570,11 +3306,7 @@ class Session:
     def _away_questions(self) -> None:
         """The owner went away: no question waits on screen for them; each goes to the stack."""
         for q in [*([self.dialogue.pending] if self.dialogue.pending else []), *self.dialogue.waiting]:
-            if q.source == "run":
-                self._settle(q, None)
-            else:
-                self._question_done(q)
-                self._shelve(q)
+            self._settle(q, None)
 
     def _carry_system(self, record: dict[str, Any], done: tuple[Any, ...]) -> None:
         """A system change just made: what "make it louder" or "no, make it four" goes on from."""
@@ -3654,9 +3386,9 @@ class Session:
         """Swift finished talking (``Speaker.on_done``): the reply window starts now, not under its own voice."""
         self._speech_news(False)
         if (asked := self.dialogue.pending) is not None and asked.spoken and self._answer_window is None:
-            asked.spoken = asked.source == "run"  # the run's card says "listening" from now
+            asked.spoken = True  # the run's card says "listening" from now
             run = asked.owner
-            voice = asked.source == "lane" or (run is not None and (run.record or {}).get("source") in SPOKEN_SOURCES)
+            voice = run is not None and (run.record or {}).get("source") in SPOKEN_SOURCES
             asyncio.get_running_loop().create_task(self._listen_for(asked, voice=voice))
         if self._followup is not None and clock.now() <= self._followup[1]:
             asyncio.get_running_loop().create_task(self._open_followup(question=self._followup_question))
@@ -3685,8 +3417,8 @@ class Session:
             return "overlay"
         if self._open_confirm() is not None or self._capturing():
             return "card"
-        if (asked := self.dialogue.pending) is not None and asked.run_id is not None and self._on_screen(asked):
-            return "card"  # Swift's question is on screen: the overlay would refuse it
+        if (asked := self.dialogue.pending) is not None and self._on_screen(asked):
+            return "card"  # a question is on screen: the overlay would refuse it
         return "busy" if self._front_busy() else None
 
     async def _kick_due(self) -> None:
@@ -4281,14 +4013,6 @@ class Session:
                 await self._raw_send(outbound("confirm.hold", request_id=shown, held=self.attention.held,
                                               timeout_s=round(left or 0.0, 1)))
         q = self.dialogue.pending
-        if q is not None and q.source == "lane" and q.run_id is not None and self._on_screen(q) and q.window is not None and q.window.open:
-            await self._raw_send(outbound("state", state="working", run_id=q.run_id))
-            left = q.window.left()
-            if left is None:
-                await self._raw_send(outbound("ask", **q.as_message(), run_id=q.run_id, open=True,
-                                              phase="asking", seconds=0))
-            else:
-                await self._send_question(q, left)
         if self._followup is not None and (left := self._followup[1] - clock.now()) > 0:
             await self._raw_send(outbound("followup", open=True, seconds=round(left, 1),
                                           question=self._followup_question))
@@ -4355,6 +4079,7 @@ class Session:
             Parked(
                 thread=record["thread"], request=self._request, reason=reason, at=time.time(),
                 progress=progress, proposed=_proposal(self._store()), said=self._said or "",
+                keep_s=QUESTION_KEEP_S if reason == "asked" and record.get("route") == "local" else 0.0,
             )
         )
         record["parked"] = reason
@@ -4538,7 +4263,7 @@ class Session:
     async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]], source: str = "beside") -> None:
         """Said during a run: about the one in front, naming another, a change of mind, or a new request.
         While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control."""
-        if (asked := self.dialogue.pending) is not None and asked.source == "run" and self._for_question(asked, text):
+        if (asked := self.dialogue.pending) is not None and self._for_question(asked, text):
             if await self._take_answer(text, source=source if source != "beside" else "voice",
                                        named=match_address(text, self.wake_greetings) is not None):
                 await phase("idle")

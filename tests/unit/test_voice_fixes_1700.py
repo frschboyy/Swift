@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import io
 import time
@@ -150,7 +152,7 @@ async def test_the_hotkey_sets_a_misheard_name_aside() -> None:
     await session.handle(Message("ptt", {"state": "down"}))
     await session.handle(Message("ptt", {"state": "up"}))
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
     assert records[0]["status"] != "error" and records[0]["transcript"] == text  # 17:59:06: refused
 
 

@@ -3,6 +3,8 @@ give the same decision, or a declared difference (typing never approves; hands-f
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 
 import pytest
@@ -77,18 +79,7 @@ async def test_the_same_approve_through_every_door(how: str, approved: bool) -> 
     assert (decision == "approve") is approved, (how, decision)
 
 
-async def test_a_click_on_a_lane_question_answers_it_not_the_card_open_beside_it() -> None:
-    """D-07: before, the click went through the text box, where the open card took it first."""
-    from test_hands_free import finish
 
-    session, out, records, stt, rid = await _card()
-    q = session._ask_lane("Turn off Wi-Fi?", "yes_no", None, (), {"thread": "t9", "transcript": "turn off the wifi"})
-    q.run_id = "local-9"
-    await session.handle(Message("ask.reply", {"ask_id": q.id, "text": "No"}))
-    await asyncio.sleep(0.2)
-    assert session.state == "confirm" and session._open_confirm() == rid, "the click answered the card"
-    await session.handle(Message("confirm.reply", {"request_id": rid, "decision": "reject"}))
-    await finish(session)
 
 
 @pytest.mark.parametrize(("text", "fragment"), [
@@ -111,7 +102,7 @@ async def test_hesitations_alone_never_start_a_run() -> None:
 
     session, out, executor, records = make()
     session._start_followup(_heard("Ah.", 0.2))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert executor.calls == [], "the agent got a fragment"
     assert records[-1].get("fragment") is True
     assert out.last("error")["title"] == "Say that again?"
@@ -123,7 +114,7 @@ async def test_one_unsure_word_still_reaches_the_agent() -> None:
 
     session, _out, executor, _records = make()
     session._start_followup(_heard("Mozart", 0.5))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert len(executor.calls) == 1
 
 
@@ -134,9 +125,9 @@ async def test_one_word_replying_to_swifts_question_reaches_the_agent(reply: str
 
     session, _out, executor, records = make(Scripted(("done", "Which day suits you, Monday or Tuesday?")))
     await session.handle(Message("debug.ask", {"text": "Find a time for lunch with Ada next week."}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     session._start_followup(_heard(reply, 0.5))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert len(executor.calls) == 2 and not records[-1].get("fragment")
 
 
@@ -171,7 +162,7 @@ async def test_turn_on_bluetooth_said_twice_is_done_here() -> None:
 
     session, _rec, spy, records = await _session()
     session._start_followup(Transcription("Turn on Bluetooth. Turn on Bluetooth.", 200, 0.9))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert spy.calls == [] and records[-1]["route"] == "local"
 
 

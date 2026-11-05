@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 from typing import Any
 
@@ -36,7 +38,7 @@ def make(executor: Any = None, **kw: Any) -> tuple[Session, Recorder, Any, list[
 
 async def ask(session: Session, text: str) -> None:
     await session.handle(Message("debug.ask", {"text": text}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
 
 
 async def test_a_follow_up_carries_the_previous_request_and_answer() -> None:
@@ -124,7 +126,7 @@ async def test_approved_actions_are_part_of_the_context() -> None:
     await asyncio.wait_for(out.confirm.wait(), 2)
     request_id = out.last("confirm.request")["request_id"]
     await session.handle(Message("confirm.reply", {"request_id": request_id, "decision": "approve"}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
 
     out.confirm.clear()
     await session.handle(Message("debug.ask", {"text": "Undo that."}))

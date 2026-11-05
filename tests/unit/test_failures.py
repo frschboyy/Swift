@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 from typing import Any
 
@@ -97,7 +99,7 @@ async def test_try_again_reruns_the_failed_request() -> None:
     before = len([m for m in rec.messages if m.type == "error"])
     await session.handle(Message("retry", {}))
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
     assert len([m for m in rec.messages if m.type == "error"]) == before + 1
     # The retry failed again (scripted), so it can be retried again.
     assert session._retry is not None
@@ -123,11 +125,11 @@ async def test_try_again_sends_the_same_transcript_without_speaking() -> None:
     executor = FailsOnce()
     session = Session(rec, executor, debug_executor=MockExecutor(speed=0), router=None)
     await session.handle(Message("debug.ask", {"text": "Summarize the README."}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     err = rec.last("error")
     assert err["code"] == "overloaded" and err["retry"] is True and err["title"] == "Swift is busy right now"
     await session.handle(Message("retry", {}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert executor.calls == ["Summarize the README.", "Summarize the README."]
     assert rec.states()[-1] == "result"
 

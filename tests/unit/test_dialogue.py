@@ -303,18 +303,18 @@ async def test_a_capture_keeps_listening_after_and() -> None:
 async def test_a_timer_with_no_length_asks_for_how_long() -> None:
     session, rec, spy, records = await _session()
     await ask("set a timer", session)
-    assert rec.last("result")["summary"] == "For how long?" and records[0]["dialogue"] == {"kind": "duration"}
+    assert rec.last("ask")["question"] == "For how long?"
     assert not session.system.scheduler.pending("timer")  # type: ignore[union-attr]
     await ask("ten minutes", session)
     assert rec.last("result")["summary"] == "Timer set for 10 minutes."
-    assert records[1]["dialogue"] == {"kind": "duration", "turn": "answered"} and records[1]["thread"] == records[0]["thread"]
+    assert len(records) == 1 and records[0]["dialogue"] == {"kind": "duration"}  # one request, however many turns
     assert spy.calls == [] and len(session.system.scheduler.pending("timer")) == 1  # type: ignore[union-attr]
 
 
 async def test_a_reminder_with_no_time_asks_when() -> None:
     session, rec, spy, _ = await _session()
     await ask("remind me to call Sam", session)
-    assert rec.last("result")["summary"] == "When should I remind you?"
+    assert rec.last("ask")["question"] == "When should I remind you?"
     await ask("in 20 minutes", session)
     assert rec.last("result")["summary"] == "I'll remind you to call sam in 20 minutes."
     assert spy.calls == []
@@ -325,15 +325,15 @@ async def test_an_unclear_answer_is_asked_again_once_then_waits_in_the_stack() -
     session.parked = ParkedThreads(None)
     await ask("set a timer", session)
     await ask("banana", session)
-    assert rec.last("result")["summary"] == "Sorry, I didn't catch that. For how long?"
+    assert rec.last("ask")["text"] == "Sorry, I didn't catch that. For how long?"
     await ask("potato", session)
-    assert rec.last("result")["summary"].startswith("I still didn't catch that")
+    assert rec.last("result")["summary"].startswith("Kept in your list")
     parked = session.parked.all()
     assert [(p.reason, p.words) for p in parked] == [("asked", "set a timer")]
     assert any(i["reason"] == "asked" for i in rec.last("stack")["items"])
     # Picked up later ("continue"): Swift asks again, it doesn't send it to the agent.
     await ask("continue", session)
-    assert rec.last("result")["summary"] == "For how long?" and spy.calls == []
+    assert rec.last("ask")["question"] == "For how long?" and spy.calls == []
 
 
 async def test_never_mind_and_a_new_request_drops_the_question() -> None:
@@ -358,7 +358,7 @@ async def test_a_plain_yes_in_the_reply_window_turns_the_wifi_off() -> None:
     from swift.stt.transcriber import Transcription
 
     session, rec, _ = await _wifi_asked()
-    session._start_followup(Transcription("Yes.", 300, 0.6))
+    await session._take_answer("Yes.", source="answer")
     await _settle(session)
     assert rec.last("result")["summary"] == "Wi-Fi off."
     assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
@@ -371,7 +371,7 @@ async def test_swift_yes_said_into_the_questions_window_reaches_the_question() -
     session, rec, _ = await _wifi_asked()
     asked = session.dialogue.pending
     assert asked is not None
-    await session._hear_answer(asked, "Swift, yes.", named=True)
+    await session._take_answer("Swift, yes.", source="answer", named=True)
     await _settle(session)
     assert rec.last("result")["summary"] == "Wi-Fi off."
     assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]

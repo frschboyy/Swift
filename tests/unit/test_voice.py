@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import wave
 from collections.abc import Callable
@@ -104,7 +106,7 @@ async def down(session: Session) -> None:
 async def up_and_wait(session: Session) -> None:
     await session.handle(Message("ptt", {"state": "up"}))
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
 
 
 async def test_hold_and_release_transcribes_and_shows_result() -> None:
@@ -177,7 +179,7 @@ async def test_blocked_mic_shows_privacy_hint() -> None:
     blocked = MicError("Windows blocked access to the microphone.", "Open Settings > Privacy & security > Microphone")
     session, out, _, _, _ = make(recorder=FakeRecorder(fail=blocked))
     await session.handle(Message("ptt", {"state": "down"}))
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     err = out.last("error")
     assert err["code"] == "mic_unavailable" and "Privacy" in err["hint"]
 
@@ -216,7 +218,7 @@ async def test_escape_while_transcribing_discards_result() -> None:
 async def test_recording_stops_itself_at_the_cap() -> None:
     session, out, _, rec, _ = make(max_record_s=0.05)
     await down(session)
-    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    await settled(session)
     assert not rec.recording
     assert out.states()[-1] == "result"
 
@@ -267,7 +269,7 @@ async def test_mic_stays_open_briefly_after_release() -> None:
     await asyncio.sleep(0.03)
     assert rec.recording  # still catching the last word
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
     assert not rec.recording
 
 

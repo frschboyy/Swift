@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from settling import settled
+
 import asyncio
 import time
 from collections.abc import Callable
@@ -203,7 +205,7 @@ AUDIO = np.zeros(SAMPLE_RATE, dtype=np.int16)
 
 async def finish(session: Session) -> None:
     assert session._task is not None
-    await asyncio.wait_for(session._task, 2)
+    await settled(session)
 
 
 async def test_phrase_with_request_runs_the_request_without_recording() -> None:

@@ -480,6 +480,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("161 an unsure answer was asked again", seen(wake_count("unsure_answer")),
          f"{wake_count('unsure_answer')} time(s)"),
         ("162 'stop' during a run stopped it, not a question", LOOK, "check on screen: the research stopped"),
+        ("163-164 a question out of sight wasn't answered", LOOK,
+         f"check on screen: Wi-Fi stayed on after 'yes'; 'Swift, yes' brought it back "
+         f"{sum(r.get('action') == 'question_not_shown' for r in rows)} time(s)"),
     ]
 
 

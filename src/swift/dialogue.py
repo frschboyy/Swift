@@ -86,6 +86,8 @@ class Question:
     # The owner's words that led to it, for the stack if it goes unanswered (never logged).
     request: str = ""
     # Its window for the answer (swift/answer_window.py): one deadline, its own (seams audit S3).
+    # A lane's question: the request whose card shows it (``Session._on_screen``).
+    front: Any = None
     window: Any = field(default=None, repr=False, compare=False)
     # Said again in other words ("Sorry, was that a yes or a no? …"): what its card shows meanwhile.
     reask_text: str | None = None

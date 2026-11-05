@@ -333,6 +333,8 @@ About 12 minutes. Whether you speak, type or click, Swift now applies the same r
 | 160 | "Hey Swift, turn on airplane mode", then cough once while the card is open | **No** "Sorry, was that a yes or a no?"; the card waits as before | A cough wasn't an answer |
 | 161 | "Hey Swift, turn off the Wi-Fi" and mumble "yeah" | Swift asks again on the card, rather than nothing happening | An unsure answer was asked again |
 | 162 | During a research request, "Swift, set a timer", then "**Swift, stop**" while it asks "For how long?" | The research stops; "stop" isn't taken as the timer's answer | (seen on screen) |
+| 163 | Get a calendar card on screen ("Hey Swift, add lunch with Sam tomorrow at one"). Say "**Swift, turn off the Wi-Fi**", then "**yes**". Then **Reject** the card | The "yes" does nothing and Wi-Fi stays on. Once the card has gone, "Turn off Wi-Fi?" appears. Say "no": Wi-Fi stays on | A question out of sight wasn't answered |
+| 164 | Start a research request, then "Hey Swift, turn off the Wi-Fi". While it asks, click the research request's row to bring it forward, then say "**yes**" | The "yes" does nothing and Wi-Fi stays on: the question isn't on screen. It goes to the stack when its time runs out | A question out of sight wasn't answered |
 
 ## After the checks: the report
 

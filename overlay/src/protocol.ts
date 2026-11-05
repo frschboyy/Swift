@@ -50,7 +50,8 @@ export type Artifact = { run_id: string; thread_id?: string; id: string; phase: 
 );
 
 export type Inbound =
-  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string> } }
+  // instance: this backend; a new one means what the last one put on screen is gone (seams audit O-02).
+  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string } }
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
@@ -175,7 +176,9 @@ export type Outbound =
   | { type: "run.stop"; data: { run_id: string } }
   | { type: "live.app"; data: { run_id: string } }
   // ADR-016 §5.1: an option clicked on Swift's question. An answer, never an approval.
-  | { type: "ask.reply"; data: { ask_id: string; text: string } };
+  | { type: "ask.reply"; data: { ask_id: string; text: string } }
+  // A due card (timer, alarm, reminder) was drawn: only then does it leave the schedule (seams audit O-08).
+  | { type: "due.shown"; data: { run_id: string } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });

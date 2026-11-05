@@ -26,7 +26,7 @@ async def _one_card() -> tuple[object, object, Attention, Agent, str]:
     return session, out, attention, agent, request_id
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit O-01: open finding; remove this marker with the fix")
+# Fixed by S1 (2026-11-05): the backend tells every new overlay what is on screen; one card per request.
 async def test_a_reloaded_overlay_gets_the_open_card_again() -> None:
     session, out, _attention, agent, request_id = await _one_card()
     before = len(out.messages)
@@ -38,7 +38,7 @@ async def test_a_reloaded_overlay_gets_the_open_card_again() -> None:
         await finish_all(session, agent)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit O-01: open finding; remove this marker with the fix")
+# Fixed by S1 (2026-11-05): the backend tells every new overlay what is on screen; one card per request.
 async def test_a_reloaded_overlay_stops_the_cards_countdown_until_it_draws_it() -> None:
     session, _out, attention, agent, request_id = await _one_card()
     await session.handle(Message("ready", {"startup_ms": 1}))  # nothing drawn yet in the new overlay

@@ -209,6 +209,11 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
                                  r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
     set_aside = [line for line in log if "| question set aside for another |" in line]
+    resynced = [line for line in log if "| overlay told what is on screen |" in line]
+    resynced_card = [line for line in resynced if "card=True" in line]
+    due_sent = [line for line in log if "| due sent |" in line]
+    due_drawn = [line for line in log if "| due shown |" in line]
+    due_again = [line for line in log if "| due card not drawn: kept for later |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
 
     def answered(tool: str, decision: str = "approve") -> bool:
@@ -457,6 +462,12 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          f"{len(set_aside)} set aside; check on screen: it came back with a whole countdown"),
         ("142-145 each question's countdown", LOOK,
          "check on screen: an answer begun in time counts; the countdown starts after Swift speaks, 25 s"),
+        # One owner of what is on screen (seams audit S1).
+        ("146 the overlay was told what is on screen (a reload or restart)", seen(resynced_card),
+         f"{len(resynced)} time(s), {len(resynced_card)} with a card; check on screen: the same card, its countdown"),
+        ("147-148 a restart and two cards", LOOK, "check on screen: the timer card after the restart; one card at a time"),
+        ("149 due cards drawn before leaving the schedule", unless(len(due_sent) > len(due_drawn) + len(due_again), due_drawn),
+         f"{len(due_sent)} sent, {len(due_drawn)} drawn, {len(due_again)} not drawn and kept for later"),
     ]
 
 

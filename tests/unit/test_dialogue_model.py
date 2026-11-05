@@ -343,10 +343,6 @@ ALL = frozenset({"LOCKED", "OWN_DEADLINE", "DEADLINE", "ENDS", "CLOSED", "APPROV
 # can't, leaves that one check out (``UNSTEERABLE``); the replay must still break the check, so a fix
 # shows up here: then delete the entry.
 KNOWN: dict[str, tuple[str, list[tuple[str, dict[str, Any]]]]] = {
-    # A new request said while a run's question waits takes the front; the question's close is then
-    # only remembered (``ask`` is FOCUS_ONLY), so the overlay keeps holding it (new in layer C).
-    "O-15": ("CLOSED", [("a_request_that_asks", {}), ("swift_finishes_speaking", {}), ("time_passes", {"seconds": 2.0}),
-                        ("something_said", {"text": "what time is it"})]),
 }
 
 SETTINGS = settings(max_examples=int(os.environ.get("SWIFT_MODEL_EXAMPLES", "60")), stateful_step_count=20,
@@ -358,9 +354,8 @@ def _model(checks: frozenset[str], avoid: frozenset[str] = frozenset()) -> type[
     return type("Model", (DialogueModel,), {"checks": checks, "avoid": avoid})
 
 
-# A question is closed while another request is in front whenever a request takes the front while it
-# waits (a new one said, one started a moment before): too many paths to steer around.
-UNSTEERABLE = {"O-15"}
+# Findings whose trigger can't be steered around: their check is left out of the main test while open.
+UNSTEERABLE: set[str] = set()
 
 
 def test_the_dialogue_model_holds() -> None:

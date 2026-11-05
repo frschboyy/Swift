@@ -296,6 +296,17 @@ About 8 minutes. Each question Swift asks now has its own countdown, which start
 | 144 | "Hey Swift, turn off the Wi-Fi" and don't answer | The card counts down from **25 s once Swift has finished speaking**, then "No answer, so I've left it as it is." (it used to say 45 s in one place and 25 s in another) | (seen on screen) |
 | 145 | While "Which Sam?" counts down, click another request's row, then click back | The countdown carries on from where it was; it doesn't start again from 25 | (seen on screen) |
 
+### One owner of what is on screen (seams audit S1, 2026-11-05)
+
+About 10 minutes. The backend now tells the overlay everything on screen each time the overlay connects, so a reload or a restart no longer loses a card. A card counts down only while it is drawn.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 146 | Open a calendar card ("Hey Swift, add lunch with Sam tomorrow at one"). Merge something into `main`, or press **Ctrl+R** in the overlay's devtools | The **same card** is back within a second, its countdown going on from where it was. Nothing expired into the stack | The overlay was told what is on screen |
+| 147 | Set a 1-minute timer, then tray → **Restart Swift** just before it rings | Once Swift is back the timer card shows, **no lock needed**; the stack's unfinished items are still there, and an old card from before the restart is gone | (seen on screen) |
+| 148 | "Hey Swift, use Bash to list the files in this folder and in the parent folder at the same time" | If two command cards come, you see **one**; answer it and the other shows. The one you see is the one the countdown is for | (seen on screen) |
+| 149 | "Hey Swift, research the history of tea in detail", then "set a timer for 1 minute", and keep the research going over 3 minutes | The timer card shows (once the research card lets it), and the timer is gone from "what timers do I have" only after you saw it | Due cards drawn before leaving the schedule |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

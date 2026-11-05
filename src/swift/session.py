@@ -320,6 +320,8 @@ THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "ar
 CONFIRM_TIMEOUT_S = 45.0
 # After an answer that asks something, Swift waits this long for the reply (``wake.question_s``).
 QUESTION_S = 25.0
+# How long a due card may take to be drawn before it goes back in line (``due.shown``, O-08).
+DUE_ACK_S = 10.0
 # Wake listening never waits longer than this for one utterance's transcription.
 WAKE_STT_TIMEOUT_S = 20.0
 # A workflow offer waits this long for "yes" or "no".
@@ -522,6 +524,8 @@ class Run:
     steps: deque[Message] = field(default_factory=lambda: deque(maxlen=5))
     shown_artifacts: dict[str, Message] = field(default_factory=dict)
     card: Message | None = None
+    # Every card it asked that still waits, by request id: the one replayed is the one on screen (O-07).
+    cards: dict[str, Message] = field(default_factory=dict)
     answer: Message | None = None
     # Swift's question on its card (``ask``, ADR-016 §5.1) while it waits, replayed with the card.
     ask: Message | None = None
@@ -550,20 +554,24 @@ class Run:
                 self.shown_artifacts[data["id"]] = msg
             case "confirm.request":
                 self.card = msg
+                self.cards[data["request_id"]] = msg
             case "ask":
                 self.ask = msg if data.get("open") else None
             case "result" | "error":
                 self.answer, self.card, self.ask = msg, None, None
+                self.cards.clear()
                 self.summary = _clip(str(data.get("summary") or data.get("title") or data.get("message") or ""), 80)
 
-    def replay(self) -> list[Message]:
-        """Its card again: state, the last steps, its artifacts, then its open card or its answer."""
+    def replay(self, card: str | None = None) -> list[Message]:
+        """Its card again: state, the last steps, its artifacts, then its open card (``card``: the one on
+        screen, when it asked several) or its answer."""
         out = [self.shown_state] if self.shown_state is not None else []
         if self.state in ("working", "confirm"):
             out += list(self.steps)
         out += list(self.shown_artifacts.values())
-        if self.state == "confirm" and self.card is not None:
-            out.append(self.card)
+        shown = self.cards.get(card) if card is not None else None
+        if self.state == "confirm" and (shown or self.card) is not None:
+            out.append(shown or self.card)  # type: ignore[arg-type]
         elif self.state == "working" and self.ask is not None:
             out.append(self.ask)
         elif self.answer is not None and self.state in ("result", "error"):
@@ -721,6 +729,8 @@ class Session:
         self._stack_sent: list[dict[str, Any]] | None = []
         # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
         self._rows_sent: dict[str, Any] | None = None
+        # Due cards sent and not yet drawn (``due.shown``), by their card's run id (O-08).
+        self._due_sent: dict[str, list[Any]] = {}
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
         self._last_thread: str | None = None
         # After something that can't be undone: the follow-up offered, its thread, and when.
@@ -961,6 +971,10 @@ class Session:
             await self._raw_send(msg)
             return
         run.remember(msg)
+        if msg.type == "confirm.request" and self._cards and self._cards[0][1] != msg.data.get("request_id"):
+            # Waiting behind the card on screen: the overlay draws one card, and it must be that one (O-07).
+            await self._send_rows()
+            return
         named = msg.data.get("run_id")
         renamed = bool(named) and named != run.ui_id
         if renamed:
@@ -1500,7 +1514,10 @@ class Session:
                     await self.on_ready()  # e.g. tell the new overlay whether Swift is listening
                 self._stack_sent = None
                 await self._send_stack()  # a new overlay: what waits, from before it started
+                await self._resync()  # and everything on screen now
                 await self._kick_due()  # and what came due before it was there
+            case "due.shown":
+                self._due_drawn(msg.data["run_id"])
             case "cancel":
                 self.speaker.stop()
                 await self.cancel()
@@ -3110,7 +3127,11 @@ class Session:
 
     async def _close_ask(self, q: Question) -> None:
         with self._as(q.owner):
-            await self._send(outbound("ask", ask_id=q.id, run_id=self._run_id(), open=False))
+            msg = outbound("ask", ask_id=q.id, run_id=self._run_id(), open=False)
+            await self._send(msg)
+        if q.owner is not self._focus:
+            # Not in front, so only remembered: the overlay holds one question and must drop this one (O-15).
+            await self._raw_send(msg)
 
     def _settle(self, q: Question, answer: Answer | None) -> None:
         """A run's question is over: its ``ask_owner`` gets ``answer`` (None: no answer, kept in the stack)."""
@@ -3220,7 +3241,8 @@ class Session:
         """``run``'s card again, its question with the time it has left now, not the time it had when
         first sent (seams audit T-13); a question not on screen any more isn't drawn."""
         out: list[Message] = []
-        for msg in Run.replay(run):
+        shown = self._cards[0][1] if self._cards and self._cards[0][0] is run else None
+        for msg in Run.replay(run, shown):
             if msg.type == "ask" and msg.data.get("open"):
                 q = self.dialogue.pending
                 if q is None or q.id != msg.data.get("ask_id"):
@@ -3500,15 +3522,38 @@ class Session:
         else:
             text = " ".join(self.system.due_text(i, missed) for i, missed, _ in queued)
             run_id = f"due-{queued[0][0].kind}-{queued[-1][0].id}"
+        # Off the schedule only once the overlay says it drew it (``due.shown``); not drawn in time (a
+        # request in front, a reload), it goes back in line and is shown again (seams audit O-08).
+        self._due_sent[run_id] = queued
         await self._send_result(run_id, ExecResult("done", text))
         if not self.overlay_connected():
+            self._due_sent.pop(run_id, None)
             self._due = queued + self._due  # the overlay went as it was sent: show it to the next one
+            return
+        with contextlib.suppress(RuntimeError):
+            asyncio.get_running_loop().call_later(DUE_ACK_S, self._due_not_drawn, run_id)
+        logger.info("due sent", items=len(queued))
+        if self.speech_replies != "never" and not self._away:
+            self._speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
+
+    def _due_drawn(self, run_id: str) -> None:
+        """The overlay drew the due card ``run_id``: its items leave the schedule (B-03, O-08)."""
+        queued = self._due_sent.pop(run_id, None)
+        if queued is None or self.system is None:
             return
         for item, _, _ in queued:
             self.system.scheduler.shown(item.id)
         logger.info("due shown", items=len(queued))
-        if self.speech_replies != "never" and not self._away:
-            self._speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
+
+    def _due_not_drawn(self, run_id: str) -> None:
+        """No ``due.shown`` in time: back in line, shown again once nothing is in the way."""
+        queued = self._due_sent.pop(run_id, None)
+        if not queued:
+            return
+        logger.info("due card not drawn: kept for later", items=len(queued))
+        self._due = queued + self._due
+        with contextlib.suppress(RuntimeError):
+            self._background(self._kick_due())
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""
@@ -3981,6 +4026,48 @@ class Session:
         return decision
 
     # ---- stepping away and coming back (ADR-014 L2) ---------------------------------------------
+
+    # ---- one owner of what is on screen (seams audit S1) ----------------------------------------
+
+    def overlay_gone(self) -> None:
+        """The overlay went (closed, reloading, crashed): nothing is drawn, so no card counts down (O-01)."""
+        shown = self._open_confirm()
+        if shown is not None and self.attention is not None:
+            self.attention.set_seen(shown, False)
+
+    async def _resync(self) -> None:
+        """A new overlay (a reload, a restart, a reconnect) is told everything that is on screen: the rows,
+        the request in front with its card, question or answer, a lane's question card, whether Swift is
+        talking, and the reply window. The backend is the one owner; the overlay only draws (O-01, S1).
+        The card on screen counts down again only once the new overlay says it drew it."""
+        self.overlay_gone()
+        self._rows_sent = None
+        await self._send_rows()
+        if self.speaker.speaking:
+            await self._raw_send(outbound("speech", speaking=True))
+        focus = self._focus
+        shown = self._open_confirm()
+        if focus is not None and (focus.alive or (self._cards and self._cards[0][0] is focus)):
+            for msg in self._replay(focus):
+                await self._raw_send(msg)
+            if shown is not None and self._cards[0][0] is focus and self.attention is not None:
+                left = self.attention.left(shown)
+                await self._raw_send(outbound("confirm.hold", request_id=shown, held=self.attention.held,
+                                              timeout_s=round(left or 0.0, 1)))
+        q = self.dialogue.pending
+        if q is not None and q.source == "lane" and q.run_id is not None and q.window is not None and q.window.open:
+            await self._raw_send(outbound("state", state="working", run_id=q.run_id))
+            left = q.window.left()
+            if left is None:
+                await self._raw_send(outbound("ask", **q.as_message(), run_id=q.run_id, open=True,
+                                              phase="asking", seconds=0))
+            else:
+                await self._send_question(q, left)
+        if self._followup is not None and (left := self._followup[1] - clock.now()) > 0:
+            await self._raw_send(outbound("followup", open=True, seconds=round(left, 1),
+                                          question=self._followup_question))
+        logger.info("overlay told what is on screen", runs=len(self._runs), card=shown is not None,
+                    question=q is not None)
 
     def _owner_here(self) -> None:
         """The owner just talked to Swift: they're here (presence, held cards)."""

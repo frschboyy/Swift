@@ -37,6 +37,9 @@ class OverlayServer:
         self._client: ServerConnection | None = None
         self._handler: Handler | None = None
         self._server: Server | None = None
+        # Called when the overlay goes (closed, crashed, reloading): nothing is on screen until the next
+        # one says it drew it (seams audit O-01).
+        self.on_disconnect: Callable[[], Any] | None = None
 
     def set_handler(self, handler: Handler) -> None:
         self._handler = handler
@@ -98,6 +101,8 @@ class OverlayServer:
                 try:
                     msg = decode(raw)
                 except ProtocolError as exc:
+                    # Content-free: what kind of frame, never its text (version skew after a dev reload: O-05).
+                    logger.warning("overlay frame refused", reason=str(exc).split(":")[0][:80])
                     await ws.send(encode(outbound("error", code="bad_message", message=str(exc), hint="")))
                     continue
                 if msg.type == "hello":
@@ -110,3 +115,5 @@ class OverlayServer:
             if self._client is ws:
                 self._client = None
                 logger.info("overlay disconnected")
+                if self.on_disconnect is not None:
+                    self.on_disconnect()

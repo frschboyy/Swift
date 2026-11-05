@@ -31,7 +31,8 @@ test("O-03: a text box whose window failed to open once is opened again without 
   assert.deepEqual(opened, ["pane-type"], "the text box stays unopened until something else changes");
 });
 
-test("O-05: a protocol error with no run id does not wipe the confirm card the backend still waits on", { todo: "seams audit O-05: open finding; drop todo with the fix" }, () => {
+// Fixed by S1 (2026-11-05): such an error is never shown over a waiting card; bad_message isn't shown at all.
+test("O-05: a protocol error with no run id does not wipe the confirm card the backend still waits on", () => {
   // The backend answers a frame it can't read with ``error`` {code: "bad_message"} and no run id
   // (ipc/server.py). The presenter treats it as the answer: the confirm card and its countdown go,
   // while the backend still holds the card open (and counts it down as seen).

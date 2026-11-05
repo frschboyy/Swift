@@ -115,6 +115,15 @@ async def _due_session():  # type: ignore[no-untyped-def]
 
     session, rec, _, _ = await _session()
     assert session.system is not None
+    send = session._raw_send
+
+    async def drawn(msg):  # type: ignore[no-untyped-def]
+        # Like the overlay: a due card it draws is acknowledged (``due.shown``, seams audit O-08).
+        await send(msg)
+        if msg.type == "result" and str(msg.data.get("run_id", "")).startswith("due-"):
+            session._due_drawn(msg.data["run_id"])
+
+    session._raw_send = drawn
     return session, rec, session.system.scheduler
 
 

@@ -15,6 +15,7 @@ import os
 import shutil
 import sys
 import time
+import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -370,6 +371,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             "version": __version__,
             "debug": settings.debug,
             "hotkeys": settings.hotkeys.model_dump(),
+            # This backend: an overlay that sees a new one forgets what the last one put on screen (O-02).
+            "instance": uuid.uuid4().hex[:12],
         },
     )
     # Both warm up in the background once the ready line is out (below).
@@ -436,6 +439,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     )
     server.set_handler(session.handle)
     session.overlay_connected = lambda: server.connected  # a due card waits for an overlay (B-03)
+    server.on_disconnect = session.overlay_gone  # nothing is on screen until the next overlay draws it (O-01)
     wake_tasks: set[asyncio.Task[None]] = set()
     if wake.enabled:
 

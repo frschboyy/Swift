@@ -28,7 +28,8 @@ Times are local (+03:00) on 2026-11-04 unless another date is given. `session.py
 | T-07 | Nothing heard acts after a lock, however late it arrives. Owner check 139 | `32e03c0` |
 | Layer A (O-06) | Protocol examples both ways, checked by `protocol.py`, by `tsc` against `protocol.ts`, and against every frame the backend sends in the suite | `0da3295` |
 | Layer C | `swift/clock.py` (the clock seam), a virtual-time event loop, and a Hypothesis model of the dialogue | `dec1a43` |
-| S3 | One window per question (`swift/answer_window.py`): its own deadline, counted from the end of Swift's speech, waiting for an answer still being said, restarted by every re-ask with the deadline sent; a lane question from the owner's new request is asked first and the one it displaces comes back with a whole window. Fixes T-01, T-02, T-03, T-11, T-13. Owner checks 141–145. Decision 9 taken as recommended (25 s from the end of speech; ADR-016 updated) | the commit after the layer C one |
+| S3 | One window per question (`swift/answer_window.py`): its own deadline, counted from the end of Swift's speech, waiting for an answer still being said, restarted by every re-ask with the deadline sent; a lane question from the owner's new request is asked first and the one it displaces comes back with a whole window. Fixes T-01, T-02, T-03, T-11, T-13. Owner checks 141–145. Decision 9 taken as recommended (25 s from the end of speech; ADR-016 updated) | `f918be9` |
+| S1 | One owner of what is on screen. On every `ready` (now sent on every connection) the backend sends the rows, the request in front with its card and the time it has left, a lane's question card, Swift speaking, and the reply window; a card counts down only once the new overlay draws it, and stops when the overlay goes. `hello.ok` carries the backend's instance: a new one clears the old screen. A card behind another isn't sent (`Run.cards`). `bad_message` never reaches a card, and the server logs it. Due cards leave the schedule on `due.shown`; not drawn in 10 s, they go back in line. A question's close always reaches the overlay. Fixes O-01, O-02, O-05, O-07, O-08, O-15. Checked in the harness (a reload and a backend restart with a card up). Owner checks 146–149. **Not done:** absolute deadlines (T-08) and the heartbeat (H-06) | the commit after `f918be9` |
 
 Layer C found two new findings (§3.9): **T-13** and **O-15**. It also re-found T-01 and T-03 by itself. Each known open finding is replayed in `tests/unit/test_dialogue_model.py` (`KNOWN`), and the main model steers around its trigger, so a fix shows up there.
 
@@ -341,12 +342,12 @@ IDs by area:
 | T-02 | High | confirmed (tests); **fixed 2026-11-05 (S3)** | backend | reliability | A question times out while the answer is being said or transcribed |
 | T-03 | High | confirmed (tests, log 17:43:39–17:44:04); **fixed 2026-11-05 (S3)** | backend | reliability | After a re-ask, the old window stands, and the timer runs from the re-ask's start |
 | T-04 | High | confirmed (test) | backend | reliability | An answer that asks is parked while its reply window and countdown still run |
-| O-01 | High | confirmed (harness, tests, log) | IPC | reliability | An overlay reload (every merge) loses the open card, question and answer; the card expires unseen |
-| O-02 | High | confirmed (code, harness log) | IPC | reliability, fallback | `ready` once per page load: after Restart Swift there is no stack, due cards wait, and stale stack ids open nothing |
+| O-01 | High | confirmed (harness, tests, log); **fixed 2026-11-05 (S1)** | IPC | reliability | An overlay reload (every merge) loses the open card, question and answer; the card expires unseen |
+| O-02 | High | confirmed (code, harness log); **fixed 2026-11-05 (S1)** | IPC | reliability, fallback | `ready` once per page load: after Restart Swift there is no stack, due cards wait, and stale stack ids open nothing |
 | O-03 | High | confirmed (test) | overlay, Rust | reliability, fallback | A failed text-box open isn't retried, and `typing` stays set (#4, #16b) |
 | O-04 | High | confirmed (harness) | overlay | effectiveness | The Send card shows 3 lines of the email with no scroll (#15) |
-| O-07 | High | confirmed (test) | backend, overlay | reliability | One run asking two cards: the backend and the overlay disagree on which is shown (#14 class) |
-| O-08 | High | confirmed (code, both sides) | backend, overlay | reliability | A due card the overlay drops while a run is in front is still marked shown |
+| O-07 | High | confirmed (test); **fixed 2026-11-05 (S1)** | backend, overlay | reliability | One run asking two cards: the backend and the overlay disagree on which is shown (#14 class) |
+| O-08 | High | confirmed (code, both sides); **fixed 2026-11-05 (S1)** | backend, overlay | reliability | A due card the overlay drops while a run is in front is still marked shown |
 | V-01 | High | confirmed (test) | speech | fallback | With SAPI unavailable, Swift is "speaking" forever and the open mic goes deaf |
 | R-03 | High | confirmed (test) | backend | effectiveness, fallback | A local request waits behind three agent runs |
 | X-01 | High | confirmed (test) | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
@@ -363,8 +364,8 @@ IDs by area:
 | T-09 | Medium | confirmed (code) | backend | reliability | About 10 fire-and-forget tasks; timers not cancelled on disconnect |
 | T-12 | Medium | confirmed (code) | backend | fallback, diagnosability | A backend kill or restart loses Later cards, questions and unfinished runs, with nothing logged |
 | T-13 | Medium | confirmed (layer C); **fixed 2026-11-05 (S3)** | backend, IPC | reliability | A question replayed when its request comes back to the front restarts the overlay's countdown, not the backend's |
-| O-05 | Medium | confirmed (test) | IPC | reliability, diagnosability | A protocol error with no run id wipes the confirm card |
-| O-06 | Medium | confirmed (code) | IPC | testability | No contract test between `protocol.py` and `protocol.ts` |
+| O-05 | Medium | confirmed (test); **fixed 2026-11-05 (S1)** | IPC | reliability, diagnosability | A protocol error with no run id wipes the confirm card |
+| O-06 | Medium | confirmed (code); **fixed 2026-11-05 (layer A)** | IPC | testability | No contract test between `protocol.py` and `protocol.ts` |
 | O-09 | Medium | suspected | Rust, overlay | reliability | The live view can ratchet narrower with mixed DPI (#10) |
 | O-10 | Medium | confirmed (code) | overlay, Rust | diagnosability | Overlay and Rust failures never reach `swift.log`; failed sends are ignored |
 | V-02 | Medium | confirmed (tests) | speech | effectiveness | No echo cancellation; the "no over Swift's voice" rule has four gaps (#7, #8) |
@@ -398,7 +399,7 @@ IDs by area:
 | O-12 | Low | design concern | overlay | effectiveness | Answers fade after at most 20 s, whatever their length |
 | O-13 | Low | confirmed (harness) | IPC | reliability | Two overlay clients replace each other about twice a second, forever |
 | O-14 | Low | confirmed (harness) | overlay | fallback | The fallback live view loses its header in a short window |
-| O-15 | Low | confirmed (layer C) | backend, IPC | reliability | A question closed while its request isn't in front never reaches the overlay |
+| O-15 | Low | confirmed (layer C); **fixed 2026-11-05 (S1)** | backend, IPC | reliability | A question closed while its request isn't in front never reaches the overlay |
 | V-04 | Low | confirmed (owner data) | speech | effectiveness | A quiet "Yes." below the fixed −50 dBFS gate never reaches the model |
 | W-02 | Low | confirmed (owner data) | speech | effectiveness | Two enabled fixes rewrite rare real words ("tori", "distal") |
 | W-05 | Low | confirmed (measured) | speech | effectiveness | A low-confidence trigger sees about 25% of the real errors |

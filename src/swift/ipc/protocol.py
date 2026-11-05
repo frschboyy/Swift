@@ -97,6 +97,9 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "ask.reply": {"ask_id": (str, None), "text": (str, None)},
     # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
     "recordings": {"action": (str, ("clear", "improve"))},
+    # The overlay drew a due card (a timer, alarm or reminder): only then is it taken off the schedule
+    # (seams audit O-08: an overlay that drops it, behind a request in front, must not lose it).
+    "due.shown": {"run_id": (str, None)},
 }
 
 OUTBOUND_TYPES = frozenset(

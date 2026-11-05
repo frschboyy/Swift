@@ -130,7 +130,7 @@ class _TwoCards:
         self.cls = Two
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit O-07: open finding; remove this marker with the fix")
+# Fixed by S1 (2026-11-05): the backend tells every new overlay what is on screen; one card per request.
 async def test_s04_the_overlay_and_the_backend_disagree_on_which_card_is_on_screen() -> None:
     """Backend: ``_cards[0]`` (card 1) is on screen, card 2 waits behind it, its countdown not started. But
     ``_send`` forwards card 2's ``confirm.request`` (same run, in front), and the overlay's ``onConfirm``
@@ -211,7 +211,7 @@ async def test_s06_an_unsure_answer_to_an_open_question_is_dropped_without_a_wor
 
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit O-01: open finding; remove this marker with the fix")
+# Fixed by S1 (2026-11-05): the backend tells every new overlay what is on screen; one card per request.
 async def test_s07_a_new_overlay_is_not_shown_the_card_the_backend_thinks_is_on_screen() -> None:
     """The overlay reloads or reconnects (webview reload, Tauri window recreated) while a confirm card waits.
     ``ready`` resends the stack and due items only: not the run in front, its card, its question or the rows.

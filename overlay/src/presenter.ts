@@ -263,6 +263,8 @@ export type Answer = {
 /** A result, an error, or one of Swift's own notices. ``shown`` false: a notice the screen is too busy for. */
 export function onAnswer(p: Presenter, a: Answer, now: number): { p: Presenter; shown: boolean } {
   if (a.kind === "notice" && isActive(p)) return { p, shown: false };  // never over a request
+  // An error that belongs to no request never takes the place of a card waiting for an answer (O-05).
+  if (a.kind === "error" && !a.runId && p.pendingConfirm !== null) return { p, shown: false };
   if (notInFront(p, a.runId)) return { p, shown: false };  // its row says how it ended
   if (a.runId && p.runId && a.runId !== p.runId && isActive(p) && a.runId !== p.focus) return { p, shown: false };  // a late, stale answer
   const fadeAt = a.ms === null ? null : now + Math.max(a.ms, p.followupUntil > now ? p.followupUntil - now + 500 : 0);

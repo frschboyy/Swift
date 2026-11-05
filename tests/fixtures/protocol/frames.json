@@ -2,6 +2,7 @@
   "_about": "The overlay <-> backend contract (seams audit 2026-11, layer A). Examples of every frame each side sends: tests/unit/test_protocol_contract.py checks them against protocol.py and writes overlay/src/protocol.examples.ts, which tsc checks against protocol.ts. Every frame the backend sends in the test suite must fit them (tests/conftest.py). For each type, give the smallest frame (only what is always there) and the largest. Test data only.",
   "to_overlay": [
     {"type": "hello.ok", "data": {"version": "0.1.0", "debug": true, "hotkeys": {"push_to_talk": "Ctrl+Shift+Space", "type": "Ctrl+Shift+T"}}},
+    {"type": "hello.ok", "data": {"version": "0.1.0", "debug": false, "hotkeys": {}, "instance": "3f9c2a1b7d4e"}},
     {"type": "state", "data": {"state": "idle"}},
     {"type": "state", "data": {"state": "working", "run_id": "a-1", "agent": {"id": "claude_code", "name": "Claude Code"}, "thread_id": "t-1"}},
     {"type": "state", "data": {"state": "confirm", "run_id": "a-1", "agent": null, "thread_id": "t-1"}},
@@ -74,6 +75,7 @@
     {"type": "watch", "data": {"run_id": "a-1", "open": false}},
     {"type": "run.stop", "data": {"run_id": "a-1"}},
     {"type": "live.app", "data": {"run_id": "a-1"}},
-    {"type": "ask.reply", "data": {"ask_id": "ask-2", "text": "Paris"}}
+    {"type": "ask.reply", "data": {"ask_id": "ask-2", "text": "Paris"}},
+    {"type": "due.shown", "data": {"run_id": "due-timer-4"}}
   ]
 }

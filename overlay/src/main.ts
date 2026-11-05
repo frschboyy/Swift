@@ -96,7 +96,10 @@ let pttSpec = "";
 let typeSpec = "";
 let scenarioIndex = 0;
 let lastRegions = "";
-let readyReported = false;
+// Startup times, measured once per launch and reported to every backend this overlay connects to.
+let readyTimes: { startup_ms: number; backend_ms: number | null } | null = null;
+// The backend this overlay last talked to (``hello.ok`` instance): a new one put nothing on screen (O-02).
+let backendInstance: string | null = null;
 let connection: ConnectionStatus = { phase: "starting" };
 let everConnected = false;
 let listenStarted = 0;
@@ -1572,6 +1575,8 @@ function onAskMessage(data: Q.AskData): void {
 /** A timer, alarm or reminder came due: it stays until Done (ADR-017). */
 function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   if (!presentAnswer("result", null, data.run_id, data.thread_id, clipLine(data.summary))) return;
+  // Drawn: only now does it leave the schedule; dropped, the backend shows it again later (O-08).
+  client.send({ type: "due.shown", data: { run_id: data.run_id } });
   const kind = data.run_id.split("-")[1];
   const label = { timer: "Timer", alarm: "Alarm", reminder: "Reminder", away: "While you were away" }[kind] ?? "Reminder";
   // The label says what it is; the title is the rest ("Reminder: call mum." → "Call mum.").
@@ -1931,6 +1936,8 @@ function onMessage(msg: Inbound): void {
   if (msg.type !== "level") recent.push(`${msg.type}${"state" in msg.data ? `:${msg.data.state}` : ""}`), recent.splice(0, recent.length - 30);
   switch (msg.type) {
     case "hello.ok":
+      if (msg.data.instance && backendInstance && msg.data.instance !== backendInstance) forgetBackend();
+      backendInstance = msg.data.instance ?? backendInstance;
       debugEnabled = msg.data.debug;
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
       typeSpec = msg.data.hotkeys.type ?? "";
@@ -1976,6 +1983,11 @@ function onMessage(msg: Inbound): void {
       renderResult(msg.data);
       break;
     case "error":
+      if (msg.data.code === "bad_message") {
+        // A frame the backend couldn't read (version skew after a reload): never the owner's card (O-05).
+        console.warn("backend refused a frame:", msg.data.message);
+        break;
+      }
       if (pres.runId) setLive(L.ended(live, pres.runId, "error", msg.data.title ?? msg.data.message, null, Date.now()));
       renderError(msg.data);
       break;
@@ -2115,12 +2127,22 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
       severity: "info",
     });
   }
-  if (!readyReported) {
-    // Startup time, once per launch: process start to "usable".
-    readyReported = true;
+  if (readyTimes === null) {
+    // Startup time, measured once per launch: process start to "usable".
     const t = await invoke<{ startup_ms: number; backend_ms: number | null }>("overlay_ready");
-    client.send({ type: "ready", data: { startup_ms: Number(t.startup_ms), backend_ms: t.backend_ms === null ? null : Number(t.backend_ms) } });
+    readyTimes = { startup_ms: Number(t.startup_ms), backend_ms: t.backend_ms === null ? null : Number(t.backend_ms) };
   }
+  // Every connection, not once per page: the backend then tells this overlay everything on screen (O-01, O-02).
+  client.send({ type: "ready", data: readyTimes });
+}
+
+/** A different backend answered (Swift restarted): what the last one put on screen is gone. The new
+ * one sends what is on screen now, after ``ready``. */
+function forgetBackend(): void {
+  asked = null;
+  onMessage({ type: "stack", data: { items: [] } });
+  onMessage({ type: "runs", data: { focus: null, rows: [], waiting: 0 } });
+  onMessage({ type: "state", data: { state: "idle" } });
 }
 
 // ---- hotkeys from Rust -----------------------------------------------------------

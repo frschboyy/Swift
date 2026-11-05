@@ -5,6 +5,7 @@ import type { Inbound, Outbound } from "./protocol";
 
 export const TO_OVERLAY = [
   {"type": "hello.ok", "data": {"version": "0.1.0", "debug": true, "hotkeys": {"push_to_talk": "Ctrl+Shift+Space", "type": "Ctrl+Shift+T"}}},
+  {"type": "hello.ok", "data": {"version": "0.1.0", "debug": false, "hotkeys": {}, "instance": "3f9c2a1b7d4e"}},
   {"type": "state", "data": {"state": "idle"}},
   {"type": "state", "data": {"state": "working", "run_id": "a-1", "agent": {"id": "claude_code", "name": "Claude Code"}, "thread_id": "t-1"}},
   {"type": "state", "data": {"state": "confirm", "run_id": "a-1", "agent": null, "thread_id": "t-1"}},
@@ -79,6 +80,7 @@ export const TO_BACKEND = [
   {"type": "run.stop", "data": {"run_id": "a-1"}},
   {"type": "live.app", "data": {"run_id": "a-1"}},
   {"type": "ask.reply", "data": {"ask_id": "ask-2", "text": "Paris"}},
+  {"type": "due.shown", "data": {"run_id": "due-timer-4"}},
 ] satisfies Outbound[];
 
 type Missing<All extends { type: string }, Given extends { type: string }> = Exclude<All["type"], Given["type"]>;

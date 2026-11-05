@@ -2190,13 +2190,8 @@ class Session:
         else:
             self._voice_db += (heard.peak_db - self._voice_db) * VOICE_EMA
 
-    def _answer_asked(self) -> bool:
-        """The last answer asked the owner something, so a one-word reply makes sense."""
-        return self._last_exchange is not None and "?" in self._last_exchange.answer
-
     def _refuse_unclear(self, heard: Transcription, text: str, record: dict[str, Any]) -> bool:
         """Whether too much of ``heard`` was a guess to act on; notes it in the record either way."""
-        record["request_p"] = heard.mean_p  # how sure, without the wake phrase (``intake.fragment``)
         clarity = assess(heard, self.unclear_p, self.reject_p)
         if clarity != "clear":
             record["unclear"] = heard.unclear(self.unclear_p)
@@ -2365,7 +2360,6 @@ class Session:
             self._keep_audio(rec, audio)
             if heard.confidence is not None:
                 rec["stt_confidence"] = heard.confidence
-            rec["request_p"] = heard.mean_p
             if unclear:
                 rec["transcript_heard"] = heard.text.strip()
                 rec["unclear"] = heard.unclear(self.unclear_p)
@@ -2724,12 +2718,9 @@ class Session:
             if (
                 decision is not None and decision.route == "agent" and answered is None and resumed is None
                 and workflow is None and record.get("source") in SPOKEN_SOURCES
-                and intake.fragment(
-                    strip_wake(transcript) or transcript, request_p=record.get("request_p"), bar=self.reject_p,
-                    just_asked=record.get("source") == "followup" and self._answer_asked(),
-                )
+                and intake.fragment(strip_wake(transcript) or transcript)
             ):
-                # Hesitations, or one unsure word: never a run and a card of its own (2026-11-05).
+                # Only hesitations: never a run and a card of their own (2026-11-05).
                 record["fragment"] = True
                 raise UserFacingError(
                     "fragment", f"I only caught “{_clip(transcript, 40)}”.", FRAGMENT_HINT,

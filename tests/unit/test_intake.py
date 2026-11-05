@@ -91,16 +91,12 @@ async def test_a_click_on_a_lane_question_answers_it_not_the_card_open_beside_it
     await finish(session)
 
 
-@pytest.mark.parametrize(("text", "p", "just_asked", "fragment"), [
-    ("Ah.", 0.2, False, True), ("", None, False, True), ("um, hmm", 0.9, True, True),  # no words at all
-    ("Kern", 0.57, False, True),  # one unsure word
-    ("Kern", 0.57, True, False), ("Tuesday", 0.5, True, False),  # a reply to Swift's question
-    ("Mozart", 0.95, False, False),  # one clear word is a request
-    ("Kern", None, False, False),  # the model didn't say: taken at its word
-    ("Kern Street", 0.3, False, False),  # more than one word: the clarity check's business
+@pytest.mark.parametrize(("text", "fragment"), [
+    ("Ah.", True), ("", True), ("um, hmm", True),  # no words at all
+    ("Kern", False), ("Tuesday", False), ("Kern Street", False),  # one word is a request: not judged on confidence
 ])
-def test_what_counts_as_a_fragment(text: str, p: float | None, just_asked: bool, fragment: bool) -> None:
-    assert intake.fragment(text, request_p=p, just_asked=just_asked) is fragment
+def test_what_counts_as_a_fragment(text: str, fragment: bool) -> None:
+    assert intake.fragment(text) is fragment
 
 
 def _heard(text: str, p: float):  # type: ignore[no-untyped-def]
@@ -109,17 +105,26 @@ def _heard(text: str, p: float):  # type: ignore[no-untyped-def]
     return Transcription(text, 200, 0.9, words=tuple(Word(w, p) for w in text.split()))
 
 
-@pytest.mark.parametrize(("heard", "p"), [("Kern", 0.57), ("Ah.", 0.2)])
-async def test_a_spoken_fragment_never_starts_a_run(heard: str, p: float) -> None:
-    """Owner checks 2026-11-05: "Kern" and "Ah." each started a run and a card of their own."""
+async def test_hesitations_alone_never_start_a_run() -> None:
+    """Owner checks 2026-11-05: "Ah." started a run and a card of its own."""
     from test_followup import make
 
     session, out, executor, records = make()
-    session._start_followup(_heard(heard, p))
+    session._start_followup(_heard("Ah.", 0.2))
     await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
     assert executor.calls == [], "the agent got a fragment"
     assert records[-1].get("fragment") is True
     assert out.last("error")["title"] == "Say that again?"
+
+
+async def test_one_unsure_word_still_reaches_the_agent() -> None:
+    """Unmeasured, a confidence bar refuses clear words too; the misheard "Kern" stays open until it's scored."""
+    from test_followup import make
+
+    session, _out, executor, _records = make()
+    session._start_followup(_heard("Mozart", 0.5))
+    await asyncio.wait_for(session._task, 2)  # type: ignore[arg-type]
+    assert len(executor.calls) == 1
 
 
 @pytest.mark.parametrize("reply", ["Tuesday", "Both", "Second"])

@@ -95,15 +95,12 @@ def for_question(midrun_action: str | None, *, run_working: bool) -> bool:
     return not (run_working and midrun_action in MIDRUN_CONTROLS)
 
 
-def fragment(text: str | None, *, request_p: float | None = None, bar: float = 0.7, just_asked: bool = False) -> bool:
-    """Too little to give the agent: no words but hesitations ("Ah."), or one word the model was
-    unsure of ("Kern", at 0.57), unless Swift has just asked something: then one word is a normal
-    reply ("Tuesday"). A clear single word is a request like any other, and commands Swift does
-    itself are routed before this. ``request_p``: how sure the model was (None: it didn't say)."""
-    words = [w for w in (_bare(t) for t in (text or "").split()) if w and w not in FILLERS]
-    if not words:
-        return True
-    return len(words) == 1 and not just_asked and request_p is not None and request_p < bar
+def fragment(text: str | None) -> bool:
+    """Nothing to give the agent: no words but hesitations ("Ah."). One word is a request like any
+    other, even an unsure one: the model's confidence doesn't tell a misheard word from a clear one
+    (a clean "Stop." scored 0.46, a misheard "Sure." 0.71: ``1a0ff5d``). Measure it on saved clips
+    before adding a bar here (reliability review, 2026-11-05)."""
+    return not [w for w in (_bare(t) for t in (text or "").split()) if w and w not in FILLERS]
 
 
 def _norm(text: str) -> str:

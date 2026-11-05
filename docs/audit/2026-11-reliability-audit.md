@@ -191,3 +191,5 @@ Not investigated, still open:
 - **Fixed:** `owner_intents` reads each spoken sentence, so a two-sentence request can reach `system_action`.
 - **Kept, still unproven:** the short "Hey Swift" rule. The `short_wake` counter in the "wake listening" log line now shows how often it fires.
 - **Not changed:** ending a stack item while its question is open still leaves the question open. Step 1 fixes that at the source.
+
+**Update after the independent review** ([2026-11-reliability-audit-review.md](2026-11-reliability-audit-review.md), on `claude/reliability-audit-review`). Where section 7 and the review differ, the review's order is the one being followed. Done so far: a plain "yes" answers only what is on screen (`dde1105`), one overlay state (`34b9395`), no lost answers (`b653549`), report check 149 (`6ae9672`), and `fragment` reduced to hesitations alone. That last change removes section 7's one-word confidence rule, so a misheard single word like "Kern" reaches the agent again until a bar is scored on saved clips.

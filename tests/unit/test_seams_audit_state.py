@@ -16,7 +16,7 @@ from swift.ipc.protocol import Message
 from swift.parked import ParkedThreads
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-01: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.
 async def test_s01_a_lane_question_behind_a_run_question_kills_the_run_questions_timer() -> None:
     """A run asks "Paris or Rome?"; the owner says "turn off the wifi" instead (a new request beside it).
     The lane asks "Turn off Wi-Fi?", queued behind the run's question, but ``_question_timer`` replaces the
@@ -32,7 +32,7 @@ async def test_s01_a_lane_question_behind_a_run_question_kills_the_run_questions
     await finish_all(session, agent)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-01: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.
 async def test_s01b_the_lane_question_queued_behind_is_never_shown_nor_listened_for() -> None:
     """Same set-up: "Turn off Wi-Fi?" is said as a result line, but no Yes/No card opens for it and a
     "Swift, yes" goes to the run's "Paris or Rome?" question instead."""
@@ -49,12 +49,12 @@ async def test_s01b_the_lane_question_queued_behind_is_never_shown_nor_listened_
         assert "Turn off Wi-Fi?" in shown, (shown, pending and pending.text, waiting)
     finally:
         for q in [*session.dialogue.waiting, *([pending] if pending else [])]:
-            session._question_done(q)
+            session._settle(q, None) if q.source == "run" else session._question_done(q)
         agent.results.setdefault(run_id, None)
         await finish_all(session, agent)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-02: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.
 async def test_s02_an_answer_said_inside_the_window_but_transcribed_after_it_is_lost() -> None:
     """Trace of "a question timed out into the stack 2 s before the owner's answer": the window's timer
     (``_ask_timer``, a fixed call_later) fires while the owner's answer is being transcribed;
@@ -73,7 +73,7 @@ async def test_s02_an_answer_said_inside_the_window_but_transcribed_after_it_is_
         await finish_all(session, agent)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-03: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.
 async def test_s03_after_a_spoken_reask_of_swifts_own_question_the_microphone_stops_listening_for_it() -> None:
     """Log 2026-11-04 17:43:39 (reask) -> 17:44:04.84 (unanswered, exactly 25 s after the reask began, while the
     card's 25 s countdown restarted when Swift finished saying it, 17:43:45). ``_lane_turn`` restarts the timer

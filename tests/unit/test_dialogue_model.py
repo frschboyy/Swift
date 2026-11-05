@@ -52,8 +52,6 @@ QUESTION_S = 25.0
 ANSWERS = ("Paris", "the second one", "Rome please", "Swift, yes", "yes", "no", "no, leave it", "um",
            "what time is it", "Swift, stop", "turn off the wifi", "approve", "Swift, approve", "Swift, approve and",
            "Hey Swift, remind me to call Sam and")
-# What answers a lane's "Turn off Wi-Fi?" (anything else asks it again).
-LANE_ANSWERS = ("Swift, yes", "yes", "no", "no, leave it")  # "Swift, stop" asks again (T-03)
 
 
 class Problem(AssertionError):
@@ -86,8 +84,10 @@ class DialogueModel(RuleBasedStateMachine):
         self.loop = VirtualLoop()
         self.stamped: list[tuple[float, Message]] = []
         self.locked = False
-        # What had been heard when the screen locked: requests started, transcripts shown.
-        self.at_lock: tuple[int, int] | None = None
+        # When the screen locked: the requests there were (one said in full before it may still start,
+        # queued behind another), and how many answers and hands-free commands had been taken.
+        self.at_lock: tuple[set[int], int] | None = None
+        self.said_before_lock: set[int] = set()
         # Approvals the owner gave: "Swift, approve" said, or Approve clicked, while a card was open.
         self.approvals_given = 0
         self.loop.run_until_complete(self._make())
@@ -133,8 +133,21 @@ class DialogueModel(RuleBasedStateMachine):
         await self.session.hear_wake(SHORT, self.loop.time())
         await self._settle()
 
-    def _heard(self) -> tuple[int, int]:
-        return len(self.agent.requests), sum(1 for _, m in self.stamped if m.type == "transcript")
+    def _heard(self) -> tuple[set[int], int]:
+        stats = self.session.wake_stats
+        return {id(r) for r in self.session._runs}, stats["answer"] + stats["hands_free"] + stats["short_answer"]
+
+    def _started_while_locked(self) -> list[Any]:
+        """Requests that started after the lock from something heard. Every request here starts from
+        something heard (nothing is typed), except what was said in full before the lock and carried
+        out after it: one that waited for a free slot (``_queue_wake``), or a change said on a card,
+        run once its request ended."""
+        assert self.at_lock is not None
+        new = [r for r in self.session._runs if id(r) not in self.at_lock[0]]
+        for r in new:  # remembered: a request's record is replaced when it ends
+            if (r.record or {}).get("queued_behind") or (r.record or {}).get("source") == "correction":
+                self.said_before_lock.add(id(r))
+        return [r for r in new if id(r) not in self.said_before_lock]
 
     def _live_runs(self) -> list[Any]:
         return [r for r in self.session._runs if r.task is not None and not r.task.done()]
@@ -144,20 +157,17 @@ class DialogueModel(RuleBasedStateMachine):
     @precondition(lambda self: len(self.agent.requests) < 3)
     @rule()
     def a_request_that_asks(self) -> None:
-        if self._steered("T-13", self._asked() == "run" and self.session._open_confirm() is not None):
-            return
         self._run(self._say("Hey Swift, plan the trip and ask me where"))
 
     @precondition(lambda self: len(self.agent.requests) < 3)
     @rule()
     def a_request_with_a_card(self) -> None:
-        if self._steered("T-13", self._asked() == "run"):
-            return
         self._run(self._say("Hey Swift, tidy the notes card"))
         for run in self.agent.runs.values():
             run["ask"].set()
         self._run(self._settle())
 
+    @precondition(lambda self: not self.locked)  # nothing to click on a locked screen
     @rule(decision=st.sampled_from(("approve", "reject")))
     def a_click_on_the_card(self, decision: str) -> None:
         request_id = self.session._open_confirm()
@@ -171,8 +181,6 @@ class DialogueModel(RuleBasedStateMachine):
 
     @rule()
     def a_lane_question(self) -> None:
-        if self._steered("T-01", self._asked() == "run"):
-            return
         self._run(self._say("Hey Swift, turn off the wifi"))
 
     @rule()
@@ -185,20 +193,15 @@ class DialogueModel(RuleBasedStateMachine):
 
     @rule(text=st.sampled_from(ANSWERS))
     def something_said(self, text: str) -> None:
-        asked = self._asked()
-        if (self._steered("T-01", asked == "run" and text == "turn off the wifi")
-                or self._steered("T-03", asked == "lane" and text not in LANE_ANSWERS)):
-            return
         self._run(self._say(text))
 
+    @precondition(lambda self: not self.locked)  # nothing to click on a locked screen
     @rule(pick=st.sampled_from(("Paris", "Rome", "Yes", "No")))
     def a_click_on_the_question(self, pick: str) -> None:
         shown = self._open_asks()
         if not shown:
             return
         ask_id = sorted(shown)[-1]
-        if self._steered("T-03", self._asked() == "lane" and pick in ("Paris", "Rome")):
-            return
         self._run(self.session.handle(Message("ask.reply", {"ask_id": ask_id, "text": pick})))
         self._run(self._settle())
 
@@ -244,7 +247,8 @@ class DialogueModel(RuleBasedStateMachine):
 
     @invariant()
     def nothing_heard_acts_while_locked(self) -> None:
-        if self.locked and self._heard() != self.at_lock:
+        if self.locked and self.at_lock is not None and (
+                self._started_while_locked() or self._heard()[1] != self.at_lock[1]):
             self._problem("LOCKED", "something heard started or answered while the screen was locked")
 
     @invariant()
@@ -256,30 +260,35 @@ class DialogueModel(RuleBasedStateMachine):
     @invariant()
     def a_waiting_question_has_its_own_live_deadline(self) -> None:
         s = self.session
+        for behind in s.dialogue.waiting:
+            if behind.window is not None and behind.window.timer is not None:
+                self._problem("OWN_DEADLINE", "a question waiting behind another has a deadline running")
         q = s.dialogue.pending
         if q is None or s._away or s._cards or (q.future is not None and q.future.done()):
             return
-        timer = s._ask_timer
-        if timer is None or timer.cancelled() or timer.when() < self.loop.time() - 0.5:
+        w = q.window
+        timer = w.timer if w is not None else None
+        if w is None or not w.open or timer is None or timer.cancelled() or timer.when() < self.loop.time() - 0.5:
             self._problem("OWN_DEADLINE", "the question on screen has no live deadline; it can wait for ever")
-        if timer._args and timer._args[0] is not q:  # noqa: SLF001
-            self._problem("OWN_DEADLINE", "the question on screen runs on another question's deadline")
 
     @invariant()
     def the_overlay_counts_down_to_the_backends_deadline(self) -> None:
         s = self.session
-        q, window, timer = s.dialogue.pending, s._answer_window, s._ask_timer
-        if q is None or window is None or window[0] is not q or timer is None or timer.cancelled() or s._cards:
+        q = s.dialogue.pending
+        w = q.window if q is not None else None
+        if q is None or w is None or w.state != "listening" or w.deadline is None or s._cards:
             return
+        if q.source == "run" and q.owner is not s._focus:
+            return  # not drawn: the overlay shows a question only for the request in front (replayed fresh)
         sent = [(t, m.data) for t, m in self.stamped if m.type == "ask" and m.data.get("ask_id") == q.id
-                and m.data.get("open") and m.data.get("phase") in ("listening", "again")]
+                and m.data.get("open") and m.data.get("phase") in ("listening", "again") and m.data.get("seconds")]
         if not sent:
             return
         at, data = sent[-1]
         shown = at + float(data.get("seconds") or 0)
-        if abs(shown - timer.when()) > 0.2:
+        if abs(shown - w.deadline) > 0.2:
             self._problem("DEADLINE", f"the overlay counts down to {shown - self.loop.time():.1f} s, "
-                                  f"the backend to {timer.when() - self.loop.time():.1f} s")
+                                  f"the backend to {w.deadline - self.loop.time():.1f} s")
 
     # ---- the end ------------------------------------------------------------------------------
 
@@ -334,20 +343,6 @@ ALL = frozenset({"LOCKED", "OWN_DEADLINE", "DEADLINE", "ENDS", "CLOSED", "APPROV
 # can't, leaves that one check out (``UNSTEERABLE``); the replay must still break the check, so a fix
 # shows up here: then delete the entry.
 KNOWN: dict[str, tuple[str, list[tuple[str, dict[str, Any]]]]] = {
-    # A lane question asked while a run's question waits takes the one shared ``_ask_timer``: the
-    # run's question then never times out, and its request never ends.
-    "T-01": ("OWN_DEADLINE", [("a_request_that_asks", {}), ("swift_finishes_speaking", {}), ("time_passes", {"seconds": 2.0}),
-                      ("a_lane_question", {})]),
-    # A click that isn't an answer to "Turn off Wi-Fi?" asks again and restarts the backend's 25 s, but
-    # the overlay gets no new deadline (a member of T-03: a restart with no deadline sent).
-    "T-03": ("DEADLINE", [("a_lane_question", {}), ("time_passes", {"seconds": 0.5}),
-                      ("a_click_on_the_question", {"pick": "Paris"})]),
-    # A question replayed when its request comes back to the front (a card request beside it took the
-    # front, then gave it back) carries its first ``seconds``: the overlay counts 25 s again while the
-    # backend's deadline stands (new in layer C; the relative-deadline class, S3).
-    # ("Swift, plan the trip…" on the card is a change to it: the card closes and the front goes back.)
-    "T-13": ("DEADLINE", [("a_request_that_asks", {}), ("swift_finishes_speaking", {}), ("time_passes", {"seconds": 2.0}),
-                          ("a_request_with_a_card", {}), ("a_request_that_asks", {})]),
     # A new request said while a run's question waits takes the front; the question's close is then
     # only remembered (``ask`` is FOCUS_ONLY), so the overlay keeps holding it (new in layer C).
     "O-15": ("CLOSED", [("a_request_that_asks", {}), ("swift_finishes_speaking", {}), ("time_passes", {"seconds": 2.0}),

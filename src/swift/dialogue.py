@@ -28,13 +28,13 @@ from __future__ import annotations
 
 import asyncio
 import re
-import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
 from typing import Any, Literal
 
+from swift import clock as swift_clock
 from swift.routing import fast
 from swift.system import intents as it
 
@@ -71,7 +71,7 @@ class Question:
     # Who asked: the session's request object, so only that request's end drops it (audit A-08).
     owner: Any = None
     id: str = field(default_factory=lambda: f"ask-{uuid.uuid4().hex[:8]}")
-    asked_at: float = field(default_factory=time.monotonic)
+    asked_at: float = field(default_factory=swift_clock.now)
     reasked: int = 0
     future: asyncio.Future[Answer] | None = None
     # Said aloud: the microphone opens when Swift has finished saying it.
@@ -83,6 +83,10 @@ class Question:
     closed: bool = False
     # The owner's words that led to it, for the stack if it goes unanswered (never logged).
     request: str = ""
+    # Its window for the answer (swift/answer_window.py): one deadline, its own (seams audit S3).
+    window: Any = field(default=None, repr=False, compare=False)
+    # Said again in other words ("Sorry, was that a yes or a no? …"): what its card shows meanwhile.
+    reask_text: str | None = None
 
     def as_message(self) -> dict[str, Any]:
         return {"ask_id": self.id, "question": self.text, "kind": self.kind, "options": list(self.options),
@@ -372,7 +376,7 @@ class Carry:
 
 
 class Dialogue:
-    def __init__(self, clock: Callable[[], float] = time.monotonic, carry_s: float = CARRY_S) -> None:
+    def __init__(self, clock: Callable[[], float] = swift_clock.now, carry_s: float = CARRY_S) -> None:
         self.clock = clock
         self.carry_s = carry_s
         # The question on screen, and those asked behind it, in order.
@@ -389,6 +393,13 @@ class Dialogue:
             return True
         self.waiting.append(question)
         return False
+
+    def ask_first(self, question: Question) -> None:
+        """Ask ``question`` on screen now: the one there waits behind it, first in line (seams audit T-01:
+        the owner moved on to a new request, and that request's question is the one they're in)."""
+        if self.pending is not None:
+            self.waiting.insert(0, self.pending)
+        self.pending = question
 
     def done(self, question: Question) -> Question | None:
         """``question`` no longer waits (answered, put off, dropped): the next one, if it came forward."""

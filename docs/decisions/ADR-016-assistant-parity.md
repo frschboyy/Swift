@@ -373,7 +373,7 @@ Measured on the development laptop, real device: reads and clock operations 0–
 |---|---|---|
 | Wi-Fi, Bluetooth, airplane mode | `system/control.py` (`radios`, `set_radio`), `intents.py` (`radio`, `radio.get`, `airplane`) | `Windows.Devices.Radios` through PowerShell's WinRT bridge: no new package, about 1 s a call (measured: read 1.2 s, set 0.9 s). Windows' own airplane switch has no app API, so "airplane mode" switches every radio and says so. |
 | Do Not Disturb / Focus | `intents.py` (`dnd`), `lane.py` | Windows keeps it in a private settings store with no supported API. Swift opens the setting and says why, rather than pretend. |
-| Asking first | `lane.py` (`Outcome.pending`, `question`, `confirmed`), `session.py` (`_system_answer`) | Wi-Fi or Bluetooth off, airplane mode on: "Turn off Wi-Fi?" Yes (or "go ahead", "do it") within 45 s does it; no drops it; anything else drops the question and goes on as said. "Okay, what's…" with more than five words is a new request, not a yes. |
+| Asking first | `lane.py` (`Outcome.pending`, `question`, `confirmed`), `session.py` (`_system_answer`) | Wi-Fi or Bluetooth off, airplane mode on: "Turn off Wi-Fi?" Yes (or "go ahead", "do it") within the question window (25 s from the end of Swift's speech; 45 s before 2026-11-05) does it; no drops it; anything else drops the question and goes on as said. "Okay, what's…" with more than five words is a new request, not a yes. |
 | Agent tool | `workflows/system_tools.py` (`system_action`) | Same grammar; only intents found, with the same details, in a clause of the owner's own request. Through the gateway: reversible, or the confirm card for disruptive ones. Workflow capability `system.action`. |
 | Report | `spikes/owner_checks/report.py` | Requests and median time per lane; agent runs Swift could now answer itself ("now local") or partly ("partly system"). |
 | Parity set | `eval/parity/` (`build.py`, `parity.jsonl`, `score.py`, `passing.txt`) | 397 requests from §1.1 translated to a PC, each with its *ideal* lane, phrasing variants, `must_not` for harmful lanes, and 22 excluded rows with the reason. `tests/unit/test_parity.py` is a ratchet: what passes stays passing, nothing harmful. |
@@ -446,7 +446,7 @@ Read this number with care: the set was written by the same person as the gramma
 - One exchange at a time; no continuous conversation mode (decision 13).
 - A bare number answering "For how long?" means minutes; the reply says so.
 - A reminder with a day but no time, or "remind me about…", still goes to the agent.
-- Lane yes/no questions keep the 45 s window; slot questions use the question window.
+- Lane yes/no questions use the question window too: one deadline per question, 25 s counted from the end of Swift's speech (seams audit 2026-11, S3 and owner decision 9; it was 45 s, against a 25 s timer that always fired first).
 - Questions never show over a confirm card.
 
 ### 16.3 Checked, and not

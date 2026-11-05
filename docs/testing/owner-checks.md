@@ -284,6 +284,18 @@ About 3 minutes. Something you said just before locking used to act after the lo
 | 139 | Open a calendar card ("Hey Swift, add lunch with Sam tomorrow at one"). Say "**Swift, approve and…**", stop, and press Win+L within a second. Unlock after 10 s | The card is **still waiting**: nothing was added. Then reject it | Nothing heard acted on after a lock (61) |
 | 140 | Run the report below | Each check says PASS, FAIL, NOT SEEN or LOOK, and the last line counts each. "Check on screen" lines say LOOK, never PASS | (the report itself) |
 
+### One window per question (seams audit S3, 2026-11-05)
+
+About 8 minutes. Each question Swift asks now has its own countdown, which starts when Swift has finished saying the question. Before, a second question could stop the first one's countdown for good, and an answer begun near the end was lost.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 141 | "Hey Swift, draft an email to Sam about lunch". At "**Which Sam?**", say "**turn off the Wi-Fi**" | "Turn off Wi-Fi?" comes up at once. Say "no". Then "Which Sam?" comes back with a **whole** countdown, and if you don't answer it goes to the stack. Nothing waits for ever | A question set aside for another |
+| 142 | "Hey Swift, set a timer". When the card shows about **3 s left**, say "ten minutes" (take your time saying it) | The timer is set: an answer you began in time counts, however long it takes to say | (seen on screen) |
+| 143 | "Hey Swift, turn off Bluetooth", then "**purple**". Wait for Swift to finish asking again, wait **20 s**, then say "yes" | Bluetooth goes off. The countdown started again only when Swift finished the re-ask | (seen on screen) |
+| 144 | "Hey Swift, turn off the Wi-Fi" and don't answer | The card counts down from **25 s once Swift has finished speaking**, then "No answer, so I've left it as it is." (it used to say 45 s in one place and 25 s in another) | (seen on screen) |
+| 145 | While "Which Sam?" counts down, click another request's row, then click back | The countdown carries on from where it was; it doesn't start again from 25 | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

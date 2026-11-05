@@ -27,7 +27,8 @@ Times are local (+03:00) on 2026-11-04 unless another date is given. `session.py
 | S0 (Q-01) | The owner-check report prints PASS, FAIL, NOT SEEN or LOOK. On 2026-11-04 it now says FAIL for 130, as found here | `43c8077` |
 | T-07 | Nothing heard acts after a lock, however late it arrives. Owner check 139 | `32e03c0` |
 | Layer A (O-06) | Protocol examples both ways, checked by `protocol.py`, by `tsc` against `protocol.ts`, and against every frame the backend sends in the suite | `0da3295` |
-| Layer C | `swift/clock.py` (the clock seam), a virtual-time event loop, and a Hypothesis model of the dialogue | the commit after `0da3295` |
+| Layer C | `swift/clock.py` (the clock seam), a virtual-time event loop, and a Hypothesis model of the dialogue | `dec1a43` |
+| S3 | One window per question (`swift/answer_window.py`): its own deadline, counted from the end of Swift's speech, waiting for an answer still being said, restarted by every re-ask with the deadline sent; a lane question from the owner's new request is asked first and the one it displaces comes back with a whole window. Fixes T-01, T-02, T-03, T-11, T-13. Owner checks 141–145. Decision 9 taken as recommended (25 s from the end of speech; ADR-016 updated) | the commit after the layer C one |
 
 Layer C found two new findings (§3.9): **T-13** and **O-15**. It also re-found T-01 and T-03 by itself. Each known open finding is replayed in `tests/unit/test_dialogue_model.py` (`KNOWN`), and the main model steers around its trigger, so a fix shows up there.
 
@@ -336,9 +337,9 @@ IDs by area:
 | D-03 | High | confirmed (test) | backend | effectiveness, fallback | "Turn the Wi-Fi back on" is refused offline as "I'm offline" |
 | D-04 | High | confirmed (test) | backend | reliability | Any local answer in between forgets the switch ("turn it back on" lost) |
 | D-06 | High | confirmed (test, log 17:43:39) | backend | reliability | An utterance with no words counts as an unclear answer and spends the re-ask |
-| T-01 | High | confirmed (tests) | backend | reliability | One timer slot for every question: a question behind cancels the on-screen one's timer, and the run hangs |
-| T-02 | High | confirmed (tests) | backend | reliability | A question times out while the answer is being said or transcribed |
-| T-03 | High | confirmed (tests, log 17:43:39–17:44:04) | backend | reliability | After a re-ask, the old window stands, and the timer runs from the re-ask's start |
+| T-01 | High | confirmed (tests); **fixed 2026-11-05 (S3)** | backend | reliability | One timer slot for every question: a question behind cancels the on-screen one's timer, and the run hangs |
+| T-02 | High | confirmed (tests); **fixed 2026-11-05 (S3)** | backend | reliability | A question times out while the answer is being said or transcribed |
+| T-03 | High | confirmed (tests, log 17:43:39–17:44:04); **fixed 2026-11-05 (S3)** | backend | reliability | After a re-ask, the old window stands, and the timer runs from the re-ask's start |
 | T-04 | High | confirmed (test) | backend | reliability | An answer that asks is parked while its reply window and countdown still run |
 | O-01 | High | confirmed (harness, tests, log) | IPC | reliability | An overlay reload (every merge) loses the open card, question and answer; the card expires unseen |
 | O-02 | High | confirmed (code, harness log) | IPC | reliability, fallback | `ready` once per page load: after Restart Swift there is no stack, due cards wait, and stale stack ids open nothing |
@@ -361,7 +362,7 @@ IDs by area:
 | T-08 | Medium | design concern | backend, overlay | reliability | Every countdown runs separately in Python and TS |
 | T-09 | Medium | confirmed (code) | backend | reliability | About 10 fire-and-forget tasks; timers not cancelled on disconnect |
 | T-12 | Medium | confirmed (code) | backend | fallback, diagnosability | A backend kill or restart loses Later cards, questions and unfinished runs, with nothing logged |
-| T-13 | Medium | confirmed (layer C) | backend, IPC | reliability | A question replayed when its request comes back to the front restarts the overlay's countdown, not the backend's |
+| T-13 | Medium | confirmed (layer C); **fixed 2026-11-05 (S3)** | backend, IPC | reliability | A question replayed when its request comes back to the front restarts the overlay's countdown, not the backend's |
 | O-05 | Medium | confirmed (test) | IPC | reliability, diagnosability | A protocol error with no run id wipes the confirm card |
 | O-06 | Medium | confirmed (code) | IPC | testability | No contract test between `protocol.py` and `protocol.ts` |
 | O-09 | Medium | suspected | Rust, overlay | reliability | The live view can ratchet narrower with mixed DPI (#10) |
@@ -392,7 +393,7 @@ IDs by area:
 | D-10 | Low | confirmed (log) | backend | diagnosability | Unclear-speech rows show no request text (17:33:22, 17:38:15) |
 | D-11 | Low | confirmed (log) | backend | diagnosability | A click on a question card is logged as "typed request" |
 | T-10 | Low | design concern | backend | reliability | Lock and unlock are handled as concurrent tasks |
-| T-11 | Low | design concern | backend | reliability | The lane yes/no window has two clocks, and ADR-016 disagrees with the code |
+| T-11 | Low | design concern; **fixed 2026-11-05 (S3)** | backend | reliability | The lane yes/no window has two clocks, and ADR-016 disagrees with the code |
 | O-11 | Low | confirmed (code) | backend | effectiveness | Content capped with no marker ("6 timers: a; b; c; d.", lists, calendar text) |
 | O-12 | Low | design concern | overlay | effectiveness | Answers fade after at most 20 s, whatever their length |
 | O-13 | Low | confirmed (harness) | IPC | reliability | Two overlay clients replace each other about twice a second, forever |

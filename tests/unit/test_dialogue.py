@@ -372,7 +372,7 @@ async def test_a_brisk_yes_or_no_to_the_wifi_is_kept_from_a_short_clip() -> None
     await ask("turn off the wifi", session)
     asked = session.dialogue.pending
     assert asked is not None
-    session._answer_window = (asked, time.monotonic() + 10)
+    session._window(asked).listen(10)
     assert session._short_kept("yes", busy=False) == "yes"
     assert session._short_kept("no", busy=False) == "no"
 

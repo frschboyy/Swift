@@ -122,7 +122,7 @@ async def test_s04_an_empty_transcription_is_not_an_answer() -> None:
 # ---- S-05: after a lane's re-ask, the answer window is the old one --------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-03: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.
 async def test_s05_after_a_lane_reask_the_microphone_listens_for_a_whole_window() -> None:
     session, out, records, stt, control = _wake_session()
     speaker = FakeSpeaker()
@@ -145,7 +145,7 @@ async def test_s05_after_a_lane_reask_the_microphone_listens_for_a_whole_window(
 # ---- S-06: the question times out while the owner is still saying the answer --------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-02: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.
 async def test_s06_the_question_waits_while_an_answer_is_being_said() -> None:
     session, out, records, stt, control = _wake_session()
     session.wake_question_s = 0.1
@@ -273,17 +273,24 @@ async def test_s13_the_reply_window_opens_after_a_long_spoken_answer() -> None:
 # ---- S-14: one timer slot for every question: a lane question asked behind a run's cancels its timer
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-01: open finding; remove this marker with the fix")
+# Fixed by S3 (swift/answer_window.py, 2026-11-05). Each question has its own window: the lane's question
+# is asked first and the run's waits behind it, its window stopped; it comes back with a whole window and
+# times out by itself. Before, the lane's 25 s timer replaced the run's and the run's never fired.
 async def test_s14_a_question_behind_doesnt_cancel_the_timer_of_the_one_on_screen() -> None:
     from swift.dialogue import Question
 
     session, rec, spy, records = await _session()
+    session.wake_question_s = 0.1
     on_screen = Question("Which Sam: Sam Lee or Sam Okoro?", "choice", ("Sam Lee", "Sam Okoro"), source="run",
                          future=asyncio.get_running_loop().create_future())
     assert session.dialogue.ask(on_screen)
     session._question_timer(on_screen, 0.1)
-    # "hey Swift, set a timer" meanwhile: "For how long?" waits behind the one on screen...
-    session._ask_lane("For how long?", "duration", "seconds", (), {"thread": "t2", "transcript": "set a timer"})
+    # "hey Swift, set a timer" meanwhile: "For how long?" is asked now, the run's question waits behind it.
+    lane_q = session._ask_lane("For how long?", "duration", "seconds", (), {"thread": "t2", "transcript": "set a timer"})
+    assert session.dialogue.pending is lane_q and session.dialogue.waiting == [on_screen]
+    assert on_screen.window.timer is None  # stopped while it waits: one deadline at a time
+    session._question_timer(lane_q, 0.1)
     await asyncio.sleep(0.4)
-    # ...but its 25 s timer replaced the on-screen question's 0.1 s one.
+    assert lane_q.window.state == "closed"
+    # ...then the run's question was on screen again with its own window, and ran out by itself.
     assert on_screen.future.done(), "the question on screen lost its timer: it never times out"

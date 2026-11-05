@@ -208,6 +208,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
                     if re.search(r"\b(asked_unanswered|transcript_heard|unclear|transcript_raw|addressed_as)="
                                  r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
+    set_aside = [line for line in log if "| question set aside for another |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
 
     def answered(tool: str, decision: str = "approve") -> bool:
@@ -451,6 +452,11 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         # The seams audit's first fixes (2026-11-05).
         ("139 a held 'Swift, approve and…' did nothing after a lock", unless(acted_away, locked and unlocked),
          f"{wake_count('paused_drop')} dropped as the screen locked; check on screen: the card still waiting"),
+        # One window per question (seams audit S3).
+        ("141 a question set aside for another came back", seen(set_aside),
+         f"{len(set_aside)} set aside; check on screen: it came back with a whole countdown"),
+        ("142-145 each question's countdown", LOOK,
+         "check on screen: an answer begun in time counts; the countdown starts after Swift speaks, 25 s"),
     ]
 
 

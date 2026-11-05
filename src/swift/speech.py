@@ -21,10 +21,11 @@ import contextlib
 import queue
 import re
 import threading
-import time
 from collections.abc import Callable
 
 from loguru import logger
+
+from swift import clock
 
 # The longest thing said for one answer; the card shows the rest.
 MAX_SPOKEN = 220
@@ -91,7 +92,7 @@ class Speaker:
 
     def __init__(self) -> None:
         self._speaking = False
-        self._quiet_at = 0.0  # time.monotonic() when the last speech ended
+        self._quiet_at = 0.0  # clock.now() when the last speech ended
         self.on_done: Callable[[], None] | None = None
 
     @property
@@ -99,7 +100,7 @@ class Speaker:
         return self._speaking
 
     def recently(self, at: float, tail_s: float = TAIL_S) -> bool:
-        """Whether Swift was talking at ``at`` (time.monotonic()), or had only just stopped."""
+        """Whether Swift was talking at ``at`` (clock.now()), or had only just stopped."""
         return self._speaking or at <= self._quiet_at + tail_s
 
     def speak(self, text: str) -> None:  # noqa: ARG002
@@ -113,7 +114,7 @@ class Speaker:
 
     def _ended(self) -> None:
         self._speaking = False
-        self._quiet_at = time.monotonic()
+        self._quiet_at = clock.now()
         if self.on_done is not None:
             self.on_done()
 

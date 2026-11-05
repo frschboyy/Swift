@@ -143,11 +143,12 @@ class Dialogue:
 
     - a request has at most one confirm card open at a time (O-07): a second ``confirm.request`` for
       the same request before the first is answered, expired or the request ended;
-    - every question opened (``ask`` open) is closed (``ask`` not open) by the end (T-03).
+    - by the end, the overlay holds no question still open (T-03). Like ``ask.ts``/``main.ts``, it
+      holds one question: a new one replaces it, its close or its request's result clears it.
     """
 
     open_cards: dict[str, str] = field(default_factory=dict)  # run_id -> request_id
-    open_asks: dict[str, str] = field(default_factory=dict)  # ask_id -> run_id
+    asked: tuple[str, str] | None = None  # the overlay's question: (ask_id, run_id)
     problems: list[str] = field(default_factory=list)
 
     def sent(self, msg_type: str, data: dict[str, Any]) -> None:
@@ -159,13 +160,15 @@ class Dialogue:
             self.open_cards[run] = req
         elif msg_type == "result":
             self.open_cards.pop(str(data.get("run_id")), None)
+            if self.asked is not None and self.asked[1] == str(data.get("run_id")):
+                self.asked = None  # main.ts: its request ended, the question with it
         elif msg_type == "state" and data.get("state") != "confirm":
             self.open_cards.clear()  # the overlay drops its card on any other stage (presenter.ts setStage)
         elif msg_type == "ask":
             if data.get("open"):
-                self.open_asks[str(data["ask_id"])] = str(data.get("run_id"))
-            else:
-                self.open_asks.pop(str(data["ask_id"]), None)
+                self.asked = (str(data["ask_id"]), str(data.get("run_id")))
+            elif self.asked is not None and self.asked[0] == str(data["ask_id"]):
+                self.asked = None
 
     def received(self, msg_type: str, data: dict[str, Any]) -> None:
         """A frame from the overlay."""
@@ -181,8 +184,8 @@ class Dialogue:
 
     def finished(self) -> list[str]:
         """The problems, once the session is done: also every question still open."""
-        return self.problems + [f"question {a} (request {r}) opened and never closed"
-                                for a, r in self.open_asks.items()]
+        left = [] if self.asked is None else [f"question {self.asked[0]} (request {self.asked[1]}) still open on the overlay"]
+        return self.problems + left
 
 
 if __name__ == "__main__":

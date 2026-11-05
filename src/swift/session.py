@@ -142,6 +142,7 @@ from typing import Any
 
 from loguru import logger
 
+from swift import clock
 from swift import identity
 from swift.attention import Attention, wait_answer
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
@@ -642,7 +643,7 @@ class Session:
     _confirm_ids = _per_run("confirm_ids", "Its confirm cards waiting for an answer.")
     _confirm_titles = _per_run("confirm_titles", "Confirm card titles by request id.")
     _approved = _per_run("approved", "Titles of the cards approved in it.")
-    _run_started = _per_run("run_started", "When the provider started (time.monotonic()).")
+    _run_started = _per_run("run_started", "When the provider started (clock.now()).")
     _swift_declined = _per_run("swift_declined", "Title of a Swift card the owner rejected or left.")
     _request = _per_run("request", "The request as sent on, for parking it.")
     _said = _per_run("said", "The request in the owner's words, for parking it.")
@@ -763,7 +764,7 @@ class Session:
         # After an answer that asks something: the reply window (with wake listening on), and how
         # long before its thread is parked unanswered (0: never parked).
         self.wake_question_s = wake_question_s
-        # The follow-up window: (opened, closes) in time.monotonic(), or None.
+        # The follow-up window: (opened, closes) in clock.now(), or None.
         self._followup: tuple[float, float] | None = None
         # How sure of its words a reply in that window must be (0: as sure as anything else heard).
         self.followup_min_p = followup_min_p
@@ -774,7 +775,7 @@ class Session:
         # The start of an utterance is being checked for the wake phrase; and when it last was one.
         self._peeking = False
         self._peeked_at: float | None = None
-        # When the microphone last stopped recording a request (time.monotonic()): speech heard
+        # When the microphone last stopped recording a request (clock.now()): speech heard
         # before it was that request, or over it.
         self._mic_free_at = 0.0
         # The hotkey is held: a capture after "hey Swift" then ends when it is released, not at a pause.
@@ -848,7 +849,7 @@ class Session:
         self._swift_ids = count(1)
         self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
         self._hearing = False
-        # When wake listening last finished a transcription (time.monotonic()), or None.
+        # When wake listening last finished a transcription (clock.now()), or None.
         self._heard_at: float | None = None
         self._wake_warned = False
         # Screen locked or PC asleep (ADR-014): the open microphone is ignored (threat model T7).
@@ -1155,7 +1156,7 @@ class Session:
 
     async def _ended(self, run: Run) -> None:
         """Clean-up when a request is done: its cards go, and its row says how it ended."""
-        run.ended = time.monotonic()
+        run.ended = clock.now()
         await self._drop_cards(run)
         self._drop_questions(run)
         if self._next_focus is run:
@@ -1288,7 +1289,7 @@ class Session:
         kind, key = parts
         logger.info("stack action", kind=kind, action=action)
         if action == "skip":
-            self._stack_skipped[item_id] = time.monotonic()
+            self._stack_skipped[item_id] = clock.now()
             if kind == "card":
                 await self._skip_card(key)
         else:
@@ -1557,7 +1558,7 @@ class Session:
                 await self._start_voice()
             case "ptt":
                 self._ptt_held = False
-                self._talking(time.monotonic() + 1.0)
+                self._talking(clock.now() + 1.0)
                 if self._released is not None:
                     self._released.set()
             case _:
@@ -1625,9 +1626,9 @@ class Session:
             await self._set_state("listening")
             await self._fake_listening(transcript)
             await self._set_state("transcribing")
-            t0 = time.monotonic()
+            t0 = clock.now()
             await asyncio.sleep(0.6 * self.demo_speed)
-            rec["stt_ms"] = int((time.monotonic() - t0) * 1000)
+            rec["stt_ms"] = int((clock.now() - t0) * 1000)
             return transcript
 
         async def start(text: str) -> str:
@@ -1707,7 +1708,7 @@ class Session:
 
     def mark_return(self, reason: str) -> None:
         """The owner is back (unlocked, resumed): the next wake phrase says how long after it came."""
-        self._returned = (reason, time.monotonic())
+        self._returned = (reason, clock.now())
 
     def wants_short(self) -> bool:
         """Wake listening asks (on the audio thread) whether to hand on a very short clip: only
@@ -1715,7 +1716,7 @@ class Session:
         if self.recorder is None or self.listening_paused or self.speaker.speaking:
             return False
         window = self._followup
-        return self._hands_free() or (window is not None and time.monotonic() <= window[1] + 1.0) or (
+        return self._hands_free() or (window is not None and clock.now() <= window[1] + 1.0) or (
             self._listening_for() is not None
         )
 
@@ -1748,7 +1749,7 @@ class Session:
         if self.wake_phrase_min_p and mean_p is not None and mean_p < self.wake_phrase_min_p:
             return
         self.wake_stats["peek_wake"] += 1
-        self._peeked_at = time.monotonic()
+        self._peeked_at = clock.now()
         await self._signal_heard("wake")
 
     async def hear_wake(self, audio: Any, ended_at: float, short: bool = False) -> None:
@@ -1758,7 +1759,7 @@ class Session:
         the follow-up window just after an answer, if it sounds like the owner (``_reply_doubt``).
         During a run, the mid-run phrases and confirm answers work hands-free (``_hear_busy``).
         While the last request is still being transcribed or started, a wake phrase is the next
-        request, run beside it (``_queue_wake``). ``ended_at`` is the ``time.monotonic()`` at which
+        request, run beside it (``_queue_wake``). ``ended_at`` is the ``clock.now()`` at which
         the utterance ended. Anything else is dropped after it is transcribed, and never logged.
         A ``short`` clip (under the usual minimum length) is kept only if it is a control phrase
         ("stop", "show me", "go on"; on a card "reject"), heard as said or as it sounded.
@@ -1807,7 +1808,7 @@ class Session:
             logger.warning(
                 "wake listening: a transcription took too long; skipped", timeout_s=WAKE_STT_TIMEOUT_S,
                 audio_s=round(len(audio) / SAMPLE_RATE, 1),
-                idle_s=None if self._heard_at is None else int(time.monotonic() - self._heard_at),
+                idle_s=None if self._heard_at is None else int(clock.now() - self._heard_at),
             )
             return
         except SttUnavailable as exc:
@@ -1818,7 +1819,7 @@ class Session:
             return
         finally:
             self._hearing = False
-            self._heard_at = time.monotonic()
+            self._heard_at = clock.now()
         if self.listening_paused:
             # The screen locked (or the PC slept) while this was transcribed: nothing heard by the open
             # microphone acts while locked (threat model T7; audit 2026-10, A-09).
@@ -1981,7 +1982,7 @@ class Session:
             reason, at = self._returned
             self._returned = None
             back = {"back": reason, "since_back_ms": int((ended_at - at) * 1000),
-                    "heard_back_ms": int((time.monotonic() - at) * 1000)}
+                    "heard_back_ms": int((clock.now() - at) * 1000)}
         logger.info("wake phrase heard", with_request=bool(match.remainder), stt_ms=heard.stt_ms, **back)
         peeked, self._peeked_at = self._peeked_at, None
         if peeked is None or ended_at - peeked > PEEK_SHOWN_S:
@@ -2012,7 +2013,7 @@ class Session:
             self._launch(record, capture, self.executor, self.executor.start, title=title)
             return
         auto = AutoEnd(
-            lead_s=len(audio) / SAMPLE_RATE + max(0.0, time.monotonic() - ended_at),
+            lead_s=len(audio) / SAMPLE_RATE + max(0.0, clock.now() - ended_at),
             end_silence_s=self.wake_end_silence_s,
             start_timeout_s=self.wake_start_timeout_s,
         )
@@ -2256,7 +2257,7 @@ class Session:
         seconds = max(self.wake_followup_s, self.wake_question_s) if question else self.wake_followup_s
         if question:
             logger.info("question window", seconds=seconds)  # owner check 26: how long Swift waits for the answer
-        now = time.monotonic()
+        now = clock.now()
         self._followup = (now, now + seconds)
         self._followup_question = question
         await self._send(outbound("followup", open=True, seconds=seconds, question=question))
@@ -2310,7 +2311,7 @@ class Session:
         except MicError as exc:
             raise UserFacingError("mic_unavailable", str(exc), exc.hint, title="Microphone unavailable") from None
 
-        gate, began, last_speech = NoiseGate(), time.monotonic(), None
+        gate, began, last_speech = NoiseGate(), clock.now(), None
         # The pause that ends it; longer while the words so far say more is coming (swift/endpoint.py).
         pause_s = auto.end_silence_s if auto is not None else 0.0
         paused, spoke = False, False
@@ -2322,7 +2323,7 @@ class Session:
                 await self._send(outbound("level", rms=round(level, 3)))
                 if auto is None or self._ptt_held:
                     continue  # the hotkey held during it: it ends when the key is released
-                now = time.monotonic()
+                now = clock.now()
                 if gate.speech(level):
                     last_speech, spoke = now, True
                 elif now - (last_speech if last_speech is not None else began) > (
@@ -2335,7 +2336,7 @@ class Session:
         early: Transcription | None = None
         try:
             try:
-                deadline = time.monotonic() + self.max_record_s
+                deadline = clock.now() + self.max_record_s
                 await asyncio.wait_for(released.wait(), self.max_record_s)
                 waited = 0.0
                 snapshot = getattr(self.recorder, "snapshot", None)
@@ -2353,9 +2354,9 @@ class Session:
                         break
                     waited += extra
                     record["endpoint_waits"] = record.get("endpoint_waits", 0) + 1
-                    pause_s, paused, last_speech = extra, False, time.monotonic()
+                    pause_s, paused, last_speech = extra, False, clock.now()
                     released.clear()
-                    await asyncio.wait_for(released.wait(), max(0.1, deadline - time.monotonic()))
+                    await asyncio.wait_for(released.wait(), max(0.1, deadline - clock.now()))
                 if early is not None and spoke:
                     early = None  # speech came after the words checked: transcribe all of it
                 await asyncio.sleep(self.tail_s)
@@ -2364,7 +2365,7 @@ class Session:
         finally:
             forwarder.cancel()
             audio = self.recorder.stop()
-            self._mic_free_at = time.monotonic()
+            self._mic_free_at = clock.now()
 
         record["audio_s"] = round(len(audio) / SAMPLE_RATE, 2)
         record["first_audio_ms"] = getattr(self.recorder, "first_audio_ms", None)
@@ -2443,7 +2444,7 @@ class Session:
         if run is self._focus:
             await self._close_followup()
         self._drop_question()
-        started = time.monotonic()
+        started = clock.now()
         # Any new request answers or drops the last workflow offer.
         offer, self._offer = self._offer, None
         fix, self._fix_offer = self._fix_offer, None
@@ -2687,7 +2688,7 @@ class Session:
             self._note = None
             self._request = self._said = None
             if self._run_started is not None and "run_ms" not in record:
-                record["run_ms"] = int((time.monotonic() - self._run_started) * 1000)
+                record["run_ms"] = int((clock.now() - self._run_started) * 1000)
             self._run_started = None
             self._active = None
             self._record = None
@@ -2696,7 +2697,7 @@ class Session:
             self._confirm_ids.clear()
             self._confirm_titles.clear()
             self._approved = []
-            record["interaction_ms"] = int((time.monotonic() - started) * 1000)
+            record["interaction_ms"] = int((clock.now() - started) * 1000)
             record.setdefault("status", "error")
             await self._ended(run)
             if self.on_finish is not None:
@@ -2918,7 +2919,7 @@ class Session:
         q = self.dialogue.pending
         if q is None or q.source != "lane":
             return None
-        if time.monotonic() - q.asked_at > SYSTEM_CONFIRM_S or self.system is None:
+        if clock.now() - q.asked_at > SYSTEM_CONFIRM_S or self.system is None:
             self._question_done(q)
             return None
         return q
@@ -2961,7 +2962,7 @@ class Session:
         if turn.action == "answered" and q.kind == "yes_no":
             if answer.kind == "yes":
                 if q.yes_needs_name and record.get("source") in SYSTEM_YES_NEEDS_NAME and not answer.named:
-                    q.asked_at = time.monotonic()  # still asked: say it with the name
+                    q.asked_at = clock.now()  # still asked: say it with the name
                     return Route("local", decision.text, action="system_yes_unnamed")
                 return Route("local", decision.text, action="system_yes")
             return Route("local", decision.text, action="system_no")
@@ -2988,7 +2989,7 @@ class Session:
                 self._carry_system(record, outcome.done)
             return outcome.said, outcome.ok
         if action == "dialogue_reask":
-            q.asked_at = time.monotonic()
+            q.asked_at = clock.now()
             self._question_timer(q, max(self.wake_question_s, 1.0))
             record["asked"] = True
             return reask_text(q), True
@@ -3140,7 +3141,7 @@ class Session:
         self._question_timer(q, seconds)
         if not voice or self.recorder is None:
             return  # a typed request: the answer is typed too
-        self._answer_window = (q, time.monotonic() + seconds)
+        self._answer_window = (q, clock.now() + seconds)
         logger.info("listening for the answer", kind=q.kind, seconds=seconds, wake=self.wake_on)
         if q.source == "run" and q.spoken:
             with self._as(q.owner):
@@ -3158,7 +3159,7 @@ class Session:
         window = self._answer_window
         if window is None or self.dialogue.pending is not window[0] or self._cards:
             return None  # a confirm card on screen hears its own answers ("Swift, yes"), never the question
-        return window[0] if time.monotonic() <= window[1] else None
+        return window[0] if clock.now() <= window[1] else None
 
     async def _capture_answer(self, q: Question, seconds: float) -> None:
         """No open microphone (wake listening off): record the answer, ending when the owner stops
@@ -3350,7 +3351,7 @@ class Session:
             run = asked.owner
             voice = asked.source == "lane" or (run is not None and (run.record or {}).get("source") in SPOKEN_SOURCES)
             asyncio.get_running_loop().create_task(self._listen_for(asked, voice=voice))
-        if self._followup is not None and time.monotonic() <= self._followup[1]:
+        if self._followup is not None and clock.now() <= self._followup[1]:
             asyncio.get_running_loop().create_task(self._open_followup(question=self._followup_question))
 
     async def notify_due(self, item: Item, missed: bool) -> None:
@@ -3450,7 +3451,7 @@ class Session:
 
     def _clarify(self, called: str) -> str | None:
         """"No, I'm Swift." for being called by an agent's name; None if said within the last hour."""
-        now = time.monotonic()
+        now = clock.now()
         if self._clarified_at is not None and now - self._clarified_at < CLARIFY_EVERY_S:
             return None
         self._clarified_at = now
@@ -3458,7 +3459,7 @@ class Session:
 
     async def _run(self, started: Started, record: dict[str, Any]) -> ExecResult:
         run = self._current()
-        t0 = self._run_started = time.monotonic()
+        t0 = self._run_started = clock.now()
         while True:
             result = await self._run_once(started, record, t0)
             change, run.restart = run.restart, None
@@ -3475,7 +3476,7 @@ class Session:
             except ExecutorUnavailable as exc:
                 raise UserFacingError("executor_unavailable", str(exc), exc.hint, title="Can't hand this off yet") from None
             await self._swift_step(f"Changing course: {_clip(change, 60)}", "planning", None)
-        record["run_ms"] = int((time.monotonic() - t0) * 1000)
+        record["run_ms"] = int((clock.now() - t0) * 1000)
         return result
 
     async def _run_once(self, started: Started, record: dict[str, Any], t0: float) -> ExecResult:
@@ -3499,7 +3500,7 @@ class Session:
                 )
             )
         async for event in executor.events(run_id):
-            t_ms = int((time.monotonic() - t0) * 1000)
+            t_ms = int((clock.now() - t0) * 1000)
             if event.type == "step":
                 record["steps"].append({"t_ms": t_ms, "text": event.text, "activity": event.activity})
                 if event.activity == "starting":
@@ -3545,7 +3546,7 @@ class Session:
         if offer is None or decision.route != "control" or decision.action not in ("approve", "reject"):
             return None
         match, text, at = offer
-        if time.monotonic() - at > OFFER_S:
+        if clock.now() - at > OFFER_S:
             return None
         accepted = decision.action == "approve"
         record["offer"] = "accepted" if accepted else "declined"
@@ -3560,7 +3561,7 @@ class Session:
         if fix is None or decision.route != "control" or decision.action not in ("approve", "reject"):
             return None
         text, thread, at = fix
-        if time.monotonic() - at > FIX_OFFER_S:
+        if clock.now() - at > FIX_OFFER_S:
             return None
         record["fix"] = "accepted" if decision.action == "approve" else "declined"
         if thread:
@@ -3643,14 +3644,14 @@ class Session:
             what, fix = DONE_ALREADY.get(tool, ("That was already done", "follow it up"))
             if tool in CHANGEABLE:
                 self._fix_offer = (f"{change}\n\n[Already done: {title}. Change that event to match "
-                                   "(update_calendar_event); don't add another.]", run.thread, time.monotonic())
+                                   "(update_calendar_event); don't add another.]", run.thread, clock.now())
                 if record is not None:
                     record["redirected"] = "after_done"
                 logger.info("change of mind after an action that can be changed", tool=tool)
                 await phase("hint", f"{what}. Say “yes” and I'll {fix}.")
                 return
             self._fix_offer = (f"{change}\n\n[Already done, and it can't be undone: {title}. Do the follow-up "
-                               "that makes the change, e.g. a correction.]", run.thread, time.monotonic())
+                               "that makes the change, e.g. a correction.]", run.thread, clock.now())
             if record is not None:
                 record["redirected"] = "after_done"
             logger.info("change of mind after an action that can't be undone", tool=tool)
@@ -3673,7 +3674,7 @@ class Session:
         await executor.cancel(run_id)
 
     async def _offer_workflow(self, match: Match, text: str, record: dict[str, Any]) -> None:
-        self._offer = (match, text, time.monotonic())
+        self._offer = (match, text, clock.now())
         record["route"] = "local"
         record["offered"] = match.package.name
         record["status"] = "done"
@@ -3764,7 +3765,7 @@ class Session:
     async def _swift_step(self, text: str, activity: str, app: str | None) -> None:
         """Swift's own step on the working card: "Swift is writing in Word" (ADR-012 §6)."""
         if self._record is not None:
-            t_ms = int((time.monotonic() - self._run_started) * 1000) if self._run_started else 0
+            t_ms = int((clock.now() - self._run_started) * 1000) if self._run_started else 0
             self._record["steps"].append({"t_ms": t_ms, "text": text, "activity": activity, "by": "swift"})
         await self._send(
             outbound(
@@ -3854,7 +3855,7 @@ class Session:
         self._confirm_titles[request_id] = title
         run_id = self._run_id()
         if self._record is not None:
-            asked = int((time.monotonic() - self._run_started) * 1000) if self._run_started else 0
+            asked = int((clock.now() - self._run_started) * 1000) if self._run_started else 0
             self._record["approvals"].append({"tool": tool, "request_id": request_id, "asked_ms": asked, "by": "swift"})
         run = self._current()
         on_screen = await self._ask_card(run, request_id)
@@ -3999,7 +4000,7 @@ class Session:
 
     def _offer_shown(self) -> str | None:
         """The thread of the "Unfinished: …" line shown in the last couple of minutes, if any."""
-        if self._offered is None or time.monotonic() - self._offered[1] > OFFER_S:
+        if self._offered is None or clock.now() - self._offered[1] > OFFER_S:
             return None
         return self._offered[0]
 
@@ -4010,7 +4011,7 @@ class Session:
         offer = self.parked.offer(besides=self._thread)
         if offer is None:
             return
-        self._offered = (offer.thread, time.monotonic())
+        self._offered = (offer.thread, clock.now())
         if self._record is not None:
             self._record["offered_resume"] = True
         await self._send(outbound("resume.offer", thread_id=offer.thread, title=offer.title))
@@ -4179,7 +4180,7 @@ class Session:
             text, thread, at = self._fix_offer
             self._fix_offer = None
             await phase("idle")
-            if time.monotonic() - at <= FIX_OFFER_S:
+            if clock.now() - at <= FIX_OFFER_S:
                 self._start_correction(Run(correction=text, thread=thread))
         elif action in ("approve", "reject"):
             await phase("hint", "There's nothing waiting for approval right now.")
@@ -4208,7 +4209,7 @@ class Session:
             self._approved.append(self._confirm_titles[request_id])
         if (entry := self._approval(request_id)) is not None:
             entry["decision"] = "approve" if approve else "reject"
-            entry["answered_ms"] = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
+            entry["answered_ms"] = int((clock.now() - self._run_started) * 1000) if self._run_started else None
             entry["source"] = source
         if (future := self._swift_pending.get(request_id)) is not None:
             if not future.done():
@@ -4355,7 +4356,7 @@ class Session:
             owner.confirm_ids.discard(request_id)
         if (entry := self._approval(request_id)) is not None:
             entry["decision"] = "revise"
-            entry["answered_ms"] = int((time.monotonic() - self._run_started) * 1000) if self._run_started else None
+            entry["answered_ms"] = int((clock.now() - self._run_started) * 1000) if self._run_started else None
             entry["change_chars"] = len(text)  # the words themselves are in "heard", like any voice answer
         logger.info("owner asked for a change on the card")
         future.set_result(text)
@@ -4384,7 +4385,7 @@ class Session:
         Also when it ended in a question that was parked unanswered, however long ago: this is
         most likely the answer, so its thread goes on and is no longer parked.
         """
-        last, now = self._last_exchange, time.monotonic()
+        last, now = self._last_exchange, clock.now()
         if record.get("follows_local") and self._local_exchange is not None:
             last = self._local_exchange  # a follow-up to Swift's own answer: that answer is the context
         if last is None or self.followup_s <= 0:
@@ -4434,13 +4435,13 @@ class Session:
         """Keep a local answer for the next request in its thread: its moment, and as context."""
         thread = record.get("thread")
         self.dialogue.remember(thread, moment=moment,
-                               exchange=Exchange(record["id"], request, said, (), time.monotonic(), thread=thread))
+                               exchange=Exchange(record["id"], request, said, (), clock.now(), thread=thread))
 
     def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
         if result.status in ("done", "rejected"):
             proposed = _proposal(self._store())
             self._last_exchange = Exchange(
-                record["id"], request, result.summary, tuple(self._approved), time.monotonic(), thread=record.get("thread"),
+                record["id"], request, result.summary, tuple(self._approved), clock.now(), thread=record.get("thread"),
                 # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".
                 proposed=proposed, proposed_done=bool(proposed) and record.get("status") == "done",
             )

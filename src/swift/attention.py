@@ -32,7 +32,8 @@ out as before.
 from __future__ import annotations
 
 import asyncio
-import time
+
+from swift.clock import now as clock_now
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -59,7 +60,7 @@ class Attention:
         *,
         hold_s: float = HOLD_S,
         return_s: float = RETURN_S,
-        clock: Callable[[], float] = time.monotonic,
+        clock: Callable[[], float] = clock_now,
         require_seen: bool = False,
     ) -> None:
         self.hold_s = hold_s

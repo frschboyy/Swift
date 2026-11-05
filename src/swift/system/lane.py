@@ -30,7 +30,6 @@ this PC and either reversible or harmless (ADR-016 §3.1, docs/architecture.md).
 
 from __future__ import annotations
 
-import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -39,6 +38,7 @@ from typing import Any
 
 from loguru import logger
 
+from swift import clock
 from swift.security.journal import Journal
 from swift.system import intents as it
 from swift.system.control import SystemControl, SystemUnavailable
@@ -198,15 +198,15 @@ class SystemLane:
             if undo is not None:
                 undos.append(undo)
         if undos:
-            self._undo, self._undo_at = undos, time.monotonic()
+            self._undo, self._undo_at = undos, clock.now()
         return Outcome(" ".join(said), ok, tuple(i.name for i in found), done=tuple(found) if ok else ())
 
     def can_undo(self) -> bool:
-        return bool(self._undo) and time.monotonic() - self._undo_at <= UNDO_S
+        return bool(self._undo) and clock.now() - self._undo_at <= UNDO_S
 
     async def undo(self) -> str:
         steps, self._undo = self._undo, []
-        if not steps or time.monotonic() - self._undo_at > UNDO_S:
+        if not steps or clock.now() - self._undo_at > UNDO_S:
             return "There's nothing to undo."
         action_id = self._pending("undo", always=True)
         lines: list[str] = []

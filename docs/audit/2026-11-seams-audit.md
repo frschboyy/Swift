@@ -20,6 +20,17 @@ Labels:
 
 Times are local (+03:00) on 2026-11-04 unless another date is given. `session.py` line numbers are at `ab09f51`.
 
+**Update, 2026-11-05.** The owner chose "S0, T-07, then A+C". Done on this branch:
+
+| Step | What | Commit |
+|---|---|---|
+| S0 (Q-01) | The owner-check report prints PASS, FAIL, NOT SEEN or LOOK. On 2026-11-04 it now says FAIL for 130, as found here | `43c8077` |
+| T-07 | Nothing heard acts after a lock, however late it arrives. Owner check 139 | `32e03c0` |
+| Layer A (O-06) | Protocol examples both ways, checked by `protocol.py`, by `tsc` against `protocol.ts`, and against every frame the backend sends in the suite | `0da3295` |
+| Layer C | `swift/clock.py` (the clock seam), a virtual-time event loop, and a Hypothesis model of the dialogue | the commit after `0da3295` |
+
+Layer C found two new findings (§3.9): **T-13** and **O-15**. It also re-found T-01 and T-03 by itself. Each known open finding is replayed in `tests/unit/test_dialogue_model.py` (`KNOWN`), and the main model steers around its trigger, so a fix shows up there.
+
 ---
 
 ## 1. In one page
@@ -319,7 +330,7 @@ IDs by area:
 
 | ID | Sev. | Label | Area | Dimension | Finding |
 |---|---|---|---|---|---|
-| **T-07** | **Critical** | confirmed (test) | backend | security | An utterance held mid-thought still acts after the screen locks |
+| **T-07** | **Critical** | confirmed (test); **fixed 2026-11-05** | backend | security | An utterance held mid-thought still acts after the screen locks |
 | D-01 | High | design concern | backend | reliability, testability | Each entry point has its own copy of the steps (the root of D-02 to D-08) |
 | D-02 | High | confirmed (test, log 17:37:09) | backend | effectiveness | A wordy yes, "hold on" or an aside drops the question and goes to the agent |
 | D-03 | High | confirmed (test) | backend | effectiveness, fallback | "Turn the Wi-Fi back on" is refused offline as "I'm offline" |
@@ -350,6 +361,7 @@ IDs by area:
 | T-08 | Medium | design concern | backend, overlay | reliability | Every countdown runs separately in Python and TS |
 | T-09 | Medium | confirmed (code) | backend | reliability | About 10 fire-and-forget tasks; timers not cancelled on disconnect |
 | T-12 | Medium | confirmed (code) | backend | fallback, diagnosability | A backend kill or restart loses Later cards, questions and unfinished runs, with nothing logged |
+| T-13 | Medium | confirmed (layer C) | backend, IPC | reliability | A question replayed when its request comes back to the front restarts the overlay's countdown, not the backend's |
 | O-05 | Medium | confirmed (test) | IPC | reliability, diagnosability | A protocol error with no run id wipes the confirm card |
 | O-06 | Medium | confirmed (code) | IPC | testability | No contract test between `protocol.py` and `protocol.ts` |
 | O-09 | Medium | suspected | Rust, overlay | reliability | The live view can ratchet narrower with mixed DPI (#10) |
@@ -375,7 +387,7 @@ IDs by area:
 | X-09 | Medium | confirmed (code) | gateway | reliability | B-08 still open: after an "unknown" outcome the same action can be done again |
 | X-10 | Medium | suspected | gateway | reliability | No deadline on a Swift tool call (Google 60 s × 3 retries) |
 | X-11 | Medium | suspected | dependency | reliability | Google API clients shared across threads |
-| Q-01 | Medium | confirmed (code, report) | testability | diagnosability | The owner-check report can't print FAIL; on-screen checks always print PASS |
+| Q-01 | Medium | confirmed (code, report); **fixed 2026-11-05** | testability | diagnosability | The owner-check report can't print FAIL; on-screen checks always print PASS |
 | Q-02 | Medium | confirmed (survey) | testability | testability | The fakes hide every seam; nothing drives the backend and the overlay together |
 | D-10 | Low | confirmed (log) | backend | diagnosability | Unclear-speech rows show no request text (17:33:22, 17:38:15) |
 | D-11 | Low | confirmed (log) | backend | diagnosability | A click on a question card is logged as "typed request" |
@@ -385,6 +397,7 @@ IDs by area:
 | O-12 | Low | design concern | overlay | effectiveness | Answers fade after at most 20 s, whatever their length |
 | O-13 | Low | confirmed (harness) | IPC | reliability | Two overlay clients replace each other about twice a second, forever |
 | O-14 | Low | confirmed (harness) | overlay | fallback | The fallback live view loses its header in a short window |
+| O-15 | Low | confirmed (layer C) | backend, IPC | reliability | A question closed while its request isn't in front never reaches the overlay |
 | V-04 | Low | confirmed (owner data) | speech | effectiveness | A quiet "Yes." below the fixed −50 dBFS gate never reaches the model |
 | W-02 | Low | confirmed (owner data) | speech | effectiveness | Two enabled fixes rewrite rare real words ("tori", "distal") |
 | W-05 | Low | confirmed (measured) | speech | effectiveness | A low-confidence trigger sees about 25% of the real errors |
@@ -1004,6 +1017,20 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 | H-06 (no heartbeat), H-07 | still open | H-06 belongs with S1 |
 
 ---
+
+### 3.9 Found by layer C (2026-11-05)
+
+#### T-13 · Medium · confirmed (layer C) · A replayed question restarts the overlay's countdown
+- **Evidence:** a run asks "Paris or Rome?" and listens for 25 s. Two seconds later a request with a card takes the front. "Swift, plan the trip…" said on that card is a change to the card, so the card closes and the front goes back. `Run.replay()` then resends the stored `ask` frame, still `seconds: 25`. The overlay counts 25 s again; the backend's timer has 22.75 s left.
+- **Test:** `test_dialogue_model.py`, `KNOWN["T-13"]`.
+- **Class:** deadlines sent as relative seconds (P2). T-03 is the other side of it: a restart with no new deadline sent.
+- **Fix:** §8 S3. The question's one deadline is absolute, and every frame about it carries that deadline. Until then, `replay()` recomputes `seconds` from the timer.
+
+#### O-15 · Low · confirmed (layer C) · A question closed out of sight stays on the overlay
+- **Evidence:** a run's question waits, and another request takes the front ("what time is it", or one started a moment before). When the question times out, `_close_ask` goes through `_send`. `ask` is in `FOCUS_ONLY`, so for a run not in front the close is only remembered. The overlay keeps the question (`asked` in `main.ts`) until another question replaces it, or a result for that run arrives in front.
+- **Effect today:** small. The overlay shows a question only for the request in front, and a replayed result clears it. It is the state the backend and the overlay disagree on (P3).
+- **Test:** `test_dialogue_model.py`, `KNOWN["O-15"]`.
+- **Fix:** §8 S1. The backend owns what is on screen; a closed question is removed from every copy, in front or not.
 
 ## 4. Failure-injection results
 

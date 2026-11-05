@@ -66,7 +66,7 @@ def test_the_dialogue_names_two_cards_for_one_request_and_a_question_left_open()
     d.sent("confirm.request", {"run_id": "a", "request_id": "a:1"})
     d.sent("confirm.request", {"run_id": "a", "request_id": "a:2"})
     d.sent("ask", {"ask_id": "q", "run_id": "a", "open": True})
-    assert d.finished() == ["two cards open for a: a:1 and a:2", "question q (request a) opened and never closed"]
+    assert d.finished() == ["two cards open for a: a:1 and a:2", "question q (request a) still open on the overlay"]
     ok = Dialogue()
     ok.sent("confirm.request", {"run_id": "a", "request_id": "a:1"})
     ok.received("confirm.reply", {"request_id": "a:1"})

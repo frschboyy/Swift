@@ -468,7 +468,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("146 the overlay was told what is on screen (a reload or restart)", seen(resynced_card),
          f"{len(resynced)} time(s), {len(resynced_card)} with a card; check on screen: the same card, its countdown"),
         ("147-148 a restart and two cards", LOOK, "check on screen: the timer card after the restart; one card at a time"),
-        ("149 due cards drawn before leaving the schedule", unless(len(due_sent) > len(due_drawn) + len(due_again), due_drawn),
+        # Every card sent should be drawn: "kept for later" still means the overlay refused it (8 sent,
+        # 1 drawn printed PASS while "Your timer is up" repeated, 2026-11-05).
+        ("149 due cards drawn before leaving the schedule", unless(len(due_sent) > len(due_drawn), due_drawn),
          f"{len(due_sent)} sent, {len(due_drawn)} drawn, {len(due_again)} not drawn and kept for later"),
         # Nothing waits for ever (seams audit S4).
         ("152 a quick command beside three requests", LOOK, "check on screen: done at once, not 'That's waiting'"),

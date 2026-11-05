@@ -497,3 +497,14 @@ test("a notice rests like a result, and no card is idle", () => {
   const p = P.onAnswer(P.initial, { kind: "notice", ms: 1000 }, 0).p;
   assert.equal(P.stageOf(p), "result");
 });
+
+test("a question's card ending clears only that card, so the next answer is shown", () => {
+  let p = P.onState(P.initial, "working", "local-1", null).p;
+  const foreign = P.onState(p, "idle", "local-9", null);
+  assert.equal(foreign.ignored, true);
+  assert.equal(P.stageOf(foreign.p), "working");
+  p = P.onState(p, "idle", "local-1", null).p;
+  const a = P.onAnswer(p, { kind: "result", runId: "local-2", summary: "It's 17:19.", ms: null }, 0);
+  assert.equal(a.shown, true);
+  assert.equal(P.stageOf(a.p), "result");
+});

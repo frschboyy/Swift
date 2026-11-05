@@ -730,6 +730,8 @@ class Session:
         on_heard: Callable[[str], None] | None = None,
     ) -> None:
         self._raw_send = send
+        # A lane's question card closing: sent in this order, ahead of what comes next (``_close_lane_ask``).
+        self._lane_frames: list[Message] = []
         self.executor = executor
         # Requests running, or ended but still shown (in front, or as a finished row); oldest first.
         self._runs: list[Run] = []
@@ -2642,6 +2644,7 @@ class Session:
                 return
             if decision is not None and (asked := hidden) is not None and seen:
                 decision = self._lane_answer(asked, decision, transcript, record)  # "Turn off Wi-Fi?", "For how long?"
+                await self._send_lane_frames()  # its card closes before this request's answer goes out
             elif decision is not None and decision.action != "system":
                 decision = self._carry_over(decision, transcript, record)  # "make it louder", "no, make it four"
             if decision is not None and decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
@@ -3095,14 +3098,25 @@ class Session:
         else:
             await self._listen_for(q, voice=voice)
 
-    async def _close_lane_ask(self, q: Question, said: str | None) -> None:
-        """A lane's question card closes; ``said``: a line in its place (no answer came)."""
-        # Straight to the overlay: the request that asked has ended, and the one that answered may not be in front.
-        await self._raw_send(outbound("ask", ask_id=q.id, run_id=q.run_id, open=False))
-        if said is not None and not self._front_busy():
-            assert q.run_id is not None
-            await self._raw_send(outbound("state", state="result", run_id=q.run_id))
-            await self._raw_send(outbound("result", run_id=q.run_id, status="done", summary=said, details=None))
+    def _close_lane_ask(self, q: Question, said: str | None = None, *, clear: bool = False) -> None:
+        """A lane's question card closes, in order, ahead of whatever comes next. ``said``: a line in
+        its place, only if the owner can see that card: never over another request or an answer
+        being read. ``clear``: nothing follows on it, so the card goes (else "Working on it" for ever,
+        and the next answer refused behind it). Straight to the overlay: the request that asked has ended."""
+        assert q.run_id is not None
+        self._lane_frames.append(outbound("ask", ask_id=q.id, run_id=q.run_id, open=False))
+        if clear:
+            self._lane_frames.append(outbound("state", state="idle", run_id=q.run_id))
+        elif said is not None and self._on_screen(q):
+            self._lane_frames.append(outbound("state", state="result", run_id=q.run_id))
+            self._lane_frames.append(outbound("result", run_id=q.run_id, status="done", summary=said, details=None))
+        with contextlib.suppress(RuntimeError):
+            self._background(self._send_lane_frames())
+
+    async def _send_lane_frames(self) -> None:
+        frames, self._lane_frames = self._lane_frames, []
+        for frame in frames:
+            await self._raw_send(frame)
 
     # ---- the dialogue (ADR-016 §5.1, swift/dialogue.py) -----------------------------------------
 
@@ -3164,7 +3178,8 @@ class Session:
         record["dialogue"] = {"kind": q.kind, "turn": turn.action}
         logger.info("question answered", kind=q.kind, turn=turn.action, source=record.get("source"))
         if turn.action == "elsewhere":
-            self._question_done(q)
+            # A new request, with its own card: "what time is it" was refused behind this one (review D).
+            self._question_done(q, clear=True)
             rest = turn.answer.rest
             if _same_words(strip_wake(rest) or rest) == _same_words(strip_wake(transcript) or transcript):
                 return decision
@@ -3228,8 +3243,7 @@ class Session:
         went and fades (``tell``), so it is never both on screen and in the stack (2026-11-05)."""
         logger.info("question put off into the stack", kind=q.kind, source=q.source)
         if tell and q.source == "lane" and q.run_id is not None:
-            with contextlib.suppress(RuntimeError):
-                self._background(self._close_lane_ask(q, LANE_KEPT))
+            self._close_lane_ask(q, LANE_KEPT)
         if self.parked is None or not q.thread or not q.request:
             return
         keep = QUESTION_KEEP_S if q.source == "lane" else 0.0
@@ -3279,17 +3293,16 @@ class Session:
             return
         if q.run_id is not None and not q.closed:
             q.closed = True
-            with contextlib.suppress(RuntimeError):
-                self._background(self._close_lane_ask(q, LANE_NO_ANSWER))
+            self._close_lane_ask(q, LANE_NO_ANSWER)
         self._question_done(q)
         self._shelve(q, tell=False)
 
-    def _question_done(self, q: Question) -> None:
-        """``q`` no longer waits: its timer and microphone stop; a question behind it comes forward."""
+    def _question_done(self, q: Question, *, clear: bool = False) -> None:
+        """``q`` no longer waits: its timer and microphone stop; a question behind it comes forward.
+        ``clear``: its card goes too, because its outcome won't be drawn on it (``_close_lane_ask``)."""
         if q.source == "lane" and q.run_id is not None and not q.closed:
             q.closed = True  # its own card closes, however it ended
-            with contextlib.suppress(RuntimeError):
-                self._background(self._close_lane_ask(q, None))
+            self._close_lane_ask(q, clear=clear)
         if q.window is not None:
             q.window.close()
         on_screen = self.dialogue.pending is q
@@ -3681,6 +3694,8 @@ class Session:
             return "overlay"
         if self._open_confirm() is not None or self._capturing():
             return "card"
+        if (asked := self.dialogue.pending) is not None and asked.run_id is not None and self._on_screen(asked):
+            return "card"  # Swift's question is on screen: the overlay would refuse it
         return "busy" if self._front_busy() else None
 
     async def _kick_due(self) -> None:

@@ -92,3 +92,70 @@ async def test_a_yes_to_a_question_on_screen_still_works() -> None:
     await say(session, stt, "yes")
     await until(lambda: control.radio_state.get("wifi") is False)
     await finish_all(session, agent)
+
+
+# ---- no lost answers (review D, E, H) ----------------------------------------------------------
+
+
+def _frames(out, *types):  # type: ignore[no-untyped-def]
+    return [(m.type, m.data) for m in out.messages if m.type in types]
+
+
+async def test_a_new_answer_during_a_question_goes_out_after_its_card_has_closed() -> None:
+    session, out, agent, stt, _control = _session()
+    await say(session, stt, "Hey Swift, turn off the wifi")
+    await until(lambda: session._listening_for() is not None)
+    card = asks(out)[-1]["run_id"]
+    await say(session, stt, "Hey Swift, what time is it")
+    await until(lambda: out.last("result"))
+    frames = _frames(out, "ask", "state", "result")
+    closed = next(i for i, (t, d) in enumerate(frames) if t == "ask" and not d["open"])
+    cleared = next(i for i, (t, d) in enumerate(frames) if t == "state" and d["state"] == "idle" and d.get("run_id") == card)
+    answered = next(i for i, (t, d) in enumerate(frames) if t == "result")
+    assert closed < cleared < answered, frames
+    assert frames[answered][1]["run_id"] != card
+    await finish_all(session, agent)
+
+
+async def test_a_timer_waits_for_a_question_on_screen_and_then_shows() -> None:
+    session, out, agent, stt, _control = _session()
+    sched = session.system.scheduler
+    await say(session, stt, "Hey Swift, turn off the wifi")
+    await until(lambda: session._listening_for() is not None)
+    tea = sched.add("timer", sched.clock(), "tea")
+    sched.items[-1].fired = True
+    session._owner_here()
+    await session.notify_due(tea, False)
+    await asyncio.sleep(0.05)
+    assert not [d for t, d in _frames(out, "result") if d["run_id"].startswith("due-")], "sent under the question"
+    await say(session, stt, "no")
+    await until(lambda: [d for t, d in _frames(out, "result") if d["run_id"].startswith("due-")], timeout=4.0)
+    await finish_all(session, agent)
+
+
+async def test_no_answer_never_replaces_an_answer_being_read() -> None:
+    session, out, agent, stt, _control = asker_lane(0.8)
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, turn off the wifi")
+    await until(lambda: any(a.get("open") and a.get("question") == "Turn off Wi-Fi?" for a in asks(out)))
+    await asyncio.sleep(0.05)
+    await session._bring(next(r for r in session._runs if r.alive))
+    agent.runs[rid]["go"].set()
+    await asyncio.sleep(1.2)
+    assert not [d for t, d in _frames(out, "result") if "No answer" in d["summary"]]
+    assert session.parked.all(), "it still went to the stack"
+    await finish_all(session, agent)
+
+
+async def test_a_question_running_out_on_screen_still_says_so() -> None:
+    session, out, agent, stt, _control = asker_lane(0.3)
+    await say(session, stt, "Hey Swift, turn off the wifi")
+    await until(lambda: [d for t, d in _frames(out, "result") if "No answer" in d["summary"]], timeout=3.0)
+    await finish_all(session, agent)
+
+
+def asker_lane(seconds: float):  # type: ignore[no-untyped-def]
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None), wake_question_s=seconds)
+    session.system, control, _ = lane()
+    return session, out, agent, stt, control

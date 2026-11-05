@@ -1545,7 +1545,8 @@ function renderAsk(a: Q.Ask): void {
         el("span", { class: "q-pill-text", "aria-live": "polite" }, Q.askPill(a, speaking)),
         left ? el("span", { class: "elapsed" }, `0:${String(left).padStart(2, "0")}`) : null,
         left ? el("span", { class: "timebar", style: `--fade-ms:${left * 1000}ms` }) : null);
-  const about = request ? `about “${clipLine(request, 48)}”` : "";
+  // Swift's own question says what it's about; ``request`` may be another request's words.
+  const about = request && !Q.ownQuestion(a) ? `about “${clipLine(request, 48)}”` : "";
   const buttons = Q.askButtons(a).map((o) => el("button", { class: "btn", onclick: reply(o) }, o));
   showCard(
     el(

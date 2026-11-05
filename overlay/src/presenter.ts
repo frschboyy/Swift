@@ -165,6 +165,8 @@ export function onState(p: Presenter, state: UiState, runId: string | null, thre
   const wasActive = isActive(p);
   const kind = state as CardKind;
   if (notInFront(p, runId)) return { p, newRun: false, continued: false, hide: false, ignored: true };
+  // Another card's end never takes this one with it.
+  if (state === "idle" && runId && p.card.runId && runId !== p.card.runId) return { p, newRun: false, continued: false, hide: false, ignored: true };
   if (state === "idle") {
     return { p: { ...p, card: { ...initial.card }, ...noConfirm }, newRun: false, continued: false, hide: true };
   }

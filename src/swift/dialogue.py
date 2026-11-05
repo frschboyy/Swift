@@ -45,10 +45,12 @@ MAX_OPTIONS = 8
 MAX_QUESTION = 300
 # How long the last answer or change is kept for "and tomorrow?" / "make it louder" (§5.1: ~60 s).
 CARRY_S = 60.0
+# How long a radio switched by Swift (Wi-Fi, Bluetooth, airplane mode) can still be "turned back on".
+SWITCH_KEEP_S = 30 * 60.0
 # An unclear answer is asked again this many times before the question goes to the stack.
 REASKS = 1
 
-AnswerKind = Literal["yes", "no", "choice", "value", "text", "cancel", "unclear", "elsewhere"]
+AnswerKind = Literal["yes", "no", "choice", "value", "text", "cancel", "unclear", "elsewhere", "wait"]
 
 
 @dataclass(eq=False)
@@ -154,6 +156,19 @@ _CORRECTION = re.compile(
     r"^(?:no[\s,]+|nope[\s,]+|actually[\s,]+|sorry[\s,]+|i mean[\s,]+|i meant[\s,]+|wait[\s,]+)*"
     r"(?:make (?:it|that)|change (?:it|that) to|set (?:it|that) to|let'?s (?:say|do|make it)|instead|rather)\s+"
 )
+# The owner needs a moment ("hold on", "I'm not sure"): the question stays, with a whole window (D-02).
+_HOLD = re.compile(
+    r"(?:hold on|hang on|wait|one (?:sec|second|moment|minute)|just a (?:sec|second|moment|minute)"
+    r"|give me a (?:sec|second|moment|minute)|i'?m not sure|not sure|let me think|i need to think|i'?ll think)"
+    r"(?: a (?:sec|second|moment|minute|bit))?(?: (?:please|then))?"
+)
+# After a yes, words that only restate the change or are politeness ("Yeah, turn it off for now,
+# thanks"): still a yes. Anything else after it (a question) isn't (D-02).
+_YES_REST = frozenset(
+    "turn switch put it that this off on please thanks thank you for now just do go ahead then right away again"
+    " the a ok okay sure".split()
+)
+_ASKING = re.compile(r"\b(?:what|why|how|when|where|who|which|can|could|will|would|is|are|does|do you)\b")
 _LEAD = re.compile(r"^(?:no|nope|actually|sorry|i mean|i meant|wait|rather|instead|and|but|just)[\s,]+")
 _ORDINALS = {
     "first": 0, "1st": 0, "one": 0, "second": 1, "2nd": 1, "two": 1, "third": 2, "3rd": 2, "three": 2,
@@ -294,6 +309,8 @@ def resolve(question: Question, text: str, *, is_request: Callable[[str], bool] 
         if rest and (is_request is None or is_request(rest)):
             return Answer("elsewhere", rest=rest, named=named, dropped=True)
         return Answer("cancel", named=named)
+    if question.kind != "free" and _HOLD.fullmatch(said):
+        return Answer("wait", named=named)
     answer = _resolve_kind(question, said, raw)
     if answer.kind == "unclear" and is_request is not None and question.kind != "free" and is_request(raw):
         return Answer("elsewhere", rest=raw, named=named)
@@ -314,7 +331,7 @@ def _resolve_kind(question: Question, said: str, raw: str) -> Answer:
             return Answer("no")
         if (m := _YES.match(said)) is not None:
             rest = said[m.end():].strip(" ,")
-            if len(rest.split()) > 4:
+            if len(rest.split()) > 4 and not _restates(question, rest):
                 return Answer("unclear")  # "okay, what's the weather like there": not a yes
             return Answer("yes", rest=rest)
         return Answer("unclear")
@@ -337,6 +354,15 @@ def _resolve_kind(question: Question, said: str, raw: str) -> Answer:
     return Answer("value", value=value, corrected=correction is not None)
 
 
+def _restates(question: Question, rest: str) -> bool:
+    """Whether what follows a yes only restates the question's change, or is politeness (D-02)."""
+    if _ASKING.match(rest):
+        return False
+    asked = set(re.findall(r"[a-z]+", question.text.lower()))
+    left = [w for w in rest.split() if w not in _YES_REST and w not in asked]
+    return len(left) <= 1
+
+
 def reask_text(question: Question) -> str:
     """The question again, after an answer that couldn't be worked out."""
     if question.kind == "choice" and question.options:
@@ -355,8 +381,8 @@ class Turn:
     """What to do with something said while a question waits."""
 
     # "answered" (``answer``), "reask" (unclear, asked again), "shelve" (unclear twice: to the stack),
-    # "cancelled", "elsewhere" (a new request: ``answer.rest``).
-    action: Literal["answered", "reask", "shelve", "cancelled", "elsewhere"]
+    # "cancelled", "elsewhere" (a new request: ``answer.rest``), "wait" (the owner needs a moment).
+    action: Literal["answered", "reask", "shelve", "cancelled", "elsewhere", "wait"]
     answer: Answer
     question: Question
 
@@ -382,7 +408,10 @@ class Dialogue:
         # The question on screen, and those asked behind it, in order.
         self.pending: Question | None = None
         self.waiting: list[Question] = []
+        # Two slots, each its own expiry (D-04): the last local answer (a time or date, as context) and
+        # the last system change. A time answer in between never makes Swift forget the Wi-Fi it switched.
         self._carry: Carry | None = None
+        self._change: Carry | None = None
 
     # ---- questions ---------------------------------------------------------------------------
 
@@ -427,6 +456,8 @@ class Dialogue:
             return Turn("elsewhere", found, question)
         if found.kind == "cancel":
             return Turn("cancelled", found, question)
+        if found.kind == "wait":
+            return Turn("wait", found, question)
         if found.kind == "unclear":
             if question.reasked < REASKS:
                 question.reasked += 1
@@ -438,14 +469,29 @@ class Dialogue:
 
     def remember(self, thread: str | None, *, moment: fast.Moment | None = None,
                  intents: tuple[it.Intent, ...] = (), exchange: Any = None) -> None:
-        self._carry = Carry(thread, self.clock(), moment, tuple(intents), exchange)
+        """A system change (``intents``) or a local answer (``moment``, ``exchange``): each in its slot."""
+        carry = Carry(thread, self.clock(), moment, tuple(intents), exchange)
+        if intents:
+            self._change = carry
+        else:
+            self._carry = carry
 
     def recall(self, thread: str | None) -> Carry | None:
-        """What was carried over, if the request continues its thread or comes within ``carry_s``."""
-        carry = self._carry
+        """The last local answer, if the request continues its thread or comes within ``carry_s``."""
+        return self._fresh(self._carry, thread, self.carry_s)
+
+    def recall_change(self, thread: str | None) -> Carry | None:
+        """The last system change, for "make it louder" or "turn it back on": within ``carry_s`` or its
+        thread, and a radio switched off or on (Wi-Fi, Bluetooth, airplane mode) for ``SWITCH_KEEP_S``,
+        since the owner may want it back long after (D-03, D-04)."""
+        change = self._change
+        keep = SWITCH_KEEP_S if change is not None and any(i.name == "radio" for i in change.intents) else self.carry_s
+        return self._fresh(change, thread, keep)
+
+    def _fresh(self, carry: Carry | None, thread: str | None, keep_s: float) -> Carry | None:
         if carry is None:
             return None
-        if (thread is not None and carry.thread == thread) or self.clock() - carry.at <= self.carry_s:
+        if (thread is not None and carry.thread == thread) or self.clock() - carry.at <= keep_s:
             return carry
         return None
 
@@ -455,7 +501,7 @@ class Dialogue:
 
     def forget(self) -> None:
         """The owner went away: nothing said before carries over to what is said after."""
-        self._carry = None
+        self._carry = self._change = None
 
 
 # ---- ellipsis against the last system change ("make it louder", "no, make it four") ---------------

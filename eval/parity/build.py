@@ -52,7 +52,10 @@ BASE: list[tuple[str, str, list[str], dict]] = [
     ("brightness", "system", ["set brightness to 40", "turn the brightness down", "dim the screen",
                               "make the screen brighter"], {}),
     ("radio", "system", ["turn off wifi", "turn on bluetooth", "is my wifi on", "turn on airplane mode",
-                         "bluetooth off"], {}),
+                         "bluetooth off",
+                         # Seams audit D-03: the device named, "back on" (offline they got "I'm offline").
+                         "turn the wifi back on", "turn bluetooth back on", "switch wifi back on",
+                         "airplane mode back off"], {}),
     ("focus", "system", ["turn on do not disturb", "focus mode on"], {}),
     ("lock", "system", ["lock the computer", "lock my pc"], {}),
     ("power", "agent", ["shut down the computer", "restart my pc", "put the computer to sleep"],

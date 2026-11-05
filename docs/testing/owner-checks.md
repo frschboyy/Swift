@@ -320,6 +320,20 @@ About 10 minutes. Swift now checks what a request needs (the internet, Claude Co
 | 154 | (Nothing to do: if Claude Code ever goes silent for 90 s while nothing waits for you, Swift ends the request with "took too long" and keeps it in the stack) | — | A silent request ended by itself |
 | 155 | The next time Claude Code refuses a request because of its sign-in | "Sign in to Claude again?" on the **first** refused request, even just after Swift started | Sign-in offered on a card (121-122) |
 
+### One set of rules for every way in (seams audit S2, 2026-11-05)
+
+About 12 minutes. Whether you speak, type or click, Swift now applies the same rules in the same order: who may approve what, what counts as an answer, and "turn it back on".
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 156 | "Hey Swift, turn off the Wi-Fi", then "**Yeah, turn it off for now, thanks**". Then again, and this time "**Hold on a second**" | The first: Wi-Fi off, nothing sent to Claude Code. The second: "Okay, take your time. Turn off Wi-Fi?", the card stays with a whole countdown | (seen on screen) |
+| 157 | Turn the Wi-Fi off with Swift (say yes), wait about 70 s, then "Hey Swift, **turn the Wi-Fi back on**" | It comes on **at once**, never "I'm offline" | 'Turn it back on' done here (132) |
+| 158 | Wi-Fi off with Swift, then "what time is it", then "**turn it back on**" | Wi-Fi comes on: the time answer in between didn't make Swift forget | 'Turn it back on' done here (132) |
+| 159 | Start a research request. Turn the Wi-Fi off by voice, then **type** "turn it back on" | Wi-Fi comes on beside the research, not "Say 'show me', 'stop'…" | 'Turn it back on' done here (132) |
+| 160 | "Hey Swift, turn on airplane mode", then cough once while the card is open | **No** "Sorry, was that a yes or a no?"; the card waits as before | A cough wasn't an answer |
+| 161 | "Hey Swift, turn off the Wi-Fi" and mumble "yeah" | Swift asks again on the card, rather than nothing happening | An unsure answer was asked again |
+| 162 | During a research request, "Swift, set a timer", then "**Swift, stop**" while it asks "For how long?" | The research stops; "stop" isn't taken as the timer's answer | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

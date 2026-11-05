@@ -149,7 +149,8 @@ from swift.attention import Attention, wait_answer
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
 from swift.connectors.base import ConnectorError
 from swift.desktop.base import Desktop, DesktopContext
-from swift.dialogue import Answer, Dialogue, Question, Turn, elide, reask_text
+from swift import intake
+from swift.dialogue import REASKS, Answer, Dialogue, Question, Turn, elide, reask_text
 from swift.dialogue import resolve as resolve_answer
 from swift.endpoint import EndOfTurn
 from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
@@ -257,11 +258,8 @@ SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
 
 # Requests spoken to Swift: their answers are spoken back when speech replies are "auto".
 SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", "beside", "answer"})
-# How long "Turn off Wi-Fi?" waits for a yes or no.
-# A yes to "Turn off Wi-Fi?" typed doesn't do it: typing never approves on its own (ADR-015 §10).
-# Said (a plain "yes" while the question is open, from a voice that passed the reply checks) or
-# clicked, it does: these are reversible changes the owner just asked for (owner, 2026-11-04).
-SYSTEM_YES_NEEDS_NAME = frozenset({"typed"})
+# A yes to "Turn off Wi-Fi?" typed doesn't do it without the name; said or clicked, it does: who may
+# approve what, from where, is one table (``intake.approves``; ADR-015 §10, owner 2026-11-04).
 SYSTEM_YES_NAME_HINT = "Typing can't turn it off: click Yes, or say yes."
 # The lane's question closed without an answer.
 LANE_NO_ANSWER = "No answer, so I've left it as it is."
@@ -882,6 +880,8 @@ class Session:
         self._swift_ids = count(1)
         self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
         self._hearing = False
+        # An utterance that came while the last was being transcribed: it is heard next (D-09).
+        self._next_heard: tuple[Any, float, bool] | None = None
         # When wake listening last finished a transcription (clock.now()), or None.
         self._heard_at: float | None = None
         self._wake_warned = False
@@ -907,7 +907,8 @@ class Session:
             ("heard", "short_heard", "short_dropped", "short_empty", "short_close", "skipped_busy", "skipped_hearing",
              "stt_failed", "stt_timeout", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
              "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice",
-             "paused_drop", "answer", "short_answer", "held", "stitched", "over_speech"), 0,
+             "paused_drop", "answer", "short_answer", "held", "stitched", "over_speech", "no_words",
+             "unsure_answer"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -1479,13 +1480,15 @@ class Session:
         if not text:
             return
         self._owner_here()
-        logger.info("typed request", chars=len(text))
+        logger.info("typed request" if source == "typed" else "clicked answer", chars=len(text), source=source)  # D-11
         open_request = self._open_confirm()
         if open_request is not None and (run := self._owner_of(open_request)) is not None:
             with self._as(run):
                 phase = self._confirm_phase(open_request)
                 decision = (self.router or default_router)(text)
-                if decision.route == "control" and decision.action == "approve":
+                verdict = intake.approves("typed", named=match_address(text, self.wake_greetings) is not None,
+                                          target="card")
+                if decision.route == "control" and decision.action == "approve" and not verdict.allowed:
                     await phase("hint", TYPED_APPROVE_HINT)
                     return
                 entry = self._approval(open_request)
@@ -1493,6 +1496,10 @@ class Session:
                     await self._answer_text(open_request, entry, text, phase)
             return
         focus = self._focus
+        if self._carries(text) and self._front_busy():
+            # "Turn it back on" while a request works: carried out beside it, not the mid-run grammar (D-05).
+            self._start_beside(text, source="typed")
+            return
         if (asked := self.dialogue.pending) is not None and asked.source == "run" and asked.owner is not None:
             with self._as(asked.owner):
                 await self._midrun_text(text, self._run_phase, source="typed")
@@ -1583,7 +1590,9 @@ class Session:
                     self._owner_here()
                     await self._take_answer(msg.data["text"][:MAX_TYPED], source="click")
                 else:
-                    await self._start_typed(msg.data["text"], asked.thread, source="click")
+                    # Straight to its question: never through the text box, where an open confirm card
+                    # would take the click first (D-07).
+                    await self._hear_answer(asked, msg.data["text"][:MAX_TYPED], source="click")
             case "text":
                 thread = msg.data.get("thread_id")
                 await self._start_typed(msg.data["text"], thread if isinstance(thread, str) else None)
@@ -1793,6 +1802,21 @@ class Session:
         await self._signal_heard("wake")
 
     async def hear_wake(self, audio: Any, ended_at: float, short: bool = False) -> None:
+        """An utterance from the open microphone (``_hear_wake_once``). One that comes while the last is
+        still being transcribed waits for it (the latest only), instead of being dropped: TV speech being
+        transcribed used to swallow "hey Swift" (seams audit D-09)."""
+        if self._hearing:
+            if self.recorder is not None and not self.listening_paused:
+                self.wake_stats["heard"] += 1
+                self.wake_stats["skipped_hearing"] += 1  # waits now; the older one waiting is dropped
+                self._next_heard = (audio, ended_at, short)
+            return
+        await self._hear_wake_once(audio, ended_at, short)
+        while (waiting := self._next_heard) is not None:
+            self._next_heard = None
+            await self._hear_wake_once(*waiting)
+
+    async def _hear_wake_once(self, audio: Any, ended_at: float, short: bool = False) -> None:
         """An utterance from the open microphone (swift/wake.py).
 
         At rest, a wake phrase starts an interaction ("hey Swift, ..."), and so does a reply in
@@ -1957,10 +1981,22 @@ class Session:
             if kept != heard.text:
                 self.wake_stats["short_close"] += 1  # "so me": "show me"
                 heard = replace(heard, text=kept)
+        if not intake.has_words(heard.text):
+            self.wake_stats["no_words"] += 1  # a cough, a door: nothing, never an answer (D-06)
+            return
         match = match_wake(heard.text, self.wake_greetings)
         midrun = route_midrun(heard.text) if busy and heard.text.strip() else None
+        asked = self._listening_for(started_at)
+        if asked is not None and not self._for_question(asked, heard.text):
+            asked = None
+        unsure_answer = False
         mean_p = heard.mean_p
-        if self.wake_min_p and mean_p is not None and mean_p < self.wake_min_p:
+        if self.wake_min_p and mean_p is not None and mean_p < self.wake_min_p and asked is not None:
+            # Unsure, while a question waits for its answer: asked again on its card, never dropped in
+            # silence (T-06). Approving still needs what it always did, said clearly.
+            self.wake_stats["unsure_answer"] += 1
+            unsure_answer = True
+        elif self.wake_min_p and mean_p is not None and mean_p < self.wake_min_p:
             # Matched first: a wake phrase at rest gets the lower bar, since the model is often
             # unsure of a name (owner checks, 2026-10-27: half of what it heard was "unsure").
             # So does "stop" or "show me" during a run: nothing is approved by it.
@@ -1972,11 +2008,13 @@ class Session:
                     self.on_unaddressed(audio)
                 return
             self.wake_stats["unsure_midrun" if midrun_ok else "unsure_wake"] += 1
-        if (asked := self._listening_for(started_at)) is not None and self._for_question(asked, heard.text):
+        if asked is not None:
             # Swift asked and the microphone opened for the answer (ADR-016 §5.1): not a request, not
             # the mid-run grammar. It has to sound like the owner, as a reply does (``_reply_doubt``).
             addressed = match_address(heard.text, self.wake_greetings)
             doubt = None if addressed is not None else self._reply_doubt(heard, len(audio) / SAMPLE_RATE)
+            if unsure_answer and doubt is None:
+                doubt = "unsure"
             if doubt in ("quiet", "long"):
                 self.wake_stats[f"followup_{doubt}"] += 1
                 return
@@ -1988,7 +2026,7 @@ class Session:
                 return
             if doubt == "unsure":
                 self._owner_here()
-                self._start_followup(heard, unclear=True)
+                await self._unsure_answer(asked, heard)
                 return
             await self._hear_answer(asked, heard.text, heard=heard)
             return
@@ -2153,11 +2191,25 @@ class Session:
     # ---- hands-free (the open microphone, when wake listening is on) --------------------------
 
     def _for_question(self, q: Question, text: str) -> bool:
-        """Whether speech heard while ``q`` listens is for it, not a mid-run control ("stop", "show me")."""
-        if q.source != "run":
-            return True
+        """Whether speech heard while ``q`` listens is for it, not a mid-run control ("stop", "show me")
+        while a request runs: for any question, a lane's too (D-08; ``intake.for_question``)."""
         midrun = route_midrun(strip_wake(text) or text)
-        return midrun is None or midrun.action not in ("stop", "pause", "show", "hide", "resume")
+        working = q.source == "run" or (self._focus is not None and self._focus.state in ("working", "confirm"))
+        return intake.for_question(midrun.action if midrun else None, run_working=working)
+
+    async def _unsure_answer(self, q: Question, heard: Transcription) -> None:
+        """An answer the model was unsure of, for a lane's question: the question again on its own card
+        (T-06), twice at most, then into the stack. A question shown only as a line gets "say it again"."""
+        if q.run_id is None:
+            self._start_followup(heard, unclear=True)
+            return
+        if q.reasked >= REASKS:
+            self._question_done(q)  # its card closes
+            self._shelve(q)
+            return
+        q.reasked += 1
+        logger.info("question answered", kind=q.kind, turn="reask", source="answer", unsure=True)
+        await self._lane_reprompt(q, reask_text(q), {"source": "answer"})
 
     def _short_kept(self, text: str, busy: bool) -> str | None:
         """A very short clip: the control phrase it is, or None. During a run the mid-run ones (on
@@ -2233,6 +2285,9 @@ class Session:
                     await self._run_phase("hint", REDIRECT_NAME_HINT)  # a change of mind needs the name (T2)
                 return
             self._heard = heard
+            if open_request is None and self._carries(text):
+                self._start_beside(text)  # "Swift, turn it back on" during a run (D-05)
+                return
             if open_request is None:
                 await self._midrun_text(text, self._run_phase)
                 return
@@ -2250,7 +2305,7 @@ class Session:
             if entry is None or decision.action not in HANDS_FREE_CONFIRM:
                 return
             phase = self._confirm_phase(open_request)
-            if decision.action == "approve" and match is None:
+            if decision.action == "approve" and not intake.approves("wake", named=match is not None, target="card").allowed:
                 await phase("hint", HANDS_FREE_APPROVE_HINT)
                 return
             entry["hands_free"] = True
@@ -2912,7 +2967,7 @@ class Session:
         if (asked := self._lane_question()) is not None and asked.kind == "yes_no" and asked.run_id is None:
             await self._confirm_lane(asked, record)
             return
-        if decision.action == "dialogue_reask" and asked is not None and asked.run_id is not None:
+        if decision.action in ("dialogue_reask", "dialogue_wait") and asked is not None and asked.run_id is not None:
             record.pop("lane_card", None)
             await self._lane_reprompt(asked, said, record)
             return
@@ -3042,7 +3097,8 @@ class Session:
         answer = turn.answer
         if turn.action == "answered" and q.kind == "yes_no":
             if answer.kind == "yes":
-                if q.yes_needs_name and record.get("source") in SYSTEM_YES_NEEDS_NAME and not answer.named:
+                verdict = intake.approves(str(record.get("source") or ""), named=answer.named, target="reversible")
+                if q.yes_needs_name and not verdict.allowed:
                     q.asked_at = clock.now()  # still asked: say it with the name
                     return Route("local", decision.text, action="system_yes_unnamed")
                 return Route("local", decision.text, action="system_yes")
@@ -3051,7 +3107,7 @@ class Session:
             return Route("local", decision.text, action="system_no")
         return Route("local", decision.text, action={
             "answered": "dialogue_fill", "cancelled": "dialogue_cancel", "reask": "dialogue_reask",
-            "shelve": "dialogue_shelve",
+            "shelve": "dialogue_shelve", "wait": "dialogue_wait",
         }[turn.action])
 
     async def _lane_turn(self, action: str, record: dict[str, Any]) -> tuple[str, bool]:
@@ -3069,6 +3125,11 @@ class Session:
             elif outcome.done:
                 self._carry_system(record, outcome.done)
             return outcome.said, outcome.ok
+        if action == "dialogue_wait":
+            # "Hold on", "I'm not sure": the question stays, with a whole window again (D-02).
+            self._window(q).asking(self.wake_question_s + 30.0)
+            record["asked"] = True
+            return f"Okay, take your time. {q.text}", True
         if action == "dialogue_reask":
             q.asked_at = clock.now()
             # Its window starts again once the re-ask is said (``_listen_for``), never from the old one (T-03).
@@ -3318,7 +3379,7 @@ class Session:
                 self._released = None
         if self._answer_task is asyncio.current_task():
             self._answer_task = None
-        if said is None or self.dialogue.pending is not q or self._deaf():
+        if said is None or not intake.has_words(said) or self.dialogue.pending is not q or self._deaf():
             return
         await self._hear_answer(q, said, heard=self._heard, named=match_address(said, self.wake_greetings) is not None)
 
@@ -3346,6 +3407,8 @@ class Session:
         q = self.dialogue.pending
         if q is None or q.source != "run" or q.future is None or q.future.done():
             return False
+        if not unsure and not intake.has_words(text):
+            return True  # no words: about nothing, and not an answer (D-06)
         turn = self.dialogue.answer("" if unsure else text, is_request=self._new_request)
         assert turn is not None
         logger.info("question answered", kind=q.kind, turn=turn.action, source=source, named=named)
@@ -3359,17 +3422,20 @@ class Session:
                 self._settle(q, None)
             case "reask":
                 await self._reask(q)
+            case "wait":
+                await self._reask(q, f"Okay, take your time. {q.text}")  # the question stays (D-02)
             case "elsewhere":
                 if turn.answer.dropped:
                     self._settle(q, Answer("cancel"))  # "never mind, what time is it": the question goes
                 self._start_beside(turn.answer.rest, source="beside" if source == "answer" else source)
         return True
 
-    async def _reask(self, q: Question) -> None:
-        """An answer Swift couldn't work out: the question once more, said again, then listen again."""
+    async def _reask(self, q: Question, text: str | None = None) -> None:
+        """An answer Swift couldn't work out (or "hold on": ``text``): the question once more, said
+        again, then listen again with a whole window."""
         run = q.owner
         record = run.record or {}
-        again = q.reask_text = reask_text(q)
+        again = q.reask_text = text or reask_text(q)
         with self._as(run):
             self._speak_reply(again, record)
             speaking = self.speaker.speaking
@@ -3410,10 +3476,15 @@ class Session:
         """A system change just made: what "make it louder" or "no, make it four" goes on from."""
         self.dialogue.remember(record.get("thread"), intents=done)
 
+    def _carries(self, text: str) -> bool:
+        """Whether ``text`` goes on from the last system change ("turn it back on", "a bit louder")."""
+        carry = self.dialogue.recall_change(self._thread)
+        return carry is not None and self.system is not None and elide(text, carry.intents) is not None
+
     def _carry_over(self, decision: Route, transcript: str, record: dict[str, Any]) -> Route:
         """A fragment that goes on from the last system change ("make it louder", "20 more", "no, make
         it four"), within ``dialogue.CARRY_S`` or in its thread: a system request against it."""
-        carry = self.dialogue.recall(self._thread)
+        carry = self.dialogue.recall_change(self._thread)
         if carry is None or not carry.intents or self.system is None or decision.route == "control":
             return decision
         found = elide(transcript, carry.intents)

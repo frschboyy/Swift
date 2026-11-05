@@ -94,7 +94,7 @@ def show(rows: list[dict[str, Any]]) -> None:
             what = f"offered {r['offered']}"
         cards = ",".join(decisions(r)) or "-"
         print(f"{r['_t']:%H:%M:%S}  {tag:6}  {r.get('source', '-'):10}  {what[:22]:22}  {r.get('status', '-'):9}  {cards[:12]:12} "
-              f"{(r.get('transcript') or '')[:60]}")
+              f"{(r.get('transcript') or r.get('transcript_heard') or '')[:60]}")  # unclear: what was heard (D-10)
 
 
 def _stack(log: list[str], action: str) -> int:
@@ -474,6 +474,12 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("152 a quick command beside three requests", LOOK, "check on screen: done at once, not 'That's waiting'"),
         ("153 the internet went during a request", seen(lost_mid_run), f"{len(lost_mid_run)} time(s)"),
         ("154 a silent request ended by itself (if one went silent)", seen(stalled), f"{len(stalled)} time(s)"),
+        # One set of rules for every way in (seams audit S2).
+        ("156 a wordy yes and 'hold on'", LOOK, "check on screen: Wi-Fi off; 'Okay, take your time', the card stays"),
+        ("160 a cough wasn't an answer", seen(wake_count("no_words")), f"{wake_count('no_words')} with no words"),
+        ("161 an unsure answer was asked again", seen(wake_count("unsure_answer")),
+         f"{wake_count('unsure_answer')} time(s)"),
+        ("162 'stop' during a run stopped it, not a question", LOOK, "check on screen: the research stopped"),
     ]
 
 

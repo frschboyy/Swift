@@ -63,7 +63,6 @@ async def _wifi_question(session: Session, out) -> dict:  # type: ignore[no-unty
 # ---- S-01: "turn the Wi-Fi back on" while offline is refused as "I'm offline" ---------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit D-03: open finding; remove this marker with the fix")
 async def test_s01_turn_the_wifi_back_on_while_offline_turns_it_on() -> None:
     session, rec, spy, records = await _session()
     session.system.control.radio_state["wifi"] = False  # type: ignore[union-attr]
@@ -77,7 +76,6 @@ async def test_s01_turn_the_wifi_back_on_while_offline_turns_it_on() -> None:
 # ---- S-02: any local answer in between overwrites the carry-over ("turn it back on" lost) -------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit D-04: open finding; remove this marker with the fix")
 async def test_s02_a_time_answer_in_between_doesnt_forget_the_switch() -> None:
     session, rec, spy, records = await _session()
     await ask("turn off the wifi", session)
@@ -92,7 +90,6 @@ async def test_s02_a_time_answer_in_between_doesnt_forget_the_switch() -> None:
 # ---- S-03: "turn it back on" during a run (typed or "Swift, …") is not a request ----------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit D-05: open finding; remove this marker with the fix")
 async def test_s03_turn_it_back_on_typed_during_a_run_is_carried_out() -> None:
     session, out, records, stt, control = _wake_session(speed=1.0, scenario="long")
     control.radio_state["wifi"] = False
@@ -109,7 +106,6 @@ async def test_s03_turn_it_back_on_typed_during_a_run_is_carried_out() -> None:
 # ---- S-04: an empty transcription in the question window spends the re-ask -----------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit D-06: open finding; remove this marker with the fix")
 async def test_s04_an_empty_transcription_is_not_an_answer() -> None:
     session, out, records, stt, control = _wake_session()
     await _wifi_question(session, out)
@@ -231,7 +227,6 @@ async def test_s10_no_voice_never_leaves_swift_speaking(monkeypatch: pytest.Monk
 # ---- S-12: a yes with more than four words after it drops the question and goes to the agent ------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit D-02: open finding; remove this marker with the fix")
 async def test_s12_a_wordy_yes_answers_the_question() -> None:
     session, rec, spy, records = await _session()
     await ask("turn off the wifi", session)
@@ -240,7 +235,6 @@ async def test_s12_a_wordy_yes_answers_the_question() -> None:
     assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit D-02: open finding; remove this marker with the fix")
 async def test_s12b_hold_on_doesnt_drop_the_question() -> None:
     session, rec, spy, records = await _session()
     await ask("turn off the wifi", session)

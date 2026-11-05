@@ -30,7 +30,8 @@ Times are local (+03:00) on 2026-11-04 unless another date is given. `session.py
 | Layer C | `swift/clock.py` (the clock seam), a virtual-time event loop, and a Hypothesis model of the dialogue | `dec1a43` |
 | S3 | One window per question (`swift/answer_window.py`): its own deadline, counted from the end of Swift's speech, waiting for an answer still being said, restarted by every re-ask with the deadline sent; a lane question from the owner's new request is asked first and the one it displaces comes back with a whole window. Fixes T-01, T-02, T-03, T-11, T-13. Owner checks 141–145. Decision 9 taken as recommended (25 s from the end of speech; ADR-016 updated) | `f918be9` |
 | S1 | One owner of what is on screen. On every `ready` (now sent on every connection) the backend sends the rows, the request in front with its card and the time it has left, a lane's question card, Swift speaking, and the reply window; a card counts down only once the new overlay draws it, and stops when the overlay goes. `hello.ok` carries the backend's instance: a new one clears the old screen. A card behind another isn't sent (`Run.cards`). `bad_message` never reaches a card, and the server logs it. Due cards leave the schedule on `due.shown`; not drawn in 10 s, they go back in line. A question's close always reaches the overlay. Fixes O-01, O-02, O-05, O-07, O-08, O-15. Checked in the harness (a reload and a backend restart with a card up). Owner checks 146–149. **Not done:** absolute deadlines (T-08) and the heartbeat (H-06) | `e602d8d` |
-| S4 | Nothing waits for ever. Lanes declare what they need (`LANE_NEEDS`): offline, a request that needs the internet is answered before the light model or an offer is tried. `online()` also asks Windows' Network List Manager (a connection without the internet is offline). Only the agent takes a slot. Two CLI retries with the internet gone end the request (offline, kept in the stack). A run watchdog: 90 s with no word from the CLI, paused while a card or one of Swift's tools waits for you, ends it with "took too long" and keeps it in the stack (decision 1 as recommended). Connect, query and the warm CLI are bounded. Sign-in offers are throttled on the last offer; "couldn't confirm model" online offers the sign-in. A voice that can't start never leaves Swift "speaking". One deadline (45 s) for a Google call and its retries. Fixes R-01 to R-06, R-11, V-01, X-10, X-12. Owner checks 150–155. **Not done:** decision 2 (the light lane) | the commit after `e602d8d` |
+| S4 | Nothing waits for ever. Lanes declare what they need (`LANE_NEEDS`): offline, a request that needs the internet is answered before the light model or an offer is tried. `online()` also asks Windows' Network List Manager (a connection without the internet is offline). Only the agent takes a slot. Two CLI retries with the internet gone end the request (offline, kept in the stack). A run watchdog: 90 s with no word from the CLI, paused while a card or one of Swift's tools waits for you, ends it with "took too long" and keeps it in the stack (decision 1 as recommended). Connect, query and the warm CLI are bounded. Sign-in offers are throttled on the last offer; "couldn't confirm model" online offers the sign-in. A voice that can't start never leaves Swift "speaking". One deadline (45 s) for a Google call and its retries. Fixes R-01 to R-06, R-11, V-01, X-10, X-12. Owner checks 150–155. **Not done:** decision 2 (the light lane) | `eeb3335` |
+| S2 | One set of rules for every input (`swift/intake.py`): the steps in one declared order, and each rule once. One approval table (`intake.approves`) used by typing, hands-free, the lane's yes; nothing with no words is an answer (D-06); an unsure answer while a question listens is asked again on its card (T-06); a mid-run control is never an answer to any question during a run (D-08); a click on a lane question goes to it, never through the text box (D-07); a wordy yes is a yes and "hold on" keeps the question with a whole window (D-02); the device named "back on" is in the grammar (D-03, 16 parity cases); a system change and a local answer are kept apart, a radio for 30 min (D-04); "turn it back on" during a run starts beside it (D-05); an utterance during a transcription waits for it (D-09); D-10, D-11. Owner checks 156–162. **Not done:** the entry points still exist as functions that call these shared steps, not one `intake()` function; an aside question during a lane question still drops it (part of D-02) | the commit after `eeb3335` |
 
 Layer C found two new findings (§3.9): **T-13** and **O-15**. It also re-found T-01 and T-03 by itself. Each known open finding is replayed in `tests/unit/test_dialogue_model.py` (`KNOWN`), and the main model steers around its trigger, so a fix shows up there.
 
@@ -334,11 +335,11 @@ IDs by area:
 | ID | Sev. | Label | Area | Dimension | Finding |
 |---|---|---|---|---|---|
 | **T-07** | **Critical** | confirmed (test); **fixed 2026-11-05** | backend | security | An utterance held mid-thought still acts after the screen locks |
-| D-01 | High | design concern | backend | reliability, testability | Each entry point has its own copy of the steps (the root of D-02 to D-08) |
-| D-02 | High | confirmed (test, log 17:37:09) | backend | effectiveness | A wordy yes, "hold on" or an aside drops the question and goes to the agent |
-| D-03 | High | confirmed (test) | backend | effectiveness, fallback | "Turn the Wi-Fi back on" is refused offline as "I'm offline" |
-| D-04 | High | confirmed (test) | backend | reliability | Any local answer in between forgets the switch ("turn it back on" lost) |
-| D-06 | High | confirmed (test, log 17:43:39) | backend | reliability | An utterance with no words counts as an unclear answer and spends the re-ask |
+| D-01 | High | design concern; **partly fixed 2026-11-05 (S2)** | backend | reliability, testability | Each entry point has its own copy of the steps (the root of D-02 to D-08) |
+| D-02 | High | confirmed (test, log 17:37:09); **partly fixed 2026-11-05 (S2)** | backend | effectiveness | A wordy yes, "hold on" or an aside drops the question and goes to the agent |
+| D-03 | High | confirmed (test); **fixed 2026-11-05 (S2)** | backend | effectiveness, fallback | "Turn the Wi-Fi back on" is refused offline as "I'm offline" |
+| D-04 | High | confirmed (test); **fixed 2026-11-05 (S2)** | backend | reliability | Any local answer in between forgets the switch ("turn it back on" lost) |
+| D-06 | High | confirmed (test, log 17:43:39); **fixed 2026-11-05 (S2)** | backend | reliability | An utterance with no words counts as an unclear answer and spends the re-ask |
 | T-01 | High | confirmed (tests); **fixed 2026-11-05 (S3)** | backend | reliability | One timer slot for every question: a question behind cancels the on-screen one's timer, and the run hangs |
 | T-02 | High | confirmed (tests); **fixed 2026-11-05 (S3)** | backend | reliability | A question times out while the answer is being said or transcribed |
 | T-03 | High | confirmed (tests, log 17:43:39–17:44:04); **fixed 2026-11-05 (S3)** | backend | reliability | After a re-ask, the old window stands, and the timer runs from the re-ask's start |
@@ -355,12 +356,12 @@ IDs by area:
 | X-03 | High | confirmed (test, log) | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
 | X-08 | High | confirmed (test) | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
 | X-17 | High | design concern | executor | security | Edit and Write approval cards show 60–70 characters of what will be written (A-12's class) |
-| D-05 | Medium | confirmed (test) | backend | effectiveness | "Turn it back on" during a run (typed or named) gets a mid-run hint |
-| D-07 | Medium | suspected | backend | reliability | A click on a lane question's No can reject another request's confirm card |
-| D-08 | Medium | confirmed (code) | backend | effectiveness | A lane question takes "stop" as an answer during a run |
-| D-09 | Medium | confirmed (code, log) | speech | effectiveness | An utterance that arrives during a transcription is dropped, not queued |
+| D-05 | Medium | confirmed (test); **fixed 2026-11-05 (S2)** | backend | effectiveness | "Turn it back on" during a run (typed or named) gets a mid-run hint |
+| D-07 | Medium | suspected; **fixed 2026-11-05 (S2)** | backend | reliability | A click on a lane question's No can reject another request's confirm card |
+| D-08 | Medium | confirmed (code); **fixed 2026-11-05 (S2)** | backend | effectiveness | A lane question takes "stop" as an answer during a run |
+| D-09 | Medium | confirmed (code, log); **fixed 2026-11-05 (S2)** | speech | effectiveness | An utterance that arrives during a transcription is dropped, not queued |
 | T-05 | Medium | confirmed (test) | backend | effectiveness | No reply window after a spoken answer longer than 8 s |
-| T-06 | Medium | confirmed (test) | backend | effectiveness, diagnosability | An unsure answer to an open question is dropped without a word |
+| T-06 | Medium | confirmed (test); **fixed 2026-11-05 (S2)** | backend | effectiveness, diagnosability | An unsure answer to an open question is dropped without a word |
 | T-08 | Medium | design concern | backend, overlay | reliability | Every countdown runs separately in Python and TS |
 | T-09 | Medium | confirmed (code) | backend | reliability | About 10 fire-and-forget tasks; timers not cancelled on disconnect |
 | T-12 | Medium | confirmed (code) | backend | fallback, diagnosability | A backend kill or restart loses Later cards, questions and unfinished runs, with nothing logged |
@@ -392,8 +393,8 @@ IDs by area:
 | X-11 | Medium | suspected | dependency | reliability | Google API clients shared across threads |
 | Q-01 | Medium | confirmed (code, report); **fixed 2026-11-05** | testability | diagnosability | The owner-check report can't print FAIL; on-screen checks always print PASS |
 | Q-02 | Medium | confirmed (survey) | testability | testability | The fakes hide every seam; nothing drives the backend and the overlay together |
-| D-10 | Low | confirmed (log) | backend | diagnosability | Unclear-speech rows show no request text (17:33:22, 17:38:15) |
-| D-11 | Low | confirmed (log) | backend | diagnosability | A click on a question card is logged as "typed request" |
+| D-10 | Low | confirmed (log); **fixed 2026-11-05 (S2)** | backend | diagnosability | Unclear-speech rows show no request text (17:33:22, 17:38:15) |
+| D-11 | Low | confirmed (log); **fixed 2026-11-05 (S2)** | backend | diagnosability | A click on a question card is logged as "typed request" |
 | T-10 | Low | design concern | backend | reliability | Lock and unlock are handled as concurrent tasks |
 | T-11 | Low | design concern; **fixed 2026-11-05 (S3)** | backend | reliability | The lane yes/no window has two clocks, and ADR-016 disagrees with the code |
 | O-11 | Low | confirmed (code) | backend | effectiveness | Content capped with no marker ("6 timers: a; b; c; d.", lists, calendar text) |

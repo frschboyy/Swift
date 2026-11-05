@@ -135,11 +135,22 @@ def test_carry_over_lasts_a_minute_or_its_thread_and_is_forgotten_on_leaving() -
     d = Dialogue(clock=lambda: now[0])
     d.remember("t1", intents=(it.Intent("volume.set", {"level": 30}),))
     now[0] = 59.0
-    assert d.recall("t2") is not None
+    assert d.recall_change("t2") is not None
     now[0] = 61.0
-    assert d.recall("t2") is None and d.recall("t1") is not None
+    assert d.recall_change("t2") is None and d.recall_change("t1") is not None
     d.forget()
-    assert d.recall("t1") is None
+    assert d.recall_change("t1") is None
+
+
+def test_a_local_answer_and_a_system_change_are_kept_apart_and_a_radio_for_longer() -> None:
+    """Seams audit D-04: "what time is it" in between never makes Swift forget the Wi-Fi it switched off."""
+    now = [0.0]
+    d = Dialogue(clock=lambda: now[0])
+    d.remember("t1", intents=(it.Intent("radio", {"kind": "wifi", "on": False}),))
+    d.remember("t2", moment=None, exchange="It's 15:05.")
+    assert d.recall_change("t3") is not None and d.recall("t3") is not None
+    now[0] = 20 * 60.0  # twenty minutes later: the time answer is stale, the switch isn't
+    assert d.recall("t3") is None and d.recall_change("t3") is not None
 
 
 @pytest.mark.parametrize(

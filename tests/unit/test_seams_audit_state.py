@@ -187,7 +187,6 @@ async def test_s05_an_answer_that_asks_is_put_in_the_stack_while_its_reply_windo
         await finish_all(session, agent)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit T-06: open finding; remove this marker with the fix")
 async def test_s06_an_unsure_answer_to_an_open_question_is_dropped_without_a_word() -> None:
     """While Swift's question card is up the session is busy (state "working"), so ``_hear_transcribed``'s
     ``wake_min_p`` bar runs *before* the ``_listening_for`` check: an answer the model was unsure of is counted

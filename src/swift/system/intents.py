@@ -575,20 +575,24 @@ def _device(t: str) -> Intent | None:
 
 _RADIO = r"(?:the |my )?(?P<radio>wi-?fi|wi fi|wireless|bluetooth|blue tooth)"
 _ONOFF = r"(?P<onoff>on|off)"
+# "Back" and "again" too: "turn the Wi-Fi back on", "Bluetooth on again" (seams audit D-03: offline,
+# these went to the agent and got "I'm offline", while the offline list itself says "turn it back on").
+_AGAIN = r"(?: (?:back|again|now|please))*"
 _RADIO_SWITCH = [
-    re.compile(rf"(?:turn|switch|toggle|put|flip) {_RADIO} {_ONOFF}(?: now)?"),
-    re.compile(rf"(?:turn|switch|put|flip) {_ONOFF} {_RADIO}(?: now)?"),
-    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect) {_RADIO}"),
-    re.compile(rf"{_RADIO} {_ONOFF}"),
+    re.compile(rf"(?:turn|switch|toggle|put|flip) {_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
+    re.compile(rf"(?:turn|switch|put|flip) (?:back )?{_ONOFF} {_RADIO}{_AGAIN}"),
+    # Not "connect to Wi-Fi": that can mean joining a network, not switching the radio on.
+    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect|re-?enable) {_RADIO}{_AGAIN}"),
+    re.compile(rf"{_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
 ]
 _RADIO_GET = re.compile(rf"(?:(?:is|are) {_RADIO} (?:on|off|enabled|working|switched on|turned on)"
                         rf"|(?:what'?s|what is|check) {_RADIO.replace('radio>', 'radio2>')}(?: status| state)?)")
 _PLANE = r"(?:the )?(?:airplane|aeroplane|flight|plane) mode"
 _AIRPLANE = [
-    re.compile(rf"(?:turn|switch|put|flip) {_ONOFF} {_PLANE}"),
-    re.compile(rf"(?:turn|switch|put|flip) {_PLANE} {_ONOFF}"),
+    re.compile(rf"(?:turn|switch|put|flip) (?:back )?{_ONOFF} {_PLANE}{_AGAIN}"),
+    re.compile(rf"(?:turn|switch|put|flip) {_PLANE} (?:back )?{_ONOFF}{_AGAIN}"),
     re.compile(rf"(?P<verb>enable|disable|activate|deactivate|start|stop|exit|leave) {_PLANE}"),
-    re.compile(rf"{_PLANE} {_ONOFF}"),
+    re.compile(rf"{_PLANE} (?:back )?{_ONOFF}{_AGAIN}"),
     re.compile(rf"(?:go|put (?:it|the (?:computer|pc|laptop)))(?: in| into) {_PLANE}"),
 ]
 _DND = r"(?:do not disturb|dnd|focus(?: mode| assist)?)"

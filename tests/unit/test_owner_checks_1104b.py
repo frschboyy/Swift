@@ -145,3 +145,60 @@ def test_close_names() -> None:
 
 def test_a_name_heard_as_two_words_is_one() -> None:
     assert names.by_query("Francis Chi Anu", [CHIANU, MUTHONI, ME], exact=False) == [CHIANU]
+
+
+# ---- 2026-11-05: "Sam" found only Alex Samia, and the email went to him ---------------------------
+
+SAMIA = Contact("Alex Samia", "alex.samia@example.com", "gmail")
+SAM_LEE = Contact("Sam Lee", "sam.lee@example.com", "gmail")
+
+
+def _asking(contacts: tuple[Contact, ...], answer: str | None) -> tuple[ToolHost, list[str]]:
+    from swift.dialogue import Answer
+
+    asked: list[str] = []
+
+    async def ask(question: str, kind: str, options: tuple[str, ...]) -> Answer | None:
+        asked.append(question)
+        return None if answer is None else Answer(answer)  # type: ignore[arg-type]
+
+    host = ToolHost(FakeMailConnector(contacts=contacts), (), ActionGateway(Journal(None)))
+    scope = host.open(lambda *a, **k: _none(), lambda *a, **k: _none(), ask=ask)  # type: ignore[arg-type,return-value]
+    scope.said = "Draft an email to Sam about lunch"
+    return host, asked
+
+
+async def test_a_name_that_only_starts_a_contacts_name_is_asked_about() -> None:
+    host, asked = _asking((SAMIA,), "no")
+    found = await host.call("find_contact", {"query": "Sam"})
+    assert asked == ["I couldn't find Sam. Did you mean Alex Samia?"]
+    assert not found.ok and "Don't email" in found.text
+    # The rejected guess isn't a recipient: it can't be drafted to afterwards.
+    draft = await host.call("draft_email", {"to": [SAMIA.email], "subject": "Lunch", "message": "Lunch at one?"})
+    assert not draft.ok
+
+
+async def test_no_answer_about_the_close_contact_leaves_it_unusable() -> None:
+    host, _ = _asking((SAMIA,), None)
+    found = await host.call("find_contact", {"query": "Sam"})
+    assert not found.ok
+    assert not (await host.call("draft_email", {"to": [SAMIA.email], "subject": "Lunch", "message": "Hi"})).ok
+
+
+async def test_a_title_is_not_part_of_the_name() -> None:
+    lovelace = Contact("Ada Lovelace", "ada@example.com", "gmail")
+    host, asked = _asking((lovelace,), None)
+    found = await host.call("find_contact", {"query": "Dr Lovelace"})
+    assert found.ok and asked == []
+
+
+async def test_yes_to_the_close_contact_uses_it() -> None:
+    host, _ = _asking((SAMIA,), "yes")
+    found = await host.call("find_contact", {"query": "Sam"})
+    assert found.ok and [c["email"] for c in found.data["candidates"]] == [SAMIA.email]
+
+
+async def test_a_contact_named_sam_is_preferred_to_one_whose_name_starts_with_it() -> None:
+    host, asked = _asking((SAMIA, SAM_LEE), None)
+    found = await host.call("find_contact", {"query": "Sam"})
+    assert [c["email"] for c in found.data["candidates"]] == [SAM_LEE.email] and asked == []

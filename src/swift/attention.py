@@ -39,6 +39,9 @@ from dataclasses import dataclass
 from typing import Any
 
 HOLD_S = 12 * 3600
+# A card set aside into the stack while the owner is here (it ran out, or "Later"): it waits this
+# long there, then gives up like a timeout, its conversation parked (2026-11-05: cards for ever).
+ASIDE_S = 30 * 60
 RETURN_S = 60.0
 
 
@@ -52,6 +55,8 @@ class _Wait:
     held_at: float | None
     # The whole countdown, given back when an expired card is set aside (ADR-017).
     full: float = 0.0
+    # Set aside into the stack (expired, or "Later"): it waits ``aside_s`` there, not ``hold_s``.
+    aside: bool = False
 
 
 class Attention:
@@ -59,11 +64,13 @@ class Attention:
         self,
         *,
         hold_s: float = HOLD_S,
+        aside_s: float = ASIDE_S,
         return_s: float = RETURN_S,
         clock: Callable[[], float] = clock_now,
         require_seen: bool = False,
     ) -> None:
         self.hold_s = hold_s
+        self.aside_s = aside_s
         self.require_seen = require_seen
         self.return_s = return_s
         self.clock = clock
@@ -90,6 +97,8 @@ class Attention:
                 w.left = max(w.left, self.return_s)
                 if self._runs(key):
                     w.deadline, w.held_at = now + w.left, None
+                elif w.aside:
+                    w.held_at = now  # back: its time in the stack starts again
         self.check()
         return list(self._waits)
 
@@ -126,6 +135,14 @@ class Attention:
                 w.deadline, w.held_at = now + w.left, None
         self.check()
 
+    def put_aside(self, key: str) -> None:
+        """The card is set aside into the stack: it waits there ``aside_s`` (while the owner is here)."""
+        w = self._waits.get(key)
+        if w is not None:
+            w.aside = True
+            self._freeze(w, self.clock())
+            self.check()
+
     def _runs(self, key: str) -> bool:
         """Whether the card's countdown should run now: on screen, seen, and the owner around."""
         return not self.held and key not in self._queued and (not self.require_seen or key in self._seen)
@@ -157,11 +174,12 @@ class Attention:
         try:
             while True:
                 now = self.clock()
-                budget = (w.deadline - now) if w.deadline is not None else (w.held_at or now) + self.hold_s - now
+                limit = self.aside_s if w.aside and not self.held else self.hold_s
+                budget = (w.deadline - now) if w.deadline is not None else (w.held_at or now) + limit - now
                 if budget <= 0:
                     if w.deadline is not None and self.on_expire is not None and self.on_expire(key):
-                        # Set aside, not ended: it waits like a held card, its whole time back.
-                        w.left, w.deadline, w.held_at = w.full, None, now
+                        # Set aside, not ended: it waits in the stack, its whole time back for when it's opened.
+                        w.left, w.deadline, w.held_at, w.aside = w.full, None, now, True
                         continue
                     raise TimeoutError
                 changed = asyncio.ensure_future(self._changed.wait())

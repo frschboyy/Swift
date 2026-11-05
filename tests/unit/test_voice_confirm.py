@@ -151,7 +151,7 @@ async def test_ptt_while_working_listens_for_midrun_commands_not_a_new_run() -> 
     out = Outbox()
     session = Session(
         out, MockExecutor(speed=1, default_scenario="long"), recorder=FakeRecorder(),
-        transcriber=FakeTranscriber(text="uh, hmm"),
+        transcriber=(stt := FakeTranscriber(text="research the history of tea")),
         tail_s=0.0,
     )
     await ptt(session, "down")
@@ -161,6 +161,7 @@ async def test_ptt_while_working_listens_for_midrun_commands_not_a_new_run() -> 
             break
         await asyncio.sleep(0.01)
     first = session._task
+    stt.text = "uh, hmm"  # hesitations alone never start a request: here, said during this one
     await ptt(session, "down")
     assert session._task is first and session._confirm_voice is not None
     await ptt(session, "up")

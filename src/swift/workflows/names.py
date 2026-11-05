@@ -21,7 +21,9 @@ from typing import Protocol
 # How alike a heard word and a name must be ("cianu" ~ "chianu" 0.91, "chanu" 0.91, "ciano" 0.73).
 CLOSE = 0.7
 # Words too common to tell people apart.
-_SKIP = {"the", "and", "for", "about", "with", "email", "mail", "draft", "send", "to", "my", "an", "a", "of"}
+_SKIP = {"the", "and", "for", "about", "with", "email", "mail", "draft", "send", "to", "my", "an", "a", "of",
+         # A title says nothing about the name: "Dr Lovelace" names Ada Lovelace.
+         "dr", "prof", "professor", "mr", "mrs", "ms", "miss", "mx", "sir", "dame"}
 
 
 class Named(Protocol):

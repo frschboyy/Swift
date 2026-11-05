@@ -96,7 +96,6 @@ async def test_the_whole_name_said_but_only_another_francis_is_a_contact() -> No
     assert not found.text.startswith("Found "), found.text
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit X-01: an any-word directory's single result is taken as the match")
 async def test_full_name_query_with_an_any_word_directory_and_one_wrong_match() -> None:
     host = _host("Draft an email to Francis Chianu about lunch", (MUTHONI, OKAFOR), AnyWordConnector)
     found = await host.call("find_contact", {"query": "Francis Chianu"})

@@ -181,3 +181,13 @@ Not investigated, still open:
 - **Coverage:** I did not re-read all 180 commits line by line. Earlier fixes need the same scrutiny that today's got.
 - **Not run in the real overlay:** the stuck card and the dropped-guard regression come from reading the code and the logs. The chain of events fits your log, but I haven't replayed it in the harness.
 - **Not measured:** Google's search behaviour live, the false-wake rate, and whether the wake fix helps.
+
+## 7. Step 0: done (2026-11-05)
+
+- **Removed:** the `setTimeout` in the overlay, the speech-model keep-warm, and the check 13 metric change. Check 13's measure is back as it was, and its decision is still the owner's.
+- **Restored:** the `_front_busy` guard. This leaves a known gap: a shelved system question with another request in front gets no closing line, so its card can stay until that request next updates the screen. Step 1 removes it.
+- **Replaced:** `fragment`. Hesitations alone never start a request. One word needs confidence below the clarity bar to be refused, and it's never refused when Swift has just asked something.
+- **Fixed:** a guessed contact counts as a recipient only after the owner says yes. No answer or "no" leaves it unusable. Titles no longer count as part of a name.
+- **Fixed:** `owner_intents` reads each spoken sentence, so a two-sentence request can reach `system_action`.
+- **Kept, still unproven:** the short "Hey Swift" rule. The `short_wake` counter in the "wake listening" log line now shows how often it fires.
+- **Not changed:** ending a stack item while its question is open still leaves the question open. Step 1 fixes that at the source.

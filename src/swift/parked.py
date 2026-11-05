@@ -27,6 +27,8 @@ from pathlib import Path
 from loguru import logger
 
 KEEP_S = 24 * 3600
+# Swift's own question about a change for now ("Turn off Bluetooth?"), unanswered in the stack.
+QUESTION_KEEP_S = 10 * 60
 # Parked threads kept at most; the oldest go first.
 MAX_PARKED = 10
 # The "Unfinished: …" line after an answer, at most this many times per thread.
@@ -83,6 +85,9 @@ class Parked:
     dismissed: bool = False
     # The request in the owner's own words (a workflow's ``request`` wraps them in its playbook).
     said: str = ""
+    # How long it is kept (s); 0: the default (``KEEP_S``). Swift's question about a change for now
+    # ("Turn off Bluetooth?") keeps ``QUESTION_KEEP_S``: an hour later it means nothing (2026-11-05).
+    keep_s: float = 0.0
 
     @property
     def words(self) -> str:
@@ -133,7 +138,7 @@ class ParkedThreads:
     def all(self) -> list[Parked]:
         """Newest first, expired ones dropped."""
         now = self.clock()
-        kept = [p for p in self._items if now - p.at < self.keep_s]
+        kept = [p for p in self._items if now - p.at < (p.keep_s or self.keep_s)]
         if len(kept) != len(self._items):
             self._items = kept
             self._save()
@@ -203,7 +208,8 @@ class ParkedThreads:
             return []
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-            return [Parked(**item) for item in raw.get("parked", [])]
+            known = set(Parked.__dataclass_fields__)
+            return [Parked(**{k: v for k, v in item.items() if k in known}) for item in raw.get("parked", [])]
         except (OSError, ValueError, TypeError) as exc:
             logger.warning("parked conversations unreadable; starting without them", error=str(exc))
             return []

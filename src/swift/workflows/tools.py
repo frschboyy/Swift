@@ -174,14 +174,27 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
             except ConnectorError:
                 break
         candidates = [c for c in names.by_query(raw, _unique(more), exact=False) if isinstance(c, Contact)]
-        guessed = bool(candidates)
+        guessed = bool(candidates) and not names.by_query(raw, candidates)  # "Dr Lovelace": a surname search, but named
+    elif candidates:
+        # The search matches the start of a name: "Sam" found only Alex Samia, and the email went to
+        # him (owner checks 2026-11-05). Someone named by every word said is a match; anyone else is
+        # only a guess, and the owner is asked. Contacts in the config matched by name or alias.
+        named = [c for c in candidates if c.source == "config" or c in names.by_query(raw, candidates)]
+        if named:
+            candidates = named
+        else:
+            guessed = True
     # The ones the owner named ("Francis Chianu", not every Francis): by the whole name, then their words.
     candidates = [c for c in names.narrow(raw, scope.said, candidates) if isinstance(c, Contact)]
     # Content-free: how many, and where from ("gmail_emailed": someone the owner has emailed).
     logger.info("contact lookup", found=len(candidates), sources=sorted({c.source for c in candidates}),
                 problem=bool(problem))
-    for contact in candidates:
-        scope.resolved[contact.email.lower()] = contact
+    # A contact the owner has to confirm isn't a recipient until they do (``_is_it``): only then does a
+    # "no" leave nothing behind (2026-11-05: a rejected guess still passed the recipient check).
+    asks_first = guessed and len(candidates) == 1 and scope.ask_fn is not None
+    if not asks_first:
+        for contact in candidates:
+            scope.resolved[contact.email.lower()] = contact
     await scope.publish(
         "recipient", "recipient", "resolving", f"Looking up “{raw}”",
         {"query": raw, "candidates": [c.as_dict() for c in candidates], "chosen": 0 if len(candidates) == 1 else None},
@@ -191,8 +204,16 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         return ToolResult(False, f"No contact matches “{raw}”. {problem}".strip() +
                           " Don't guess an address: tell the owner who couldn't be found.", data, expected=not problem)
     if guessed and len(candidates) == 1:
-        return ToolResult(True, f"No contact is named exactly “{raw}”; the closest is {_described(candidates[0])}. "
-                          "Ask the owner whether that's who they mean before using it.", data)
+        if not asks_first:
+            return ToolResult(True, f"No contact is named exactly “{raw}”; the closest is {_described(candidates[0])}. "
+                              "Ask the owner whether that's who they mean before using it.", data)
+        sure = await _is_it(scope, raw, candidates[0])
+        if isinstance(sure, ToolResult):
+            return sure
+        logger.info("contact chosen by the owner", options=1)
+        scope.resolved[candidates[0].email.lower()] = candidates[0]
+        return ToolResult(True, f"The owner chose {_described(candidates[0])}. Use this contact only.",
+                          {"candidates": [candidates[0].as_dict()], "chosen_by_owner": True})
     if len(candidates) > 1 and (chosen := await _which(scope, raw, candidates)) is not None:
         if isinstance(chosen, ToolResult):
             return chosen
@@ -247,6 +268,20 @@ async def _which(scope: RunScope, raw: str, candidates: list[Contact]) -> Contac
     if answer.kind == "cancel":
         return ToolResult(False, "The owner said never mind: don't email anyone. Stop and say so.", expected=True)
     return None
+
+
+async def _is_it(scope: RunScope, raw: str, guess: Contact) -> bool | ToolResult:
+    """Nobody is named what the owner said, but one contact is close: Swift asks before using it
+    ("I couldn't find Sam. Did you mean Alex Samia?"). True: yes. A ToolResult: anything else,
+    including no answer, so the contact is not used."""
+    who = " ".join(w.capitalize() for w in raw.split()) if len(raw) <= 30 else "them"
+    named = guess.name or guess.email
+    answer = await scope.ask(f"I couldn't find {who}. Did you mean {named}?", "yes_no", ())
+    if answer is not None and answer.kind == "yes":
+        return True
+    told = f"didn't say whether {named} is who they meant" if answer is None else f"said {named} isn't who they meant"
+    return ToolResult(False, f"The owner {told}. Don't email anyone: say no contact is named “{raw}” "
+                      "and ask for their full name or address.", expected=True)
 
 
 def _described(contact: Contact) -> str:

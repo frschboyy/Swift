@@ -24,6 +24,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from swift.stt.transcriber import FILLERS, _bare
+
 STEPS = ("presence", "words", "question", "approval", "carry_over", "midrun", "duplicate", "dispatch")
 
 # Where an input came from.
@@ -91,3 +93,33 @@ def for_question(midrun_action: str | None, *, run_working: bool) -> bool:
     """Whether something heard while a question waits is for the question: yes, unless it is a
     mid-run control ("stop", "show me") and a request is running; for any question, not only a run's."""
     return not (run_working and midrun_action in MIDRUN_CONTROLS)
+
+
+def fragment(text: str | None, *, request_p: float | None = None, bar: float = 0.7, just_asked: bool = False) -> bool:
+    """Too little to give the agent: no words but hesitations ("Ah."), or one word the model was
+    unsure of ("Kern", at 0.57), unless Swift has just asked something: then one word is a normal
+    reply ("Tuesday"). A clear single word is a request like any other, and commands Swift does
+    itself are routed before this. ``request_p``: how sure the model was (None: it didn't say)."""
+    words = [w for w in (_bare(t) for t in (text or "").split()) if w and w not in FILLERS]
+    if not words:
+        return True
+    return len(words) == 1 and not just_asked and request_p is not None and request_p < bar
+
+
+def _norm(text: str) -> str:
+    return " ".join(t.strip(" ,.!?;:-–—\"'").lower() for t in text.split() if t.strip(" ,.!?;:-–—\"'"))
+
+
+def collapse_repeats(text: str) -> str:
+    """The same request said twice in one breath, as the first saying ("Turn on Bluetooth. Turn on
+    Bluetooth." went to the agent, which refused, 2026-11-05). Anything else is left as it is."""
+    import re
+
+    parts = [p for p in re.split(r"(?<=[.!?])\s+", text.strip()) if p.strip()]
+    if len(parts) > 1 and len({_norm(p) for p in parts}) == 1 and _norm(parts[0]):
+        return parts[0]
+    words = text.split()
+    half = len(words) // 2
+    if len(words) >= 4 and len(words) % 2 == 0 and _norm(" ".join(words[:half])) == _norm(" ".join(words[half:])):
+        return " ".join(words[:half])
+    return text

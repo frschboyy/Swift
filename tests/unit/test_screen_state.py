@@ -87,3 +87,47 @@ async def test_a_due_card_not_drawn_goes_back_in_line_and_stays_in_the_schedule(
     assert len(again) == 2
     session._due_drawn(again[-1])
     assert sched.items == []  # drawn: off the schedule, once
+
+
+# ---- owner checks 2026-11-05 ----------------------------------------------------------------------
+
+
+async def test_a_lane_question_put_into_the_stack_ends_its_own_card() -> None:
+    """Two unsure answers to "Turn off Wi-Fi?" put it in the stack. Before, its card stayed "working"
+    in the overlay for ever, so it was both on screen and in the stack, and a timer's card behind it
+    was refused again and again (2026-11-05)."""
+    from swift.stt.transcriber import Transcription
+
+    session, out, _records, _stt, _control = _wake_session()
+    card = await _wifi_question(session, out)
+    q = session.dialogue.pending
+    assert q is not None
+    q.reasked = 99  # the last unsure answer it gets
+    await session._unsure_answer(q, Transcription("mm", 200, 0.2))
+    await asyncio.sleep(0.05)
+    ends = [m.data for m in out.messages if m.type == "result" and m.data.get("run_id") == card["run_id"]]
+    assert ends and "later" in ends[-1]["summary"], "the lane card was left on screen"
+    assert any(m.type == "ask" and m.data.get("ask_id") == card["ask_id"] and not m.data["open"] for m in out.messages)
+
+
+async def test_a_due_card_is_said_once_however_often_it_is_sent() -> None:
+    from test_hardening_2026_10 import _settle
+    from test_system_lane import _session
+
+    session, rec, _, _ = await _session()
+    assert session.system is not None
+    said: list[str] = []
+    session._speak = lambda text, *a, **k: said.append(text)  # type: ignore[method-assign]
+    session.speech_replies = "auto"
+    sched = session.system.scheduler
+    tea = sched.add("timer", sched.clock(), "tea")
+    sched.items[-1].fired = True
+    await session.notify_due(tea, False)
+    await _settle()
+    for _ in range(3):  # the overlay never draws it
+        run_id = next(iter(session._due_sent))
+        session._due_not_drawn(run_id)
+        await session._kick_due()
+        await _settle()
+    assert len(said) == 1, said
+    assert session._due_tries, "each undrawn try is counted, so the next waits longer"

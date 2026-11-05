@@ -33,16 +33,21 @@ _CLAUSE = re.compile(
     r"\b(?:and then|and also|after that|and|then|also|while|before|after|once|so that|because|but first|first)\b"
 )
 
+_SENTENCE = re.compile(r"(?<=[.!?;])\s+")
+
 
 def owner_intents(said: str) -> list[it.Intent]:
     """Every system intent in the owner's own words, clause by clause."""
     whole = it.parse(said)
     if whole is not None:
         return whole
+    # Sentence ends first: normalizing drops the punctuation, and speech recognition writes full stops
+    # ("Turn the volume down. Write a haiku." found nothing, so the tool refused: 2026-11-05).
     found: list[it.Intent] = []
-    for clause in _CLAUSE.split(it.normalize(said)):
-        if clause.strip() and (one := it.parse_one(clause)) is not None:
-            found.append(one)
+    for sentence in _SENTENCE.split(said):
+        for clause in _CLAUSE.split(it.normalize(sentence)):
+            if clause.strip() and (one := it.parse_one(clause)) is not None:
+                found.append(one)
     return found
 
 

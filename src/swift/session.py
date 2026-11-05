@@ -160,7 +160,7 @@ from swift.executors.providers import Providers, Started, provider_of
 from swift.executors.quick import QuickModel
 from swift.failures import Failure, Severity, classify
 from swift.ipc.protocol import Message, now_ms, outbound
-from swift.parked import Parked, ParkedThreads
+from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads
 from swift.routing import Route, fast
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
@@ -263,6 +263,9 @@ SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", 
 SYSTEM_YES_NAME_HINT = "Typing can't turn it off: click Yes, or say yes."
 # The lane's question closed without an answer.
 LANE_NO_ANSWER = "No answer, so I've left it as it is."
+FRAGMENT_HINT = "Say the whole request, like “Hey Swift, what's on tomorrow?”"
+# A lane's question put into the stack: its card says so, then fades (it is in the stack now, not here).
+LANE_KEPT = "Kept in your list for later."
 _YES = re.compile(r"^(?:yes|yeah|yep|yup|sure|ok|okay|go ahead|do it|please do|confirm|turn it off|switch it off)\b")
 _NO = re.compile(r"^(?:no|nope|don'?t|do not|leave it|keep it|never ?mind|cancel|forget it)\b")
 
@@ -324,6 +327,8 @@ OFFLINE_RETRIES = 2
 PARKED_FAILURES = frozenset({"timeout", "offline"})
 # How long a due card may take to be drawn before it goes back in line (``due.shown``, O-08).
 DUE_ACK_S = 10.0
+# The longest a due card not drawn waits before it is sent again.
+DUE_RETRY_MAX_S = 120.0
 # Wake listening never waits longer than this for one utterance's transcription.
 WAKE_STT_TIMEOUT_S = 20.0
 # A workflow offer waits this long for "yes" or "no".
@@ -753,6 +758,10 @@ class Session:
         self._rows_sent: dict[str, Any] | None = None
         # Due cards sent and not yet drawn (``due.shown``), by their card's run id (O-08).
         self._due_sent: dict[str, list[Any]] = {}
+        # Due items already said aloud (once each, however often the card is sent: 2026-11-05) and
+        # how many times each card went undrawn (its next try waits longer, never a tight loop).
+        self._due_said: set[str] = set()
+        self._due_tries: dict[str, int] = {}
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
         self._last_thread: str | None = None
         # After something that can't be undone: the follow-up offered, its thread, and when.
@@ -908,7 +917,7 @@ class Session:
              "stt_failed", "stt_timeout", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
              "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice",
              "paused_drop", "answer", "short_answer", "held", "stitched", "over_speech", "no_words",
-             "unsure_answer"), 0,
+             "unsure_answer", "short_wake"), 0,
         )
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
@@ -1304,6 +1313,8 @@ class Session:
                                        self._card_since.get(request_id, 0), run.thread))
         if self.parked is not None:
             live = {r.thread for r in self._live() if r.thread}
+            if (asked := self.dialogue.pending) is not None and asked.thread:
+                live.add(asked.thread)  # its question is on screen: in one place only
             for parked in self.parked.all()[:MAX_PARKED]:
                 if parked.thread not in live:
                     items.append(StackItem(parked_id(parked.thread), "parked", parked.title, parked.reason,
@@ -1398,6 +1409,7 @@ class Session:
         if self.attention is not None:
             self.attention.set_queued(request_id, True)
             self.attention.set_seen(request_id, False)
+            self.attention.put_aside(request_id)  # in the stack for ``ASIDE_S`` at most, then parked
             left = self.attention.left(request_id) or left
         await self._raw_send(outbound("confirm.hold", request_id=request_id, held=True, timeout_s=round(left, 1)))
         if self._cards:
@@ -1453,7 +1465,11 @@ class Session:
             return parked.words
 
         run = self._launch(record, capture, self.executor, self.executor.start, title=_short_title(parked.words))
+        # Its thread at once: it leaves the stack the moment it is opened, never both there and in front.
+        run.thread = run.thread or thread
         self._chip_now(run, parked.words)
+        with contextlib.suppress(RuntimeError):
+            self._background(self._send_stack())
 
     def _question_aside(self, run: Run) -> None:
         """A card or another request takes the front from Swift's question: the question waits in
@@ -2168,8 +2184,13 @@ class Session:
         else:
             self._voice_db += (heard.peak_db - self._voice_db) * VOICE_EMA
 
+    def _answer_asked(self) -> bool:
+        """The last answer asked the owner something, so a one-word reply makes sense."""
+        return self._last_exchange is not None and "?" in self._last_exchange.answer
+
     def _refuse_unclear(self, heard: Transcription, text: str, record: dict[str, Any]) -> bool:
         """Whether too much of ``heard`` was a guess to act on; notes it in the record either way."""
+        record["request_p"] = heard.mean_p  # how sure, without the wake phrase (``intake.fragment``)
         clarity = assess(heard, self.unclear_p, self.reject_p)
         if clarity != "clear":
             record["unclear"] = heard.unclear(self.unclear_p)
@@ -2217,6 +2238,11 @@ class Session:
         else as it sounded: the model guesses most on a brisk word ("so me" for "show me")."""
         if not text.strip():
             return None
+        if not busy and (wake := match_wake(text, self.wake_greetings)) is not None and not wake.remainder.strip():
+            # A brisk "Hey Swift" on its own: the wake phrase, never dropped as too short (2026-11-05:
+            # after a quiet while it took several tries; each try was a short clip, and dropped).
+            self.wake_stats["short_wake"] += 1
+            return text
         if (asked := self._listening_for()) is not None:
             # A brisk answer ("yes", "two", "ten minutes") while Swift listens for one.
             found = resolve_answer(asked, text)
@@ -2333,6 +2359,7 @@ class Session:
             self._keep_audio(rec, audio)
             if heard.confidence is not None:
                 rec["stt_confidence"] = heard.confidence
+            rec["request_p"] = heard.mean_p
             if unclear:
                 rec["transcript_heard"] = heard.text.strip()
                 rec["unclear"] = heard.unclear(self.unclear_p)
@@ -2559,6 +2586,8 @@ class Session:
                     )
                     await self._send(outbound("error", **tap.as_message()))
                 return
+            if record.get("source") in SPOKEN_SOURCES:
+                transcript = intake.collapse_repeats(transcript)  # said twice in one breath: once
             record["transcript"] = transcript
             if not run.title or run.title == QUEUED_TITLE:
                 run.title = _short_title(transcript)
@@ -2674,6 +2703,20 @@ class Session:
                         workflow = Match(package, "run")
                 if workflow is not None and workflow.package.demand and not decision.override:
                     decision = replace(decision, demand=workflow.package.demand)
+            if (
+                decision is not None and decision.route == "agent" and answered is None and resumed is None
+                and workflow is None and record.get("source") in SPOKEN_SOURCES
+                and intake.fragment(
+                    strip_wake(transcript) or transcript, request_p=record.get("request_p"), bar=self.reject_p,
+                    just_asked=record.get("source") == "followup" and self._answer_asked(),
+                )
+            ):
+                # Hesitations, or one unsure word: never a run and a card of its own (2026-11-05).
+                record["fragment"] = True
+                raise UserFacingError(
+                    "fragment", f"I only caught “{_clip(transcript, 40)}”.", FRAGMENT_HINT,
+                    title="Say that again?", severity="info",
+                )
             if decision is not None and decision.route == "agent" and self.online() is False:
                 # No agent without the internet: say so now, and what still works (owner checks 2026-11-04).
                 decision = Route("local", decision.text, action="offline")
@@ -3138,20 +3181,29 @@ class Session:
             return reask_text(q), True
         self._question_done(q)
         if action == "dialogue_shelve":
-            self._shelve(q)
+            self._shelve(q, tell=False)  # its own line says so
             return "I still didn't catch that, so I've kept it in your list for later.", True
         return "Okay, I won't.", True
 
-    def _shelve(self, q: Question) -> None:
+    def _shelve(self, q: Question, tell: bool = True) -> None:
         """A lane's question goes unanswered: into the waiting stack ("Unanswered question"). Opened
-        from there, or "continue", asks it again (ADR-015 §9, ADR-017)."""
+        from there, or "continue", asks it again (ADR-015 §9, ADR-017). Its own card says where it
+        went and fades (``tell``), so it is never both on screen and in the stack (2026-11-05)."""
         logger.info("question put off into the stack", kind=q.kind, source=q.source)
+        if tell and q.source == "lane" and q.run_id is not None:
+            with contextlib.suppress(RuntimeError):
+                self._background(self._close_lane_ask(q, LANE_KEPT))
         if self.parked is None or not q.thread or not q.request:
             return
+        keep = QUESTION_KEEP_S if q.source == "lane" else 0.0
         self.parked.park(Parked(thread=q.thread, request=q.request, reason="asked", at=time.time(),
-                                progress=f"Swift asked: {q.text}", said=q.request))
+                                progress=f"Swift asked: {q.text}", said=q.request, keep_s=keep))
         with contextlib.suppress(RuntimeError):
-            asyncio.get_running_loop().create_task(self._send_stack())
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._send_stack())
+            if keep:
+                # Gone from the stack on screen when it expires, not only at the next change.
+                loop.call_later(keep + 1.0, lambda: self._background(self._send_stack()))
 
     def _window(self, q: Question) -> AnswerWindow:
         """``q``'s own window for its answer (made the first time it's needed)."""
@@ -3193,7 +3245,7 @@ class Session:
             with contextlib.suppress(RuntimeError):
                 self._background(self._close_lane_ask(q, LANE_NO_ANSWER))
         self._question_done(q)
-        self._shelve(q)
+        self._shelve(q, tell=False)
 
     def _question_done(self, q: Question) -> None:
         """``q`` no longer waits: its timer and microphone stop; a question behind it comes forward."""
@@ -3632,8 +3684,11 @@ class Session:
             return
         with contextlib.suppress(RuntimeError):
             asyncio.get_running_loop().call_later(DUE_ACK_S, self._due_not_drawn, run_id)
-        logger.info("due sent", items=len(queued))
-        if self.speech_replies != "never" and not self._away:
+        logger.info("due sent", items=len(queued), tries=self._due_tries.get(run_id, 0))
+        fresh = [i for i, _, _ in queued if i.id not in self._due_said]
+        if fresh and self.speech_replies != "never" and not self._away:
+            # Said once: sent again (not drawn yet), it stays quiet (2026-11-05: "Your timer is up" on repeat).
+            self._due_said.update(i.id for i in fresh)
             self._speak(spoken(text))  # nobody asked by voice, but a timer going off should be heard
 
     def _due_drawn(self, run_id: str) -> None:
@@ -3643,6 +3698,8 @@ class Session:
             return
         for item, _, _ in queued:
             self.system.scheduler.shown(item.id)
+            self._due_said.discard(item.id)
+        self._due_tries.pop(run_id, None)
         logger.info("due shown", items=len(queued))
 
     def _due_not_drawn(self, run_id: str) -> None:
@@ -3650,10 +3707,14 @@ class Session:
         queued = self._due_sent.pop(run_id, None)
         if not queued:
             return
-        logger.info("due card not drawn: kept for later", items=len(queued))
+        tries = self._due_tries[run_id] = self._due_tries.get(run_id, 0) + 1
+        logger.info("due card not drawn: kept for later", items=len(queued), tries=tries)
         self._due = queued + self._due
+        # Something on screen refused it: try again later, each time later (10 s, 20 s … 2 min), or at
+        # once when the overlay says what is on screen again (``ready``) or a request ends.
         with contextlib.suppress(RuntimeError):
-            self._background(self._kick_due())
+            asyncio.get_running_loop().call_later(min(DUE_RETRY_MAX_S, DUE_ACK_S * 2 ** (tries - 1)),
+                                                  lambda: self._background(self._kick_due()))
 
     async def _fake_listening(self, transcript: str) -> None:
         """Synthesize a speech-like mic level and a growing partial transcript."""

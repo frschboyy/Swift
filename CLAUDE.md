@@ -35,6 +35,19 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
   - No new dependencies without a clear need.
 - **Owner checks:** new behaviour gets checks in `docs/testing/owner-checks.md`, plus report lines in `spikes/owner_checks/report.py`.
 
+## Fixing things
+
+Rules from the reliability audit and its review (`docs/audit/2026-11-reliability-audit.md`, `docs/audit/2026-11-reliability-audit-review.md`):
+
+- **Prove the cause first.** Reproduce it where it happens before naming a cause. Say "unproven" when it is.
+- **One finding per commit.**
+- **Label the fix in its commit message:** root, partial, safeguard, workaround or symptom. A workaround names what would replace it.
+- **Screen fixes need the seam.** A fix to what's on screen isn't done until it has a scenario in `tests/unit/test_seam_replay.py`, which fails with the fix undone.
+- **Product rules:** someone other than the author reviews a fix to one, unless the owner waives it.
+- **Big claims need a test.** A commit that claims "one owner of X" names the test that would fail if there were two.
+- **Structural steps delete code.** Prototype on a branch and keep it only if it removes more than it adds.
+- **Confidence bars:** score any change to one on the owner's saved clips.
+
 ## Commands (Windows; from a worktree)
 
 - **Python tests:**

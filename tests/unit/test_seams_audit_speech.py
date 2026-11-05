@@ -211,7 +211,6 @@ async def test_s09_no_said_over_the_question_answers_it() -> None:
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="WindowsSpeaker")
-@pytest.mark.xfail(strict=True, reason="seams audit V-01: open finding; remove this marker with the fix")
 async def test_s10_no_voice_never_leaves_swift_speaking(monkeypatch: pytest.MonkeyPatch) -> None:
     win32 = pytest.importorskip("win32com.client")
     from swift.speech import WindowsSpeaker

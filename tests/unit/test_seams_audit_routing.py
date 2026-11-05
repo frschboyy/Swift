@@ -37,7 +37,6 @@ class HangingQuick(FakeQuick):
         return None
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit R-01: open finding; remove this marker with the fix")
 async def test_r01_offline_a_light_request_is_answered_at_once_without_the_light_model() -> None:
     session, rec, spy, records = await _session()
     session.online = lambda: False
@@ -50,7 +49,6 @@ async def test_r01_offline_a_light_request_is_answered_at_once_without_the_light
 # ---- R-03: a local request waits behind three agent runs -----------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit R-03: open finding; remove this marker with the fix")
 async def test_r03_a_system_request_is_not_queued_behind_three_agent_runs() -> None:
     session, out, records, agent, stt = make()
     session.system, control, _ = lane(volume=40)
@@ -91,7 +89,6 @@ class RetryingAgent(Agent):
             queue.put_nowait(None)
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit R-04: open finding; remove this marker with the fix")
 async def test_r04_offline_mid_run_swift_ends_the_run_and_says_why() -> None:
     session, out, records, agent, stt = make(RetryingAgent)
     online = {"now": True}
@@ -105,7 +102,6 @@ async def test_r04_offline_mid_run_swift_ends_the_run_and_says_why() -> None:
 # ---- R-05: a Claude refusal right after the start-up check is not offered ------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit R-05: open finding; remove this marker with the fix")
 async def test_r05_a_refusal_soon_after_the_start_up_check_still_offers_the_sign_in() -> None:
     offered: list[set[str]] = []
     watch = SigninWatch(offered.append, google=None, claude=lambda: "ok")  # local status looks fine
@@ -136,7 +132,6 @@ class HangClient:
     async def disconnect(self) -> None: ...
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit R-06: open finding; remove this marker with the fix")
 async def test_r06_a_silent_cli_ends_with_a_card_by_itself(tmp_path) -> None:  # type: ignore[no-untyped-def]
     from swift.executors.claude_code import ClaudeCodeExecutor
 

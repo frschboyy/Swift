@@ -156,13 +156,25 @@ class WindowsSpeaker(Speaker):
         self._thread = threading.Thread(target=self._run, args=(voice, rate, volume), name="speech", daemon=True)
         self.ready = threading.Event()
         self.error: str | None = None
+        self._said_n = 0
         self._thread.start()
 
     def speak(self, text: str) -> None:
         if not text.strip():
             return
+        if self.error is not None or not self._thread.is_alive():
+            return  # no voice: silent, never "speaking" (seams audit V-01: the open mic went deaf)
         self._speaking = True
+        self._said_n += 1
         self._commands.put(("speak", text))
+        # Never stuck speaking: longer than the text could take, it's over (a voice that never says done).
+        with contextlib.suppress(RuntimeError):
+            self._loop.call_later(len(text) / 8 + 5, self._overdue, self._said_n)
+
+    def _overdue(self, n: int) -> None:
+        if self._speaking and n == self._said_n:
+            logger.warning("speech never said it was done; taken as over")
+            self._ended()
 
     def stop(self) -> None:
         if self._speaking:

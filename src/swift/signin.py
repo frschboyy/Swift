@@ -92,6 +92,9 @@ class SigninWatch:
         self.claude = claude
         self.busy = busy
         self._last = 0.0
+        # When each sign-in was last offered on a card: a refusal is throttled on this, never on the last
+        # check, since a check that read "ok" locally can't see a token revoked on the server (R-05).
+        self._offered: dict[Service, float] = {}
 
     async def check(self) -> set[Service]:
         """The sign-ins that need the owner now; each one checked on a thread."""
@@ -108,15 +111,19 @@ class SigninWatch:
             if status in ("expired", "expiring"):
                 need.add("claude")
         if need:
+            now = asyncio.get_running_loop().time()
+            self._offered.update(dict.fromkeys(need, now))
             self.offer(need)
         return need
 
     def refused(self, service: Service) -> None:
-        """A run was refused for a sign-in: offer it now (from the event loop), at most every 10 minutes."""
+        """A run was refused for a sign-in: offer it now (from the event loop), unless that sign-in was
+        offered in the last 10 minutes (seams audit R-05: not "checked": a check can't see a revoked token)."""
         loop = asyncio.get_running_loop()
-        if loop.time() - self._last < RECHECK_AFTER_S:
+        last = self._offered.get(service)
+        if last is not None and loop.time() - last < RECHECK_AFTER_S:
             return
-        self._last = loop.time()
+        self._offered[service] = loop.time()
         logger.info("sign-in refused in a run", service=service)
         self.offer({service})
 

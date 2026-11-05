@@ -63,6 +63,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
+from swift import clock
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
 from swift.executors.claude_mapping import COMMAND_MAX, LiveMapper, Outcome, confirm_card, outcome_for, steps_for
@@ -148,6 +149,19 @@ class _Spare:
     binding: list[tuple[_Run, str]] = field(default_factory=list)
 
 
+# A run that sends nothing for this long, while nothing waits for the owner, has stalled: it ends with
+# a "took too long" card and its CLI is stopped (seams audit R-06; owner decision 1: 90 s).
+STALL_S = 90.0
+# How long a request waits for the warm CLI still connecting before it starts its own (X-12), and how
+# long a CLI may take to connect at all.
+SPARE_WAIT_S = 20.0
+CONNECT_S = 60.0
+
+
+class RunStalled(Exception):
+    """No word from the CLI for ``STALL_S`` while it wasn't waiting for the owner."""
+
+
 @dataclass
 class _Run:
     queue: asyncio.Queue[Any] = field(default_factory=asyncio.Queue)
@@ -178,6 +192,24 @@ class _Run:
     web: WebScope = field(default_factory=WebScope)
     # What the live view shows: the pages found and read, notes (ADR-017 §7).
     live: LiveMapper = field(default_factory=LiveMapper)
+    # Waits for the owner now (a card, one of Swift's tools such as ask_owner): the watchdog pauses.
+    held: int = 0
+    # When the CLI last said something, or the owner last answered (``clock.now()``).
+    heard_at: float = field(default_factory=clock.now)
+
+
+@contextlib.asynccontextmanager
+async def _holding(run: _Run | None) -> AsyncIterator[None]:
+    """While one of Swift's tools waits for the owner, the run isn't stalled."""
+    if run is None:
+        yield
+        return
+    run.held += 1
+    try:
+        yield
+    finally:
+        run.held -= 1
+        run.heard_at = clock.now()
 
 
 def as_event(message: Any) -> dict[str, Any] | None:
@@ -248,6 +280,7 @@ class ClaudeCodeExecutor:
         self.confirm_tools = [t for t in confirm_tools if t not in self.allowed_tools]
         self.max_budget_usd = max_budget_usd
         self.confirm_timeout_s = confirm_timeout_s
+        self.stall_timeout_s = STALL_S
         self._claude = claude
         self._runs: dict[str, _Run] = {}
         self._ids = itertools.count(1)
@@ -330,7 +363,7 @@ class ClaudeCodeExecutor:
             from claude_agent_sdk import ClaudeSDKClient as factory
         known = _claude_children()
         client = factory(options)
-        await client.connect()
+        await asyncio.wait_for(client.connect(), CONNECT_S)  # never stuck connecting (R-06 class)
         return client, cli_pid(client, known)
 
     async def _take_spare(self, wait: bool = True) -> _Spare | None:
@@ -344,8 +377,11 @@ class ClaudeCodeExecutor:
                 await task
             return None
         try:
-            spare = await task
+            # Still connecting: wait a little, then start cold rather than wait for ever (X-12).
+            spare = await asyncio.wait_for(task, SPARE_WAIT_S)
         except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            if not task.done():
+                logger.warning("warm claude took too long to connect; starting cold")
             return None
         if spare is not None and spare.pid is not None and not psutil.pid_exists(spare.pid):
             logger.warning("spare claude exited while idle; starting cold")
@@ -442,7 +478,8 @@ class ClaudeCodeExecutor:
 
         async def call(args: dict[str, Any]) -> dict[str, Any]:
             run, run_id = current() if current is not None else (None, None)
-            result = await host.call(spec.name, args, run=run_id)
+            async with _holding(run):  # its card or question waits for the owner: not a stall
+                result = await host.call(spec.name, args, run=run_id)
             if run is not None:
                 run.swift_tools = True
                 run.expected += not result.ok and result.expected
@@ -597,6 +634,7 @@ class ClaudeCodeExecutor:
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         run.pending[request_id] = future
         run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool))
+        run.held += 1  # the owner's turn: the watchdog waits (R-06)
         try:
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
             if isinstance(answer, str):
@@ -606,6 +644,8 @@ class ClaudeCodeExecutor:
             return "no_answer"
         finally:
             run.pending.pop(request_id, None)
+            run.held -= 1
+            run.heard_at = clock.now()  # the stall counts from the answer, not from before the card
 
     # ---- escalation (ADR-007 §6) -----------------------------------------------
 
@@ -682,8 +722,8 @@ class ClaudeCodeExecutor:
                 await self._default_model(run, model)
             while True:
                 try:
-                    await run.client.query(request)
-                    async for message in run.client.receive_response():
+                    await asyncio.wait_for(run.client.query(request), CONNECT_S)
+                    async for message in self._watched(run, run.client.receive_response()):
                         await self._watch(run, message)
                         event = as_event(message)
                         if event is None:
@@ -724,6 +764,36 @@ class ClaudeCodeExecutor:
             run.queue.put_nowait(_DONE)
             # One CLI per request: connect the next one now, while the owner reads the result.
             self._refill()
+
+    async def _watched(self, run: _Run, stream: Any) -> AsyncIterator[Any]:
+        """``stream``'s messages, ending the run if the CLI goes silent for ``stall_timeout_s`` while
+        nothing waits for the owner (a card, a question): seams audit R-06, decision 1."""
+        it = stream.__aiter__()
+        run.heard_at = clock.now()
+        while True:
+            nxt = asyncio.ensure_future(it.__anext__())
+            try:
+                while True:
+                    left = run.heard_at + self.stall_timeout_s - clock.now()
+                    done, _ = await asyncio.wait({nxt}, timeout=max(0.05, min(left, 1.0)))
+                    if done:
+                        break
+                    if run.held > 0 or run.cancelled:
+                        run.heard_at = clock.now()  # the owner's turn: not the CLI being silent
+                    elif clock.now() - run.heard_at >= self.stall_timeout_s:
+                        logger.warning("claude run stalled", stall_s=self.stall_timeout_s, steps=run.steps_at_level)
+                        raise RunStalled(f"timed out: no word from Claude Code for {self.stall_timeout_s:.0f} s")
+            finally:
+                if not nxt.done():
+                    nxt.cancel()
+                    with contextlib.suppress(BaseException):
+                        await nxt
+            try:
+                message = nxt.result()
+            except StopAsyncIteration:
+                return
+            run.heard_at = clock.now()
+            yield message
 
     @staticmethod
     async def _default_model(run: _Run, model: str) -> None:

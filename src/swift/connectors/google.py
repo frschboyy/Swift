@@ -45,6 +45,7 @@ from typing import Any, TypeVar
 
 from loguru import logger
 
+from swift import clock
 from swift.connectors.base import ConnectorError
 
 SCOPES = [
@@ -66,6 +67,8 @@ expired_listeners: list[Callable[[], None]] = []
 
 # Waits before the second and third try of a call that is safe to repeat.
 RETRY_DELAYS_S = (0.5, 1.5)
+# The longest one Google call may take, retries included (seams audit X-10).
+CALL_DEADLINE_S = 45.0
 # Windows' WSAECONNABORTED / WSAECONNRESET / WSAETIMEDOUT, and their POSIX names.
 _DROPPED = {10053, 10054, 10060, errno.ECONNABORTED, errno.ECONNRESET, errno.ETIMEDOUT, errno.EPIPE}
 
@@ -173,13 +176,17 @@ class GoogleSession:
         ``changes``: it changes something, so a connection that stays dropped means Swift can't tell
         whether it was done (``code="unknown"``), not that it failed."""
         delays = RETRY_DELAYS_S if retry else ()
+        # One deadline for the call and its retries: a request never waits minutes on Google (X-10).
+        deadline = clock.now() + CALL_DEADLINE_S
         for attempt in range(len(delays) + 1):
             try:
-                return await asyncio.to_thread(fn)
+                return await asyncio.wait_for(asyncio.to_thread(fn), max(1.0, deadline - clock.now()))
             except ConnectorError:
                 raise
             except Exception as exc:  # noqa: BLE001 - Google errors become one readable failure
-                if attempt < len(delays) and transient(exc):
+                if isinstance(exc, TimeoutError):
+                    logger.info("google call took too long", service=self.service_name, deadline_s=CALL_DEADLINE_S)
+                if attempt < len(delays) and transient(exc) and clock.now() < deadline:
                     logger.info("google call retried", service=self.service_name, attempt=attempt + 1,
                                 error=type(exc).__name__)
                     await asyncio.sleep(delays[attempt])

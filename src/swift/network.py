@@ -13,6 +13,7 @@ answers, none of which use the network (ADR-016 §3).
 from __future__ import annotations
 
 import sys
+import threading
 
 OFFLINE_SAID = "I'm offline, so I can't do that until the internet is back."
 OFFLINE_HELP = "Without the internet I can still do these:"
@@ -31,8 +32,18 @@ OFFLINE_ITEMS = (
 OFFLINE_NOT = "Questions, research, writing, email and your calendar need the internet."
 
 
+# Windows' Network List Manager (its CLSID): what Windows' own connectivity check found, kept by Windows.
+_NLM = "{DCB00C01-570F-4A9B-8D69-199FDBA5723B}"
+_local = threading.local()
+
+
 def online() -> bool | None:
-    """Whether Windows has an internet connection: True, False, or None when it can't tell."""
+    """Whether this PC reaches the internet: True, False, or None when it can't tell.
+
+    ``InternetGetConnectedState`` first: False there is certain (no adapter up). True only means "has a
+    connection", also for a LAN without internet, a captive portal or a virtual adapter, so then the
+    Network List Manager is asked, which reports what Windows' own connectivity check found. Both are
+    local: no network call (seams audit R-02)."""
     if sys.platform != "win32":
         return None
     try:
@@ -40,6 +51,25 @@ def online() -> bool | None:
         from ctypes import wintypes
 
         flags = wintypes.DWORD()
-        return bool(ctypes.windll.wininet.InternetGetConnectedState(ctypes.byref(flags), 0))  # type: ignore[attr-defined]
+        connected = bool(ctypes.windll.wininet.InternetGetConnectedState(ctypes.byref(flags), 0))  # type: ignore[attr-defined]
     except Exception:  # an odd Windows: don't stand in the way
+        return None
+    if not connected:
+        return False
+    reaches = _internet_by_nlm()
+    return connected if reaches is None else reaches
+
+
+def _internet_by_nlm() -> bool | None:
+    """The Network List Manager's ``IsConnectedToInternet`` (one COM object per thread), or None."""
+    try:
+        manager = getattr(_local, "nlm", None)
+        if manager is None:
+            import pythoncom
+            import win32com.client
+
+            pythoncom.CoInitialize()
+            manager = _local.nlm = win32com.client.Dispatch(_NLM)
+        return bool(manager.IsConnectedToInternet)
+    except Exception:  # no pywin32, COM refused: the fast answer stands
         return None

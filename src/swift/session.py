@@ -320,6 +320,10 @@ THREADED = frozenset({"state", "step", "confirm.request", "result", "error", "ar
 CONFIRM_TIMEOUT_S = 45.0
 # After an answer that asks something, Swift waits this long for the reply (``wake.question_s``).
 QUESTION_S = 25.0
+# Retries from the CLI before Swift checks whether the internet went (R-04).
+OFFLINE_RETRIES = 2
+# Failures that end a request through no fault of the request: it waits in the stack to pick up again.
+PARKED_FAILURES = frozenset({"timeout", "offline"})
 # How long a due card may take to be drawn before it goes back in line (``due.shown``, O-08).
 DUE_ACK_S = 10.0
 # Wake listening never waits longer than this for one utterance's transcription.
@@ -445,6 +449,26 @@ def _proposal(store: ArtifactStore | None) -> str:
                 f"(“send it” sends {artifact.id} with send_email; a correction revises it with draft_email, "
                 f"draft_id {artifact.id} and the new message only: the subject stays)")
     return ""
+
+
+# What each lane needs to work (seams audit S4). A lane is tried only if what it needs is there: offline,
+# a request that needs the internet is answered at once instead of waiting on retries.
+LANE_NEEDS: dict[str, frozenset[str]] = {
+    "agent": frozenset({"network", "claude_cli"}),
+    "quick": frozenset({"network", "claude_cli"}),  # the light lane is a Claude CLI call
+}
+
+
+def lane_needs(decision: Route) -> frozenset[str]:
+    """What the lane ``decision`` goes to needs: the light lane by its action, else by its route."""
+    if decision.action == "quick":
+        return LANE_NEEDS["quick"]
+    return LANE_NEEDS.get(decision.route, frozenset())
+
+
+def _is_retry(text: str, activity: str | None) -> bool:
+    """A step that says the provider is retrying a call to its service ("Connection hiccup, retrying…")."""
+    return activity == "waiting" and "retrying" in text.lower()
 
 
 def _clip(text: str, limit: int) -> str:
@@ -2469,15 +2493,6 @@ class Session:
             self._context = asyncio.create_task(self._read_context())
         slot = False
         try:
-            if self._slots.locked():
-                # MAX_RUNS already: this one waits for a slot, as a row, and the card in front says so.
-                run.queued = True
-                record["queued"] = True
-                await self._send_rows()
-                with self._as(self._focus or self._none):
-                    await self._run_phase("hint", QUEUED_HINT.format(n=MAX_RUNS))
-            await self._slots.acquire()
-            slot, run.queued = True, False
             transcript = await capture(record)
             if transcript is None:
                 record["status"] = "cancelled"
@@ -2578,6 +2593,10 @@ class Session:
                     decision = replace(
                         _to_agent(decision), text=resumed.request, demand=estimate(resumed.request) or "standard"
                     )
+            if decision is not None and "network" in lane_needs(decision) and self.online() is False:
+                # Before any lane that needs the internet is tried (the light model, an offer, the agent):
+                # say so at once, and what still works (seams audit R-01).
+                decision = Route("local", decision.text, action="offline")
             before = self._left.get(record.get("thread") or "") if decision is not None and answered is None else None
             if before is not None and decision is not None and decision.action == "quick":
                 decision = replace(decision, action=None)  # it goes on with the thread's draft or event: not the light lane
@@ -2618,6 +2637,16 @@ class Session:
                 if decision.override:
                     record["override"] = decision.override
 
+            # Only the agent takes one of the MAX_RUNS slots: local work never waits behind them (R-03).
+            if self._slots.locked():
+                # MAX_RUNS already: this one waits for a slot, as a row, and the card in front says so.
+                run.queued = True
+                record["queued"] = True
+                await self._send_rows()
+                with self._as(self._focus or self._none):
+                    await self._run_phase("hint", QUEUED_HINT.format(n=MAX_RUNS))
+            await self._slots.acquire()
+            slot, run.queued = True, False
             self._open_scope(record, workflow)
             try:
                 if decision is not None:
@@ -3625,8 +3654,19 @@ class Session:
                     kind="handoff", ts=now_ms(), activity="starting", agent=SWIFT.as_agent(), subagent=False,
                 )
             )
+        retries = 0
         async for event in executor.events(run_id):
             t_ms = int((clock.now() - t0) * 1000)
+            if event.type == "step" and _is_retry(event.text, event.activity):
+                # The CLI retrying its API calls: with the internet gone, it would go on for minutes (R-04).
+                retries += 1
+                record["retries"] = retries
+                if retries >= OFFLINE_RETRIES and self.online() is False:
+                    logger.info("internet lost during a request", retries=retries)
+                    await executor.cancel(run_id)
+                    return ExecResult("error", OFFLINE_SAID, failure=Failure(
+                        "offline", "You're offline", OFFLINE_SAID,
+                        "It's in your list: pick it up once the internet is back.", retry=True))
             if event.type == "step":
                 record["steps"].append({"t_ms": t_ms, "text": event.text, "activity": event.activity})
                 if event.activity == "starting":
@@ -4120,6 +4160,8 @@ class Session:
             reason = "unanswered"
         elif record.get("asked_unanswered"):
             reason = "asked"  # Swift's question went unanswered (ADR-016 §5.1): it waits in the stack
+        elif record.get("error") in PARKED_FAILURES:
+            reason = "stopped"  # it went silent, or the internet went: kept to pick up (seams audit R-04, R-06)
         else:
             return
         progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
@@ -4639,7 +4681,9 @@ class Session:
         self._retry = (source, again) if failure.retry and source and again else None
         if failure.detail:
             logger.info("failure shown", code=failure.code, detail=failure.detail)
-        if failure.code == "auth" and self.on_signin_refused is not None:
+        signin = failure.code == "auth" or (failure.code == "models" and self.online() is not False)
+        if signin and self.on_signin_refused is not None:
+            # "Couldn't confirm model" with the internet up is how an expired login often shows (R-11).
             self.on_signin_refused("claude")  # the only provider with a sign-in today
         await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
         message = failure.as_message() | {"retry": self._retry is not None}

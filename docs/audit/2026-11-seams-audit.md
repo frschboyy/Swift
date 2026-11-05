@@ -29,7 +29,8 @@ Times are local (+03:00) on 2026-11-04 unless another date is given. `session.py
 | Layer A (O-06) | Protocol examples both ways, checked by `protocol.py`, by `tsc` against `protocol.ts`, and against every frame the backend sends in the suite | `0da3295` |
 | Layer C | `swift/clock.py` (the clock seam), a virtual-time event loop, and a Hypothesis model of the dialogue | `dec1a43` |
 | S3 | One window per question (`swift/answer_window.py`): its own deadline, counted from the end of Swift's speech, waiting for an answer still being said, restarted by every re-ask with the deadline sent; a lane question from the owner's new request is asked first and the one it displaces comes back with a whole window. Fixes T-01, T-02, T-03, T-11, T-13. Owner checks 141–145. Decision 9 taken as recommended (25 s from the end of speech; ADR-016 updated) | `f918be9` |
-| S1 | One owner of what is on screen. On every `ready` (now sent on every connection) the backend sends the rows, the request in front with its card and the time it has left, a lane's question card, Swift speaking, and the reply window; a card counts down only once the new overlay draws it, and stops when the overlay goes. `hello.ok` carries the backend's instance: a new one clears the old screen. A card behind another isn't sent (`Run.cards`). `bad_message` never reaches a card, and the server logs it. Due cards leave the schedule on `due.shown`; not drawn in 10 s, they go back in line. A question's close always reaches the overlay. Fixes O-01, O-02, O-05, O-07, O-08, O-15. Checked in the harness (a reload and a backend restart with a card up). Owner checks 146–149. **Not done:** absolute deadlines (T-08) and the heartbeat (H-06) | the commit after `f918be9` |
+| S1 | One owner of what is on screen. On every `ready` (now sent on every connection) the backend sends the rows, the request in front with its card and the time it has left, a lane's question card, Swift speaking, and the reply window; a card counts down only once the new overlay draws it, and stops when the overlay goes. `hello.ok` carries the backend's instance: a new one clears the old screen. A card behind another isn't sent (`Run.cards`). `bad_message` never reaches a card, and the server logs it. Due cards leave the schedule on `due.shown`; not drawn in 10 s, they go back in line. A question's close always reaches the overlay. Fixes O-01, O-02, O-05, O-07, O-08, O-15. Checked in the harness (a reload and a backend restart with a card up). Owner checks 146–149. **Not done:** absolute deadlines (T-08) and the heartbeat (H-06) | `e602d8d` |
+| S4 | Nothing waits for ever. Lanes declare what they need (`LANE_NEEDS`): offline, a request that needs the internet is answered before the light model or an offer is tried. `online()` also asks Windows' Network List Manager (a connection without the internet is offline). Only the agent takes a slot. Two CLI retries with the internet gone end the request (offline, kept in the stack). A run watchdog: 90 s with no word from the CLI, paused while a card or one of Swift's tools waits for you, ends it with "took too long" and keeps it in the stack (decision 1 as recommended). Connect, query and the warm CLI are bounded. Sign-in offers are throttled on the last offer; "couldn't confirm model" online offers the sign-in. A voice that can't start never leaves Swift "speaking". One deadline (45 s) for a Google call and its retries. Fixes R-01 to R-06, R-11, V-01, X-10, X-12. Owner checks 150–155. **Not done:** decision 2 (the light lane) | the commit after `e602d8d` |
 
 Layer C found two new findings (§3.9): **T-13** and **O-15**. It also re-found T-01 and T-03 by itself. Each known open finding is replayed in `tests/unit/test_dialogue_model.py` (`KNOWN`), and the main model steers around its trigger, so a fix shows up there.
 
@@ -348,8 +349,8 @@ IDs by area:
 | O-04 | High | confirmed (harness) | overlay | effectiveness | The Send card shows 3 lines of the email with no scroll (#15) |
 | O-07 | High | confirmed (test); **fixed 2026-11-05 (S1)** | backend, overlay | reliability | One run asking two cards: the backend and the overlay disagree on which is shown (#14 class) |
 | O-08 | High | confirmed (code, both sides); **fixed 2026-11-05 (S1)** | backend, overlay | reliability | A due card the overlay drops while a run is in front is still marked shown |
-| V-01 | High | confirmed (test) | speech | fallback | With SAPI unavailable, Swift is "speaking" forever and the open mic goes deaf |
-| R-03 | High | confirmed (test) | backend | effectiveness, fallback | A local request waits behind three agent runs |
+| V-01 | High | confirmed (test); **fixed 2026-11-05 (S4)** | speech | fallback | With SAPI unavailable, Swift is "speaking" forever and the open mic goes deaf |
+| R-03 | High | confirmed (test); **fixed 2026-11-05 (S4)** | backend | effectiveness, fallback | A local request waits behind three agent runs |
 | X-01 | High | confirmed (test) | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
 | X-03 | High | confirmed (test, log) | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
 | X-08 | High | confirmed (test) | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
@@ -374,11 +375,11 @@ IDs by area:
 | W-03 | Medium | confirmed (test) | speech | testability | The speech regression gate is aggregate-only |
 | W-04 | Medium | confirmed (owner data) | speech | testability | The owner test set misses systematic mishearings (2 labelled clips) |
 | W-06 | Medium | confirmed (experiment) | speech | effectiveness | Contacts aren't used when recognizing a name ("Test Me" → "Plectomy") |
-| R-01 | Medium | confirmed (test) | backend | fallback, efficiency | Offline, the light lane (20 s) and the workflow offer come before the offline answer |
-| R-02 | Medium | suspected | dependency | fallback | `online()` means "has a connection", not "reaches the internet" |
-| R-04 | Medium | confirmed (log, test) | executor | fallback, diagnosability | Internet lost mid-run: "Connection hiccup" until the CLI or the owner gives up |
-| R-05 | Medium | confirmed (test, log 15:15) | backend | fallback | A Claude refusal within 10 min of any sign-in check gets no sign-in card |
-| R-06 | Medium | confirmed (test, log 18:21–18:26) | executor | reliability | No watchdog: a silent CLI "works" forever and holds a slot |
+| R-01 | Medium | confirmed (test); **fixed 2026-11-05 (S4)** | backend | fallback, efficiency | Offline, the light lane (20 s) and the workflow offer come before the offline answer |
+| R-02 | Medium | suspected; **fixed 2026-11-05 (S4)** | dependency | fallback | `online()` means "has a connection", not "reaches the internet" |
+| R-04 | Medium | confirmed (log, test); **fixed 2026-11-05 (S4)** | executor | fallback, diagnosability | Internet lost mid-run: "Connection hiccup" until the CLI or the owner gives up |
+| R-05 | Medium | confirmed (test, log 15:15); **fixed 2026-11-05 (S4)** | backend | fallback | A Claude refusal within 10 min of any sign-in check gets no sign-in card |
+| R-06 | Medium | confirmed (test, log 18:21–18:26); **fixed 2026-11-05 (S4)** | executor | reliability | No watchdog: a silent CLI "works" forever and holds a slot |
 | R-07 | Medium | confirmed (log) | routing | effectiveness, efficiency | The light lane never answered a real request, yet a CLI is kept warm for it |
 | R-08 | Medium | confirmed (code, data) | measurement | diagnosability | The agent-time metric includes the owner's speaking and card waits |
 | R-09 | Medium | design concern | backend | testability | About 20 order-dependent rewrites in one 230-line dispatch function |
@@ -387,7 +388,7 @@ IDs by area:
 | X-06 | Medium | confirmed (code) | executor | security | B-10 is wider: "Claude is busy, retrying…" on the working card |
 | X-07 | Medium | design concern | executor | security | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list |
 | X-09 | Medium | confirmed (code) | gateway | reliability | B-08 still open: after an "unknown" outcome the same action can be done again |
-| X-10 | Medium | suspected | gateway | reliability | No deadline on a Swift tool call (Google 60 s × 3 retries) |
+| X-10 | Medium | suspected; **fixed 2026-11-05 (S4)** | gateway | reliability | No deadline on a Swift tool call (Google 60 s × 3 retries) |
 | X-11 | Medium | suspected | dependency | reliability | Google API clients shared across threads |
 | Q-01 | Medium | confirmed (code, report); **fixed 2026-11-05** | testability | diagnosability | The owner-check report can't print FAIL; on-screen checks always print PASS |
 | Q-02 | Medium | confirmed (survey) | testability | testability | The fakes hide every seam; nothing drives the backend and the overlay together |
@@ -405,9 +406,9 @@ IDs by area:
 | W-05 | Low | confirmed (measured) | speech | effectiveness | A low-confidence trigger sees about 25% of the real errors |
 | W-07 | Low | confirmed (experiment) | speech | effectiveness | Boosting expected answers by a score bonus inserts them ("Yes." six times) |
 | R-10 | Low | suspected | workflows | efficiency | Calendar workflows on Haiku take 3–6 turns; time to first card is about 15 s |
-| R-11 | Low | suspected | backend | fallback | An expired login reported as "couldn't confirm model" isn't treated as a sign-in |
+| R-11 | Low | suspected; **fixed 2026-11-05 (S4)** | backend | fallback | An expired login reported as "couldn't confirm model" isn't treated as a sign-in |
 | X-05 | Low | confirmed (log) | backend | security, diagnosability | Exception and connector texts go into `swift.log` and the journal (none with content yet) |
-| X-12 | Low | confirmed (code) | executor | efficiency | Waiting for the spare CLI is outside every timeout |
+| X-12 | Low | confirmed (code); **fixed 2026-11-05 (S4)** | executor | efficiency | Waiting for the spare CLI is outside every timeout |
 | X-13 | Low | confirmed (code) | executor | diagnosability | A cancelled or killed run reports no cost |
 | X-14 | Low | confirmed (code) | backend | effectiveness, fallback | Sign-in hints disagree with the card; no card while away or for "absent" |
 | Q-03 | Low | confirmed (data) | testability | testability | Routing parity (97.5%) measures a synthetic set, not the owner's mix |

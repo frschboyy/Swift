@@ -307,6 +307,19 @@ About 10 minutes. The backend now tells the overlay everything on screen each ti
 | 148 | "Hey Swift, use Bash to list the files in this folder and in the parent folder at the same time" | If two command cards come, you see **one**; answer it and the other shows. The one you see is the one the countdown is for | (seen on screen) |
 | 149 | "Hey Swift, research the history of tea in detail", then "set a timer for 1 minute", and keep the research going over 3 minutes | The timer card shows (once the research card lets it), and the timer is gone from "what timers do I have" only after you saw it | Due cards drawn before leaving the schedule |
 
+### Nothing waits for ever (seams audit S4, 2026-11-05)
+
+About 10 minutes. Swift now checks what a request needs (the internet, Claude Code) before trying it, and ends a request that has gone silent.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 150 | Turn the Wi-Fi off. "Hey Swift, what's the capital of Peru?" | "**I'm offline**…" within a second (it used to try the light model first) | Offline: answered at once (133) |
+| 151 | Keep the Wi-Fi connected but take the internet away (unplug the router's internet cable, or use a hotspot with no data). Ask a research question | "I'm offline" within about 5 s, not "Connection hiccup, retrying" for a minute | Offline: answered at once (133) |
+| 152 | Start three research requests, then "Hey Swift, volume up" | The volume changes **at once**, not "That's waiting: 3 requests are running" | (seen on screen) |
+| 153 | "Hey Swift, research the history of tea in detail", then turn the Wi-Fi off while it works | Within about 10 s: "I'm offline…", and the request is in the stack to pick up later | The internet went during a request |
+| 154 | (Nothing to do: if Claude Code ever goes silent for 90 s while nothing waits for you, Swift ends the request with "took too long" and keeps it in the stack) | — | A silent request ended by itself |
+| 155 | The next time Claude Code refuses a request because of its sign-in | "Sign in to Claude again?" on the **first** refused request, even just after Swift started | Sign-in offered on a card (121-122) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

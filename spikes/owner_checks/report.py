@@ -4,8 +4,14 @@ Usage:  uv run python spikes/owner_checks/report.py --since 20:00 [--date 2026-1
         [--interactions PATH] [--log PATH]
 
 Reads %LOCALAPPDATA%\\Swift\\interactions.jsonl and logs\\swift.log (read-only), lists each
-request since the given time, and marks each check PASS or NOT SEEN. Prints to the terminal
-only. Transcripts are shown because they are the owner's own data, on the owner's machine.
+request since the given time, and marks each check:
+
+  PASS      the evidence is in the logs and the failure condition is not;
+  FAIL      the failure condition is in the logs (look at the times it names);
+  NOT SEEN  neither: the check wasn't done, or the logs can't tell;
+  LOOK      only your eyes can tell: the note says what to look for. Never printed as PASS.
+
+Prints to the terminal only. Transcripts are shown because they are the owner's own data, on the owner's machine.
 """
 
 from __future__ import annotations
@@ -16,10 +22,36 @@ import os
 import re
 from collections import Counter
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
 LOCAL = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Swift"
+
+
+class Outcome(Enum):
+    """One check's result. Only PASS is truthy, so `if ok:` still means "passed"."""
+
+    PASS = "PASS"
+    FAIL = "FAIL"
+    NOT_SEEN = "NOT SEEN"
+    LOOK = "LOOK"
+
+    def __bool__(self) -> bool:
+        return self is Outcome.PASS
+
+
+PASS, FAIL, NOT_SEEN, LOOK = Outcome.PASS, Outcome.FAIL, Outcome.NOT_SEEN, Outcome.LOOK
+
+
+def seen(evidence: object) -> Outcome:
+    """PASS when the evidence is there, NOT SEEN when it isn't."""
+    return PASS if evidence else NOT_SEEN
+
+
+def unless(failed: object, evidence: object = True) -> Outcome:
+    """FAIL when the failure condition was logged; otherwise PASS with evidence, else NOT SEEN."""
+    return FAIL if failed else seen(evidence)
 
 
 def load(path: Path, since: datetime) -> list[dict[str, Any]]:
@@ -70,7 +102,11 @@ def _stack(log: list[str], action: str) -> int:
     return sum("stack action |" in line and f"action='{action}'" in line for line in log)
 
 
-def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, str]]:
+def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outcome, str]]:
+    return [(name, ok if isinstance(ok, Outcome) else seen(ok), note) for name, ok, note in _checks(rows, log)]
+
+
+def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
     by_thread: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         if r.get("thread"):
@@ -85,6 +121,9 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     )
     timed_out = [r for r in rows if "no_answer" in decisions(r)]
     reopened = [line for line in log if "microphone stream stopped delivering audio" in line]
+    reopens = [line for line in log if "| microphone reopened |" in line]
+    cards = [a for r in rows for a in r.get("approvals", [])]
+    acted_away = _acted_while_away(rows, log)
     presence = [line for line in log if "| presence |" in line]
     locked = any("reason='locked'" in line for line in presence)
     unlocked = any("reason='unlocked'" in line for line in presence)
@@ -164,8 +203,10 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
     signin_checked = [line for line in log if "| sign-in checked |" in line]
     signin_offered = [line for line in log if "| sign-in offered |" in line]
     signed_in = [line for line in signin_offered if "signed_in=True" in line]
+    # The three fields cd7eec8 fixed, and the ones the 2026-11 audit found still open (X-03).
     words_logged = [line for line in log
-                    if re.search(r"(asked_unanswered|transcript_heard|unclear)=(?!'\[REDACTED)(?!\[\])", line)]
+                    if re.search(r"\b(asked_unanswered|transcript_heard|unclear|transcript_raw|addressed_as)="
+                                 r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
 
@@ -216,7 +257,7 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("5  a change on a card", "revise" in all_decisions, ""),
         ("7  a rejection", "reject" in all_decisions, ""),
         ("8  correction after a rejection, then approved", corrected, ""),
-        ("8  no card timed out unanswered", not timed_out,
+        ("8  no card timed out unanswered", unless(timed_out, cards),
          ", ".join(f"{r['_t']:%H:%M:%S}" for r in timed_out) or "none"),
         ("10 'show me' / 'stop' during a run", ("show" in midrun or "app" in views)
          and any(r.get("status") == "cancelled" and r.get("run_ms") for r in rows),
@@ -224,17 +265,17 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{short_kept} short clip(s) kept ({wake_count('short_close')} as they sounded), "
          f"{wake_count('short_empty')} empty"),
         ("10 'show me' while writing brought the app forward", "app" in views, ""),
-        ("11 microphone reopened after a pause (if it had stopped)", True,
-         f"{len(reopened)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
+        ("11 microphone reopened after a pause (if it had stopped)", unless(len(reopens) < len(reopened), reopened),
+         f"{len(reopened)} stop(s), {len(reopens)} reopen(s) logged" + (f", last {reopened[-1][11:19]}" if reopened else "")),
         ("12 lock: away, microphone paused; unlock: back", locked and unlocked and paused,
          f"{len(presence)} presence change(s)"),
         ("13 listening again within 2 s of each unlock; first wake transcribed in under 3 s",
-         ready_ms is not None and ready_ms < 2000 and first_wake is not None and first_wake < 3000,
+         unless((ready_ms or 0) >= 2000 or (first_wake or 0) >= 3000, ready_ms is not None and first_wake is not None),
          f"unlock to listening (slowest) {ready_ms} ms; first wake after unlock: stt_ms={first_wake}, "
          f"finished speaking {back_ms} ms after the unlock" if first_wake is not None
          else f"unlock to listening (slowest) {ready_ms} ms; no wake after an unlock"),
-        ("13 no microphone pause after an unlock", not _paused_while_back(log), ""),
-        ("13 the microphone reopened quickly on each return", reopen_ms is None or reopen_ms < 1000,
+        ("13 no microphone pause after an unlock", unless(_paused_while_back(log), unlocked), ""),
+        ("13 the microphone reopened quickly on each return", unless((reopen_ms or 0) >= 1000, reopen_ms is not None),
          f"slowest reopen {reopen_ms} ms" if reopen_ms is not None else "no reopen logged"),
         ("14 a card held while away, answered after", any(
             a.get("held_away") and a.get("decision") in ("approve", "reject")
@@ -250,33 +291,34 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
         ("16 a card opened from the stack, then answered", any(
             "stack action | kind='card' action='open'" in line for line in log)
          and any(r.get("source") != "stack" and set(decisions(r)) & {"approve", "reject"} for r in rows), ""),
-        ("16b a typed request, and typed 'approve' didn't approve", any(r.get("source") == "typed" for r in rows)
-         and not any(r.get("source") == "typed" and r.get("route") == "control" and r.get("action") == "approve"
-                     and r.get("status") == "done" and "approve" in decisions(r) for r in rows),
+        ("16b a typed request, and typed 'approve' didn't approve", unless(
+            any(r.get("source") == "typed" and r.get("route") == "control" and r.get("action") == "approve"
+                and r.get("status") == "done" and "approve" in decisions(r) for r in rows),
+            any(r.get("source") == "typed" for r in rows)),
          f"{sum(r.get('source') == 'typed' for r in rows)} typed; check on screen: 'Typing can't approve'"),
         ("16b a typed follow-up continued the thread", any(
             r.get("source") == "typed" and len(by_thread.get(r.get("thread") or "", [])) > 1 for r in rows), ""),
         ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
-        ("18-20 windows, the reader, chips, moved windows", True, "check on screen: nothing cut off; Read more opens in place; dropped cards stay put"),
+        ("18-20 windows, the reader, chips, moved windows", LOOK, "check on screen: nothing cut off; Read more opens in place; dropped cards stay put"),
         ("21 a card waited behind another, then answered", any(
             a.get("queued") and a.get("decision") in ("approve", "reject")
             for r in rows for a in r.get("approvals", [])), ""),
-        ("21 no card timed out while out of sight", not timed_out,
+        ("21 no card timed out while out of sight", unless(timed_out, cards),
          ", ".join(f"{r['_t']:%H:%M:%S}" for r in timed_out) or "none"),
         ("22 a held card came back by itself, then answered", any(
             a.get("held_away") and a.get("decision") in ("approve", "reject")
             for r in held for a in r["approvals"]) and bool(back), f"{len(back)} card(s) back"),
-        ("23 a quiet working card shrank to one line", True, "check on screen"),
+        ("23 a quiet working card shrank to one line", LOOK, "check on screen"),
         ("24 a request brought forward by name", any("show_named" in (r.get("midrun") or []) or r.get("action") == "show_named"
                                                     for r in rows), ""),
         ("24 a request stopped by name", any("stop_named" in (r.get("midrun") or []) or r.get("action") == "stop_named"
                                             for r in rows), ""),
         ("25 a fourth request waited for a slot", any(r.get("queued") for r in rows), ""),
         ("26 a question listened for its answer (at least 20 s), then parked",
-         bool(asked) and bool(windows) and min(windows) >= 20,
+         unless(windows and min(windows) < 20, asked and windows),
          f"{len(asked)} parked; question windows: {', '.join(f'{w} s' for w in windows) or 'none logged'}"),
         ("27 the question picked up later", any(r.get("resumed") == "asked" or r.get("answered_later") for r in rows), ""),
-        ("28 unconfirmed model retried with the default (if it happened)", True,
+        ("28 unconfirmed model retried with the default (if it happened)", seen(model_retries),
          f"{len(model_retries)} retr{'y' if len(model_retries) == 1 else 'ies'}"),
         ("29-30 a calendar question ran the workflow, no card", any(
             r.get("route") == "agent" and not r.get("approvals") and r.get("status") == "done" for r in calendar), ""),
@@ -298,40 +340,42 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(as_owner)} of {len(drafts)} draft(s); check on screen: short subject, 'Regards, <your name>'"),
         ("42 a contact found from Gmail correspondence (people you've emailed)", bool(emailed),
          f"{len(emailed)} lookup(s)"),
-        ("31-36 calendar changes ran the calendar workflow on the light model", changes_ok,
+        ("31-36 calendar changes ran the calendar workflow on the light model", unless(changes and not changes_ok, changes),
          ", ".join(f"{r.get('workflow') or 'agent'}/{r.get('demand')} {r.get('run_ms', 0) / 1000:.0f} s" for r in changes)
          or "none"),
-        ("49 an email's follow-ups stayed in the email workflow", bool(email_followups)
-         and all(r.get("workflow") == "email-draft" for r in email_followups),
+        ("49 an email's follow-ups stayed in the email workflow", unless(
+            any(r.get("workflow") != "email-draft" for r in email_followups), email_followups),
          f"{len(email_followups)} follow-up(s); Gmail subject put right {len(subject_fixed)} time(s); "
          "check on screen: the subject stays short"),
         ("43 'hey Swift' seen while still speaking (chime and pulse)", wake_count("peek_wake") > 0,
          f"{wake_count('peek_wake')} early, {wake_count('wake')} wake phrase(s)"),
-        ("45 the room not taken as a reply", True,
+        ("45 the room not taken as a reply", seen(wake_count("followup_quiet") + wake_count("followup_long")),
          f"{wake_count('followup_quiet')} set aside as the room, {wake_count('followup_long')} as long talk, "
          f"{wake_count('followup')} taken"),
-        ("46 unsure speech: asked to say it again", True, f"{len(asked_again)} time(s)"),
+        ("46 unsure speech: asked to say it again", seen(asked_again), f"{len(asked_again)} time(s)"),
         ("47 a request recorded while the last one started (20, 21)", bool(next_recorded) or wake_count("queued") > 0,
          f"{len(next_recorded)} request(s), {wake_count('queued')} by voice"),
-        ("50 line breaks typed into a chat app didn't send it", True, "check on screen: one message, several lines"),
-        ("51 Swift refused to write into a terminal", True, "check on screen"),
-        ("52 web pages fetched only from given addresses", True,
+        ("50 line breaks typed into a chat app didn't send it", LOOK, "check on screen: one message, several lines"),
+        ("51 Swift refused to write into a terminal", LOOK, "check on screen"),
+        ("52 web pages fetched only from given addresses", seen(fetch_refused),
          f"{len(fetch_refused)} fetch(es) of a made-up address refused"),
-        ("53 'no, leave it' to 'Turn off Wi-Fi?' left it on", True, "check on screen; a plain yes does it since 2026-11-04 (128)"),
-        ("54 no Swift card vanished when another request ended", not vanished,
+        ("53 'no, leave it' to 'Turn off Wi-Fi?' left it on", LOOK, "check on screen; a plain yes does it since 2026-11-04 (128)"),
+        ("54 no Swift card vanished when another request ended", unless(vanished, cards),
          ", ".join(f"{r['_t']:%H:%M:%S}" for r in vanished) or "none"),
-        ("55 no request crashed while others ran", not crashed,
+        ("55 no request crashed while others ran", unless(crashed, side_by_side),
          ", ".join(f"{r['_t']:%H:%M:%S}" for r in crashed) or "none"),
         ("56 the same request said twice ran once", bool(kept_running), f"{len(kept_running)} kept running"),
-        ("57 a long command's card showed all of it", True, "check on screen"),
+        ("57 a long command's card showed all of it", LOOK, "check on screen"),
         ("59 spoken answers (Phase B)", any(r.get("spoken_chars") for r in rows),
          f"{sum(1 for r in rows if r.get('spoken_chars'))} spoken"),
-        ("60 no action left 'unknown' (if one was, look it up)", not unknown, f"{len(unknown)} unknown"),
-        ("61 nothing heard acted on after a lock", True, f"{wake_count('paused_drop')} dropped as the screen locked"),
+        ("60 no action left 'unknown' (if one was, look it up)", unless(unknown, rows), f"{len(unknown)} unknown"),
+        ("61 nothing heard acted on after a lock", unless(acted_away, locked and unlocked),
+         f"{wake_count('paused_drop')} dropped as the screen locked; acted while away: "
+         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         ("62 reads outside the read folders asked first; secrets refused", bool(read_cards) or bool(never_read),
          f"{len(read_cards)} read card(s), {len(never_read)} secret path(s) refused"),
         # The Capsule redesign (ADR-017).
-        ("16 a card that ran out went to the stack, not refused", bool(expired) and not timed_out,
+        ("16 a card that ran out went to the stack, not refused", unless(timed_out, expired),
          f"{len(expired)} into the stack, {len(timed_out)} refused on time-out"),
         ("64 Stop on the capsule stopped only the voice", bool(voice_stopped), f"{len(voice_stopped)} time(s)"),
         ("66 listening paused and resumed from the tray", bool(paused_tray) and bool(resumed_tray),
@@ -340,9 +384,9 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(put_off)} put off, {len(asked)} parked as unanswered in all"),
         ("71 a timer came due and showed its card", bool(timers), f"{len(timers)} timer(s)"),
         # The hardening slice (docs/audit/2026-10-audit.md, B-02 to B-04).
-        ("76 Swift wrote in your apps only when you asked", True,
+        ("76 Swift wrote in your apps only when you asked", LOOK,
          f"{len(not_asked)} write(s) refused as not asked; check on screen: nothing typed"),
-        ("77-78 due items waited and were shown once, together", bool(due_shown) and sum(due_shown) <= len(came_due),
+        ("77-78 due items waited and were shown once, together", unless(sum(due_shown) > len(came_due), due_shown),
          f"{len(came_due)} came due ({len(due_again)} after a restart or as missed), "
          f"{sum(due_shown)} shown on {len(due_shown)} card(s)"),
         ("77, 79-80 Swift restarted without quitting", bool(restarted), f"{len(restarted)} restart(s)"),
@@ -378,32 +422,32 @@ def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, bool, 
          f"{len(improve_runs)} pass(es), {len(fixes_decided)} word-fix card(s) answered"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
         # Fixes from the checks of 2026-11-04.
-        ("124 a short 'yes' or 'no' heard as a reply", bool(short_answers) and not answers_refused,
+        ("124 a short 'yes' or 'no' heard as a reply", unless(answers_refused, short_answers),
          f"{len(short_answers)} taken, {len(answers_refused)} refused as unclear"),
         ("125 'hey Swift' said without a pause started requests", bool(wake_rows),
          f"{len(wake_rows)} hands-free request(s), {len(missed_wakes)} wake phrase(s) missed"),
-        ("126-127 the whole research answer; the live view inside the screen", True,
+        ("126-127 the whole research answer; the live view inside the screen", LOOK,
          "check on screen: Read more shows every line, no 'Blocked: WebFetch', the live view's buttons visible"),
         # Confirming without friction (2026-11-04).
         ("128 a plain yes did it", bool(yes_said), f"{len(yes_said)} time(s)"),
         ("129 a click on Yes did it", bool(yes_clicked), f"{len(yes_clicked)} time(s)"),
-        ("130 'Swift, yes' reached the question, never the agent", not yes_to_agent,
+        ("130 'Swift, yes' reached the question, never the agent", unless(yes_to_agent, lane_yes),
          f"{len(yes_to_agent)} sent to the agent"),
         # Offline, contacts, overlay, said over Swift's voice (2026-11-04 evening).
         ("132 'turn it back on' done here", bool(switched_back), f"{len(switched_back)} time(s)"),
         ("133 offline: answered at once, no agent", bool(offline), f"{len(offline)} time(s)"),
         ("134 'what works offline' listed", bool(offline_help), f"{len(offline_help)} time(s)"),
-        ("135 the whole name kept one contact", True, "check on screen: no 'Which Francis' after 'Francis Chianu'"),
+        ("135 the whole name kept one contact", LOOK, "check on screen: no 'Which Francis' after 'Francis Chianu'"),
         ("136 a 'no' said while Swift talked", bool(over_speech), f"{len(over_speech)} time(s)"),
-        ("137 a card taller than the window scrolled", True, "check on screen: a scrollbar, the buttons in sight"),
-        ("138 Change opened the text box beside the card", True, "check on screen"),
+        ("137 a card taller than the window scrolled", LOOK, "check on screen: a scrollbar, the buttons in sight"),
+        ("138 Change opened the text box beside the card", LOOK, "check on screen"),
         # Sign-ins checked and offered again (swift/signin.py).
         ("120 sign-ins checked", bool(signin_checked),
          ", ".join(sorted({m.group(1) for line in signin_checked if (m := re.search(r"status='(\w+)'", line))}))
          or "none"),
         ("121-122 a sign-in offered on a card", bool(signin_offered),
          f"{len(signin_offered)} card(s), {len(signed_in)} signed in again"),
-        ("123 swift.log kept your words out", not words_logged, f"{len(words_logged)} line(s) with words"),
+        ("123 swift.log kept your words out", unless(words_logged, log), f"{len(words_logged)} line(s) with words"),
     ]
 
 
@@ -426,6 +470,33 @@ def _paused_while_back(log: list[str]) -> bool:
         elif "microphone paused" in line and here:
             return True
     return False
+
+
+def _stamp(line: str) -> datetime | None:
+    m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)", line)
+    return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S") if m else None
+
+
+def _acted_while_away(rows: list[dict[str, Any]], log: list[str]) -> list[dict[str, Any]]:
+    """Requests from something heard that started while the screen was locked (owner check 61, T-07).
+
+    Typed and hotkey requests are the owner's own act at the keyboard and don't count. A request
+    within 2 s of the lock is allowed: it may have started just before it."""
+    spans: list[tuple[datetime, datetime]] = []
+    start: datetime | None = None
+    for line in log:
+        if "| presence |" not in line or (t := _stamp(line)) is None:
+            continue
+        if "reason='locked'" in line and start is None:
+            start = t
+        elif "reason='unlocked'" in line and start is not None:
+            spans.append((start, t))
+            start = None
+    if start is not None:
+        spans.append((start, datetime.max))
+    heard = ("wake", "followup", "answer", "voice", "beside")
+    return [r for r in rows if r.get("source") in heard and isinstance(r.get("_t"), datetime)
+            and any((r["_t"] - a).total_seconds() > 2 and r["_t"] < b for a, b in spans)]
 
 
 def _first_wake_after_unlock(log: list[str]) -> int | None:
@@ -510,8 +581,13 @@ def main() -> None:
     print(f"\n{len(rows)} requests since {since:%Y-%m-%d %H:%M}\n")
     show(rows)
     print("\nChecks (docs/testing/owner-checks.md)\n")
-    for name, ok, note in checks(rows, log):
-        print(f"  {'PASS    ' if ok else 'NOT SEEN'}  {name}" + (f"   ({note})" if note else ""))
+    results = checks(rows, log)
+    for name, ok, note in results:
+        print(f"  {ok.value:8}  {name}" + (f"   ({note})" if note else ""))
+    tally = Counter(ok for _, ok, _ in results)
+    print("\n  " + ", ".join(f"{tally[o]} {o.value}" for o in Outcome))
+    if tally[FAIL]:
+        print("  Look at each FAIL first: the times in its note say where.")
     print("\nLanes: requests, median time to the answer\n")
     for lane, (n, ms) in lanes(rows).items():
         print(f"  {lane:9} {n:4}   {'-' if ms is None else f'{ms / 1000:.1f} s'}")

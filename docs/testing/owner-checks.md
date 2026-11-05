@@ -283,7 +283,16 @@ From the repository root, with the time you noted in step 3 of "Before you start
 uv run python spikes/owner_checks/report.py --since 20:00
 ```
 
-It reads your local Swift logs, prints what happened request by request, and marks each check `PASS` or `NOT SEEN`. It only reads, and it prints only to your terminal. Paste its output into the chat. It includes your request transcripts, which are your own data, so skim them first if you like.
+It reads your local Swift logs, prints what happened request by request, and marks each check:
+
+- `PASS`: the logs show it happened, and show nothing going wrong.
+- `FAIL`: the logs show the thing going wrong. Its note gives the times; look at these first.
+- `NOT SEEN`: the logs show neither. The check wasn't done, or the logs can't tell.
+- `LOOK`: only you can tell, on screen. The note says what to look for. The report never prints these as `PASS`.
+
+A last line counts each kind. "61 nothing heard acted on after a lock" fails if a hands-free request started while the screen was locked.
+
+It only reads, and it prints only to your terminal. Paste its output into the chat. It includes your request transcripts, which are your own data, so skim them first if you like.
 
 ## If something goes wrong
 

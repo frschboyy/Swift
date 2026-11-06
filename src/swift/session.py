@@ -1015,6 +1015,8 @@ class Session:
             run.ui_id = named
         # Stopped by name: the owner knows, and it was said on the card in front.
         must_see = msg.type in TAKES_FRONT and msg.data.get("status") != "cancelled"
+        # Or the owner is talking to it now: the card listens, and Esc reaches it.
+        must_see = must_see or (msg.type == "state" and msg.data.get("state") in ("listening", "transcribing"))
         if run is self._next_focus and must_see and not self._cards:
             await self._take_front(run, msg)
             return

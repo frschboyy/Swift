@@ -85,11 +85,13 @@ def test_check_123_sees_the_fields_the_audit_found_still_open() -> None:
     for line in ("open failed | target='notes.docx' error='cannot open'", "failure shown | code='open_failed' detail='C:/notes.docx'",
                  "claude run failed | error='ValueError' detail='about rent'",
                  "action failed | tool='send_email' action='ab' reason='Google: GET /x?q=rent'",
-                 "action denied | tool='send_email' reason='ada@example.com is not a contact'"):
+                 "action denied | tool='send_email' reason='ada@example.com is not a contact'",
+                 "action done | tool='send_email' action='ab' domains=['example.com']"):
         assert _find(_results([], [f"2026-11-04 16:00:00 | WARNING | {line}"]), "123")[0] is report.FAIL
     for line in ("open failed | error='OSError'", "failure shown | code='open_failed'", "claude run failed | error='ValueError'",
                  "action failed | tool='send_email' action='ab' code='connector_failed'",
-                 "action denied | tool='send_email' code='not_a_contact'"):
+                 "action denied | tool='send_email' code='not_a_contact'",
+                 "action done | tool='send_email' action='ab'"):
         assert _find(_results([], [f"2026-11-04 16:00:00 | WARNING | {line}"]), "123")[0] is report.PASS
 
 

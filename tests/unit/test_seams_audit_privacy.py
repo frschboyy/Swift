@@ -169,6 +169,26 @@ def _captured(*, exceptions: bool = False) -> io.StringIO:
     return sink
 
 
+async def test_a_recipient_s_domain_stays_out_of_swift_log_and_in_the_journal() -> None:
+    person = Contact("Ada", "ada@adas-own-domain.example", "gmail")
+    journal = Journal(None)
+    gateway = ActionGateway(journal)
+    scope = _scope_for(ToolHost(None, (), gateway))
+    scope.resolved[person.email] = person
+
+    async def perform() -> str:
+        return "receipt-1"
+
+    sink = _captured()
+    try:
+        out = await gateway.execute(scope, Action("send_email", (person,), "Send", "", None, lambda: "d", perform))
+    finally:
+        logger.remove()
+    assert out.status == "done"
+    assert "adas-own-domain" not in sink.getvalue() and "action done" in sink.getvalue(), sink.getvalue()
+    assert journal.entries[0]["domains"] == ["adas-own-domain.example"]
+
+
 @pytest.mark.parametrize(("kw", "code"), [
     ({}, "not_a_contact"),  # the address isn't one the owner's contacts gave
     ({"validate": lambda: "Not an email address: someone@evil.example"}, "invalid"),  # the action's own check

@@ -224,7 +224,7 @@ class ActionGateway:
                 self.approved = [*self.approved, Approved(action_id, action.tool, action.title, receipt,
                                                           action.undo)][-KEEP_APPROVED:]
         await status("sent", message_id=receipt)
-        logger.info("action done", tool=action.tool, action=action_id, domains=domains)
+        logger.info("action done", tool=action.tool, action=action_id)  # a domain can identify a person: the journal only
         return Outcome("done", receipt=receipt)
 
     @staticmethod

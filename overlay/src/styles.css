@@ -364,7 +364,9 @@ code {
   border: 1px solid var(--panel-edge);
   box-shadow: var(--shadow);
   backdrop-filter: var(--glass);
-  padding: 12px 18px 14px;
+  --pad-left: 18px;
+  --pad-right: 18px;
+  padding: 12px var(--pad-right) 14px var(--pad-left);
   overflow: hidden;
   opacity: 0;
   transform: translateY(var(--enter)) scale(0.98);
@@ -379,6 +381,13 @@ code {
 /* Never cut off: a card taller than the window scrolls inside it, and its buttons stay in sight
    (owner checks 2026-11-04: a list of answers and an email draft were cut, with nothing to scroll). */
 .card-in { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+/* Never sideways. overflow-y: auto clips the x axis too, so the scroller spans the card's side padding:
+   the amber band and the head's close button reach into it with negative margins and stay inside. */
+.card-in {
+  overflow-x: hidden;
+  margin-inline: calc(-1 * var(--pad-left)) calc(-1 * var(--pad-right));
+  padding-inline: var(--pad-left) var(--pad-right);
+}
 .card-in > * { flex-shrink: 0; }
 .card-in > .card-foot, .card-in > .confirm-actions { position: sticky; bottom: 0; z-index: 1; background: var(--panel-solid); }
 .card--hover:not(.card--confirm):not(.card--question) { border-color: rgba(138, 180, 255, 0.35); }
@@ -493,7 +502,7 @@ code {
 }
 
 /* stopped / not done: one row */
-.card--row { padding: 8px 8px 8px 14px; }
+.card--row { --pad-left: 14px; --pad-right: 8px; padding-block: 8px; }
 .row-line { display: flex; flex-direction: row; align-items: center; gap: 10px; min-width: 0; }
 .due.card-in { flex-direction: row; }
 .row-line > .icon { color: var(--muted); }
@@ -507,7 +516,7 @@ code {
   backdrop-filter: none;
   border: 1px solid var(--warn);
   box-shadow: var(--shadow), 0 0 0 4px var(--warn-halo);
-  padding: 0 18px 14px;
+  padding-block: 0 14px;
 }
 .band {
   display: flex;
@@ -612,7 +621,8 @@ code {
   backdrop-filter: none;
   border: 1px solid var(--accent);
   box-shadow: var(--shadow), 0 0 0 5px var(--accent-soft);
-  padding: 14px 12px 14px 18px;
+  --pad-right: 12px;
+  padding-block: 14px;
 }
 .due { display: flex; align-items: center; gap: 14px; cursor: grab; }
 .due-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--accent); color: var(--on-accent); }

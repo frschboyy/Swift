@@ -110,7 +110,7 @@ async def test_a_follow_up_joins_the_conversation_on_the_card_not_the_one_behind
     await until(lambda: out.last("result").get("run_id") == first)
     await until(lambda: out.last("followup")["open"] is True)
     await say(session, stt, "and who discovered it")
-    await until(lambda: len(session._runs) >= 3)
+    await until(lambda: len(agent.requests) == 3)
     await asyncio.sleep(0.1)
     assert session._runs[-1].thread == thread
     await finish_all(session, agent)
@@ -198,7 +198,7 @@ async def test_a_reply_to_the_answer_is_still_a_reply_with_requests_behind_it() 
     await _answer_in_front(session, out, agent, stt)
     await until(lambda: out.last("followup")["open"] is True)
     await say(session, stt, "and who discovered it")
-    await until(lambda: len(session._runs) >= 3)
+    await until(lambda: len(agent.requests) == 3)
     assert agent.cancelled == []
     await finish_all(session, agent)
 
@@ -289,4 +289,33 @@ async def test_what_settles_which_a_stop_means_and_what_clears_it() -> None:
     await until(lambda: out.last("confirm.request"))
     assert session._next_focus is None and runs(out)["focus"] == second and not session._which_is_unclear()
     assert research != second
+    await finish_all(session, agent)
+
+
+class SlowToStart(Agent):
+    def __init__(self, tools: Any = None) -> None:
+        super().__init__(tools)
+        self.gate = asyncio.Event()
+
+    async def start(self, request: str, **kw: Any) -> Any:
+        self.requests.append(request)
+        await self.gate.wait()
+        return await super().start(request, **kw)
+
+
+async def test_a_request_being_spoken_is_in_front_and_esc_abandons_it() -> None:
+    session, out, _records, agent, stt = make(SlowToStart)
+    await say(session, stt, TEA)
+    await until(lambda: len(agent.requests) == 1)
+    first = session._runs[0]
+    await session.handle(Message("ptt", {"state": "down"}))  # the last one is still starting: this is the next
+    await asyncio.sleep(0.1)
+    speaking = session._runs[-1]
+    assert speaking is not first and session._focus is speaking
+    assert any(m.type == "state" and m.data["state"] == "listening" for m in out.messages)
+    await session.handle(Message("cancel", {}))
+    await asyncio.sleep(0.1)
+    assert not speaking.alive and first.alive, "Esc went to the other request"
+    agent.gate.set()
+    await until(lambda: agent.runs)
     await finish_all(session, agent)

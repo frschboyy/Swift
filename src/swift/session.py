@@ -538,7 +538,9 @@ class Run:
     state: str = "idle"
     ui_id: str | None = None
     title: str = ""
-    # The request in the owner's words, longer than the title: its chip says it at once (bug 4, 2026-10-27).
+    # The conversation on the card when it started: a follow-up goes on from that.
+    card_thread: str | None = None
+    # The request in the owner's words, longer than the title: its edge says it at once (bug 4, 2026-10-27).
     words: str = ""
     activity: str | None = None
     app: str | None = None
@@ -1175,8 +1177,7 @@ class Session:
         run = Run(title=title)
         self._runs.append(run)
         # A follow-up goes on from the card on screen, not from whichever request started last.
-        if self._focus is not None and self._focus.thread:
-            record["card_thread"] = self._focus.thread
+        run.card_thread = self._focus.thread if self._focus is not None else None
         run.task = asyncio.create_task(self._interaction(run, record, capture, executor, start))
         if self._cards or (self._focus is not None and self._focus.alive):
             # Behind the card. ``_send`` keeps it there while a confirm card is on screen.
@@ -2564,7 +2565,7 @@ class Session:
         }
         self._record = record
         continues = record.pop("continues", None)
-        previous = continues or record.pop("card_thread", None) or self._last_thread
+        previous = continues or run.card_thread or self._last_thread
         # Typed text continues the conversation on screen when the overlay names it (ADR-015 §10).
         continuing = record.get("source") in CONTINUES_THREAD or (record.get("source") == "typed" and continues is not None)
         self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]

@@ -7,7 +7,8 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **Swift works in tests, and has barely been used for real.** Since 2026-10-29 it was used on 4 days, and 119 of the 150 requests were one testing day. The roadmap was meant to be decided by two weeks of daily use, which hasn't happened yet.
 - **Reliability work is the current focus.** Nearly all commits since 2026-11-04 went on it. The review's items 1 to 8 are committed, and the latest ones reach real causes. Most of them have no real-PC evidence yet.
 - **The product roadmap hasn't started.** None of the groundwork in §4 exists yet.
-- **Next:** fix the small product-rule gaps, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4).
+- **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
+- **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is worth fixing first, because daily use means approving those cards.
 
 ## 1. Where things stand
 
@@ -27,6 +28,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | Offline | An agent request is answered at once with what still works; "turn it back on" follows the last switch | `swift/network.py`, owner checks 132–134, 150–153 |
 | Seams audit | One window per question, what's on screen resent on every connection, lane capabilities and a run watchdog, one set of intake rules, the report can say FAIL | [`2026-11-seams-audit.md`](../audit/2026-11-seams-audit.md), owner checks 139–162 |
 | Reliability review | Items 1–8 of the review's list (below) | [`2026-11-reliability-audit-review.md`](../audit/2026-11-reliability-audit-review.md) §7 |
+| Log privacy | `swift.log`'s interaction line is an allow-list. Failures and denials log a type or a code, tracebacks have no messages, and a recipient's domain stays in the journal. Older lines in `swift.log` are unchanged | Seams audit X-03, X-04, X-05, X-19; owner check 123 |
 
 **The review's items, all committed:**
 
@@ -41,11 +43,11 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | 7 | Swift's own questions belong to a live request (prototype kept: `session.py` +110, −385) | `79c3318` |
 | 8 | A due item is never refused: it waits in the stack | `fdfdb23` |
 
-**Measured on `main` at `02ee4b7` (2026-11-06):**
+**Measured on `main` at `9c07c33` (2026-11-06):**
 
 | Suite | Result |
 |---|---|
-| Python | 1,499 passed, 1 skipped, 14 expected failures (open findings, §2) |
+| Python | 1,539 passed, 1 skipped, 12 expected failures (open findings, §2) |
 | Overlay | 89 passed, 1 todo (O-03); `tsc` clean |
 | Routing parity | 413/423 (97.6%), 0 harmful; the 10 misses are the web lane |
 | Rust | Not rerun; 30 passed at `ab09f51` |
@@ -62,11 +64,15 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 
 | Finding | Problem | Evidence |
 |---|---|---|
-| X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
 | X-17 | Edit and Write approval cards show only 60–70 characters of the change | `executors/claude_mapping.py:154` |
+| X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
 | X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
 | X-01 | A single contact match isn't checked against the whole name said | expected-failure test |
 | X-07 | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list | `executors/read_scope.py` |
+
+The X-05 entry in the audit lists what that fix left: `workflow skipped` can quote a workflow file, `redact` doesn't recognise a bare `sk-ant-…` key, the backend's stderr is unchecked, and a failed action's text is kept nowhere on disk.
+
+**What a separate review found:** on X-05, each of the first three rounds caught a real fault, two of them added by the follow-up commit under review. Keep sending product-rule fixes, and their follow-ups, to a reviewer who didn't write them.
 
 ### Root causes still open
 
@@ -196,6 +202,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - **Check 13's number:** counting transcription as the prime improves the number and makes nothing faster for the owner. The change was removed; the decision is still the owner's.
 - **The short "Hey Swift" rule:** keep or remove once the `short_wake` counter shows how often it fires. It's unproven.
 - **The ledger:** decided at item g in §4.
+- **Older lines in `swift.log`:** lines from before the log fixes still hold words and domains. Log rotation will remove them in time. Deleting them sooner can't be undone.
 
 **Still open from the checks of 2026-11-04:** when Swift speaks and how much; local models for offline questions; the Watch window shrinking (#10, seams O-09); a held card not coming back on screen (#14: fixes landed in S1, so confirm it's gone).
 
@@ -250,13 +257,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 ## 6. Leftover branches and folders
 
-**To clean up, once the owner agrees** (as of 2026-11-06; nothing here is needed by `main`):
-
-| Branch | Worktree | State |
-|---|---|---|
-| `claude/seams-audit-a0b7bf` | `.claude/worktrees/seams-audit-a0b7bf` | Same commit as `main` |
-| `claude/reliability-audit-review` | `.claude/worktrees/wizardly-snyder-e7bd01` | 2 docs commits not on `main`; the review they add is on `main` unchanged (`651ac9d`) |
-| `claude/wizardly-snyder-e7bd01` | none | Nothing that isn't on `main` |
+Cleaned up on 2026-11-06 with the owner's OK: every `claude/*` branch and its worktree. `claude/reliability-audit-review` was force-deleted. Its two commits, ending at `43b1273`, added only the review document, which is on `main` unchanged.
 
 **Kept on purpose:** `mvp/overlay` and `phase0/scaffold` (both merged), and `C:\Users\frchi\Documents\Swift-design-screens` outside the repo (screenshots for the redesign brief).
 

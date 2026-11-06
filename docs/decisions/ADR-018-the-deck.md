@@ -85,18 +85,23 @@ One commit each, in this order:
 **Rule 1 and the backend disagreed.** The prototype has a second request land behind a card that doesn't move. The backend, under ADR-013 §3.1, gave the front to a request said beside a working card at its first `state` or `step`, usually within milliseconds, so the new request took centre stage: the owner's own example in §1. **The owner's decision (2026-11-07): it stays behind.** So Step 1 isn't overlay only after all. No message changes.
 
 - **What takes the front:** only what the owner must see: its answer or an error (`TAKES_FRONT`), its confirm card, and its question. Progress stays on its edge. A request stopped by name doesn't come forward to say so.
-- **A long request that finishes behind the card still comes forward, even over a card being read.** Holding it until the owner is clear is Step 2, and needs item 9. Only the newest request said has this: an older one behind it says "Ready to read" for 20 s, as before.
+- **A long request that finishes behind the card still comes forward, even over a card being read.** Holding it until the owner is clear is Step 2, and needs item 9. An answer it displaces stays as an edge for 20 s, and a click opens it. Only the newest request said comes forward: an older one behind it says "Ready to read" for 20 s, as before, and so does one that finishes while a confirm card is up.
+- **A request being spoken comes to the front:** the owner is talking to it.
 - **"Stop" and a change of mind.** The card in front is what they mean, so they could reach the older request just after the owner said a new one. While the request just said hasn't been in front, a plain spoken "stop" or "actually …" asks which, and nothing stops or changes. Naming one, "stop everything", Esc and the card's Stop button work as before. A confirm card or a question on screen settles it: those keep their own answers.
-- **A voice answer** isn't affected: it still reaches only what's on screen (`_open_confirm`, `_on_screen` unchanged).
+- **With an answer on the card,** "stop" and naming one reach those behind it: with one behind, a plain "stop" stops it; with several, it asks. Esc doesn't, because an answer has nothing to stop. A reply to the answer stays a reply, and joins the answer's conversation.
+- **On a tie, a name means the card on screen** ("stop the research one" with two research requests).
+- **A voice or typed answer reaches only what's on screen.** The independent review found this wasn't true on two paths, before this work too (`_midrun_text`, `_start_typed`), and both are fixed.
 - **A question said over:** a new request during Swift's question still sets it aside to the stack, as it did, and now passes behind.
 
-`test_deck_requests_keep_their_places_as_they_come_and_go` fails with the old `TAKES_FRONT`. Someone other than the author should review this: it decides what a spoken "stop" reaches.
+`test_deck_requests_keep_their_places_as_they_come_and_go` fails with the old `TAKES_FRONT`. The review's reproductions are kept in `tests/unit/test_front_rules.py`.
+
+**Left for the owner, from the same review:** only the newest request counts as "just said", so with three running, after the newest stops, a plain "stop" reaches the card though an older one is still behind; and "pause" and "mute" don't ask which, though "pause" keeps the request as unfinished. Also still open: a provider that won't start at all, behind the card, shows its error with the old request's words; and a typed request coming forward shows the mic icon.
 
 **After a swap, a card named the wrong request.** The backend sends a request's words once, so a card brought forward kept the last card's words and clock, and could show its finished artifacts. `onRuns` now takes them from the row (`wordsComingForward`), which the seam checks as `cardWords`.
 
 **A row's id changes** from `req-…` to the provider's id when its run starts. `deck.ts` treats a new id with the same `started_ms` as the same request.
 
-**Line count.** Step 1 adds more than it removes: source, overlay and Rust +736, −335, a net of +401, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
+**Line count.** Step 1 adds more than it removes: source, overlay and Rust +813, −354, a net of +459, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
 
 ## 5. Step 2: hold, in-line and ready rules (needs review item 9)
 

@@ -52,3 +52,32 @@ async def test_a_hidden_choice_can_t_be_answered_by_voice_or_typing() -> None:
     await say(session, stt, "Swift, the second one")
     await until(lambda: session.dialogue.pending is not q)
     await finish_all(session, agent)
+
+
+class Fails(Agent):
+    async def _work(self, run_id: str, run: dict[str, Any]) -> ExecResult:
+        queue = run["queue"]
+        try:
+            queue.put_nowait(ExecEvent("step", "Reading", activity="reading"))
+            await run["go"].wait()
+            return ExecResult("error", "provider blew up")
+        finally:
+            queue.put_nowait(None)
+
+
+async def test_an_error_from_behind_the_card_is_that_request_s_and_stays() -> None:
+    session, out, _records, agent, stt = make(Fails)
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    await asyncio.sleep(0.02)
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("error"))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["stage"] == "error" and screen["cardRun"] == second and screen["behind"] == [first]
+    # The next news from the one behind doesn't wipe it.
+    agent.runs[first]["queue"].put_nowait(ExecEvent("step", "Searching", activity="searching"))
+    await until(lambda: any(r["activity"] == "searching" for r in runs(out)["rows"]))
+    screen = agree(session, out)
+    assert screen["stage"] == "error" and screen["cardRun"] == second
+    await finish_all(session, agent)

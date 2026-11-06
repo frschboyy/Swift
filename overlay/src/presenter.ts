@@ -129,7 +129,8 @@ export function onRuns(p: Presenter, focus: string | null, rows: Row[], waiting:
   const next = { ...p, focus, rows: rows.filter((r) => r.runId !== focus), waiting };
   if (focus !== null && p.card.runId !== null && p.card.runId !== focus && next.rows.length) {
     // Another request comes to the front: its card replaces this one (the backend draws it next).
-    return { ...next, card: { ...initial.card }, ...noConfirm, pausedLeft: null };
+    // Whatever it draws belongs to it, even an error that names no request.
+    return { ...next, card: { ...initial.card }, runId: focus, ...noConfirm, pausedLeft: null };
   }
   return next;
 }

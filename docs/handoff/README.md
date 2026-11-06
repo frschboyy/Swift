@@ -7,7 +7,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **Swift works in tests, and has barely been used for real.** Since 2026-10-29 it was used on 4 days, and 119 of the 150 requests were one testing day. The roadmap was meant to be decided by two weeks of daily use, which hasn't happened yet.
 - **Reliability work is the current focus.** Nearly all commits since 2026-11-04 went on it. The review's items 1 to 8 are committed, and the latest ones reach real causes. Most of them have no real-PC evidence yet.
 - **The product roadmap hasn't started.** None of the groundwork in §4 exists yet.
-- **The Deck's Step 1 is built on branch `worktree-deck-step-1`, not merged and not run on the real PC** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). The owner asked for it before the short checks. Two things wait on them: whether to keep it (it adds more lines than it removes), and whether a request said beside a working card should stay behind it.
+- **The Deck's Step 1 is built on branch `worktree-deck-step-1`, not merged and not run on the real PC** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). The owner asked for it before the short checks. Two things wait on them: whether to keep it (it adds more lines than it removes), and an independent review of its one backend change: a request said beside a working card now stays behind it, which changes what a plain "stop" reaches.
 - **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
 - **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is worth fixing first, because daily use means approving those cards.
 
@@ -53,7 +53,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | Routing parity | 413/423 (97.6%), 0 harmful; the 10 misses are the web lane |
 | Rust | Not rerun; 30 passed at `ab09f51` |
 
-**Measured on branch `worktree-deck-step-1` (2026-11-07):** Python 1,543 passed, 1 skipped, 12 expected failures; overlay 110 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed.
+**Measured on branch `worktree-deck-step-1` (2026-11-07):** Python 1,550 passed, 1 skipped, 12 expected failures; overlay 111 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed; routing parity 413/423, 0 harmful.
 
 **Limit of these tests:** the seam test reaches the real presenter and the Deck's order but not the DOM or Tauri, and it replays one way only (`test_seam_replay.py`). The harness now draws other requests as the app does, so frames replayed there show the same edges, but it still has no pane windows. Green tests have coexisted with bad days on the real PC before.
 
@@ -115,7 +115,7 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
    - **Questions and approval:** 128, 131, 141, 144, 156, 160, 161, 163, 164.
    - **What's on screen:** 146, 147, 149, 165.
    - **Requests side by side:** 152, 158.
-   - **The Deck, if its branch is merged first:** 168 and 173 first, then 169–172 and 174–178. Without those fixes isolated, a failure here may come from either the reliability work or the Deck, so say which build the report is from.
+   - **The Deck, if its branch is merged first:** 168, 173 and 179 first, then the rest of 169–180. Without those fixes isolated, a failure here may come from either the reliability work or the Deck, so say which build the report is from.
    - **Lock:** 139.
    - **Two checks with no number yet.** Items 3 and 7 changed behaviour without adding owner checks, so they need numbers and report lines (§4):
      - "Hey Swift, turn off the Wi-Fi". While it asks, "Hey Swift, what time is it". The time shows, and the Wi-Fi question goes to the stack. Wi-Fi stays on.
@@ -155,7 +155,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - **f. Speech:** add the per-sentence check (W-03) before any more tuning, then make word-fix proposals safe (W-01, W-02, seams audit §7.4 step 1). Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
 - **g. Review item 9: one versioned screen snapshot,** derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.
-- **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is built on branch `worktree-deck-step-1` (2026-11-07), unmerged.** It's overlay only, and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
+- **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is built on branch `worktree-deck-step-1` (2026-11-07), unmerged.** It's overlay only apart from what takes the front (ADR-018 §4.1), and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
 - **i. After g:** the timer widget and the Deck's Step 2. **Last:** the owner-checks rewrite, as a fresh baseline.
 
 **3. Groundwork.** Not started. No behaviour change the owner should notice:
@@ -206,8 +206,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 | Decision | Why it's open | Recommendation |
 |---|---|---|
-| Keep Step 1? | It adds more than it removes (+680, −322 in overlay source and Rust), which `CLAUDE.md` asks the owner to weigh for a structural step | Keep it if 168 and 173 feel right on the real screen; the one-window spike is where the deletions would come from |
-| Should a request said beside a working card stay behind it? | ADR-018's Rule 1 and the owner's example say yes; the backend gives it the front at once (ADR-013 §3.1). Changing that also changes which request "stop" and a voice answer reach, and needs a separate review | Yes: only something the owner must see takes the front (a card due, a quick answer, an error), and "stop" names which request it means when there's doubt |
+| Keep Step 1? | It adds more than it removes (+736, −335 in source, overlay and Rust), which `CLAUDE.md` asks the owner to weigh for a structural step | Keep it if 168 and 173 feel right on the real screen; the one-window spike is where the deletions would come from |
 
 **Open from the reliability audits:**
 
@@ -225,7 +224,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - Confirming a reversible change: a Yes/No card; a plain spoken "yes" or a click does it, and typing doesn't. Emails, calendar changes and anything that can't be undone still need "Swift, yes" or a click on Approve. Confirmations aren't read aloud (`speech.read_confirms: false`).
 - A plain "yes" counts only when the question is on screen (2026-11-05).
 - A recipient's domain stays out of `swift.log` and in the journal (2026-11-06, X-19).
-- How requests share the screen: the Deck; other requests stop being draggable on their own; a handoff to the corner, with a spike on one large window later (2026-11-06, ADR-018). Building it before the short checks (2026-11-07).
+- How requests share the screen: the Deck; other requests stop being draggable on their own; a handoff to the corner, with a spike on one large window later (2026-11-06, ADR-018). Building it before the short checks (2026-11-07). A request said beside a working card stays behind it, and a plain "stop" asks which while the one just said is behind (2026-11-07, ADR-018 §4.1).
 - A run with no progress for 90 s ends by itself and stays in the stack (seams decision 1).
 - The lane yes/no window is 25 s from the end of Swift's speech (seams decision 9).
 

@@ -490,9 +490,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          f"check on screen: Wi-Fi stayed on after 'yes'; 'Swift, yes' brought it back "
          f"{sum(r.get('action') == 'question_not_shown' for r in rows)} time(s)"),
         # ADR-018, the Deck: how it looks is the point, so only the eyes can tell.
-        ("168 a second request landed behind a confirm card", seen(side_by_side > 0),
-         f"{side_by_side} overlap(s); check on screen: that card didn't move, 'Got it: …', no window opened"),
-        ("169 displaced requests on the far end, then +N", LOOK, "check on screen: edges stay put; a dashed mark for one waiting"),
+        ("168 a second request landed behind the card", seen(side_by_side > 0),
+         f"{side_by_side} overlap(s); check on screen: the card didn't move, 'Got it: …', no window opened"),
+        ("169 new requests on the far end, then +N", LOOK, "check on screen: edges stay put; a dashed mark for one waiting"),
         ("170 an edge clicked swapped with the card; Watch brought nothing forward", LOOK,
          f"check on screen; clicks that couldn't bring it forward: {sum('focus ignored' in line for line in log)}"),
         ("171 an instant answer flashed no edge", LOOK, "check on screen"),
@@ -503,6 +503,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("176 the deck at all six positions", LOOK, "check on screen: on the far side of the card, nothing cut off"),
         ("177 edges move with the card; an old overlay.json still loads", LOOK, "check on screen"),
         ("178 the moves are smooth on the real screen", LOOK, "check on screen: also with animation effects off"),
+        ("179 'stop' asked which, with the one just said behind the card",
+         seen(any("mid-run words could mean either request" in line for line in log)),
+         f"{sum('mid-run words could mean either request' in line for line in log)} time(s); check on screen: nothing stopped"),
+        ("180 an answer finishing behind the card came forward", LOOK, "check on screen"),
     ]
 
 

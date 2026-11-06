@@ -43,9 +43,11 @@ def test_on_screen_checks_say_look_and_never_pass() -> None:
 
 def test_the_deck_s_checks_say_look_except_the_one_the_log_can_tell() -> None:
     results = _results([], [])
-    for number in range(169, 179):
+    for number in (*range(169, 179), 180):
         assert _find(results, f"{number} ")[0] is report.LOOK
     assert _find(results, "168 ")[0] is report.NOT_SEEN
+    assert _find(results, "179 ")[0] is report.NOT_SEEN
+    assert _find(_results([], ["mid-run words could mean either request"]), "179 ")[0] is report.PASS
 
 
 def test_a_logged_failure_condition_prints_fail() -> None:

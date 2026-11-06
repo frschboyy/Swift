@@ -121,7 +121,7 @@ Push-to-talk works the same way, without the wake phrase.
 
 ### 5.3 Voice with several requests
 
-- **Commands go to the request in front.** "Stop" stops that one. "Stop everything" stops all of them.
+- **Commands go to the request in front.** "Stop" stops that one. "Stop everything" stops all of them. **Amended by ADR-018 §4.1 (2026-11-07):** while the request just said is still behind the card, a plain spoken "stop" or a change of mind asks which. Esc doesn't.
 - **Requests are named by what they're about:** "show me the email one", "stop the calendar one". Matching is on each request's short title (a workflow title, or the first words of the request).
 - **Answers go to the card on screen,** which is always exactly one.
 
@@ -207,7 +207,7 @@ Checked in the dev harness:
 | Rows drawn under the card (or above it, at the top of the screen), clickable; the clock asks for the next row when the card fades | `overlay/src/main.ts`, `styles.css`, `index.html` | typecheck; owner checks 17–21, 25 |
 
 **Decided while building:**
-- **The front moves only when something new is shown.** A request started beside another takes the front with its first card, not when it's heard, so the card on screen never blanks while the new one starts.
+- **The front moves only when something new is shown.** A request started beside another takes the front with its first card, not when it's heard, so the card on screen never blanks while the new one starts. **Amended by ADR-018 §4.1 (2026-11-07):** its progress no longer takes the front, only its answer, its card or its question.
 - **A finished request in front stays until its answer fades.** Then the overlay asks for the newest running row (`promotion` → `focus`); the backend doesn't guess when the owner has read it.
 - **A request that ends in the background** keeps its row ("Done: …") for 20 s.
 - **A provider's card waiting in line** pauses through `Attention` (Claude Code's cards); a provider without it keeps its plain timeout while waiting.

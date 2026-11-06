@@ -1,9 +1,9 @@
 # ADR-018: The Deck: how requests share the screen
 
-- **Status:** Direction accepted by the owner (2026-11-06). Step 1 is built on a branch (2026-11-07), not merged and not yet run on the real PC. Rule 1 holds only in part: see §4.1.
+- **Status:** Direction accepted by the owner (2026-11-06). Step 1 is built on a branch (2026-11-07), not merged and not yet run on the real PC. Building it needed one backend change, which the owner approved: see §4.1.
 - **Decided by:** Owner
 - **Date:** 2026-11-06
-- **Amends:** ADR-015 §3 (request windows go, and the main window draws other requests), ADR-015 §11 bug 4 (the "Got it" pill goes), ADR-013 §11 and `FINISHED_ROW_S` (in Step 2), ADR-017 §2.1 (what the capsule shows while a card is open)
+- **Amends:** ADR-013 §3.1 and its "commands go to the request in front" (§4.1 below), ADR-015 §3 (request windows go, and the main window draws other requests), ADR-015 §11 bug 4 (the "Got it" pill goes), ADR-013 §11 and `FINISHED_ROW_S` (in Step 2), ADR-017 §2.1 (what the capsule shows while a card is open)
 - **Keeps:** ADR-015 §9, the owner's waiting stack: its corner, double-click to expand, click outside to fold, Open / Skip / End. ADR-017: the capsule is Swift's body, and cards grow out of it.
 - **Prototype:** [Swift Overlay Motion Study](https://claude.ai/artifact/1bAiWg7RaY64DgCewuQbLY), private to the owner. It plays today's model, the Deck and the two rejected models through the same scenarios.
 
@@ -82,16 +82,21 @@ One commit each, in this order:
 
 ### 4.1 What building Step 1 found (2026-11-07)
 
-**Rule 1 and the backend disagree.** The prototype has a second request land behind a card that doesn't move. The real backend, under ADR-013 §3.1, gives the front to a request said beside a working card at its first `state` or `step` (`_launch`'s `_next_focus`, `TAKES_FRONT`), usually within milliseconds. So today:
+**Rule 1 and the backend disagreed.** The prototype has a second request land behind a card that doesn't move. The backend, under ADR-013 §3.1, gave the front to a request said beside a working card at its first `state` or `step`, usually within milliseconds, so the new request took centre stage: the owner's own example in §1. **The owner's decision (2026-11-07): it stays behind.** So Step 1 isn't overlay only after all. No message changes.
 
-- **Over a working card:** the new request takes the card, and the one that was there moves behind. Rule 1 doesn't hold here, and this is the owner's own example from §1.
-- **Over a confirm card, or for a request waiting for a slot:** it lands behind, as designed.
+- **What takes the front:** only what the owner must see: its answer or an error (`TAKES_FRONT`), its confirm card, and its question. Progress stays on its edge. A request stopped by name doesn't come forward to say so.
+- **A long request that finishes behind the card still comes forward, even over a card being read.** Holding it until the owner is clear is Step 2, and needs item 9. Only the newest request said has this: an older one behind it says "Ready to read" for 20 s, as before.
+- **"Stop" and a change of mind.** The card in front is what they mean, so they could reach the older request just after the owner said a new one. While the request just said hasn't been in front, a plain spoken "stop" or "actually …" asks which, and nothing stops or changes. Naming one, "stop everything", Esc and the card's Stop button work as before. A confirm card or a question on screen settles it: those keep their own answers.
+- **A voice answer** isn't affected: it still reaches only what's on screen (`_open_confirm`, `_on_screen` unchanged).
+- **A question said over:** a new request during Swift's question still sets it aside to the stack, as it did, and now passes behind.
 
-Step 1 is overlay only, so it leaves this as it is. `test_deck_requests_keep_their_places_as_they_come_and_go` pins the behaviour. Making Rule 1 hold means changing what takes the front in the backend. That also changes which request "stop" and a voice answer reach, which is more than how rows are drawn, so it's the owner's call and needs its own review.
+`test_deck_requests_keep_their_places_as_they_come_and_go` fails with the old `TAKES_FRONT`. Someone other than the author should review this: it decides what a spoken "stop" reaches.
+
+**After a swap, a card named the wrong request.** The backend sends a request's words once, so a card brought forward kept the last card's words and clock, and could show its finished artifacts. `onRuns` now takes them from the row (`wordsComingForward`), which the seam checks as `cardWords`.
 
 **A row's id changes** from `req-…` to the provider's id when its run starts. `deck.ts` treats a new id with the same `started_ms` as the same request.
 
-**Line count.** Step 1 adds more than it removes: overlay source and Rust +680, −322, a net +358, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
+**Line count.** Step 1 adds more than it removes: source, overlay and Rust +736, −335, a net of +401, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
 
 ## 5. Step 2: hold, in-line and ready rules (needs review item 9)
 

@@ -1,55 +1,16 @@
-// The Capsule design's chip and waiting stack as elements (ADR-017), shared by the pane windows
-// (pane.ts) and the main window's inline fallback where there are no pane windows (the dev
-// harness). Text goes through textContent only (dom.ts ``el``).
+// A request behind the card as an edge (ADR-018), and the waiting stack as elements (ADR-017), shared
+// by the pane windows (pane.ts) and the main window's inline fallback where there are no pane windows
+// (the dev harness). Text goes through textContent only (dom.ts ``el``).
 // ADR-017 §7: the live view of a running request, the same way.
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import type { PaneView } from "./panes";
 import { countLine, nextLine, type StackView } from "./stack";
-
-type RequestView = Extract<PaneView, { kind: "request" }>;
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
-
-/** The chip's state icon: an orbit while it runs, an amber shield when it needs the owner, a green
- * check when its answer is ready. Each with a word beside it (the activity line). */
-function chipIcon(v: RequestView): HTMLElement {
-  if (v.state === "confirm") return el("span", { class: "chip-icon" }, el("span", { class: "needs-icon" }, icon("shield")));
-  if (v.state === "result") return el("span", { class: "chip-icon" }, el("span", { class: "ready-icon" }, icon("check")));
-  if (v.running) return el("span", { class: "chip-icon" }, el("span", { class: "spinner spinner--small" }));
-  return el("span", { class: "chip-icon" }, el("span", { class: "ended-icon" }));
-}
-
-/** What the chip's second line says. */
-export function chipLine(v: RequestView): string {
-  if (v.state === "confirm") return "Needs your OK";
-  if (v.state === "result") return "Ready to read";
-  return v.label;
-}
-
-/** Another request, as a chip: click brings it forward, drag moves it (the caller wires both).
- * While it works, Watch (shown on hover) opens its live view: ``watch``, or its ``data-click``. */
-export function chip(v: RequestView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}, watch?: () => void): HTMLElement {
-  const watchable = v.running && v.state !== "confirm" && v.state !== "queued";
-  return el(
-    "div",
-    { class: `chip chip--${v.state}`, role: "button", title: `${v.words}\nClick to bring it forward`, "aria-label": `${v.title}: ${chipLine(v)}`, ...attrs },
-    chipIcon(v),
-    el("span", { class: "chip-text" }, el("span", { class: "chip-title" }, v.title), el("span", { class: "chip-sub" }, chipLine(v))),
-    v.running ? el("span", { class: "chip-time" }, elapsed(v.startedMs)) : null,
-    watchable
-      ? el("span", {
-          class: "chip-watch", role: "button", "data-click": "watch", title: "Watch it work",
-          ...(watch ? { onclick: (ev: Event) => { ev.stopPropagation(); watch(); } } : {}),
-        }, "Watch")
-      : null,
-    el("span", { class: "chip-open" }, "Open"),
-  );
-}
 
 /** A request behind the card, as an edge (ADR-018). */
 export type EdgeView = {

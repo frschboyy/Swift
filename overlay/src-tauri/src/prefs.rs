@@ -27,7 +27,6 @@ pub struct Prefs {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanePlaces {
-    pub request: Option<(f64, f64)>,
     pub reader: Option<(f64, f64)>,
     /// The waiting stack: where its bottom-left corner was dropped (it grows upwards).
     pub stack: Option<(f64, f64)>,
@@ -82,5 +81,17 @@ mod tests {
         let p: Prefs = serde_json::from_str(r#"{"panes": {"reader": [0.1, 0.2]}}"#).unwrap();
         assert_eq!(p.panes, PanePlaces { reader: Some((0.1, 0.2)), ..PanePlaces::default() });
         assert!(serde_json::from_str::<Prefs>(r#"{"anchor": "middle"}"#).is_err());
+    }
+
+    #[test]
+    fn an_overlay_json_from_before_the_deck_still_loads() {
+        // ADR-018: request chips no longer have a place, but a saved one mustn't lose the others.
+        let old = r#"{"anchor": "top-left", "dropped": null, "smart": false,
+            "panes": {"request": [0.8, 0.1], "reader": [0.1, 0.2], "stack": [0.9, 0.9], "typing": null, "live": null}}"#;
+        let p: Prefs = serde_json::from_str(old).unwrap();
+        assert_eq!(p.anchor, Anchor::TopLeft);
+        assert!(!p.smart);
+        assert_eq!(p.panes.reader, Some((0.1, 0.2)));
+        assert_eq!(p.panes.stack, Some((0.9, 0.9)));
     }
 }

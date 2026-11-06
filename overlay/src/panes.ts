@@ -1,25 +1,22 @@
 // Which extra windows the overlay has open, and what each shows (ADR-015 §3). Pure: no DOM, no Tauri.
 //
-// The main window keeps the card in front. Each other running request gets a small window of
-// its own (a "request" pane, instead of ADR-013's rows), and a long answer can open in a reader
-// pane. main.ts opens, updates and closes real windows to match ``wantedPanes``; the panes
-// themselves only draw what they are told and send clicks back.
+// The main window keeps the card in front and the other requests behind it (ADR-018, deck.ts), and
+// a long answer can open in a reader pane. main.ts opens, updates and closes real windows to match
+// ``wantedPanes``; the panes themselves only draw what they are told and send clicks back.
 //
 // ADR-015 §9, §10 (2026-10-27): the waiting stack is a pane of its own in a bottom corner, and
 // typing to Swift opens a text box pane, the one window that takes the keyboard.
 //
-// The Capsule redesign (ADR-017): chips are 280 × 56, the stack 280 × 80 closed and 320 wide
-// open, the text box 512 × 52 (a notice row above it while a confirm card is open: typing can't
+// The Capsule redesign (ADR-017): the stack is 280 × 80 closed and 320 wide open, the text box 512 × 52 (a notice row above it while a confirm card is open: typing can't
 // approve), and the tray menu is a pane of its own, opened by a click on the tray icon.
 //
 // ADR-017 §7: a running request's live view (live.ts) is a pane of its own, one per request.
 
 import type { LiveView } from "./live";
 import type { ResultDetails } from "./protocol";
-import type { Presenter, Row } from "./presenter";
 import type { StackView } from "./stack";
 
-export type PaneKind = "request" | "reader" | "stack" | "type" | "tray" | "live";
+export type PaneKind = "reader" | "stack" | "type" | "tray" | "live";
 
 /** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any.
  * ``confirm``: a confirm card is open, so the box says typing can't approve it (Enter = Change). */
@@ -39,7 +36,6 @@ export type TrayView = {
 
 /** What a pane window draws. */
 export type PaneView =
-  | { kind: "request"; runId: string; title: string; words: string; label: string; startedMs: number; running: boolean; state: string }
   | { kind: "reader"; title: string; summary: string; details: ResultDetails | null; chip: boolean }
   | StackView
   | TypeView
@@ -59,14 +55,6 @@ export type Reader = {
   chip: boolean;
 } | null;
 
-/** Request windows at most: the other requests running (the run limit, ADR-013 §5.2) and a couple
- * waiting for a slot; each gets a chip at once so the owner sees it registered (bug 4, 2026-10-27). */
-export const MAX_PANES = 5;
-/** A request this young gets no window yet: most answers beside a run take a few ms (the time),
- * and a window that opens and closes at once is noise. The main card says "Got it" meanwhile. */
-export const CHIP_DELAY_MS = 600;
-/** "Got it: …" on the main card for a request that started beside the one in front. */
-export const ACK_MS = 2500;
 /** No pointer or scrolling on the reader this long: it shrinks to a chip (ADR-015 §3.3). */
 export const READER_QUIET_MS = 60_000;
 /** No news and no pointer on a working card this long: it collapses to its one line. */
@@ -75,34 +63,16 @@ export const WORKING_QUIET_MS = 12_000;
 export const READ_ALL_CHARS = 600;
 export const READ_ALL_ROWS = 6;
 
-const ENDED: ReadonlySet<string> = new Set(["result", "error", "done"]);
-
 /** Window labels: Tauri allows letters, digits and - / : _. */
 export const paneLabel = (kind: PaneKind, id = ""): string =>
-  kind === "request" || kind === "live"
-    ? `pane-${kind === "request" ? "run" : "live"}-${id.replace(/[^A-Za-z0-9_-]/g, "_")}`
-    : `pane-${kind}`;
+  kind === "live" ? `pane-live-${id.replace(/[^A-Za-z0-9_-]/g, "_")}` : `pane-${kind}`;
 
-/** Besides the requests and the reader: the waiting stack and the text box, when they show. */
-export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[]; now?: number };
+/** Besides the reader: the waiting stack and the text box, when they show. */
+export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[] };
 
-/** The panes that should exist now. ``label`` says what a row is doing, in words. */
-export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => string, extra: Extra = {}): PaneSpec[] {
+/** The panes that should exist now. */
+export function wantedPanes(reader: Reader, extra: Extra = {}): PaneSpec[] {
   const out: PaneSpec[] = [];
-  const now = extra.now;
-  requestRows(p)
-    .filter((r) => now === undefined || now - r.startedMs >= CHIP_DELAY_MS)
-    .forEach((r, index) => {
-      out.push({
-        label: paneLabel("request", r.runId),
-        kind: "request",
-        index,
-        view: {
-          kind: "request", runId: r.runId, title: r.title, words: r.words ?? r.title, label: label(r), startedMs: r.startedMs,
-          running: !ENDED.has(r.state), state: r.state,
-        },
-      });
-    });
   if (extra.stack) out.push({ label: paneLabel("stack"), kind: "stack", index: 0, view: extra.stack });
   if (extra.typing) out.push({ label: paneLabel("type"), kind: "type", index: 0, view: extra.typing });
   (extra.live ?? []).forEach((v, index) => out.push({ label: paneLabel("live", v.runId), kind: "live", index, view: v }));
@@ -117,17 +87,6 @@ export function wantedPanes(p: Presenter, reader: Reader, label: (r: Row) => str
   }
   return out;
 }
-
-/** The other requests that get a window: running, waiting for a slot, or just ended; at most MAX_PANES. */
-export const requestRows = (p: Presenter): Row[] => p.rows.slice(0, MAX_PANES);
-
-/** Requests that weren't there before (not ended): the main card says "Got it" for each. */
-export function newRows(known: ReadonlySet<string>, rows: Row[]): Row[] {
-  return rows.filter((r) => !known.has(r.runId) && !ENDED.has(r.state));
-}
-
-/** Requests waiting for a slot: a line on the card in front. */
-export const queuedRows = (p: Presenter): Row[] => p.rows.filter((r) => r.state === "queued");
 
 /** Open the reader on an answer. */
 export function openReader(title: string, summary: string, details: ResultDetails | null, runId: string | null, now: number): Reader {
@@ -183,8 +142,6 @@ export function diffPanes(
 export function paneSize(spec: PaneSpec): { w: number; h: number } {
   const v = spec.view;
   switch (v.kind) {
-    case "request":
-      return { w: 280, h: 56 };
     case "reader":
       return v.chip ? { w: 280, h: 56 } : { w: 560, h: 420 };
     case "stack":
@@ -209,7 +166,7 @@ export type PaneHost = {
 /** Keeps the pane windows matching ``wanted()``, one change at a time.
  *
  * Opening a window takes a while. A second sync during it used to "close" a window that didn't
- * exist yet; the window opened then and nothing closed it, so a chip outlived its request and
+ * exist yet; the window opened then and nothing closed it, so a request's own window outlived it and
  * counted up for minutes (bug 1, 2026-10-27: "What time is it? Working on it 2:44"). Here a sync
  * asked for while one runs runs again right after it, and sees the window it just opened. */
 /** Whether ``err`` says this shell has no pane windows at all (the dev harness, an older shell). */

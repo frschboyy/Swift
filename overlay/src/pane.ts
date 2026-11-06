@@ -1,4 +1,5 @@
-// A pane window (ADR-015 §3): another request as a chip, or a long answer in the reader.
+// A pane window (ADR-015 §3): the waiting stack, the text box, the tray menu, a request's live view,
+// or a long answer in the reader.
 //
 // It draws only what the main window tells it (the ``pane`` event, for its own label) and sends
 // clicks back (``pane-action``); the main window keeps the backend connection and the presenter.
@@ -10,7 +11,7 @@
 // else compresses it) and the text box, the one pane that takes the keyboard (Enter sends,
 // Esc or clicking away closes it, keeping what was typed).
 //
-// ADR-017, the Capsule design: chips and the stack as views.ts draws them, the text box with
+// ADR-017, the Capsule design: the stack as views.ts draws it, the text box with
 // "Typing can't approve" while a confirm card is open, and the tray menu (opened by a click on
 // the tray icon, folded away by a click anywhere else). Dark or light follows Windows.
 //
@@ -230,9 +231,6 @@ function draw(): void {
     case "tray":
       drawTray(view);
       break;
-    case "request":
-      root.replaceChildren(V.chip(view, { "data-click": "focus" }));
-      break;
     case "live":
       drawLive(view);
       break;
@@ -314,8 +312,6 @@ root.addEventListener("pointerdown", async (ev) => {
     // A click on a row selects it (its buttons show); Open is one of them.
     selected = clicked.dataset.id;
     for (const row of root.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === selected));
-  } else if (view?.kind === "request") {
-    act(click, { runId: view.runId });
   } else {
     act(click);
   }
@@ -333,9 +329,9 @@ void listen<{ label: string; view: PaneView }>("pane", ({ payload }) => {
   draw();
 });
 
-// Elapsed time on a request chip or a live view.
+// Elapsed time on a live view.
 window.setInterval(() => {
-  if ((view?.kind !== "request" && view?.kind !== "live") || !view.running) return;
+  if (view?.kind !== "live" || !view.running) return;
   const node = root.querySelector<HTMLElement>(".chip-time");
   if (node) node.textContent = V.elapsed(view.startedMs);
 }, 1000);

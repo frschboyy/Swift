@@ -1,54 +1,34 @@
 // The overlay's extra windows (ADR-015 §3). Run: npm test (node --test, no extra packages).
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
+import type { LiveView } from "../src/live.ts";
 import {
-  diffPanes, needsReader, newRows, openReader, paneLabel, queuedRows, readerTick, touchReader, wantedPanes, workingQuiet,
-  PaneSync, CHIP_DELAY_MS, MAX_PANES, READER_QUIET_MS, WORKING_QUIET_MS, type PaneSpec,
+  diffPanes, needsReader, openReader, paneLabel, readerTick, touchReader, wantedPanes, workingQuiet,
+  PaneSync, READER_QUIET_MS, WORKING_QUIET_MS, type PaneSpec,
 } from "../src/panes.ts";
 import { initialStack, onStack, stackView } from "../src/stack.ts";
-import { initial, onRuns, type Row } from "../src/presenter.ts";
 
-const row = (runId: string, state = "working", title = runId): Row => ({
-  runId, threadId: null, title, state, activity: null, app: null, startedMs: 0, summary: "",
-});
-const label = (r: Row) => `doing ${r.state}`;
-
-test("each other running request gets its own window; the one in front doesn't", () => {
-  const p = onRuns(initial, "a", [row("a"), row("b"), row("c", "confirm")], 0);
-  const panes = wantedPanes(p, null, label);
-  assert.deepEqual(panes.map((s) => s.label), ["pane-run-b", "pane-run-c"]);
-  assert.deepEqual(panes.map((s) => s.index), [0, 1]);
-  assert.equal(panes[1].view.kind === "request" && panes[1].view.label, "doing confirm");
-});
-
-test("bug 4: a request waiting for a slot gets a chip too, so the owner sees it registered", () => {
-  const p = onRuns(initial, "a", [row("b"), row("q", "queued")], 0);
-  assert.deepEqual(wantedPanes(p, null, label).map((s) => s.label), ["pane-run-b", "pane-run-q"]);
-  assert.deepEqual(queuedRows(p).map((r) => r.runId), ["q"]);
-});
-
-test("never more request windows than MAX_PANES", () => {
-  const rows = ["b", "c", "d", "e", "f", "g", "h"].map((id) => row(id));
-  const p = onRuns(initial, "a", rows, 0);
-  assert.equal(wantedPanes(p, null, label).length, MAX_PANES);
-});
-
-test("an ended request keeps its window until its row goes", () => {
-  const p = onRuns(initial, "a", [row("b", "result")], 0);
-  const [pane] = wantedPanes(p, null, label);
-  assert.equal(pane.view.kind === "request" && pane.view.running, false);
-  assert.deepEqual(wantedPanes(onRuns(p, "a", [], 0), null, label), []);
+const live = (runId: string, doing = "Reading"): LiveView => ({
+  kind: "live", runId, title: runId, doing, activity: null, sources: [], notes: [], written: null, hint: null,
+  running: true, ended: null, startedMs: 0,
 });
 
 test("labels are safe window labels", () => {
-  assert.equal(paneLabel("request", "req-ab.12 x"), "pane-run-req-ab_12_x");
+  assert.equal(paneLabel("live", "req-ab.12 x"), "pane-live-req-ab_12_x");
   assert.equal(paneLabel("reader"), "pane-reader");
+});
+
+test("ADR-018: another request has no window of its own", () => {
+  const src = readFileSync(new URL("../src/panes.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /"request"/);
+  assert.deepEqual(wantedPanes(null), []);
 });
 
 test("the reader opens on a long answer, and shrinks to a chip after a quiet minute", () => {
   let r = openReader("Research", "x".repeat(900), null, "a", 0);
-  assert.equal(wantedPanes(initial, r, label)[0].label, "pane-reader");
+  assert.equal(wantedPanes(r)[0].label, "pane-reader");
   r = readerTick(r, READER_QUIET_MS - 1, false);
   assert.equal(r?.chip, false);
   r = readerTick(r, READER_QUIET_MS, false);
@@ -78,19 +58,17 @@ test("Read all for long answers and long tables only", () => {
 });
 
 test("windows are created, updated only when what they show changes, and closed", () => {
-  const p = onRuns(initial, "a", [row("b"), row("c")], 0);
-  const wanted = wantedPanes(p, null, label);
+  const wanted = wantedPanes(null, { live: [live("b"), live("c")] });
   const first = diffPanes(new Map(), wanted);
-  assert.deepEqual(first.create.map((s) => s.label), ["pane-run-b", "pane-run-c"]);
+  assert.deepEqual(first.create.map((s) => s.label), ["pane-live-b", "pane-live-c"]);
   const open = new Map(wanted.map((s) => [s.label, JSON.stringify(s.view)]));
   assert.deepEqual(diffPanes(open, wanted), { create: [], update: [], close: [] });
-  const later = wantedPanes(onRuns(p, "a", [row("b", "confirm")], 0), null, label);
-  const d = diffPanes(open, later);
-  assert.deepEqual(d.update.map((s) => s.label), ["pane-run-b"]);
-  assert.deepEqual(d.close, ["pane-run-c"]);
+  const d = diffPanes(open, wantedPanes(null, { live: [live("b", "Writing")] }));
+  assert.deepEqual(d.update.map((s) => s.label), ["pane-live-b"]);
+  assert.deepEqual(d.close, ["pane-live-c"]);
 });
 
-// ---- bug 1 (2026-10-27): a chip can never outlive its request ---------------------------------
+// ---- bug 1 (2026-10-27): a pane can never outlive what it shows -------------------------------
 
 /** A shell whose windows take a while to open, like the real one. */
 class SlowShell {
@@ -109,40 +87,39 @@ class SlowShell {
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-test("bug 1: a request that ends while its window is still opening doesn't leave the window behind", async () => {
+test("bug 1: what ends while its window is still opening doesn't leave the window behind", async () => {
   const shell = new SlowShell();
-  let p = onRuns(initial, "a", [row("a"), row("local-1", "idle", "What time is it?")], 0);
-  const sync = new PaneSync(shell.host, () => wantedPanes(p, null, label));
-  const first = sync.sync();  // the beside request's chip starts opening...
+  let views = [live("short")];
+  const sync = new PaneSync(shell.host, () => wantedPanes(null, { live: views }));
+  const first = sync.sync();  // its window starts opening...
   await tick();
-  p = onRuns(p, "local-1", [row("a")], 0);  // ...and its answer, 0 ms later, takes the front
+  views = [live("other")];  // ...and it ends, 0 ms later
   void sync.sync();
   shell.finishOpening();
   await tick();
-  shell.finishOpening();  // pane-run-a, wanted now, opens
+  shell.finishOpening();  // pane-live-other, wanted now, opens
   await first;
-  assert.ok(!shell.open.has("pane-run-local-1"), "the chip outlived its request");
-  assert.ok(!sync.shown.has("pane-run-local-1"));
-  assert.ok(sync.shown.has("pane-run-a"));
+  assert.ok(!shell.open.has("pane-live-short"), "the window outlived what it showed");
+  assert.ok(!sync.shown.has("pane-live-short"));
+  assert.ok(sync.shown.has("pane-live-other"));
 });
 
 test("windows Swift doesn't want are strays to close, but not while a sync is opening one", async () => {
   const shell = new SlowShell();
-  const p = onRuns(initial, "a", [row("b")], 0);
-  const sync = new PaneSync(shell.host, () => wantedPanes(p, null, label));
+  const sync = new PaneSync(shell.host, () => wantedPanes(null, { live: [live("b")] }));
   const running = sync.sync();
   await tick();
-  assert.deepEqual(sync.strays(["pane-run-b", "pane-run-old"]), []);
+  assert.deepEqual(sync.strays(["pane-live-b", "pane-run-old"]), []);
   shell.finishOpening();
   await running;
-  assert.deepEqual(sync.strays(["pane-run-b", "pane-run-old"]), ["pane-run-old"]);
+  // A request's window left by the version before the Deck is one of them.
+  assert.deepEqual(sync.strays(["pane-live-b", "pane-run-old"]), ["pane-run-old"]);
 });
 
 test("a shell without pane windows: none, and the caller is told", async () => {
   let told = 0;
-  const p = onRuns(initial, "a", [row("b")], 0);
   const fail = () => Promise.reject(new Error("dev shim: unhandled command open_pane"));
-  const sync = new PaneSync({ open: fail, close: () => {}, send: () => {} }, () => wantedPanes(p, null, label), () => told++);
+  const sync = new PaneSync({ open: fail, close: () => {}, send: () => {} }, () => wantedPanes(null, { live: [live("b")] }), () => told++);
   await sync.sync();
   assert.equal(sync.available, false);
   assert.equal(told, 1);
@@ -153,9 +130,8 @@ test("a window that can't open just now: pane windows stay on, and it opens on t
   let told = 0;
   let opened = 0;
   let fail = true;
-  const p = onRuns(initial, "a", [row("b")], 0);
   const open = () => (fail ? Promise.reject(new Error("no monitor")) : Promise.resolve(void opened++));
-  const sync = new PaneSync({ open, close: () => {}, send: () => {} }, () => wantedPanes(p, null, label), () => told++);
+  const sync = new PaneSync({ open, close: () => {}, send: () => {} }, () => wantedPanes(null, { live: [live("b")] }), () => told++);
   await sync.sync();
   assert.equal(sync.available, true);
   assert.equal(told, 0);
@@ -166,41 +142,27 @@ test("a window that can't open just now: pane windows stay on, and it opens on t
   assert.equal(sync.shown.size, 1);
 });
 
-// ---- bug 4: a request said beside another shows at once --------------------------------------
-
-test("bug 4: a new request is announced at once; its window waits a moment (instant answers don't flash one)", () => {
-  const young = { ...row("b"), startedMs: 10_000 };
-  const p = onRuns(initial, "a", [young], 0);
-  assert.deepEqual(newRows(new Set(), p.rows).map((r) => r.runId), ["b"]);
-  assert.deepEqual(newRows(new Set(["b"]), p.rows), []);
-  assert.deepEqual(newRows(new Set(), [row("c", "result")]), []);  // already over: nothing to announce
-  assert.deepEqual(wantedPanes(p, null, label, { now: 10_000 + CHIP_DELAY_MS - 1 }), []);
-  assert.deepEqual(wantedPanes(p, null, label, { now: 10_000 + CHIP_DELAY_MS }).map((s) => s.label), ["pane-run-b"]);
-});
-
 // ---- the stack and the text box are panes too ------------------------------------------------
 
 test("the stack is a pane while something waits; the text box while it's open", () => {
   const items = [{ id: "card:1", kind: "waiting" as const, title: "Add lunch", reason: "waiting", since_ms: 0, thread_id: null }];
   const stack = stackView(onStack(initialStack, items, 0), 0);
   const typing = { kind: "type" as const, draft: "", follows: null };
-  const specs = wantedPanes(initial, null, label, { stack, typing, now: 0 });
+  const specs = wantedPanes(null, { stack, typing });
   assert.deepEqual(specs.map((s) => [s.label, s.kind]), [["pane-stack", "stack"], ["pane-type", "type"]]);
-  assert.deepEqual(wantedPanes(initial, null, label, { stack: stackView(initialStack, 0) }), []);
+  assert.deepEqual(wantedPanes(null, { stack: stackView(initialStack, 0) }), []);
 });
 
 // ---- ADR-017: the Capsule design's pane sizes, the text box's notice, the tray menu -----------
 
 test("the text box grows a row for 'Typing can't approve', and the tray menu is a pane", async () => {
   const Pn = await import("../src/panes.ts");
-  const { initial } = await import("../src/presenter.ts");
   const type = (confirm: boolean) => ({ label: "pane-type", kind: "type" as const, index: 0, view: { kind: "type" as const, draft: "", follows: null, confirm } });
   assert.deepEqual(Pn.paneSize(type(false)), { w: 512, h: 52 });
   assert.deepEqual(Pn.paneSize(type(true)), { w: 512, h: 96 });
   const tray = { kind: "tray" as const, status: "Listening for “Hey Swift”", paused: false, anchor: "bottom-center", smart: true, typeKey: "ctrl+space" };
-  const specs = Pn.wantedPanes(initial, null, () => "", { tray });
+  const specs = Pn.wantedPanes(null, { tray });
   assert.deepEqual(specs.map((s) => s.label), ["pane-tray"]);
   assert.deepEqual(Pn.paneSize(specs[0]), { w: 280, h: 400 });
-  assert.equal(Pn.ACK_MS, 2500);
   assert.equal(Pn.WORKING_QUIET_MS, 12_000);
 });

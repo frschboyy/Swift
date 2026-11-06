@@ -4,15 +4,14 @@
 // Failure cards, connection status, placement and dragging: ADR-009.
 // Run artifacts and the "show me" detail view: ADR-010 §7. The detail view replaces the
 // working card's body in place (the card never moves mid-run); Swift picks what it shows.
-// Several requests (ADR-013 phase B): the others are one line each under the card (``runs``);
-// a click on one, or the card in front fading while one still runs, brings it forward.
-// ADR-015: those others get a small window each instead (panes.ts, pane.ts), and the backend
-// hears when a confirm card is actually on screen (``card.seen``): its countdown runs only then.
-// Without pane windows (the dev harness), the chips and the stack are drawn under the card.
+// Several requests (ADR-018, the Deck): the others are labelled edges behind the card (``runs``,
+// deck.ts); a click on one, or the card in front fading while one still runs, brings it forward.
+// ADR-015: the backend hears when a confirm card is actually on screen (``card.seen``): its countdown
+// runs only then. Without pane windows (the dev harness), the stack is drawn beside the card.
 // ADR-015 §9, §10 (the owner checks of 2026-10-27): what waits for the owner is a stack of cards in
 // a bottom corner (stack.ts), and a hotkey or the tray opens a text box to type to Swift. Pane
 // windows are opened and closed one change at a time, and a pane Swift doesn't want is closed
-// whatever it shows (a chip used to outlive its request).
+// whatever it shows.
 //
 // ADR-017, the owner's Capsule design (docs/design/swift-overlay): a small pill at the anchor is
 // Swift's body (capsule.ts: heard, listening, working, speaking, not listening), and every card
@@ -21,7 +20,7 @@
 // question, and timers and reminders that stay until handled. Dark or light follows Windows.
 //
 // ADR-017 §7: a request's live view (live.ts). ``live`` items arrive for every request; "show
-// me" (the backend's ``watch``) or Watch on the working card or a chip opens a pane window per
+// me" (the backend's ``watch``) or Watch on the working card or an edge opens a pane window per
 // request, beside the card. Without pane windows (the dev harness) it is drawn beside the card.
 
 import { invoke } from "@tauri-apps/api/core";
@@ -63,7 +62,6 @@ const LOGGED: ReadonlySet<string> = new Set(["internal", "crashed", "executor_fa
 const stage = document.getElementById("stage")!;
 const card = document.getElementById("card")!;
 const rowsEl = document.getElementById("rows")!;
-const gotitEl = document.getElementById("gotit")!;
 const capsuleEl = document.getElementById("capsule")!;
 const capLabel = document.getElementById("cap-label")!;
 const capSub = document.getElementById("cap-sub")!;
@@ -148,9 +146,6 @@ let tray: Panes.TrayView | null = null;
 let live: L.Live = L.initialLive;
 // The other requests, behind the card (ADR-018).
 let deck: D.Deck = D.initialDeck;
-// Requests seen in ``runs`` (for "Got it: …"), and the lines shown until when.
-const knownRows = new Set<string>();
-let acks: { runId: string; words: string; until: number }[] = [];
 // The answer on screen asked something (``followup`` with question): Swift's question card.
 let question: { data: Extract<Inbound, { type: "result" }>["data"]; words: string; typed: boolean } | null = null;
 // Swift's question while a request runs (ask.ts): shown on its working card until the backend closes it.
@@ -318,10 +313,6 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   if (pres.focus !== promoted) promoted = null;
   deck = D.onRows(deck, pres.focus, pres.rows, Date.now());
   window.setTimeout(drawRows, D.EDGE_DELAY_MS);  // a young request's edge is due then
-  // A request said beside the one in front: say at once that it registered, in its words (bug 4).
-  const now = Date.now();
-  for (const r of Panes.newRows(knownRows, pres.rows)) acks.push({ runId: r.runId, words: r.title || r.words || "", until: now + Panes.ACK_MS });
-  for (const r of rows) knownRows.add(r.runId);
   drawRows();
 }
 
@@ -342,31 +333,16 @@ const deckDraw = new DeckDraw({
 
 /** The one way the other requests are drawn: the harness shows what the owner sees. */
 function drawRows(): void {
-  drawGotIt();
   const view = D.deckView(deck, pres.rows, Date.now(), expanded);
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
   deckDraw.draw(view);
   scheduleRegions();
-  void syncPanes();
 }
 
-/** "Got it: …": a request just said beside the one in front registered (bug 4, 2026-10-27).
- * Click-through, gone after 2.5 s. */
-function drawGotIt(): void {
-  const now = Date.now();
-  acks = acks.filter((a) => a.until > now && pres.rows.some((r) => r.runId === a.runId));
-  const pills = acks.map((a) =>
-    el("li", { class: "gotit" }, el("span", { class: "ok-dot" }, icon("check")), el("b", {}, "Got it:"), el("span", {}, a.words)));
-  gotitEl.replaceChildren(...pills);
-  gotitEl.hidden = pills.length === 0;
-}
-
-/** The panes wanted now: requests, the reader, the stack, the text box and the tray menu. */
+/** The panes wanted now: the reader, the stack, the text box, the tray menu and the live views. */
 const wanted = (): Panes.PaneSpec[] =>
-  Panes.wantedPanes(pres, reader, rowLabel, {
-    stack: S.stackView(stack, Date.now()), typing, tray, live: L.openRuns(live).map(L.view), now: Date.now(),
-  });
+  Panes.wantedPanes(reader, { stack: S.stackView(stack, Date.now()), typing, tray, live: L.openRuns(live).map(L.view) });
 
 // One change at a time, and a window nobody wants is closed even if it opened late (bug 1).
 const paneSync = new Panes.PaneSync(
@@ -375,7 +351,8 @@ const paneSync = new Panes.PaneSync(
       const { w, h } = Panes.paneSize(spec);
       // The text box opens clear of the card on screen ("Change" on a confirm card, owner checks 2026-11-04).
       const r = spec.kind === "type" && card.classList.contains("card--in") ? card.getBoundingClientRect() : null;
-      const at = r && r.height > 0 ? [r.top, r.bottom] : null;
+      const edges = rowsEl.hidden ? r : rowsEl.getBoundingClientRect();  // the deck is part of the card
+      const at = r && edges && r.height > 0 ? [Math.min(r.top, edges.top), Math.max(r.bottom, edges.bottom)] : null;
       return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h, card: at });
     },
     close: (label) => void invoke("close_pane", { label }).catch(() => {}),
@@ -383,7 +360,7 @@ const paneSync = new Panes.PaneSync(
   },
   wanted,
   (err) => {
-    // No pane windows here (the dev harness, or an older shell): chips under the card instead.
+    // No pane windows here (the dev harness, or an older shell): the stack beside the card instead.
     console.warn("[overlay] pane windows unavailable:", err);
     paneWindows = false;
     reader = null;
@@ -449,14 +426,6 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       typedDraft = payload.text ?? typedDraft;
       closeTyping();
       break;
-    case "focus":
-      if (payload.runId) askFocus(payload.runId);
-      break;
-    case "watch": {
-      const row = pres.rows.find((r) => r.runId === payload.runId);
-      if (payload.runId) openLive(payload.runId, row?.title ?? "", row?.words ?? "");
-      break;
-    }
     case "live-close":
     case "live-stop":
     case "live-app":
@@ -759,7 +728,7 @@ function threadLines(): HTMLElement | null {
 
 function setStage(next: UiState, runId: string | null = null, threadId: string | null = null): void {
   const change = P.onState(pres, next, runId, threadId);
-  if (change.ignored) return;  // another request's news: its chip says it
+  if (change.ignored) return;  // another request's news: its edge says it
   pres = change.p;
   checkPresenter();
   if (next === "result" || next === "error") {
@@ -1885,9 +1854,8 @@ window.setInterval(() => {
     drawCapsule();
   } else if (stageNow() === "confirm") tickConfirm();
   if (pres.rows.length) drawRows();  // their elapsed time, and "Got it" settling
-  else if (acks.length || !gotitEl.hidden) drawGotIt();  // "Got it" goes after 2.5 s
-  // Young requests get their chip, the stack's glow fades: both are in what's wanted.
-  if (paneWindows && (pres.rows.length || stack.items.length)) void syncPanes();
+  // The stack's glow fades: that's in what's wanted.
+  if (paneWindows && stack.items.length) void syncPanes();
   if (++sweepTick % 3 === 0) void sweepPanes();
   setLive(L.tick(live, Date.now(), liveHovered()));
   if (!paneWindows && L.openRuns(live).some((r) => !r.ended)) {

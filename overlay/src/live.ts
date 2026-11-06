@@ -6,7 +6,7 @@
 // ("text"). This keeps them per request, so a view opened late shows what came before. Page
 // titles and written text stay in the overlay: nothing here is logged or sent back.
 //
-// A view opens on "show me" (the backend's ``watch``) or the Watch action on a card or chip; one
+// A view opens on "show me" (the backend's ``watch``) or the Watch action on a card or edge; one
 // pane window per request, at most MAX_OPEN. It closes with ×, or LINGER_MS after its request
 // ended unless the owner is looking at it; it then links the answer.
 

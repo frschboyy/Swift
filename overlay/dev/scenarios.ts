@@ -3,7 +3,7 @@
 //
 // ADR-017: every state of the Capsule design, one call each: ``__design("confirmAdd")`` (or the
 // harness's "Design state" list). ``__design.list`` names them. Each starts from rest. The pane
-// windows' states (chips, stack, typing box, tray menu) are drawn by dev/pane.html.
+// windows' states (stack, typing box, tray menu) are drawn by dev/pane.html.
 
 type Shim = {
   inject: (type: string, data: Record<string, unknown>) => boolean;
@@ -54,7 +54,7 @@ let n = 0;
 const run = (): string => `d${++n}`;
 const HERE = { state: "here", reason: "input", listening: true, wake: true, paused: false };
 
-/** Back to rest: no card, no chips, no stack, listening, not speaking. */
+/** Back to rest: no card, no edges, no stack, listening, not speaking. */
 async function reset(s: Shim): Promise<void> {
   s.inject("speech", { speaking: false });
   s.inject("followup", { open: false, seconds: 0 });

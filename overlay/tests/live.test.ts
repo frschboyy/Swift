@@ -131,14 +131,14 @@ test("the view's words for what it does", () => {
 test("each open live view is a pane window of its own, updated in place", () => {
   let l = watch(research(), "cc-1", "Tea", "", T);
   l = watch(l, "cc/2", "Notes", "", T);
-  const specs = wantedPanes(initial, null, () => "", { live: openRuns(l).map(view) });
+  const specs = wantedPanes(null, { live: openRuns(l).map(view) });
   assert.deepEqual(specs.map((s) => [s.label, s.kind, s.index]), [["pane-live-cc-1", "live", 0], ["pane-live-cc_2", "live", 1]]);
   assert.equal(paneLabel("live", "cc-1"), "pane-live-cc-1");
   assert.deepEqual(paneSize(specs[0]), { w: 420, h: 480 });
   const shown = new Map(specs.map((s) => [s.label, JSON.stringify(s.view)]));
   const later = onItem(l, "cc-1", { kind: "note", text: "more" }, T);
-  const d = diffPanes(shown, wantedPanes(initial, null, () => "", { live: openRuns(later).map(view) }));
+  const d = diffPanes(shown, wantedPanes(null, { live: openRuns(later).map(view) }));
   assert.deepEqual([d.create.length, d.update.map((s) => s.label), d.close], [0, ["pane-live-cc-1"], []]);
-  const gone = diffPanes(shown, wantedPanes(initial, null, () => "", { live: openRuns(close(l, "cc-1")).map(view) }));
+  const gone = diffPanes(shown, wantedPanes(null, { live: openRuns(close(l, "cc-1")).map(view) }));
   assert.deepEqual(gone.close, ["pane-live-cc-1"]);
 });

@@ -390,7 +390,7 @@ fn area_at(window: &WebviewWindow, point: Option<(i32, i32)>) -> Option<(placeme
     Some((placement::Area { x: wa.position.x, y: wa.position.y, w: wa.size.width, h: wa.size.height }, monitor.scale_factor()))
 }
 
-/// A pane window (ADR-015 §3): `label` "pane-…", `kind` "request" or "reader", `index` its place
+/// A pane window (ADR-015 §3): `label` "pane-…", `kind` as in `PaneKind::from_id`, `index` its place
 /// among panes of its kind, size in CSS px until it measures itself (`fit_pane`). Already open:
 /// left where it is, so nothing moves under the owner's eyes.
 #[tauri::command]
@@ -542,7 +542,6 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     let place = Some(panes::to_fraction(area, (cx, if kind.grows_up() { cy + h } else { cy })));
     let places = &mut p.prefs.panes;
     match kind {
-        PaneKind::Request => places.request = place,
         PaneKind::Reader => places.reader = place,
         PaneKind::Stack => places.stack = place,
         PaneKind::Type => places.typing = place,
@@ -555,7 +554,6 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
 
 fn remembered_place(places: &prefs::PanePlaces, kind: PaneKind) -> Option<(f64, f64)> {
     match kind {
-        PaneKind::Request => places.request,
         PaneKind::Reader => places.reader,
         PaneKind::Stack => places.stack,
         PaneKind::Type => places.typing,
@@ -593,8 +591,8 @@ async fn watch_outside(app: AppHandle, label: String) -> Result<bool, String> {
     .map_err(|e| e.to_string())
 }
 
-/// Every pane window open now, so the main window can close one it no longer wants (a chip
-/// can never outlive its request, bug 1 of 2026-10-27).
+/// Every pane window open now, so the main window can close one it no longer wants (one
+/// left over from an older shell, or a lost close: bug 1 of 2026-10-27).
 #[tauri::command]
 async fn pane_labels(app: AppHandle) -> Result<Vec<String>, String> {
     let mut labels: Vec<String> = app.webview_windows().into_keys().filter(|l| l.starts_with("pane-")).collect();

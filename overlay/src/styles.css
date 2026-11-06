@@ -633,7 +633,7 @@ code {
 .due-label { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; line-height: 18px; }
 .due-title { margin: 0; font: 600 20px/26px var(--font-display); overflow-wrap: anywhere; }
 
-/* ---- 6. "Got it", and the other requests: labelled edges behind the card (ADR-018) ------- */
+/* ---- 6. the other requests: labelled edges behind the card (ADR-018) --------------------- */
 
 /* The deck's height is what shows past the card; each edge also tucks --tuck behind the card, so it
    reads as one object. It sits on the card's edge, on the side away from the capsule. */
@@ -699,28 +699,10 @@ code {
 .edge--confirm .edge-sub { color: var(--warn-text); font-weight: 600; }
 .wait-icon { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed var(--faint); }
 
-.gotit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; align-items: inherit; flex: none; }
-.gotit-list[hidden] { display: none; }
-.gotit {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  max-width: 512px;
-  padding: 0 14px 0 8px;
-  border-radius: 18px;
-  background: var(--panel);
-  border: 1px solid var(--panel-edge);
-  box-shadow: var(--shadow);
-  backdrop-filter: var(--glass);
-  animation: cap-in var(--dur-base) var(--ease);
-}
-.gotit b { font-weight: 600; flex: none; }
-.gotit span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .ok-dot { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 50%; background: var(--ok); color: var(--on-ok); }
 .ok-dot .icon { width: 13px; height: 13px; stroke-width: 2.5; }
 
-/* a chip: another request, its own window (pane.ts) or inline in the harness */
+/* a chip: the reader, shrunk (pane.ts) */
 .chip {
   display: flex;
   align-items: center;
@@ -744,12 +726,6 @@ code {
 .chip-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .chip-title { font-size: 15px; line-height: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-sub { font-size: 13px; line-height: 18px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip-time { flex: none; color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
-.chip-open { display: none; flex: none; color: var(--accent); font-size: 13px; font-weight: 600; }
-.chip:hover .chip-time { display: none; }
-.chip:hover .chip-open { display: inline; }
-.chip--confirm { border-color: var(--warn); }
-.chip--confirm .chip-sub { color: var(--warn-text); font-weight: 600; }
 .needs-icon { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: var(--warn); color: var(--on-warn); }
 .needs-icon .icon, .ready-icon .icon { width: 13px; height: 13px; stroke-width: 2.5; }
 .ready-icon { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ok); color: var(--on-ok); }
@@ -802,7 +778,7 @@ code {
 .stack-row:hover, .stack-row[aria-selected="true"], .stack-row:focus-within { background: var(--raise); }
 .stack-row:hover .stack-actions, .stack-row[aria-selected="true"] .stack-actions, .stack-row:focus-within .stack-actions { display: flex; }
 
-/* the harness has no pane windows: the stack and chips sit beside the card */
+/* the harness has no pane windows: the stack sits beside the card */
 .stack-inline { display: flex; flex-direction: column; align-items: inherit; flex: none; }
 .stack-inline[hidden] { display: none; }
 
@@ -950,16 +926,11 @@ code {
 .live-inline { display: flex; flex-direction: column; gap: 8px; align-items: inherit; flex: none; }
 .live-inline[hidden] { display: none; }
 
-/* Watch on a running chip, beside Open (hover) */
-.chip-watch { display: none; flex: none; color: var(--accent); font-size: 13px; font-weight: 600; padding: 2px 6px; border-radius: 6px; }
-.chip-watch:hover { background: var(--accent-soft); }
-.chip:hover .chip-watch { display: inline; }
-
 /* ---- accessibility ---------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-property: opacity !important; transition-duration: 120ms !important; animation: none !important; }
-  .card, .card--out, .capsule, .gotit, .stack-open, .live { transform: none !important; }
+  .card, .card--out, .capsule, .stack-open, .live { transform: none !important; }
   .orb { transform: none !important; }
   .bars i { transition: none !important; }
   /* the heard pulse is a static ring, spinners a static three-quarter arc */
@@ -970,7 +941,7 @@ code {
 }
 
 @media (forced-colors: active) {
-  .card, .capsule, .chip, .stack-top, .stack-layer, .stack-open, .type-box, .tray, .gotit, .live, .live-doc { background: Canvas; color: CanvasText; border: 1px solid CanvasText; backdrop-filter: none; }
+  .card, .capsule, .edge, .chip, .stack-top, .stack-layer, .stack-open, .type-box, .tray, .live, .live-doc { background: Canvas; color: CanvasText; border: 1px solid CanvasText; backdrop-filter: none; }
   .btn, .icon-btn, .switch, .picker button { border: 1px solid ButtonText; }
   .band, .badge, .needs-icon { background: Highlight; color: HighlightText; forced-color-adjust: none; }
   .card--confirm { border: 2px solid Highlight; }

@@ -53,9 +53,10 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
     "source", "spoken_chars", "start_model", "status", "stopped_by", "stt_confidence", "stt_ms",
     "thread", "turns", "undo", "views", "workflow",
 })
-# Fields that stay out on purpose: words, or the name or path of something of the owner's.
+# Fields that stay out on purpose: words, or the name or path of something of the owner's. Also
+# ``continues``, which is taken off the record before it finishes.
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
-    "addressed_as", "approvals", "asked_unanswered", "audio_file", "id", "steps", "target", "transcript",
+    "addressed_as", "approvals", "asked_unanswered", "audio_file", "continues", "id", "steps", "target", "transcript",
     "transcript_heard", "transcript_raw", "ts", "unclear",
 })
 _ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request

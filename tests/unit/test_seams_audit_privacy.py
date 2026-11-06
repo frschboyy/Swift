@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +20,6 @@ from loguru import logger
 from swift.backend.__main__ import _on_finish
 from swift.connectors.base import Contact
 from swift.connectors.fake import FakeMailConnector
-from swift.executors.claude_mapping import outcome_for
 from swift.logging_setup import make_patcher
 from swift.runlog import LOCAL_ONLY_FIELDS, SUMMARY_FIELDS, InteractionLog, unclassified
 from swift.security.gateway import Action, ActionGateway
@@ -212,8 +212,15 @@ def test_a_field_is_decided_one_way_only() -> None:
     assert unclassified(["status", "transcript_raw", "escalations", "a_field_added_next_year"]) == {"a_field_added_next_year"}
 
 
-def test_a_real_run_s_result_fields_are_classified() -> None:
-    """Fakes write the records the session tests see, so conftest's check never meets these."""
-    outcome = outcome_for({"type": "result", "subtype": "success", "result": "Done."})
-    assert outcome is not None and outcome.meta
-    assert unclassified([*outcome.meta, "start_model", "models", "escalations"]) == set()
+def test_every_field_written_in_the_source_is_classified() -> None:
+    """Beside conftest's check of real records, which can't see a branch no test reaches."""
+    root = Path(__file__).resolve().parents[2] / "src" / "swift"
+    records = "\n".join((root / name).read_text(encoding="utf-8") for name in ("session.py", "backend/__main__.py"))
+    written = {a or b for a, b in re.findall(r'\b(?:record|rec)\["(\w+)"\]\s*(?:=|\+=|,)|\b(?:record|rec)\.setdefault\("(\w+)"', records)}
+    meta = "\n".join(path.read_text(encoding="utf-8") for path in (root / "executors").glob("*.py"))
+    written |= set(re.findall(r'\bmeta\["(\w+)"\]\s*=', meta))
+    for block in re.findall(r'\bmeta(?:\s*\|?=\s*|=)\{(.*?)\}', meta, re.DOTALL):
+        written |= set(re.findall(r'"(\w+)":', block))
+    assert {"status", "transcript_raw", "asks", "fix", "cost_usd", "start_model", "escalations", "improve"} <= written, (
+        "the scan no longer finds what it should")
+    assert unclassified(written) == set()

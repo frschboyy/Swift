@@ -52,7 +52,11 @@ export function chip(v: RequestView, attrs: Record<string, string | boolean | ((
 }
 
 /** A request behind the card, as an edge (ADR-018). */
-export type EdgeView = { title: string; words: string; label: string; startedMs: number; running: boolean; state: string; more: number };
+export type EdgeView = {
+  title: string; words: string; label: string; startedMs: number; running: boolean; state: string; more: number;
+  // Just arrived: it says "Got it: …" in the owner's words.
+  saying: boolean;
+};
 
 function edgeMark(v: EdgeView): HTMLElement {
   if (v.state === "confirm") return el("span", { class: "edge-mark" }, el("span", { class: "needs-icon" }, icon("shield")));
@@ -65,6 +69,13 @@ function edgeMark(v: EdgeView): HTMLElement {
 /** What an edge says on its one line: its state's word, its title and what it's doing, then its time
  * ("+N" on the last edge). Hovered: Watch while it works, and Open. */
 export function edgeContent(v: EdgeView, watch: () => void): HTMLElement[] {
+  if (v.saying) {
+    return [
+      el("span", { class: "edge-mark" }, el("span", { class: "ready-icon" }, icon("check"))),
+      el("span", { class: "edge-title" }, "Got it:"),
+      el("span", { class: "edge-sub edge-said" }, `“${v.words}”`),
+    ];
+  }
   const watchable = v.running && v.state !== "confirm" && v.state !== "queued";
   return [
     edgeMark(v),

@@ -337,15 +337,16 @@ const deckDraw = new DeckDraw({
   focus: askFocus,
   watch: (r) => openLive(r.runId, r.title, r.words ?? ""),
   unfold: () => card.querySelector<HTMLElement>('.link[aria-expanded="true"]')?.click(),
+  landingFrom: () => capsuleEl.getBoundingClientRect(),
 });
 
 /** The one way the other requests are drawn: the harness shows what the owner sees. */
 function drawRows(): void {
   drawGotIt();
   const view = D.deckView(deck, pres.rows, Date.now(), expanded);
-  deckDraw.draw(view);
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
+  deckDraw.draw(view);
   scheduleRegions();
   void syncPanes();
 }
@@ -1844,8 +1845,8 @@ function sendRegions(): void {
 
 function scheduleRegions(): void {
   regionTimers.forEach((t) => window.clearTimeout(t));
-  // Now, and again once the card's entry transform (160 ms) has settled.
-  regionTimers = [window.setTimeout(sendRegions, 0), window.setTimeout(sendRegions, 220)];
+  // Now, and again once what moved (160 ms for the card, 280 ms for an edge) has settled.
+  regionTimers = [window.setTimeout(sendRegions, 0), window.setTimeout(sendRegions, 220), window.setTimeout(sendRegions, 320)];
   if (!card.classList.contains("card--in")) sendRegions();
 }
 new ResizeObserver(scheduleRegions).observe(card);

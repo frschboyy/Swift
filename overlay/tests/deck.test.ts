@@ -92,6 +92,14 @@ test("only a request never seen lands: not one that ended, was in front, or came
   assert.equal(deckView(back, [row("b")], NOW).edges[0].landing, false);
 });
 
+test("an OK waiting or an answer ready never hides behind Got it", () => {
+  const d = go(initialDeck, "a", [row("b")]);
+  const landing = (state: string) => deckView(d, [row("b", state)], NOW).edges[0].landing;
+  assert.equal(landing("working"), true);
+  assert.equal(landing("confirm"), false);
+  assert.equal(landing("result"), false);
+});
+
 test("an answer read at length folds the deck to one edge, and an edge alone stays itself", () => {
   const rows = [row("b"), row("c", "confirm"), row("d", "result")];
   const d = go(initialDeck, "a", rows);

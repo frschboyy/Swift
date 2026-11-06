@@ -5,6 +5,7 @@
 import { foldLine, type DeckView, type Edge } from "./deck";
 import { el, icon } from "./dom";
 import type { Row } from "./presenter";
+import { fadeIn, moveFrom, type Box } from "./shuffle";
 import { edgeContent, edgeTimes, type EdgeView } from "./views";
 
 export type DeckHost = {
@@ -15,6 +16,8 @@ export type DeckHost = {
   watch: (r: Row) => void;
   // The folded edge was clicked: the long answer closes, and the deck opens again.
   unfold: () => void;
+  // Where a new request comes from: the capsule, below the card.
+  landingFrom: () => Box;
 };
 
 const ENDED: ReadonlySet<string> = new Set(["result", "error", "done"]);
@@ -30,6 +33,7 @@ export class DeckDraw {
 
   draw(view: DeckView): void {
     const wanted = new Set(view.fold ? [FOLD] : view.edges.map((e) => e.row.runId));
+    const arriving: { node: HTMLElement; edge: Edge }[] = [];
     for (const [id, node] of this.nodes) {
       if (wanted.has(id)) continue;
       node.remove();
@@ -45,11 +49,18 @@ export class DeckDraw {
     }
     for (const edge of view.edges) {
       const id = edge.row.runId;
-      const node = this.nodes.get(id) ?? this.create(id, () => this.host.focus(id));
+      const known = this.nodes.get(id);
+      const node = known ?? this.create(id, () => this.host.focus(id));
       this.drawEdge(node, edge);
+      if (!known) arriving.push({ node, edge });
     }
     this.host.list.hidden = wanted.size === 0;
     edgeTimes(this.host.list);
+    // Once all are in place and the deck has its height: from where each one comes.
+    for (const { node, edge } of arriving) {
+      if (edge.landing) moveFrom(node, this.host.landingFrom(), true);
+      else fadeIn(node);
+    }
   }
 
   private create(id: string, click: () => void): HTMLElement {
@@ -78,12 +89,12 @@ export class DeckDraw {
     const r = edge.row;
     const v: EdgeView = {
       title: r.title, words: r.words ?? r.title, label: this.host.label(r), startedMs: r.startedMs,
-      running: !ENDED.has(r.state), state: r.state, more: edge.more,
+      running: !ENDED.has(r.state), state: r.state, more: edge.more, saying: edge.landing,
     };
     this.place(node, edge.depth, edge.inset, edge.offset, edge.peek);
-    node.className = `edge edge--${r.state}`;
+    node.className = `edge edge--${edge.landing ? "ack" : r.state}`;
     node.title = `${v.words}\nClick to bring it forward`;
-    node.setAttribute("aria-label", `${v.title}: ${v.label}`);
+    node.setAttribute("aria-label", edge.landing ? `Got it: ${v.words}` : `${v.title}: ${v.label}`);
     this.fill(node, JSON.stringify(v), () => edgeContent(v, () => this.host.watch(r)));
   }
 }

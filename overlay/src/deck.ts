@@ -88,7 +88,8 @@ export function deckView(d: Deck, rows: Row[], now: number, folded = false): Dec
   const edges = drawn.map((row, depth): Edge => {
     const edge = {
       row, depth, inset: INSET_STEP * (depth + 1), offset, peek: PEEKS[depth],
-      landing: (d.landing.get(row.runId) ?? 0) > now,
+      // Its news comes first: an OK waiting or an answer ready never hides behind "Got it".
+      landing: (d.landing.get(row.runId) ?? 0) > now && !ENDED.has(row.state) && row.state !== "confirm",
       more: depth === drawn.length - 1 ? shown.length - drawn.length : 0,
     };
     offset += PEEKS[depth];

@@ -692,6 +692,9 @@ code {
 .edge-watch:hover { background: var(--accent-soft); }
 .edge:hover .edge-time:not(.edge-more) { display: none; }
 .edge:hover .edge-watch, .edge:hover .edge-open { display: inline; }
+.edge--ack { border-color: var(--ok); }
+.edge--ack .edge-title { flex: none; }
+.edge-said { color: var(--text); }
 .edge--confirm { border-color: var(--warn); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), 0 0 0 3px var(--warn-halo); }
 .edge--confirm .edge-sub { color: var(--warn-text); font-weight: 600; }
 .wait-icon { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed var(--faint); }

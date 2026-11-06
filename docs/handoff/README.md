@@ -63,7 +63,6 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 | Finding | Problem | Evidence |
 |---|---|---|
 | X-04 | A denied email address is written to `swift.log` | expected-failure test |
-| X-05 | When an open fails, `open failed` and `failure shown` write the file's name and path to `swift.log`. A model's error text can reach `failure shown` too (read in the code, not run through a session) | `session.py:2828`, `session.py:4581` |
 | X-17 | Edit and Write approval cards show only 60–70 characters of the change | `executors/claude_mapping.py:154` |
 | X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
 | X-01 | A single contact match isn't checked against the whole name said | expected-failure test |
@@ -92,7 +91,7 @@ Details are in the register, [`2026-11-seams-audit.md`](../audit/2026-11-seams-a
 - **Overlay:** O-03 (todo test), O-09 to O-14. O-04's card scroll landed in `ab09f51`; confirm with owner check 137.
 - **Speech:** V-03, V-04, W-04 to W-07.
 - **Routing and measurement:** R-07 (the light lane; 0% of requests in the usage report), R-08, R-09, R-10, Q-02 (partly addressed by the seam test), Q-03.
-- **Executors and privacy:** X-02, X-05, X-06, X-09, X-11, X-13, X-14.
+- **Executors and privacy:** X-02, X-06, X-09, X-11, X-13, X-14.
 - **Not done from S1 and S2:** the heartbeat (H-06), and an aside question during a lane question still ending it (the rest of D-02; since `79c3318` it goes to the stack).
 
 ## 3. What the owner runs next

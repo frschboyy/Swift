@@ -408,7 +408,7 @@ IDs by area:
 | W-07 | Low | confirmed (experiment) | speech | effectiveness | Boosting expected answers by a score bonus inserts them ("Yes." six times) |
 | R-10 | Low | suspected | workflows | efficiency | Calendar workflows on Haiku take 3–6 turns; time to first card is about 15 s |
 | R-11 | Low | suspected; **fixed 2026-11-05 (S4)** | backend | fallback | An expired login reported as "couldn't confirm model" isn't treated as a sign-in |
-| X-05 | Low | confirmed (log) | backend | security, diagnosability | Exception and connector texts go into `swift.log` and the journal (none with content yet) |
+| X-05 | Low | confirmed (log); **fixed 2026-11-06, except the lines listed in its entry** | backend | security, diagnosability | Exception and connector texts go into `swift.log` and the journal (none with content yet) |
 | X-12 | Low | confirmed (code); **fixed 2026-11-05 (S4)** | executor | efficiency | Waiting for the spare CLI is outside every timeout |
 | X-13 | Low | confirmed (code) | executor | diagnosability | A cancelled or killed run reports no cost |
 | X-14 | Low | confirmed (code) | backend | effectiveness, fallback | Sign-in hints disagree with the card; no card while away or for "absent" |
@@ -952,8 +952,10 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 - **Wider, found in the X-03 review (2026-11-06):**
   - When an open fails, `open failed` (`session.py:2828`) logs `target=target.name` and `error=str(exc)`, and `failure shown` (`session.py:4581`) logs `detail`. A selected file's name and path reach `swift.log`. Reproduced with fakes. This touches the product rule, so Low may be too low.
   - A model's error text can reach `failure shown` through `claude_mapping.py:216-233`. Read in the code, not run through a session. Whether real CLI errors restate the request is unproven.
-  - Report check 123 gives PASS on both lines.
-- **Fix:** the exception type and a classified code.
+  - Report check 123 gave PASS on both lines.
+- **Fixed 2026-11-06:** `open failed`, `failure shown`, `claude run failed` and `action failed` log a type or a code, and the journal's FAILED and UNKNOWN reasons are codes. A traceback keeps frames and types, never a message. The text still reaches the card, the agent and `error_detail` in the local interaction log. Report check 123 fails on the old forms.
+- **Not changed, each with no known route for the owner's words (read in the code, not proven):** `error=str(exc)` on Swift's own files (`parked`, `scheduler`, `runlog`, `journal`) and on the microphone and presence; `speech failed` and `wake listening can't transcribe`; `detail=` on `claude warm-up failed` (before any request) and on `speech model failed to load`; `workflow skipped` (`folder`, `problem`: the owner's own workflow folder); `skipping a demand example`.
+- **Lost for diagnosis:** a traceback in `swift.log` no longer says what the exception said. `interaction failed` and shown failures keep it in `error_detail`; other `logger.exception` lines keep the frame and type only.
 
 #### X-06 · Medium · confirmed (code) · B-10 is wider than recorded
 - **Evidence:** the working-card step "Claude is busy, retrying…" (`claude_mapping.py:61`), "Claude Code stopped…", "Claude asked for a stronger model", and the error title "Claude Code isn't signed in".

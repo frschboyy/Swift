@@ -158,7 +158,7 @@ from swift.network import OFFLINE_HELP, OFFLINE_ITEMS, OFFLINE_NOT, OFFLINE_SAID
 from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
 from swift.executors.quick import QuickModel
-from swift.failures import Failure, Severity, classify
+from swift.failures import DETAIL_MAX, Failure, Severity, classify
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads
 from swift.routing import Route, fast
@@ -2766,9 +2766,10 @@ class Session:
             record["error"] = exc.code
             self._last_exchange = None
             await self._send_failure(exc.failure, record)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - any bug here ends the request with a card
             logger.exception("interaction failed")
             record["status"] = "error"
+            record["error_detail"] = f"{type(exc).__name__}: {exc}"[:DETAIL_MAX]
             self._last_exchange = None
             await self._send_failure(
                 Failure(
@@ -2825,7 +2826,7 @@ class Session:
             try:
                 await asyncio.to_thread(self.opener.launch, target)
             except OSError as exc:
-                logger.warning("open failed", target=target.name, error=str(exc))
+                logger.warning("open failed", error=type(exc).__name__)
                 record["status"] = "error"
                 record["error"] = "open_failed"
                 await self._send_failure(
@@ -4577,8 +4578,9 @@ class Session:
         source = (record or {}).get("source")
         again = (record or {}).get("scenario" if source == "debug.run" else "transcript")
         self._retry = (source, again) if failure.retry and source and again else None
-        if failure.detail:
-            logger.info("failure shown", code=failure.code, detail=failure.detail)
+        logger.info("failure shown", code=failure.code)
+        if failure.detail and record is not None:
+            record["error_detail"] = failure.detail  # can quote a path or the request: the local log only
         signin = failure.code == "auth" or (failure.code == "models" and self.online() is not False)
         if signin and self.on_signin_refused is not None:
             # "Couldn't confirm model" with the internet up is how an expired login often shows (R-11).

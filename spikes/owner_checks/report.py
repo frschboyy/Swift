@@ -207,7 +207,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
     words_logged = [line for line in log
                     if re.search(r"\b(asked_unanswered|transcript_heard|unclear|transcript_raw|addressed_as)="
                                  r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)
-                    or ("| interaction finished |" in line and re.search(r"\btarget=|'reason':", line))]
+                    or ("| interaction finished |" in line and re.search(r"\btarget=|'reason':", line))
+                    or ("| open failed |" in line and "target=" in line)
+                    or (re.search(r"\| (failure shown|claude run failed) \|", line) and "detail=" in line)]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
     set_aside = [line for line in log if "| question set aside for another |" in line]
     resynced = [line for line in log if "| overlay told what is on screen |" in line]

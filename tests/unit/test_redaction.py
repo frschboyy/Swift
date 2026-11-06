@@ -154,6 +154,24 @@ def test_exception_traceback_redacted(logs: AppPaths) -> None:
     assert "ValueError" in log and "google auth failed" in log
 
 
+def test_an_exception_s_message_stays_out_of_a_traceback(logs: AppPaths) -> None:
+    path, words = "C:/Users/owner/visa interview notes.docx", "while writing about the visa interview"
+
+    def opens_the_file() -> None:  # a traceback prints these source lines, so they name the variables only
+        raise OSError(path)
+
+    try:
+        try:
+            opens_the_file()
+        except OSError as inner:
+            raise RuntimeError(words) from inner
+    except RuntimeError:
+        logger.exception("interaction failed")
+    log = _read_log(logs)
+    assert "visa interview" not in log
+    assert "opens_the_file" in log and "OSError" in log and "RuntimeError" in log and "interaction failed" in log
+
+
 def test_log_content_only_at_debug(paths: AppPaths) -> None:
     setup_logging(paths, "DEBUG", log_content=True)
     try:

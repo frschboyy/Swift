@@ -200,20 +200,20 @@ class ActionGateway:
             receipt = await action.perform()
         except ConnectorError as exc:
             if exc.code == "unknown":  # it may have been done: say so, never "failed" (audit 2026-10, A-05)
-                self.journal.write(action_id, "UNKNOWN", reason=str(exc)[:200])
+                self.journal.write(action_id, "UNKNOWN", reason=exc.code)
                 await status("failed", reason=str(exc)[:200])
                 logger.warning("action outcome unknown", tool=action.tool, action=action_id)
                 return Outcome("unknown", str(exc))
-            return await self._failed(action, action_id, str(exc), status)
+            return await self._failed(action, action_id, str(exc), exc.code, status)
         except asyncio.CancelledError:
             self.journal.write(action_id, "FAILED", reason="interrupted")
             raise
         except Exception as exc:  # noqa: BLE001 - any connector bug is a failed action, not a crash
             logger.exception("connector failed")
-            return await self._failed(action, action_id, f"{type(exc).__name__}: {exc}", status)
+            return await self._failed(action, action_id, f"{type(exc).__name__}: {exc}", type(exc).__name__, status)
         # 7. verify
         if not receipt:
-            return await self._failed(action, action_id, "The service didn't confirm it.", status)
+            return await self._failed(action, action_id, "The service didn't confirm it.", "no_receipt", status)
         # 8. journal, 9. audit
         self.journal.write(action_id, "DONE", receipt=receipt, undoable=action.undo is not None)
         scope.sent.add(approved_digest)
@@ -232,10 +232,11 @@ class ActionGateway:
         return Outcome("denied", reason)
 
     async def _failed(
-        self, action: Action, action_id: str, reason: str,
+        self, action: Action, action_id: str, reason: str, code: str,
         status: Callable[..., Awaitable[None]],
     ) -> Outcome:
-        self.journal.write(action_id, "FAILED", reason=reason[:200])
+        """``reason`` is for the owner and the agent, and can quote the service. The journal and the log get ``code``."""
+        self.journal.write(action_id, "FAILED", reason=code)
         await status("failed", reason=reason[:200])
-        logger.warning("action failed", tool=action.tool, action=action_id, reason=reason[:200])
+        logger.warning("action failed", tool=action.tool, action=action_id, code=code)
         return Outcome("failed", reason)

@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from claude_agent_sdk import PermissionResultAllow
+from loguru import logger
 from test_claude_executor import sdk_messages
 
 from swift.executors.claude_code import ClaudeCodeExecutor
@@ -76,6 +77,28 @@ async def run_to_end(ex: ClaudeCodeExecutor, text: str) -> tuple[str, list[str]]
     result = await ex.result(run_id)
     assert result.status == "done"
     return run_id, steps
+
+
+async def test_a_failed_run_s_text_stays_out_of_swift_log(tmp_path: Path) -> None:
+    class Failing(FakeClient):
+        async def receive_response(self):
+            raise ValueError("the CLI repeated the request: letter about the visa interview")
+            yield  # pragma: no cover - makes this a generator, like the real one
+
+    lines: list[str] = []
+    sink = logger.add(lambda line: lines.append(str(line)), level="INFO", format="{message} {extra}")
+    try:
+        ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=Failing)
+        run_id = await ex.start("write a letter")
+        async for _ in ex.events(run_id):
+            pass
+        result = await ex.result(run_id)
+        await ex.close()
+    finally:
+        logger.remove(sink)
+    assert any("claude run failed" in line and "ValueError" in line for line in lines), lines
+    assert not any("visa interview" in line for line in lines), lines
+    assert result.status == "error" and "visa interview" in str(result.failure.detail)  # type: ignore[union-attr]
 
 
 async def test_request_goes_to_the_spare_and_a_new_one_is_connected(tmp_path: Path) -> None:

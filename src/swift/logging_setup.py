@@ -6,7 +6,9 @@ Every record passes through ``_patch`` before any sink sees it:
   values and in exception tracebacks;
 - content fields in ``extra`` (transcripts, bodies, file contents, prompts)
   are replaced by their length, unless ``log_content`` is on *and* the record
-  is DEBUG or lower.
+  is DEBUG or lower;
+- a traceback keeps its frames and exception types, never an exception's message,
+  which can quote the owner's words or a file's path.
 
 Convention: pass user content via ``logger.bind(transcript=...)`` /
 ``extra``, never interpolated into the message text. Regex redaction is a
@@ -84,6 +86,19 @@ def _redact_value(value: Any) -> Any:
     return redact(repr(value))
 
 
+def _traceback(exc: BaseException) -> str:
+    """Where it failed and with what type, oldest cause first, without any exception's message."""
+    parts: list[str] = []
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        frames = "".join(traceback.format_tb(current.__traceback__))
+        parts.append(f"Traceback (most recent call last):\n{frames}{type(current).__name__}")
+        current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+    return "\n\nThen:\n".join(reversed(parts))
+
+
 def make_patcher(log_content: bool) -> Callable[[Record], None]:
     debug_no = logger.level("DEBUG").no
 
@@ -106,7 +121,7 @@ def make_patcher(log_content: bool) -> Callable[[Record], None]:
 
         exc = record["exception"]
         if exc is not None:
-            tb = "".join(traceback.format_exception(exc.type, exc.value, exc.traceback))
+            tb = _traceback(exc.value) if exc.value is not None else getattr(exc.type, "__name__", "Exception")
             extra["_exc"] = "\n" + redact(tb).rstrip("\n")
             record["exception"] = None
         else:

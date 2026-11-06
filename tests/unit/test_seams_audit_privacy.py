@@ -16,14 +16,19 @@ from typing import Any
 
 import pytest
 from loguru import logger
+from test_routing import Recorder, SpyExecutor
 
 from swift.backend.__main__ import _on_finish
-from swift.connectors.base import Contact
+from swift.connectors.base import ConnectorError, Contact
 from swift.connectors.fake import FakeMailConnector
+from swift.executors.claude_mapping import outcome_for
 from swift.logging_setup import make_patcher
+from swift.routing import route
+from swift.routing.local import OpenTarget
 from swift.runlog import LOCAL_ONLY_FIELDS, SUMMARY_FIELDS, InteractionLog, unclassified
 from swift.security.gateway import Action, ActionGateway
 from swift.security.journal import Journal
+from swift.session import Session
 from swift.workflows.tools import ToolHost
 
 CHIANU = Contact("Francis Chianu", "francis.chianu@example.com", "gmail")
@@ -151,11 +156,12 @@ async def test_a_stop_while_the_service_is_sending_is_unknown_not_failed() -> No
     assert journal.entries[-1]["state"] == "UNKNOWN", journal.entries[-1]
 
 
-def _captured() -> io.StringIO:
+def _captured(*, exceptions: bool = False) -> io.StringIO:
     sink = io.StringIO()
     logger.remove()
     logger.configure(patcher=make_patcher(False), extra={"_extra": "", "_exc": ""})
-    logger.add(sink, format="{message}{extra[_extra]}", level="INFO")
+    tail = "{extra[_exc]}\n" if exceptions else ""
+    logger.add(sink, format="{message}{extra[_extra]}" + tail, level="INFO", backtrace=False, diagnose=False)
     return sink
 
 
@@ -171,6 +177,82 @@ async def test_a_denied_address_does_not_reach_the_log() -> None:
     finally:
         logger.remove()
     assert "someone@evil.example" not in sink.getvalue()
+
+
+# ---- swift.log: what went wrong, without the words (X-05) ------------------------------------------
+
+
+class _RefusingOpener:
+    def launch(self, target: OpenTarget) -> None:
+        raise OSError(2, "cannot open", target.path)
+
+
+async def test_a_failed_open_keeps_the_file_out_of_swift_log() -> None:
+    target = OpenTarget("file", "visa interview notes.docx", "C:/Users/owner/Documents/visa interview notes.docx")
+    rec, record = Recorder(), {"source": "voice"}
+    session = Session(rec, SpyExecutor(), opener=_RefusingOpener())  # type: ignore[arg-type]
+    sink = _captured()
+    try:
+        await session._handle_here(route("open my downloads folder"), record, target)
+    finally:
+        logger.remove()
+    out = sink.getvalue()
+    assert "visa interview" not in out, out
+    assert "open failed" in out and "FileNotFoundError" in out and "failure shown" in out and "open_failed" in out
+    assert "visa interview" in record["error_detail"] and "visa interview" in rec.last("error")["detail"]
+
+
+async def test_a_model_s_error_text_stays_out_of_swift_log() -> None:
+    outcome = outcome_for({"type": "result", "subtype": "success", "is_error": True,
+                           "result": "Rate limit reached while writing the letter about the visa interview"})
+    assert outcome is not None and outcome.failure is not None and "visa interview" in str(outcome.failure.detail)
+    record: dict[str, Any] = {"source": "voice"}
+    session = Session(Recorder(), SpyExecutor())
+    sink = _captured()
+    try:
+        await session._send_failure(outcome.failure, record)
+    finally:
+        logger.remove()
+    out = sink.getvalue()
+    assert "visa interview" not in out and outcome.failure.code in out, out
+    assert "visa interview" in record["error_detail"]
+
+
+@pytest.mark.parametrize(("failure", "code"), [
+    (ConnectorError("Google couldn't do that: GET /people:search?query=visa+interview returned 400"), "connector_failed"),
+    (ValueError("bad value: visa+interview"), "ValueError"),
+])
+async def test_a_failed_action_s_text_stays_out_of_swift_log_and_the_journal(failure: Exception, code: str) -> None:
+    journal = Journal(None)
+    gateway = ActionGateway(journal)
+    scope = _scope_for(ToolHost(None, (), gateway))
+    scope.resolved[CHIANU.email] = CHIANU
+
+    async def perform() -> str:
+        raise failure
+
+    sink = _captured(exceptions=True)
+    try:
+        out = await gateway.execute(scope, Action("send_email", (CHIANU,), "Send", "", None, lambda: "d", perform))
+    finally:
+        logger.remove()
+    assert out.status == "failed" and "visa+interview" in out.reason  # what the owner is told is unchanged
+    assert "visa+interview" not in sink.getvalue(), sink.getvalue()
+    assert journal.entries[-1]["state"] == "FAILED" and journal.entries[-1]["reason"] == code
+
+
+async def test_an_outcome_nobody_can_confirm_keeps_its_text_out_of_the_journal() -> None:
+    journal = Journal(None)
+    gateway = ActionGateway(journal)
+    scope = _scope_for(ToolHost(None, (), gateway))
+    scope.resolved[CHIANU.email] = CHIANU
+
+    async def perform() -> str:
+        raise ConnectorError("Lost the connection during /send?subject=visa+interview", code="unknown")
+
+    out = await gateway.execute(scope, Action("send_email", (CHIANU,), "Send", "", None, lambda: "d", perform))
+    assert out.status == "unknown" and "visa+interview" in out.reason
+    assert journal.entries[-1]["state"] == "UNKNOWN" and journal.entries[-1]["reason"] == "unknown"
 
 
 # ---- swift.log: the interaction summary is an allow-list (X-03) ----------------------------------

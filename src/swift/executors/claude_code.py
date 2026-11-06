@@ -751,7 +751,7 @@ class ClaudeCodeExecutor:
         except asyncio.CancelledError:
             run.result = ExecResult("cancelled", "Cancelled.")
         except Exception as exc:  # noqa: BLE001 - any SDK/CLI failure ends the run with a card
-            logger.warning("claude run failed", error=type(exc).__name__, detail=str(exc)[:300])
+            logger.warning("claude run failed", error=type(exc).__name__)  # its text: the card and the local log
             run.result = self._final(run, outcome, exc)
         finally:
             if run.client is not None:

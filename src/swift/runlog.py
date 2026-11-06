@@ -12,6 +12,7 @@ Fields (absent when they don't apply):
 - ``executor``, ``run_ms`` (the executor's run), ``interaction_ms`` (key-down to result)
 - ``steps``: ``[{t_ms, text}]``
 - ``status``: done, cancelled, error or rejected, with ``error`` (a code) and ``reason``
+- ``error_detail``: what the failure said in its own words (a path, a service's text, a model's words)
 - ``approvals``: ``[{tool, decision, asked_ms, answered_ms, source, heard}]`` (``source``: voice or click)
 - ``context``: ``{previous, age_s}`` when the previous exchange was sent along (follow-ups)
 - ``cost_usd``, ``turns``, ``denied``, ``exit_code`` (Claude Code runs)
@@ -56,8 +57,8 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
 # Fields that stay out on purpose: words, or the name or path of something of the owner's. Also
 # ``continues``, which is taken off the record before it finishes.
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
-    "addressed_as", "approvals", "asked_unanswered", "audio_file", "continues", "id", "steps", "target", "transcript",
-    "transcript_heard", "transcript_raw", "ts", "unclear",
+    "addressed_as", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "id", "steps", "target",
+    "transcript", "transcript_heard", "transcript_raw", "ts", "unclear",
 })
 _ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request
 

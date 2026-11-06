@@ -1101,9 +1101,13 @@ class Session:
 
     async def _take_front(self, run: Run, msg: Message) -> None:
         """A request that ran behind the card has something the owner must see: it is now in front,
-        and what it kept while behind is drawn, ending with ``msg``."""
+        and what it kept while behind is drawn, ending with ``msg``. An answer it displaces may be
+        unread, so it stays as a row for a while, not gone."""
         self._next_focus = None
-        self._set_focus(run)
+        displaced = self._focus if self._focus is not None and not self._focus.alive else None
+        self._set_focus(run, keep_old=displaced is not None and displaced.answer is not None)
+        if displaced is not None and displaced in self._runs:
+            asyncio.get_running_loop().call_later(FINISHED_ROW_S, self._forget_row, displaced)
         await self._send_rows()
         shown = self._replay(run)
         for held in shown:
@@ -1111,9 +1115,9 @@ class Session:
         if msg not in shown:
             await self._raw_send(msg)
 
-    def _set_focus(self, run: Run) -> None:
+    def _set_focus(self, run: Run, *, keep_old: bool = False) -> None:
         old, self._focus = self._focus, run
-        if old is not None and old is not run and not old.alive:
+        if old is not None and old is not run and not old.alive and not keep_old:
             # It ended while in front and its answer was seen: no row for it.
             with contextlib.suppress(ValueError):
                 self._runs.remove(old)

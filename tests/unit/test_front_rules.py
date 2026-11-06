@@ -81,3 +81,21 @@ async def test_an_error_from_behind_the_card_is_that_request_s_and_stays() -> No
     screen = agree(session, out)
     assert screen["stage"] == "error" and screen["cardRun"] == second
     await finish_all(session, agent)
+
+
+async def test_an_answer_displaced_from_behind_stays_as_a_row_and_opens_again() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == second)
+    assert runs(out)["focus"] == second
+    assert [(r["run_id"], r["state"]) for r in runs(out)["rows"]] == [(first, "result")]
+    assert session._next_focus is None
+    agree(session, out)
+    # Its answer is still there to read.
+    await session.handle(Message("focus", {"run_id": first}))
+    assert runs(out)["focus"] == first and out.last("result")["run_id"] == first
+    await finish_all(session, agent)

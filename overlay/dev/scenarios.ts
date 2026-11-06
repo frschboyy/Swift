@@ -235,7 +235,7 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // 4. Swift's question
   questionSpeaking: async (s) => { await question(s, true); },
   questionWaiting: async (s) => { await question(s, false); },
-  // 5. several requests (the harness draws the chips under the card)
+  // 5. several requests (edges behind the card, as in the app)
   concurrent: async (s) => { await concurrent(s); },
   // 6. the stack (inline in the harness)
   stackClosed: async (s) => { s.inject("stack", { items: STACK }); await sleep(150); },

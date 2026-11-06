@@ -27,10 +27,8 @@ export const RESUME_MS = 1500;
 export const APPROVE_DELAY_MS = 400;
 /** Earlier turns of a thread shown above its card. */
 export const HISTORY = 2;
-/** Background rows drawn under the card; past that, "+N more" (ADR-013 §3.3). */
-export const MAX_ROWS = 3;
 
-/** Another request, one line under the card in front. */
+/** Another request, an edge behind the card in front (deck.ts). */
 export type Row = {
   runId: string;
   threadId: string | null;
@@ -42,7 +40,7 @@ export type Row = {
   startedMs: number;
   // How it ended, in one line (ended rows only).
   summary: string;
-  // The request in the owner's words (its chip's tooltip, the "Got it" line).
+  // The request in the owner's words (its edge's tooltip, and "Got it: …").
   words?: string;
 };
 
@@ -134,11 +132,6 @@ export function onRuns(p: Presenter, focus: string | null, rows: Row[], waiting:
     return { ...next, card: { ...initial.card }, ...noConfirm, pausedLeft: null };
   }
   return next;
-}
-
-/** The rows to draw (at most MAX_ROWS) and how many more there are. */
-export function visibleRows(p: Presenter): { rows: Row[]; more: number } {
-  return { rows: p.rows.slice(0, MAX_ROWS), more: Math.max(0, p.rows.length - MAX_ROWS) };
 }
 
 /** Nothing in front any more but a row still runs: the newest one should come forward. */
@@ -347,6 +340,5 @@ export function violations(p: Presenter): string[] {
   if (p.rows.some((r) => r.runId === p.focus)) out.push("the request in front also has a row");
   if (new Set(p.rows.map((r) => r.runId)).size !== p.rows.length) out.push("a request has two rows");
   if (p.waiting > 0 && !p.pendingConfirm) out.push(`${p.waiting} cards wait but none is on screen`);
-  if (visibleRows(p).rows.length > MAX_ROWS) out.push("too many rows");
   return out;
 }

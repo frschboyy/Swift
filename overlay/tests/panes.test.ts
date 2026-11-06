@@ -7,7 +7,7 @@ import {
   PaneSync, CHIP_DELAY_MS, MAX_PANES, READER_QUIET_MS, WORKING_QUIET_MS, type PaneSpec,
 } from "../src/panes.ts";
 import { initialStack, onStack, stackView } from "../src/stack.ts";
-import { initial, onRuns, MAX_ROWS, type Row } from "../src/presenter.ts";
+import { initial, onRuns, type Row } from "../src/presenter.ts";
 
 const row = (runId: string, state = "working", title = runId): Row => ({
   runId, threadId: null, title, state, activity: null, app: null, startedMs: 0, summary: "",
@@ -32,7 +32,6 @@ test("never more request windows than MAX_PANES", () => {
   const rows = ["b", "c", "d", "e", "f", "g", "h"].map((id) => row(id));
   const p = onRuns(initial, "a", rows, 0);
   assert.equal(wantedPanes(p, null, label).length, MAX_PANES);
-  assert.ok(MAX_PANES > MAX_ROWS);
 });
 
 test("an ended request keeps its window until its row goes", () => {

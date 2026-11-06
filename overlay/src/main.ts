@@ -32,6 +32,8 @@ import * as Q from "./ask";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
+import * as D from "./deck";
+import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
 import * as Panes from "./panes";
@@ -144,6 +146,8 @@ let typedDraft = "";
 let tray: Panes.TrayView | null = null;
 // What each request's live view shows, and which are open (ADR-017 §7).
 let live: L.Live = L.initialLive;
+// The other requests, behind the card (ADR-018).
+let deck: D.Deck = D.initialDeck;
 // Requests seen in ``runs`` (for "Got it: …"), and the lines shown until when.
 const knownRows = new Set<string>();
 let acks: { runId: string; words: string; until: number }[] = [];
@@ -290,7 +294,7 @@ function reportSeen(): void {
   seen = now;
 }
 
-// ---- other requests: a window each (ADR-015 §3), or chips under the card -------------
+// ---- other requests: edges behind the card (ADR-018) ----------------------------------
 
 const ROW_STATE: Record<string, string> = {
   queued: "Waiting to start",
@@ -312,6 +316,8 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   checkPresenter();
   setLive(L.onRows(live, rows, Date.now()));
   if (pres.focus !== promoted) promoted = null;
+  deck = D.onRows(deck, pres.focus, pres.rows, Date.now());
+  window.setTimeout(drawRows, D.EDGE_DELAY_MS);  // a young request's edge is due then
   // A request said beside the one in front: say at once that it registered, in its words (bug 4).
   const now = Date.now();
   for (const r of Panes.newRows(knownRows, pres.rows)) acks.push({ runId: r.runId, words: r.title || r.words || "", until: now + Panes.ACK_MS });
@@ -325,25 +331,23 @@ function rowLabel(r: P.Row): string {
   return r.summary && (r.state === "error" || r.state === "done") ? `${label}: ${r.summary}` : label;
 }
 
+const deckDraw = new DeckDraw({
+  list: rowsEl,
+  label: rowLabel,
+  focus: askFocus,
+  watch: (r) => openLive(r.runId, r.title, r.words ?? ""),
+  unfold: () => card.querySelector<HTMLElement>('.link[aria-expanded="true"]')?.click(),
+});
+
+/** The one way the other requests are drawn: the harness shows what the owner sees. */
 function drawRows(): void {
   drawGotIt();
-  if (paneWindows) {
-    drawWaiting();
-    void syncPanes();
-    return;
-  }
-  // No pane windows (the dev harness): the chips under the card, as the pane windows draw them.
-  const { rows, more } = P.visibleRows(pres);
-  const items: HTMLElement[] = rows.map((r) => {
-    const view = { kind: "request" as const, runId: r.runId, title: r.title, words: r.words ?? r.title, label: rowLabel(r), startedMs: r.startedMs,
-      running: !["result", "error", "done"].includes(r.state), state: r.state };
-    return el("li", { "data-hit": true }, V.chip(view, { tabindex: "0", onclick: () => askFocus(r.runId) }, () => openLive(r.runId, r.title, r.words ?? "")));
-  });
-  if (more) items.push(el("li", { class: "row--note" }, `+${more} more`));
-  items.unshift(...waitingNotes());
-  rowsEl.replaceChildren(...items);
-  rowsEl.hidden = items.length === 0;
+  const view = D.deckView(deck, pres.rows, Date.now(), expanded);
+  deckDraw.draw(view);
+  // The card gives way, so it never pushes the deck off the window.
+  stage.style.setProperty("--deck-h", `${view.height}px`);
   scheduleRegions();
+  void syncPanes();
 }
 
 /** "Got it: …": a request just said beside the one in front registered (bug 4, 2026-10-27).
@@ -355,23 +359,6 @@ function drawGotIt(): void {
     el("li", { class: "gotit" }, el("span", { class: "ok-dot" }, icon("check")), el("b", {}, "Got it:"), el("span", {}, a.words)));
   gotitEl.replaceChildren(...pills);
   gotitEl.hidden = pills.length === 0;
-}
-
-/** Cards waiting behind the one on screen, and requests without a slot yet: a line each. */
-function waitingNotes(): HTMLElement[] {
-  const items: HTMLElement[] = [];
-  if (pres.waiting) items.push(el("li", { class: "row--note" }, `${pres.waiting} more ${pres.waiting === 1 ? "card" : "cards"} waiting`));
-  const queued = Panes.queuedRows(pres).length;
-  if (queued) items.push(el("li", { class: "row--note" }, `${queued} more ${queued === 1 ? "request" : "requests"} waiting to start`));
-  return items;
-}
-
-/** With pane windows, only what waits stays by the card in front. */
-function drawWaiting(): void {
-  const items = waitingNotes();
-  rowsEl.replaceChildren(...items);
-  rowsEl.hidden = items.length === 0;
-  scheduleRegions();
 }
 
 /** The panes wanted now: requests, the reader, the stack, the text box and the tray menu. */
@@ -1799,14 +1786,22 @@ document.addEventListener("selectionchange", () => setHold());
 
 function setHover(inside: boolean): void {
   hovering = inside;
-  card.classList.toggle("card--hover", inside);
-  if (inside) lastLookAt = Date.now();
-  if (inside && quiet) {
+  if (!inside) card.classList.remove("card--hover");
+  setHold();
+}
+
+// The pointer on the card itself, not on an edge behind it: a working card that shrank opens only
+// then, or an edge would move out from under the pointer. The window sees pointer moves only while
+// the pointer is over a hit region; its enter and leave events can be stale, so these are moves.
+card.addEventListener("pointermove", () => {
+  card.classList.add("card--hover");
+  lastLookAt = Date.now();
+  if (quiet) {
     quiet = false;
     if (stageNow() === "working") renderWorking();
   }
-  setHold();
-}
+}, { passive: true });
+rowsEl.addEventListener("pointermove", () => card.classList.remove("card--hover"), { passive: true });
 
 // ---- the one clock: answers fade and the reply window counts down only here ---------
 
@@ -1888,7 +1883,7 @@ window.setInterval(() => {
     }
     drawCapsule();
   } else if (stageNow() === "confirm") tickConfirm();
-  if (pres.rows.length && !paneWindows) drawRows();  // their elapsed time (pane windows keep their own)
+  if (pres.rows.length) drawRows();  // their elapsed time, and "Got it" settling
   else if (acks.length || !gotitEl.hidden) drawGotIt();  // "Got it" goes after 2.5 s
   // Young requests get their chip, the stack's glow fades: both are in what's wanted.
   if (paneWindows && (pres.rows.length || stack.items.length)) void syncPanes();

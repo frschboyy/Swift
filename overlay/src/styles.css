@@ -253,6 +253,7 @@ code {
   font-size: 15px;
   line-height: 20px;
   flex: none;
+  z-index: 3;
   transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), background var(--dur-fast);
 }
 .capsule[hidden] { display: none; }
@@ -356,7 +357,8 @@ code {
   position: relative;
   width: 512px;
   max-width: 100%;
-  max-height: calc(100vh - 92px);
+  max-height: calc(100vh - 92px - var(--deck-h, 0px));
+  z-index: 2;
   display: flex;
   flex-direction: column;
   border-radius: var(--radius);
@@ -631,10 +633,71 @@ code {
 .due-label { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; line-height: 18px; }
 .due-title { margin: 0; font: 600 20px/26px var(--font-display); overflow-wrap: anywhere; }
 
-/* ---- 6. "Got it" and the harness's inline chips -------------------------------------- */
+/* ---- 6. "Got it", and the other requests: labelled edges behind the card (ADR-018) ------- */
 
-.gotit-list, .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; align-items: inherit; flex: none; }
-.gotit-list[hidden], .rows[hidden] { display: none; }
+/* The deck's height is what shows past the card; each edge also tucks --tuck behind the card, so it
+   reads as one object. It sits on the card's edge, on the side away from the capsule. */
+.deck {
+  --tuck: 18px;
+  list-style: none;
+  position: relative;
+  z-index: 1;
+  width: 512px;
+  max-width: 100%;
+  height: var(--deck-h, 0px);
+  margin: 0 0 -12px;
+  padding: 0;
+  flex: none;
+}
+.deck[hidden] { display: none; }
+#stage[data-anchor^="top"] .deck { margin: -12px 0 0; }
+/* Nothing in front: the edges stand above the capsule, their tucked part in sight. */
+#stage:has(#card:empty) .deck { margin: 0 0 14px; }
+#stage[data-anchor^="top"]:has(#card:empty) .deck { margin: 14px 0 0; }
+.edge {
+  position: absolute;
+  left: var(--inset);
+  right: var(--inset);
+  bottom: calc(var(--at) - var(--tuck));
+  height: calc(var(--peek) + var(--tuck));
+  padding: 0 12px var(--tuck);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-radius: 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--panel-edge);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--dur-fast);
+}
+#stage[data-anchor^="top"] .edge { bottom: auto; top: calc(var(--at) - var(--tuck)); padding: var(--tuck) 12px 0; }
+.edge:hover { border-color: var(--accent); }
+.edge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.edge[data-depth="1"] > * { opacity: 0.92; }
+.edge[data-depth="2"] > * { opacity: 0.84; }
+.edge-mark { display: grid; place-items: center; width: 18px; height: 18px; flex: none; }
+.edge-mark > .icon { width: 13px; height: 13px; color: var(--faint); }
+.edge-title { flex: 0 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.edge-sub { flex: 0 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.edge-time { flex: none; margin-left: auto; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.edge-watch, .edge-open { display: none; flex: none; margin-left: auto; color: var(--accent); font-size: 13px; font-weight: 600; }
+.edge-watch { padding: 0 6px; border-radius: 6px; }
+.edge-watch + .edge-open { margin-left: 0; }
+.edge-more + .edge-open, .edge-more + .edge-watch { margin-left: 0; }
+.edge-watch:hover { background: var(--accent-soft); }
+.edge:hover .edge-time:not(.edge-more) { display: none; }
+.edge:hover .edge-watch, .edge:hover .edge-open { display: inline; }
+.edge--confirm { border-color: var(--warn); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), 0 0 0 3px var(--warn-halo); }
+.edge--confirm .edge-sub { color: var(--warn-text); font-weight: 600; }
+.wait-icon { width: 12px; height: 12px; border-radius: 50%; border: 2px dashed var(--faint); }
+
+.gotit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; align-items: inherit; flex: none; }
+.gotit-list[hidden] { display: none; }
 .gotit {
   display: inline-flex;
   align-items: center;
@@ -653,7 +716,6 @@ code {
 .gotit span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .ok-dot { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 50%; background: var(--ok); color: var(--on-ok); }
 .ok-dot .icon { width: 13px; height: 13px; stroke-width: 2.5; }
-.row--note { padding: 0 6px; color: var(--muted); font-size: 13px; }
 
 /* a chip: another request, its own window (pane.ts) or inline in the harness */
 .chip {

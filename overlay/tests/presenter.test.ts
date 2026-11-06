@@ -6,7 +6,7 @@ import * as P from "../src/presenter.ts";
 
 import {
   confirmVisible, initial, isActive, onAnswer, onConfirm, onConfirmHold, onDismiss, onFollowup, onHold, onRuns, onState,
-  promotion, seenCard, tick, visibleRows, violations, waitingSince, MAX_ROWS, RESUME_MS,
+  promotion, seenCard, tick, violations, waitingSince, RESUME_MS,
   type Presenter, type Row,
 } from "../src/presenter.ts";
 
@@ -306,7 +306,7 @@ test("phase B: two requests side by side; the background one never touches the c
   assert.ok(late.ignored);
   assert.equal(o.answer("result", 6000, "cc-1", "t1", "Tea came from China."), false);
   assert.equal(o.p.card.runId, "local-1");
-  assert.deepEqual(visibleRows(o.p).rows.map((r) => r.runId), ["cc-1"]);
+  assert.deepEqual(o.p.rows.map((r) => r.runId), ["cc-1"]);
 });
 
 test("phase B: when the card in front fades, the running row comes forward", () => {
@@ -353,15 +353,6 @@ test("phase B: naming a request brings its card forward", () => {
   const shown = o.state("working", "cc-1", "t1");
   assert.ok(shown.newRun && !shown.continued);
   assert.equal(o.p.card.runId, "cc-1");
-});
-
-test("phase B: at most three rows, and the rest counted", () => {
-  const o = new Overlay();
-  o.state("working", "cc-9", "t9");
-  o.runs("cc-9", ["cc-1", "cc-2", "cc-3", "cc-4", "cc-5"].map((r) => row(r)));
-  const v = visibleRows(o.p);
-  assert.equal(v.rows.length, MAX_ROWS);
-  assert.equal(v.more, 2);
 });
 
 test("phase B: one request's row never repeats the one in front", () => {

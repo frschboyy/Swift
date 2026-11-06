@@ -51,6 +51,41 @@ export function chip(v: RequestView, attrs: Record<string, string | boolean | ((
   );
 }
 
+/** A request behind the card, as an edge (ADR-018). */
+export type EdgeView = { title: string; words: string; label: string; startedMs: number; running: boolean; state: string; more: number };
+
+function edgeMark(v: EdgeView): HTMLElement {
+  if (v.state === "confirm") return el("span", { class: "edge-mark" }, el("span", { class: "needs-icon" }, icon("shield")));
+  if (v.state === "result") return el("span", { class: "edge-mark" }, el("span", { class: "ready-icon" }, icon("check")));
+  if (v.state === "queued") return el("span", { class: "edge-mark" }, el("span", { class: "wait-icon" }));
+  if (v.running) return el("span", { class: "edge-mark" }, el("span", { class: "spinner spinner--small" }));
+  return el("span", { class: "edge-mark" }, el("span", { class: "ended-icon" }));
+}
+
+/** What an edge says on its one line: its state's word, its title and what it's doing, then its time
+ * ("+N" on the last edge). Hovered: Watch while it works, and Open. */
+export function edgeContent(v: EdgeView, watch: () => void): HTMLElement[] {
+  const watchable = v.running && v.state !== "confirm" && v.state !== "queued";
+  return [
+    edgeMark(v),
+    el("span", { class: "edge-title" }, v.title),
+    el("span", { class: "edge-sub" }, v.label),
+    v.more ? el("span", { class: "edge-time edge-more" }, `+${v.more}`) : v.running ? el("span", { class: "edge-time", "aria-hidden": "true", "data-started": String(v.startedMs) }, elapsed(v.startedMs)) : null,
+    watchable
+      ? el("span", { class: "edge-watch", role: "button", title: "Watch it work", onclick: (ev: Event) => { ev.stopPropagation(); watch(); } }, "Watch")
+      : null,
+    el("span", { class: "edge-open" }, "Open"),
+  ].filter((n): n is HTMLElement => n !== null);
+}
+
+/** The edges' clocks. */
+export function edgeTimes(list: HTMLElement, now = Date.now()): void {
+  for (const node of list.querySelectorAll<HTMLElement>(".edge-time[data-started]")) {
+    const text = elapsed(Number(node.dataset.started), now);
+    if (node.textContent !== text) node.textContent = text;
+  }
+}
+
 /** The closed stack: two layers behind the top one, the count and what comes next. */
 export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}): HTMLElement {
   const n = v.items.length;

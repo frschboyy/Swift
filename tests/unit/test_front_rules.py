@@ -128,3 +128,20 @@ async def test_a_typed_follow_up_joins_the_conversation_on_the_card_not_the_one_
     await asyncio.sleep(0.1)
     assert session._runs[-1].thread == thread
     await finish_all(session, agent)
+
+
+async def test_push_to_talk_on_the_card_survives_another_request_s_answer() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0.05)
+    voice = session._confirm_voice
+    assert voice is not None
+    agent.runs[second]["go"].set()
+    await asyncio.sleep(0.2)
+    assert not voice.cancelled(), "the owner's words were thrown away"
+    stt.text = "stop the research one"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: agent.cancelled == [first])
+    await finish_all(session, agent)

@@ -933,6 +933,8 @@ class Session:
         self._task: asyncio.Task[None] | None = None
         # Push-to-talk while a run is going: answering its confirm card, or the mid-run grammar.
         self._confirm_voice: asyncio.Task[None] | None = None
+        # The request whose card that push-to-talk was held on.
+        self._voice_owner: Run | None = None
         # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
         self._retry: tuple[str, str] | None = None
 
@@ -1762,10 +1764,12 @@ class Session:
             if open_request is not None:
                 self._released = asyncio.Event()
                 await self._signal_heard("ptt")
+                self._voice_owner = self._focus
                 self._confirm_voice = asyncio.create_task(self._answer_by_voice(open_request))
             elif self.state == "working" and self._active is not None:
                 self._released = asyncio.Event()
                 await self._signal_heard("ptt")
+                self._voice_owner = self._focus
                 self._confirm_voice = asyncio.create_task(self._midrun_by_voice())
             else:
                 # The last request is being transcribed or started: this is the next one, recorded
@@ -2808,7 +2812,7 @@ class Session:
             if slot:
                 self._slots.release()
             voice = self._confirm_voice
-            if run is self._focus and voice is not None and not voice.done() and voice is not asyncio.current_task():
+            if run is self._voice_owner and voice is not None and not voice.done() and voice is not asyncio.current_task():
                 # Push-to-talk on this request's card; on another's it carries on.
                 voice.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

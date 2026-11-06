@@ -324,6 +324,19 @@ code {
 .capsule[data-p="idle"] .cap-text, .capsule[data-p="idle"] .cap-btn { display: none; }
 #stage[data-idle-dot="off"] .capsule[data-p="idle"] { visibility: hidden; }
 
+/* a card is open: the orb alone, in the same 44 px slot, so the card above never moves (ADR-018) */
+.capsule[data-p="orb"] {
+  min-width: 0;
+  width: 36px;
+  height: 36px;
+  margin: 4px 0;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+.capsule[data-p="orb"] .orb { width: 20px; height: 20px; transform: none; }
+.capsule[data-p="orb"] .cap-text, .capsule[data-p="orb"] .cap-btn { display: none; }
+
 /* heard: the orb gets rings, the edge turns accent: Swift heard its name or the hotkey */
 .capsule[data-p="heard"] { border-color: var(--accent); animation: cap-in var(--dur-fast) var(--ease); }
 .capsule[data-p="heard"] .orb { box-shadow: 0 0 0 4px rgba(138, 180, 255, 0.35), 0 0 0 9px rgba(138, 180, 255, 0.14); animation: heard-pulse 900ms var(--ease) 2; }

@@ -7,7 +7,7 @@ import * as A from "../src/answer.ts";
 import { pausedBy, presence, view, type CapsuleInput } from "../src/capsule.ts";
 import { themeFrom } from "../src/theme.ts";
 
-const at = (over: Partial<CapsuleInput>): CapsuleInput => ({ state: "idle", heard: false, quiet: false, speaking: false, paused: null, ...over });
+const at = (over: Partial<CapsuleInput>): CapsuleInput => ({ state: "idle", heard: false, quiet: false, speaking: false, paused: null, cardOpen: false, ...over });
 
 // ---- the capsule ------------------------------------------------------------------------------
 
@@ -23,6 +23,22 @@ test("the owner talking comes first, then heard, speaking, paused, working, idle
   assert.equal(presence(at({ state: "working" })), "working");
   assert.equal(presence(at({ state: "result" })), "idle");
   assert.equal(presence(at({ state: "confirm" })), "idle");
+});
+
+test("ADR-018: a card open shrinks it to the orb, unless it has something the card can't say", () => {
+  assert.equal(presence(at({ cardOpen: true, state: "working" })), "orb");
+  assert.equal(presence(at({ cardOpen: true, state: "result" })), "orb");
+  assert.equal(presence(at({ cardOpen: true, state: "confirm" })), "orb");
+  assert.equal(presence(at({ cardOpen: true, state: "listening" })), "listening");
+  assert.equal(presence(at({ cardOpen: true, state: "listening", quiet: true })), "cant-hear");
+  assert.equal(presence(at({ cardOpen: true, state: "transcribing" })), "transcribing");
+  assert.equal(presence(at({ cardOpen: true, heard: true })), "heard");
+  assert.equal(presence(at({ cardOpen: true, speaking: true })), "speaking");
+  // The privacy indicator never gives way to a card.
+  assert.equal(presence(at({ cardOpen: true, paused: "mic" })), "paused-mic");
+  assert.equal(presence(at({ cardOpen: true, paused: "locked" })), "paused-locked");
+  assert.equal(presence(at({ cardOpen: true, paused: "asleep" })), "paused-locked");
+  assert.deepEqual(view("orb", "", "", null), { label: "", sub: "", button: null, clickable: false });
 });
 
 test("paused only when listening is really off: by the owner, or a locked screen with wake listening", () => {
@@ -46,7 +62,7 @@ test("each state says a word, and only speaking and mic-off are clickable", () =
   assert.equal(view("paused-locked", "", "", "asleep").sub, "PC was asleep");
   assert.equal(view("idle", "", "", null).clickable, false);
   // Status never names the provider.
-  for (const p of ["heard", "listening", "transcribing", "cant-hear", "working", "speaking", "paused-mic", "paused-locked", "idle"] as const) {
+  for (const p of ["orb", "heard", "listening", "transcribing", "cant-hear", "working", "speaking", "paused-mic", "paused-locked", "idle"] as const) {
     const v = view(p, "", "", null);
     assert.doesNotMatch(`${v.label} ${v.sub}`, /claude|anthropic/i);
   }

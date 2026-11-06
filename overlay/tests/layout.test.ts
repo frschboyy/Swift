@@ -6,6 +6,13 @@ import { test } from "node:test";
 
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), "utf8");
 
+test("the capsule's slot is 44 px in every state, so the card above it never moves when it changes", () => {
+  const css = read("../src/styles.css");
+  assert.match(css, /\.capsule \{[^}]*height: 44px;/);
+  assert.match(css, /\.capsule\[data-p="orb"\] \{[^}]*height: 36px;[^}]*margin: 4px 0;/);
+  assert.match(css, /\.capsule\[data-p="idle"\] \{[^}]*height: 12px;[^}]*margin: 16px;/);
+});
+
 test("a card's scroller never scrolls sideways, and spans the padding its children reach into", () => {
   const css = read("../src/styles.css");
   assert.match(css, /\.card-in \{\s*overflow-x: hidden;/);

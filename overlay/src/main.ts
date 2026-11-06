@@ -191,7 +191,8 @@ const tail = (text: string, max = 60): string => (text.length <= max ? text : `â
 
 function drawCapsule(): void {
   const paused = C.pausedBy(presence);
-  const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused });
+  const cardOpen = card.classList.contains("card--in") && !card.classList.contains("card--held");
+  const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused, cardOpen });
   const elapsed = stageNow() === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "";
   const v = C.view(p, transcriptText, elapsed, paused);
   const was = capsuleEl.dataset.p;
@@ -777,6 +778,7 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   // It was an edge just now: one body, so the card grows out of it.
   const from = deckDraw.takeForward(pres.card.runId, Date.now());
   if (from) moveFrom(card, from);
+  drawCapsule();
   // Scrolling a card that didn't fit holds it, like scrolling a long answer.
   node.addEventListener("scroll", () => noteScroll(), { passive: true });
   scheduleRegions();
@@ -788,6 +790,7 @@ function hideCard(): void {
   card.classList.remove("card--in");
   card.classList.add("card--out");
   card.removeAttribute("data-hit");
+  drawCapsule();
   scheduleRegions();
   const clear = (): void => {
     if (!card.classList.contains("card--out")) return;
@@ -1224,6 +1227,7 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
     // brought it forward this time (owner check 14, 2026-10-27).
     void invoke("reveal").catch(() => {});
   }
+  drawCapsule();
   scheduleRegions();
 }
 

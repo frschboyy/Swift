@@ -7,13 +7,14 @@
 // - Swift talking ("Speaking", with Stop);
 // - listening paused, by the owner (mic off, with Resume) or by a locked screen or sleep. This is
 //   the privacy indicator: it stays as long as the pause, never fades;
+// - a card open: the orb alone, since the card says the rest (ADR-018 §2.5);
 // - a request working;
 // - otherwise the idle dot.
 
 import type { UiState } from "./protocol";
 
 export type Presence =
-  | "idle" | "heard" | "listening" | "transcribing" | "cant-hear" | "working" | "speaking" | "paused-mic" | "paused-locked";
+  | "idle" | "orb" | "heard" | "listening" | "transcribing" | "cant-hear" | "working" | "speaking" | "paused-mic" | "paused-locked";
 
 /** Listening this long with nothing above room noise: "I can't hear you". */
 export const QUIET_MS = 4000;
@@ -28,6 +29,8 @@ export type CapsuleInput = {
   speaking: boolean;
   // Why listening is off (presence), or null: "mic" (paused from the tray), "locked", "asleep".
   paused: "mic" | "locked" | "asleep" | null;
+  // A card is on screen.
+  cardOpen: boolean;
 };
 
 export function presence(i: CapsuleInput): Presence {
@@ -37,6 +40,7 @@ export function presence(i: CapsuleInput): Presence {
   if (i.speaking) return "speaking";
   if (i.paused === "mic") return "paused-mic";
   if (i.paused) return "paused-locked";
+  if (i.cardOpen) return "orb";
   if (i.state === "working") return "working";
   return "idle";
 }
@@ -68,6 +72,7 @@ export function view(p: Presence, transcript: string, elapsed: string, paused: C
   const plain = (label: string, sub = ""): CapsuleView => ({ label, sub, button: null, clickable: false });
   switch (p) {
     case "idle":
+    case "orb":
       return plain("");
     case "heard":
       return plain("Listening…");

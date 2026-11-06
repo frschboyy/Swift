@@ -240,3 +240,53 @@ async def test_naming_a_tie_means_the_card_on_screen() -> None:
     await say(session, stt, "stop the research one")
     await until(lambda: agent.cancelled == [first])
     await finish_all(session, agent)
+
+
+async def test_said_over_a_confirm_card_it_stays_behind_until_the_card_is_answered() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    agent.runs[first]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    second = await started(session, out, agent, stt, "Swift, what's the history of coffee?")
+    await asyncio.sleep(0.05)
+    # A card on screen settles what a "stop" means, and nothing takes the front from it.
+    assert not session._which_is_unclear()
+    agent.runs[second]["go"].set()
+    await until(lambda: sent_for(out, second, "result") == [] and runs(out)["rows"][0]["state"] == "result")
+    assert runs(out)["focus"] == first and session._open_confirm() is not None
+    await finish_all(session, agent)
+
+
+async def test_said_over_a_confirm_card_its_answer_comes_forward_once_the_card_is_gone() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    agent.runs[first]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    second = await started(session, out, agent, stt, "Swift, what's the history of coffee?")
+    await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"], "decision": "reject"}))
+    await asyncio.sleep(0.1)
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == second)
+    assert runs(out)["focus"] == second
+    await finish_all(session, agent)
+
+
+async def test_what_settles_which_a_stop_means_and_what_clears_it() -> None:
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    research = await started(session, out, agent, stt, TEA)
+    await started(session, out, agent, stt, NOTES)
+    assert session._which_is_unclear()
+    await say(session, stt, "Swift, turn off the wifi")
+    await until(lambda: any(a.get("open") and a.get("question") == "Turn off Wi-Fi?" for a in asks(out)))
+    await asyncio.sleep(0.05)
+    assert not session._which_is_unclear(), "a question on screen says what's going on"
+    await finish_all(session, agent)
+    session, out, _records, agent, stt = make()
+    research = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    assert session._which_is_unclear()
+    agent.runs[second]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    assert session._next_focus is None and runs(out)["focus"] == second and not session._which_is_unclear()
+    assert research != second
+    await finish_all(session, agent)

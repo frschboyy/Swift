@@ -1178,9 +1178,8 @@ class Session:
         if self._focus is not None and self._focus.thread:
             record["card_thread"] = self._focus.thread
         run.task = asyncio.create_task(self._interaction(run, record, capture, executor, start))
-        if self._cards:
-            pass  # the card on screen keeps the front; this one is a row
-        elif self._focus is not None and self._focus.alive:
+        if self._cards or (self._focus is not None and self._focus.alive):
+            # Behind the card. ``_send`` keeps it there while a confirm card is on screen.
             self._next_focus = run
         else:
             self._next_focus = None  # this one is on the card: an older one behind stays behind it

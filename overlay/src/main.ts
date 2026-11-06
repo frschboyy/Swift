@@ -322,7 +322,8 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   setLive(L.onRows(live, rows, Date.now()));
   if (pres.focus !== promoted) promoted = null;
   deck = D.onRows(deck, pres.focus, pres.rows, Date.now(), onCard);
-  window.setTimeout(drawRows, D.EDGE_DELAY_MS);  // a young request's edge is due then
+  window.setTimeout(drawRows, D.EDGE_DELAY_MS);  // a young request's edge is due then...
+  window.setTimeout(drawRows, D.EDGE_DELAY_MS + D.ACK_MS + 20);  // ...and settles then
   drawRows();
 }
 

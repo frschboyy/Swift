@@ -22,6 +22,7 @@ from swift.backend.__main__ import _on_finish
 from swift.connectors.base import ConnectorError, Contact
 from swift.connectors.fake import FakeMailConnector
 from swift.executors.claude_mapping import outcome_for
+from swift.executors.mock import MockExecutor
 from swift.failures import Failure
 from swift.logging_setup import make_patcher
 from swift.routing import route
@@ -237,7 +238,7 @@ async def test_an_exception_that_can_t_be_printed_still_gets_its_card() -> None:
             raise _Unprintable
 
     rec, spy, records = Recorder(), Broken(), []
-    session = Session(rec, spy, on_finish=records.append)
+    session = Session(rec, spy, debug_executor=MockExecutor(speed=0), on_finish=records.append)
     session._test = (rec, spy, records)  # type: ignore[attr-defined]
     await ask("write a poem about the sea", session)
     assert rec.last("error")["code"] == "internal"

@@ -1168,6 +1168,9 @@ class Session:
         it has something the owner must see, unless a confirm card is on screen (ADR-018 §4.1)."""
         run = Run(title=title)
         self._runs.append(run)
+        # A follow-up goes on from the card on screen, not from whichever request started last.
+        if self._focus is not None and self._focus.thread:
+            record["card_thread"] = self._focus.thread
         run.task = asyncio.create_task(self._interaction(run, record, capture, executor, start))
         if self._cards:
             pass  # the card on screen keeps the front; this one is a row
@@ -1542,7 +1545,8 @@ class Session:
             await self._midrun_text(text, self._run_phase, source="typed")
             return
         record: dict[str, Any] = {"source": source, "executor": getattr(self.executor, "name", "?")}
-        if thread_id is not None and (thread_id == self._last_thread or source == "click"):
+        on_card = focus.thread if focus is not None else None
+        if thread_id is not None and (thread_id in (self._last_thread, on_card) or source == "click"):
             record["continues"] = thread_id
 
         async def capture(rec: dict[str, Any]) -> str:
@@ -2551,7 +2555,7 @@ class Session:
         }
         self._record = record
         continues = record.pop("continues", None)
-        previous = continues or self._last_thread
+        previous = continues or record.pop("card_thread", None) or self._last_thread
         # Typed text continues the conversation on screen when the overlay names it (ADR-015 §10).
         continuing = record.get("source") in CONTINUES_THREAD or (record.get("source") == "typed" and continues is not None)
         self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]

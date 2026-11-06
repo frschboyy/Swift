@@ -99,3 +99,32 @@ async def test_an_answer_displaced_from_behind_stays_as_a_row_and_opens_again() 
     await session.handle(Message("focus", {"run_id": first}))
     assert runs(out)["focus"] == first and out.last("result")["run_id"] == first
     await finish_all(session, agent)
+
+
+async def test_a_follow_up_joins_the_conversation_on_the_card_not_the_one_behind() -> None:
+    session, out, _records, agent, stt = make(wake_followup_s=5.0)
+    first = await started(session, out, agent, stt, TEA)
+    await started(session, out, agent, stt, NOTES)
+    thread = session._runs[0].thread
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await until(lambda: out.last("followup")["open"] is True)
+    await say(session, stt, "and who discovered it")
+    await until(lambda: len(session._runs) >= 3)
+    await asyncio.sleep(0.1)
+    assert session._runs[-1].thread == thread
+    await finish_all(session, agent)
+
+
+async def test_a_typed_follow_up_joins_the_conversation_on_the_card_not_the_one_behind() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    await started(session, out, agent, stt, NOTES)
+    thread = session._runs[0].thread
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await asyncio.sleep(0.05)
+    await session.handle(Message("text", {"text": "and who discovered it", "thread_id": thread}))
+    await asyncio.sleep(0.1)
+    assert session._runs[-1].thread == thread
+    await finish_all(session, agent)

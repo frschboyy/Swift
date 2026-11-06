@@ -759,8 +759,11 @@ code {
 .stack-layer--2 { left: 8px; right: 8px; top: 5px; height: 64px; opacity: 0.85; }
 .stack-top { left: 0; right: 0; bottom: 0; height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 14px; box-shadow: var(--shadow); }
 .stack:hover .stack-top { border-color: var(--accent); }
-.stack--fresh .stack-top { border-color: var(--warn); box-shadow: var(--shadow), 0 0 0 4px var(--warn-halo); }
-.badge { display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; flex: none; border-radius: 14px; background: var(--warn); color: var(--on-warn); font: 700 15px/1 var(--font-text); }
+/* Amber means an OK is waiting, nothing else (ADR-018): otherwise the badge and the glow are neutral. */
+.stack--fresh .stack-top { border-color: var(--accent); box-shadow: var(--shadow), 0 0 0 4px var(--accent-soft); }
+.stack--fresh-ok .stack-top { border-color: var(--warn); box-shadow: var(--shadow), 0 0 0 4px var(--warn-halo); }
+.badge { display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; flex: none; border-radius: 14px; background: var(--raise-hover); color: var(--text); font: 700 15px/1 var(--font-text); font-variant-numeric: tabular-nums; }
+.stack--ok .badge { background: var(--warn); color: var(--on-warn); }
 .stack-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .stack-count { font-size: 15px; line-height: 20px; font-weight: 600; }
 .stack-next { font-size: 13px; line-height: 18px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -775,8 +778,12 @@ code {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: cap-in var(--dur-slow) var(--ease);
 }
+/* The layers unfold into rows, each a moment after the last. They come down from the layers on top:
+   a row moved past the list's end would make the list scroll for a moment. */
+.stack-open--unfold { animation: cap-in var(--dur-slow) var(--ease); }
+.stack-open--unfold .stack-row { animation: row-in 220ms var(--ease) both; animation-delay: calc(var(--i, 0) * 28ms); }
+@keyframes row-in { from { opacity: 0; transform: translateY(-10px); } }
 .stack-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; cursor: grab; }
 .stack-head b { font-size: 15px; font-weight: 600; }
 .stack-head span { color: var(--muted); font-size: 13px; margin-right: auto; }
@@ -786,7 +793,8 @@ code {
 .stack-row--shield > .icon { color: var(--warn-text); }
 .stack-row--question > .icon { color: var(--accent); }
 .stack-row--pause > .icon { color: var(--muted); }
-.stack-row--fresh { box-shadow: inset 3px 0 0 var(--warn); }
+.stack-row--fresh { box-shadow: inset 3px 0 0 var(--accent); }
+.stack-row--shield.stack-row--fresh { box-shadow: inset 3px 0 0 var(--warn); }
 .stack-title { font-size: 15px; line-height: 21px; font-weight: 600; overflow-wrap: anywhere; }
 .stack-reason { grid-column: 2; font-size: 13px; line-height: 18px; color: var(--muted); }
 .stack-actions { grid-column: 2; display: none; gap: 6px; margin-top: 6px; }

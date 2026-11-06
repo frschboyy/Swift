@@ -93,6 +93,8 @@ export type StackView = {
   kind: "stack";
   expanded: boolean;
   items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon> }[];
+  // The main window's middle on the screen (CSS px): a card arriving comes from that side.
+  mainX?: number;
 };
 
 /** The stack pane's view, or null when nothing waits (no window). */
@@ -107,6 +109,10 @@ export function stackView(s: Stack, now: number): StackView | null {
     })),
   };
 }
+
+/** Amber means an OK is waiting, nothing else (ADR-018 §2.6): the badge, and the glow of what just joined. */
+export const needsOk = (v: StackView): boolean => v.items.some((i) => i.icon === "shield");
+export const freshNeedsOk = (v: StackView): boolean => v.items.some((i) => i.fresh && i.icon === "shield");
 
 /** The compressed stack's one line: "3 things need you". */
 export const countLine = (n: number): string => (n === 1 ? "1 thing needs you" : `${n} things need you`);

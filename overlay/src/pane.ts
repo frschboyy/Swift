@@ -26,6 +26,7 @@ import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
 import type { ResultDetails } from "./protocol";
+import { EASE, MOVE_MS } from "./shuffle";
 import { followTheme } from "./theme";
 import * as V from "./views";
 
@@ -40,6 +41,8 @@ let lastClick = 0;
 let watching = false;
 // The open stack's row the owner last pointed at.
 let selected: string | null = null;
+// Something had just joined the stack when it was last drawn: the handoff plays once per arrival.
+let hadFresh = false;
 
 document.body.classList.add("pane-body");
 root.dataset.pane = "true";
@@ -215,6 +218,7 @@ function draw(): void {
           item: (id, item) => act("stack-item", { id, item }),
           collapse: () => act("stack-collapse"),
           selected,
+          unfold: !root.querySelector(".stack-open"),
           select: (id) => {
             selected = id;
             for (const row of root.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id));
@@ -223,6 +227,7 @@ function draw(): void {
         watchOutside();
       } else {
         root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }));
+        takeHandoff(view);
       }
       break;
     case "type":
@@ -272,12 +277,31 @@ function draw(): void {
   fit();
 }
 
+/** A card reached the stack: it comes in at the edge facing the main window, while the card leaves
+ * towards here (ADR-018 §3: a handoff between windows). Inside this window, so it's clipped at its edge. */
+function takeHandoff(v: Extract<PaneView, { kind: "stack" }>): void {
+  const fresh = v.items.some((i) => i.fresh);
+  const arriving = fresh && !hadFresh;
+  hadFresh = fresh;
+  const top = root.querySelector<HTMLElement>(".stack-top");
+  if (!arriving || !top || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const here = window.screenX + window.innerWidth / 2;
+  const toward = (v.mainX ?? here) < here ? -1 : 1;
+  top.animate([{ transform: `translateX(${toward * 24}px)`, opacity: 0.4 }, { transform: "none", opacity: 1 }], { duration: MOVE_MS, easing: EASE });
+}
+
+/** Where the stack is, so a card leaving for it goes the right way. */
+function reportPlace(): void {
+  if (view?.kind === "stack") act("stack-at", { value: String(window.screenX + window.innerWidth / 2) });
+}
+
 /** The window takes the size of what it shows: its layout size, not getBoundingClientRect, which
  * includes the opening animation's scale(0.9) and left the window 10% too small for good. */
 function fit(): void {
   const node = root.firstElementChild as HTMLElement | null;
   if (!node) return;
   void invoke("fit_pane", { label, w: node.offsetWidth, h: node.offsetHeight }).catch(() => {});
+  reportPlace();
 }
 new ResizeObserver(fit).observe(root);
 
@@ -303,6 +327,7 @@ root.addEventListener("pointerdown", async (ev) => {
   } catch {
     moved = false;
   }
+  reportPlace();
   if (moved || !click) return;
   if (click === "stack") {
     const now = Date.now();

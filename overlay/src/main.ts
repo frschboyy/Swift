@@ -128,6 +128,8 @@ let runVoiceTimer = 0;
 let heardNow: H.Heard | null = null;
 let heardTimer = 0;
 const DRAFT_LINES = 8;
+// A card that goes within this long of something joining the stack went there.
+const HANDOFF_MS = 400;
 // The confirm card the backend was last told is on screen (ADR-015 §4.2).
 let seen: string | null = null;
 // Pane windows (ADR-015 §3): what each open one shows. False once opening one failed: rows instead.
@@ -138,6 +140,9 @@ let quiet = false;
 let lastLookAt = 0;
 // The waiting stack (ADR-015 §9) and the text box (§10): null while closed.
 let stack: S.Stack = S.initialStack;
+// Where the stack's window is (its middle on the screen), and when something last joined it.
+let stackAt: number | null = null;
+let joinedStackAt = 0;
 let stackSelected: string | null = null;
 let typing: Panes.TypeView | null = null;
 let typedDraft = "";
@@ -346,8 +351,12 @@ function drawRows(): void {
 }
 
 /** The panes wanted now: the reader, the stack, the text box, the tray menu and the live views. */
-const wanted = (): Panes.PaneSpec[] =>
-  Panes.wantedPanes(reader, { stack: S.stackView(stack, Date.now()), typing, tray, live: L.openRuns(live).map(L.view) });
+const wanted = (): Panes.PaneSpec[] => {
+  const view = S.stackView(stack, Date.now());
+  return Panes.wantedPanes(reader, {
+    stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map(L.view),
+  });
+};
 
 // One change at a time, and a window nobody wants is closed even if it opened late (bug 1).
 const paneSync = new Panes.PaneSync(
@@ -419,6 +428,9 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
     case "stack-collapse":
       collapseStack();
       break;
+    case "stack-at":
+      stackAt = Number(payload.value);
+      break;
     case "stack-item":
       if (payload.id && payload.item) stackAction(payload.id, payload.item);
       break;
@@ -484,7 +496,7 @@ function drawStackInline(): void {
   stackEl.replaceChildren(
     view.expanded
       ? el("div", { "data-hit": true }, V.stackOpen(view, {
-          item: stackAction, collapse: collapseStack, selected: stackSelected,
+          item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"),
           select: (id) => { stackSelected = id; for (const row of stackEl.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id)); },
         }))
       : el("div", { "data-hit": true }, V.stackClosed(view, {
@@ -504,6 +516,8 @@ function drawStackInline(): void {
 }
 
 function onStackMessage(items: S.Stack["items"]): void {
+  const before = new Set(stack.items.map((i) => i.id));
+  if (items.some((i) => !before.has(i.id))) joinedStackAt = Date.now();
   stack = S.onStack(stack, items, Date.now());
   void syncEscape();
   void syncPanes();
@@ -784,7 +798,15 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   scheduleRegions();
 }
 
-/** The card folds back into the capsule it grew out of. */
+/** Where a card goes as it leaves: towards the stack if it has just joined it (a handoff between
+ * windows, ADR-018 §3), otherwise back into the capsule it grew out of. */
+function leavingFor(): DOMRect {
+  if (stackAt === null || Date.now() - joinedStackAt > HANDOFF_MS) return capsuleEl.getBoundingClientRect();
+  const r = card.getBoundingClientRect();
+  const toward = stackAt < window.screenX + window.innerWidth / 2 ? -1 : 1;
+  return new DOMRect(r.left + toward * 48, r.top, r.width, r.height);
+}
+
 function hideCard(): void {
   const shown = card.classList.contains("card--in");
   card.classList.remove("card--in");
@@ -798,7 +820,7 @@ function hideCard(): void {
     card.className = "card";
     scheduleRegions();
   };
-  if (shown) leaveTo(card, capsuleEl.getBoundingClientRect(), clear);
+  if (shown) leaveTo(card, leavingFor(), clear);
   else clear();
 }
 

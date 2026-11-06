@@ -5,7 +5,7 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, nextLine, type StackView } from "./stack";
+import { countLine, freshNeedsOk, needsOk, nextLine, type StackView } from "./stack";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
@@ -61,10 +61,15 @@ export function edgeTimes(list: HTMLElement, now = Date.now()): void {
 /** The closed stack: two layers behind the top one, the count and what comes next. */
 export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}): HTMLElement {
   const n = v.items.length;
+  const look = [
+    needsOk(v) ? " stack--ok" : "",
+    v.items.some((i) => i.fresh) ? " stack--fresh" : "",
+    freshNeedsOk(v) ? " stack--fresh-ok" : "",
+  ].join("");
   return el(
     "div",
     {
-      class: `stack${v.items.some((i) => i.fresh) ? " stack--fresh" : ""}`, role: "button",
+      class: `stack${look}`, role: "button",
       title: "Double-click to see what needs you", "aria-label": `${countLine(n)}. ${nextLine(v)}`, ...attrs,
     },
     n > 2 ? el("span", { class: "stack-layer stack-layer--1" }) : null,
@@ -81,16 +86,18 @@ export type StackHandlers = {
   // The row the owner last pointed at (its buttons show).
   selected?: string | null;
   select?: (id: string) => void;
+  // It has just opened: the layers unfold into its rows. Not on every redraw.
+  unfold?: boolean;
 };
 
 /** The open stack: every card, its whole title, why it waits, and Open / Skip / End. */
 export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
   const selected = h.selected && v.items.some((i) => i.id === h.selected) ? h.selected : v.items[0]?.id;
-  const row = (i: StackView["items"][number]): HTMLElement =>
+  const row = (i: StackView["items"][number], at: number): HTMLElement =>
     el(
       "li",
       {
-        class: `stack-row stack-row--${i.icon}${i.fresh ? " stack-row--fresh" : ""}`, "data-id": i.id,
+        class: `stack-row stack-row--${i.icon}${i.fresh ? " stack-row--fresh" : ""}`, "data-id": i.id, style: `--i:${at}`,
         "aria-selected": String(i.id === selected), onpointerenter: () => h.select?.(i.id),
       },
       icon(i.icon),
@@ -103,7 +110,7 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
     );
   return el(
     "section",
-    { class: "stack-open", role: "region", "aria-label": "Needs you" },
+    { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Needs you" },
     el("header", { class: "stack-head", title: "Drag to move" },
       el("b", {}, "Needs you"),
       el("span", {}, String(v.items.length)),

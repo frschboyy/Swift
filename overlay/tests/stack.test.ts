@@ -3,10 +3,28 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import type { StackEntry } from "../src/protocol.ts";
-import { afterAction, openLabel, collapse, countLine, expand, initialStack, itemIcon, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
+import { afterAction, openLabel, collapse, countLine, expand, freshNeedsOk, initialStack, itemIcon, needsOk, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
 
 const item = (id: string, kind: StackEntry["kind"] = "parked", reason = "stopped", since = 0): StackEntry =>
   ({ id, kind, title: `Title ${id}`, reason, since_ms: since, thread_id: null });
+
+test("ADR-018: amber means an OK is waiting, nothing else", () => {
+  const stopped = onStack(initialStack, [item("parked:a")], 0);
+  assert.equal(needsOk(stackView(stopped, 0)!), false);
+  assert.equal(freshNeedsOk(stackView(stopped, 0)!), false);
+  const asked = onStack(initialStack, [item("parked:b", "parked", "asked"), item("due:1", "due", "due")], 0);
+  assert.equal(needsOk(stackView(asked, 0)!), false);
+  // A card joins: the badge goes amber, and the glow while it's fresh.
+  const card = onStack(stopped, [item("parked:a"), item("card:1", "waiting", "waiting")], 0);
+  assert.equal(needsOk(stackView(card, 0)!), true);
+  assert.equal(freshNeedsOk(stackView(card, 0)!), true);
+  assert.equal(freshNeedsOk(stackView(card, FRESH_MS)!), false);
+  assert.equal(needsOk(stackView(card, FRESH_MS)!), true);
+  // Something else joins beside a card already waiting: the badge stays amber, the glow doesn't.
+  const later = onStack(card, [item("parked:a"), item("card:1", "waiting", "waiting"), item("parked:c")], FRESH_MS + 1);
+  assert.equal(needsOk(stackView(later, FRESH_MS + 1)!), true);
+  assert.equal(freshNeedsOk(stackView(later, FRESH_MS + 1)!), false);
+});
 
 test("compressed by default; a double click expands it; outside or opening a card compresses it", () => {
   let s = onStack(initialStack, [item("parked:a"), item("card:1", "waiting", "waiting")], 0);

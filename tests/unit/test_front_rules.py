@@ -231,3 +231,12 @@ async def test_a_request_stopped_by_name_says_stopped_not_ready_to_read() -> Non
     await until(lambda: runs(out)["rows"] and runs(out)["rows"][0]["state"] == "done")
     assert runs(out)["rows"][0]["summary"] == ""
     await finish_all(session, agent)
+
+
+async def test_naming_a_tie_means_the_card_on_screen() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    await say(session, stt, "stop the research one")
+    await until(lambda: agent.cancelled == [first])
+    await finish_all(session, agent)

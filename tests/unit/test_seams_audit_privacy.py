@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import io
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +19,9 @@ from loguru import logger
 from swift.backend.__main__ import _on_finish
 from swift.connectors.base import Contact
 from swift.connectors.fake import FakeMailConnector
+from swift.executors.claude_mapping import outcome_for
 from swift.logging_setup import make_patcher
-from swift.runlog import LOCAL_ONLY_FIELDS, SUMMARY_FIELDS, InteractionLog
+from swift.runlog import LOCAL_ONLY_FIELDS, SUMMARY_FIELDS, InteractionLog, unclassified
 from swift.security.gateway import Action, ActionGateway
 from swift.security.journal import Journal
 from swift.workflows.tools import ToolHost
@@ -207,13 +207,13 @@ def test_a_field_nobody_has_classified_stays_out_of_swift_log(tmp_path: Path) ->
     assert kept["a_field_added_next_year"] == "visa interview"
 
 
-def test_every_field_the_code_writes_is_classified() -> None:
-    """A new field fails here until someone decides whether swift.log may carry it."""
-    writes = re.compile(r'\brecord\["(\w+)"\]\s*(?:=|\+=|,)|\brecord\.setdefault\("(\w+)"')
-    root = Path(__file__).resolve().parents[2] / "src" / "swift"
-    source = "\n".join((root / name).read_text(encoding="utf-8") for name in ("session.py", "backend/__main__.py"))
-    written = {a or b for a, b in writes.findall(source)}
-    assert {"status", "transcript_raw", "target", "asks"} <= written, "the scan no longer finds what it should"
-    decided = SUMMARY_FIELDS | LOCAL_ONLY_FIELDS | {"escalations"}
-    assert written - decided == set()
+def test_a_field_is_decided_one_way_only() -> None:
     assert SUMMARY_FIELDS.isdisjoint(LOCAL_ONLY_FIELDS)
+    assert unclassified(["status", "transcript_raw", "escalations", "a_field_added_next_year"]) == {"a_field_added_next_year"}
+
+
+def test_a_real_run_s_result_fields_are_classified() -> None:
+    """Fakes write the records the session tests see, so conftest's check never meets these."""
+    outcome = outcome_for({"type": "result", "subtype": "success", "result": "Done."})
+    assert outcome is not None and outcome.meta
+    assert unclassified([*outcome.meta, "start_model", "models", "escalations"]) == set()

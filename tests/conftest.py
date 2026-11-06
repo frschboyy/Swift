@@ -37,3 +37,30 @@ def _frames_fit_the_contract(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     yield
     assert not problems, "frames that don't fit tests/fixtures/protocol/frames.json:\n  " + "\n  ".join(
         sorted(set(problems)))
+
+
+@pytest.fixture(autouse=True)
+def _interaction_fields_are_classified(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Every record a ``Session`` finishes in any test has only fields someone has decided on (X-03),
+    however it was written. A new one stays out of swift.log, and fails here until it's in
+    ``SUMMARY_FIELDS`` or ``LOCAL_ONLY_FIELDS``."""
+    from swift import session as session_module
+    from swift.runlog import unclassified
+
+    found: set[str] = set()
+    init = session_module.Session.__init__
+
+    def checked(self: Any, *args: Any, **kwargs: Any) -> None:
+        init(self, *args, **kwargs)
+        inner = self.on_finish
+
+        def finish(record: dict[str, Any]) -> None:
+            found.update(unclassified(record))
+            if inner is not None:
+                inner(record)
+
+        self.on_finish = finish
+
+    monkeypatch.setattr(session_module.Session, "__init__", checked)
+    yield
+    assert not found, f"interaction fields nobody has classified (swift/runlog.py): {sorted(found)}"

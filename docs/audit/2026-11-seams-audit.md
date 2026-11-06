@@ -933,14 +933,14 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 - **Evidence:**
   - `logging_setup.py:32-39` and `backend/__main__.py:76-83`: the whole interaction record is logged as `extra`, and only listed keys are redacted.
   - That is how `cd7eec8`'s three fields got through: `test_redaction` checks only the names it lists.
-  - Still open:
+  - Open when this was written:
     - `transcript_raw` (`session.py:2366`; latent);
     - a model-written `escalations[].reason` (1 real line restates the request);
     - `addressed_as` (1).
   - After `cd7eec8`, 0 lines carry the three fixed fields.
   - Test: `test_the_interaction_summary_keeps_words_out_of_swift_log`.
 - **Class:** a content-bearing field added without touching `logging_setup` (P5). X-04 and X-05 are members.
-- **Fix:** an allow-list (`SUMMARY_FIELDS`) for the `interaction finished` line, plus a test that every record key is classified, so a new field fails CI until someone decides.
+- **Fixed 2026-11-06:** an allow-list (`SUMMARY_FIELDS`) for the `interaction finished` line only. `tests/conftest.py` fails any test whose session finishes a record with an unclassified field, so a new field fails CI until someone decides. Executor result fields are checked in `test_a_real_run_s_result_fields_are_classified`. Lines already in `swift.log` are unchanged.
 - **Owner check:** "Swift, use opus: write a two-page letter about <topic>". No line in `swift.log` holds the topic.
 
 #### X-04 · Medium · confirmed (test) · B-07 still open
@@ -949,6 +949,10 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 
 #### X-05 · Low · confirmed (log) · Exception texts in `swift.log` and the journal
 - **Evidence:** `detail=str(exc)[:300]`, `google._failure` HttpError text with request URLs. 11 real values, no content.
+- **Wider, found in the X-03 review (2026-11-06):**
+  - When an open fails, `open failed` (`session.py:2828`) logs `target=target.name` and `error=str(exc)`, and `failure shown` (`session.py:4581`) logs `detail`. A selected file's name and path reach `swift.log`. Reproduced with fakes. This touches the product rule, so Low may be too low.
+  - A model's error text can reach `failure shown` through `claude_mapping.py:216-233`. Read in the code, not run through a session. Whether real CLI errors restate the request is unproven.
+  - Report check 123 reads only the `interaction finished` line, so it can't see these.
 - **Fix:** the exception type and a classified code.
 
 #### X-06 · Medium · confirmed (code) · B-10 is wider than recorded

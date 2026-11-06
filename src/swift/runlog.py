@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import threading
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -43,8 +44,8 @@ FIELD_ORDER = (
 # the local interaction log only, so a new field can't reach swift.log until someone decides it may.
 SUMMARY_FIELDS: frozenset[str] = frozenset({
     "action", "answered_later", "artifacts", "asked", "asks", "audio_s", "back", "carried", "clip_flags",
-    "confirmed", "context", "continues", "cost_usd", "demand", "denied", "desktop", "dialogue",
-    "duration_ms", "ended", "endpoint_waits", "error", "executor", "exit_code", "first_audio_ms", "fix",
+    "confirmed", "context", "cost_usd", "demand", "denied", "desktop", "dialogue",
+    "duration_ms", "ended", "endpoint_waits", "error", "executor", "first_audio_ms", "fix",
     "follows_local", "fragment", "heard_back_ms", "improve", "intents", "interaction_ms", "live", "midrun",
     "models", "moved_on", "noise_db", "offer", "offered", "offered_resume", "override", "parked", "paused",
     "peak_db", "preroll_ms", "provider", "queued", "queued_behind", "reason", "redirected", "redirects",
@@ -52,12 +53,17 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
     "source", "spoken_chars", "start_model", "status", "stopped_by", "stt_confidence", "stt_ms",
     "thread", "turns", "undo", "views", "workflow",
 })
-# Fields that stay out on purpose: words, or a name or path the owner's words can put there.
+# Fields that stay out on purpose: words, or the name or path of something of the owner's.
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
     "addressed_as", "approvals", "asked_unanswered", "audio_file", "id", "steps", "target", "transcript",
     "transcript_heard", "transcript_raw", "ts", "unclear",
 })
 _ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request
+
+
+def unclassified(fields: Iterable[str]) -> set[str]:
+    """Fields nobody has decided on: safe (they stay out of swift.log), but the tests refuse them."""
+    return set(fields) - SUMMARY_FIELDS - LOCAL_ONLY_FIELDS - {"escalations"}
 
 
 def summary(record: dict[str, Any]) -> dict[str, Any]:

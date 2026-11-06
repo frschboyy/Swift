@@ -151,7 +151,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - **f. Speech:** add the per-sentence check (W-03) before any more tuning, then make word-fix proposals safe (W-01, W-02, seams audit §7.4 step 1). Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
 - **g. Review item 9: one versioned screen snapshot,** derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.
-- **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). Not started. Step 1 is overlay only, and the owner approved it going before g, a deliberate departure from the review's order. Its timing relative to c and d isn't set yet. Step 2 needs g.
+- **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). Not started. Step 1 is overlay only, and the owner approved it going before g, a deliberate departure from the review's order. **The owner's timing: build it after the short checks (c) and before the two weeks of daily use (d),** so the checks test the reliability fixes alone and daily use happens on the screen that stays. Step 2 needs g.
 - **i. After g:** the timer widget and the Deck's Step 2. **Last:** the owner-checks rewrite, as a fresh baseline.
 
 **3. Groundwork.** Not started. No behaviour change the owner should notice:

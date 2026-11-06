@@ -46,6 +46,7 @@ Rules:
 | Other requests can no longer be dragged on their own. OK? | Yes. They move with the main card, and Watch still opens a free-floating live view |
 | Can Step 1 go before review item 9? | Yes. This departs from the reliability review's order (§7) on purpose: Step 1 only changes how existing rows are drawn, and everything that needs item 9 stays in Step 2 |
 | How does a card reach the corner? | A handoff between windows now, with a spike on one large window after Step 1 is on the owner's screen |
+| When is Step 1 built? | After the short real-PC checks and before the two weeks of daily use (handoff §4, between c and d) |
 
 ## 4. Step 1: the Deck, overlay only
 

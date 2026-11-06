@@ -1,6 +1,6 @@
 # ADR-018: The Deck: how requests share the screen
 
-- **Status:** Direction accepted by the owner (2026-11-06). Nothing is built yet.
+- **Status:** Direction accepted by the owner (2026-11-06). Step 1 is built on a branch (2026-11-07), not merged and not yet run on the real PC. Rule 1 holds only in part: see §4.1.
 - **Decided by:** Owner
 - **Date:** 2026-11-06
 - **Amends:** ADR-015 §3 (request windows go, and the main window draws other requests), ADR-015 §11 bug 4 (the "Got it" pill goes), ADR-013 §11 and `FINISHED_ROW_S` (in Step 2), ADR-017 §2.1 (what the capsule shows while a card is open)
@@ -46,7 +46,7 @@ Rules:
 | Other requests can no longer be dragged on their own. OK? | Yes. They move with the main card, and Watch still opens a free-floating live view |
 | Can Step 1 go before review item 9? | Yes. This departs from the reliability review's order (§7) on purpose: Step 1 only changes how existing rows are drawn, and everything that needs item 9 stays in Step 2 |
 | How does a card reach the corner? | A handoff between windows now, with a spike on one large window after Step 1 is on the owner's screen |
-| When is Step 1 built? | After the short real-PC checks and before the two weeks of daily use (handoff §4, between c and d) |
+| When is Step 1 built? | After the short real-PC checks and before the two weeks of daily use (handoff §4, between c and d). **Changed by the owner on 2026-11-07:** built before the short checks, which they weren't in a position to run. So those checks now test the reliability fixes and Step 1 together |
 
 ## 4. Step 1: the Deck, overlay only
 
@@ -79,6 +79,19 @@ One commit each, in this order:
 - The final line count. This is a structural step, so it should remove more than it adds. If it doesn't, say so to the owner before keeping it.
 
 **Not proven until the owner runs it:** how the edges feel on the real screen and whether WebView2 animates them smoothly. The prototype simulated the windows in one page.
+
+### 4.1 What building Step 1 found (2026-11-07)
+
+**Rule 1 and the backend disagree.** The prototype has a second request land behind a card that doesn't move. The real backend, under ADR-013 §3.1, gives the front to a request said beside a working card at its first `state` or `step` (`_launch`'s `_next_focus`, `TAKES_FRONT`), usually within milliseconds. So today:
+
+- **Over a working card:** the new request takes the card, and the one that was there moves behind. Rule 1 doesn't hold here, and this is the owner's own example from §1.
+- **Over a confirm card, or for a request waiting for a slot:** it lands behind, as designed.
+
+Step 1 is overlay only, so it leaves this as it is. `test_deck_requests_keep_their_places_as_they_come_and_go` pins the behaviour. Making Rule 1 hold means changing what takes the front in the backend. That also changes which request "stop" and a voice answer reach, which is more than how rows are drawn, so it's the owner's call and needs its own review.
+
+**A row's id changes** from `req-…` to the provider's id when its run starts. `deck.ts` treats a new id with the same `started_ms` as the same request.
+
+**Line count.** Step 1 adds more than it removes: overlay source and Rust +680, −322, a net +358, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
 
 ## 5. Step 2: hold, in-line and ready rules (needs review item 9)
 

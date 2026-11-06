@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from swift.logging_setup import redact
+
 Severity = Literal["error", "info"]
 
 DETAIL_MAX = 240
@@ -152,6 +154,15 @@ def clean_detail(text: str) -> str | None:
     return text if len(text) <= DETAIL_MAX else text[: DETAIL_MAX - 1].rstrip() + "…"
 
 
+def failure_text(exc: BaseException) -> str | None:
+    """An exception in its own words for the local interaction log: secrets masked, never raising."""
+    try:
+        text = str(exc)
+    except Exception:  # noqa: BLE001 - a failure being reported must not fail again
+        text = ""
+    return clean_detail(redact(f"{type(exc).__name__}: {text}"))
+
+
 DEFAULT_HINT = "Try again. If it keeps happening, open the logs from Swift's tray menu."
 
 
@@ -180,4 +191,4 @@ def classify(text: str, name: str, *, fallback_hint: str = DEFAULT_HINT, signin_
     )
 
 
-__all__ = ["Failure", "Severity", "classify", "clean_detail"]
+__all__ = ["Failure", "Severity", "classify", "clean_detail", "failure_text"]

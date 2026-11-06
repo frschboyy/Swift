@@ -63,6 +63,7 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 | Finding | Problem | Evidence |
 |---|---|---|
 | X-04 | A denied email address is written to `swift.log` | expected-failure test |
+| X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
 | X-17 | Edit and Write approval cards show only 60–70 characters of the change | `executors/claude_mapping.py:154` |
 | X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
 | X-01 | A single contact match isn't checked against the whole name said | expected-failure test |

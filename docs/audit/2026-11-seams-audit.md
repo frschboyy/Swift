@@ -409,6 +409,7 @@ IDs by area:
 | R-10 | Low | suspected | workflows | efficiency | Calendar workflows on Haiku take 3–6 turns; time to first card is about 15 s |
 | R-11 | Low | suspected; **fixed 2026-11-05 (S4)** | backend | fallback | An expired login reported as "couldn't confirm model" isn't treated as a sign-in |
 | X-05 | Low | confirmed (log); **fixed 2026-11-06, except the lines listed in its entry** | backend | security, diagnosability | Exception and connector texts go into `swift.log` and the journal (none with content yet) |
+| X-18 | Medium | confirmed (X-05 review) | gateway | security | A selected file's name goes into the journal as a receipt |
 | X-12 | Low | confirmed (code); **fixed 2026-11-05 (S4)** | executor | efficiency | Waiting for the spare CLI is outside every timeout |
 | X-13 | Low | confirmed (code) | executor | diagnosability | A cancelled or killed run reports no cost |
 | X-14 | Low | confirmed (code) | backend | effectiveness, fallback | Sign-in hints disagree with the card; no card while away or for "absent" |
@@ -953,9 +954,17 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
   - When an open fails, `open failed` (`session.py:2828`) logs `target=target.name` and `error=str(exc)`, and `failure shown` (`session.py:4581`) logs `detail`. A selected file's name and path reach `swift.log`. Reproduced with fakes. This touches the product rule, so Low may be too low.
   - A model's error text can reach `failure shown` through `claude_mapping.py:216-233`. Read in the code, not run through a session. Whether real CLI errors restate the request is unproven.
   - Report check 123 gave PASS on both lines.
-- **Fixed 2026-11-06:** `open failed`, `failure shown`, `claude run failed` and `action failed` log a type or a code, and the journal's FAILED and UNKNOWN reasons are codes. A traceback keeps frames and types, never a message. The text still reaches the card, the agent and `error_detail` in the local interaction log. Report check 123 fails on the old forms.
-- **Not changed, each with no known route for the owner's words (read in the code, not proven):** `error=str(exc)` on Swift's own files (`parked`, `scheduler`, `runlog`, `journal`) and on the microphone and presence; `speech failed` and `wake listening can't transcribe`; `detail=` on `claude warm-up failed` (before any request) and on `speech model failed to load`; `workflow skipped` (`folder`, `problem`: the owner's own workflow folder); `skipping a demand example`.
-- **Lost for diagnosis:** a traceback in `swift.log` no longer says what the exception said. `interaction failed` and shown failures keep it in `error_detail`; other `logger.exception` lines keep the frame and type only.
+- **Fixed 2026-11-06:** `open failed`, `failure shown`, `claude run failed` and `action failed` log a type or a code, and the journal's FAILED and UNKNOWN reasons are codes. A traceback keeps frames and types, never a message. A failed request keeps its text, secrets masked, in `error_detail` in the local interaction log. Report check 123 fails on all four old forms.
+- **Not changed, each with no known route for what the owner said (read in the code; `speech failed` also probed with a muted voice):** `error=str(exc)` on Swift's own files (`parked`, `scheduler`, `runlog`, `journal`) and on the microphone and presence; `heard signal failed`; `overlay frame refused`; `speech unavailable`; `speech failed` and `wake listening can't transcribe`; `detail=` on `claude warm-up failed` (before any request) and on `speech model failed to load`; `skipping a demand example`.
+- **Still logs text the owner wrote:** `workflow skipped` (`library.py:553`). A YAML error can quote a line of a workflow file, and `folder` has the full path (reproduced). It isn't speech, and it only happens at start-up, so it's left as it is.
+- **Lost for diagnosis:**
+  - A failed connector action's text goes to the card and the agent, and is stored nowhere on disk: the gateway has no record to put it in. The journal and `swift.log` keep only the code.
+  - Other `logger.exception` lines keep the frame and type only.
+- **Not checked:** the backend's stderr, which Tauri inherits (`backend.rs:171`). An error logged by Python's own logging, such as an unretrieved task exception, would still print its message there. Whether that output is kept anywhere is unproven.
+
+#### X-18 · Medium · confirmed (reproduced in the X-05 review; no test in the repo yet) · A selected file's name goes into the journal as a receipt
+- **Evidence:** `desktop_open` returns `Path(path).name` as its receipt (`workflows/desktop_tools.py:227`), and the gateway journals it as `DONE` (`security/gateway.py:218`). On a selected `visa interview notes.docx`, the journal says so. Other receipts are ids, counts or intent names.
+- **Fix:** return a receipt with no name. Check what undo reads first.
 
 #### X-06 · Medium · confirmed (code) · B-10 is wider than recorded
 - **Evidence:** the working-card step "Claude is busy, retrying…" (`claude_mapping.py:61`), "Claude Code stopped…", "Claude asked for a stronger model", and the error title "Claude Code isn't signed in".

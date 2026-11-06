@@ -95,6 +95,8 @@ def _traceback(exc: BaseException) -> str:
         seen.add(id(current))
         frames = "".join(traceback.format_tb(current.__traceback__))
         parts.append(f"Traceback (most recent call last):\n{frames}{type(current).__name__}")
+        if isinstance(current, BaseExceptionGroup):
+            parts.extend(_traceback(sub) for sub in current.exceptions)
         current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
     return "\n\nThen:\n".join(reversed(parts))
 

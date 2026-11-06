@@ -71,7 +71,7 @@ from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.executors.web_scope import WebScope, result_text
-from swift.failures import classify, clean_detail
+from swift.failures import classify, clean_detail, failure_text
 from swift.workflows.tools import ToolHost, ToolSpec
 
 _DONE = object()
@@ -807,6 +807,8 @@ class ClaudeCodeExecutor:
     @staticmethod
     def _final(run: _Run, outcome: Outcome | None, error: Exception | None) -> ExecResult:
         meta = dict(outcome.meta) if outcome else {}
+        if error is not None:  # whichever way the run ends below, its text reaches the local log
+            meta["error_detail"] = failure_text(error)
         if run.models:
             meta |= {"start_model": run.models[0], "models": list(run.models)}
         if run.escalations:

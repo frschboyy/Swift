@@ -16,12 +16,13 @@ from typing import Any
 
 import pytest
 from loguru import logger
-from test_routing import Recorder, SpyExecutor
+from test_routing import Recorder, SpyExecutor, ask
 
 from swift.backend.__main__ import _on_finish
 from swift.connectors.base import ConnectorError, Contact
 from swift.connectors.fake import FakeMailConnector
 from swift.executors.claude_mapping import outcome_for
+from swift.failures import Failure
 from swift.logging_setup import make_patcher
 from swift.routing import route
 from swift.routing.local import OpenTarget
@@ -216,6 +217,31 @@ async def test_a_model_s_error_text_stays_out_of_swift_log() -> None:
     out = sink.getvalue()
     assert "visa interview" not in out and outcome.failure.code in out, out
     assert "visa interview" in record["error_detail"]
+
+
+async def test_a_failure_s_text_is_masked_in_the_local_log_too() -> None:
+    record: dict[str, Any] = {"source": "voice"}
+    await Session(Recorder(), SpyExecutor())._send_failure(
+        Failure("rate_limited", "t", "m", "h", detail="rate limit about tea, Authorization: Bearer abcdef123456"), record)
+    assert "about tea" in record["error_detail"] and "abcdef123456" not in record["error_detail"]
+
+
+class _Unprintable(Exception):
+    def __str__(self) -> str:
+        raise RuntimeError("str failed")
+
+
+async def test_an_exception_that_can_t_be_printed_still_gets_its_card() -> None:
+    class Broken(SpyExecutor):
+        async def start(self, *_a: Any, **_k: Any) -> str:
+            raise _Unprintable
+
+    rec, spy, records = Recorder(), Broken(), []
+    session = Session(rec, spy, on_finish=records.append)
+    session._test = (rec, spy, records)  # type: ignore[attr-defined]
+    await ask("write a poem about the sea", session)
+    assert rec.last("error")["code"] == "internal"
+    assert records[0]["status"] == "error" and records[0]["error_detail"].startswith("_Unprintable")
 
 
 @pytest.mark.parametrize(("failure", "code"), [

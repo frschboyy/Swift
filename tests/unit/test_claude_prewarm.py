@@ -101,6 +101,25 @@ async def test_a_failed_run_s_text_stays_out_of_swift_log(tmp_path: Path) -> Non
     assert result.status == "error" and "visa interview" in str(result.failure.detail)  # type: ignore[union-attr]
 
 
+async def test_a_failure_after_the_answer_keeps_its_text_for_the_local_log(tmp_path: Path) -> None:
+    class FailsLate(FakeClient):
+        async def receive_response(self):
+            for message in sdk_messages("claude_read_only.jsonl"):
+                yield message
+            raise ValueError(TEXT)
+
+    TEXT = "exit code 1, about the visa interview, Authorization: Bearer abcdef123456"
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=FailsLate)
+    run_id = await ex.start("write a letter")
+    async for _ in ex.events(run_id):
+        pass
+    result = await ex.result(run_id)
+    await ex.close()
+    assert result.status == "done"  # the owner has the answer: no error card
+    assert "ValueError" in result.meta["error_detail"] and "visa interview" in result.meta["error_detail"]
+    assert "abcdef123456" not in result.meta["error_detail"]
+
+
 async def test_request_goes_to_the_spare_and_a_new_one_is_connected(tmp_path: Path) -> None:
     ex = make(tmp_path)
     ex.prepare()

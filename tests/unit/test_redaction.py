@@ -172,6 +172,24 @@ def test_an_exception_s_message_stays_out_of_a_traceback(logs: AppPaths) -> None
     assert "opens_the_file" in log and "OSError" in log and "RuntimeError" in log and "interaction failed" in log
 
 
+def test_a_group_of_exceptions_names_each_one_without_its_message(logs: AppPaths) -> None:
+    words = "the visa interview"
+
+    def fails() -> None:
+        raise ValueError(words)
+
+    try:
+        try:
+            fails()
+        except ValueError as inner:
+            raise ExceptionGroup(words, [inner, KeyError(words)]) from None
+    except ExceptionGroup:
+        logger.exception("run failed")
+    log = _read_log(logs)
+    assert "visa interview" not in log
+    assert "ExceptionGroup" in log and "ValueError" in log and "KeyError" in log and "fails" in log
+
+
 def test_log_content_only_at_debug(paths: AppPaths) -> None:
     setup_logging(paths, "DEBUG", log_content=True)
     try:

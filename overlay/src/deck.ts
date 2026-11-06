@@ -3,6 +3,9 @@
 // The backend's ``runs`` rows go to a stable order and to each edge's depth, inset and offset. New
 // requests go on the far end, so nothing already on screen moves because of them. A request that
 // leaves the front takes the slot of the one that came forward: a swap, the smallest move there is.
+//
+// A request's id changes when its run starts ("req-…" to the provider's id). It's the same request: it
+// keeps its place, its element (``key``) and what it was saying, so it never lands twice.
 
 import type { Row } from "./presenter";
 
@@ -29,36 +32,61 @@ export type Deck = {
   known: ReadonlySet<string>;
   // Requests saying "Got it", and until when.
   landing: ReadonlyMap<string, number>;
+  // When each row started, which doesn't change with its id, and the key its element is drawn under.
+  started: ReadonlyMap<string, number>;
+  keys: ReadonlyMap<string, string>;
 };
 
-export const initialDeck: Deck = { order: [], front: null, known: new Set(), landing: new Map() };
+export const initialDeck: Deck = { order: [], front: null, known: new Set(), landing: new Map(), started: new Map(), keys: new Map() };
+
+/** The key a request's element is drawn under. */
+export const keyOf = (d: Deck, runId: string | null): string | null => (runId === null ? null : d.keys.get(runId) ?? runId);
 
 /** The ``runs`` message (``rows`` without the one in front). ``onCard``: the request on the card until
  * now. A request alone gets no ``runs``, so the first one can be what tells it's no longer in front. */
 export function onRows(d: Deck, focus: string | null, rows: Row[], now: number, onCard: string | null = null): Deck {
   const here = new Set(rows.map((r) => r.runId));
-  const order = d.order.filter((id) => here.has(id));
+  // The same request under its new id, where the old one has gone and it started at the same moment.
+  const gone = d.order.filter((id) => !here.has(id));
+  const renamed = new Map<string, string>();
+  for (const r of rows) {
+    if (d.known.has(r.runId) || r.runId === onCard) continue;
+    const was = gone.find((id) => d.started.get(id) === r.startedMs && !renamed.has(id));
+    if (was !== undefined) renamed.set(was, r.runId);
+  }
+  const named = (id: string): string => renamed.get(id) ?? id;
+  const before = d.order.map(named);
+  const order = before.filter((id) => here.has(id));
   const front = d.front ?? onCard;
+  // What came forward left the slot: the old front takes it. Its id may have changed on the way.
+  const left = focus !== null && before.includes(focus) ? before.indexOf(focus) : before.findIndex((id) => !here.has(id));
   if (front !== focus && front !== null && here.has(front) && !order.includes(front)) {
-    const left = focus === null ? -1 : d.order.indexOf(focus);
-    const slot = left < 0 ? 0 : d.order.slice(0, left).filter((id) => here.has(id)).length;
+    const slot = left < 0 ? 0 : before.slice(0, left).filter((id) => here.has(id)).length;
     order.splice(slot, 0, front);
   }
-  const landing = new Map([...d.landing].filter(([id, until]) => here.has(id) && until > now));
+  const keys = new Map(d.keys);
+  for (const [was, id] of renamed) keys.set(id, keys.get(was) ?? was);
+  // A row gone with nothing new under it, and the front new: that row is what came forward.
+  const cameForward = focus !== null && !d.known.has(focus) && before[left] !== undefined && !here.has(before[left]) ? before[left] : null;
+  if (cameForward !== null) keys.set(focus!, keys.get(cameForward) ?? cameForward);
+  const landing = new Map([...d.landing].map(([id, until]): [string, number] => [named(id), until]).filter(([id, until]) => here.has(id) && until > now));
   for (const r of rows) {
     if (order.includes(r.runId)) continue;
     order.push(r.runId);
     if (!d.known.has(r.runId) && r.runId !== front && !ENDED.has(r.state)) landing.set(r.runId, Math.max(r.startedMs + EDGE_DELAY_MS, now) + ACK_MS);
   }
   const known = new Set(d.known);
+  const started = new Map(rows.map((r): [string, number] => [r.runId, r.startedMs]));
   for (const r of rows) known.add(r.runId);
   if (focus !== null) known.add(focus);
   if (front !== null) known.add(front);
-  return { order, front: focus, known, landing };
+  return { order, front: focus, known, landing, started, keys };
 }
 
 export type Edge = {
   row: Row;
+  // What its element is drawn under, whatever its id is now.
+  key: string;
   // 0 nearest the card; the first two steps also dim.
   depth: number;
   // From each side of the card, and from the card's edge to where this edge starts (CSS px).
@@ -90,7 +118,7 @@ export function deckView(d: Deck, rows: Row[], now: number, folded = false): Dec
   let offset = 0;
   const edges = drawn.map((row, depth): Edge => {
     const edge = {
-      row, depth, inset: INSET_STEP * (depth + 1), offset, peek: PEEKS[depth],
+      row, key: keyOf(d, row.runId)!, depth, inset: INSET_STEP * (depth + 1), offset, peek: PEEKS[depth],
       // Its news comes first: an OK waiting or an answer ready never hides behind "Got it".
       landing: (d.landing.get(row.runId) ?? 0) > now && !ENDED.has(row.state) && row.state !== "confirm",
       more: depth === drawn.length - 1 ? shown.length - drawn.length : 0,

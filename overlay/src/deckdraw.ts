@@ -29,7 +29,7 @@ export class DeckDraw {
   private readonly nodes = new Map<string, HTMLElement>();
   private readonly host: DeckHost;
   // The edge that came forward, for its card to grow out of.
-  private forward: { id: string; box: Box; at: number } | null = null;
+  private forward: { key: string; box: Box; at: number } | null = null;
   // The card in front that is going behind: its edge starts on the card.
   private leaving: { id: string; box: Box } | null = null;
 
@@ -42,17 +42,17 @@ export class DeckDraw {
     this.leaving = { id, box };
   }
 
-  /** Where the card for ``id`` comes from, if it was an edge just now. */
-  takeForward(id: string | null, now: number): Box | null {
+  /** Where the card for ``key`` comes from, if it was an edge just now. */
+  takeForward(key: string | null, now: number): Box | null {
     const f = this.forward;
-    if (!f || f.id !== id) return null;
+    if (!f || f.key !== key) return null;
     this.forward = null;
     return now - f.at <= FORWARD_MS ? f.box : null;
   }
 
-  /** ``front``: the request in front now. */
+  /** ``front``: the key of the request in front now. */
   draw(view: DeckView, front: string | null): void {
-    const wanted = new Set(view.fold ? [FOLD] : view.edges.map((e) => e.row.runId));
+    const wanted = new Set(view.fold ? [FOLD] : view.edges.map((e) => e.key));
     const arriving: { node: HTMLElement; edge: Edge }[] = [];
     const moved: { node: HTMLElement; box: Box; at: string }[] = [];
     for (const [id, node] of this.nodes) {
@@ -63,7 +63,7 @@ export class DeckDraw {
       this.nodes.delete(id);
       if (id === front) {
         // One body: this edge is the card now.
-        this.forward = { id, box: node.getBoundingClientRect(), at: Date.now() };
+        this.forward = { key: id, box: node.getBoundingClientRect(), at: Date.now() };
         node.remove();
       } else {
         node.removeAttribute("data-hit");
@@ -74,6 +74,7 @@ export class DeckDraw {
     if (view.fold) {
       const words = foldLine(view.fold);
       const node = this.nodes.get(FOLD) ?? this.create(FOLD, () => this.host.unfold());
+      node.dataset.run = FOLD;
       this.place(node, 0, 10, 0, view.height);
       node.classList.toggle("edge--confirm", view.fold.needOk > 0);
       node.title = "Close the answer to see them";
@@ -81,9 +82,8 @@ export class DeckDraw {
       this.fill(node, words, () => [el("span", { class: "edge-mark" }, icon("expand")), el("span", { class: "edge-title" }, words)]);
     }
     for (const edge of view.edges) {
-      const id = edge.row.runId;
-      const known = this.nodes.get(id);
-      const node = known ?? this.create(id, () => this.host.focus(id));
+      const known = this.nodes.get(edge.key);
+      const node = known ?? this.create(edge.key, (el) => this.host.focus(el.dataset.run ?? edge.row.runId));
       this.drawEdge(node, edge);
       if (!known) arriving.push({ node, edge });
     }
@@ -101,9 +101,10 @@ export class DeckDraw {
     this.leaving = null;
   }
 
-  private create(id: string, click: () => void): HTMLElement {
-    const node = el("li", { class: "edge", "data-hit": true, "data-run": id, role: "button", tabindex: "0", onclick: click });
-    this.nodes.set(id, node);
+  /** ``click`` reads the request's id off the element: it can change while the edge stays. */
+  private create(key: string, click: (node: HTMLElement) => void): HTMLElement {
+    const node: HTMLElement = el("li", { class: "edge", "data-hit": true, role: "button", tabindex: "0", onclick: () => click(node) });
+    this.nodes.set(key, node);
     this.host.list.append(node);
     return node;
   }
@@ -130,6 +131,7 @@ export class DeckDraw {
       running: !ENDED.has(r.state), state: r.state, more: edge.more, saying: edge.landing,
     };
     this.place(node, edge.depth, edge.inset, edge.offset, edge.peek);
+    node.dataset.run = r.runId;
     node.className = `edge edge--${edge.landing ? "ack" : r.state}`;
     node.title = `${v.words}\nClick to bring it forward`;
     node.setAttribute("aria-label", edge.landing ? `Got it: ${v.words}` : `${v.title}: ${v.label}`);

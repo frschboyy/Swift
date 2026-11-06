@@ -346,7 +346,7 @@ function drawRows(): void {
   const view = D.deckView(deck, pres.rows, Date.now(), expanded);
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
-  deckDraw.draw(view, pres.focus);
+  deckDraw.draw(view, D.keyOf(deck, pres.focus));
   scheduleRegions();
 }
 
@@ -790,7 +790,7 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   card.replaceChildren(node, el("span", { class: "timebar", "aria-hidden": "true" }));
   for (const anim of card.getAnimations()) anim.cancel();  // on its way back into the capsule
   // It was an edge just now: one body, so the card grows out of it.
-  const from = deckDraw.takeForward(pres.card.runId, Date.now());
+  const from = deckDraw.takeForward(D.keyOf(deck, pres.card.runId), Date.now());
   if (from) moveFrom(card, from);
   drawCapsule();
   // Scrolling a card that didn't fit holds it, like scrolling a long answer.

@@ -2,7 +2,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { ACK_MS, deckView, EDGE_DELAY_MS, foldLine, initialDeck, INSET_STEP, MAX_EDGES, onRows, PEEKS, type Deck } from "../src/deck.ts";
+import { ACK_MS, deckView, EDGE_DELAY_MS, foldLine, initialDeck, INSET_STEP, keyOf, MAX_EDGES, onRows, PEEKS, type Deck } from "../src/deck.ts";
 import type { Row } from "../src/presenter.ts";
 
 const row = (runId: string, state = "working", startedMs = 0): Row => ({
@@ -46,6 +46,36 @@ test("the first runs can be what says the one on the card went behind: it doesn'
   assert.deepEqual(d.order, ["a"]);
   assert.equal(deckView(d, rows, NOW).edges[0].landing, false);
   assert.ok(d.known.has("a") && d.known.has("b"));
+});
+
+test("a request's id changes when its run starts: the same place, the same element, and it lands once", () => {
+  const rows = [row("b", "working", 1000), row("req-x", "working", NOW - 2000), row("d", "working", 3000)];
+  const d = go(go(initialDeck, "a", [], NOW - 5000), "a", rows, NOW - 1000);
+  assert.equal(deckView(d, rows, NOW).edges[1].landing, true);
+  const started = [row("b", "working", 1000), row("a-2", "working", NOW - 2000), row("d", "working", 3000)];
+  const next = go(d, "a", started);
+  assert.deepEqual(next.order, ["b", "a-2", "d"]);
+  const edge = deckView(next, started, NOW).edges[1];
+  assert.equal(edge.key, "req-x");
+  assert.equal(edge.landing, true);  // still saying it, not starting again
+  assert.equal(deckView(next, started, NOW + ACK_MS).edges[1].landing, false);
+});
+
+test("a request that goes as another comes isn't a rename unless it started at the same moment", () => {
+  const d = go(initialDeck, "a", [row("b", "result", 1000)]);
+  const next = go(d, "a", [row("c", "working", 2000)]);
+  assert.deepEqual(next.order, ["c"]);
+  assert.equal(keyOf(next, "c"), "c");
+});
+
+test("the backend's usual way: a young row comes forward under its new id, and the old front takes its slot", () => {
+  const before = [row("a-1", "working", 1000), row("req-x", "working", NOW)];
+  const d = go(go(initialDeck, "a-2", [row("a-1", "working", 1000)]), "a-2", before);
+  const after = [row("a-1", "working", 1000), row("a-2", "working", 2000)];
+  const next = go(d, "a-3", after);
+  assert.deepEqual(next.order, ["a-1", "a-2"]);
+  assert.equal(keyOf(next, "a-3"), "req-x");
+  assert.equal(deckView(next, after, NOW + EDGE_DELAY_MS).edges[1].landing, false);
 });
 
 test("each edge is narrower than the last and they stack by their peeks", () => {

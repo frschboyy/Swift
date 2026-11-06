@@ -190,6 +190,33 @@ def test_a_group_of_exceptions_names_each_one_without_its_message(logs: AppPaths
     assert "ExceptionGroup" in log and "ValueError" in log and "KeyError" in log and "fails" in log
 
 
+def test_a_member_re_raised_from_its_group_still_logs(logs: AppPaths) -> None:
+    """The usual way to unwrap a group: the member's context is the group that contains it."""
+    words = "the visa interview"
+    try:
+        try:
+            raise ExceptionGroup(words, [ValueError(words)])
+        except ExceptionGroup as group:
+            raise group.exceptions[0]  # noqa: B904
+    except ValueError:
+        logger.exception("run failed")
+    log = _read_log(logs)
+    assert "run failed" in log and "ValueError" in log and "ExceptionGroup" in log and "visa interview" not in log
+
+
+def test_a_traceback_that_can_t_be_formatted_still_logs(logs: AppPaths, monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*_a: object, **_k: object) -> str:
+        raise RecursionError
+
+    monkeypatch.setattr("swift.logging_setup._traceback", broken)
+    try:
+        raise ValueError("the visa interview")  # noqa: TRY301
+    except ValueError:
+        logger.exception("run failed")
+    log = _read_log(logs)
+    assert "run failed" in log and "ValueError" in log
+
+
 def test_log_content_only_at_debug(paths: AppPaths) -> None:
     setup_logging(paths, "DEBUG", log_content=True)
     try:

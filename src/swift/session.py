@@ -159,8 +159,8 @@ from swift.executors.mock import MockExecutor
 from swift.executors.providers import Providers, Started, provider_of
 from swift.executors.quick import QuickModel
 from swift.failures import Failure, Severity, classify, failure_text
-from swift.logging_setup import redact
 from swift.ipc.protocol import Message, now_ms, outbound
+from swift.logging_setup import redact
 from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads
 from swift.routing import Route, fast
 from swift.routing import route as default_router

@@ -147,20 +147,24 @@ _COMPILED = tuple((code, re.compile(pattern, re.I), *rest) for code, pattern, *r
 
 
 def clean_detail(text: str) -> str | None:
-    """The raw failure text, one line and short enough for a card."""
-    text = " ".join(text.split())
+    """The raw failure text, one line and short enough for a card, secrets masked before it's clipped."""
+    text = redact(" ".join(text.split()))
     if not text:
         return None
     return text if len(text) <= DETAIL_MAX else text[: DETAIL_MAX - 1].rstrip() + "…"
 
 
-def failure_text(exc: BaseException) -> str | None:
-    """An exception in its own words for the local interaction log: secrets masked, never raising."""
+def exception_words(exc: BaseException) -> str:
+    """``str(exc)``, or nothing when the exception can't say: a failure being reported must not fail again."""
     try:
-        text = str(exc)
-    except Exception:  # noqa: BLE001 - a failure being reported must not fail again
-        text = ""
-    return clean_detail(redact(f"{type(exc).__name__}: {text}"))
+        return str(exc)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def failure_text(exc: BaseException) -> str:
+    """An exception in its own words for the local interaction log: its type, then its text, secrets masked."""
+    return clean_detail(f"{type(exc).__name__}: {exception_words(exc)}") or type(exc).__name__
 
 
 DEFAULT_HINT = "Try again. If it keeps happening, open the logs from Swift's tray menu."
@@ -191,4 +195,4 @@ def classify(text: str, name: str, *, fallback_hint: str = DEFAULT_HINT, signin_
     )
 
 
-__all__ = ["Failure", "Severity", "classify", "clean_detail", "failure_text"]
+__all__ = ["Failure", "Severity", "classify", "clean_detail", "exception_words", "failure_text"]

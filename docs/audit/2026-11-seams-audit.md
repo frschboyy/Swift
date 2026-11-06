@@ -954,12 +954,15 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
   - When an open fails, `open failed` (`session.py:2828`) logs `target=target.name` and `error=str(exc)`, and `failure shown` (`session.py:4581`) logs `detail`. A selected file's name and path reach `swift.log`. Reproduced with fakes. This touches the product rule, so Low may be too low.
   - A model's error text can reach `failure shown` through `claude_mapping.py:216-233`. Read in the code, not run through a session. Whether real CLI errors restate the request is unproven.
   - Report check 123 gave PASS on both lines.
-- **Fixed 2026-11-06:** `open failed`, `failure shown`, `claude run failed` and `action failed` log a type or a code, and the journal's FAILED and UNKNOWN reasons are codes. A traceback keeps frames and types, never a message. A failed request keeps its text, secrets masked, in `error_detail` in the local interaction log. Report check 123 fails on all four old forms.
+- **Fixed 2026-11-06:** `open failed`, `failure shown`, `claude run failed` and `action failed` log a type or a code, and the journal's FAILED and UNKNOWN reasons are codes. A traceback keeps frames and types, never a message. When a request fails, `error_detail` in the local interaction log keeps the text, secrets masked. Report check 123 fails on all four old forms.
 - **Not changed, each with no known route for what the owner said (read in the code; `speech failed` also probed with a muted voice):** `error=str(exc)` on Swift's own files (`parked`, `scheduler`, `runlog`, `journal`) and on the microphone and presence; `heard signal failed`; `overlay frame refused`; `speech unavailable`; `speech failed` and `wake listening can't transcribe`; `detail=` on `claude warm-up failed` (before any request) and on `speech model failed to load`; `skipping a demand example`.
 - **Still logs text the owner wrote:** `workflow skipped` (`library.py:553`). A YAML error can quote a line of a workflow file, and `folder` has the full path (reproduced). It isn't speech, and it only happens at start-up, so it's left as it is.
 - **Lost for diagnosis:**
-  - A failed connector action's text goes to the card and the agent, and is stored nowhere on disk: the gateway has no record to put it in. The journal and `swift.log` keep only the code.
+  - A failed gateway action's text (email, calendar, desktop) goes to the card and the agent, and is stored nowhere on disk: the gateway has no record to put it in. The journal and `swift.log` keep only the code.
+  - A stopped run's exception text is kept nowhere: the session doesn't read a cancelled run's result (the same gap as X-13).
+  - An unknown model error has no `detail`: its text is in the card's message only, as before.
   - Other `logger.exception` lines keep the frame and type only.
+- **Known limit of the masking:** `redact` doesn't recognise a bare `sk-ant-…` key, so one in a failure's text would reach `error_detail` as it is. Not new, but that text now lands on disk. Whether real errors ever carry a key is unproven.
 - **Not checked:** the backend's stderr, which Tauri inherits (`backend.rs:171`). An error logged by Python's own logging, such as an unretrieved task exception, would still print its message there. Whether that output is kept anywhere is unproven.
 
 #### X-18 · Medium · confirmed (reproduced in the X-05 review; no test in the repo yet) · A selected file's name goes into the journal as a receipt

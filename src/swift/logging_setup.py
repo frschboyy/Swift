@@ -86,17 +86,18 @@ def _redact_value(value: Any) -> Any:
     return redact(repr(value))
 
 
-def _traceback(exc: BaseException) -> str:
-    """Where it failed and with what type, oldest cause first, without any exception's message."""
+def _traceback(exc: BaseException, seen: set[int] | None = None) -> str:
+    """Where it failed and with what type, oldest cause first, without any exception's message.
+    ``seen`` spans the whole walk: a group's member can have that group as its context."""
     parts: list[str] = []
-    seen: set[int] = set()
+    seen = set() if seen is None else seen
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
         frames = "".join(traceback.format_tb(current.__traceback__))
         parts.append(f"Traceback (most recent call last):\n{frames}{type(current).__name__}")
         if isinstance(current, BaseExceptionGroup):
-            parts.extend(_traceback(sub) for sub in current.exceptions)
+            parts.extend(filter(None, (_traceback(sub, seen) for sub in current.exceptions)))
         current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
     return "\n\nThen:\n".join(reversed(parts))
 
@@ -123,7 +124,11 @@ def make_patcher(log_content: bool) -> Callable[[Record], None]:
 
         exc = record["exception"]
         if exc is not None:
-            tb = _traceback(exc.value) if exc.value is not None else getattr(exc.type, "__name__", "Exception")
+            name = getattr(exc.type, "__name__", "Exception")
+            try:
+                tb = _traceback(exc.value) if exc.value is not None else name
+            except Exception:  # noqa: BLE001 - writing down a failure must never be what fails
+                tb = name
             extra["_exc"] = "\n" + redact(tb).rstrip("\n")
             record["exception"] = None
         else:

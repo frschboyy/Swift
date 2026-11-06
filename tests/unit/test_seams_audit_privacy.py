@@ -12,6 +12,7 @@ import io
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -21,9 +22,10 @@ from test_routing import Recorder, SpyExecutor, ask
 from swift.backend.__main__ import _on_finish
 from swift.connectors.base import ConnectorError, Contact
 from swift.connectors.fake import FakeMailConnector
+from swift.executors.claude_code import ClaudeCodeExecutor, model_unconfirmed
 from swift.executors.claude_mapping import outcome_for
 from swift.executors.mock import MockExecutor
-from swift.failures import Failure
+from swift.failures import Failure, clean_detail
 from swift.logging_setup import make_patcher
 from swift.routing import route
 from swift.routing.local import OpenTarget
@@ -230,6 +232,30 @@ async def test_a_failure_s_text_is_masked_in_the_local_log_too() -> None:
 class _Unprintable(Exception):
     def __str__(self) -> str:
         raise RuntimeError("str failed")
+
+
+def _ended(*, stopped_by: tuple[str, str] | None = None) -> Any:
+    return SimpleNamespace(models=[], escalations=[], cancelled=False, stopped_by=stopped_by)
+
+
+@pytest.mark.parametrize(("error", "name"), [(ValueError(), "ValueError"), (TimeoutError(), "TimeoutError"),
+                                             (_Unprintable(), "_Unprintable")])
+def test_a_run_s_end_is_classified_whatever_its_exception_can_say(error: Exception, name: str) -> None:
+    result = ClaudeCodeExecutor._final(_ended(), None, error)
+    assert result.status == "error" and result.failure is not None
+    assert result.meta["error_detail"].startswith(name)
+    assert not model_unconfirmed(error)
+
+
+def test_a_rejected_run_keeps_its_exception_s_text() -> None:
+    result = ClaudeCodeExecutor._final(_ended(stopped_by=("reject", "Edit")), None, ValueError("about tea"))
+    assert result.status == "rejected" and "about tea" in result.meta["error_detail"]
+
+
+def test_a_long_secret_is_masked_before_a_detail_is_clipped() -> None:
+    token = "eyJ" + "a" * 150 + "." + "b" * 150 + "." + "c" * 150
+    detail = clean_detail(f"failed: {token}")
+    assert detail is not None and "aaaa" not in detail and "bbbb" not in detail
 
 
 async def test_an_exception_that_can_t_be_printed_still_gets_its_card() -> None:

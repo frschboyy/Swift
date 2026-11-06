@@ -71,7 +71,7 @@ from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.executors.web_scope import WebScope, result_text
-from swift.failures import classify, clean_detail, failure_text
+from swift.failures import classify, clean_detail, exception_words, failure_text
 from swift.workflows.tools import ToolHost, ToolSpec
 
 _DONE = object()
@@ -807,7 +807,7 @@ class ClaudeCodeExecutor:
     @staticmethod
     def _final(run: _Run, outcome: Outcome | None, error: Exception | None) -> ExecResult:
         meta = dict(outcome.meta) if outcome else {}
-        if error is not None:  # whichever way the run ends below, its text reaches the local log
+        if error is not None:  # for the local log, even with no card. A stopped run's result isn't read (X-13)
             meta["error_detail"] = failure_text(error)
         if run.models:
             meta |= {"start_model": run.models[0], "models": list(run.models)}
@@ -822,10 +822,11 @@ class ClaudeCodeExecutor:
         if outcome is not None:
             status = "done" if outcome.status == "done" else "error"
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
-        detail = f" ({str(error).splitlines()[0][:160]})" if error else ""
+        lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
+        detail = f" ({lines[0][:160]})" if lines else ""
         summary = f"Claude Code stopped without an answer{detail}."
         # The exception's type often names the cause (CLIConnectionError, TimeoutError).
-        raw = f"{type(error).__name__}: {error}" if error else summary
+        raw = failure_text(error) if error else summary
         hints = {"fallback_hint": CLAUDE_CODE.error_hint, "signin_hint": CLAUDE_CODE.signin_hint}
         failure = classify(raw, CLAUDE_CODE.name, **hints)
         if failure.code == "executor_failed":  # no known cause: the CLI went away
@@ -838,7 +839,7 @@ _MODEL_UNCONFIRMED = re.compile(r"couldn.?t confirm model|could not confirm mode
 
 def model_unconfirmed(error: BaseException) -> bool:
     """The CLI's "Couldn't confirm model "…" with the API": its models out of reach, not a bad request."""
-    return bool(_MODEL_UNCONFIRMED.search(str(error)))
+    return bool(_MODEL_UNCONFIRMED.search(exception_words(error)))
 
 
 def _model_label(model: str) -> str:

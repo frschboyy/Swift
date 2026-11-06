@@ -69,6 +69,7 @@
   --dur-fast: 120ms;
   --dur-base: 160ms;
   --dur-slow: 200ms;
+  --dur-move: 280ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   /* Cards grow out of the capsule: up from a bottom anchor, down from a top one. */
@@ -648,6 +649,7 @@ code {
   margin: 0 0 -12px;
   padding: 0;
   flex: none;
+  transition: margin var(--dur-move) var(--ease);
 }
 .deck[hidden] { display: none; }
 #stage[data-anchor^="top"] .deck { margin: -12px 0 0; }

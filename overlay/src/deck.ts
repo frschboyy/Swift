@@ -33,24 +33,27 @@ export type Deck = {
 
 export const initialDeck: Deck = { order: [], front: null, known: new Set(), landing: new Map() };
 
-/** The ``runs`` message (``rows`` without the one in front). */
-export function onRows(d: Deck, focus: string | null, rows: Row[], now: number): Deck {
+/** The ``runs`` message (``rows`` without the one in front). ``onCard``: the request on the card until
+ * now. A request alone gets no ``runs``, so the first one can be what tells it's no longer in front. */
+export function onRows(d: Deck, focus: string | null, rows: Row[], now: number, onCard: string | null = null): Deck {
   const here = new Set(rows.map((r) => r.runId));
   const order = d.order.filter((id) => here.has(id));
-  if (d.front !== focus && d.front !== null && here.has(d.front) && !order.includes(d.front)) {
+  const front = d.front ?? onCard;
+  if (front !== focus && front !== null && here.has(front) && !order.includes(front)) {
     const left = focus === null ? -1 : d.order.indexOf(focus);
     const slot = left < 0 ? 0 : d.order.slice(0, left).filter((id) => here.has(id)).length;
-    order.splice(slot, 0, d.front);
+    order.splice(slot, 0, front);
   }
   const landing = new Map([...d.landing].filter(([id, until]) => here.has(id) && until > now));
   for (const r of rows) {
     if (order.includes(r.runId)) continue;
     order.push(r.runId);
-    if (!d.known.has(r.runId) && !ENDED.has(r.state)) landing.set(r.runId, Math.max(r.startedMs + EDGE_DELAY_MS, now) + ACK_MS);
+    if (!d.known.has(r.runId) && r.runId !== front && !ENDED.has(r.state)) landing.set(r.runId, Math.max(r.startedMs + EDGE_DELAY_MS, now) + ACK_MS);
   }
   const known = new Set(d.known);
   for (const r of rows) known.add(r.runId);
   if (focus !== null) known.add(focus);
+  if (front !== null) known.add(front);
   return { order, front: focus, known, landing };
 }
 

@@ -55,8 +55,8 @@ export function leaveTo(node: HTMLElement, to: Box | null, done: () => void): vo
     { transformOrigin: "0 0", transform: "none", opacity: 1 },
     { transformOrigin: "0 0", transform: away, opacity: 0 },
   ], reduced() ? FADE_MS : MOVE_MS);
-  anim.onfinish = done;
-  anim.oncancel = done;
+  // The promise, not the finish event: that waits for a painted frame too.
+  void anim.finished.then(done, done);
 }
 
 export function fadeIn(node: HTMLElement): void {

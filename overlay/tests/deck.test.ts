@@ -40,6 +40,14 @@ test("the request in front gone with nothing named: the old front waits nearest 
   assert.deepEqual(d.order, ["a", "b"]);
 });
 
+test("the first runs can be what says the one on the card went behind: it doesn't land", () => {
+  const rows = [row("a")];
+  const d = onRows(initialDeck, "b", rows, NOW, "a");
+  assert.deepEqual(d.order, ["a"]);
+  assert.equal(deckView(d, rows, NOW).edges[0].landing, false);
+  assert.ok(d.known.has("a") && d.known.has("b"));
+});
+
 test("each edge is narrower than the last and they stack by their peeks", () => {
   const rows = [row("b"), row("c"), row("d")];
   const v = deckView(go(initialDeck, "a", rows), rows, NOW);

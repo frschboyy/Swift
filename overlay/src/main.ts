@@ -35,6 +35,7 @@ import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
+import { leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
 import * as L from "./live";
@@ -307,11 +308,14 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
     runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
     startedMs: r.started_ms, summary: r.summary, words: r.words,
   }));
+  // The card on screen, if this sends it behind: its edge starts there.
+  const onCard = pres.focus ?? pres.card.runId;
+  if (onCard && onCard !== data.focus && card.classList.contains("card--in")) deckDraw.frontLeaving(onCard, card.getBoundingClientRect());
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
   checkPresenter();
   setLive(L.onRows(live, rows, Date.now()));
   if (pres.focus !== promoted) promoted = null;
-  deck = D.onRows(deck, pres.focus, pres.rows, Date.now());
+  deck = D.onRows(deck, pres.focus, pres.rows, Date.now(), onCard);
   window.setTimeout(drawRows, D.EDGE_DELAY_MS);  // a young request's edge is due then
   drawRows();
 }
@@ -336,7 +340,7 @@ function drawRows(): void {
   const view = D.deckView(deck, pres.rows, Date.now(), expanded);
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
-  deckDraw.draw(view);
+  deckDraw.draw(view, pres.focus);
   scheduleRegions();
 }
 
@@ -769,23 +773,30 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   card.setAttribute("role", role);
   card.setAttribute("data-hit", "");
   card.replaceChildren(node, el("span", { class: "timebar", "aria-hidden": "true" }));
+  for (const anim of card.getAnimations()) anim.cancel();  // on its way back into the capsule
+  // It was an edge just now: one body, so the card grows out of it.
+  const from = deckDraw.takeForward(pres.card.runId, Date.now());
+  if (from) moveFrom(card, from);
   // Scrolling a card that didn't fit holds it, like scrolling a long answer.
   node.addEventListener("scroll", () => noteScroll(), { passive: true });
   scheduleRegions();
 }
 
+/** The card folds back into the capsule it grew out of. */
 function hideCard(): void {
+  const shown = card.classList.contains("card--in");
   card.classList.remove("card--in");
   card.classList.add("card--out");
   card.removeAttribute("data-hit");
   scheduleRegions();
-  window.setTimeout(() => {
-    if (card.classList.contains("card--out")) {
-      card.replaceChildren();
-      card.className = "card";
-      scheduleRegions();
-    }
-  }, 200);
+  const clear = (): void => {
+    if (!card.classList.contains("card--out")) return;
+    card.replaceChildren();
+    card.className = "card";
+    scheduleRegions();
+  };
+  if (shown) leaveTo(card, capsuleEl.getBoundingClientRect(), clear);
+  else clear();
 }
 
 function dismiss(): void {

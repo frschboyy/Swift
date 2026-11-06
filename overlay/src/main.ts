@@ -1772,6 +1772,7 @@ function setExpanded(open: boolean): void {
   if (open === expanded) return;
   expanded = open;
   setHold(!open);
+  drawRows();  // the deck folds to one edge, so a long answer isn't squeezed (ADR-018)
 }
 
 // Scrolling a long answer holds it too, until a moment after the last scroll.

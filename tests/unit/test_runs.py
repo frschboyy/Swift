@@ -228,16 +228,109 @@ async def test_esc_stops_the_one_in_front_and_the_other_comes_forward() -> None:
     session, out, _records, agent, stt = make()
     first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
     second = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
-    assert runs(out)["focus"] == second
+    assert runs(out)["focus"] == first
     await session.handle(Message("cancel", {}))
-    await until(lambda: agent.cancelled == [second])
+    await until(lambda: agent.cancelled == [first])
     await until(lambda: out.last("result")["status"] == "cancelled")
-    assert out.last("result")["run_id"] == second
-    assert session._runs[0].alive  # the first goes on
+    assert out.last("result")["run_id"] == first
+    assert session._runs[-1].alive  # the second goes on
     # "Cancelled" fades; the overlay brings the one still running forward, and Esc reaches it.
+    await session.handle(Message("focus", {"run_id": second}))
+    assert runs(out)["focus"] == second and runs(out)["rows"] == []
+    assert session._task is session._runs[-1].task and not session._task.done()
+    await finish_all(session, agent)
+
+
+# ---- ADR-018 §4.1: a request said beside a working card stays behind it --------------------------
+
+
+async def test_a_request_beside_a_working_card_stays_behind_it_and_its_news_stays_on_its_edge() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    second = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    await asyncio.sleep(0.05)
+    assert runs(out)["focus"] == first
+    assert [r["run_id"] for r in runs(out)["rows"]] == [second]
+    assert sent_for(out, second, "state") == [] and sent_for(out, second, "step") == []
+    agent.runs[second]["queue"].put_nowait(ExecEvent("step", "Reading the notes", activity="reading"))
+    await until(lambda: runs(out)["rows"][0]["activity"] == "reading")
+    assert runs(out)["focus"] == first and sent_for(out, second, "step") == []
+    await finish_all(session, agent)
+
+
+async def test_it_comes_forward_with_its_answer_drawn_whole() -> None:
+    session, out, _records, agent, stt = make()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    second = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == second)
+    assert runs(out)["focus"] == second
+    frames = [m.type for m in out.messages if m.data.get("run_id") == second and m.type in ("state", "result")]
+    assert frames[-2:] == ["state", "result"] and frames.count("result") == 1
+    await finish_all(session, agent)
+
+
+async def test_it_comes_forward_when_clicked_with_what_it_did_behind_the_card() -> None:
+    session, out, _records, agent, stt = make()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    second = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    agent.runs[second]["queue"].put_nowait(ExecEvent("step", "Reading the notes", activity="reading"))
+    await until(lambda: runs(out)["rows"][0]["activity"] == "reading")
+    await session.handle(Message("focus", {"run_id": second}))
+    assert runs(out)["focus"] == second
+    assert sent_for(out, second, "state")[-1]["state"] == "working"
+    assert sent_for(out, second, "step")[-1]["text"] == "Reading the notes"
+    await finish_all(session, agent)
+
+
+async def test_plain_stop_asks_which_while_the_one_just_said_runs_behind_the_card() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    second = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    await say(session, stt, "stop")
+    await until(lambda: "Which one?" in out.last("run.voice")["text"])
+    assert agent.cancelled == []
+    # Naming one needs no question.
+    await say(session, stt, "stop the notes one")
+    await until(lambda: agent.cancelled == [second])
+    # Stopped by name, it doesn't come forward to say so: the card in front stays.
+    await until(lambda: not session._next_focus)
+    await asyncio.sleep(0.05)
+    assert runs(out)["focus"] == first and sent_for(out, second, "result") == []
+    # Nothing else behind the card: a plain "stop" is the card in front again.
+    await say(session, stt, "stop")
+    await until(lambda: agent.cancelled == [second, first])
+    await finish_all(session, agent)
+
+
+async def test_esc_never_asks_which_it_stops_the_card_it_says_it_stops() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    await session.handle(Message("cancel", {}))
+    await until(lambda: agent.cancelled == [first])
+    await finish_all(session, agent)
+
+
+async def test_plain_stop_is_the_card_in_front_once_the_other_has_been_seen() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    second = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    await session.handle(Message("focus", {"run_id": second}))
     await session.handle(Message("focus", {"run_id": first}))
-    assert runs(out)["focus"] == first and runs(out)["rows"] == []
-    assert session._task is session._runs[0].task and not session._task.done()
+    await say(session, stt, "stop")
+    await until(lambda: agent.cancelled == [first])
+    await finish_all(session, agent)
+
+
+async def test_a_change_of_mind_never_goes_to_the_wrong_request() -> None:
+    session, out, _records, agent, stt = make()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    before = len(agent.requests)
+    await say(session, stt, "Swift, actually make it about coffee")
+    await until(lambda: "Which one?" in out.last("run.voice")["text"])
+    assert len(agent.requests) == before and agent.cancelled == []
     await finish_all(session, agent)
 
 
@@ -293,14 +386,14 @@ async def test_voice_targeting_by_what_a_request_is_about() -> None:
     session, out, records, agent, stt = make()
     research = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
     notes = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
-    assert runs(out)["focus"] == notes
-    await say(session, stt, "show me the research one")  # no name needed, like "show me"
-    await until(lambda: runs(out)["focus"] == research)
-    assert sent_for(out, research, "state")[-1]["state"] == "working"  # its card drawn again
-    await say(session, stt, "stop the notes one")
-    await until(lambda: agent.cancelled == [notes])
-    assert out.last("run.voice")["text"] == "Stopped “summarise my notes from Monday”."
-    assert runs(out)["focus"] == research and session._runs[0].alive
+    assert runs(out)["focus"] == research
+    await say(session, stt, "show me the notes one")  # no name needed, like "show me"
+    await until(lambda: runs(out)["focus"] == notes)
+    assert sent_for(out, notes, "state")[-1]["state"] == "working"  # its card drawn
+    await say(session, stt, "stop the research one")
+    await until(lambda: agent.cancelled == [research])
+    assert out.last("run.voice")["text"] == "Stopped “research the history of tea”."
+    assert runs(out)["focus"] == notes and session._runs[-1].alive
     await say(session, stt, "stop the weather one")  # matches nothing: nothing stops
     await until(lambda: out.last("run.voice")["text"] == "I couldn't tell which request you mean.")
     await finish_all(session, agent)

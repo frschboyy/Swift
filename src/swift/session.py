@@ -96,10 +96,12 @@ record, scope, thread and cards. Up to ``MAX_RUNS`` run side by side; another wa
 One is in front (the **focus**): the overlay draws its card, and only its messages reach the
 overlay. The others are one-line rows (``runs``); bringing one to the front replays its card.
 A clear new request said during a run ("hey Swift, what time is it", or anything after the
-hotkey that isn't for the run in front) starts beside it. Only one confirm card is on screen:
+hotkey that isn't for the run in front) starts behind it, and comes forward with what the owner
+must see: its answer, its card or its question (ADR-018 §4.1). Only one confirm card is on screen:
 the others wait in order, their countdown not started, and the card's request comes to the
-front. "Stop the research one" / "show me the email one" name a request by its words; Esc,
-"stop" and the card answers go to the one in front.
+front. "Stop the research one" / "show me the email one" name a request by its words; Esc and the
+card answers go to the one in front, and so does "stop", unless the one just said is still behind
+it, when Swift asks which.
 
 The attributes that used to describe "the" interaction (``_record``, ``_active``, ``_scope``,
 ``_thread``…) now belong to a run: they resolve to the run whose task is running (``_RUN``),
@@ -342,8 +344,12 @@ FOCUS_ONLY = frozenset({
     "state", "step", "confirm.request", "confirm.voice", "result", "error", "artifact", "view", "run.voice",
     "transcript", "followup", "resume.offer", "ask",
 })
-# Messages that bring a request that just started beside another to the front.
-TAKES_FRONT = frozenset({"state", "step", "confirm.request", "result", "error", "artifact"})
+# What brings a request started beside another to the front: only what the owner must see (ADR-018
+# §4.1). Its progress stays on its edge. A card due and Swift's question come forward on their own.
+TAKES_FRONT = frozenset({"result", "error"})
+# "Stop" or a change of mind while a request said after the one on the card runs behind it.
+WHICH_STOP_HINT = "Which one? Say “stop the … one” or “stop everything”. Esc stops the one on this card."
+WHICH_CHANGE_HINT = "Which one? Say “show me the … one” first, then what to change."
 # Typing never approves a card on its own (ADR-015 §10): a click, or "Swift, approve" said.
 TYPED_APPROVE_HINT = "Typing can't approve. Click Approve, or say “Swift, approve”."
 # A typed request is at most this long (the frame limit is far above it).
@@ -1005,12 +1011,15 @@ class Session:
         renamed = bool(named) and named != run.ui_id
         if renamed:
             run.ui_id = named
-        if run is self._next_focus and msg.type in TAKES_FRONT and not self._cards:
-            await self._take_front(run)
-        elif run is not self._focus:
+        # Stopped by name: the owner knows, and it was said on the card in front.
+        must_see = msg.type in TAKES_FRONT and msg.data.get("status") != "cancelled"
+        if run is self._next_focus and must_see and not self._cards:
+            await self._take_front(run, msg)
+            return
+        if run is not self._focus:
             await self._send_rows()
             return
-        elif renamed:
+        if renamed:
             await self._send_rows()  # the overlay learns the new id in front before its messages
         await self._raw_send(msg)
 
@@ -1090,11 +1099,17 @@ class Session:
         self._rows_sent = payload
         await self._raw_send(outbound("runs", **payload))
 
-    async def _take_front(self, run: Run) -> None:
-        """A request that started beside another shows its first card: it is now in front."""
+    async def _take_front(self, run: Run, msg: Message) -> None:
+        """A request that ran behind the card has something the owner must see: it is now in front,
+        and what it kept while behind is drawn, ending with ``msg``."""
         self._next_focus = None
         self._set_focus(run)
         await self._send_rows()
+        shown = self._replay(run)
+        for held in shown:
+            await self._raw_send(held)
+        if msg not in shown:
+            await self._raw_send(msg)
 
     def _set_focus(self, run: Run) -> None:
         old, self._focus = self._focus, run
@@ -1145,8 +1160,8 @@ class Session:
         *,
         title: str = "",
     ) -> Run:
-        """Start an interaction. With others running it starts beside them: it takes the front
-        when it first shows something, unless a confirm card is on screen (ADR-013 §3.1)."""
+        """Start an interaction. With others running it starts behind them, and takes the front when
+        it has something the owner must see, unless a confirm card is on screen (ADR-018 §4.1)."""
         run = Run(title=title)
         self._runs.append(run)
         run.task = asyncio.create_task(self._interaction(run, record, capture, executor, start))
@@ -3691,6 +3706,13 @@ class Session:
         logger.info("request stopped by name")
         return f"Stopped “{run.title}”."
 
+    def _which_is_unclear(self) -> bool:
+        """The owner said one request and another is on the card: "stop" could mean either. Once it has
+        been in front, or a question or a card says what's going on, the card in front is what's meant."""
+        behind = self._next_focus
+        return (behind is not None and behind.alive and behind is not self._focus
+                and self.dialogue.pending is None and self._open_confirm() is None)
+
     async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]]) -> None:
         """"Actually, make it about the deadline": the request in front changes course (ADR-014 §7)."""
         run = self._current()
@@ -4273,6 +4295,10 @@ class Session:
                     await phase("idle")
                 return
         change = route_redirect(text) if action is None else None
+        if (action in ("stop", "cancel") or change is not None) and self._which_is_unclear():
+            logger.info("mid-run words could mean either request", stop=change is None)
+            await phase("hint", WHICH_CHANGE_HINT if change is not None else WHICH_STOP_HINT)
+            return
         if self._record is not None:
             self._record.setdefault("midrun", []).append("redirect" if change else action)
         if action in ("show", "hide"):

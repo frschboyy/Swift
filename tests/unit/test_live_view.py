@@ -183,8 +183,8 @@ class Logs:
 async def test_a_background_request_sends_its_live_items_and_logs_only_counts() -> None:
     session, out, records, agent, stt = make(Researcher)
     with Logs() as logs:
-        research = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
         notes = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+        research = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
         assert runs(out)["focus"] == notes
         await until(lambda: any(m["kind"] == "note" for m in sent_for(out, research, "live")))
         items = sent_for(out, research, "live")

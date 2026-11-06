@@ -204,22 +204,22 @@ async def test_deck_requests_keep_their_places_as_they_come_and_go() -> None:
     first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
     await asyncio.sleep(0.05)
     assert agree(session, out)["behind"] == []
-    # A request beside another takes the front when it first shows something (ADR-013 §3.1, unchanged by
-    # ADR-018 Step 1): the one on the card goes behind it.
+    # A second request passes behind the card, and the card in front doesn't change (ADR-018 §4.1).
     second = await started(session, out, agent, stt, "Swift, research card tea")
     await asyncio.sleep(0.05)
     screen = agree(session, out)
-    assert screen["cardRun"] == second and screen["behind"] == [first]
-    # The next: the one it displaced goes on the far end, and the edge already there doesn't move.
+    assert screen["cardRun"] == first and screen["behind"] == [second]
+    # A third goes on the far end.
     third = await started(session, out, agent, stt, "Swift, compare three e-readers")
     await asyncio.sleep(0.05)
     screen = agree(session, out)
-    assert screen["cardRun"] == third and screen["behind"] == [first, second]
+    assert screen["cardRun"] == first and screen["behind"] == [second, third]
     # Clicked forward: it swaps with the one in front, and the other edge stays where it was.
-    await session.handle(Message("focus", {"run_id": first}))
+    await session.handle(Message("focus", {"run_id": third}))
     await asyncio.sleep(0.05)
     screen = agree(session, out)
-    assert screen["cardRun"] == first and screen["behind"] == [third, second]
+    assert screen["cardRun"] == third and screen["behind"] == [second, first]
+    assert screen["cardWords"] == "compare three e-readers"  # the card says whose it is
     # A card due takes the front at once, as before the Deck, and the shuffle is the same swap.
     agent.runs[second]["ask"].set()
     await until(lambda: out.last("confirm.request"))
@@ -227,6 +227,7 @@ async def test_deck_requests_keep_their_places_as_they_come_and_go() -> None:
     screen = agree(session, out)
     assert screen["cardRun"] == second and screen["confirm"] is not None
     assert screen["behind"] == [third, first]
+    assert screen["cardWords"] == "research card tea"
     await finish_all(session, agent)
 
 
@@ -291,12 +292,15 @@ async def test_running_out_at_rest_and_beside_a_run() -> None:
     await finish_all(session, agent)
 
 
-async def test_a_new_request_during_a_question_takes_the_card() -> None:
-    session, out, agent, stt, _control, _sched = _lane()
+async def test_a_new_request_during_a_question_sets_it_aside_and_passes_behind() -> None:
+    session, out, agent, stt, control, _sched = _lane()
     await _wifi(session, out, stt)
     await say(session, stt, "Hey Swift, write a haiku about tea")
     await asyncio.sleep(0.2)
-    assert agree(session, out)["stage"] == "working"
+    screen = agree(session, out)
+    assert screen["question"] is None and screen["stage"] == "result"  # "Kept in your list for later."
+    assert len(screen["behind"]) == 1 and control.radio_state["wifi"] is True
+    assert [i["kind"] for i in out.last("stack")["items"]] == ["parked"]
     await finish_all(session, agent)
     await asyncio.sleep(0.05)
     assert agree(session, out)["stage"] == "result"

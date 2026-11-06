@@ -220,3 +220,14 @@ async def test_a_new_request_on_the_card_isn_t_displaced_by_an_older_one_behind(
     await say(session, stt, "stop")
     await until(lambda: agent.cancelled == [third])
     await finish_all(session, agent)
+
+
+async def test_a_request_stopped_by_name_says_stopped_not_ready_to_read() -> None:
+    session, out, _records, agent, stt = make()
+    await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    await say(session, stt, "stop the notes one")
+    await until(lambda: agent.cancelled == [second])
+    await until(lambda: runs(out)["rows"] and runs(out)["rows"][0]["state"] == "done")
+    assert runs(out)["rows"][0]["summary"] == ""
+    await finish_all(session, agent)

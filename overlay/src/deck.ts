@@ -129,6 +129,14 @@ export function deckView(d: Deck, rows: Row[], now: number, folded = false): Dec
   return { edges, fold: null, height: offset };
 }
 
+/** A request coming forward from an edge: the words its card should say, since the backend sends them
+ * once. Null when the request on the card stays. */
+export function wordsComingForward(rows: Row[], onCard: string | null, focus: string | null): string | null {
+  if (focus === null || onCard === null || focus === onCard) return null;
+  const row = rows.find((r) => r.runId === focus);
+  return row ? row.words || row.title : null;
+}
+
 /** The folded edge's words. */
 export function foldLine(f: Fold): string {
   const all = f.running === f.count ? `${f.count} more running` : `${f.count} more`;

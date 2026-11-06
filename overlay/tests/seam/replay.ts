@@ -14,6 +14,8 @@ const now = 1_000_000;
 let pres = P.initial;
 let asked: Q.Ask | null = null;
 let deck = D.initialDeck;
+// The words on the card, as main.ts keeps them.
+let words = "";
 const lost: string[] = [];
 const broken = new Set<string>();
 
@@ -31,6 +33,7 @@ for (const { type, data: d } of frames) {
       break;
     case "runs": {
       const onCard = pres.focus ?? pres.card.runId;
+      words = D.wordsComingForward(pres.rows, onCard, d.focus) ?? words;
       pres = P.onRuns(pres, d.focus, d.rows.map((r: any) => ({
         runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
         startedMs: r.started_ms, summary: r.summary, words: r.words,
@@ -38,6 +41,9 @@ for (const { type, data: d } of frames) {
       deck = D.onRows(deck, pres.focus, pres.rows, now, onCard);
       break;
     }
+    case "transcript":
+      if (d.final) words = d.text;
+      break;
     case "ask":
       asked = Q.onAsk(asked, d as Q.AskData, now);
       break;
@@ -69,6 +75,7 @@ process.stdout.write(JSON.stringify({
   more: settled.edges.reduce((n, e) => n + e.more, 0),
   stage: P.stageOf(pres),
   cardRun: pres.card.runId,
+  cardWords: words,
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
   confirm: P.confirmVisible(pres) ? pres.pendingConfirm : null,
   lost,

@@ -2,7 +2,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { ACK_MS, deckView, EDGE_DELAY_MS, foldLine, initialDeck, INSET_STEP, keyOf, MAX_EDGES, onRows, PEEKS, type Deck } from "../src/deck.ts";
+import { ACK_MS, deckView, EDGE_DELAY_MS, foldLine, initialDeck, INSET_STEP, keyOf, MAX_EDGES, onRows, PEEKS, wordsComingForward, type Deck } from "../src/deck.ts";
 import type { Row } from "../src/presenter.ts";
 
 const row = (runId: string, state = "working", startedMs = 0): Row => ({
@@ -76,6 +76,15 @@ test("the backend's usual way: a young row comes forward under its new id, and t
   assert.deepEqual(next.order, ["a-1", "a-2"]);
   assert.equal(keyOf(next, "a-3"), "req-x");
   assert.equal(deckView(next, after, NOW + EDGE_DELAY_MS).edges[1].landing, false);
+});
+
+test("a card coming forward from an edge says that request's words", () => {
+  const rows = [{ ...row("b"), title: "Tea", words: "research the history of tea" }, { ...row("c"), title: "Coffee" }];
+  assert.equal(wordsComingForward(rows, "a", "b"), "research the history of tea");
+  assert.equal(wordsComingForward(rows, "a", "c"), "Coffee");
+  assert.equal(wordsComingForward(rows, "a", "a"), null);
+  assert.equal(wordsComingForward(rows, null, "b"), null);
+  assert.equal(wordsComingForward(rows, "a", "unknown"), null);
 });
 
 test("each edge is narrower than the last and they stack by their peeks", () => {

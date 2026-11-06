@@ -317,6 +317,15 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   // The card on screen, if this sends it behind: its edge starts there.
   const onCard = pres.focus ?? pres.card.runId;
   if (onCard && onCard !== data.focus && card.classList.contains("card--in")) deckDraw.frontLeaving(onCard, card.getBoundingClientRect());
+  // Another request's card comes next: its words and its clock, and nothing left of the last one's.
+  const words = D.wordsComingForward(pres.rows, onCard, data.focus);
+  if (words !== null) {
+    const started = pres.rows.find((r) => r.runId === data.focus)!.startedMs;
+    resetRun(true);
+    request = words;
+    typed = false;
+    runStarted = lastStepAt = started;
+  }
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
   checkPresenter();
   setLive(L.onRows(live, rows, Date.now()));

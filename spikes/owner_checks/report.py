@@ -209,7 +209,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
                                  r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)
                     or ("| interaction finished |" in line and re.search(r"\btarget=|'reason':", line))
                     or ("| open failed |" in line and "target=" in line)
-                    or ("| action failed |" in line and "reason=" in line)
+                    or (re.search(r"\| action (failed|denied) \|", line) and "reason=" in line)
                     or (re.search(r"\| (failure shown|claude run failed) \|", line) and "detail=" in line)]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
     set_aside = [line for line in log if "| question set aside for another |" in line]

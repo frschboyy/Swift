@@ -169,18 +169,55 @@ def _captured(*, exceptions: bool = False) -> io.StringIO:
     return sink
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit X-04 (B-07 still open): a denied action's reason names the address in swift.log")
-async def test_a_denied_address_does_not_reach_the_log() -> None:
+@pytest.mark.parametrize(("kw", "code"), [
+    ({}, "not_a_contact"),  # the address isn't one the owner's contacts gave
+    ({"validate": lambda: "Not an email address: someone@evil.example"}, "invalid"),  # the action's own check
+])
+async def test_a_denied_address_does_not_reach_the_log(kw: dict[str, Any], code: str) -> None:
     sink = _captured()
     try:
         gateway = ActionGateway(Journal(None))
         scope = _scope_for(ToolHost(None, (), gateway))
         stranger = Contact("X", "someone@evil.example")
-        out = await gateway.execute(scope, Action("send_email", (stranger,), "Send", "", None, lambda: "d", _none))  # type: ignore[arg-type]
-        assert out.status == "denied"
+        out = await gateway.execute(scope, Action("send_email", (stranger,), "Send", "", None, lambda: "d", _none, **kw))  # type: ignore[arg-type]
     finally:
         logger.remove()
-    assert "someone@evil.example" not in sink.getvalue()
+    assert out.status == "denied" and "someone@evil.example" in out.reason  # the agent still needs to hear why
+    assert "someone@evil.example" not in sink.getvalue(), sink.getvalue()
+    assert f"code='{code}'" in sink.getvalue() and "tool='send_email'" in sink.getvalue(), sink.getvalue()
+
+
+@pytest.mark.parametrize(("kw", "closed", "sent", "code"), [
+    ({}, True, False, "run_ended"),
+    ({}, False, True, "already_done"),
+    ({"tool": "no_such_tool"}, False, False, "no_policy"),
+])
+async def test_every_other_denial_logs_a_code(kw: dict[str, Any], closed: bool, sent: bool, code: str) -> None:
+    gateway = ActionGateway(Journal(None))
+    scope = _scope_for(ToolHost(None, (), gateway))
+    scope.resolved[CHIANU.email] = CHIANU
+    scope.closed = closed
+    if sent:
+        scope.sent.add("d")
+    action = Action(kw.get("tool", "send_email"), (CHIANU,), "Send", "", None, lambda: "d", _none)  # type: ignore[arg-type]
+    sink = _captured()
+    try:
+        out = await gateway.execute(scope, action)
+    finally:
+        logger.remove()
+    assert out.status == "denied" and out.reason
+    assert f"code='{code}'" in sink.getvalue() and "reason=" not in sink.getvalue(), sink.getvalue()
+
+
+async def test_a_denial_with_no_recipient_logs_a_code() -> None:
+    gateway = ActionGateway(Journal(None))
+    scope = _scope_for(ToolHost(None, (), gateway))
+    sink = _captured()
+    try:
+        out = await gateway.execute(scope, Action("send_email", (), "Send", "", None, lambda: "d", _none))  # type: ignore[arg-type]
+    finally:
+        logger.remove()
+    assert out.status == "denied" and "code='no_recipient'" in sink.getvalue(), sink.getvalue()
 
 
 # ---- swift.log: what went wrong, without the words (X-05) ------------------------------------------

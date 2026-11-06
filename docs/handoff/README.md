@@ -62,7 +62,6 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 
 | Finding | Problem | Evidence |
 |---|---|---|
-| X-04 | A denied email address is written to `swift.log` | expected-failure test |
 | X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
 | X-17 | Edit and Write approval cards show only 60–70 characters of the change | `executors/claude_mapping.py:154` |
 | X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
@@ -135,7 +134,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 **Now: close the reliability work**
 
-- **a. Product-rule and safety gaps** (§2), one commit per finding. X-04 first.
+- **a. Product-rule and safety gaps** (§2), one commit per finding.
 - **b. Owner checks for items 3 and 7:** number the two checks in §3 and add report lines.
 - **c. The short real-PC checks,** then fixes for what fails (§3).
 - **d. Two weeks of daily use** (§3 step 4). Its numbers decide what comes after the groundwork.

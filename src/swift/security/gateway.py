@@ -151,23 +151,24 @@ class ActionGateway:
 
         # 1. validate
         if scope.closed:
-            return self._deny(action, "The run this action belonged to has ended.")
+            return self._deny(action, "The run this action belonged to has ended.", "run_ended")
         if (problem := action.validate()) is not None:
-            return self._deny(action, problem)
+            return self._deny(action, problem, "invalid")
         if action.digest() in scope.sent:
-            return self._deny(action, "This exact action was already done in this run; it won't be done twice.")
+            return self._deny(action, "This exact action was already done in this run; it won't be done twice.", "already_done")
         # 2. resolve
         if action.targets_required and not action.targets:
-            return self._deny(action, "There is no recipient.")
+            return self._deny(action, "There is no recipient.", "no_recipient")
         for target in action.targets:
             if target.email.lower() not in scope.resolved:
                 return self._deny(
-                    action, f"{target.email} isn't one of the owner's contacts. Look the person up with find_contact."
+                    action, f"{target.email} isn't one of the owner's contacts. Look the person up with find_contact.",
+                    "not_a_contact",
                 )
         # 3. policy
         policy = POLICY.get(action.tool)
         if policy is None:
-            return self._deny(action, f"No policy allows {action.tool}.")
+            return self._deny(action, f"No policy allows {action.tool}.", "no_policy")
         # 4. confirm
         approved_digest = action.digest()
         if policy == "confirm":
@@ -227,8 +228,9 @@ class ActionGateway:
         return Outcome("done", receipt=receipt)
 
     @staticmethod
-    def _deny(action: Action, reason: str) -> Outcome:
-        logger.info("action denied", tool=action.tool, reason=reason)
+    def _deny(action: Action, reason: str, code: str) -> Outcome:
+        """``reason`` is for the agent, and can name an address or a draft. The log gets ``code``."""
+        logger.info("action denied", tool=action.tool, code=code)
         return Outcome("denied", reason)
 
     async def _failed(

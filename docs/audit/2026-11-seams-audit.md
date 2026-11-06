@@ -385,7 +385,7 @@ IDs by area:
 | R-08 | Medium | confirmed (code, data) | measurement | diagnosability | The agent-time metric includes the owner's speaking and card waits |
 | R-09 | Medium | design concern | backend | testability | About 20 order-dependent rewrites in one 230-line dispatch function |
 | X-02 | Medium | design concern | gateway | security | Every `find_contact` candidate counts as resolved |
-| X-04 | Medium | confirmed (test) | gateway | security | B-07 still open: a denied address goes into `swift.log` |
+| X-04 | Medium | confirmed (test); **fixed 2026-11-06** | gateway | security | B-07 still open: a denied address goes into `swift.log` |
 | X-06 | Medium | confirmed (code) | executor | security | B-10 is wider: "Claude is busy, retrying…" on the working card |
 | X-07 | Medium | design concern | executor | security | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list |
 | X-09 | Medium | confirmed (code) | gateway | reliability | B-08 still open: after an "unknown" outcome the same action can be done again |
@@ -945,8 +945,9 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 - **Owner check:** "Swift, use opus: write a two-page letter about <topic>". No line in `swift.log` holds the topic.
 
 #### X-04 · Medium · confirmed (test) · B-07 still open
-- **Evidence:** `gateway.py:163-166, 230-231` log the reason text, with the address.
-- **Fix:** log a reason code.
+- **Evidence:** `gateway.py:163-166, 230-231` log the reason text, with the address. A second route: the draft check's "Not an email address: …" goes through the same line (`tools.py:412-413`). The owner's log had no `action denied` lines when this was fixed, so no address has been written this way.
+- **Fixed 2026-11-06:** every denial logs a code (`run_ended`, `invalid`, `already_done`, `no_recipient`, `not_a_contact`, `no_policy`). The agent still gets the full reason. Report check 123 fails on the old form.
+- **Not changed:** `action done` and the journal keep the recipients' `domains` by design (`gateway.py:189-191, 226`). That's a domain, not an address.
 
 #### X-05 · Low · confirmed (log) · Exception texts in `swift.log` and the journal
 - **Evidence:** `detail=str(exc)[:300]`, `google._failure` HttpError text with request URLs. 11 real values, no content.

@@ -41,6 +41,13 @@ def test_on_screen_checks_say_look_and_never_pass() -> None:
                and not k.startswith(("16b", "41", "49")))
 
 
+def test_the_deck_s_checks_say_look_except_the_one_the_log_can_tell() -> None:
+    results = _results([], [])
+    for number in range(169, 179):
+        assert _find(results, f"{number} ")[0] is report.LOOK
+    assert _find(results, "168 ")[0] is report.NOT_SEEN
+
+
 def test_a_logged_failure_condition_prints_fail() -> None:
     t = datetime(2026, 11, 4, 16, 5)
     rows = [

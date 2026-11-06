@@ -311,7 +311,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("16b a typed follow-up continued the thread", any(
             r.get("source") == "typed" and len(by_thread.get(r.get("thread") or "", [])) > 1 for r in rows), ""),
         ("17 two requests running at the same time", side_by_side > 0, f"{side_by_side} overlap(s)"),
-        ("18-20 windows, the reader, chips, moved windows", LOOK, "check on screen: nothing cut off; Read more opens in place; dropped cards stay put"),
+        ("18-20 the card, edges behind it, moved windows", LOOK, "check on screen: nothing cut off; Read more opens in place; a dropped card stays put, with its edges"),
         ("21 a card waited behind another, then answered", any(
             a.get("queued") and a.get("decision") in ("approve", "reject")
             for r in rows for a in r.get("approvals", [])), ""),
@@ -489,6 +489,20 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("163-164 a question out of sight wasn't answered", LOOK,
          f"check on screen: Wi-Fi stayed on after 'yes'; 'Swift, yes' brought it back "
          f"{sum(r.get('action') == 'question_not_shown' for r in rows)} time(s)"),
+        # ADR-018, the Deck: how it looks is the point, so only the eyes can tell.
+        ("168 a second request landed behind a confirm card", seen(side_by_side > 0),
+         f"{side_by_side} overlap(s); check on screen: that card didn't move, 'Got it: …', no window opened"),
+        ("169 displaced requests on the far end, then +N", LOOK, "check on screen: edges stay put; a dashed mark for one waiting"),
+        ("170 an edge clicked swapped with the card; Watch brought nothing forward", LOOK,
+         f"check on screen; clicks that couldn't bring it forward: {sum('focus ignored' in line for line in log)}"),
+        ("171 an instant answer flashed no edge", LOOK, "check on screen"),
+        ("172 a card due moved to the front", LOOK, "check on screen: it moved rather than cross-faded"),
+        ("173 Read more folded the deck to one edge", LOOK, "check on screen: '2 more running', and the answer isn't squeezed"),
+        ("174 the orb while a card is open", LOOK, "check on screen: paused still says so over a card"),
+        ("175 the stack's amber only when an OK waits", LOOK, "check on screen: neutral for a stopped request"),
+        ("176 the deck at all six positions", LOOK, "check on screen: on the far side of the card, nothing cut off"),
+        ("177 edges move with the card; an old overlay.json still loads", LOOK, "check on screen"),
+        ("178 the moves are smooth on the real screen", LOOK, "check on screen: also with animation effects off"),
     ]
 
 

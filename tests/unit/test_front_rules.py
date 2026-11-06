@@ -145,3 +145,59 @@ async def test_push_to_talk_on_the_card_survives_another_request_s_answer() -> N
     await session.handle(Message("ptt", {"state": "up"}))
     await until(lambda: agent.cancelled == [first])
     await finish_all(session, agent)
+
+
+async def _answer_in_front(session: Any, out: Any, agent: Any, stt: Any) -> tuple[str, str]:
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await asyncio.sleep(0.05)
+    assert not session._front_busy()
+    return first, second
+
+
+async def test_stop_reaches_the_one_behind_an_answer() -> None:
+    session, out, _records, agent, stt = make()
+    _first, second = await _answer_in_front(session, out, agent, stt)
+    await say(session, stt, "stop")
+    await until(lambda: agent.cancelled == [second])
+    assert "Stopped" in out.last("run.voice")["text"]
+    await finish_all(session, agent)
+
+
+async def test_naming_one_and_stop_everything_reach_those_behind_an_answer() -> None:
+    session, out, _records, agent, stt = make()
+    _first, second = await _answer_in_front(session, out, agent, stt)
+    await say(session, stt, "stop the notes one")
+    await until(lambda: agent.cancelled == [second])
+    await finish_all(session, agent)
+    session, out, _records, agent, stt = make()
+    _first, second = await _answer_in_front(session, out, agent, stt)
+    await say(session, stt, "stop everything")
+    await until(lambda: agent.cancelled == [second])
+    await finish_all(session, agent)
+
+
+async def test_with_two_behind_an_answer_stop_asks_which() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    await started(session, out, agent, stt, NOTES)
+    await started(session, out, agent, stt, "Hey Swift, compare three e-readers")
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await asyncio.sleep(0.05)
+    await say(session, stt, "stop")
+    await until(lambda: "Which one?" in out.last("run.voice")["text"])
+    assert agent.cancelled == []
+    await finish_all(session, agent)
+
+
+async def test_a_reply_to_the_answer_is_still_a_reply_with_requests_behind_it() -> None:
+    session, out, _records, agent, stt = make(wake_followup_s=5.0)
+    await _answer_in_front(session, out, agent, stt)
+    await until(lambda: out.last("followup")["open"] is True)
+    await say(session, stt, "and who discovered it")
+    await until(lambda: len(session._runs) >= 3)
+    assert agent.cancelled == []
+    await finish_all(session, agent)

@@ -1129,6 +1129,18 @@ function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
   // A hint stays long enough to read, then the card goes back to normal.
   if (v.phase === "hint") runVoiceTimer = window.setTimeout(() => { runVoice = null; if (stageNow() === "working") renderWorking(); }, 4000);
   if (stageNow() === "working") renderWorking();
+  else if (v.phase === "hint" && (stageNow() === "result" || stageNow() === "error")) hintOnAnswer(v.text);
+}
+
+/** Said to an answer on the card, about the requests behind it ("Stopped …", "Which one?"): a line on it. */
+function hintOnAnswer(text: string): void {
+  card.querySelector(".answer-hint")?.remove();
+  const line = el("p", { class: "voice-hint answer-hint", "data-phase": "hint", "aria-live": "polite" }, text);
+  const foot = card.querySelector(".card-foot");
+  if (foot) foot.before(line);
+  else (card.firstElementChild ?? card).append(line);
+  window.setTimeout(() => { line.remove(); scheduleRegions(); }, 4000);
+  scheduleRegions();
 }
 
 function cancelRun(): void {

@@ -2016,7 +2016,8 @@ class Session:
         if self._deaf():
             self.wake_stats["paused_drop"] += 1  # locked while it was held (T-07)
             return
-        busy = self._front_busy() or self._capturing()
+        stops_behind = self._stops_behind(heard.text)
+        busy = self._front_busy() or self._capturing() or stops_behind
         if short:
             kept = self._short_kept(heard.text, busy)
             if kept is None:
@@ -2070,7 +2071,7 @@ class Session:
                                     named=addressed is not None, unsure=doubt == "unsure")
             return
         if busy:
-            if self._hands_free():  # not if the hotkey was pressed meanwhile
+            if self._hands_free() or stops_behind:  # not if the hotkey was pressed meanwhile
                 self.wake_stats["hands_free"] += 1
                 addressed = match_address(heard.text, self.wake_greetings)
                 if addressed is not None:
@@ -3721,9 +3722,24 @@ class Session:
     def _which_is_unclear(self) -> bool:
         """The owner said one request and another is on the card: "stop" could mean either. Once it has
         been in front, or a question or a card says what's going on, the card in front is what's meant."""
+        asked = self.dialogue.pending
+        if (asked is not None and self._on_screen(asked)) or self._open_confirm() is not None:
+            return False
+        if self._focus is None or not self._focus.alive:
+            return len(self._live()) > 1  # an answer on the card: only those behind can be meant
         behind = self._next_focus
-        return (behind is not None and behind.alive and behind is not self._focus
-                and self.dialogue.pending is None and self._open_confirm() is None)
+        return behind is not None and behind.alive and behind is not self._focus
+
+    def _stops_behind(self, text: str) -> bool:
+        """An answer on the card and requests still running behind it: "stop" and naming one reach
+        them. Nothing else counts as busy, so a reply to that answer stays a reply."""
+        if self._front_busy() or not self._live():
+            return False
+        addressed = match_address(text, self.wake_greetings)
+        said = (addressed.remainder if addressed is not None else text).strip()
+        named = route_target(said)
+        midrun = route_midrun(said) if said else None
+        return (named is not None and named[0] == "stop") or (midrun is not None and midrun.action in ("stop", "cancel"))
 
     async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]]) -> None:
         """"Actually, make it about the deadline": the request in front changes course (ADR-014 §7)."""
@@ -4316,6 +4332,12 @@ class Session:
         if action in ("show", "hide"):
             await phase("idle")
             await self._view(action == "show", decision.target if decision else None)
+        elif action in ("stop", "cancel") and not self._front_busy() and (live := self._live()):
+            # An answer on the card, and one request left behind it: that's the one meant.
+            if live[0].task is not None:
+                live[0].task.cancel()
+            logger.info("request behind the card stopped")
+            await phase("hint", f"Stopped “{live[0].title}”.")
         elif action in ("stop", "cancel", "mute", "pause"):
             await phase("idle")
             if action == "pause" and self._record is not None:

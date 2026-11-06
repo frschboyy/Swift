@@ -5,6 +5,7 @@ one of the bugs in the review's scenarios passed the whole suite, because each s
 of the other. Nothing real is switched.
 
 Not covered: the DOM (what's drawn from this state), and a one-way replay can't see the overlay's replies.
+The dev harness draws what the owner sees, so frames replayed there check the DOM by eye.
 """
 
 from __future__ import annotations
@@ -55,6 +56,9 @@ def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str
         assert (screen["question"] == q.text) == session._on_screen(q), (
             f"the backend listens for what the owner can't see, or the reverse: {screen}")
     assert screen["confirm"] == session._open_confirm(), f"card on screen and in the backend differ: {screen}"
+    # ADR-018: a request has one body, so it is never on the card and behind it at once, or behind it twice.
+    assert screen["cardRun"] not in screen["behind"], f"a request in two places: {screen}"
+    assert len(set(screen["behind"])) == len(screen["behind"]), f"a request behind the card twice: {screen}"
     return screen
 
 
@@ -189,6 +193,72 @@ async def test_h_a_question_running_out_leaves_an_answer_being_read() -> None:
     await asyncio.sleep(1.2)
     assert agree(session, out)["cardRun"] == rid
     assert "No answer" not in out.last("result")["summary"]
+    await finish_all(session, agent)
+
+
+# ---- the Deck (ADR-018): what the rows mean on screen --------------------------------------------
+
+
+async def test_deck_requests_keep_their_places_as_they_come_and_go() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["behind"] == []
+    # A request beside another takes the front when it first shows something (ADR-013 §3.1, unchanged by
+    # ADR-018 Step 1): the one on the card goes behind it.
+    second = await started(session, out, agent, stt, "Swift, research card tea")
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == second and screen["behind"] == [first]
+    # The next: the one it displaced goes on the far end, and the edge already there doesn't move.
+    third = await started(session, out, agent, stt, "Swift, compare three e-readers")
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == third and screen["behind"] == [first, second]
+    # Clicked forward: it swaps with the one in front, and the other edge stays where it was.
+    await session.handle(Message("focus", {"run_id": first}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == first and screen["behind"] == [third, second]
+    # A card due takes the front at once, as before the Deck, and the shuffle is the same swap.
+    agent.runs[second]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == second and screen["confirm"] is not None
+    assert screen["behind"] == [third, first]
+    await finish_all(session, agent)
+
+
+async def test_deck_a_quick_answer_sends_the_card_behind_and_the_card_comes_back() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, what time is it")
+    await asyncio.sleep(0.15)
+    screen = agree(session, out)
+    assert screen["cardRun"] != first and screen["behind"] == [first]
+    await session.handle(Message("focus", {"run_id": first}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == first and first not in screen["behind"]
+    await finish_all(session, agent)
+
+
+async def test_deck_a_request_said_over_a_confirm_card_passes_behind_it_under_one_edge() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    agent.runs[first]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    request = out.last("confirm.request")["request_id"]
+    assert agree(session, out)["behind"] == []
+    # The card keeps the front. The row's id changes when its run starts: still one request behind it.
+    await say(session, stt, "Swift, what's the history of coffee?")
+    await until(lambda: len(agent.runs) == 2 and agent.runs["a-2"]["queue"] is not None)
+    await asyncio.sleep(0.1)
+    screen = agree(session, out)
+    assert screen["cardRun"] == first and screen["confirm"] == request
+    assert len(screen["behind"]) == 1 and screen["behind"] == [r["run_id"] for r in out.last("runs")["rows"]]
     await finish_all(session, agent)
 
 

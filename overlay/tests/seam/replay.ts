@@ -1,9 +1,10 @@
 // The overlay's side of the seam test (tests/unit/test_seam_replay.py): frames the real backend sent,
 // on stdin as JSON, go through the real presenter and question reducers, the same calls main.ts makes
-// for each message. What the screen ends up showing goes to stdout. No DOM: what is drawn from this
-// state is still checked by replaying frames in the dev harness.
+// for each message, and the rows through the Deck (ADR-018). What the screen ends up showing goes to
+// stdout. No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
+import * as D from "../../src/deck.ts";
 import * as P from "../../src/presenter.ts";
 
 type Frame = { type: string; data: Record<string, any> };
@@ -12,6 +13,7 @@ const frames: Frame[] = JSON.parse(await new Response(process.stdin as any).text
 const now = 1_000_000;
 let pres = P.initial;
 let asked: Q.Ask | null = null;
+let deck = D.initialDeck;
 const lost: string[] = [];
 const broken = new Set<string>();
 
@@ -27,12 +29,15 @@ for (const { type, data: d } of frames) {
     case "state":
       pres = P.onState(pres, d.state, d.run_id ?? null, d.thread_id ?? null).p;
       break;
-    case "runs":
+    case "runs": {
+      const onCard = pres.focus ?? pres.card.runId;
       pres = P.onRuns(pres, d.focus, d.rows.map((r: any) => ({
         runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
         startedMs: r.started_ms, summary: r.summary, words: r.words,
       })), d.waiting);
+      deck = D.onRows(deck, pres.focus, pres.rows, now, onCard);
       break;
+    }
     case "ask":
       asked = Q.onAsk(asked, d as Q.AskData, now);
       break;
@@ -56,7 +61,12 @@ for (const { type, data: d } of frames) {
   for (const v of P.violations(pres)) broken.add(`${v} (after ${type})`);
 }
 
+// Well after the last frame: every request old enough to have its edge.
+const settled = D.deckView(deck, pres.rows, Number.MAX_SAFE_INTEGER);
+
 process.stdout.write(JSON.stringify({
+  behind: settled.edges.map((e) => e.row.runId),
+  more: settled.edges.reduce((n, e) => n + e.more, 0),
   stage: P.stageOf(pres),
   cardRun: pres.card.runId,
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,

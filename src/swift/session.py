@@ -1179,6 +1179,7 @@ class Session:
         elif self._focus is not None and self._focus.alive:
             self._next_focus = run
         else:
+            self._next_focus = None  # this one is on the card: an older one behind stays behind it
             self._set_focus(run)
         return run
 

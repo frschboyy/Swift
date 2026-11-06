@@ -201,3 +201,22 @@ async def test_a_reply_to_the_answer_is_still_a_reply_with_requests_behind_it() 
     await until(lambda: len(session._runs) >= 3)
     assert agent.cancelled == []
     await finish_all(session, agent)
+
+
+async def test_a_new_request_on_the_card_isn_t_displaced_by_an_older_one_behind() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await asyncio.sleep(0.05)
+    third = await started(session, out, agent, stt, "Hey Swift, compare three e-readers")
+    await asyncio.sleep(0.05)
+    assert runs(out)["focus"] == third
+    agent.runs[second]["go"].set()
+    await asyncio.sleep(0.1)
+    assert runs(out)["focus"] == third, "an older answer took the card from the request just said"
+    # And a plain "stop" is the one on the card: it was just said, and nothing newer is behind it.
+    await say(session, stt, "stop")
+    await until(lambda: agent.cancelled == [third])
+    await finish_all(session, agent)

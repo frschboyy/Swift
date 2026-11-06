@@ -826,7 +826,7 @@ class ClaudeCodeExecutor:
         detail = f" ({lines[0][:160]})" if lines else ""
         summary = f"Claude Code stopped without an answer{detail}."
         # The exception's type often names the cause (CLIConnectionError, TimeoutError).
-        raw = failure_text(error) if error else summary
+        raw = f"{type(error).__name__}: {exception_words(error)}" if error else summary  # classify and detail mask it
         hints = {"fallback_hint": CLAUDE_CODE.error_hint, "signin_hint": CLAUDE_CODE.signin_hint}
         failure = classify(raw, CLAUDE_CODE.name, **hints)
         if failure.code == "executor_failed":  # no known cause: the CLI went away

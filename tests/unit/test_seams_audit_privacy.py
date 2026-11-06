@@ -25,7 +25,7 @@ from swift.connectors.fake import FakeMailConnector
 from swift.executors.claude_code import ClaudeCodeExecutor, model_unconfirmed
 from swift.executors.claude_mapping import outcome_for
 from swift.executors.mock import MockExecutor
-from swift.failures import Failure, clean_detail
+from swift.failures import Failure, classify, clean_detail
 from swift.logging_setup import make_patcher
 from swift.routing import route
 from swift.routing.local import OpenTarget
@@ -250,6 +250,30 @@ def test_a_run_s_end_is_classified_whatever_its_exception_can_say(error: Excepti
 def test_a_rejected_run_keeps_its_exception_s_text() -> None:
     result = ClaudeCodeExecutor._final(_ended(stopped_by=("reject", "Edit")), None, ValueError("about tea"))
     assert result.status == "rejected" and "about tea" in result.meta["error_detail"]
+
+
+@pytest.mark.parametrize(("text", "code"), [
+    ("Bearer token expired", "auth"),
+    ("Basic authentication failed", "auth"),
+    ("x-api-key: invalid api key", "auth"),
+    ("credentials: not logged in", "auth"),
+    ("auth: unauthorized", "auth"),
+    ("access_token: 403", "auth"),
+    ("auth: rate_limit_error", "rate_limited"),
+    ("token: 529", "overloaded"),
+    ("auth: timeout", "timeout"),
+    ("basic network error", "offline"),
+])
+def test_masking_never_hides_what_a_failure_is(text: str, code: str) -> None:
+    assert classify(text, "Claude Code").code == code
+    assert ClaudeCodeExecutor._final(_ended(), None, ValueError(text)).failure.code == code  # type: ignore[union-attr]
+
+
+def test_a_recognised_failure_s_detail_is_still_masked() -> None:
+    failure = classify("401 unauthorized, Authorization: Bearer abcdef123456", "Claude Code")
+    assert failure.code == "auth" and failure.detail is not None and "abcdef123456" not in failure.detail
+    result = ClaudeCodeExecutor._final(_ended(), None, ValueError("no route to host, Bearer abcdef123456"))
+    assert "abcdef123456" not in str(result.failure.detail) and "abcdef123456" not in result.meta["error_detail"]  # type: ignore[union-attr]
 
 
 def test_a_long_secret_is_masked_before_a_detail_is_clipped() -> None:

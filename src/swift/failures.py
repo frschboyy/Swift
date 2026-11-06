@@ -148,7 +148,10 @@ _COMPILED = tuple((code, re.compile(pattern, re.I), *rest) for code, pattern, *r
 
 def clean_detail(text: str) -> str | None:
     """The raw failure text, one line and short enough for a card, secrets masked before it's clipped."""
-    text = redact(" ".join(text.split()))
+    return _fitted(redact(" ".join(text.split())))
+
+
+def _fitted(text: str) -> str | None:
     if not text:
         return None
     return text if len(text) <= DETAIL_MAX else text[: DETAIL_MAX - 1].rstrip() + "…"
@@ -178,8 +181,10 @@ def classify(text: str, name: str, *, fallback_hint: str = DEFAULT_HINT, signin_
     """
     signin = signin_hint or f"Sign in to {name} again, then try again."
     detail = clean_detail(text)
+    # Recognised in its real words: masking removes the very words that say it's a sign-in failure.
+    readable = _fitted(" ".join(text.split()))
     for code, pattern, title, message, hint, retry in _COMPILED:
-        if detail and pattern.search(detail):
+        if readable and pattern.search(readable):
             hint = hint.format(signin=signin, fallback=fallback_hint)
             return Failure(
                 code, title.format(name=name), message.format(name=name), hint, retry=retry, detail=detail

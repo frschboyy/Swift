@@ -62,6 +62,7 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 
 | Finding | Problem | Evidence |
 |---|---|---|
+| X-19 | A recipient's domain reaches `swift.log` through `action done`, and a person's own domain can identify them. Needs the owner's decision (§5) | `security/gateway.py:227` |
 | X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
 | X-17 | Edit and Write approval cards show only 60–70 characters of the change | `executors/claude_mapping.py:154` |
 | X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
@@ -196,6 +197,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - **Check 13's number:** counting transcription as the prime improves the number and makes nothing faster for the owner. The change was removed; the decision is still the owner's.
 - **The short "Hey Swift" rule:** keep or remove once the `short_wake` counter shows how often it fires. It's unproven.
 - **The ledger:** decided at item g in §4.
+- **A recipient's domain in `swift.log` (X-19):** drop it from the log line and keep it in the journal, or keep both and record that. Recommendation: drop it from the log.
 
 **Still open from the checks of 2026-11-04:** when Swift speaks and how much; local models for offline questions; the Watch window shrinking (#10, seams O-09); a held card not coming back on screen (#14: fixes landed in S1, so confirm it's gone).
 

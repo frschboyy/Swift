@@ -386,6 +386,7 @@ IDs by area:
 | R-09 | Medium | design concern | backend | testability | About 20 order-dependent rewrites in one 230-line dispatch function |
 | X-02 | Medium | design concern | gateway | security | Every `find_contact` candidate counts as resolved |
 | X-04 | Medium | confirmed (test); **fixed 2026-11-06** | gateway | security | B-07 still open: a denied address goes into `swift.log` |
+| X-19 | Medium | confirmed (X-04 review) | gateway | security | A recipient's domain reaches `swift.log` |
 | X-06 | Medium | confirmed (code) | executor | security | B-10 is wider: "Claude is busy, retrying…" on the working card |
 | X-07 | Medium | design concern | executor | security | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list |
 | X-09 | Medium | confirmed (code) | gateway | reliability | B-08 still open: after an "unknown" outcome the same action can be done again |
@@ -947,7 +948,12 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 #### X-04 · Medium · confirmed (test) · B-07 still open
 - **Evidence:** `gateway.py:163-166, 230-231` log the reason text, with the address. A second route: the draft check's "Not an email address: …" goes through the same line (`tools.py:412-413`). The owner's log had no `action denied` lines when this was fixed, so no address has been written this way.
 - **Fixed 2026-11-06:** every denial logs a code (`run_ended`, `invalid`, `already_done`, `no_recipient`, `not_a_contact`, `no_policy`). The agent still gets the full reason. Report check 123 fails on the old form.
-- **Not changed:** `action done` and the journal keep the recipients' `domains` by design (`gateway.py:189-191, 226`). That's a domain, not an address.
+- **Not changed:** the recipients' `domains`, filed as X-19.
+
+#### X-19 · Medium · confirmed (X-04 review) · A recipient's domain reaches `swift.log`
+- **Evidence:** `action done` logs `domains` (`gateway.py:227`). An email or event to someone on their own domain writes that domain to `swift.log`, and it can identify who was written to. Reproduced with fakes. The owner's log has 43 `action done` lines with 2 distinct domains.
+- **Documented?** For the journal, yes (ADR-010: "recipient domain, metadata only"). For `swift.log`, no decision is recorded.
+- **Fix, the owner's decision:** drop `domains` from the log line and keep it in the journal, or keep both and record that. Nothing reads it from `swift.log`.
 
 #### X-05 · Low · confirmed (log) · Exception texts in `swift.log` and the journal
 - **Evidence:** `detail=str(exc)[:300]`, `google._failure` HttpError text with request URLs. 11 real values, no content.
@@ -1036,7 +1042,7 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 | B-03 | yes for restarts | **no**: "shown" means sent, and the overlay can drop it (O-08) |
 | B-04 | yes | partly: after a restart the overlay doesn't resync (O-02) |
 | B-05 | partly | the spare still connects beside the speech model at start-up (median 9.8 s vs 15.6 s), but the first agent request after start was warm in all 13 starts with one. `warm=True` also hides a wait for a spare still connecting: log `waited_ms` |
-| B-07, B-08, B-10 | still open | B-10 is wider (X-06) |
+| B-07, B-08, B-10 | still open when this was written; B-07 fixed 2026-11-06 (X-04) | B-10 is wider (X-06) |
 | H-06 (no heartbeat), H-07 | still open | H-06 belongs with S1 |
 
 ---

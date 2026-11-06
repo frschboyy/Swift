@@ -218,6 +218,7 @@ async def test_a_denial_with_no_recipient_logs_a_code() -> None:
     finally:
         logger.remove()
     assert out.status == "denied" and "code='no_recipient'" in sink.getvalue(), sink.getvalue()
+    assert "reason=" not in sink.getvalue(), sink.getvalue()
 
 
 # ---- swift.log: what went wrong, without the words (X-05) ------------------------------------------

@@ -78,6 +78,10 @@ def test_check_123_sees_the_fields_the_audit_found_still_open() -> None:
     assert _find(_results([], [line]), "123")[0] is report.FAIL
     clean = "2026-11-04 16:00:00 | INFO | interaction finished | transcript_raw='[REDACTED]'"
     assert _find(_results([], [clean]), "123")[0] is report.PASS
+    for field in ("target='rent notes.docx'", "escalations=[{'to': 'opus', 'reason': 'rent letter'}]"):
+        assert _find(_results([], [f"2026-11-04 16:00:00 | INFO | interaction finished | {field}"]), "123")[0] is report.FAIL
+    shape = "2026-11-04 16:00:00 | INFO | interaction finished | transcript_chars=24 escalations=[{'to': 'opus', 'by': 'model'}]"
+    assert _find(_results([], [shape]), "123")[0] is report.PASS
 
 
 def _due_log(sent: int, drawn: int) -> list[str]:

@@ -9,14 +9,19 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
+import re
+from pathlib import Path
 from typing import Any
 
 import pytest
 from loguru import logger
 
+from swift.backend.__main__ import _on_finish
 from swift.connectors.base import Contact
 from swift.connectors.fake import FakeMailConnector
 from swift.logging_setup import make_patcher
+from swift.runlog import LOCAL_ONLY_FIELDS, SUMMARY_FIELDS, InteractionLog
 from swift.security.gateway import Action, ActionGateway
 from swift.security.journal import Journal
 from swift.workflows.tools import ToolHost
@@ -168,20 +173,47 @@ async def test_a_denied_address_does_not_reach_the_log() -> None:
     assert "someone@evil.example" not in sink.getvalue()
 
 
-# ---- swift.log: the interaction summary is a deny-list -----------------------------------------
+# ---- swift.log: the interaction summary is an allow-list (X-03) ----------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit X-03: transcript_raw and a model's escalation reason reach swift.log")
-def test_the_interaction_summary_keeps_words_out_of_swift_log() -> None:
+def _finish_through_the_real_path(record: dict[str, Any], tmp_path: Path) -> tuple[str, dict[str, Any]]:
+    """What swift.log and the local interaction log each get, from the backend's own ``finish``."""
+    local = tmp_path / "interactions.jsonl"
     sink = _captured()
     try:
-        record = {
-            "source": "voice", "status": "done",
-            "transcript_raw": "email francis chanu about the visa interview",
-            "escalations": [{"to": "claude-opus-5-5", "by": "model", "reason": "visa interview letter", "t_ms": 1}],
-        }
-        logger.bind(**record).info("interaction finished")  # what backend/__main__.finish does
+        _on_finish(InteractionLog(local))(record)
     finally:
         logger.remove()
-    out = sink.getvalue()
+    return sink.getvalue(), json.loads(local.read_text(encoding="utf-8"))
+
+
+def test_the_interaction_summary_keeps_words_out_of_swift_log(tmp_path: Path) -> None:
+    out, kept = _finish_through_the_real_path({
+        "source": "voice", "status": "done", "steps": [{"t_ms": 0, "text": "visa interview step"}],
+        "transcript": "email francis about the visa interview",
+        "transcript_raw": "email francis chanu about the visa interview",
+        "target": "visa interview notes.docx",
+        "addressed_as": "visa interview",
+        "escalations": [{"to": "claude-opus-5-5", "by": "model", "reason": "visa interview letter", "t_ms": 1}],
+    }, tmp_path)
     assert "visa interview" not in out, out
+    assert "status='done'" in out and "steps=1" in out and "claude-opus-5-5" in out, out
+    assert "visa interview" in kept["transcript_raw"] and "visa interview" in kept["escalations"][0]["reason"]
+
+
+def test_a_field_nobody_has_classified_stays_out_of_swift_log(tmp_path: Path) -> None:
+    out, kept = _finish_through_the_real_path({"status": "done", "a_field_added_next_year": "visa interview"}, tmp_path)
+    assert "visa interview" not in out and "a_field_added_next_year" not in out, out
+    assert kept["a_field_added_next_year"] == "visa interview"
+
+
+def test_every_field_the_code_writes_is_classified() -> None:
+    """A new field fails here until someone decides whether swift.log may carry it."""
+    writes = re.compile(r'\brecord\["(\w+)"\]\s*(?:=|\+=|,)|\brecord\.setdefault\("(\w+)"')
+    root = Path(__file__).resolve().parents[2] / "src" / "swift"
+    source = "\n".join((root / name).read_text(encoding="utf-8") for name in ("session.py", "backend/__main__.py"))
+    written = {a or b for a, b in writes.findall(source)}
+    assert {"status", "transcript_raw", "target", "asks"} <= written, "the scan no longer finds what it should"
+    decided = SUMMARY_FIELDS | LOCAL_ONLY_FIELDS | {"escalations"}
+    assert written - decided == set()
+    assert SUMMARY_FIELDS.isdisjoint(LOCAL_ONLY_FIELDS)

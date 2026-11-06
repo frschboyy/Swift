@@ -43,7 +43,7 @@ from swift.logging_setup import setup_logging
 from swift.routing import Route, route
 from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
 from swift.routing.local import LocalOpener
-from swift.runlog import InteractionLog
+from swift.runlog import InteractionLog, summary
 from swift.security.gateway import ActionGateway
 from swift.security.journal import Journal
 from swift.system.lane import SystemLane
@@ -79,10 +79,9 @@ def _on_finish(runlog: InteractionLog, recordings: Recordings | None = None) -> 
         # Its clip flagged or dropped (audit B-06): the flags only, never the words.
         if recordings is not None and (flags := recordings.note(record)):
             record["clip_flags"] = flags
-        # Full record to the local interaction log; a redacted one-line summary to swift.log.
+        # Full record to the local interaction log; only the allow-listed fields to swift.log.
         runlog.append(record)
-        summary = {k: v for k, v in record.items() if k not in ("steps", "approvals", "ts", "id")}
-        logger.bind(**summary, steps=len(record.get("steps", []))).info("interaction finished")
+        logger.bind(**summary(record)).info("interaction finished")
 
     return finish
 

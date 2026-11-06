@@ -353,7 +353,7 @@ IDs by area:
 | V-01 | High | confirmed (test); **fixed 2026-11-05 (S4)** | speech | fallback | With SAPI unavailable, Swift is "speaking" forever and the open mic goes deaf |
 | R-03 | High | confirmed (test); **fixed 2026-11-05 (S4)** | backend | effectiveness, fallback | A local request waits behind three agent runs |
 | X-01 | High | confirmed (test) | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
-| X-03 | High | confirmed (test, log) | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
+| X-03 | High | confirmed (test, log); **fixed 2026-11-06** | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
 | X-08 | High | confirmed (test) | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
 | X-17 | High | design concern | executor | security | Edit and Write approval cards show 60–70 characters of what will be written (A-12's class) |
 | D-05 | Medium | confirmed (test); **fixed 2026-11-05 (S2)** | backend | effectiveness | "Turn it back on" during a run (typed or named) gets a mid-run hint |

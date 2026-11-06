@@ -39,6 +39,37 @@ FIELD_ORDER = (
     "cost_usd", "turns", "denied", "exit_code", "scenario",
 )
 
+# The one line each interaction leaves in swift.log. An allow-list: a field that isn't here stays in
+# the local interaction log only, so a new field can't reach swift.log until someone decides it may.
+SUMMARY_FIELDS: frozenset[str] = frozenset({
+    "action", "answered_later", "artifacts", "asked", "asks", "audio_s", "back", "carried", "clip_flags",
+    "confirmed", "context", "continues", "cost_usd", "demand", "denied", "desktop", "dialogue",
+    "duration_ms", "ended", "endpoint_waits", "error", "executor", "exit_code", "first_audio_ms", "fix",
+    "follows_local", "fragment", "heard_back_ms", "improve", "intents", "interaction_ms", "live", "midrun",
+    "models", "moved_on", "noise_db", "offer", "offered", "offered_resume", "override", "parked", "paused",
+    "peak_db", "preroll_ms", "provider", "queued", "queued_behind", "reason", "redirected", "redirects",
+    "resumed", "retries", "retry_of", "route", "run_ms", "scenario", "since_back_ms", "skipped",
+    "source", "spoken_chars", "start_model", "status", "stopped_by", "stt_confidence", "stt_ms",
+    "thread", "turns", "undo", "views", "workflow",
+})
+# Fields that stay out on purpose: words, or a name or path the owner's words can put there.
+LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
+    "addressed_as", "approvals", "asked_unanswered", "audio_file", "id", "steps", "target", "transcript",
+    "transcript_heard", "transcript_raw", "ts", "unclear",
+})
+_ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request
+
+
+def summary(record: dict[str, Any]) -> dict[str, Any]:
+    """What ``swift.log`` may say about an interaction: its shape, never the owner's words."""
+    line = {key: value for key, value in record.items() if key in SUMMARY_FIELDS}
+    line["steps"] = len(record.get("steps", []))
+    if "transcript" in record:
+        line["transcript_chars"] = len(str(record["transcript"]))
+    if "escalations" in record:
+        line["escalations"] = [{k: e[k] for k in _ESCALATION_FIELDS if k in e} for e in record["escalations"]]
+    return line
+
 
 class InteractionLog:
     def __init__(self, path: Path, stt_model: str | None = None) -> None:

@@ -206,7 +206,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
     # The three fields cd7eec8 fixed, and the ones the 2026-11 audit found still open (X-03).
     words_logged = [line for line in log
                     if re.search(r"\b(asked_unanswered|transcript_heard|unclear|transcript_raw|addressed_as)="
-                                 r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)]
+                                 r"(?!'\[REDACTED)(?!\[\])(?!None)(?!'')", line)
+                    or ("| interaction finished |" in line and re.search(r"\btarget=|'reason':", line))]
     fixes_decided = [line for line in log if "| word fixes decided |" in line]
     set_aside = [line for line in log if "| question set aside for another |" in line]
     resynced = [line for line in log if "| overlay told what is on screen |" in line]

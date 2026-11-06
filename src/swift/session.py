@@ -1530,7 +1530,7 @@ class Session:
             # "Turn it back on" while a request works: carried out beside it, not the mid-run grammar (D-05).
             self._start_beside(text, source="typed")
             return
-        if (asked := self.dialogue.pending) is not None and asked.owner is not None:
+        if (asked := self.dialogue.pending) is not None and asked.owner is not None and self._on_screen(asked):
             with self._as(asked.owner):
                 await self._midrun_text(text, self._run_phase, source="typed")
             return
@@ -4274,7 +4274,7 @@ class Session:
     async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]], source: str = "beside") -> None:
         """Said during a run: about the one in front, naming another, a change of mind, or a new request.
         While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control."""
-        if (asked := self.dialogue.pending) is not None and self._for_question(asked, text):
+        if (asked := self.dialogue.pending) is not None and self._on_screen(asked) and self._for_question(asked, text):
             if await self._take_answer(text, source=source if source != "beside" else "voice",
                                        named=match_address(text, self.wake_greetings) is not None):
                 await phase("idle")

@@ -337,6 +337,15 @@ About 12 minutes. Whether you speak, type or click, Swift now applies the same r
 | 164 | Start a research request, then "Hey Swift, turn off the Wi-Fi". While it asks, click the research request's row to bring it forward, then say "**yes**" | The "yes" does nothing and Wi-Fi stays on: the question isn't on screen. It goes to the stack when its time runs out | A question out of sight wasn't answered |
 | 165 | "Hey Swift, research the history of tea in detail", then "set a timer for 20 seconds", and keep the research going | When it comes due: the chime and "Your timer is up", **once**. The timer shows in the stack ("Came due") and the research card stays. When the research ends, the timer card shows. Run it again and click **Done** in the stack: no card comes up later | Due cards drawn before leaving the schedule (149) |
 
+### Cards and the stack fit (2026-11-06)
+
+About 2 minutes.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 166 | Open a calendar card ("Hey Swift, add lunch with Sam tomorrow at one"), then reject it. Ask "what time is it" | **No sideways scrollbar** on either card. The amber band reaches both edges, and its shield and countdown are whole | (seen on screen) |
+| 167 | With two or more things waiting, double-click the stack to open it | The whole panel shows: its right edge, its corner button and its last row aren't cut off | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

@@ -274,12 +274,12 @@ function draw(): void {
   fit();
 }
 
-/** The window takes the size of what it shows. */
+/** The window takes the size of what it shows: its layout size, not getBoundingClientRect, which
+ * includes the opening animation's scale(0.9) and left the window 10% too small for good. */
 function fit(): void {
   const node = root.firstElementChild as HTMLElement | null;
   if (!node) return;
-  const r = node.getBoundingClientRect();
-  void invoke("fit_pane", { label, w: Math.ceil(r.width), h: Math.ceil(r.height) }).catch(() => {});
+  void invoke("fit_pane", { label, w: node.offsetWidth, h: node.offsetHeight }).catch(() => {});
 }
 new ResizeObserver(fit).observe(root);
 

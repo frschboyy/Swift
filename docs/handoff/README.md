@@ -208,6 +208,8 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 |---|---|---|
 | Keep Step 1? | It adds more than it removes (+835, −356 in source, overlay and Rust), which `CLAUDE.md` asks the owner to weigh for a structural step | Keep it if 168 and 173 feel right on the real screen; the one-window spike is where the deletions would come from |
 
+**Open from the independent review of the Deck's backend change** (ADR-018 §4.1): should "Say yes and I'll send a correction" follow the same rule as a question, so it takes a "yes" only while it's on screen, and typing needs Swift's name? Recommendation: yes.
+
 **Open from the reliability audits:**
 
 - **Check 13's number:** counting transcription as the prime improves the number and makes nothing faster for the owner. The change was removed; the decision is still the owner's.

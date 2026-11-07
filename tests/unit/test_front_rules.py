@@ -562,3 +562,11 @@ async def test_words_said_with_the_hotkey_held_are_taken_once_not_from_the_open_
     await session.handle(Message("ptt", {"state": "up"}))
     await until(lambda: voice.done())
     await finish_all(session, agent)
+
+
+async def test_stop_with_filler_words_reaches_the_one_behind_too() -> None:
+    session, out, _records, agent, stt = make()
+    second = await _answer_asks_with_one_behind(session, out, agent, stt)
+    await say(session, stt, "please stop")
+    await until(lambda: agent.cancelled == [second])
+    await finish_all(session, agent)

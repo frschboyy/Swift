@@ -95,6 +95,8 @@ One commit each, in this order:
 
 `test_deck_requests_keep_their_places_as_they_come_and_go` fails with the old `TAKES_FRONT`. The review's reproductions are kept in `tests/unit/test_front_rules.py`.
 
+**Passed by the independent reviewer (2026-11-07):** the answer gate. **Not covered by it, and waiting for the owner's ruling:** "Say yes and I'll send a correction" isn't a question, so a "yes" takes that offer with its card hidden, and typed "yes" works there, though a spoken bare "yes" doesn't. That's older than this work. The correction would need its own card to send, though that's from reading the code and hasn't been run. Also older: with its question on screen, the hotkey starts a new request instead of answering a question from the system lane; a click, typing and the open mic all answer it.
+
 **Left for the owner, from the same review:** only the newest request counts as "just said", so with three running, after the newest stops, a plain "stop" reaches the card though an older one is still behind; and "pause" and "mute" don't ask which, though "pause" keeps the request as unfinished. Also still open: a provider that won't start at all, behind the card, shows its error with the old request's words; and a typed request coming forward shows the mic icon.
 
 **After a swap, a card named the wrong request.** The backend sends a request's words once, so a card brought forward kept the last card's words and clock, and could show its finished artifacts. `onRuns` now takes them from the row (`wordsComingForward`), which the seam checks as `cardWords`.

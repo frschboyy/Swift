@@ -169,6 +169,7 @@ from swift.routing import route as default_router
 from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import (
+    _normalize,
     refers_here,
     refers_to_selection,
     route_midrun,
@@ -3783,7 +3784,7 @@ class Session:
         said = (addressed.remainder if addressed is not None else text).strip()
         named = route_target(said)
         # Only the plain word: "never mind", "enough" and "quiet" are for the answer on the card.
-        return (named is not None and named[0] == "stop") or _PLAIN_STOP.fullmatch(said.lower().rstrip(" .!,")) is not None
+        return (named is not None and named[0] == "stop") or _PLAIN_STOP.fullmatch(_normalize(said)) is not None
 
     async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]]) -> None:
         """"Actually, make it about the deadline": the request in front changes course (ADR-014 §7)."""

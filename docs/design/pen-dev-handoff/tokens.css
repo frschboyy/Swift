@@ -1,0 +1,93 @@
+/* Swift overlay design tokens: the current values, copied from overlay/src/styles.css at main 6cdc25f.
+   New since the pack at b9ca8c3: --dur-move, and the Deck's geometry at the end of this file. */
+
+#stage,
+#stage[data-theme="dark"] {
+  --panel: rgba(32, 34, 40, 0.88);
+  --panel-solid: #1f2127;
+  --panel-edge: rgba(255, 255, 255, 0.11);
+  --raise: rgba(255, 255, 255, 0.07);
+  --raise-hover: rgba(255, 255, 255, 0.12);
+  --text: #f2f3f6;
+  --muted: #c3c6d0;
+  --faint: #a0a4b0;
+  --accent: #8ab4ff;
+  --on-accent: #0b1730;
+  --accent-soft: rgba(138, 180, 255, 0.16);
+  --accent-edge: rgba(138, 180, 255, 0.5);
+  --ok: #7fd8a4;
+  --on-ok: #0a2416;
+  --bad: #ff8a80;
+  --on-bad: #2b0906;
+  --warn: #f5c26b;
+  --on-warn: #2a1c00;
+  --warn-text: #f5c26b;
+  --warn-soft: rgba(245, 194, 107, 0.16);
+  --warn-halo: rgba(245, 194, 107, 0.18);
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.28);
+  --spin-track: rgba(138, 180, 255, 0.25);
+  --scrollbar: rgba(255, 255, 255, 0.25);
+  color-scheme: dark;
+}
+
+#stage[data-theme="light"] {
+  --panel: rgba(251, 251, 253, 0.88);
+  --panel-solid: #ffffff;
+  --panel-edge: rgba(0, 0, 0, 0.11);
+  --raise: rgba(0, 0, 0, 0.05);
+  --raise-hover: rgba(0, 0, 0, 0.09);
+  --text: #15171c;
+  --muted: #454a57;
+  --faint: #5c6170;
+  --accent: #2357c9;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(35, 87, 201, 0.12);
+  --accent-edge: rgba(35, 87, 201, 0.45);
+  --ok: #1b7f4b;
+  --on-ok: #ffffff;
+  --bad: #c0362c;
+  --on-bad: #ffffff;
+  --warn: #f2b33d;
+  --on-warn: #2a1c00;
+  --warn-text: #875800;
+  --warn-soft: rgba(242, 179, 61, 0.22);
+  --warn-halo: rgba(242, 179, 61, 0.25);
+  --shadow: 0 18px 48px rgba(20, 30, 50, 0.18), 0 2px 8px rgba(20, 30, 50, 0.1);
+  --spin-track: rgba(35, 87, 201, 0.22);
+  --scrollbar: rgba(0, 0, 0, 0.25);
+  color-scheme: light;
+}
+
+#stage {
+  --radius: 14px;
+  --orb: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), transparent 42%), radial-gradient(circle, #8ab4ff, #4f7bdc 78%);
+  --glass: blur(24px) saturate(1.4);
+  --dur-press: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 200ms;
+  --dur-move: 280ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* Cards grow out of the capsule: up from a bottom anchor, down from a top one. */
+  --enter: 8px;
+  --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, monospace;
+}
+
+/* The Deck's geometry (ADR-018). --at, --inset and --peek are set per edge by deckdraw.ts from deck.ts:
+   at most 3 edges, then "+N" on the last. Each shows 32, 30, then 28 px past the one before it, and is
+   10 px narrower on each side. Each also tucks 18 px behind the card. Edge body: 13/18 text, radius 12,
+   --panel-solid, 1px --panel-edge. An edge needing an OK: 1px --warn border and a 3px --warn-halo ring.
+   A new edge saying "Got it": 1px --ok border, for 2.5 s. */
+.deck {
+  --tuck: 18px;
+  --peek-1: 32px;
+  --peek-2: 30px;
+  --peek-3: 28px;
+  --inset-step: 10px;
+}
+
+/* Timing that lives in overlay/src/shuffle.ts, not in CSS: moves take 280 ms with --ease, and with
+   reduced motion they become a 120 ms fade or nothing. Never overshoot. */

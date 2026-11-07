@@ -43,6 +43,7 @@ import contextvars
 import json
 import re
 import time
+import urllib.request
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
@@ -508,6 +509,43 @@ async def ask_owner(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> To
     return ToolResult(True, "The owner answered.", data)
 
 
+WEATHER_URL = "https://wttr.in/?format=j1"
+WEATHER_TIMEOUT_S = 10.0
+
+
+def _fetch_weather() -> dict[str, Any]:
+    request = urllib.request.Request(WEATHER_URL, headers={"User-Agent": "swift-assistant"})  # noqa: S310 - a fixed https address
+    with urllib.request.urlopen(request, timeout=WEATHER_TIMEOUT_S) as reply:  # noqa: S310
+        return json.loads(reply.read(2_000_000))
+
+
+def _weather_facts(raw: dict[str, Any]) -> dict[str, Any]:
+    """Today's weather, cut down to what answers a question about it."""
+    now = (raw.get("current_condition") or [{}])[0]
+    area = (raw.get("nearest_area") or [{}])[0]
+    today = (raw.get("weather") or [{}])[0]
+    text = lambda d, key: ((d.get(key) or [{}])[0]).get("value", "")  # noqa: E731
+    return {
+        "place": text(area, "areaName"), "country": text(area, "country"),
+        "now": {"temp_c": now.get("temp_C"), "feels_c": now.get("FeelsLikeC"), "sky": text(now, "weatherDesc")},
+        "today": {"max_c": today.get("maxtempC"), "min_c": today.get("mintempC")},
+        "hours": [
+            {"time": f"{int(h.get('time', 0)) // 100:02d}:00", "chance_of_rain": h.get("chanceofrain"),
+             "rain_mm": h.get("precipMM"), "temp_c": h.get("tempC"), "sky": text(h, "weatherDesc")}
+            for h in today.get("hourly") or []
+        ],
+    }
+
+
+async def weather(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:  # noqa: ARG001
+    """Today's weather where the PC is. The address is fixed and nothing goes into it, so no card."""
+    try:
+        raw = await asyncio.to_thread(_fetch_weather)
+        return ToolResult(True, "Today's weather.", _weather_facts(raw))
+    except (OSError, ValueError, TimeoutError) as exc:
+        return ToolResult(False, "The weather couldn't be read right now.", {"error": type(exc).__name__}, expected=True)
+
+
 async def present(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     kind = args.get("kind")
     title = str(args.get("title", "")).strip()[:120]
@@ -604,6 +642,13 @@ TOOLS: tuple[ToolSpec, ...] = (
              kind={"type": "string", "enum": list(ASK_KINDS)},
              options={"type": "array", "items": {"type": "string"}, "description": "For 'choice': the options"}),
         "none", ask_owner,
+    ),
+    ToolSpec(
+        "weather",
+        "Today's weather where the owner's PC is: now, and hour by hour with the chance of rain. No arguments: "
+        "it works out the place itself. Use it for any question about the weather here, and don't ask where.",
+        _obj([]),
+        "read", weather,
     ),
     ToolSpec(
         "present",

@@ -115,7 +115,10 @@ SYSTEM_PROMPT = (
     "request, and Swift shows your final answer to the user. Answer the request directly; don't introduce "
     "yourself or sign the answer. "
     "The user spoke this request and it was transcribed, so it may contain "
-    "recognition errors: read it for what was meant. Keep the final answer short; it is shown on a small card."
+    "recognition errors: read it for what was meant. Keep the final answer short; it is shown on a small card. "
+    "The user isn't expected to know what a terminal is. To find something out, use the weather tool if you have "
+    "one and web search or fetch, never the shell: every shell command stops and asks the user on a card. Use the "
+    "shell only when the request needs it. Don't mention commands or tools in your answer."
 )
 ESCALATE_PROMPT = (
     " If the request needs more capability than you have (multi-step changes, debugging, design or "

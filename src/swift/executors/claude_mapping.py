@@ -208,7 +208,9 @@ def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tup
             return f"Edit notebook {name_shown}", f"In:\n{where}\n{action} cell:\n{cell}\nsource:\n{_quoted(str(args.get('new_source', '')))}"
         case "Bash" | "PowerShell":
             # Escaped for showing only: what runs is the command as it came.
-            return "Run a command", _visible(str(args.get("command", "")).replace("\r\n", "\n"), keep="\n\t").strip()
+            # Says what it is, and nothing about what it does: telling that from the text of a command took
+            # a parser that two reviews in a row fooled (a newline, an "&"). The card shows the command.
+            return "Run a command on your PC", _visible(str(args.get("command", "")).replace("\r\n", "\n"), keep="\n\t").strip()
         case "WebFetch":
             url = str(args.get("url", ""))
             return f"Fetch {urlparse(url).netloc or 'a web page'}", _short(url, 300)

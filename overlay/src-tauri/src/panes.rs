@@ -49,8 +49,11 @@ impl PaneKind {
 /// Which side of the screen (-1 left, 1 right) a kind goes on, given where the main window is.
 fn side(kind: PaneKind, main: Anchor) -> i32 {
     match (kind, main.column()) {
-        (PaneKind::Stack | PaneKind::Type, 1) => -1,
-        (PaneKind::Stack | PaneKind::Type, _) => 1,
+        // The stack keeps the bottom-right corner (owner, 2026-11-07: it shouldn't move by itself). The one
+        // exception: the main window's own corner, where it would sit on the card.
+        (PaneKind::Stack, _) => if main == Anchor::BottomRight { -1 } else { 1 },
+        (PaneKind::Type, 1) => -1,
+        (PaneKind::Type, _) => 1,
         (PaneKind::Reader | PaneKind::Live, -1) => 1,
         (PaneKind::Reader | PaneKind::Live, _) => -1,
         (PaneKind::Tray, _) => 1,
@@ -219,6 +222,17 @@ mod tests {
     }
 
     const STACK: (i32, i32) = (300, 72);
+
+    #[test]
+    fn the_stack_keeps_the_bottom_right_corner_wherever_the_main_window_goes() {
+        let corner = default_origin(FHD, 1.0, Anchor::BottomCenter, PaneKind::Stack, 0, STACK);
+        assert_eq!(corner.0 + STACK.0, FHD.x + FHD.w as i32 - (MARGIN as i32));
+        for main in [Anchor::TopLeft, Anchor::TopCenter, Anchor::TopRight, Anchor::BottomLeft] {
+            assert_eq!(default_origin(FHD, 1.0, main, PaneKind::Stack, 0, STACK), corner, "moved at {main:?}");
+        }
+        // Only the main window's own corner moves it: it would sit on the card.
+        assert!(default_origin(FHD, 1.0, Anchor::BottomRight, PaneKind::Stack, 0, STACK).0 < corner.0);
+    }
 
     #[test]
     fn the_stack_sits_in_a_bottom_corner_clear_of_the_card_and_the_reader() {

@@ -501,6 +501,9 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     let Some((hwnd, kind)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
         return Ok(false);
     };
+    if kind == PaneKind::Stack {
+        return Ok(false);  // it keeps its corner: a press is only ever a click
+    }
     let (Some(start), Some((ox, oy, _, _))) = (win::cursor_pos(), win::window_rect(hwnd)) else {
         return Ok(false);
     };
@@ -539,11 +542,11 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     }
     let state = app.state::<Placement>();
     let mut p = state.0.lock().unwrap();
-    let place = Some(panes::to_fraction(area, (cx, if kind.grows_up() { cy + h } else { cy })));
+    let place = Some(panes::to_fraction(area, (cx, cy)));
     let places = &mut p.prefs.panes;
     match kind {
         PaneKind::Reader => places.reader = place,
-        PaneKind::Stack => places.stack = place,
+        PaneKind::Stack => return Ok(true),  // never remembered: it keeps its corner
         PaneKind::Type => places.typing = place,
         PaneKind::Live => places.live = place,
         PaneKind::Tray => return Ok(true),  // it opens by the tray icon each time
@@ -555,7 +558,8 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
 fn remembered_place(places: &prefs::PanePlaces, kind: PaneKind) -> Option<(f64, f64)> {
     match kind {
         PaneKind::Reader => places.reader,
-        PaneKind::Stack => places.stack,
+        // Always its corner, even with a place saved from before (`panes::side`).
+        PaneKind::Stack => None,
         PaneKind::Type => places.typing,
         PaneKind::Live => places.live,
         PaneKind::Tray => None,

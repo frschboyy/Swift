@@ -287,7 +287,7 @@ class MicRecorder:
     def _stop(self) -> np.ndarray:
         with self._lock:
             self._recording = False
-        if not self._keep_open:
+        if not self._keep_open or self.paused:
             self._close_stream()
         with self._lock:
             blocks, self._blocks = self._blocks, []

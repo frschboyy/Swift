@@ -55,6 +55,11 @@ def _words(text: str) -> set[str]:
     return {w for w in _WORD.findall(text.lower()) if w not in _STOP and len(w) > 1}
 
 
+def _same(words: str) -> str:
+    """Words compared as said: case and punctuation aside."""
+    return " ".join(_WORD.findall(words.lower()))
+
+
 def _clip(text: str, limit: int) -> str:
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
@@ -168,8 +173,19 @@ class ParkedThreads:
 
     # ---- changes ----------------------------------------------------------------
 
+    def drop_same(self, words: str) -> bool:
+        """The owner asked the same thing again: the unfinished one is replaced, not a second of it."""
+        same = _same(words)
+        kept = [p for p in self._items if not same or _same(p.words) != same]
+        if len(kept) == len(self._items):
+            return False
+        self._items = kept
+        self._save()
+        return True
+
     def park(self, parked: Parked) -> None:
-        self._items = [p for p in self._items if p.thread != parked.thread] + [parked]
+        same = _same(parked.words)
+        self._items = [p for p in self._items if p.thread != parked.thread and (not same or _same(p.words) != same)] + [parked]
         self._items = sorted(self._items, key=lambda p: p.at)[-MAX_PARKED:]
         self._save()
         logger.info("conversation parked", reason=parked.reason)

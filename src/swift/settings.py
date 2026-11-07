@@ -286,13 +286,16 @@ class SystemSettings(_Section):
 class SpeechSettings(_Section):
     """Swift's voice (ADR-016 §4): answers said aloud, in short. The card always shows everything.
 
-    replies: "auto" speaks the answer to a spoken request and stays quiet for a typed one;
-    "always" speaks every answer; "never" keeps Swift silent. Never while you are away, locked
-    or asleep. Timers and alarms are said when they go off unless replies are "never".
+    replies: "never" (the default since the owner's decision of 2026-11-07) shows answers on their cards
+    and says nothing but ``greeting``; "auto" speaks the answer to a spoken request and stays quiet for
+    a typed one; "always" speaks every answer. Never while you are away, locked or asleep. Timers and
+    alarms are said when they go off unless replies are "never".
     """
 
     enabled: bool = True
-    replies: Literal["auto", "always", "never"] = "auto"
+    replies: Literal["auto", "always", "never"] = "never"
+    # Said to a bare "hey Swift", whatever replies are. Empty: nothing.
+    greeting: str = "Hello"
     # A Windows voice by name ("Mark", "Zira", "David"); empty: the Windows default.
     voice: str = ""
     rate: int = Field(0, ge=-10, le=10)

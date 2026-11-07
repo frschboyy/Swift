@@ -35,6 +35,13 @@ TIMES_OF_DAY = ("morning", "afternoon", "evening", "day")
 CLOSE = 0.8
 # The phrase may follow a filler ("um, hey Swift") but not a sentence.
 MAX_LEAD_WORDS = 2
+# What the speech model writes for "hey" in front of the name, from the owner's saved misses (replayed
+# 2026-11-07: "He swift.", "He's swift.", "K Swift.", "Hail Swift.", "Be Swift.", "A swift"). Accepted only
+# with ``loose``, only first, and only with the name ending a phrase: "be swift about it" is a sentence.
+SOUNDS_LIKE_HEY = ("he", "he's", "hes", "k", "kay", "hail", "be", "a")
+COMMON_WORDS = ("a", "be")
+# How near the name must sound right after a near miss (``near_wake``): "sweet" is 0.6.
+PRIMED_CLOSE = 0.6
 
 _WORD = re.compile(r"[a-z']+")
 _TRIM = " \t\r\n,.:;!?-–—"
@@ -77,15 +84,28 @@ def _joined(word: str, close: float) -> bool:
     return False
 
 
-def match_wake(text: str, extra_greetings: Iterable[str] = (), *, close: float = CLOSE) -> WakeMatch | None:
+def match_wake(
+    text: str, extra_greetings: Iterable[str] = (), *, close: float = CLOSE, loose: bool = False,
+) -> WakeMatch | None:
     """The wake phrase at the start of ``text`` (case, punctuation and mishearings forgiven).
 
     ``close`` is how near the name must sound. Lower only where the phrase can't start anything
     by itself: said into the hotkey, "hey Crift" and "hey thrift" were the name (2026-10-27).
+    ``loose`` also takes what the model writes for "hey" (``SOUNDS_LIKE_HEY``). For starting a request
+    only, where a mistake opens the microphone and nothing more: approving goes through
+    ``match_address``, which never uses it.
     """
     found = [(m.group(), m.end()) for m in _WORD.finditer(text.lower().replace("’", "'"))]
     words = [w.strip("'") for w, _ in found]
     extra = tuple(tuple(_WORD.findall(g.lower())) for g in extra_greetings if g.strip())
+    if loose and len(words) >= 2 and words[0] in SOUNDS_LIKE_HEY and _close(words[1].removesuffix("'s"), NAME, close):
+        after = text[found[1][1]:]
+        rest = after.lstrip(_TRIM).strip()
+        # Alone, a mistake only opens the microphone. With words after it, a mistake starts a run: the name
+        # as said, and no greeting that is an ordinary word in front of it ("a shift, please").
+        enough = not rest or (words[1].removesuffix("'s") == NAME and words[0] not in COMMON_WORDS)
+        if enough and (not after.strip() or after[0] in ",.:;!?"):
+            return WakeMatch(" ".join(words[:2]), rest)
     for i in range(min(len(words), MAX_LEAD_WORDS + 1)):
         n = _greeting_len(words, i, extra)
         if n and i + n < len(words) and _close(words[i + n].removesuffix("'s"), NAME, close):
@@ -95,6 +115,26 @@ def match_wake(text: str, extra_greetings: Iterable[str] = (), *, close: float =
             # The word as heard, so the phrase still counts the words the model wrote.
             return WakeMatch(words[i], text[found[i][1]:].lstrip(_TRIM).strip())
     return None
+
+
+def near_wake(text: str, extra_greetings: Iterable[str] = ()) -> bool:
+    """Nearly the wake phrase ("He's sweet", "Hey twif"): a greeting, then a word a little like the name.
+    Not enough to start anything; it makes the next few seconds more forgiving, because the owner will
+    say it again (Apple's "second chance": https://machinelearning.apple.com/research/hey-siri)."""
+    words = [w.strip("'") for w in _WORD.findall(text.lower().replace("’", "'"))]
+    if len(words) < 2 or len(words) > 8:
+        return False
+    extra = tuple(tuple(_WORD.findall(g.lower())) for g in extra_greetings if g.strip())
+    greeted = words[0] in SOUNDS_LIKE_HEY or _greeting_len(words, 0, extra) == 1
+    return greeted and _close(words[1].removesuffix("'s"), NAME, PRIMED_CLOSE)
+
+
+def after_near_wake(text: str, extra_greetings: Iterable[str] = ()) -> str | None:
+    """What follows a near miss ("He's sweet. What time is it?"), or None if it isn't one."""
+    if not near_wake(text, extra_greetings):
+        return None
+    found = list(_WORD.finditer(text.lower().replace("’", "'")))
+    return text[found[1].end():].lstrip(_TRIM).strip()
 
 
 def match_address(text: str, extra_greetings: Iterable[str] = ()) -> WakeMatch | None:

@@ -248,8 +248,9 @@ def _make_speaker(settings: Settings, session: Session, loop: asyncio.AbstractEv
     cfg = settings.speech
     session.speech_replies = cfg.replies if cfg.enabled else "never"
     session.read_confirms = cfg.read_confirms
-    if not cfg.enabled or cfg.replies == "never":
+    if not cfg.enabled or (cfg.replies == "never" and not cfg.greeting):
         return
+    session.wake_greeting = cfg.greeting
     speaker = FakeSpeaker() if settings.debug else WindowsSpeaker(cfg.voice, cfg.rate, cfg.volume, loop=loop)
     speaker.on_done = session.speech_done
     session.speaker = speaker

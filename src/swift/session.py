@@ -1902,7 +1902,8 @@ class Session:
                 self.wake_stats["own_voice"] += 1
                 return
             over = True
-        if (self._front_busy() or self._capturing()) and not self._hands_free() and not self._can_queue(started_at):
+        held = self._confirm_voice is not None and not self._confirm_voice.done() and not self._front_busy()
+        if held or ((self._front_busy() or self._capturing()) and not self._hands_free() and not self._can_queue(started_at)):
             self.wake_stats["skipped_busy"] += 1
             return  # e.g. recording after the hotkey: its own words, not even worth transcribing
         waited = 0.0

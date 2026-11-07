@@ -520,3 +520,19 @@ async def test_a_displaced_answer_s_row_ages_out(monkeypatch: Any) -> None:
     await asyncio.sleep(0.15)
     assert [r.ui_id for r in session._runs] == [second]
     await finish_all(session, agent)
+
+
+async def test_words_said_with_the_hotkey_held_are_taken_once_not_from_the_open_mic_too() -> None:
+    session, out, agent, stt, _first, voice = await _hotkey_held_then_the_other_answers()
+    before = len(session._runs)
+    released = session._released
+    answers = len([m for m in out.messages if m.type == "result"])
+    for said in ("Hey Swift, what time is it", "Hey Swift", "and who discovered it"):
+        await say(session, stt, said)
+        await asyncio.sleep(0.1)
+    assert len(session._runs) == before and session._released is released
+    assert len([m for m in out.messages if m.type == "result"]) == answers
+    stt.text = "what time is it"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    await finish_all(session, agent)

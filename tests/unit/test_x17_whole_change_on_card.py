@@ -111,6 +111,7 @@ def test_the_title_names_the_file_when_its_name_holds_a_hidden_character() -> No
 def test_a_command_card_shows_hidden_characters_and_runs_what_came() -> None:
     title, detail = confirm_card("Bash", {"command": "echo a\u202e b\r\nnext"})
     assert title == "Run a command" and detail == "echo a\\u202e b\nnext"
+    assert confirm_card("Bash", {"command": "two\x85"})[1] == "two\\u0085"  # at the end too: it would still run
 
 
 def test_windows_line_ends_stay_ordinary_lines() -> None:

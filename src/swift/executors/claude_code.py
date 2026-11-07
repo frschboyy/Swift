@@ -66,7 +66,16 @@ from loguru import logger
 from swift import clock
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
-from swift.executors.claude_mapping import COMMAND_MAX, LiveMapper, Outcome, confirm_card, outcome_for, steps_for
+from swift.executors.claude_mapping import (
+    COMMAND_MAX,
+    FILE_CHANGE_TOOLS,
+    WRITE_MAX,
+    LiveMapper,
+    Outcome,
+    confirm_card,
+    outcome_for,
+    steps_for,
+)
 from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
@@ -127,6 +136,10 @@ REJECTED_MESSAGE = (
 LONG_COMMAND_MESSAGE = (
     "That command is too long for Swift to show the user on a card (over {n} characters), so it wasn't run. "
     "Use shorter commands, one step at a time."
+)
+LONG_CHANGE_MESSAGE = (
+    "That change is too long for Swift to show the user on a card (over {n} characters), so it wasn't made. "
+    "Make it in smaller pieces: write the first part, then add the rest with further edits."
 )
 NEVER_READ_MESSAGE = (
     "Swift never lets you read {path}: it holds sign-ins, keys or other secrets. Go on without it, "
@@ -598,6 +611,8 @@ class ClaudeCodeExecutor:
             # Too long to show whole on a card: the owner would approve what they can't read.
             return PermissionResultDeny(message=LONG_COMMAND_MESSAGE.format(n=COMMAND_MAX), interrupt=False)
         title, detail = confirm_card(name, args, cwd=self.cwd)
+        if name in FILE_CHANGE_TOOLS and len(detail) > WRITE_MAX:
+            return PermissionResultDeny(message=LONG_CHANGE_MESSAGE.format(n=WRITE_MAX), interrupt=False)
         decision = await self._decide(run, run_id, title, detail, name)
         if decision == "approve":
             return PermissionResultAllow(updated_input=args)

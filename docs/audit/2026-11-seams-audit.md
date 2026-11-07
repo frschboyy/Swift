@@ -355,7 +355,7 @@ IDs by area:
 | X-01 | High | confirmed (test) | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
 | X-03 | High | confirmed (test, log); **fixed 2026-11-06** | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
 | X-08 | High | confirmed (test) | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
-| X-17 | High | design concern | executor | security | Edit and Write approval cards show 60–70 characters of what will be written (A-12's class) |
+| X-17 | High | design concern; **fixed 2026-11-07** | executor | security | Edit and Write approval cards show 60–70 characters of what will be written (A-12's class) |
 | D-05 | Medium | confirmed (test); **fixed 2026-11-05 (S2)** | backend | effectiveness | "Turn it back on" during a run (typed or named) gets a mid-run hint |
 | D-07 | Medium | suspected; **fixed 2026-11-05 (S2)** | backend | reliability | A click on a lane question's No can reject another request's confirm card |
 | D-08 | Medium | confirmed (code); **fixed 2026-11-05 (S2)** | backend | effectiveness | A lane question takes "stop" as an answer during a run |
@@ -1003,6 +1003,7 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 - **Evidence:** `claude_mapping.py:confirm_card`: Edit shows `replace "<70 chars>" with "<70 chars>"`; Write shows the line count and 60 characters of the first line. A-12's rule, "the owner approves only what they can read", was applied to commands only. The October audit listed it as a remaining risk.
 - **Fix:** send the whole old/new text, or a diff, as an artifact the card scrolls (`facts-text` already scrolls).
 - **Owner check:** ask Claude Code to change a paragraph in a file outside the working folders. The card shows the whole old and new paragraph.
+- **Fixed 2026-11-07:** Edit, MultiEdit, Write and NotebookEdit cards carry the whole change in the card's scrolling box, and a change over 12,000 characters is refused without a card, as a long command is. Not changed: the generic card for any other tool (60–300 characters), which the default `confirm_tools` don't reach. Owner checks 183–184.
 
 ### 3.8 Verification, and the October findings re-checked
 

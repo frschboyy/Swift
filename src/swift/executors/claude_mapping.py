@@ -31,6 +31,9 @@ QUIET_DENIALS = frozenset({"WebFetch"})
 # A command on a confirm card is shown whole, its lines kept; a longer one isn't put on a card at all
 # (the owner can only approve what they can read; audit 2026-10, A-12).
 COMMAND_MAX = 1500
+# The same for a file change (X-17), scrolled on the card. At four bytes a character it still fits an IPC frame.
+WRITE_MAX = 12_000
+FILE_CHANGE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 # Every item and the whole text go to the card; these only keep one message well inside an IPC frame (64 KB).
 LIST_MAX = 200
 DETAILS_MAX = 24_000
@@ -144,6 +147,12 @@ def _shown_path(path: str, cwd: str | None) -> str:
     return path
 
 
+def _replacement(edit: dict[str, Any]) -> str:
+    """One edit, whole and with its lines: the owner approves only what they can read (X-17)."""
+    every = "every " if edit.get("replace_all") else ""
+    return f"replace {every}“{edit.get('old_string', '')}” with “{edit.get('new_string', '')}”"
+
+
 def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tuple[str, str]:
     """Title and detail for the overlay's confirm card: exactly what will happen."""
     path = _shown_path(str(args.get("file_path") or args.get("notebook_path") or ""), cwd)
@@ -151,14 +160,14 @@ def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tup
         case "Write":
             content = str(args.get("content", ""))
             lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-            first = _short(content.splitlines()[0], 60) if content.strip() else "(empty)"
-            return f"Create or overwrite {_base(path)}", f"{lines} line{'s' if lines != 1 else ''} into {path}. Starts: {first}"
-        case "Edit" | "MultiEdit":
-            old = _short(str(args.get("old_string", "")), 70)
-            new = _short(str(args.get("new_string", "")), 70)
-            return f"Edit {_base(path)}", f"In {path}: replace “{old}” with “{new}”"
+            return f"Create or overwrite {_base(path)}", f"{lines} line{'s' if lines != 1 else ''} into {path}:\n\n{content or '(empty)'}"
+        case "Edit":
+            return f"Edit {_base(path)}", f"In {path}: {_replacement(args)}"
+        case "MultiEdit":
+            edits = args.get("edits") if isinstance(args.get("edits"), list) else []
+            return f"Edit {_base(path)}", "\n\n".join([f"In {path}:", *(_replacement(e) for e in edits if isinstance(e, dict))])
         case "NotebookEdit":
-            return f"Edit notebook {_base(path)}", path
+            return f"Edit notebook {_base(path)}", f"{path}:\n\n{args.get('new_source', '')}"
         case "Bash" | "PowerShell":
             return "Run a command", str(args.get("command", "")).strip()[:COMMAND_MAX]
         case "WebFetch":

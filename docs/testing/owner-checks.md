@@ -368,6 +368,15 @@ About 10 minutes. **168 and 173 first:** how the edges feel and whether a long a
 | 182 | Email someone and approve it, with a long request so it's still working. "Swift, actually say Friday instead" gives "Say “yes” and I'll send a correction". Start another request and click it forward, then say "**Swift, yes**". Click back, type "**yes**", then type "**Swift, yes**" | Said with the other card in front: "That offer isn't on screen", and nothing starts. Typed bare: it asks for the name, and nothing starts. "Swift, yes" typed on its own card: the correction starts, with its own card before anything is sent | (seen on screen) |
 | 178 | On your real screen, run 168 and 170 a few times, also with Settings → Accessibility → Visual effects → Animation effects **off** | The moves look smooth, not jerky, and nothing flashes at either end. With animations off, things fade in and out with no movement | (seen on screen) |
 
+### The whole change on the card (X-17, 2026-11-07)
+
+About 2 minutes. Say **no** to each card: nothing needs to be written.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 183 | "Hey Swift, write a two-page essay about tea into `tea-test.txt` in Documents", or type it. Then ask it to rewrite a whole paragraph of an existing file | The card shows the **whole** text with its line breaks, not its first line. The box scrolls with the mouse wheel to the very last line, and Approve and No stay in view | (seen on screen) |
+| 184 | "Hey Swift, write a very long essay about tea, at least 5,000 words, into `tea-test.txt` in Documents" | **No card holds the whole essay.** Over about 12,000 characters Swift doesn't show a card for it: the agent goes on in smaller pieces, each with its own card you can read, or says it couldn't | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

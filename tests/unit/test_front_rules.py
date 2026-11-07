@@ -319,3 +319,95 @@ async def test_a_request_being_spoken_is_in_front_and_esc_abandons_it() -> None:
     agent.gate.set()
     await until(lambda: agent.runs)
     await finish_all(session, agent)
+
+
+async def _hidden_while_recording(said: str) -> tuple[Any, Any, Any, Any, asyncio.Event]:
+    """Wake listening off: Swift records the answer itself. The question leaves the screen meanwhile."""
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    session.wake_on = False
+    release = asyncio.Event()
+    real = session._capture_voice
+
+    async def recording(capture: dict[str, Any], phase: Any = None, auto: Any = None) -> Any:
+        if str(capture.get("id", "")).startswith("answer-"):
+            await release.wait()
+            return said
+        return await real(capture, phase, auto=auto) if phase else await real(capture)
+
+    session._capture_voice = recording
+    research = await started(session, out, agent, stt, TEA)
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, turn off the wifi")
+    await until(lambda: any(a.get("open") and a.get("question") == "Turn off Wi-Fi?" for a in asks(out)))
+    await until(lambda: session._answer_task is not None)
+    await session.handle(Message("focus", {"run_id": research}))
+    await asyncio.sleep(0.05)
+    assert not session._on_screen(session.dialogue.pending)
+    return session, agent, control, research, release
+
+
+async def test_a_recorded_answer_can_t_reach_a_question_that_left_the_screen() -> None:
+    session, agent, control, _research, release = await _hidden_while_recording("Swift, yes")
+    release.set()
+    await asyncio.sleep(0.15)
+    assert control.radio_state["wifi"] is True, "the owner's 2026-11-05 incident: nothing asking on screen"
+    await finish_all(session, agent)
+
+
+async def test_every_said_or_typed_answer_passes_the_gate_and_only_a_click_doesn_t() -> None:
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    research = await _beside(session, out, agent, stt)
+    await session.handle(Message("focus", {"run_id": research}))
+    await asyncio.sleep(0.05)
+    q = session.dialogue.pending
+    for source in ("answer", "voice", "typed", "wake", "debug.ask"):
+        assert await session._take_answer("Swift, yes", source=source, named=True) is False
+    assert session.dialogue.pending is q and control.radio_state["wifi"] is True
+    await finish_all(session, agent)
+
+
+async def test_a_typed_answer_can_t_reach_a_hidden_question_with_an_answer_on_the_card() -> None:
+    session, out, _records, agent, stt = asker()
+    await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1]["open"])
+    q = session.dialogue.pending
+    second = await started(session, out, agent, stt, NOTES)
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == second)
+    await asyncio.sleep(0.05)
+    assert not session._on_screen(q)
+    await session.handle(Message("text", {"text": "the second one", "thread_id": None}))
+    await asyncio.sleep(0.1)
+    assert session.dialogue.pending is q
+    await finish_all(session, agent)
+
+
+async def test_a_stop_with_the_question_hidden_still_asks_which() -> None:
+    session, out, _records, agent, stt = asker()
+    first = await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1]["open"])
+    second = await started(session, out, agent, stt, NOTES)
+    await session.handle(Message("focus", {"run_id": second}))
+    await started(session, out, agent, stt, "Hey Swift, compare three e-readers")
+    await asyncio.sleep(0.05)
+    assert not session._on_screen(session.dialogue.pending)
+    await say(session, stt, "stop")
+    await until(lambda: "Which one?" in out.last("run.voice")["text"])
+    assert agent.cancelled == [] and first != second
+    await finish_all(session, agent)
+
+
+async def test_a_question_on_screen_settles_a_stop_with_one_unseen_behind() -> None:
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    await started(session, out, agent, stt, TEA)
+    behind = await started(session, out, agent, stt, NOTES)
+    await session.handle(Message("focus", {"run_id": behind}))
+    await session.handle(Message("focus", {"run_id": "a-1"}))
+    third = await started(session, out, agent, stt, "Hey Swift, compare three e-readers")
+    session._next_focus = next(r for r in session._runs if r.ui_id == third)
+    await say(session, stt, "Swift, turn off the wifi")
+    await until(lambda: any(a.get("open") and a.get("question") == "Turn off Wi-Fi?" for a in asks(out)))
+    await asyncio.sleep(0.05)
+    session._next_focus = next(r for r in session._runs if r.ui_id == third)
+    assert session._on_screen(session.dialogue.pending) and not session._which_is_unclear()
+    await finish_all(session, agent)

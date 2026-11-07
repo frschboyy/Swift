@@ -3184,7 +3184,7 @@ class Session:
         if not voice or self.recorder is None:
             return  # a typed request: the answer is typed too
         logger.info("listening for the answer", kind=q.kind, seconds=seconds, wake=self.wake_on)
-        if not self.wake_on and self.transcriber is not None:
+        if not self.wake_on and self.transcriber is not None and self._on_screen(q):
             task = self._answer_task
             if task is None or task.done():
                 self._answer_task = asyncio.create_task(self._capture_answer(q, seconds))
@@ -3267,6 +3267,10 @@ class Session:
         Mid-run controls ("stop", "show me") are not answers; the callers check them first."""
         q = self.dialogue.pending
         if q is None or q.future is None or q.future.done():
+            return False
+        # The one gate every said or typed answer passes (owner, 2026-11-05). A click is on the question.
+        if source != "click" and not self._on_screen(q):
+            logger.info("answer to a question not on screen ignored", source=source)
             return False
         if not unsure and not intake.has_words(text):
             return True  # no words: about nothing, and not an answer (D-06)
@@ -4307,7 +4311,7 @@ class Session:
     async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]], source: str = "beside") -> None:
         """Said during a run: about the one in front, naming another, a change of mind, or a new request.
         While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control."""
-        if (asked := self.dialogue.pending) is not None and self._on_screen(asked) and self._for_question(asked, text):
+        if (asked := self.dialogue.pending) is not None and self._for_question(asked, text):
             if await self._take_answer(text, source=source if source != "beside" else "voice",
                                        named=match_address(text, self.wake_greetings) is not None):
                 await phase("idle")

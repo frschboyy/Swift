@@ -2487,7 +2487,7 @@ class Session:
                     # so far decide; cut off, Swift keeps listening a little longer, up to a cap.
                     spoke = False
                     try:
-                        heard = await asyncio.wait_for(self.transcriber.transcribe(snapshot()), CAPTURE_STT_TIMEOUT_S)
+                        heard = await self._transcribe_bounded(snapshot())
                     except (SttUnavailable, TimeoutError):
                         break  # said below, with the whole recording
                     extra = self.endpoint.extend(heard.text, waited)
@@ -2521,7 +2521,7 @@ class Session:
         await phase("transcribing")
         try:
             # The end-of-turn check already transcribed it all, and nothing was said since: no second pass.
-            result = early if early is not None else await asyncio.wait_for(self.transcriber.transcribe(audio), CAPTURE_STT_TIMEOUT_S)
+            result = early if early is not None else await self._transcribe_bounded(audio)
         except TimeoutError:
             logger.warning("a recording took too long to transcribe", timeout_s=CAPTURE_STT_TIMEOUT_S)
             raise UserFacingError(
@@ -3273,6 +3273,15 @@ class Session:
         elif self._may_record_answer():
             self._answer_hidden = None
             self._answer_task = asyncio.create_task(self._capture_answer(q, left))
+
+    async def _transcribe_bounded(self, audio: Any) -> Transcription:
+        """A recording's words, never stuck. The time starts once the speech model is loaded: waiting
+        for that (the first use, or after it was released while away) isn't a transcription that hung."""
+        assert self.transcriber is not None
+        loaded = getattr(self.transcriber, "wait_loaded", None)
+        if loaded is not None:
+            await loaded()
+        return await asyncio.wait_for(self.transcriber.transcribe(audio), CAPTURE_STT_TIMEOUT_S)
 
     def _may_record_answer(self) -> bool:
         """The one rule for opening the microphone for an answer. Not while listening is off, the owner

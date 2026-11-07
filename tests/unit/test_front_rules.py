@@ -689,3 +689,19 @@ async def test_an_answer_recording_stops_when_swift_starts_talking_and_resumes_a
     session.speech_done()
     await until(lambda: session._answer_task is not None)
     await finish_all(session, agent)
+
+
+async def test_waiting_for_the_speech_model_isn_t_a_transcription_that_hung(monkeypatch: Any) -> None:
+    monkeypatch.setattr("swift.session.CAPTURE_STT_TIMEOUT_S", 0.05)
+    session, out, agent, stt, first, voice = await _hotkey_held_then_the_other_answers()
+    assert first
+
+    async def loading() -> None:
+        await asyncio.sleep(0.2)
+
+    stt.wait_loaded = loading
+    stt.text = "show me"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    assert not any("too long" in str(m.data.get("text")) for m in out.messages if m.type == "run.voice")
+    await finish_all(session, agent)

@@ -95,7 +95,7 @@ One commit each, in this order:
 
 `test_deck_requests_keep_their_places_as_they_come_and_go` fails with the old `TAKES_FRONT`. The review's reproductions are kept in `tests/unit/test_front_rules.py`.
 
-**With wake listening off,** the microphone opens for an answer only under `_may_record_answer`, and the recording follows the question on and off the screen. If the question leaves the screen while the owner is speaking, those words are lost without notice; the recording starts again when it's back.
+**With wake listening off,** the microphone opens for an answer only under `_may_record_answer`, and the recording follows the question on and off the screen. If the question leaves the screen, or Swift starts talking, while the owner is speaking, those words are lost without notice; the recording starts again afterwards. **Known and small:** after a failed answer recording, the question stays open with nothing recording and no message. A click or typing still answers it, and it ends in the stack.
 
 **Passed by the independent reviewer (2026-11-07):** the answer gate. **Checked and held:** no hands-free listening while locked. **Not covered by it, and waiting for the owner's ruling:** "Say yes and I'll send a correction" isn't a question, so a "yes" takes that offer with its card hidden, and typed "yes" works there, though a spoken bare "yes" doesn't. That's older than this work. The correction would need its own card to send, though that's from reading the code and hasn't been run. Also older: with its question on screen, the hotkey starts a new request instead of answering a question from the system lane; a click, typing and the open mic all answer it.
 

@@ -352,6 +352,10 @@ FOCUS_ONLY = frozenset({
 TAKES_FRONT = frozenset({"result", "error"})
 # "Stop" or a change of mind while a request said after the one on the card runs behind it.
 _PLAIN_STOP = re.compile(r"stop(?: it| that)?")
+# "Say yes and I'll send a correction": like Swift's question, it takes a yes only on screen, and typed
+# only with Swift's name (owner, 2026-11-07).
+FIX_HIDDEN_HINT = "That offer isn't on screen. Say “show me the … one” first."
+FIX_TYPED_HINT = "To take that offer by typing, type “Swift, yes”."
 WHICH_STOP_HINT = "Which one? Say “stop the … one” or “stop everything”. Esc stops the one on this card."
 WHICH_CHANGE_HINT = "Which one? Say “show me the … one” first, then what to change."
 # Typing never approves a card on its own (ADR-015 §10): a click, or "Swift, approve" said.
@@ -2648,7 +2652,7 @@ class Session:
                 return
             answered = self._answer_offer(decision, offer, record) if decision is not None else None
             if answered is None and decision is not None:
-                answered = self._answer_fix(decision, fix, record)
+                answered = self._answer_fix(decision, fix, record, run, transcript)
             if answered is not None:
                 decision, workflow = answered
             if decision is not None and decision.action != "system":
@@ -2982,7 +2986,7 @@ class Session:
             "fix_declined": "Okay, I'll leave it as it is.",
         }
         record["status"] = "done"
-        said = answers.get(action or "", "Done.")
+        said = decision.text if action == "fix_refused" else answers.get(action or "", "Done.")
         if action in ("time", "date"):
             self._local_answer(record, decision.text, said, fast.Moment(now.astimezone(), action == "time"))
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
@@ -3738,8 +3742,16 @@ class Session:
             self._thread = record["thread"] = self._thread_before
         return _to_agent(replace(decision, text=text)), (replace(match, kind="run") if accepted else None)
 
+    def _fix_refused(self, offered: str | None, on_card: str | None, said: str, typed: bool) -> str | None:
+        """Why a yes can't take the correction offered on ``offered``'s card, or None if it can."""
+        if offered != on_card:
+            return FIX_HIDDEN_HINT
+        if typed and match_address(said, self.wake_greetings) is None:
+            return FIX_TYPED_HINT
+        return None
+
     def _answer_fix(
-        self, decision: Route, fix: tuple[str, str | None, float] | None, record: dict[str, Any]
+        self, decision: Route, fix: tuple[str, str | None, float] | None, record: dict[str, Any], run: Run, said: str,
     ) -> tuple[Route, Match | None] | None:
         """"Yes" / "no" to the follow-up offered after something that couldn't be undone (ADR-014 §7)."""
         if fix is None or decision.route != "control" or decision.action not in ("approve", "reject"):
@@ -3747,6 +3759,14 @@ class Session:
         text, thread, at = fix
         if clock.now() - at > FIX_OFFER_S:
             return None
+        if decision.action == "approve" and (
+            refused := self._fix_refused(thread, run.card_thread, said, record.get("source") == "typed")
+        ) is not None:
+            self._fix_offer = fix  # still offered
+            if refused == FIX_TYPED_HINT and thread:
+                self._thread = record["thread"] = thread  # this answer goes on its card, so the offer stays on screen
+            logger.info("yes to a correction offer refused", source=record.get("source"))
+            return replace(decision, route="local", action="fix_refused", text=refused), None
         record["fix"] = "accepted" if decision.action == "approve" else "declined"
         if thread:
             self._thread = record["thread"] = thread
@@ -4434,6 +4454,10 @@ class Session:
         elif action == "resume":
             await phase("hint", "It's still going.")
         elif action == "approve" and self._fix_offer is not None:
+            on_card = self._focus.thread if self._focus is not None else None
+            if (refused := self._fix_refused(self._fix_offer[1], on_card, text, source == "typed")) is not None:
+                await phase("hint", refused)
+                return
             text, thread, at = self._fix_offer
             self._fix_offer = None
             await phase("idle")

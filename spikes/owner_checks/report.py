@@ -508,6 +508,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          f"{sum('mid-run words could mean either request' in line for line in log)} time(s); check on screen: nothing stopped"),
         ("180 an answer finishing behind the card came forward", LOOK, "check on screen"),
         ("181 a hidden question ignored 'Swift, yes turn it off' and typing", LOOK, "check on screen: Wi-Fi stayed on"),
+        ("182 a correction offer took a yes only on screen, typed only with the name", LOOK, "check on screen: nothing started when refused"),
     ]
 
 

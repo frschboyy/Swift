@@ -7,7 +7,7 @@ import asyncio
 from typing import Any
 
 from test_dialogue import asker, asks
-from test_runs import Agent, finish_all, make, runs, say, sent_for, started, until
+from test_runs import Agent, SameSession, finish_all, make, runs, say, sent_for, started, until
 from test_seam_replay import _beside, _lane, agree
 
 from swift.executors.base import ExecEvent, ExecResult
@@ -704,4 +704,86 @@ async def test_waiting_for_the_speech_model_isn_t_a_transcription_that_hung(monk
     await session.handle(Message("ptt", {"state": "up"}))
     await until(lambda: voice.done())
     assert not any("too long" in str(m.data.get("text")) for m in out.messages if m.type == "run.voice")
+    await finish_all(session, agent)
+
+
+async def _correction_offered(with_other: bool = False) -> tuple[Any, Any, Any, Any, str]:
+    """An email sent, then a change of mind: "Say yes and I'll send a correction". ``with_other``: another
+    request already behind it, since starting a new one drops the offer."""
+    session, out, _records, agent, stt = make(SameSession)
+    await started(session, out, agent, stt, "Hey Swift, email my lecturer that I'll miss Thursday")
+    await until(lambda: out.last("confirm.request").get("tool") == "send_email" if any(
+        m.type == "confirm.request" for m in out.messages) else False)
+    await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"], "decision": "approve"}))
+    await until(lambda: session._runs[0].scope is not None and session._runs[0].scope.done)
+    other = ""
+    if with_other:
+        other = await started(session, out, agent, stt, NOTES)
+        await session.handle(Message("focus", {"run_id": other}))  # seen, so "actually" is about the card
+        await session.handle(Message("focus", {"run_id": "a-1"}))
+    await say(session, stt, "Swift, actually say I'll miss Friday instead")
+    await until(lambda: "correction" in out.last("run.voice")["text"])
+    return session, out, agent, stt, other
+
+
+async def test_a_correction_offer_takes_a_yes_only_while_its_card_is_on_screen() -> None:
+    session, out, agent, stt, other = await _correction_offered(with_other=True)
+    await session.handle(Message("focus", {"run_id": other}))
+    await asyncio.sleep(0.05)
+    before = len(agent.requests)
+    await say(session, stt, "Swift, yes")
+    await until(lambda: "isn't on screen" in out.last("run.voice")["text"])
+    assert len(agent.requests) == before
+    await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    await asyncio.sleep(0.1)
+    assert len(agent.requests) == before
+    # Still offered: back on screen, it takes it.
+    await session.handle(Message("focus", {"run_id": "a-1"}))
+    await say(session, stt, "Swift, yes")
+    await until(lambda: len(agent.requests) == before + 1)
+    assert "Friday" in agent.requests[-1]
+    await finish_all(session, agent)
+
+
+async def test_a_typed_yes_needs_swift_s_name_to_take_a_correction_offer() -> None:
+    session, out, agent, _stt, _other = await _correction_offered()
+    before = len(agent.requests)
+    await session.handle(Message("text", {"text": "yes", "thread_id": None}))
+    await until(lambda: "type “Swift, yes”" in out.last("run.voice")["text"])
+    assert len(agent.requests) == before
+    await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    await until(lambda: len(agent.requests) == before + 1)
+    await finish_all(session, agent)
+
+
+async def test_on_its_answer_card_a_typed_yes_needs_the_name_and_says_so() -> None:
+    session, out, agent, _stt, _other = await _correction_offered()
+    agent.runs["a-1"]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == "a-1")
+    await asyncio.sleep(0.05)
+    assert session._fix_offer is not None
+    before = len(agent.requests)
+    await session.handle(Message("text", {"text": "yes", "thread_id": None}))
+    await until(lambda: "type “Swift, yes”" in out.last("result")["summary"])
+    assert len(agent.requests) == before and session._fix_offer is not None
+    await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    await until(lambda: len(agent.requests) == before + 1)
+    assert "Friday" in agent.requests[-1]
+    await finish_all(session, agent)
+
+
+async def test_with_another_answer_on_the_card_a_yes_doesn_t_take_the_offer() -> None:
+    session, out, agent, stt, other = await _correction_offered(with_other=True)
+    agent.runs["a-1"]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == "a-1")
+    agent.runs[other]["go"].set()
+    await until(lambda: any(r["run_id"] == other and r["state"] == "result" for r in runs(out)["rows"]))
+    await session.handle(Message("focus", {"run_id": other}))  # it has been seen, so it needs the click
+    await until(lambda: out.last("result").get("run_id") == other)
+    await asyncio.sleep(0.05)
+    assert session._fix_offer is not None
+    before = len(agent.requests)
+    await say(session, stt, "Hey Swift, yes")  # at rest it takes the wake phrase, not the name alone
+    await until(lambda: "isn't on screen" in out.last("result")["summary"])
+    assert len(agent.requests) == before, "a yes took an offer nobody could see"
     await finish_all(session, agent)

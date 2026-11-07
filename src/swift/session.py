@@ -931,6 +931,8 @@ class Session:
         self._last_result: tuple[str, ExecResult, dict[str, str] | None] | None = None
         self._local_ids = count(1)
         self._released: asyncio.Event | None = None
+        # The question whose recording waits for it to come back on screen.
+        self._answer_hidden: Question | None = None
         # The state of the request in front, as the overlay shows it.
         self.state = "idle"
         # The task of the request in front.
@@ -1094,6 +1096,7 @@ class Session:
         there is more than the one in front (single requests look exactly as before). ``force``:
         send it even if nothing changed (the overlay asked about a request it shouldn't know).
         The waiting stack goes with it: what changes rows changes the stack."""
+        self._sync_answer_capture()
         await self._send_stack()
         focus = self._focus
         rows = [r.row() for r in self._runs if r is not focus and r.title]
@@ -3194,7 +3197,9 @@ class Session:
         if not voice or self.recorder is None:
             return  # a typed request: the answer is typed too
         logger.info("listening for the answer", kind=q.kind, seconds=seconds, wake=self.wake_on)
-        if not self.wake_on and self.transcriber is not None and self._on_screen(q):
+        if not self.wake_on and self.transcriber is not None and not self._on_screen(q):
+            self._answer_hidden = q  # it records once the question is back on screen
+        elif not self.wake_on and self.transcriber is not None:
             task = self._answer_task
             if task is None or task.done():
                 self._answer_task = asyncio.create_task(self._capture_answer(q, seconds))
@@ -3239,6 +3244,26 @@ class Session:
         if self._cards:
             return False
         return q.owner is self._focus
+
+    def _sync_answer_capture(self) -> None:
+        """No open microphone: the recording of an answer follows its question on and off the screen,
+        so the microphone isn't open for a question nobody can see, and the card's "listening" is true."""
+        q = self.dialogue.pending
+        if q is None or self.wake_on:
+            return
+        task = self._answer_task
+        recording = task is not None and not task.done()
+        if not self._on_screen(q):
+            if recording:
+                self._stop_capture()
+                self._answer_hidden = q
+            return
+        if self._answer_hidden is not q:
+            return
+        self._answer_hidden = None
+        left = q.window.left() if q.window is not None else None
+        if left and not recording and self.transcriber is not None:
+            self._answer_task = asyncio.create_task(self._capture_answer(q, left))
 
     async def _capture_answer(self, q: Question, seconds: float) -> None:
         """No open microphone (wake listening off): record the answer, ending when the owner stops

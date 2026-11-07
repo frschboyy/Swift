@@ -321,11 +321,11 @@ async def test_a_request_being_spoken_is_in_front_and_esc_abandons_it() -> None:
     await finish_all(session, agent)
 
 
-async def _hidden_while_recording(said: str) -> tuple[Any, Any, Any, Any, asyncio.Event]:
+async def _hidden_while_recording(said: str) -> tuple[Any, Any, Any, Any, Any]:
     """Wake listening off: Swift records the answer itself. The question leaves the screen meanwhile."""
     session, out, agent, stt, control, _sched = _lane(30.0)
     session.wake_on = False
-    release = asyncio.Event()
+    session.test_release = release = asyncio.Event()
     real = session._capture_voice
 
     async def recording(capture: dict[str, Any], phase: Any = None, auto: Any = None) -> Any:
@@ -343,14 +343,40 @@ async def _hidden_while_recording(said: str) -> tuple[Any, Any, Any, Any, asynci
     await session.handle(Message("focus", {"run_id": research}))
     await asyncio.sleep(0.05)
     assert not session._on_screen(session.dialogue.pending)
-    return session, agent, control, research, release
+    return session, out, agent, control, research
 
 
-async def test_a_recorded_answer_can_t_reach_a_question_that_left_the_screen() -> None:
-    session, agent, control, _research, release = await _hidden_while_recording("Swift, yes")
-    release.set()
-    await asyncio.sleep(0.15)
+async def test_a_recording_stops_when_its_question_leaves_the_screen_and_resumes_when_it_s_back() -> None:
+    session, out, agent, control, _research = await _hidden_while_recording("Swift, yes")
+    assert session._answer_task is None, "the microphone stayed open for a question nobody can see"
+    session.test_release.set()
+    await asyncio.sleep(0.1)
     assert control.radio_state["wifi"] is True, "the owner's 2026-11-05 incident: nothing asking on screen"
+    q = session.dialogue.pending
+    await session._bring(q.owner)
+    await until(lambda: control.radio_state["wifi"] is False)  # back on screen: recorded, and answered
+    await finish_all(session, agent)
+
+
+async def test_no_recording_starts_for_a_hidden_question_until_it_s_back() -> None:
+    session, _out, agent, _control, _research = await _hidden_while_recording("no")
+    q = session.dialogue.pending
+    session._answer_hidden = None
+    await session._listen_for(q)
+    assert session._answer_task is None and session._answer_hidden is q
+    await session._bring(q.owner)
+    await asyncio.sleep(0.05)
+    assert session._answer_hidden is None
+    await finish_all(session, agent)
+
+
+async def test_a_click_on_a_hidden_question_s_own_button_still_answers_it() -> None:
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    research = await _beside(session, out, agent, stt)
+    await session.handle(Message("focus", {"run_id": research}))
+    await asyncio.sleep(0.05)
+    assert await session._take_answer("Yes", source="click") is True
+    await until(lambda: control.radio_state["wifi"] is False)
     await finish_all(session, agent)
 
 

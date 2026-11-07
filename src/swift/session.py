@@ -330,6 +330,8 @@ PARKED_FAILURES = frozenset({"timeout", "offline"})
 # How long a due card may take to be drawn before it goes back in line (``due.shown``, O-08).
 # Wake listening never waits longer than this for one utterance's transcription.
 WAKE_STT_TIMEOUT_S = 20.0
+# A whole recorded request can be long: more time, but never stuck.
+CAPTURE_STT_TIMEOUT_S = 90.0
 # A workflow offer waits this long for "yes" or "no".
 OFFER_S = 120.0
 # Reading where the owner is may take this long; after that the request goes on without it.
@@ -2485,8 +2487,8 @@ class Session:
                     # so far decide; cut off, Swift keeps listening a little longer, up to a cap.
                     spoke = False
                     try:
-                        heard = await self.transcriber.transcribe(snapshot())
-                    except SttUnavailable:
+                        heard = await asyncio.wait_for(self.transcriber.transcribe(snapshot()), CAPTURE_STT_TIMEOUT_S)
+                    except (SttUnavailable, TimeoutError):
                         break  # said below, with the whole recording
                     extra = self.endpoint.extend(heard.text, waited)
                     if extra <= 0:
@@ -2519,7 +2521,13 @@ class Session:
         await phase("transcribing")
         try:
             # The end-of-turn check already transcribed it all, and nothing was said since: no second pass.
-            result = early if early is not None else await self.transcriber.transcribe(audio)
+            result = early if early is not None else await asyncio.wait_for(self.transcriber.transcribe(audio), CAPTURE_STT_TIMEOUT_S)
+        except TimeoutError:
+            logger.warning("a recording took too long to transcribe", timeout_s=CAPTURE_STT_TIMEOUT_S)
+            raise UserFacingError(
+                "stt_unavailable", "Speech recognition took too long.", "Try saying it again.",
+                title="Speech recognition isn't ready", retry=True,
+            ) from None
         except SttUnavailable as exc:
             raise UserFacingError(
                 "stt_unavailable", str(exc), exc.hint, title="Speech recognition isn't ready", retry=True

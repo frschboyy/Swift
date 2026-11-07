@@ -625,3 +625,21 @@ async def test_no_answer_recording_opens_over_swift_s_own_voice() -> None:
     session.speech_done()
     await until(lambda: session._answer_task is not None)
     await finish_all(session, agent)
+
+
+async def test_a_hung_transcription_doesn_t_leave_swift_deaf(monkeypatch: Any) -> None:
+    monkeypatch.setattr("swift.session.CAPTURE_STT_TIMEOUT_S", 0.05)
+    session, _out, agent, stt, first, voice = await _hotkey_held_then_the_other_answers()
+    agent.runs[first]["go"].set()
+    await asyncio.sleep(0.05)
+    real = stt.transcribe
+
+    async def hung(_audio: Any) -> Any:
+        await asyncio.Event().wait()
+
+    stt.transcribe = hung
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    stt.transcribe = real
+    await started(session, _out, agent, stt, "Hey Swift, compare three e-readers")
+    await finish_all(session, agent)

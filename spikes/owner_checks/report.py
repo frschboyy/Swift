@@ -552,6 +552,12 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          seen([line for line in log if "| action stopped before it went |" in line]), "and nothing arrived"),
         ("211 'yes, but hold on' waited; a wordy reply stayed with the question", LOOK,
          "check on screen: 'Okay, take your time', Wi-Fi still on, no new request"),
+        ("216 Halo's glass is readable over real apps and wallpapers", LOOK, "check on screen: dark and light"),
+        ("217 Halo's tail points at the orb at all six positions", LOOK, "check on screen: also at 150% scaling"),
+        ("218 Halo's amber and accent halos are never confused", LOOK, "check on screen: side by side"),
+        ("219 Halo's edges are distinct from the card at a glance", LOOK, "check on screen: dark and light"),
+        ("220 the sleeping orb reads as not listening", LOOK, "check on screen: from normal viewing distance"),
+        ("221 a card grows from the orb and the tail settles last", LOOK, "check on screen: also with animation effects off"),
     ]
 
 

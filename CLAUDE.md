@@ -29,7 +29,9 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
   - status labels generic (never "Claude Code is…");
   - audio never leaves the PC;
   - Swift writes into apps only when the owner's own words asked;
-  - memory is written only from the owner's words or an approved card, never from what a worker read.
+  - memory is written only from the owner's words or an approved card, never from what a worker read;
+  - deleting a file always asks on a card, whatever a setting or a run's permission says (ADR-019; whether
+    a move to the Recycle Bin counts as reversible is decided when the W2 file tools are designed).
 - **Code:**
   - `session.py` is large: add small modules with narrow interfaces.
   - No new dependencies without a clear need.

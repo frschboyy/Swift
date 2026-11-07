@@ -42,7 +42,7 @@ Width `--card-w` (512). Radius `--radius-card` (22); the corner that meets the d
 | 3 | **Body** | Padding 8 22 12 22, gap 12. Blocks only. Optional title: 20–22/600 Display. |
 | 4 | **Facts** | Only on Needs your OK and permission cards. A facts box (§5); drawn from the action, never from a worker's text. |
 | 5 | **Footer** | Padding 4 14 12 22, gap 8. Left: byline (10 px orb dot · "Swift · via Claude" 13 `--faint` · "· Why?" 13/600 `--accent`), or a key hint ("Esc stops"). Right: at most three buttons, primary last. |
-| 6 | **Hint** | Optional, one line, 12 px `--faint` with a 12 px lightbulb; padding 0 22 12 22. Shown the first few times a card of that kind appears, then dropped. Never on Needs your OK. |
+| 6 | **Hint** | Optional, one line, 12 px `--faint` with a 12 px lightbulb; padding 0 22 12 22. Shown 3 times per hint and kind of card, then dropped; stops early once the owner uses it. Never on Needs your OK. |
 | — | **Progress** | Optional bottom bar, 3 px, inset 22, track `--raise` (or `--warn-halo` for a countdown). |
 
 The tail (24 × 11) sits outside the card on the orb side (§9).
@@ -108,7 +108,7 @@ Buttons are 32 px pills, padding 0 14, 14 px icon, label 13/600. Ghost: `--raise
 
 | Part | Values | Drawing |
 |---|---|---|
-| Mic | Listening for its name · Heard · Listening · Paused (mic off, locked, asleep) | Idle: 14 px orb dot at 70%. Heard: pill, `--accent-edge` border, orb with two `--ring` rings, "Listening…". Listening: pill, orb with one ring, 5 level bars `--accent`, live words. Paused: pill on `--panel-solid`, 1.5 px `--muted` border, the sleeping orb (`--sleep`, mic-off or lock glyph), "Not listening" + reason, Resume. Never fades. |
+| Mic | Listening for its name · Heard · Listening · Paused (mic off, locked, asleep) | Idle: 14 px orb dot at 70%, shown by default; a tray toggle hides it (never the paused state). Heard: pill, `--accent-edge` border, orb with two `--ring` rings, "Listening…". Listening: pill, orb with one ring, 5 level bars `--accent`, live words. Paused: pill on `--panel-solid`, 1.5 px `--muted` border, the sleeping orb (`--sleep`, mic-off or lock glyph), "Not listening" + reason, Resume. Never fades. |
 | Activity | Idle · Working · Speaking · Working in an app (proposal) | Working with no card open: an orbit ring around the orb (track `--spin-track`, arc `--accent`). Speaking: pill with six bars `--text`, "Speaking", Stop with Esc. In an app: orbit ring · app icon · "Writing in Word" · Stop. |
 | Waiting | A count | Badge at the orb's top-right, 22 px: neutral `--panel-solid` + `--edge-line`, or `--warn` with a shield when an OK waits. |
 
@@ -145,7 +145,7 @@ Never removed: any fact, the voice rule, any button, the countdown. Measured on 
 | Permission for this run | Facts: what, from, to, up to, until "this run ends"; Reject · One at a time · Allow for this run | Needs your OK |
 | A standing rule | Swift window, "What Swift may do": Do · Ask · Never per kind of action; a lock marks a floor | — |
 
-Floors no rung lowers: recipients only from contacts; a bare "yes" never approves; typing never approves. Proposed floor: deleting files always asks. Learning never climbs the ladder.
+Floors no rung lowers (all product rules in `CLAUDE.md`): recipients only from contacts; a bare "yes" never approves; typing never approves; deleting a file always asks (added 2026-11-07; whether a move to the Recycle Bin counts as reversible is decided with W2). Learning never climbs the ladder.
 
 ## 12. Attention (proposal)
 
@@ -153,7 +153,7 @@ Floors no rung lowers: recipients only from contacts; a bare "yes" never approve
 |---|---|
 | Now | Takes the front (today's rules: its answer, its OK, its question, a request you're speaking to) |
 | Soon | An edge, "Ready to read" |
-| At the next break | Held until you stop typing, a call ends or you come back, up to a limit; then an edge, never the front |
+| At the next break | Held until you stop typing, a call ends or you come back, for at most 2 minutes (per-source setting); then an edge, never the front |
 | In the digest | The "while you were away" card or a scheduled digest |
 | Silent | The run record only |
 

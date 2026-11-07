@@ -1,7 +1,7 @@
 # ADR-019: Halo, and a design system that grows with Swift
 
-- **Status:** Proposed. The owner chose Halo as the design baseline (2026-11-07); the system decisions in §3 are drafted for the owner to confirm or change. Nothing here is built.
-- **Decided by:** Owner (Halo as baseline); the rest pending
+- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Nothing here is built.
+- **Decided by:** Owner
 - **Date:** 2026-11-07
 - **Amends:** ADR-017 (the Capsule's look: Halo replaces it, keeping the capsule as Swift's body and cards growing out of it). ADR-018 (the Deck) is kept as the attention model; this ADR only changes how its parts are drawn and adds origins.
 - **Design:** [`docs/design/halo-system/`](../design/halo-system/): `DIRECTION.md` (assessment and reasoning), `SPEC.md` (build reference), `tokens.css`, `halo.pen` (pen.dev source), `boards/` (exports)
@@ -20,7 +20,7 @@ Three directions were drawn on the eight brief states and nine system checks: Pa
 - The sleeping orb for Not listening.
 - Segoe UI Variable stays the font.
 
-## 3. Proposed system decisions (owner to confirm)
+## 3. System decisions
 
 | # | Decision | Why | Board |
 |---|---|---|---|
@@ -33,7 +33,7 @@ Three directions were drawn on the eight brief states and nine system checks: Pa
 | 7 | **Presence as three parts:** mic, activity, waiting badge | New features stop adding capsule states | §6 |
 | 8 | **The approval ladder:** one action, a plan, permission for one run, a standing rule | Avoids chains of amber cards for multi-step work | §7 |
 | 9 | **A plan card is Waiting for you, not amber;** a step whose facts aren't known yet asks on its own card later | Amber keeps one meaning; nothing consequential is approved in advance | §7 |
-| 10 | **Proposed floor: deleting files always asks** | Files (W2) are next on the roadmap | §7 |
+| 10 | **New product rule: deleting a file always asks** (added to `CLAUDE.md`) | Files (W2) are next on the roadmap, and a wrong delete is the hardest mistake to undo | §7 |
 | 11 | **Watcher findings wait for the next break,** then take an edge, never the front | Bounded deferral; the owner's work isn't interrupted | §5f |
 | 12 | **One "while you were away" card** replaces the stack, the unfinished line and separate offers on return | Product direction §5.3 | §5g |
 | 13 | **Compact confirm rule** (`SPEC.md` §10) | Halo only fits the tightest case (a confirm with three edges) with it | baseline 12, §8 |
@@ -48,7 +48,7 @@ Runs, rows and results gain `origin` (`asked`, `scheduled`, `watching`, `reminde
 
 Nothing here goes ahead of the handoff's order: the reliability work, the short real-PC checks and two weeks of daily use come first.
 
-1. **Owner confirms or changes §3.**
+1. ~~Owner confirms or changes §3.~~ Done 2026-11-07 (§7).
 2. **Real-PC checks of the Halo look** (`SPEC.md` §15) before any build.
 3. **Build Halo behind today's behaviour:** tokens and one card renderer, no new features. One commit per step; the seam test for anything on screen.
 4. **N2 with run records** (groundwork).
@@ -61,10 +61,12 @@ Nothing here goes ahead of the handoff's order: the reliability work, the short 
 - **A card design per capability:** the current path; it grows by one card and one artifact kind per feature.
 - **Agent-made UI shown as it comes** (MCP Apps unmapped): breaks the rule that Swift draws every consequential fact.
 
-## 7. Open questions for the owner
+## 7. The owner's answers (2026-11-07)
 
-1. Confirm the side convention (asked on the right, Swift-started on the left)?
-2. Confirm "deleting files always asks" as a product rule (it would join `CLAUDE.md`'s list and need a reviewer for any fix to it)?
-3. The hint line: show each hint how many times before dropping it (proposed: 3)?
-4. The attention limit for "at the next break" (proposed: 2 minutes, from the deferral research)?
-5. The idle dot: keep it, or hide it by default (ADR-017 owner question 1, still open)?
+| # | Question | Answer |
+|---|---|---|
+| 1 | Who started it, by side? | **Yes.** The owner's words on the right; things Swift started on the left with their mark |
+| 2 | "Deleting a file always asks" as a product rule? | **Yes.** Added to `CLAUDE.md`'s product rules: a path that breaks it is a critical bug, and a fix to it needs a second reviewer. Whether a move to the Recycle Bin counts as reversible (and so may run under a run's permission) is decided when the W2 file tools are designed; permanent deletes always ask |
+| 3 | How many times does a hint show? | **3** per hint and kind of card, and it stops early once the owner uses what it suggests. "What can you do here?" answers at any time. Never on Needs your OK |
+| 4 | How long can a finding wait for the next break? | **2 minutes** by default, set per source (for example, "Janet: at the next break"; "tech news: morning digest"). Due reminders the owner set are never held |
+| 5 | Keep the idle dot? | **Yes, by default,** with a tray toggle to hide it. Closes ADR-017 owner question 1. Not listening is never hidden, whatever the toggle says |

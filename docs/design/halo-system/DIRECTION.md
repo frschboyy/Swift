@@ -242,7 +242,7 @@ This merges the live view and the reader into "the card, expanded", as one idea,
 | **A grant for this run** | Repetitive steps of one kind | "Move files from Downloads into Lectures, for this run": scope set once, the run then reports instead of asking | No |
 | **A standing rule** | Only in the Swift window's "What Swift may do" | A per-action table: do, ask, never | No (product direction §8.3 item 5) |
 
-- The product rules stay hard floors that no rung lowers: recipients only from contacts, a bare "yes" never approves, typing never approves. Sending stays "ask" unless the owner changes it in settings. Proposed as a new floor (not a product rule yet): deleting files always asks.
+- The product rules stay hard floors that no rung lowers: recipients only from contacts, a bare "yes" never approves, typing never approves. Sending stays "ask" unless the owner changes it in settings. New product rule (owner, 2026-11-07, ADR-019): deleting a file always asks.
 - Amber still means one thing: something here waits for your OK. A plan card with two consequential steps is one amber card, not two.
 - Learning never climbs the ladder (product direction §5.2): patterns can propose, never grant.
 
@@ -267,7 +267,7 @@ Each run, when it has something to show, gets an urgency. The policy decides whe
 |---|---|---|
 | **Now** | The answer you're waiting for; its OK; its question | Takes the front (today's rules) |
 | **Soon** | A request you made finishing behind the card | An edge, "Ready to read" |
-| **At the next break** | A boss email; a watcher finding | Waits for a breakpoint (you stop typing, a call ends, you come back), up to a limit, then an edge |
+| **At the next break** | A boss email; a watcher finding | Waits for a breakpoint (you stop typing, a call ends, you come back), for at most 2 minutes by default, then an edge |
 | **In the digest** | News, opportunities, suggestions | The "while you were away" card or a scheduled digest |
 | **Silent** | Routine runs that changed nothing | The record only |
 
@@ -291,7 +291,7 @@ The same words work by voice, click and keyboard, on every card that can take th
 
 Cards show at most three buttons. The rest are reachable by voice and from the expanded card, so the card stays glanceable.
 
-**Discovery through the same slot:** the meta line can carry one hint for the card in front ("Say 'put it in Word'", "Say 'every Friday' to repeat this"), shown the first few times and then dropped. "What can you do here?" answers for the card in front. The window lists every capability from the capability registry (ADR-011 §7.1). This follows Voice Access's "what can I say" and Voice Control's hints, without a cheat sheet.
+**Discovery through the same slot:** the meta line can carry one hint for the card in front ("Say 'put it in Word'", "Say 'every Friday' to repeat this"), shown 3 times and then dropped. "What can you do here?" answers for the card in front. The window lists every capability from the capability registry (ADR-011 §7.1). This follows Voice Access's "what can I say" and Voice Control's hints, without a cheat sheet.
 
 ### 6.9 Presence as independent axes
 

@@ -570,3 +570,58 @@ async def test_stop_with_filler_words_reaches_the_one_behind_too() -> None:
     await say(session, stt, "please stop")
     await until(lambda: agent.cancelled == [second])
     await finish_all(session, agent)
+
+
+async def test_pause_listening_closes_the_answer_recording_and_resume_reopens_it() -> None:
+    session, _out, agent, _control, _research = await _hidden_while_recording("no")
+    q = session.dialogue.pending
+    # Paused from the tray, wake listening off: only hands_free_blocked is set.
+    session.hands_free_blocked = True
+    session.listening_changed()
+    await session._bring(q.owner)
+    await asyncio.sleep(0.05)
+    assert session._answer_task is None, "the microphone opened during Pause listening"
+    session.hands_free_blocked = False
+    session.listening_changed()
+    assert session._answer_task is not None
+    # And a recording going when it's paused stops.
+    session.hands_free_blocked = True
+    session.listening_changed()
+    assert session._answer_task is None
+    session.hands_free_blocked = False
+    await finish_all(session, agent)
+
+
+async def test_no_answer_recording_opens_while_the_hotkey_holds_one() -> None:
+    session, _out, agent, _control, _research = await _hidden_while_recording("no")
+    q = session.dialogue.pending
+    stt = session.transcriber
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0.05)
+    voice, released = session._confirm_voice, session._released
+    assert voice is not None and not voice.done()
+    await session._bring(q.owner)
+    await asyncio.sleep(0.05)
+    assert session._answer_task is None and session._released is released, "two recordings on one microphone"
+    stt.text = "what time is it"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    await until(lambda: session._answer_task is not None)  # its turn now
+    await finish_all(session, agent)
+
+
+async def test_no_answer_recording_opens_over_swift_s_own_voice() -> None:
+    session, _out, agent, _control, _research = await _hidden_while_recording("no")
+    q = session.dialogue.pending
+
+    class Talking(type(session.speaker)):
+        speaking = True
+
+    session.speaker.__class__ = Talking
+    await session._bring(q.owner)
+    await asyncio.sleep(0.05)
+    assert session._answer_task is None, "the microphone recorded Swift"
+    Talking.speaking = False
+    session.speech_done()
+    await until(lambda: session._answer_task is not None)
+    await finish_all(session, agent)

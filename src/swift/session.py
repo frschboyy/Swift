@@ -1778,13 +1778,11 @@ class Session:
             if open_request is not None:
                 self._released = asyncio.Event()
                 await self._signal_heard("ptt")
-                self._voice_owner = self._focus
-                self._confirm_voice = asyncio.create_task(self._answer_by_voice(open_request))
+                self._hold_voice(self._answer_by_voice(open_request))
             elif self.state == "working" and self._active is not None:
                 self._released = asyncio.Event()
                 await self._signal_heard("ptt")
-                self._voice_owner = self._focus
-                self._confirm_voice = asyncio.create_task(self._midrun_by_voice())
+                self._hold_voice(self._midrun_by_voice())
             else:
                 # The last request is being transcribed or started: this is the next one, recorded
                 # now and run beside it (owner checks 20 and 21, 2026-10-27: dropped, 5 s to wait).
@@ -3198,8 +3196,8 @@ class Session:
         if not voice or self.recorder is None:
             return  # a typed request: the answer is typed too
         logger.info("listening for the answer", kind=q.kind, seconds=seconds, wake=self.wake_on)
-        if not self.wake_on and self.transcriber is not None and not self._on_screen(q):
-            self._answer_hidden = q  # it records once the question is back on screen
+        if not self.wake_on and self.transcriber is not None and not (self._on_screen(q) and self._may_record_answer()):
+            self._answer_hidden = q  # it records once it can
         elif not self.wake_on and self.transcriber is not None:
             task = self._answer_task
             if task is None or task.done():
@@ -3254,17 +3252,36 @@ class Session:
             return
         task = self._answer_task
         recording = task is not None and not task.done()
-        if not self._on_screen(q):
+        if not self._on_screen(q) or self._deaf() or self._away:
             if recording:
                 self._stop_capture()
                 self._answer_hidden = q
             return
         if self._answer_hidden is not q:
             return
-        self._answer_hidden = None
         left = q.window.left() if q.window is not None else None
-        if left and not recording and self.transcriber is not None:
+        if not left or self.transcriber is None:
+            self._answer_hidden = None
+        elif self._may_record_answer():
+            self._answer_hidden = None
             self._answer_task = asyncio.create_task(self._capture_answer(q, left))
+
+    def _may_record_answer(self) -> bool:
+        """The one rule for opening the microphone for an answer. Not while listening is off, the owner
+        is away, Swift is talking, or something else is recording: it waits, and ``_sync_answer_capture``
+        runs again when any of these ends."""
+        held = self._confirm_voice is not None and not self._confirm_voice.done()
+        return not (self._deaf() or self._away or self.speaker.speaking or held or self._capturing())
+
+    def listening_changed(self) -> None:
+        """The owner paused or resumed listening, or locked or unlocked the screen."""
+        self._sync_answer_capture()
+
+    def _hold_voice(self, work: Coroutine[Any, Any, None]) -> None:
+        """The hotkey on the card in front: a recording of its own, which an answer's waits for."""
+        self._voice_owner = self._focus
+        self._confirm_voice = asyncio.create_task(work)
+        self._confirm_voice.add_done_callback(lambda _task: self._sync_answer_capture())
 
     async def _capture_answer(self, q: Question, seconds: float) -> None:
         """No open microphone (wake listening off): record the answer, ending when the owner stops
@@ -3458,6 +3475,7 @@ class Session:
     def speech_done(self) -> None:
         """Swift finished talking (``Speaker.on_done``): the reply window starts now, not under its own voice."""
         self._speech_news(False)
+        self._sync_answer_capture()
         if (asked := self.dialogue.pending) is not None and asked.spoken and self._answer_window is None:
             asked.spoken = True  # the run's card says "listening" from now
             run = asked.owner

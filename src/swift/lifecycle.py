@@ -93,6 +93,8 @@ class Lifecycle:
         listening = self.listening
         self.session.listening_paused = self.wake_enabled and not listening
         self.session.hands_free_blocked = not listening
+        if (changed := getattr(self.session, "listening_changed", None)) is not None:
+            changed()
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
             await hold_cards(change.new == "away")
@@ -140,6 +142,8 @@ class Lifecycle:
         self.paused = not on
         self.session.listening_paused = self.wake_enabled and not self.listening
         self.session.hands_free_blocked = not self.listening
+        if (changed := getattr(self.session, "listening_changed", None)) is not None:
+            changed()
         logger.info("listening paused" if self.paused else "listening resumed")
         if self.wake_enabled and self.recorder is not None:
             if self.paused:

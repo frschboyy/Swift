@@ -53,6 +53,8 @@ root.style.setProperty("--pane-max", `${Math.round(screen.availHeight * 0.7)}px`
 root.style.setProperty("--live-max", `${Math.max(200, Math.min(380, Math.round(screen.availHeight * 0.7) - 200))}px`);
 root.replaceChildren();
 followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
+// The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.
+if (import.meta.env.DEV) void import("./look").then((look) => look.applyLook(root));
 
 const act = (action: string, extra: Record<string, unknown> = {}): void => {
   void emitTo("overlay", "pane-action", { label, action, ...extra }).catch(() => {});

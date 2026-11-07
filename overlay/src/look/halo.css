@@ -1,0 +1,492 @@
+/* Halo (ADR-019, Step A: a look spike, dev builds only). Everything sits under data-look="halo": without
+   the switch, nothing here is loaded at all. Values are docs/design/halo-system/tokens.css (a test keeps
+   them equal); measures are SPEC.md's. Step B replaces this file and the old styles with one set. */
+
+#stage[data-look="halo"],
+#stage[data-look="halo"][data-theme="dark"] {
+  --panel: #1c2030f0;
+  --panel-solid: #1c2030;
+  --rim-hi: #8ab4ff70;
+  --rim: #ffffff14;
+  --raise: #ffffff12;
+  --text: #f2f4fa;
+  --muted: #c0c6d6;
+  --faint: #9da4b6;
+  --accent: #8ab4ff;
+  --on-accent: #0b1730;
+  --accent-soft: #8ab4ff29;
+  --accent-edge: #8ab4ff80;
+  --ring: #8ab4ff33;
+  --edge-1: #2c3557;
+  --edge-2: #273050;
+  --edge-3: #222a47;
+  --edge-line: #8ab4ff38;
+  --ok: #7fd8a4;
+  --on-ok: #0a2416;
+  --bad: #ff8a80;
+  --on-bad: #2b0906;
+  --bad-soft: #ff8a8029;
+  --warn: #f5c26b;
+  --on-warn: #2a1c00;
+  --warn-text: #f5c26b;
+  --warn-soft: #f5c26b29;
+  --warn-halo: #f5c26b2e;
+  --sleep: #3a3f4d;
+  --on-sleep: #c0c6d6;
+  --spin-track: #8ab4ff40;
+  --shadow: 0 12px 32px #00000085;
+  /* Today's names with no value in tokens.css. */
+  --panel-edge: var(--rim);
+  --raise-hover: #ffffff1f;
+  color-scheme: dark;
+}
+
+#stage[data-look="halo"][data-theme="light"] {
+  --panel: #fafbfff2;
+  --panel-solid: #ffffff;
+  --rim-hi: #ffffff;
+  --rim: #2357c92e;
+  --raise: #2357c90f;
+  --text: #121522;
+  --muted: #444b5e;
+  --faint: #5b6275;
+  --accent: #2357c9;
+  --on-accent: #ffffff;
+  --accent-soft: #2357c91f;
+  --accent-edge: #2357c973;
+  --ring: #2357c926;
+  --edge-1: #e1e8fb;
+  --edge-2: #d7e0f8;
+  --edge-3: #cdd8f4;
+  --edge-line: #2357c938;
+  --ok: #1b7f4b;
+  --on-ok: #ffffff;
+  --bad: #c0362c;
+  --on-bad: #ffffff;
+  --bad-soft: #c0362c1a;
+  --warn: #f2b33d;
+  --on-warn: #2a1c00;
+  --warn-text: #875800;
+  --warn-soft: #f2b33d38;
+  --warn-halo: #f2b33d47;
+  --sleep: #d5d8e0;
+  --on-sleep: #444b5e;
+  --spin-track: #2357c933;
+  --shadow: 0 12px 32px #1a2a5533;
+  --panel-edge: var(--rim);
+  --raise-hover: #2357c91a;
+  color-scheme: light;
+}
+
+#stage[data-look="halo"] {
+  --card-w: 512px;
+  --radius-card: 22px;
+  --radius-card-inner: 12px;
+  --radius-pill: 999px;
+  --radius-box: 14px;
+  --radius-edge: 18px;
+  --tail-w: 24px;
+  --tail-h: 11px;
+  --tail-inset: 44px;
+  --gutter: 16px;
+  --halo-ok: 4px;
+  --halo-ask: 5px;
+  --state-line-h: 40px;
+  --band-h: 42px;
+  --orb: 36px;
+  --glass: blur(24px) saturate(1.4);
+  --dur-press: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 200ms;
+  --dur-move: 280ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --orb-fill: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), transparent 42%), radial-gradient(circle, #8ab4ff, #4f7bdc 78%);
+  /* Today's corner radius, for the panes this spike only re-tokens. */
+  --radius: var(--radius-card);
+  /* What the deck shows past the card: 34 px an edge (SPEC §7). */
+  --halo-deck: 0px;
+}
+#stage[data-look="halo"]:has(.edge[data-depth="0"]) { --halo-deck: 34px; }
+#stage[data-look="halo"]:has(.edge[data-depth="1"]) { --halo-deck: 68px; }
+#stage[data-look="halo"]:has(.edge[data-depth="2"]) { --halo-deck: 102px; }
+
+/* ---- shared parts ---- */
+
+#stage[data-look="halo"] .orb { background: var(--orb-fill); }
+#stage[data-look="halo"] .btn,
+#stage[data-look="halo"] .btn--big {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+}
+#stage[data-look="halo"] .btn .icon { width: 14px; height: 14px; }
+#stage[data-look="halo"] .btn:not(.btn--primary):not(.btn--warn) { background: var(--raise); color: var(--text); }
+#stage[data-look="halo"] .btn:not(.btn--primary):not(.btn--warn):hover:not(:disabled) { background: var(--raise-hover); }
+#stage[data-look="halo"] .btn--primary,
+#stage[data-look="halo"] .btn--warn { font-weight: 700; }
+#stage[data-look="halo"] .icon-btn { width: 28px; height: 28px; border-radius: var(--radius-pill); }
+#stage[data-look="halo"] .icon-btn .icon { width: 16px; height: 16px; }
+#stage[data-look="halo"] kbd { border: 0; border-radius: var(--radius-pill); padding: 0 7px; }
+
+/* ---- the capsule: 44 px slot as today; the orb's centre is 44 px from the card's edge (SPEC §9) ---- */
+
+#stage[data-look="halo"] .capsule { max-width: min(var(--card-w), 100%); }
+#stage[data-look="halo"][data-anchor$="left"] .capsule:not([data-p="orb"]):not([data-p="idle"]) { margin-left: 21px; }
+#stage[data-look="halo"] .capsule[data-p="orb"] {
+  width: var(--orb);
+  height: var(--orb);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+#stage[data-look="halo"] .capsule[data-p="orb"] .orb { width: var(--orb); height: var(--orb); box-shadow: 0 4px 12px #00000040; }
+#stage[data-look="halo"][data-anchor$="left"] .capsule[data-p="orb"] { margin-left: calc(var(--tail-inset) - var(--orb) / 2); }
+#stage[data-look="halo"][data-anchor$="right"] .capsule[data-p="orb"] { margin-right: calc(var(--tail-inset) - var(--orb) / 2); }
+/* idle: a 14 px dot at 70 %, in the same 44 px slot */
+#stage[data-look="halo"] .capsule[data-p="idle"] { width: 14px; height: 14px; margin: 15px; }
+#stage[data-look="halo"] .capsule[data-p="idle"] .orb { width: 14px; height: 14px; opacity: 0.7; }
+#stage[data-look="halo"][data-anchor$="left"] .capsule[data-p="idle"] { margin-left: 37px; }
+#stage[data-look="halo"][data-anchor$="right"] .capsule[data-p="idle"] { margin-right: 37px; }
+/* heard, listening: rings on the orb */
+#stage[data-look="halo"] .capsule[data-p="heard"] { border-color: var(--accent-edge); }
+#stage[data-look="halo"] .capsule[data-p="heard"] .orb { box-shadow: 0 0 0 4px var(--ring), 0 0 0 9px var(--ring); animation: none; }
+#stage[data-look="halo"] .capsule[data-p="listening"] .orb { box-shadow: 0 0 0 4px var(--ring); }
+/* paused: the sleeping orb, a mark and a word; solid; never fades */
+#stage[data-look="halo"] .capsule[data-p^="paused"] { border: 1.5px solid var(--muted); }
+#stage[data-look="halo"] .cap-ring { border: 0; background: var(--sleep); color: var(--on-sleep); }
+#stage[data-look="halo"] .capsule[data-p="paused-mic"] .cap-ring { position: relative; }
+#stage[data-look="halo"] .capsule[data-p="paused-mic"] .cap-ring::before {
+  /* the mic under its slash */
+  content: "";
+  position: absolute;
+  inset: 5px 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+}
+#stage[data-look="halo"] .cap-btn { height: 30px; padding: 0 6px 0 12px; }
+#stage[data-look="halo"] .capsule[data-p="paused-mic"] .cap-btn { padding: 0 12px; box-shadow: inset 0 0 0 1px var(--accent-edge); }
+
+/* ---- the card: glass, a rim of light, growing from the orb ---- */
+
+#stage[data-look="halo"] .card {
+  width: var(--card-w);
+  max-height: calc(100vh - 94px - var(--halo-deck));
+  border: 0;
+  border-radius: var(--radius-card);
+  --pad-left: 22px;
+  --pad-right: 22px;
+  padding: 0 var(--pad-right) 0 var(--pad-left);
+  transform: translateY(var(--enter)) scale(0.94);
+  transform-origin: var(--tail-x, 50%) 100%;
+  transition: opacity var(--dur-base) var(--ease), transform var(--dur-move) var(--ease);
+}
+#stage[data-look="halo"][data-anchor^="top"] .card { transform-origin: var(--tail-x, 50%) 0; }
+#stage[data-look="halo"] .card--in { transform: none; }
+/* The corners that meet the deck. */
+#stage[data-look="halo"]:has(.edge) .card { border-top-left-radius: var(--radius-card-inner); border-top-right-radius: var(--radius-card-inner); }
+#stage[data-look="halo"][data-anchor^="top"]:has(.edge) .card {
+  border-radius: var(--radius-card) var(--radius-card) var(--radius-card-inner) var(--radius-card-inner);
+}
+#stage[data-look="halo"] .card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(var(--rim-hi), var(--rim) 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+#stage[data-look="halo"] .card:empty::before,
+#stage[data-look="halo"] .card--confirm::before,
+#stage[data-look="halo"] .card--question::before,
+#stage[data-look="halo"] .card--due::before { display: none; }
+
+#stage[data-look="halo"] .card-in:not(:has(> .card-foot, > .confirm-actions)) { padding-bottom: 14px; }
+
+/* the tail: in the card's surface, on the orb's side, placed after layout, settling last */
+#stage[data-look="halo"] .halo-tail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: var(--tail-w);
+  height: var(--tail-h);
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transform: scaleY(var(--tail-flip, 1)) translateY(-3px);
+  transition: none;
+}
+#stage[data-look="halo"][data-anchor^="top"] { --tail-flip: -1; }
+#stage[data-look="halo"] .halo-tail[data-on] {
+  opacity: 1;
+  transform: scaleY(var(--tail-flip, 1));
+  transition: opacity var(--dur-fast) linear 160ms, transform var(--dur-fast) var(--ease) 160ms;
+}
+#stage[data-look="halo"] .halo-tail path { fill: var(--panel); stroke: var(--rim); stroke-width: 1; }
+#stage[data-look="halo"]:has(.card--confirm) .halo-tail path { fill: var(--panel-solid); stroke: var(--warn); stroke-width: 2; }
+#stage[data-look="halo"]:has(.card--question) .halo-tail path { stroke: var(--accent); stroke-width: 2; }
+#stage[data-look="halo"]:has(.card--due) .halo-tail path { fill: var(--panel-solid); stroke: var(--accent); }
+
+/* ---- 1. the state line ---- */
+
+#stage[data-look="halo"] .halo-state {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  height: var(--state-line-h);
+  margin-inline: -22px;
+  padding: 0 10px 0 20px;
+  font-size: 13px;
+  cursor: grab;
+}
+#stage[data-look="halo"] .halo-gap { flex: 1 1 auto; }
+#stage[data-look="halo"] .halo-word { font-weight: 600; }
+#stage[data-look="halo"] .halo-time { color: var(--faint); font-size: 13px; margin: 0; font-variant-numeric: tabular-nums; }
+#stage[data-look="halo"] .halo-time:not(:empty)::before { content: "· "; }
+#stage[data-look="halo"] .halo-mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+}
+#stage[data-look="halo"] .halo-mark .icon { width: 12px; height: 12px; stroke-width: 2.5; }
+#stage[data-look="halo"] .halo-state .spinner { width: 16px; height: 16px; border-width: 2px; }
+#stage[data-look="halo"] .halo-state--working .halo-word { color: var(--accent); }
+#stage[data-look="halo"] .halo-state--done .halo-word { color: var(--ok); }
+#stage[data-look="halo"] .halo-state--done .halo-mark { background: var(--ok); color: var(--on-ok); }
+#stage[data-look="halo"] .halo-state--failed .halo-word { color: var(--bad); }
+#stage[data-look="halo"] .halo-state--failed .bang { width: 18px; height: 18px; margin: 0; font-size: 12px; }
+#stage[data-look="halo"] .halo-state--due .halo-word { color: var(--accent); }
+#stage[data-look="halo"] .halo-state--due .halo-mark { background: var(--accent); color: var(--on-accent); }
+
+/* ---- 2. the origin line: the owner's words on the right, then how they came ---- */
+
+#stage[data-look="halo"] .halo-origin {
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 -2px 4px 0;
+}
+#stage[data-look="halo"] .halo-origin .words {
+  order: 1;
+  flex: 0 1 auto;
+  padding: 0;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: right;
+}
+#stage[data-look="halo"] .halo-origin .head-icon { order: 2; width: 14px; height: 14px; margin-top: 3px; }
+/* An origin line with no state line above it keeps the card's top clear. */
+#stage[data-look="halo"] .card-in > .halo-origin:first-child { margin-top: 12px; }
+
+/* ---- 3. body ---- */
+
+#stage[data-look="halo"] .status { min-height: 0; margin-top: 8px; gap: 0; }
+#stage[data-look="halo"] .status-verb { font: 600 20px/26px var(--font-display); }
+#stage[data-look="halo"] .steps { margin-top: 8px; padding: 0; gap: 0; }
+#stage[data-look="halo"] .step { align-items: center; gap: 10px; min-height: 28px; font-size: 14px; line-height: 20px; }
+#stage[data-look="halo"] .step .icon { display: none; }
+#stage[data-look="halo"] .step::before { content: ""; width: 10px; height: 10px; flex: none; margin: 0 2px; border-radius: 50%; background: var(--ok); }
+#stage[data-look="halo"] .step--now { color: var(--text); font-weight: 600; }
+#stage[data-look="halo"] .step--now::before { background: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
+#stage[data-look="halo"] .answer { margin-top: 8px; line-height: 1.45; }
+#stage[data-look="halo"] .answer--line { line-height: 34px; }
+#stage[data-look="halo"] .answer--long { max-height: 148px; }
+#stage[data-look="halo"] .answer-table td { border-top-color: var(--rim); }
+#stage[data-look="halo"] .fail { margin-top: 8px; }
+#stage[data-look="halo"] .card-in:not(:has(> .halo-state)) > .fail { margin-top: 14px; }
+#stage[data-look="halo"] .card-in:not(:has(> .halo-state, > .band, > .q-tags, > .card-head)):not(.row-line):not(.due) { padding-top: 0; }
+#stage[data-look="halo"] .detail { border-radius: 10px; }
+
+/* ---- 5. the footer: the same surface as the card, no band of its own ---- */
+
+#stage[data-look="halo"] .card-in > .card-foot,
+#stage[data-look="halo"] .card-in > .confirm-actions {
+  margin: 8px -22px 0;
+  padding: 4px 14px 14px 22px;
+  background: transparent;
+}
+#stage[data-look="halo"] .card[data-scrolls] .card-in > .card-foot,
+#stage[data-look="halo"] .card[data-scrolls] .card-in > .confirm-actions { background: var(--panel-solid); }
+#stage[data-look="halo"] .card--open .card-foot { border-top: 0; padding-top: 12px; }
+#stage[data-look="halo"] .byline::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border-radius: 50%;
+  background: var(--orb-fill);
+}
+
+/* the time bar: 3 px, inset 22, on a track */
+#stage[data-look="halo"] .card > .timebar { left: 22px; right: 22px; bottom: 6px; border-radius: 2px; opacity: 1; z-index: 2; }
+#stage[data-look="halo"] .card:has(> .timebar:not([hidden]))::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--raise);
+}
+#stage[data-look="halo"] .card--confirm:has(> .timebar:not([hidden]))::after { background: var(--warn-halo); }
+#stage[data-look="halo"] .card--question:has(> .timebar)::after { display: none; }
+/* Working doesn't fade (SPEC §4), and a one-line card has no room for a bar. */
+#stage[data-look="halo"] .card--working > .timebar,
+#stage[data-look="halo"] .card--row > .timebar { display: none; }
+#stage[data-look="halo"] .card--working::after,
+#stage[data-look="halo"] .card--row::after { display: none; }
+#stage[data-look="halo"] .card--confirm[data-compact] > .timebar,
+#stage[data-look="halo"] .card--confirm[data-compact]::after { bottom: 4px; }
+#stage[data-look="halo"] .card--paused > .timebar { opacity: 0.35; }
+
+/* ---- stopped, not done, the shrunk working card: one line ---- */
+
+#stage[data-look="halo"] .card--row { --pad-left: 20px; --pad-right: 10px; padding-block: 0; }
+#stage[data-look="halo"] .card--row .row-line { min-height: var(--state-line-h); gap: 8px; padding-block: 0; font-size: 13px; }
+#stage[data-look="halo"] .card--row .row-word { font-weight: 600; color: var(--muted); }
+#stage[data-look="halo"] .card--working.card--row .row-word { color: var(--accent); }
+#stage[data-look="halo"] .card--row .row-desc { color: var(--faint); }
+#stage[data-look="halo"] .card--row .elapsed { color: var(--faint); font-size: 13px; }
+#stage[data-look="halo"] .card--row .row-line > .icon:first-child {
+  width: 18px;
+  height: 18px;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--raise);
+  color: var(--muted);
+}
+#stage[data-look="halo"] .card--row .spinner { width: 16px; height: 16px; border-width: 2px; }
+
+/* ---- Needs your OK: solid, 2 px amber, a 4 px halo, the band on top ---- */
+
+#stage[data-look="halo"] .card--confirm {
+  border: 2px solid var(--warn);
+  box-shadow: var(--shadow), 0 0 0 var(--halo-ok) var(--warn-halo);
+  padding-block: 0;
+}
+#stage[data-look="halo"] .band {
+  height: var(--band-h);
+  margin: 0 -22px 14px;
+  padding: 0 12px 0 20px;
+}
+#stage[data-look="halo"] .band-time { padding: 2px 8px; border-radius: var(--radius-pill); background: #2a1c001f; }
+#stage[data-look="halo"] .band-time:empty { display: none; }
+#stage[data-look="halo"] .facts {
+  grid-template-columns: 66px 1fr;
+  gap: 8px 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-box);
+  font-size: 14px;
+  line-height: 20px;
+}
+#stage[data-look="halo"] .facts--change { grid-template-columns: 66px 1fr 14px 1fr; }
+#stage[data-look="halo"] .mail-body {
+  /* 3 lines, cut at the line: never a part line showing */
+  height: calc(3 * 20px + 22px);
+  margin-top: 0;
+  padding: 10px 12px;
+  border-color: var(--rim);
+  border-radius: 10px;
+  background: var(--panel-solid);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 20px;
+  overflow: clip;
+  overflow-clip-margin: content-box;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+#stage[data-look="halo"] .mail-body--full { height: auto; overflow: hidden auto; }
+#stage[data-look="halo"] .facts-text--mono { padding: 10px 12px; border-radius: 10px; background: var(--raise); }
+#stage[data-look="halo"] .voice-hint { margin-top: 12px; }
+
+/* compact confirm (SPEC §10): only with edges behind it, and only when it wouldn't fit. Nothing is removed. */
+#stage[data-look="halo"] .card--confirm[data-compact] .band { height: 36px; margin-bottom: 10px; }
+#stage[data-look="halo"] .card--confirm[data-compact] .facts { margin-top: 10px; padding: 10px 14px; }
+#stage[data-look="halo"] .card--confirm[data-compact] .voice-hint { margin-top: 10px; }
+#stage[data-look="halo"] .card--confirm[data-compact] .mail-body:not(.mail-body--full) { height: calc(2 * 20px + 14px); padding-block: 6px; }
+#stage[data-look="halo"] .card--confirm[data-compact] .confirm-actions { margin-top: 6px; padding: 2px 14px 10px 22px; }
+
+/* ---- Waiting for you: 2 px accent, a 5 px ring while it waits; no ring while Swift speaks ---- */
+
+#stage[data-look="halo"] .card--question { border: 2px solid var(--accent); padding-block: 0; }
+#stage[data-look="halo"] .card--question.card--waiting { box-shadow: var(--shadow), 0 0 0 var(--halo-ask) var(--accent-soft); }
+#stage[data-look="halo"] .q-tags { height: var(--state-line-h); margin: 0 -8px 4px -2px; }
+#stage[data-look="halo"] .q-pill { height: 48px; margin-top: 12px; border-radius: var(--radius-pill); }
+#stage[data-look="halo"] .q-pill .orb { box-shadow: 0 0 0 4px var(--ring); }
+#stage[data-look="halo"] .q-pill .timebar { left: 22px; right: 22px; bottom: 4px; border-radius: 2px; }
+
+/* ---- Due: solid, 1 px accent, a 5 px ring, its state line; Done ends it ---- */
+
+#stage[data-look="halo"] .card--due { border: 1px solid var(--accent); box-shadow: var(--shadow), 0 0 0 var(--halo-ask) var(--accent-soft); padding-block: 0; }
+#stage[data-look="halo"] .card--due .due.card-in { flex-wrap: wrap; align-items: flex-end; gap: 0 12px; padding-bottom: 14px; cursor: grab; }
+#stage[data-look="halo"] .card--due .halo-state { flex: 0 0 calc(100% + 44px); }
+#stage[data-look="halo"] .card--due .due-icon { display: none; }
+#stage[data-look="halo"] .card--due .due-title { font-size: 22px; line-height: 28px; }
+
+/* ---- the deck: opaque, tinted, never glass; each edge 34 px and 20 px narrower than the one nearer ---- */
+
+#stage[data-look="halo"] .deck { height: var(--halo-deck); }
+#stage[data-look="halo"] .edge {
+  height: calc(34px + var(--tuck));
+  background: var(--edge-1);
+  border: 1px solid var(--edge-line);
+  border-radius: var(--radius-edge);
+  box-shadow: none;
+}
+#stage[data-look="halo"] .edge[data-depth="0"] { bottom: calc(0px - var(--tuck)); }
+#stage[data-look="halo"] .edge[data-depth="1"] { bottom: calc(34px - var(--tuck)); background: var(--edge-2); }
+#stage[data-look="halo"] .edge[data-depth="2"] { bottom: calc(68px - var(--tuck)); background: var(--edge-3); }
+#stage[data-look="halo"][data-anchor^="top"] .edge { bottom: auto; }
+#stage[data-look="halo"][data-anchor^="top"] .edge[data-depth="0"] { top: calc(0px - var(--tuck)); }
+#stage[data-look="halo"][data-anchor^="top"] .edge[data-depth="1"] { top: calc(34px - var(--tuck)); }
+#stage[data-look="halo"][data-anchor^="top"] .edge[data-depth="2"] { top: calc(68px - var(--tuck)); }
+#stage[data-look="halo"] .edge[data-depth] > * { opacity: 1; }
+#stage[data-look="halo"] .edge:hover { border: 1.5px solid var(--accent); }
+#stage[data-look="halo"] .edge--ack { border-color: var(--ok); }
+#stage[data-look="halo"] .edge--confirm { border-color: var(--warn); box-shadow: none; }
+#stage[data-look="halo"] .edge--confirm .edge-sub { color: var(--warn-text); }
+
+/* ---- reduced motion, forced colours (SPEC §13) ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  #stage[data-look="halo"] .card,
+  #stage[data-look="halo"] .card--in { transform: none !important; }
+  #stage[data-look="halo"] .halo-tail,
+  #stage[data-look="halo"] .halo-tail[data-on] { transform: scaleY(var(--tail-flip, 1)) !important; transition-delay: 0ms !important; }
+}
+
+@media (forced-colors: active) {
+  #stage[data-look="halo"] .card,
+  #stage[data-look="halo"] .card--confirm,
+  #stage[data-look="halo"] .card--question,
+  #stage[data-look="halo"] .card--due,
+  #stage[data-look="halo"] .edge { background: Canvas; color: CanvasText; border: 1px solid CanvasText; box-shadow: none; backdrop-filter: none; }
+  #stage[data-look="halo"] .card--confirm { border: 2px solid Highlight; }
+  #stage[data-look="halo"] .card::before,
+  #stage[data-look="halo"] .card::after { display: none; }
+  #stage[data-look="halo"] .band,
+  #stage[data-look="halo"] .band-time { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  #stage[data-look="halo"] .card-in > .card-foot,
+  #stage[data-look="halo"] .card-in > .confirm-actions { background: Canvas; }
+  #stage[data-look="halo"] .btn { border: 1px solid ButtonText; }
+  #stage[data-look="halo"] .halo-tail path { fill: Canvas !important; stroke: CanvasText !important; }
+}

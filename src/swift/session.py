@@ -3287,6 +3287,11 @@ class Session:
 
     def _hold_voice(self, work: Coroutine[Any, Any, None]) -> None:
         """The hotkey on the card in front: a recording of its own, which an answer's waits for."""
+        task = self._answer_task
+        if task is not None and not task.done():
+            # One microphone: the hotkey takes over, and its words reach the question all the same.
+            self._stop_capture()
+            self._answer_hidden = self.dialogue.pending
         self._voice_owner = self._focus
         self._confirm_voice = asyncio.create_task(work)
         self._confirm_voice.add_done_callback(lambda _task: self._sync_answer_capture())

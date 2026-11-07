@@ -643,3 +643,33 @@ async def test_a_hung_transcription_doesn_t_leave_swift_deaf(monkeypatch: Any) -
     stt.transcribe = real
     await started(session, _out, agent, stt, "Hey Swift, compare three e-readers")
     await finish_all(session, agent)
+
+
+async def _agent_question_recording() -> tuple[Any, Any, Any, Any]:
+    session, out, _records, agent, stt = asker()
+    session.wake_on = False
+    real = session._capture_voice
+
+    async def recording(capture: dict[str, Any], phase: Any = None, auto: Any = None) -> Any:
+        if str(capture.get("id", "")).startswith("answer-"):
+            await asyncio.Event().wait()
+        return await real(capture, phase, auto=auto) if phase else await real(capture)
+
+    session._capture_voice = recording
+    await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1]["open"])
+    await until(lambda: session._answer_task is not None)
+    return session, agent, stt, session._answer_task
+
+
+async def test_the_hotkey_takes_over_from_an_answer_recording() -> None:
+    session, agent, stt, recording = await _agent_question_recording()
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0.05)
+    voice = session._confirm_voice
+    assert voice is not None and not voice.done() and recording.done(), "two recordings on one microphone"
+    stt.text = "show me"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    await until(lambda: session._answer_task is not None)  # the question still waits: it records again
+    await finish_all(session, agent)

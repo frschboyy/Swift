@@ -787,3 +787,42 @@ async def test_with_another_answer_on_the_card_a_yes_doesn_t_take_the_offer() ->
     await until(lambda: "isn't on screen" in out.last("result")["summary"])
     assert len(agent.requests) == before, "a yes took an offer nobody could see"
     await finish_all(session, agent)
+
+
+async def test_a_no_to_another_card_leaves_a_hidden_correction_offer_alone() -> None:
+    session, out, agent, stt, other = await _correction_offered(with_other=True)
+    agent.runs["a-1"]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == "a-1")
+    agent.runs[other]["go"].set()
+    await until(lambda: any(r["run_id"] == other and r["state"] == "result" for r in runs(out)["rows"]))
+    await session.handle(Message("focus", {"run_id": other}))
+    await until(lambda: out.last("result").get("run_id") == other)
+    await asyncio.sleep(0.05)
+    offer = session._fix_offer
+    assert offer is not None
+    await say(session, stt, "Hey Swift, no")
+    await asyncio.sleep(0.15)
+    assert session._fix_offer == offer, "a no said to another card ended the offer"
+    assert "leave it as it is" not in out.last("result")["summary"]
+    await finish_all(session, agent)
+
+
+async def test_a_no_on_its_own_card_still_ends_the_offer() -> None:
+    session, out, agent, _stt, _other = await _correction_offered()
+    agent.runs["a-1"]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == "a-1")
+    await asyncio.sleep(0.05)
+    await session.handle(Message("text", {"text": "no", "thread_id": None}))
+    await until(lambda: "leave it as it is" in out.last("result")["summary"])
+    assert session._fix_offer is None
+    await finish_all(session, agent)
+
+
+async def test_an_expired_correction_offer_says_nothing_is_waiting(monkeypatch: Any) -> None:
+    session, out, agent, _stt, _other = await _correction_offered()
+    monkeypatch.setattr("swift.session.FIX_OFFER_S", -1.0)
+    before = len(agent.requests)
+    await session.handle(Message("text", {"text": "yes", "thread_id": None}))
+    await until(lambda: "nothing waiting" in out.last("run.voice")["text"])
+    assert session._fix_offer is None and len(agent.requests) == before
+    await finish_all(session, agent)

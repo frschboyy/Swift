@@ -3759,6 +3759,9 @@ class Session:
         text, thread, at = fix
         if clock.now() - at > FIX_OFFER_S:
             return None
+        if decision.action == "reject" and thread != run.card_thread:
+            self._fix_offer = fix  # a "no" to another card isn't about this offer
+            return None
         if decision.action == "approve" and (
             refused := self._fix_refused(thread, run.card_thread, said, record.get("source") == "typed")
         ) is not None:
@@ -4453,6 +4456,9 @@ class Session:
                 self._task.cancel()  # like Esc; the interaction cleans up
         elif action == "resume":
             await phase("hint", "It's still going.")
+        elif action == "approve" and self._fix_offer is not None and clock.now() - self._fix_offer[2] > FIX_OFFER_S:
+            self._fix_offer = None
+            await phase("hint", "There's nothing waiting for approval right now.")
         elif action == "approve" and self._fix_offer is not None:
             on_card = self._focus.thread if self._focus is not None else None
             if (refused := self._fix_refused(self._fix_offer[1], on_card, text, source == "typed")) is not None:

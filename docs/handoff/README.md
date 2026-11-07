@@ -53,7 +53,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | Routing parity | 413/423 (97.6%), 0 harmful; the 10 misses are the web lane |
 | Rust | Not rerun; 30 passed at `ab09f51` |
 
-**Measured on branch `worktree-deck-step-1` (2026-11-07):** Python 1,596 passed, 1 skipped, 12 expected failures; overlay 112 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed; routing parity 413/423, 0 harmful.
+**Measured on branch `worktree-deck-step-1` (2026-11-07):** Python 1,599 passed, 1 skipped, 12 expected failures; overlay 112 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed; routing parity 413/423, 0 harmful.
 
 **Limit of these tests:** the seam test reaches the real presenter and the Deck's order but not the DOM or Tauri, and it replays one way only (`test_seam_replay.py`). The harness now draws other requests as the app does, so frames replayed there show the same edges, but it still has no pane windows. Green tests have coexisted with bad days on the real PC before.
 
@@ -206,7 +206,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 | Decision | Why it's open | Recommendation |
 |---|---|---|
-| Keep Step 1? | It adds more than it removes (+942, −366 in source, overlay and Rust), which `CLAUDE.md` asks the owner to weigh for a structural step | Keep it if 168 and 173 feel right on the real screen; the one-window spike is where the deletions would come from |
+| Keep Step 1? | It adds more than it removes (+948, −366 in source, overlay and Rust), which `CLAUDE.md` asks the owner to weigh for a structural step | Keep it if 168 and 173 feel right on the real screen; the one-window spike is where the deletions would come from |
 
 **Open from the reliability audits:**
 

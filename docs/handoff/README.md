@@ -7,9 +7,9 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **Swift works in tests, and has barely been used for real.** Since 2026-10-29 it was used on 4 days, and 119 of the 150 requests were one testing day. The roadmap was meant to be decided by two weeks of daily use, which hasn't happened yet.
 - **Reliability work is the current focus.** Nearly all commits since 2026-11-04 went on it. The review's items 1 to 8 are committed, and the latest ones reach real causes. Most of them have no real-PC evidence yet.
 - **The product roadmap hasn't started.** None of the groundwork in §4 exists yet.
-- **The Deck's Step 1 is built on branch `worktree-deck-step-1`, not merged and not run on the real PC** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). The owner asked for it before the short checks. Two things wait on them: whether to keep it (it adds more lines than it removes), and what the review of its backend change left for them (ADR-018 §4.1): a request said beside a working card now stays behind it, which changes what a plain "stop" reaches.
+- **The Deck's Step 1 is on `main` (merged 2026-11-07) and hasn't been run on the real PC** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). The owner asked for it before the short checks. Two things wait on them: whether to keep it (it adds more lines than it removes, and undoing it now means reverting it on `main`), and what the review of its backend change left for them (ADR-018 §4.1): a request said beside a working card now stays behind it, which changes what a plain "stop" reaches.
 - **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
-- **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is worth fixing first, because daily use means approving those cards.
+- **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is fixed, so the cards you approve show the whole change.
 
 ## 1. Where things stand
 
@@ -53,7 +53,9 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | Routing parity | 413/423 (97.6%), 0 harmful; the 10 misses are the web lane |
 | Rust | Not rerun; 30 passed at `ab09f51` |
 
-**Measured on branch `worktree-deck-step-1` (2026-11-07):** Python 1,599 passed, 1 skipped, 12 expected failures; overlay 112 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed; routing parity 413/423, 0 harmful.
+**Measured on the Deck's branch before it merged (2026-11-07):** Python 1,599 passed, 1 skipped, 12 expected failures; overlay 112 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed; routing parity 413/423, 0 harmful.
+
+**Measured with X-17's fix (2026-11-07):** Python 1,637 passed, 1 skipped, 12 expected failures; overlay 115 passed, 1 todo (O-03), `tsc` clean. Rust and routing parity not rerun: neither is touched. One earlier full run had a single failure that didn't come back and wasn't identified, so a flaky test is possible.
 
 **Limit of these tests:** the seam test reaches the real presenter and the Deck's order but not the DOM or Tauri, and it replays one way only (`test_seam_replay.py`). The harness now draws other requests as the app does, so frames replayed there show the same edges, but it still has no pane windows. Green tests have coexisted with bad days on the real PC before.
 
@@ -67,7 +69,6 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 
 | Finding | Problem | Evidence |
 |---|---|---|
-| X-17 | Edit and Write approval cards show only 60–70 characters of the change | `executors/claude_mapping.py:154` |
 | X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
 | X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
 | X-01 | A single contact match isn't checked against the whole name said | expected-failure test |
@@ -75,13 +76,21 @@ Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to
 
 The X-05 entry in the audit lists what that fix left: `workflow skipped` can quote a workflow file, `redact` doesn't recognise a bare `sk-ant-…` key, the backend's stderr is unchecked, and a failed action's text is kept nowhere on disk.
 
-**What a separate review found:** on X-05, each of the first three rounds caught a real fault, two of them added by the follow-up commit under review. Keep sending product-rule fixes, and their follow-ups, to a reviewer who didn't write them.
+**What a separate review found:** on X-05, each of the first three rounds caught a real fault, two of them added by the follow-up commit under review. X-17 went the same way: the first two rounds each blocked it (agent text could pass for Swift's own, first by quotes, then by a wrapped row), and the third passed it. Keep sending product-rule fixes, and their follow-ups, to a reviewer who didn't write them.
+
+**What X-17's review left, all low:**
+
+- Dropping the "Blocked" note: an approved call to another file also counts as working around a refused one, and it counts when approved rather than when it succeeds. It needs the agent to misreport, and nothing unapproved is written. The fix is to match on the path and clear on a successful result.
+- The file name in a card's title is still the agent's text, unmarked. The marked path is below it.
+- Lines of U+2800 aren't collapsed as blank. A card reopened after a hold may start at the top.
+- The generic card for other tools still shows 60–300 characters. The default `confirm_tools` don't reach it.
+- Not seen on the real PC: the mouse wheel on the card and the "More below" sign hiding itself as you scroll. The Claude browser pane was hidden, so it drew no frames. Owner check 183 covers both.
 
 ### Root causes still open
 
 - **The overlay can still refuse a frame silently.** `presenter.ts:273–277` declines frames and the backend isn't told. Only due cards have an acknowledgement. Frames also go out through two doors (`_send`, `_raw_send`) and fire-and-forget tasks, and each countdown runs on both sides (T-08). The planned fix is review item 9, in §4.
 - **Speech acceptance is tuned incident by incident.** The review's M4 counts eight commits with no proven cause. Nothing stops a change from making a correct sentence wrong (W-03), and unsafe word fixes can still be proposed (W-01, W-02). Saying "no" over Swift's voice has four failing tests (V-02). A misheard single word reaches the agent again until a bar is scored on saved clips (item 5).
-- **`session.py` is 4,644 lines**, up from 4,401 when the split was agreed. New work goes in small modules.
+- **`session.py` is 4,824 lines**, up from 4,401 when the split was agreed. New work goes in small modules.
 
 ### Not understood yet
 
@@ -115,7 +124,8 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
    - **Questions and approval:** 128, 131, 141, 144, 156, 160, 161, 163, 164.
    - **What's on screen:** 146, 147, 149, 165.
    - **Requests side by side:** 152, 158.
-   - **The Deck, if its branch is merged first:** 168, 173, 179 and 181 first, then the rest of 169–182. Without those fixes isolated, a failure here may come from either the reliability work or the Deck, so say which build the report is from.
+   - **The Deck:** 168, 173, 179 and 181 first, then the rest of 169–182. The Deck is on `main`, so these checks run with it: a failure anywhere in this set may come from either the reliability work or the Deck.
+   - **The whole change on the card:** 183, 184.
    - **Lock:** 139.
    - **Two checks with no number yet.** Items 3 and 7 changed behaviour without adding owner checks, so they need numbers and report lines (§4):
      - "Hey Swift, turn off the Wi-Fi". While it asks, "Hey Swift, what time is it". The time shows, and the Wi-Fi question goes to the stack. Wi-Fi stays on.
@@ -155,7 +165,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - **f. Speech:** add the per-sentence check (W-03) before any more tuning, then make word-fix proposals safe (W-01, W-02, seams audit §7.4 step 1). Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
 - **g. Review item 9: one versioned screen snapshot,** derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.
-- **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is built on branch `worktree-deck-step-1` (2026-11-07), unmerged.** It's overlay only apart from what takes the front (ADR-018 §4.1), and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
+- **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is on `main` (merged 2026-11-07).** It's overlay only apart from what takes the front (ADR-018 §4.1), and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
 - **i. After g:** the timer widget and the Deck's Step 2. **Last:** the owner-checks rewrite, as a fresh baseline.
 
 **3. Groundwork.** Not started. No behaviour change the owner should notice:
@@ -201,6 +211,14 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 | Seams 6 | Answers with "Read more": stay until dismissed, or go to the stack as unread? | Stay until dismissed |
 | Seams 7 | A weekly labelling card for misheard clips, where typing the right words is allowed (it labels, never approves)? | Yes |
 | Seams 8 | Daily use runs the Vite dev server, so every merge reloads the overlay. Keep that, or use a built app? | Keep it |
+
+**Open from X-17:**
+
+| Decision | Why it's open | Default until you choose |
+|---|---|---|
+| The 12,000-character limit on a file change's card | Longer changes are refused and the agent goes on in pieces, each on its own card. A long document means several cards | 12,000 |
+| Must you scroll to the end before Approve works? | The card says "More below", but Approve works anyway, and "Swift, yes" can't scroll | No, the sign only |
+| Countdown on a long card | A full card can't be read in the 45 s it allows. It goes to the stack, which is safe | Unchanged |
 
 **Open from the Deck's Step 1** (ADR-018 §4.1):
 
@@ -271,6 +289,8 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 ## 6. Leftover branches and folders
 
 Cleaned up on 2026-11-06 with the owner's OK: every `claude/*` branch and its worktree. `claude/reliability-audit-review` was force-deleted. Its two commits, ending at `43b1273`, added only the review document, which is on `main` unchanged.
+
+**Merged, and can go once the owner agrees:** the worktrees and branches `claude/overlay-interaction-redesign-8c293c`, `worktree-pen-dev-handoff` and `worktree-deck-step-1` (the last was locked by a running session on 2026-11-07).
 
 **Kept on purpose:** `mvp/overlay` and `phase0/scaffold` (both merged), and `C:\Users\frchi\Documents\Swift-design-screens` outside the repo (screenshots for the redesign brief).
 

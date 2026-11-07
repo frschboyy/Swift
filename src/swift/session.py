@@ -134,7 +134,7 @@ import re
 import time
 import uuid
 from collections import deque
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable, Coroutine, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from functools import partial

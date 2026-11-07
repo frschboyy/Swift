@@ -603,7 +603,7 @@ async def test_no_answer_recording_opens_while_the_hotkey_holds_one() -> None:
     await session._bring(q.owner)
     await asyncio.sleep(0.05)
     assert session._answer_task is None and session._released is released, "two recordings on one microphone"
-    stt.text = "what time is it"
+    stt.text = "show me"  # nothing that takes the card from the question
     await session.handle(Message("ptt", {"state": "up"}))
     await until(lambda: voice.done())
     await until(lambda: session._answer_task is not None)  # its turn now

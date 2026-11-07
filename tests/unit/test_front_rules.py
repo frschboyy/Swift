@@ -411,3 +411,39 @@ async def test_a_question_on_screen_settles_a_stop_with_one_unseen_behind() -> N
     session._next_focus = next(r for r in session._runs if r.ui_id == third)
     assert session._on_screen(session.dialogue.pending) and not session._which_is_unclear()
     await finish_all(session, agent)
+
+
+async def _answer_asks_with_one_behind(session: Any, out: Any, agent: Any, stt: Any) -> str:
+    first, second = await _answer_in_front(session, out, agent, stt)
+    assert first != second
+    return second
+
+
+async def test_words_for_the_answer_on_the_card_don_t_stop_the_one_behind() -> None:
+    for said in ("never mind", "forget it", "enough", "quiet", "cancel"):
+        session, out, _records, agent, stt = make()
+        await _answer_asks_with_one_behind(session, out, agent, stt)
+        await say(session, stt, said)
+        await asyncio.sleep(0.1)
+        assert agent.cancelled == [], f"{said!r} stopped a request nobody named"
+        await finish_all(session, agent)
+
+
+async def test_a_brisk_stop_gets_through_with_an_answer_on_the_card() -> None:
+    session, out, _records, agent, stt = make()
+    second = await _answer_asks_with_one_behind(session, out, agent, stt)
+    assert session.wants_short(), "the listener would drop a brisk stop as too short"
+    await say(session, stt, "stop it.")
+    await until(lambda: agent.cancelled == [second])
+    assert not session.wants_short() or not session._live()
+    await finish_all(session, agent)
+
+
+async def test_with_nothing_behind_short_clips_stay_dropped_as_before() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await asyncio.sleep(0.05)
+    assert not session._live() and not session.wants_short()
+    await finish_all(session, agent)

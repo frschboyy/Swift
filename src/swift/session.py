@@ -348,6 +348,7 @@ FOCUS_ONLY = frozenset({
 # §4.1). Its progress stays on its edge. A card due and Swift's question come forward on their own.
 TAKES_FRONT = frozenset({"result", "error"})
 # "Stop" or a change of mind while a request said after the one on the card runs behind it.
+_PLAIN_STOP = re.compile(r"stop(?: it| that)?")
 WHICH_STOP_HINT = "Which one? Say “stop the … one” or “stop everything”. Esc stops the one on this card."
 WHICH_CHANGE_HINT = "Which one? Say “show me the … one” first, then what to change."
 # Typing never approves a card on its own (ADR-015 §10): a click, or "Swift, approve" said.
@@ -1816,7 +1817,8 @@ class Session:
         if self.recorder is None or self.listening_paused or self.speaker.speaking:
             return False
         window = self._followup
-        return self._hands_free() or (window is not None and clock.now() <= window[1] + 1.0) or (
+        behind_answer = not self._front_busy() and bool(self._live())  # a brisk "stop" may come (ADR-018 §4.1)
+        return self._hands_free() or behind_answer or (window is not None and clock.now() <= window[1] + 1.0) or (
             self._listening_for() is not None
         )
 
@@ -2076,7 +2078,8 @@ class Session:
                                     named=addressed is not None, unsure=doubt == "unsure")
             return
         if busy:
-            if self._hands_free() or stops_behind:  # not if the hotkey was pressed meanwhile
+            voice_idle = self._confirm_voice is None or self._confirm_voice.done()
+            if self._hands_free() or (stops_behind and voice_idle):  # not if the hotkey was pressed meanwhile
                 self.wake_stats["hands_free"] += 1
                 addressed = match_address(heard.text, self.wake_greetings)
                 if addressed is not None:
@@ -3747,8 +3750,8 @@ class Session:
         addressed = match_address(text, self.wake_greetings)
         said = (addressed.remainder if addressed is not None else text).strip()
         named = route_target(said)
-        midrun = route_midrun(said) if said else None
-        return (named is not None and named[0] == "stop") or (midrun is not None and midrun.action in ("stop", "cancel"))
+        # Only the plain word: "never mind", "enough" and "quiet" are for the answer on the card.
+        return (named is not None and named[0] == "stop") or _PLAIN_STOP.fullmatch(said.lower().rstrip(" .!,")) is not None
 
     async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]]) -> None:
         """"Actually, make it about the deadline": the request in front changes course (ADR-014 §7)."""

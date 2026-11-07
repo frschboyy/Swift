@@ -14,7 +14,11 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
+from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
+from itertools import groupby
 from pathlib import PureWindowsPath
 from typing import Any
 from urllib.parse import urlparse
@@ -31,9 +35,16 @@ QUIET_DENIALS = frozenset({"WebFetch"})
 # A command on a confirm card is shown whole, its lines kept; a longer one isn't put on a card at all
 # (the owner can only approve what they can read; audit 2026-10, A-12).
 COMMAND_MAX = 1500
-# The same for a file change (X-17), scrolled on the card. At four bytes a character it still fits an IPC frame.
+# The same for a file change (X-17), scrolled on the card. Counted as shown, so with control characters
+# escaped it's at most four bytes a character, which fits an IPC frame.
 WRITE_MAX = 12_000
 FILE_CHANGE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
+# Marks every line of the agent's text on a card, so a line without it is always Swift's own.
+QUOTE = "│ "
+# What could hide or reorder text on a card: controls, bidi and zero-width marks, line separators, lone surrogates.
+_UNSEEN = frozenset({"Cc", "Cf", "Cs", "Zl", "Zp"})
+# A longer run of blank lines becomes one line saying so: it could only push what follows out of sight.
+BLANK_RUN = 2
 # Every item and the whole text go to the card; these only keep one message well inside an IPC frame (64 KB).
 LIST_MAX = 200
 DETAILS_MAX = 24_000
@@ -147,27 +158,49 @@ def _shown_path(path: str, cwd: str | None) -> str:
     return path
 
 
+def _visible(text: str, keep: str = "") -> str:
+    """Whatever could hide or reorder text, as an escape anyone can see."""
+    return "".join(c if c in keep or unicodedata.category(c) not in _UNSEEN else f"\\u{ord(c):04x}" for c in text)
+
+
+def _quoted(text: str) -> str:
+    """The agent's text, whole and with its lines, every line marked (X-17; see QUOTE)."""
+    if not text:
+        return "(nothing)"
+    out: list[str] = []
+    for blank, run in groupby(_visible(text.replace("\r\n", "\n"), keep="\n\t").split("\n"), key=lambda line: not line.strip()):
+        lines = list(run)
+        out += [f"({len(lines)} blank lines)"] if blank and len(lines) > BLANK_RUN else [QUOTE + line for line in lines]
+    return "\n".join(out)
+
+
 def _replacement(edit: dict[str, Any]) -> str:
-    """One edit, whole and with its lines: the owner approves only what they can read (X-17)."""
-    every = "every " if edit.get("replace_all") else ""
-    return f"replace {every}“{edit.get('old_string', '')}” with “{edit.get('new_string', '')}”"
+    every = " every occurrence of" if edit.get("replace_all") else ""
+    return f"replace{every}:\n{_quoted(str(edit.get('old_string', '')))}\nwith:\n{_quoted(str(edit.get('new_string', '')))}"
+
+
+def _edits(edits: Any) -> str:
+    """A malformed edit is shown as it came, never dropped: the owner sees all that was asked."""
+    items = edits if isinstance(edits, list) else [] if edits is None else [edits]
+    return "\n\n".join(_replacement(e) if isinstance(e, dict) else _quoted(str(e)) for e in items) or "(no edits)"
 
 
 def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tuple[str, str]:
     """Title and detail for the overlay's confirm card: exactly what will happen."""
-    path = _shown_path(str(args.get("file_path") or args.get("notebook_path") or ""), cwd)
+    path = _visible(_shown_path(str(args.get("file_path") or args.get("notebook_path") or ""), cwd))
     match name:
         case "Write":
             content = str(args.get("content", ""))
             lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-            return f"Create or overwrite {_base(path)}", f"{lines} line{'s' if lines != 1 else ''} into {path}:\n\n{content or '(empty)'}"
+            return f"Create or overwrite {_base(path)}", f"{lines} line{'s' if lines != 1 else ''} into {path}:\n{_quoted(content)}"
         case "Edit":
-            return f"Edit {_base(path)}", f"In {path}: {_replacement(args)}"
+            return f"Edit {_base(path)}", f"In {path}, {_replacement(args)}"
         case "MultiEdit":
-            edits = args.get("edits") if isinstance(args.get("edits"), list) else []
-            return f"Edit {_base(path)}", "\n\n".join([f"In {path}:", *(_replacement(e) for e in edits if isinstance(e, dict))])
+            return f"Edit {_base(path)}", f"In {path}:\n{_edits(args.get('edits'))}"
         case "NotebookEdit":
-            return f"Edit notebook {_base(path)}", f"{path}:\n\n{args.get('new_source', '')}"
+            mode = _visible(str(args.get("edit_mode") or "replace"))
+            cell = _visible(str(args.get("cell_id") or "(no cell named)"))
+            return f"Edit notebook {_base(path)}", f"In {path}, {mode} cell {cell}:\n{_quoted(str(args.get('new_source', '')))}"
         case "Bash" | "PowerShell":
             return "Run a command", str(args.get("command", "")).strip()[:COMMAND_MAX]
         case "WebFetch":
@@ -218,8 +251,9 @@ def steps_for(event: dict[str, Any]) -> list[Step]:
     return out
 
 
-def outcome_for(event: dict[str, Any]) -> Outcome | None:
-    """The final result card, from the ``result`` event."""
+def outcome_for(event: dict[str, Any], too_long: Iterable[str] = ()) -> Outcome | None:
+    """The final result card, from the ``result`` event. ``too_long``: tools refused for their length
+    (X-17). The agent was told to go on in pieces, so the answer doesn't call them blocked."""
     if event.get("type") != "result":
         return None
     meta = {
@@ -242,8 +276,8 @@ def outcome_for(event: dict[str, Any]) -> Outcome | None:
         return Outcome("error", message, None, meta, failure)
 
     summary, details = split_answer(text)
-    if meta["denied"] and set(meta["denied"]) - QUIET_DENIALS:
-        blocked = ", ".join(sorted(set(meta["denied"]) - QUIET_DENIALS))
+    if noted := set(Counter(meta["denied"]) - Counter(too_long)) - QUIET_DENIALS:
+        blocked = ", ".join(sorted(noted))
         summary = _short(f"{summary} (Blocked: {blocked}.)", SUMMARY_MAX + 40)
     return Outcome("done", summary or "Done.", details, meta)
 

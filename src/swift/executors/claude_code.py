@@ -139,7 +139,8 @@ LONG_COMMAND_MESSAGE = (
 )
 LONG_CHANGE_MESSAGE = (
     "That change is too long for Swift to show the user on a card (over {n} characters), so it wasn't made. "
-    "Make it in smaller pieces: write the first part, then add the rest with further edits."
+    "Make it in smaller pieces: write the first part, then add the rest with further edits. "
+    "If it can't be done in pieces, say so in your answer."
 )
 NEVER_READ_MESSAGE = (
     "Swift never lets you read {path}: it holds sign-ins, keys or other secrets. Go on without it, "
@@ -160,6 +161,15 @@ class _Spare:
     pid: int | None
     # Filled in when the spare is handed a run, so can_use_tool reaches the right one.
     binding: list[tuple[_Run, str]] = field(default_factory=list)
+
+
+def _too_long(run: _Run, tool: str, message: str) -> Any:
+    """Refused for its length, not the model struggling: the run stays on its model and goes on."""
+    from claude_agent_sdk import PermissionResultDeny
+
+    run.expected += 1
+    run.too_long.append(tool)
+    return PermissionResultDeny(message=message, interrupt=False)
 
 
 # A run that sends nothing for this long, while nothing waits for the owner, has stalled: it ends with
@@ -198,6 +208,8 @@ class _Run:
     # Swift tool results not yet seen in the stream that are ``expected``, not failures; and
     # whether the run has called Swift's tools at all.
     expected: int = 0
+    # Tools refused because they were too long for a card (X-17), for the answer's "Blocked" note.
+    too_long: list[str] = field(default_factory=list)
     swift_tools: bool = False
     # Changes of mind waiting for the next turn (``redirect``).
     redirects: list[str] = field(default_factory=list)
@@ -609,10 +621,10 @@ class ClaudeCodeExecutor:
             return PermissionResultDeny(message=NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
         if name in ("Bash", "PowerShell") and len(str(args.get("command", "")).strip()) > COMMAND_MAX:
             # Too long to show whole on a card: the owner would approve what they can't read.
-            return PermissionResultDeny(message=LONG_COMMAND_MESSAGE.format(n=COMMAND_MAX), interrupt=False)
+            return _too_long(run, name, LONG_COMMAND_MESSAGE.format(n=COMMAND_MAX))
         title, detail = confirm_card(name, args, cwd=self.cwd)
         if name in FILE_CHANGE_TOOLS and len(detail) > WRITE_MAX:
-            return PermissionResultDeny(message=LONG_CHANGE_MESSAGE.format(n=WRITE_MAX), interrupt=False)
+            return _too_long(run, name, LONG_CHANGE_MESSAGE.format(n=WRITE_MAX))
         decision = await self._decide(run, run_id, title, detail, name)
         if decision == "approve":
             return PermissionResultAllow(updated_input=args)
@@ -749,7 +761,7 @@ class ClaudeCodeExecutor:
                             )
                         for item in run.live.feed(event):
                             run.queue.put_nowait(ExecEvent("live", item["kind"], data=item))
-                        outcome = outcome_for(event) or outcome
+                        outcome = outcome_for(event, run.too_long) or outcome
                 except Exception as exc:  # noqa: BLE001 - only the model check is retried
                     if retried or outcome is not None or not model_unconfirmed(exc):
                         raise

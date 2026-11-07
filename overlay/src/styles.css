@@ -573,6 +573,8 @@ code {
 .facts-note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
 .facts-text { grid-column: 1 / -1; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 140px; overflow-y: auto; scrollbar-width: thin; }
 .facts-text--mono { font: 13px/1.5 var(--mono); }
+.facts-more { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--warn, var(--muted)); }
+.facts-more[hidden] { display: none; }
 .mail-body {
   grid-column: 1 / -1;
   height: 66px;

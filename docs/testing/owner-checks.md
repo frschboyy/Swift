@@ -370,12 +370,12 @@ About 10 minutes. **168 and 173 first:** how the edges feel and whether a long a
 
 ### The whole change on the card (X-17, 2026-11-07)
 
-About 2 minutes. Say **no** to each card: nothing needs to be written.
+About 2 minutes. Click **Reject** on each card: nothing needs to be written.
 
 | # | Do | You should see | Report checks |
 |---|---|---|---|
-| 183 | "Hey Swift, write a two-page essay about tea into `tea-test.txt` in Documents", or type it. Then ask it to rewrite a whole paragraph of an existing file | The card shows the **whole** text with its line breaks, not its first line. The box scrolls with the mouse wheel to the very last line, and Approve and No stay in view | (seen on screen) |
-| 184 | "Hey Swift, write a very long essay about tea, at least 5,000 words, into `tea-test.txt` in Documents" | **No card holds the whole essay.** Over about 12,000 characters Swift doesn't show a card for it: the agent goes on in smaller pieces, each with its own card you can read, or says it couldn't | (seen on screen) |
+| 183 | "Hey Swift, write a two-page essay about tea into `tea-test.txt` in Documents", or type it. Then ask it to rewrite a whole paragraph of an existing file | The card shows the **whole** text with its line breaks, not its first line, each line marked with `│`. "**More below: scroll to read all of it**" shows under the box until you reach the end. The box scrolls with the mouse wheel to the very last line, and Approve and Reject stay in view | (seen on screen) |
+| 184 | "Hey Swift, write a very long essay about tea, at least 5,000 words, into `tea-test.txt` in Documents" | **No card holds the whole essay.** Over about 12,000 characters Swift doesn't show a card for it: the agent goes on in smaller pieces, each with its own card you can read, or says it couldn't. It stays on the same model, and its answer doesn't say "Blocked: Write" for this | (seen on screen) |
 
 ## After the checks: the report
 

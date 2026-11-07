@@ -1206,8 +1206,19 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
   if (shown) return el("div", { class: "facts" }, el("div", { class: "facts-text" }, artifactView(shown, 0, false)));
   // A request's own detail (a command, a file): all of it, exactly as it will run (audit A-12).
   if (!data.detail) return null;
-  const mono = /[\\/`$|;]|\s--?\w/.test(data.detail);
-  return el("div", { class: "facts" }, el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail));
+  const mono = /[\\/`$|;│]|\s--?\w/.test(data.detail);
+  const box = el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
+  return el("div", { class: "facts" }, box, moreBelow(box));
+}
+
+/** Says there's more until the end has been reached: what's out of view must not look like the end (X-17).
+ * Shown from the start, so a card that can't measure itself still says it. */
+function moreBelow(box: HTMLElement): HTMLElement {
+  const sign = el("p", { class: "facts-more" }, "More below: scroll to read all of it");
+  const update = () => { sign.hidden = box.scrollHeight - box.scrollTop - box.clientHeight < 4; };
+  box.addEventListener("scroll", update);
+  requestAnimationFrame(update);
+  return sign;
 }
 
 function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data"]): void {
@@ -1221,6 +1232,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   const again = lastConfirm?.request_id === data.request_id;
   if (!again) fullDraft = false;
   lastConfirm = data;
+  // Redrawn while it's being read (presence, the countdown coming back): keep the reader's place.
+  const place = again ? card.querySelector<HTMLElement>(".facts-text")?.scrollTop ?? 0 : 0;
   const since = pres.pendingConfirm === data.request_id ? P.waitingSince(pres) : null;
   // Swift's own card (send_email, calendar) shows what it will do (ADR-010 §4).
   const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
@@ -1249,6 +1262,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     `confirm${pres.away ? " card--away" : ""}`,
     "alert",
   );
+  const box = card.querySelector<HTMLElement>(".facts-text");
+  if (box && place) box.scrollTop = place;
   // Redrawn while the owner is away (a new draft version): it stays put aside.
   if (pres.held === data.request_id) card.classList.add("card--held");
   tickConfirm();

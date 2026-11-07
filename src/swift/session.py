@@ -1160,8 +1160,8 @@ class Session:
         if not wanted:
             return None
         scored = [(len(wanted & _name_words(f"{r.title} {r.request or ''}")), i, r) for i, r in enumerate(live)]
-        # A tie goes to the card on screen: that's what the owner is looking at.
-        best = max(scored, default=None, key=lambda t: (t[0], t[2] is self._focus, t[1]))
+        # A tie goes to what's still running, then the card on screen: what the owner is looking at.
+        best = max(scored, default=None, key=lambda t: (t[0], t[2].alive, t[2] is self._focus, t[1]))
         return best[2] if best is not None and best[0] > 0 else None
 
     def _launch(

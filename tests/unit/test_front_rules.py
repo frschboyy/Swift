@@ -495,3 +495,29 @@ async def test_a_stop_heard_with_the_hotkey_held_waits_for_the_hotkey() -> None:
     await session.handle(Message("ptt", {"state": "up"}))
     await asyncio.sleep(0.1)
     await finish_all(session, agent)
+
+
+async def test_naming_a_tie_means_what_s_running_not_a_finished_card() -> None:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    await asyncio.sleep(0.05)
+    await say(session, stt, "stop the research one")
+    await until(lambda: agent.cancelled == [second])
+    await finish_all(session, agent)
+
+
+async def test_a_displaced_answer_s_row_ages_out(monkeypatch: Any) -> None:
+    monkeypatch.setattr("swift.session.FINISHED_ROW_S", 0.05)
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    agent.runs[first]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == first)
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == second)
+    await asyncio.sleep(0.15)
+    assert [r.ui_id for r in session._runs] == [second]
+    await finish_all(session, agent)

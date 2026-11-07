@@ -374,8 +374,8 @@ About 2 minutes. Click **Reject** on each card: nothing needs to be written.
 
 | # | Do | You should see | Report checks |
 |---|---|---|---|
-| 183 | "Hey Swift, write a two-page essay about tea into `tea-test.txt` in Documents", or type it. Then ask it to rewrite a whole paragraph of an existing file | The card shows the **whole** text with its line breaks, not its first line, each line marked with `│`. "**More below: scroll to read all of it**" shows under the box until you reach the end. The box scrolls with the mouse wheel to the very last line, and Approve and Reject stay in view | (seen on screen) |
-| 184 | "Hey Swift, write a very long essay about tea, at least 5,000 words, into `tea-test.txt` in Documents" | **No card holds the whole essay.** Over about 12,000 characters Swift doesn't show a card for it: the agent goes on in smaller pieces, each with its own card you can read, or says it couldn't. It stays on the same model, and its answer doesn't say "Blocked: Write" for this | (seen on screen) |
+| 183 | "Hey Swift, write a two-page essay about tea into `tea-test.txt` in Documents", or type it. Then ask it to rewrite a whole paragraph of an existing file | The card shows the **whole** text with its line breaks, not its first line. Everything the agent wrote has a bar down its left side, wrapped rows included, and only Swift's own words ("into:", "replace:", "with:") don't. "**More below: scroll to read all of it**" shows under the box until you reach the end. The box scrolls with the mouse wheel to the very last line, and Approve and Reject stay in view | (seen on screen) |
+| 184 | "Hey Swift, write a very long essay about tea, at least 5,000 words, into `tea-test.txt` in Documents" | **No card holds the whole essay.** Over about 12,000 characters Swift doesn't show a card for it: the agent goes on in smaller pieces, each with its own card you can read, or says it couldn't. It stays on the same model. If you approve a smaller piece, its answer doesn't say "Blocked: Write"; if you reject them all, it still does | (seen on screen) |
 
 ## After the checks: the report
 

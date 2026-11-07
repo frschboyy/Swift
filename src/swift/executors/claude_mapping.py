@@ -45,6 +45,7 @@ QUOTE = "│ "
 _UNSEEN = frozenset({"Cc", "Cf", "Cs", "Zl", "Zp"})
 # A longer run of blank lines becomes one line saying so: it could only push what follows out of sight.
 BLANK_RUN = 2
+NOTEBOOK_MODES = frozenset({"replace", "insert", "delete"})
 # Every item and the whole text go to the card; these only keep one message well inside an IPC frame (64 KB).
 LIST_MAX = 200
 DETAILS_MAX = 24_000
@@ -187,22 +188,27 @@ def _edits(edits: Any) -> str:
 
 def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tuple[str, str]:
     """Title and detail for the overlay's confirm card: exactly what will happen."""
-    path = _visible(_shown_path(str(args.get("file_path") or args.get("notebook_path") or ""), cwd))
+    raw = _shown_path(str(args.get("file_path") or args.get("notebook_path") or ""), cwd)
+    # The name in the title is the file's own, escaped after it's taken from the path.
+    name_shown = _visible(_base(raw))
+    where = _quoted(_visible(raw))  # the agent's text too, so a path can't read as Swift's own words
     match name:
         case "Write":
             content = str(args.get("content", ""))
             lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-            return f"Create or overwrite {_base(path)}", f"{lines} line{'s' if lines != 1 else ''} into {path}:\n{_quoted(content)}"
+            return f"Create or overwrite {name_shown}", f"{lines} line{'s' if lines != 1 else ''} into:\n{where}\nreading:\n{_quoted(content)}"
         case "Edit":
-            return f"Edit {_base(path)}", f"In {path}, {_replacement(args)}"
+            return f"Edit {name_shown}", f"In:\n{where}\n{_replacement(args)}"
         case "MultiEdit":
-            return f"Edit {_base(path)}", f"In {path}:\n{_edits(args.get('edits'))}"
+            return f"Edit {name_shown}", f"In:\n{where}\n{_edits(args.get('edits'))}"
         case "NotebookEdit":
-            mode = _visible(str(args.get("edit_mode") or "replace"))
-            cell = _visible(str(args.get("cell_id") or "(no cell named)"))
-            return f"Edit notebook {_base(path)}", f"In {path}, {mode} cell {cell}:\n{_quoted(str(args.get('new_source', '')))}"
+            mode = str(args.get("edit_mode") or "replace")
+            action = mode if mode in NOTEBOOK_MODES else "(unknown action on)"
+            cell = _quoted(_visible(str(args.get("cell_id") or "")))
+            return f"Edit notebook {name_shown}", f"In:\n{where}\n{action} cell:\n{cell}\nsource:\n{_quoted(str(args.get('new_source', '')))}"
         case "Bash" | "PowerShell":
-            return "Run a command", str(args.get("command", "")).strip()[:COMMAND_MAX]
+            # Escaped for showing only: what runs is the command as it came.
+            return "Run a command", _visible(str(args.get("command", "")).strip().replace("\r\n", "\n")[:COMMAND_MAX], keep="\n\t")
         case "WebFetch":
             url = str(args.get("url", ""))
             return f"Fetch {urlparse(url).netloc or 'a web page'}", _short(url, 300)
@@ -251,9 +257,10 @@ def steps_for(event: dict[str, Any]) -> list[Step]:
     return out
 
 
-def outcome_for(event: dict[str, Any], too_long: Iterable[str] = ()) -> Outcome | None:
-    """The final result card, from the ``result`` event. ``too_long``: tools refused for their length
-    (X-17). The agent was told to go on in pieces, so the answer doesn't call them blocked."""
+def outcome_for(event: dict[str, Any], worked_around: Iterable[str] = ()) -> Outcome | None:
+    """The final result card, from the ``result`` event. ``worked_around``: tools refused for their
+    length (X-17) where a smaller call was then approved, so the answer doesn't call them blocked.
+    One refused with nothing approved after it stays in the note: what the agent says isn't proof."""
     if event.get("type") != "result":
         return None
     meta = {
@@ -276,7 +283,7 @@ def outcome_for(event: dict[str, Any], too_long: Iterable[str] = ()) -> Outcome 
         return Outcome("error", message, None, meta, failure)
 
     summary, details = split_answer(text)
-    if noted := set(Counter(meta["denied"]) - Counter(too_long)) - QUIET_DENIALS:
+    if noted := set(Counter(meta["denied"]) - Counter(worked_around)) - QUIET_DENIALS:
         blocked = ", ".join(sorted(noted))
         summary = _short(f"{summary} (Blocked: {blocked}.)", SUMMARY_MAX + 40)
     return Outcome("done", summary or "Done.", details, meta)

@@ -79,7 +79,7 @@ def test_sdk_denial_maps_to_blocked_step_and_note() -> None:
 @pytest.mark.parametrize(
     ("name", "args", "title", "detail_part"),
     [
-        ("Write", {"file_path": "C:\\p\\notes.md", "content": "# Next steps\n- a\n- b\n"}, "Create or overwrite notes.md", "3 lines into C:\\p\\notes.md"),
+        ("Write", {"file_path": "C:\\p\\notes.md", "content": "# Next steps\n- a\n- b\n"}, "Create or overwrite notes.md", "3 lines into:\n\u2502 C:\\p\\notes.md"),
         ("Edit", {"file_path": "C:\\p\\a.py", "old_string": "x = 1", "new_string": "x = 2"}, "Edit a.py", "replace:\n\u2502 x = 1\nwith:\n\u2502 x = 2"),
         ("Bash", {"command": "git commit -m 'wip'"}, "Run a command", "git commit -m 'wip'"),
         ("WebFetch", {"url": "https://example.com/x"}, "Fetch example.com", "https://example.com/x"),
@@ -300,7 +300,7 @@ async def test_kill_tree_also_kills_grandchildren(tmp_path: Path, monkeypatch: p
 def test_card_paths_are_relative_inside_the_working_folder_only() -> None:
     _, inside = confirm_card("Write", {"file_path": r"C:\proj\docs\notes.md", "content": "hi"}, cwd=r"C:\proj")
     _, outside = confirm_card("Write", {"file_path": r"D:\elsewhere\a.txt", "content": "hi"}, cwd=r"C:\proj")
-    assert r"into docs\notes.md" in inside
+    assert "into:\n│ docs\\notes.md" in inside
     assert r"D:\elsewhere\a.txt" in outside  # a write outside the project stays conspicuous
 
 

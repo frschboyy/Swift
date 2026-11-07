@@ -172,6 +172,13 @@ def _too_long(run: _Run, tool: str, message: str) -> Any:
     return PermissionResultDeny(message=message, interrupt=False)
 
 
+def _smaller_call_approved(run: _Run, tool: str) -> None:
+    """The agent went on in pieces: what it was refused is no longer worth calling blocked."""
+    same_kind = FILE_CHANGE_TOOLS if tool in FILE_CHANGE_TOOLS else {tool}
+    run.worked_around += [t for t in run.too_long if t in same_kind]
+    run.too_long = [t for t in run.too_long if t not in same_kind]
+
+
 # A run that sends nothing for this long, while nothing waits for the owner, has stalled: it ends with
 # a "took too long" card and its CLI is stopped (seams audit R-06; owner decision 1: 90 s).
 STALL_S = 90.0
@@ -208,8 +215,10 @@ class _Run:
     # Swift tool results not yet seen in the stream that are ``expected``, not failures; and
     # whether the run has called Swift's tools at all.
     expected: int = 0
-    # Tools refused because they were too long for a card (X-17), for the answer's "Blocked" note.
+    # Tools refused because they were too long for a card (X-17), and those a smaller approved call
+    # then replaced: only these stay out of the answer's "Blocked" note.
     too_long: list[str] = field(default_factory=list)
+    worked_around: list[str] = field(default_factory=list)
     swift_tools: bool = False
     # Changes of mind waiting for the next turn (``redirect``).
     redirects: list[str] = field(default_factory=list)
@@ -627,6 +636,7 @@ class ClaudeCodeExecutor:
             return _too_long(run, name, LONG_CHANGE_MESSAGE.format(n=WRITE_MAX))
         decision = await self._decide(run, run_id, title, detail, name)
         if decision == "approve":
+            _smaller_call_approved(run, name)
             return PermissionResultAllow(updated_input=args)
         if isinstance(decision, tuple):  # ("change", the owner's words): declined, but the run goes on
             return PermissionResultDeny(message=CHANGE_MESSAGE.format(text=decision[1]), interrupt=False)
@@ -761,7 +771,7 @@ class ClaudeCodeExecutor:
                             )
                         for item in run.live.feed(event):
                             run.queue.put_nowait(ExecEvent("live", item["kind"], data=item))
-                        outcome = outcome_for(event, run.too_long) or outcome
+                        outcome = outcome_for(event, run.worked_around) or outcome
                 except Exception as exc:  # noqa: BLE001 - only the model check is retried
                     if retried or outcome is not None or not model_unconfirmed(exc):
                         raise

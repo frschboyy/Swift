@@ -31,6 +31,7 @@ import * as Q from "./ask";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
+import { cardLines, hasMarkedLines } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -1206,8 +1207,11 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
   if (shown) return el("div", { class: "facts" }, el("div", { class: "facts-text" }, artifactView(shown, 0, false)));
   // A request's own detail (a command, a file): all of it, exactly as it will run (audit A-12).
   if (!data.detail) return null;
-  const mono = /[\\/`$|;│]|\s--?\w/.test(data.detail);
-  const box = el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
+  const mono = /[\\/`$|;]|\s--?\w/.test(data.detail);
+  const box = hasMarkedLines(data.tool)
+    ? el("div", { class: "facts-text facts-text--mono" }, ...cardLines(data.detail).map((line) =>
+      el("div", { class: line.agent ? "facts-line--agent" : "facts-line" }, line.text || " ")))
+    : el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
   return el("div", { class: "facts" }, box, moreBelow(box));
 }
 

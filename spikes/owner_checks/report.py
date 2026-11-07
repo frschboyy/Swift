@@ -520,6 +520,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("197 asking again replaced the unfinished one in the stack", LOOK, "check on screen"),
         ("198 the stack kept its corner", LOOK, "check on screen: all six positions, and no drag"),
         ("199 a command's card said what it is", LOOK, "check on screen"),
+        ("200 a yes to 'It sounded like …' went ahead with it", LOOK, "check on screen: not with the word 'yes'"),
     ]
 
 

@@ -277,7 +277,7 @@ async def test_a_request_after_the_wake_phrase_said_too_unsurely_asks_to_say_it_
     await session.hear_wake(AUDIO, time.monotonic())
     await finish(session)
     assert records[0]["status"] == "error" and records[0]["error"] == "unclear_speech"
-    assert out.last("error")["hint"] == "Try saying it again."
+    assert out.last("error")["hint"] == "Say “yes” and I'll go ahead with that, or say it again."
 
 
 async def test_a_wake_phrase_below_the_lower_bar_is_still_ignored() -> None:

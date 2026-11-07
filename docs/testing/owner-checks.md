@@ -392,6 +392,7 @@ About 15 minutes. **Reject** any card that appears. From this branch Swift says 
 | 197 | Stop that request so it goes to the stack, then ask the same thing again | The stack **doesn't** gain a second one: the new request replaces the unfinished one | (seen on screen) |
 | 198 | With something in the stack, try all six positions from the tray, and try to drag the stack | It stays in the **bottom-right corner**, with the same gap to both edges, and doesn't drag. Only with the main window at the bottom right does it go to the bottom left, so it isn't on the card | (seen on screen) |
 | 199 | Ask for something that really needs a command, such as "run the tests in my project". **Reject** | The card's title says **"Run a command on your PC"**, with the whole command under it | (seen on screen) |
+| 200 | Mumble a request so Swift says "It sounded like …, but I wasn't sure of it". Within 30 s, say "Yes, that's correct" | Swift goes ahead with **what it sounded like**, not with "yes". With a card on screen instead, the yes is for the card and the offer is gone | A yes went ahead with what it sounded like |
 
 ## After the checks: the report
 

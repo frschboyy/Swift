@@ -119,7 +119,7 @@ async def test_a_reply_said_unsurely_asks_to_say_it_again() -> None:
     await session.hear_wake(SHORT, time.monotonic())
     await finish(session)
     assert records[-1]["status"] == "error" and records[-1]["error"] == "unclear_speech"
-    assert out.last("error")["hint"] == "Try saying it again." and records[-1]["transcript_heard"] == "add it to friday"
+    assert out.last("error")["hint"] == "Say “yes” and I'll go ahead with that, or say it again." and records[-1]["transcript_heard"] == "add it to friday"
 
 
 async def test_a_long_stretch_of_talk_in_the_window_is_not_a_reply() -> None:

@@ -49,7 +49,7 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
     "duration_ms", "ended", "endpoint_waits", "error", "executor", "first_audio_ms", "fix",
     "follows_local", "fragment", "heard_back_ms", "improve", "intents", "interaction_ms", "live", "midrun",
     "models", "moved_on", "noise_db", "offer", "offered", "offered_resume", "override", "parked", "paused",
-    "bare_busy", "duplicate", "greeted", "named",
+    "bare_busy", "confirmed_unclear", "duplicate", "greeted", "named",
     "peak_db", "preroll_ms", "provider", "queued", "queued_behind", "reason", "redirected", "redirects",
     "resumed", "retries", "retry_of", "route", "run_ms", "scenario", "since_back_ms", "skipped",
     "source", "spoken_chars", "start_model", "status", "stopped_by", "stt_confidence", "stt_ms",

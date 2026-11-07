@@ -325,7 +325,14 @@ FOLLOWUP_MAX_S = 8.0
 VOICE_EMA = 0.2
 # Said into the hotkey, "hey Crift" and "hey thrift" were the name: a looser match (wake.py).
 PTT_NAME_CLOSE = 0.5
-UNCLEAR_HINT = "Try saying it again."
+UNCLEAR_HINT = "Say “yes” and I'll go ahead with that, or say it again."
+# How long "It sounded like …" waits for a yes.
+UNCLEAR_YES_S = 30.0
+# A plain yes to "It sounded like …", and nothing else: "Yes, that's correct", "yeah, go ahead".
+PLAIN_YES = re.compile(
+    r"^(?:yes|yeah|yep|yup|correct|right|exactly|sure)(?:[\s,.!]+(?:that's|that is|it is|it's|correct|right|"
+    r"exactly|please|go|ahead|do|it|yes))*[\s.!]*$", re.I,
+)
 # A wake phrase already shown as heard from the start of the utterance (``peek_wake``) isn't shown twice.
 PEEK_SHOWN_S = 15.0
 PEEK_TIMEOUT_S = 3.0
@@ -818,6 +825,8 @@ class Session:
         # A voice "approve" in a room louder than noisy_db needs a second "approve" or a click.
         self.noisy_db = noisy_db
         self.wake_greetings = wake_greetings
+        # What "It sounded like …" offered, and when: a plain yes goes ahead with it (``_yes_to_unclear``).
+        self._unclear_offer: tuple[str, float] | None = None
         # Until when a near miss makes the wake phrase easier to match (``near_wake``).
         self._wake_primed_until = 0.0
         # What Swift says to a bare wake phrase; empty: nothing.
@@ -2012,6 +2021,7 @@ class Session:
         """The screen locked: forget what was heard and not yet acted on, and end what the open
         microphone was recording. The hotkey's own recording is the owner's, and ends with the key."""
         self._wake_primed_until = 0.0
+        self._unclear_offer = None  # nothing said before a lock carries over
         for run in self._live():
             if run.state == "listening" and run.record is not None and run.record.get("source") == "wake" and (
                 run.task is not None and run.task is not asyncio.current_task()
@@ -2305,14 +2315,34 @@ class Session:
         return False
 
     def _unclear_error(self, text: str) -> UserFacingError:
-        # Acting on a guess is worse than asking again: say what it sounded like, do nothing.
+        # Acting on a guess is worse than asking: say what it sounded like, do nothing until the owner says
+        # yes to it (``_unclear_offer``). Owner, 2026-11-08: "Yes, that's correct." reached the agent alone.
+        offered = self._offerable(text)
         return UserFacingError(
             "unclear_speech",
-            f"It sounded like “{_clip(text, 80)}”, but too much of it was a guess to act on.",
-            UNCLEAR_HINT,
+            f"It sounded like “{_clip(text, 80)}”, but I wasn't sure of it.",
+            UNCLEAR_HINT if offered else "Try saying it again.",
             title="I didn't catch that",
             severity="info",
         )
+
+    def _offerable(self, text: str) -> bool:
+        """Whether a yes may stand for ``text``: never a control phrase, where a yes would be an approval."""
+        if not text.strip() or route_midrun(text) is not None:
+            return False
+        return (self.router or default_router)(text).route != "control"
+
+    def _yes_to_unclear(self, transcript: str, record: dict[str, Any]) -> str | None:
+        """A spoken plain yes just after "It sounded like …": the words it sounded like. Anything else
+        ends the offer."""
+        offer, self._unclear_offer = self._unclear_offer, None
+        if offer is None or record.get("source") not in SPOKEN_SOURCES or clock.now() - offer[1] > UNCLEAR_YES_S:
+            return None
+        if self._open_confirm() is not None or self.dialogue.pending is not None:
+            return None  # a card or a question came since: a yes is for that, and only it decides how
+        if PLAIN_YES.match(strip_wake(transcript) or transcript) is None:
+            return None
+        return offer[0]
 
     # ---- hands-free (the open microphone, when wake listening is on) --------------------------
 
@@ -2698,6 +2728,9 @@ class Session:
                 return
             if record.get("source") in SPOKEN_SOURCES:
                 transcript = intake.collapse_repeats(transcript)  # said twice in one breath: once
+            if (meant := self._yes_to_unclear(transcript, record)) is not None:
+                transcript = meant  # "It sounded like …" "Yes, that's correct."
+                record["confirmed_unclear"] = True
             record["transcript"] = transcript
             if record.get("bare_busy") and route_midrun(transcript) is not None:
                 # "Hey Swift" ... "stop": about what's on screen, not a new request. Approving still
@@ -4881,6 +4914,11 @@ class Session:
         """The error card. "Try again" is offered only when there is a request to repeat."""
         source = (record or {}).get("source")
         again = (record or {}).get("scenario" if source == "debug.run" else "transcript")
+        heard_as = (record or {}).get("transcript_heard")
+        self._unclear_offer = (
+            (heard_as, clock.now()) if failure.code == "unclear_speech" and isinstance(heard_as, str) and self._offerable(heard_as)
+            else None
+        )
         self._retry = (source, again) if failure.retry and source and again else None
         logger.info("failure shown", code=failure.code)
         if failure.detail and record is not None:

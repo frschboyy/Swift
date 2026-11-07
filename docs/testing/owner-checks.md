@@ -377,6 +377,22 @@ About 2 minutes. Click **Reject** on each card: nothing needs to be written.
 | 183 | "Hey Swift, write a two-page essay about tea into `tea-test.txt` in Documents", or type it. Then ask it to rewrite a whole paragraph of an existing file | The card shows the **whole** text with its line breaks, not its first line. Everything the agent wrote has a bar down its left side, wrapped rows included, and only Swift's own words ("into:", "replace:", "with:") don't. "**More below: scroll to read all of it**" shows under the box until you reach the end. The box scrolls with the mouse wheel to the very last line, and Approve and Reject stay in view | (seen on screen) |
 | 184 | "Hey Swift, write a very long essay about tea, at least 5,000 words, into `tea-test.txt` in Documents" | **No card holds the whole essay.** Over about 12,000 characters Swift doesn't show a card for it: the agent goes on in smaller pieces, each with its own card you can read, or says it couldn't. It stays on the same model. If you approve a smaller piece, its answer doesn't say "Blocked: Write"; if you reject them all, it still does | (seen on screen) |
 
+### Voice and requests side by side (2026-11-07, your report on check 185)
+
+About 15 minutes. **Reject** any card that appears. From this branch Swift says only "Hello" to a bare "hey Swift": everything else is on its card.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 191 | "Hey Swift" 10 times over a few minutes, at your normal volume, with a pause after each. Count the ones that didn't register | Most register the **first** time. If one misses, saying it again right away should work. Tell us the count: this decides whether Swift needs a dedicated wake model | Wake phrases heard, and misses kept |
+| 192 | "Hey Swift", wait for "Hello", then "what time is it" | "Hello", and nothing else said aloud. The card shows the answer and the words on it are yours, **without** "Hello" in them | (seen on screen) |
+| 193 | "Hey Swift, is it going to rain this afternoon?" | An answer **with no card and no command**. It should know where you are without asking | Weather asked with no command card |
+| 194 | "Hey Swift, research the history of tea". While it works, just "Hey Swift", then after "Hello": "compare three e-readers" | The second is **heard**: it lands behind the card and the first carries on | A bare wake phrase opened a request during a run |
+| 195 | Get a card up: "Hey Swift, delete the word test from a file called notes in Documents" or anything that asks. On it, say "Swift, research the history of coffee" | The research starts **behind**, and the card stays and still waits. It doesn't say "Changing it". Then say "Swift, make it a different file": that one **is** a change. **Reject** | Requests started beside a card |
+| 196 | "Hey Swift, research the history of tea" three times in a row, by voice and by the hotkey, while the first is still going | **One** request. "Still on it" on the card, no second or third edge | Same request kept running |
+| 197 | Stop that request so it goes to the stack, then ask the same thing again | The stack **doesn't** gain a second one: the new request replaces the unfinished one | (seen on screen) |
+| 198 | With something in the stack, try all six positions from the tray, and try to drag the stack | It stays in the **bottom-right corner**, with the same gap to both edges, and doesn't drag. Only with the main window at the bottom right does it go to the bottom left, so it isn't on the card | (seen on screen) |
+| 199 | Ask for something that really needs a command, such as "run the tests in my project". **Reject** | The card's title says **"Run a command on your PC"**, with the whole command under it | (seen on screen) |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

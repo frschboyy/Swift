@@ -511,6 +511,15 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("182 a correction offer took a yes only on screen, typed only with the name", LOOK, "check on screen: nothing started when refused"),
         ("183 a file change's card showed all of it and scrolled to the end", LOOK, "check on screen"),
         ("184 a change too long for a card came in pieces, each on its own card", LOOK, "check on screen"),
+        ("191 the first 'hey Swift' registered", LOOK, "your count of 10 decides whether Swift needs a wake model"),
+        ("192 only 'Hello' said aloud, and not in your words", LOOK, "check on screen"),
+        ("193 the weather needed no card", LOOK, "check on screen: no command, no asking where"),
+        ("194 a bare 'hey Swift' during a run was heard", LOOK, "check on screen: it landed behind the card"),
+        ("195 a new request on a card ran beside it; a change stayed a change", LOOK, "check on screen: no 'Changing it' for the research"),
+        ("196 the same request three times was one", LOOK, "check on screen: 'Still on it', no extra edge"),
+        ("197 asking again replaced the unfinished one in the stack", LOOK, "check on screen"),
+        ("198 the stack kept its corner", LOOK, "check on screen: all six positions, and no drag"),
+        ("199 a command's card said what it is", LOOK, "check on screen"),
     ]
 
 

@@ -11,6 +11,8 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
 - **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is fixed, so the cards you approve show the whole change.
 
+- **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), on the branch `worktree-voice-reliability`, not merged and not run on the real PC. Swift's replies are off by default there, apart from "Hello". Owner checks 191–199 are waiting, and 191's count decides whether Swift gets a dedicated wake model.
+
 ## 1. Where things stand
 
 **Local `main`** (not pushed anywhere) has all of this:

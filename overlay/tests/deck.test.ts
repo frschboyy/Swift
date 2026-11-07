@@ -2,7 +2,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { ACK_MS, deckView, EDGE_DELAY_MS, foldLine, initialDeck, INSET_STEP, keyOf, MAX_EDGES, onRows, PEEKS, wordsComingForward, type Deck } from "../src/deck.ts";
+import { ACK_MS, clockStart, deckView, EDGE_DELAY_MS, foldLine, initialDeck, INSET_STEP, keyOf, MAX_EDGES, onRows, PEEKS, wordsComingForward, type Deck } from "../src/deck.ts";
 import type { Row } from "../src/presenter.ts";
 
 const row = (runId: string, state = "working", startedMs = 0): Row => ({
@@ -85,6 +85,14 @@ test("a card coming forward from an edge says that request's words", () => {
   assert.equal(wordsComingForward(rows, "a", "a"), null);
   assert.equal(wordsComingForward(rows, null, "b"), null);
   assert.equal(wordsComingForward(rows, "a", "unknown"), null);
+});
+
+test("a card's clock is its own request's: a new request after one that came forward starts at now", () => {
+  const forward = { runId: "b", startedMs: 1000 };
+  assert.equal(clockStart(forward, "b", 9000), 1000);
+  assert.equal(clockStart(forward, "c", 9000), 9000);
+  assert.equal(clockStart(forward, null, 9000), 9000);
+  assert.equal(clockStart(null, "b", 9000), 9000);
 });
 
 test("each edge is narrower than the last and they stack by their peeks", () => {

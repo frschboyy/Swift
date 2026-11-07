@@ -137,6 +137,13 @@ export function wordsComingForward(rows: Row[], onCard: string | null, focus: st
   return row ? row.words || row.title : null;
 }
 
+/** A card coming forward: whose it is, and when that request really started. */
+export type Forward = { runId: string; startedMs: number };
+
+/** When a card's clock starts: the request's own start if it just came forward, else now. */
+export const clockStart = (forward: Forward | null, runId: string | null, now: number): number =>
+  forward !== null && forward.runId === runId ? forward.startedMs : now;
+
 /** The folded edge's words. */
 export function foldLine(f: Fold): string {
   const all = f.running === f.count ? `${f.count} more running` : `${f.count} more`;

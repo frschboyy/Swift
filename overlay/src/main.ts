@@ -83,8 +83,8 @@ let transcriptText = "";
 let agent: Agent | null = null;
 let current: { activity?: Activity; agent: Agent | null; subagent: boolean; app?: string | null } | null = null;
 let runStarted = 0;
-// A card coming forward from an edge: when its request really started.
-let forwardStarted = 0;
+// A card coming forward from an edge: whose, and when its request really started.
+let forward: D.Forward | null = null;
 let lastStepAt = 0;
 let compact = readPref("swift.compact") === "1";
 let hovering = false;
@@ -326,7 +326,7 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
     resetRun(true);
     request = words;
     typed = false;
-    forwardStarted = started;
+    forward = { runId: data.focus!, startedMs: started };
   }
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
   checkPresenter();
@@ -788,8 +788,8 @@ function setStage(next: UiState, runId: string | null = null, threadId: string |
   if (next === "working") {
     if (!runStarted) {
       lastStepAt = Date.now();
-      runStarted = forwardStarted || lastStepAt;
-      forwardStarted = 0;
+      runStarted = D.clockStart(forward, runId, lastStepAt);
+      forward = null;
     }
     renderWorking();
   }

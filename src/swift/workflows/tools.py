@@ -543,6 +543,9 @@ async def weather(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> Tool
         raw = await asyncio.to_thread(_fetch_weather)
         return ToolResult(True, "Today's weather.", _weather_facts(raw))
     except (OSError, ValueError, TimeoutError) as exc:
+        # Failed twice on the owner's PC (2026-11-08, 01:19 and 01:20) and never when fetched by hand: the
+        # kind of failure is logged so the next one says why. Content-free: a type and a status.
+        logger.warning("weather unavailable", error=type(exc).__name__, status=getattr(exc, "code", None))
         return ToolResult(False, "The weather couldn't be read right now.", {"error": type(exc).__name__}, expected=True)
 
 

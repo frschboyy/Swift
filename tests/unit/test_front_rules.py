@@ -447,3 +447,51 @@ async def test_with_nothing_behind_short_clips_stay_dropped_as_before() -> None:
     await asyncio.sleep(0.05)
     assert not session._live() and not session.wants_short()
     await finish_all(session, agent)
+
+
+async def _hotkey_held_then_the_other_answers() -> tuple[Any, Any, Any, Any, str, Any]:
+    session, out, _records, agent, stt = make()
+    first = await started(session, out, agent, stt, TEA)
+    second = await started(session, out, agent, stt, NOTES)
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0.05)
+    voice = session._confirm_voice
+    agent.runs[second]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == second)
+    await asyncio.sleep(0.05)
+    return session, out, agent, stt, first, voice
+
+
+async def test_the_hotkey_s_repeat_doesn_t_start_a_second_recording() -> None:
+    session, _out, agent, stt, _first, voice = await _hotkey_held_then_the_other_answers()
+    before = len(session._runs)
+    released = session._released
+    await session.handle(Message("ptt", {"state": "down"}))  # it repeats about a second in
+    await asyncio.sleep(0.05)
+    assert len(session._runs) == before and session._released is released and not voice.done()
+    stt.text = "stop the research one"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    await finish_all(session, agent)
+
+
+async def test_the_owner_s_words_survive_their_card_ending_behind_another() -> None:
+    session, _out, agent, stt, first, voice = await _hotkey_held_then_the_other_answers()
+    agent.runs[first]["go"].set()
+    await asyncio.sleep(0.15)
+    assert not voice.cancelled(), "their words were thrown away"
+    stt.text = "what time is it"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: voice.done())
+    await finish_all(session, agent)
+
+
+async def test_a_stop_heard_with_the_hotkey_held_waits_for_the_hotkey() -> None:
+    session, _out, agent, stt, _first, _voice = await _hotkey_held_then_the_other_answers()
+    await say(session, stt, "stop")
+    await asyncio.sleep(0.1)
+    assert agent.cancelled == []
+    stt.text = "what time is it"
+    await session.handle(Message("ptt", {"state": "up"}))
+    await asyncio.sleep(0.1)
+    await finish_all(session, agent)

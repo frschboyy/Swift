@@ -1758,6 +1758,10 @@ class Session:
             logger.warning("ptt ignored: no recorder or transcriber")
             return
         self._owner_here()
+        if self._confirm_voice is not None and not self._confirm_voice.done():
+            # Held on a card that has since gone behind: the same press sent again, still recording.
+            logger.info("ptt while recording: the recording goes on", state=self.state)
+            return
         if self._front_busy() or self._capturing():
             open_request = self._open_confirm()
             idle_voice = self._confirm_voice is None or self._confirm_voice.done()
@@ -2821,7 +2825,8 @@ class Session:
             if slot:
                 self._slots.release()
             voice = self._confirm_voice
-            if run is self._voice_owner and voice is not None and not voice.done() and voice is not asyncio.current_task():
+            on_its_card = run is self._voice_owner and run is self._focus
+            if on_its_card and voice is not None and not voice.done() and voice is not asyncio.current_task():
                 # Push-to-talk on this request's card; on another's it carries on.
                 voice.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

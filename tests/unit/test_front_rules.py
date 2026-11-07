@@ -435,7 +435,6 @@ async def test_a_brisk_stop_gets_through_with_an_answer_on_the_card() -> None:
     assert session.wants_short(), "the listener would drop a brisk stop as too short"
     await say(session, stt, "stop it.")
     await until(lambda: agent.cancelled == [second])
-    assert not session.wants_short() or not session._live()
     await finish_all(session, agent)
 
 

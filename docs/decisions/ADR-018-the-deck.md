@@ -101,7 +101,7 @@ One commit each, in this order:
 
 **A row's id changes** from `req-…` to the provider's id when its run starts. `deck.ts` treats a new id with the same `started_ms` as the same request.
 
-**Line count.** Step 1 adds more than it removes: source, overlay and Rust +813, −354, a net of +459, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
+**Line count.** Step 1 adds more than it removes: source, overlay and Rust +835, −356, a net of +479, of which `deck.ts`, `deckdraw.ts` and `shuffle.ts` are 340 and the rest is mostly the edges' styles. The deletions are what §4 lists. This misses the structural-step test in `CLAUDE.md`, so the owner decides whether to keep it. The spike in §6 is where most of the window code would go.
 
 ## 5. Step 2: hold, in-line and ready rules (needs review item 9)
 

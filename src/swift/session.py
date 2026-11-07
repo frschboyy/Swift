@@ -2847,7 +2847,8 @@ class Session:
             self._run_started = None
             self._active = None
             self._record = None
-            if run.released is not None and self._released is run.released:
+            held = self._confirm_voice is not None and not self._confirm_voice.done()  # still recording: it needs the release
+            if run.released is not None and self._released is run.released and not held:
                 self._released = None
             self._confirm_ids.clear()
             self._confirm_titles.clear()

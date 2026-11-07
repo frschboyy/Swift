@@ -1,0 +1,105 @@
+/* Halo design tokens (ADR-019, proposed). Taken from the pen.dev file halo.pen (variables b-*).
+   Names follow overlay/src/styles.css where a token already exists, so most of the change is values.
+   "changed" marks a value that differs from the current tokens.css (main at 6cdc25f); "new" is a new token.
+   Font: Segoe UI Variable (the canvas used Open Sans as a stand-in). */
+
+#stage,
+#stage[data-theme="dark"] {
+  --panel: #1c2030f0;           /* changed: glass card, 94% (was rgba(32,34,40,.88)), tinted towards the accent */
+  --panel-solid: #1c2030;       /* changed: confirm, due, stack */
+  --rim-hi: #8ab4ff70;          /* new: top of the rim gradient on glass cards */
+  --rim: #ffffff14;             /* new: rest of the rim; also hairlines inside cards */
+  --raise: #ffffff12;           /* changed: ghost buttons, fact boxes */
+  --text: #f2f4fa;              /* changed (slightly) */
+  --muted: #c0c6d6;             /* changed (slightly) */
+  --faint: #9da4b6;             /* changed (slightly), ≥ 4.5:1 on --panel-solid */
+  --accent: #8ab4ff;
+  --on-accent: #0b1730;
+  --accent-soft: #8ab4ff29;     /* changed: tags, listening block, Waiting for you halo */
+  --accent-edge: #8ab4ff80;
+  --ring: #8ab4ff33;            /* new: listening rings, the step "now" ring */
+  --edge-1: #2c3557;            /* new: deck edges, nearest to farthest; opaque, tinted, never glass */
+  --edge-2: #273050;
+  --edge-3: #222a47;
+  --edge-line: #8ab4ff38;       /* new: edge border */
+  --ok: #7fd8a4;
+  --on-ok: #0a2416;
+  --bad: #ff8a80;
+  --on-bad: #2b0906;
+  --bad-soft: #ff8a8029;        /* new */
+  --warn: #f5c26b;              /* amber: an OK is waiting, and nothing else */
+  --on-warn: #2a1c00;
+  --warn-text: #f5c26b;
+  --warn-soft: #f5c26b29;
+  --warn-halo: #f5c26b2e;
+  --sleep: #3a3f4d;             /* new: the sleeping orb (paused) */
+  --on-sleep: #c0c6d6;
+  --spin-track: #8ab4ff40;      /* changed */
+  --shadow: 0 12px 32px #00000085; /* changed: one shadow for cards and pills */
+  color-scheme: dark;
+}
+
+#stage[data-theme="light"] {
+  --panel: #fafbfff2;
+  --panel-solid: #ffffff;
+  --rim-hi: #ffffff;
+  --rim: #2357c92e;
+  --raise: #2357c90f;
+  --text: #121522;
+  --muted: #444b5e;
+  --faint: #5b6275;
+  --accent: #2357c9;
+  --on-accent: #ffffff;
+  --accent-soft: #2357c91f;
+  --accent-edge: #2357c973;
+  --ring: #2357c926;
+  --edge-1: #e1e8fb;
+  --edge-2: #d7e0f8;
+  --edge-3: #cdd8f4;
+  --edge-line: #2357c938;
+  --ok: #1b7f4b;
+  --on-ok: #ffffff;
+  --bad: #c0362c;
+  --on-bad: #ffffff;
+  --bad-soft: #c0362c1a;
+  --warn: #f2b33d;
+  --on-warn: #2a1c00;
+  --warn-text: #875800;
+  --warn-soft: #f2b33d38;
+  --warn-halo: #f2b33d47;
+  --sleep: #d5d8e0;
+  --on-sleep: #444b5e;
+  --spin-track: #2357c933;
+  --shadow: 0 12px 32px #1a2a5533;
+  color-scheme: light;
+}
+
+#stage {
+  /* Geometry */
+  --card-w: 512px;
+  --radius-card: 22px;          /* changed: was 14px */
+  --radius-card-inner: 12px;    /* the corner that meets the deck */
+  --radius-pill: 999px;         /* buttons, tags, the capsule */
+  --radius-box: 14px;           /* facts, change, listening blocks */
+  --radius-edge: 18px;          /* deck edges, on the side away from the card */
+  --tail-w: 24px;
+  --tail-h: 11px;
+  --tail-inset: 44px;           /* orb centre from the card's edge at side anchors */
+  --gutter: 16px;
+  --halo-ok: 4px;               /* amber halo ring width */
+  --halo-ask: 5px;              /* accent halo ring width */
+  --state-line-h: 40px;
+  --band-h: 42px;               /* Needs your OK band; 36px in compact confirm */
+  --orb: 36px;
+  /* Glass: decoration only, legibility never depends on it */
+  --glass: blur(24px) saturate(1.4);
+  /* Motion: unchanged from main */
+  --dur-press: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 200ms;
+  --dur-move: 280ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --orb-fill: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), transparent 42%), radial-gradient(circle, #8ab4ff, #4f7bdc 78%);
+}

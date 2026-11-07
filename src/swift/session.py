@@ -3260,7 +3260,7 @@ class Session:
             return
         task = self._answer_task
         recording = task is not None and not task.done()
-        if not self._on_screen(q) or self._deaf() or self._away:
+        if not self._on_screen(q) or self._deaf() or self._away or self.speaker.speaking:
             if recording:
                 self._stop_capture()
                 self._answer_hidden = q
@@ -3484,6 +3484,8 @@ class Session:
         """Tell the overlay Swift started or stopped talking (the capsule, the question card)."""
         with contextlib.suppress(RuntimeError):  # no running loop: nothing to tell
             self._background(self._raw_send(outbound("speech", speaking=speaking)))
+        if speaking:
+            self._sync_answer_capture()
 
     def speech_done(self) -> None:
         """Swift finished talking (``Speaker.on_done``): the reply window starts now, not under its own voice."""

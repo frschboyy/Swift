@@ -673,3 +673,19 @@ async def test_the_hotkey_takes_over_from_an_answer_recording() -> None:
     await until(lambda: voice.done())
     await until(lambda: session._answer_task is not None)  # the question still waits: it records again
     await finish_all(session, agent)
+
+
+async def test_an_answer_recording_stops_when_swift_starts_talking_and_resumes_after() -> None:
+    session, agent, _stt, recording = await _agent_question_recording()
+
+    class Talking(type(session.speaker)):
+        speaking = True
+
+    session.speaker.__class__ = Talking
+    session._speech_news(True)
+    await asyncio.sleep(0.05)
+    assert recording.done() and session._answer_task is None, "the microphone recorded Swift"
+    Talking.speaking = False
+    session.speech_done()
+    await until(lambda: session._answer_task is not None)
+    await finish_all(session, agent)

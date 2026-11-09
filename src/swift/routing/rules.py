@@ -183,6 +183,23 @@ def _normalize(text: str) -> str:
     return " ".join(t.split())
 
 
+# A sentence that is only a greeting or thanks: "How are you?", "Hi there.", "Thanks."
+_PLEASANTRY = re.compile(
+    r"(?:hey|hi|hello|hiya|good (?:morning|afternoon|evening)|thanks|thank you|cheers"
+    r"|how are you(?: doing)?(?: today)?|how's it going|you there)(?: there| swift)?"
+)
+_SENTENCES = re.compile(r"(?<=[.!?])\s+")
+
+
+def _after_pleasantries(text: str) -> str | None:
+    """What follows leading greeting sentences, or None when there are none (or nothing follows)."""
+    parts = _SENTENCES.split(strip_wake(text))
+    lead = 0
+    while lead < len(parts) - 1 and _PLEASANTRY.fullmatch(_normalize(parts[lead])):
+        lead += 1
+    return " ".join(parts[lead:]).strip() if lead else None
+
+
 def strip_wake(text: str) -> str:
     return _WAKE.sub("", text).strip()
 
@@ -215,6 +232,10 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     # The system lane (ADR-016 §3): timers, reminders, volume, theme, lock, ... done by Swift.
     if system_intents.parse(text) is not None:
         return Route("local", text.strip(), action="system")
+    # "How are you? Can you turn on airplane mode?": the greeting is no task, so the command is Swift's own,
+    # with its own Yes/No question, not the agent's approval card (owner check, 2026-11-09 22:04).
+    if (rest := _after_pleasantries(text)) is not None and system_intents.parse(rest) is not None:
+        return Route("local", rest, action="system")
 
     if (opened := _open_request(norm)) is not None:
         return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])

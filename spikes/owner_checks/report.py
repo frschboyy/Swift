@@ -527,6 +527,11 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          f"{sum('system action asked for in an answer' in line for line in log)} time(s)"),
         ("202 airplane mode said what it really did", LOOK,
          "check on screen: 'Turn off Wi-Fi and Bluetooth instead?', then which radios are off"),
+        ("203 'Hey Swift' brought the overlay in front", LOOK, "check on screen: in front of an always-on-top window"),
+        ("204 a greeting before a command kept Swift's own question",
+         unless([r for r in rows if r.get("route") == "agent" and any(
+             a.get("tool") == "system_action_disruptive" for a in r.get("approvals") or [])]),
+         "an agent's approval card for a radio is a FAIL"),
     ]
 
 

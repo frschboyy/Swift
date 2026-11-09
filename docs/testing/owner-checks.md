@@ -412,6 +412,18 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
    If a radio refused, the card says which one, instead of claiming it's done.
 5. Say "Hey Swift, turn it back on" to get Wi-Fi and Bluetooth back.
 
+**203. Swift comes to the front when you call it**
+1. Open a window that stays on top by itself, such as the Task Manager with Options → Always on top ticked,
+   and drag it over the place where Swift's overlay sits.
+2. Say "Hey Swift".
+3. You should see Swift's overlay come **in front of** that window, without it taking the keyboard
+   (what you were typing in still has the cursor).
+
+**204. A greeting before a command doesn't change how Swift asks**
+1. Say "Hey Swift, how are you? Can you turn off the Wi-Fi?"
+2. You should see Swift's own question "Turn off Wi-Fi?" with Yes and No, **not** a yellow approval card.
+3. Say "no".
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

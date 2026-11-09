@@ -182,3 +182,14 @@ async def test_repeat_shows_the_last_answer_again() -> None:
 async def test_approve_with_nothing_open_says_so() -> None:
     _, rec, spy, _ = await ask("Approve.")
     assert spy.calls == [] and "nothing waiting" in rec.last("result")["summary"]
+
+
+def test_a_greeting_before_a_system_command_leaves_it_to_swift() -> None:
+    # Owner check, 2026-11-09 22:04: "Swift. How are you? Can you turn on airplane mode?" went to the
+    # agent, whose approval card (the yellow one) appeared instead of Swift's own Yes/No question.
+    from swift.routing.rules import route
+
+    r = route("Swift. How are you? Can you turn on airplane mode?")
+    assert (r.route, r.action, r.text) == ("local", "system", "Can you turn on airplane mode?")
+    assert route("How are you?").route == "agent"  # small talk alone stays as it was
+    assert route("Thanks. Write a poem about tea.").route == "agent"

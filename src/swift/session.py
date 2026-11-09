@@ -2764,74 +2764,72 @@ class Session:
             run.words = run.words or _clip(strip_wake(transcript) or transcript, 120)
             await self._send(outbound("transcript", text=transcript, final=True, typed=record.get("source") == "typed"))
 
-            routed = self.router is not None and record.get("source") in (
+            target: OpenTarget | None = None
+            workflow: Match | None = None
+            answered: tuple[Route, Match | None] | None = None
+            resumed: Parked | None = None
+            decision: Route | None = None
+            if self.router is not None and record.get("source") in (
                 "voice", "debug.ask", "retry", "wake", "followup", "correction", "beside", "typed",
                 # An answer to a lane's question, said or clicked: it has to reach the question
                 # (owner checks 2026-11-04: "Swift, yes" went to the agent and Wi-Fi stayed on).
                 "answer", "click",
-            )
-            decision = self.router(transcript) if routed else None  # type: ignore[misc]
-            if decision is not None:
-                decision = self._follow_local(decision, transcript, record)
-            target: OpenTarget | None = None
-            workflow: Match | None = None
-            named = route_target(transcript) if decision is not None else None
-            ended = named is not None and named[0] == "stop" and self._find(named[1], besides=run, gone=True) is not None
-            if named is not None and (self._live(besides=run) or ended):
-                # "Stop the research one" while others run, or just after one ended: about those, not
-                # a request (owner check 24, 2026-10-27: the research had just finished, so "stop the
-                # research one" went to Claude Code, which offered to delete a calendar event).
-                record["route"], record["action"], record["status"] = "local", f"{named[0]}_named", "done"
-                answer = await self._named(named, besides=run)
-                if not answer:
-                    run.title = ""  # it only brought another to the front: no row of its own
-                    if answer == "":
-                        return
-                    answer = NO_TARGET_HINT
-                await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
-                return
-            answered = self._answer_offer(decision, offer, record) if decision is not None else None
-            if answered is None and decision is not None:
-                answered = self._answer_fix(decision, fix, record, run, transcript)
-            if answered is not None:
-                decision, workflow = answered
-            if decision is not None and decision.action != "system":
-                decision = self._carry_over(decision, transcript, record)  # "make it louder", "no, make it four"
-            if decision is not None and decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
-                decision = _to_agent(decision)
-            if (
-                decision is not None and decision.action == "undo" and self.system is not None
-                and self.system.can_undo() and not self._can_undo() and self._approved_undo() is None
             ):
-                decision = replace(decision, action="system_undo")  # the last thing Swift did was a system change
-            if decision is not None and decision.action == "open":
-                target = await self._open_target(decision)
-                if target is None:  # not a configured name: Claude Code decides
+                decision = self._follow_local(self.router(transcript), transcript, record)
+                named = route_target(transcript)
+                ended = named is not None and named[0] == "stop" and self._find(named[1], besides=run, gone=True) is not None
+                if named is not None and (self._live(besides=run) or ended):
+                    # "Stop the research one" while others run, or just after one ended: about those, not
+                    # a request (owner check 24, 2026-10-27: the research had just finished, so "stop the
+                    # research one" went to Claude Code, which offered to delete a calendar event).
+                    record["route"], record["action"], record["status"] = "local", f"{named[0]}_named", "done"
+                    answer = await self._named(named, besides=run)
+                    if not answer:
+                        run.title = ""  # it only brought another to the front: no row of its own
+                        if answer == "":
+                            return
+                        answer = NO_TARGET_HINT
+                    await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+                    return
+                answered = self._answer_offer(decision, offer, record) or self._answer_fix(decision, fix, record, run, transcript)
+                if answered is not None:
+                    decision, workflow = answered
+                if decision.action != "system":
+                    decision = self._carry_over(decision, transcript, record)  # "make it louder", "no, make it four"
+                if decision.action == "system" and (self.system is None or not self.system.claims(decision.text)):
                     decision = _to_agent(decision)
-            if decision is not None and decision.action == "undo" and (undo := self._approved_undo()) is not None:
-                # The newest thing Swift did was approved on a card: its own undo, with a card again.
-                record["undo"] = undo.tool
-                decision = replace(_to_agent(decision), text=UNDO_REQUEST.format(said=decision.text, title=undo.title))
-            elif decision is not None and decision.action == "undo" and not self._can_undo():
-                decision = _to_agent(decision)  # nothing Swift wrote: "undo that" is for Claude Code
-            resumed: Parked | None = None
-            if decision is not None and self.parked is not None and answered is None:
-                if decision.action == "resume":
-                    # Just after "Unfinished: …", the one it showed; otherwise the newest.
-                    shown = self._offer_shown()
-                    resumed = (self.parked.get(shown) if shown is not None else None) or self.parked.newest()
-                    self._offered = None
-                    if resumed is None and self._last_exchange is not None:
-                        decision = _to_agent(decision)  # nothing parked: "go on" with the last answer
-                elif decision.route == "agent":
-                    resumed = self.parked.find(decision.text)  # "finish the email to Ada"
-            elif decision is not None and decision.action == "resume" and self._last_exchange is not None:
-                decision = _to_agent(decision)
-            if (thread := record.pop("resume", None)) is not None and self.parked is not None:
+                if (
+                    decision.action == "undo" and self.system is not None
+                    and self.system.can_undo() and not self._can_undo() and self._approved_undo() is None
+                ):
+                    decision = replace(decision, action="system_undo")  # the last thing Swift did was a system change
+                if decision.action == "open":
+                    target = await self._open_target(decision)
+                    if target is None:  # not a configured name: Claude Code decides
+                        decision = _to_agent(decision)
+                if decision.action == "undo" and (undo := self._approved_undo()) is not None:
+                    # The newest thing Swift did was approved on a card: its own undo, with a card again.
+                    record["undo"] = undo.tool
+                    decision = replace(_to_agent(decision), text=UNDO_REQUEST.format(said=decision.text, title=undo.title))
+                elif decision.action == "undo" and not self._can_undo():
+                    decision = _to_agent(decision)  # nothing Swift wrote: "undo that" is for Claude Code
+                if self.parked is not None and answered is None:
+                    if decision.action == "resume":
+                        # Just after "Unfinished: …", the one it showed; otherwise the newest.
+                        shown = self._offer_shown()
+                        resumed = (self.parked.get(shown) if shown is not None else None) or self.parked.newest()
+                        self._offered = None
+                        if resumed is None and self._last_exchange is not None:
+                            decision = _to_agent(decision)  # nothing parked: "go on" with the last answer
+                    elif decision.route == "agent":
+                        resumed = self.parked.find(decision.text)  # "finish the email to Ada"
+                elif decision.action == "resume" and self._last_exchange is not None:
+                    decision = _to_agent(decision)
+            elif (thread := record.pop("resume", None)) is not None and self.parked is not None:
                 # Opened from the waiting stack (ADR-015 §9): that conversation, whatever was said.
                 resumed = self.parked.get(thread)
                 if resumed is not None:
-                    decision, answered = Route("agent", resumed.request), None
+                    decision = Route("agent", resumed.request)
             if resumed is not None:
                 assert self.parked is not None and decision is not None
                 self.parked.drop(resumed.thread)
@@ -2845,47 +2843,43 @@ class Session:
                     decision = replace(
                         _to_agent(decision), text=resumed.request, demand=estimate(resumed.request) or "standard"
                     )
-            if decision is not None and "network" in lane_needs(decision) and self.online() is False:
-                # Before any lane that needs the internet is tried (the light model, an offer, the agent):
-                # say so at once, and what still works (seams audit R-01).
-                decision = Route("local", decision.text, action="offline")
-            before = self._left.get(record.get("thread") or "") if decision is not None and answered is None else None
-            if before is not None and decision is not None and decision.action == "quick":
-                decision = replace(decision, action=None)  # it goes on with the thread's draft or event: not the light lane
-            if decision is not None and decision.action == "quick" and answered is None and resumed is None:
-                if await self._quick_answer(decision, record):
-                    return
-                decision = replace(decision, action=None)  # no quick answer: the agent takes it
-            if (
-                decision is not None and decision.route == "agent" and answered is None and resumed is None
-                and self.library is not None
-            ):
-                workflow = self.library.match(decision.text, self._titles())
-                if workflow is not None and workflow.kind == "offer":
-                    await self._offer_workflow(workflow, decision.text, record)
-                    return
-                if workflow is None and before is not None and before.grant is not None:
-                    # A follow-up in a workflow's thread ("Can you send it for me?", "actually say …"): the
-                    # same workflow goes on, with its playbook and its tools (owner checks, 2026-10-27).
-                    if (package := self.library.packages.get(before.grant.workflow)) is not None:
-                        workflow = Match(package, "run")
-                if workflow is not None and workflow.package.demand and not decision.override:
-                    decision = replace(decision, demand=workflow.package.demand)
-            if (
-                decision is not None and decision.route == "agent" and answered is None and resumed is None
-                and workflow is None and record.get("source") in SPOKEN_SOURCES
-                and intake.fragment(strip_wake(transcript) or transcript)
-            ):
-                # Only hesitations: never a run and a card of their own (2026-11-05).
-                record["fragment"] = True
-                raise UserFacingError(
-                    "fragment", f"I only caught “{_clip(transcript, 40)}”.", FRAGMENT_HINT,
-                    title="Say that again?", severity="info",
-                )
-            if decision is not None and decision.route == "agent" and self.online() is False:
-                # No agent without the internet: say so now, and what still works (owner checks 2026-11-04).
-                decision = Route("local", decision.text, action="offline")
             if decision is not None:
+                if "network" in lane_needs(decision) and self.online() is False:
+                    # Before any lane that needs the internet is tried (the light model, an offer, the agent):
+                    # say so at once, and what still works (seams audit R-01).
+                    decision = Route("local", decision.text, action="offline")
+                before = self._left.get(record.get("thread") or "") if answered is None else None
+                if before is not None and decision.action == "quick":
+                    decision = replace(decision, action=None)  # it goes on with the thread's draft or event: not the light lane
+                if decision.action == "quick" and answered is None and resumed is None:
+                    if await self._quick_answer(decision, record):
+                        return
+                    decision = replace(decision, action=None)  # no quick answer: the agent takes it
+                if decision.route == "agent" and answered is None and resumed is None and self.library is not None:
+                    workflow = self.library.match(decision.text, self._titles())
+                    if workflow is not None and workflow.kind == "offer":
+                        await self._offer_workflow(workflow, decision.text, record)
+                        return
+                    if workflow is None and before is not None and before.grant is not None:
+                        # A follow-up in a workflow's thread ("Can you send it for me?", "actually say …"): the
+                        # same workflow goes on, with its playbook and its tools (owner checks, 2026-10-27).
+                        if (package := self.library.packages.get(before.grant.workflow)) is not None:
+                            workflow = Match(package, "run")
+                    if workflow is not None and workflow.package.demand and not decision.override:
+                        decision = replace(decision, demand=workflow.package.demand)
+                if (
+                    decision.route == "agent" and answered is None and resumed is None and workflow is None
+                    and record.get("source") in SPOKEN_SOURCES and intake.fragment(strip_wake(transcript) or transcript)
+                ):
+                    # Only hesitations: never a run and a card of their own (2026-11-05).
+                    record["fragment"] = True
+                    raise UserFacingError(
+                        "fragment", f"I only caught “{_clip(transcript, 40)}”.", FRAGMENT_HINT,
+                        title="Say that again?", severity="info",
+                    )
+                if decision.route == "agent" and self.online() is False:
+                    # No agent without the internet: say so now, and what still works (owner checks 2026-11-04).
+                    decision = Route("local", decision.text, action="offline")
                 record["route"] = decision.route
                 if decision.addressed_as:
                     record["addressed_as"] = decision.addressed_as

@@ -970,8 +970,6 @@ class Session:
         self._answer_hidden: Question | None = None
         # The state of the request in front, as the overlay shows it.
         self.state = "idle"
-        # The task of the request in front.
-        self._task: asyncio.Task[None] | None = None
         # Push-to-talk while a run is going: answering its confirm card, or the mid-run grammar.
         self._confirm_voice: asyncio.Task[None] | None = None
         # The request whose card that push-to-talk was held on.
@@ -980,6 +978,11 @@ class Session:
         self._retry: tuple[str, str] | None = None
 
     # ---- requests side by side (ADR-013 phase B) ------------------------------------------
+
+    @property
+    def _task(self) -> asyncio.Task[None] | None:
+        """The task of the request in front."""
+        return self._focus.task if self._focus is not None else None
 
     def _current(self) -> Run:
         """The request this code works for: the running task's, else the one in front."""
@@ -1168,8 +1171,6 @@ class Session:
             with contextlib.suppress(ValueError):
                 self._runs.remove(old)
                 self._gone.append(old)
-        if run.task is not None:
-            self._task = run.task
         self.state = run.state
 
     async def _bring(self, run: Run) -> bool:

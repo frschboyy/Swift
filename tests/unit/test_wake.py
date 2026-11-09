@@ -15,7 +15,7 @@ import pytest
 from swift.audio.recorder import BLOCK, SAMPLE_RATE
 from swift.executors.echo import EchoExecutor
 from swift.ipc.protocol import Message
-from swift.session import Session
+from swift.session import Run, Session
 from swift.wake import NoiseGate, WakeListener, match_wake
 
 from test_recorder_preroll import FakeStream, fake_sd, make as make_recorder  # noqa: F401
@@ -315,7 +315,8 @@ async def test_nothing_starts_while_the_microphone_records_a_request() -> None:
 async def test_a_wake_phrase_while_the_last_request_starts_is_the_next_one() -> None:
     # Owner checks 20 and 21, 2026-10-27: dropped while the first was transcribed or started.
     session, out, records, rec, stt = make("Hey Swift, what time is it?")
-    session._task = asyncio.create_task(asyncio.sleep(10))  # the last one, before its transcript
+    last = asyncio.create_task(asyncio.sleep(10))
+    session._focus = Run(task=last)  # the last one, in front before its transcript
     try:
         await session.hear_wake(AUDIO, time.monotonic())
         assert stt.calls == 1 and session.take_wake_stats()["queued"] == 1
@@ -323,7 +324,7 @@ async def test_a_wake_phrase_while_the_last_request_starts_is_the_next_one() -> 
         await asyncio.wait_for(asyncio.gather(*(r.task for r in session._runs if r.task)), 2)
         assert records[-1]["queued_behind"] is True and records[-1]["transcript"] == "what time is it?"
     finally:
-        session._task.cancel()
+        last.cancel()
 
 
 async def test_hotkey_pressed_while_transcribing_wins() -> None:

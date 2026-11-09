@@ -319,7 +319,7 @@ def resolve(question: Question, text: str, *, is_request: Callable[[str], bool] 
         if rest and (is_request is None or is_request(rest)):
             return Answer("elsewhere", rest=rest, named=named, dropped=True)
         return Answer("cancel", named=named)
-    if question.kind != "free" and (_HOLD.fullmatch(said) or (_YES.match(said) and _HOLD.search(said))):
+    if question.kind != "free" and (_HOLD.fullmatch(said) or (question.kind == "yes_no" and _YES.match(said) and _HOLD.search(said))):
         # "Yeah, but hold on", "yes, turn it off. Hold on a second": the owner asked to wait, so nothing is
         # done and the question stays (owner check 144, 2026-11-09: it became a new request; "yes, hold on"
         # was a yes).
@@ -368,9 +368,9 @@ def _resolve_kind(question: Question, said: str, raw: str) -> Answer:
 
 
 def _replies(said: str) -> bool:
-    """Whether it starts as a reply to the question ("yeah, ...", "no, ..."), and what follows isn't a
+    """Whether it starts as a yes to the question ("yeah, ..."), and what follows isn't a
     question of its own: then the question on screen claims it, never a new request (owner check 144)."""
-    m = _YES.match(said) or _NO.match(said)
+    m = _YES.match(said)  # a no can't approve anything: "no, open Spotify" may still start it (review of 021ca25)
     return m is not None and not _ASKING.search(said[m.end():])
 
 

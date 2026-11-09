@@ -908,3 +908,13 @@ def test_a_reply_to_the_question_stays_with_it(said: str, kind: str) -> None:
     from swift.dialogue import Question, resolve
 
     assert resolve(Question("Turn off Wi-Fi?", "yes_no"), said, is_request=lambda _s: True).kind == kind
+
+
+def test_one_minute_is_still_an_answer_to_how_long() -> None:
+    # Review of 021ca25: "one minute" is in the hold phrases, so "okay, one minute" had become a wait.
+    from swift.dialogue import Question, resolve
+
+    q = Question("For how long?", "duration")
+    assert resolve(q, "okay, one minute").value == 60
+    assert resolve(Question("Which one?", "choice", ("Paris", "Rome")), "no, open Spotify",
+                   is_request=lambda _s: True).kind == "elsewhere"

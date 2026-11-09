@@ -59,6 +59,9 @@ def test_city_daylight_saving_rules() -> None:
     assert city_time("new york", summer).hour == 8 and city_time("new york", winter).hour == 7
     assert city_time("sydney", summer).hour == 22 and city_time("sydney", winter).hour == 23
     assert city_time("tokyo", summer).hour == 21 and city_time("nowhere", summer) is None
+    # Chile keeps summer time from September to April (audit 2026-11-09: Swift said 11:00, not 12:00).
+    assert city_time("santiago", summer).hour == 8 and city_time("santiago", winter).hour == 9
+    assert city_time("santiago", datetime(2026, 11, 9, 15, 0, tzinfo=timezone.utc)).hour == 12
 
 
 # ---- dates ----------------------------------------------------------------------------------

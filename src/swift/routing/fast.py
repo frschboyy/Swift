@@ -262,7 +262,7 @@ CITIES: dict[str, tuple[float, str | None]] = {
     "los angeles": (-8, "us"), "san francisco": (-8, "us"), "seattle": (-8, "us"), "vancouver": (-8, "us"),
     "las vegas": (-8, "us"), "san diego": (-8, "us"), "anchorage": (-9, "us"), "honolulu": (-10, None),
     "sao paulo": (-3, None), "são paulo": (-3, None), "rio de janeiro": (-3, None), "buenos aires": (-3, None),
-    "santiago": (-4, None), "lima": (-5, None), "bogota": (-5, None),
+    "santiago": (-4, "cl"), "lima": (-5, None), "bogota": (-5, None),
     "utc": (0, None), "gmt": (0, None),
 }
 
@@ -287,6 +287,8 @@ def _dst(rule: str | None, utc: datetime, std: float) -> bool:
         return utc >= _at(_nth_sunday(y, 10, 1), 2 - std) or utc < _at(_nth_sunday(y, 4, 1), 3 - std - 1)
     if rule == "nz":  # last Sunday of September to first Sunday of April
         return utc >= _at(_nth_sunday(y, 9, -1), 2 - std) or utc < _at(_nth_sunday(y, 4, 1), 3 - std - 1)
+    if rule == "cl":  # first Sunday of September to first Sunday of April, at midnight local
+        return utc >= _at(_nth_sunday(y, 9, 1), -std) or utc < _at(_nth_sunday(y, 4, 1), -std - 1)
     return False
 
 

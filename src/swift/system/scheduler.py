@@ -24,9 +24,9 @@ import json
 import os
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from loguru import logger
 
@@ -151,12 +151,22 @@ class Scheduler:
     def _load(self) -> None:
         if self.path is None or not self.path.exists():
             return
+        names = {f.name for f in fields(Item)}
+        rows: Any = None
         try:
             rows = json.loads(self.path.read_text(encoding="utf-8"))
-            self.items = [Item(**row) for row in rows if row.get("kind") in KINDS]
-        except (OSError, ValueError, TypeError) as exc:
-            logger.warning("schedule file unreadable; starting empty", error=str(exc))
-            self.items = []
+        except (OSError, ValueError) as exc:
+            logger.warning("schedule file unreadable", error=str(exc))
+        self.items = []
+        for row in rows if isinstance(rows, list) else []:
+            with contextlib.suppress(AttributeError, TypeError):  # not a row, or a field missing
+                if row.get("kind") in KINDS:
+                    self.items.append(Item(**{k: v for k, v in row.items() if k in names}))
+        if not isinstance(rows, list) or len(self.items) < len(rows):
+            # Set aside, not overwritten by the next save: a row this Swift can't read is kept for the owner.
+            with contextlib.suppress(OSError):
+                os.replace(self.path, self.path.with_name(self.path.name + ".bad"))
+            logger.warning("schedule file set aside", kept=len(self.items))
         self._next_id = max((i.id for i in self.items), default=0) + 1
 
     def _save(self) -> None:

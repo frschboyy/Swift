@@ -191,6 +191,24 @@ def test_scheduler_survives_a_damaged_file(tmp_path: Path) -> None:
     path = tmp_path / "schedule.json"
     path.write_text("{ not json", encoding="utf-8")
     assert Scheduler(path).pending() == []
+    assert (tmp_path / "schedule.json.bad").read_text(encoding="utf-8") == "{ not json"
+
+
+def test_one_bad_row_keeps_the_others_and_the_file(tmp_path: Path) -> None:
+    # Audit 2026-11-09: one row that didn't fit dropped every item, and the next save overwrote the file.
+    clock = Clock()
+    path = tmp_path / "schedule.json"
+    rows = [
+        {"id": 1, "kind": "reminder", "due": 1900, "label": "call sam", "created": 0, "fired": False, "repeat": "daily"},
+        {"id": 2, "kind": "timer"},  # no due time
+        {"id": 3, "kind": "alarm", "due": 2000, "label": "", "created": 0, "fired": False},
+    ]
+    path.write_text(json.dumps(rows), encoding="utf-8")
+    sched = Scheduler(path, clock)
+    assert [(i.id, i.label) for i in sched.pending()] == [(1, "call sam"), (3, "")]
+    assert json.loads((tmp_path / "schedule.json.bad").read_text(encoding="utf-8")) == rows
+    sched.add("timer", 2100, "pasta")
+    assert [i.id for i in Scheduler(path, clock).pending()] == [1, 3, 4]
 
 
 async def test_scheduler_fires_due_items_once_and_marks_missed_ones() -> None:

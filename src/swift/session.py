@@ -3099,7 +3099,7 @@ class Session:
         if action in ("offline", "offline_help"):
             record["status"] = "done"
             said = OFFLINE_SAID if action == "offline" else OFFLINE_HELP
-            details = {"kind": "list", "items": [*OFFLINE_ITEMS, OFFLINE_NOT]}
+            details = {"kind": "list", "items": [*OFFLINE_ITEMS, OFFLINE_NOT]} if action == "offline_help" else None
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
             return
         now = datetime.now()

@@ -57,7 +57,7 @@ async def test_offline_an_agent_request_is_answered_here_at_once() -> None:
     assert spy.calls == []
     result = rec.last("result")
     assert result["summary"] == OFFLINE_SAID
-    assert result["details"]["kind"] == "list" and result["details"]["items"][: len(OFFLINE_ITEMS)] == list(OFFLINE_ITEMS)
+    assert not result.get("details")  # one calm sentence; the list only when asked (owner, 2026-11-09)
     assert (records[-1]["route"], records[-1]["action"]) == ("local", "offline")
 
 

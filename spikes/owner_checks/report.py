@@ -539,6 +539,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("207 the stack opened and closed in its corner", LOOK, "check on screen: three times, same corner"),
         ("208 a question out of sight kept its time", seen(sum("its countdown paused" in line for line in log)),
          f"{sum('its countdown paused' in line for line in log)} time(s) paused out of sight"),
+        ("209 offline: one sentence, the list only when asked", LOOK, "check on screen"),
     ]
 
 

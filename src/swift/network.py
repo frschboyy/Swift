@@ -15,21 +15,18 @@ from __future__ import annotations
 import sys
 import threading
 
-OFFLINE_SAID = "I'm offline, so I can't do that until the internet is back."
+# Calm and short (owner, 2026-11-09: the offline list was too intrusive). A request that needs the internet
+# gets one sentence; the list comes only when asked ("what works offline"), five lines, no examples.
+OFFLINE_SAID = "I'm offline, so this waits for the internet. Quick commands like timers, volume and Wi-Fi still work."
 OFFLINE_HELP = "Without the internet I can still do these:"
 OFFLINE_ITEMS = (
-    "Wi-Fi, Bluetooth and airplane mode: “turn on the Wi-Fi”, “turn it back on”",
-    "Timers, alarms and reminders: “set a timer for ten minutes”, “remind me to call Sam at five”",
-    "Volume and music: “louder”, “mute”, “next song”, “pause the music”",
-    "Brightness and dark mode: “brightness to 60”, “turn on dark mode”",
-    "Lock the PC, show the desktop, take a screenshot",
-    "Battery, disk space, memory and how long the PC has been on",
-    "Windows settings pages: “open Bluetooth settings”",
-    "The time and date, and sums: “what day is it a week from today?”, “what's 15% of 80?”",
-    "Opening your apps and folders by name",
-    "“Undo that” for the last change",
+    "Wi-Fi, Bluetooth and airplane mode",
+    "Timers, alarms and reminders",
+    "Volume, music, brightness and dark mode",
+    "Lock, screenshots, settings pages and your apps",
+    "The time, the date and sums",
 )
-OFFLINE_NOT = "Questions, research, writing, email and your calendar need the internet."
+OFFLINE_NOT = "Research, writing, email and your calendar wait for the internet."
 
 
 # Windows' Network List Manager (its CLSID): what Windows' own connectivity check found, kept by Windows.

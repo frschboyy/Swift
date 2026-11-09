@@ -456,6 +456,14 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
 6. Say "no". Wi-Fi stays on.
 7. If you leave a question out of sight for its whole time, it goes to the stack, as before.
 
+**209. Offline answers are short and calm**
+1. Say "Hey Swift, turn off the Wi-Fi" and answer "yes".
+2. Say "Hey Swift, research the history of tea".
+3. You should see **one sentence**: "I'm offline, so this waits for the internet. Quick commands like timers, volume and
+   Wi-Fi still work." No long list.
+4. Say "Hey Swift, what works offline?". You should see a short list of five lines, with no examples.
+5. Say "Hey Swift, turn the Wi-Fi back on".
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

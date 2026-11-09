@@ -1,6 +1,8 @@
 # ADR-020: One record per conversation, so Swift keeps track of what you meant
 
-- **Status:** Accepted (2026-11-10): the owner took the recommendations (§6). Step 1 of §5 is being built on `claude/owner-check-fixes-08ab4a`.
+- **Status:** Accepted (2026-11-10): the owner took the recommendations (§6). Step 1 of §5 was prototyped (`76eed6d`)
+  and dropped by the owner the same day: it added 64 lines and removed 13, and step 2 could not make up the
+  difference (about 28 lines to remove, at least as many to add). Revisit if a new finding has the same cause.
 - **Decided by:** Owner
 - **Date:** 2026-11-10
 - **From:** the owner checks of 2026-11-09 (21:55–23:01), the fixes on `claude/owner-check-fixes-08ab4a`, and an outside review of those fixes the owner asked for.
@@ -109,4 +111,4 @@ Then, one at a time: the open question claims first and resolves by slot (replac
 3. **An answer on the open microphone can't switch a radio on** (kept as built): a TV can't turn Bluetooth on.
    "Turn on the Wi-Fi" said as a request still works.
 4. **A question back in view gets a whole countdown** (kept as built), as cards and check 141 do.
-5. **Merge after the real-PC checks 201–211 pass,** with step 1 of §5 included if it is kept (it must remove more than it adds).
+5. **Merge after the real-PC checks 201–211 pass.** Step 1 of §5 was dropped (see Status).

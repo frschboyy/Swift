@@ -8,13 +8,15 @@
 // - listening paused, by the owner (mic off, with Resume) or by a locked screen or sleep. This is
 //   the privacy indicator: it stays as long as the pause, never fades;
 // - a card open: the orb alone, since the card says the rest (ADR-018 §2.5);
+// - Swift waiting for the owner's answer to its question (never "Working on it": owner check 144,
+//   2026-11-09, couldn't tell Swift was listening for them);
 // - a request working;
 // - otherwise the idle dot.
 
 import type { UiState } from "./protocol";
 
 export type Presence =
-  | "idle" | "orb" | "heard" | "listening" | "transcribing" | "cant-hear" | "working" | "speaking" | "paused-mic" | "paused-locked";
+  | "idle" | "orb" | "heard" | "listening" | "transcribing" | "cant-hear" | "waiting" | "working" | "speaking" | "paused-mic" | "paused-locked";
 
 /** Listening this long with nothing above room noise: "I can't hear you". */
 export const QUIET_MS = 4000;
@@ -31,6 +33,8 @@ export type CapsuleInput = {
   paused: "mic" | "locked" | "asleep" | null;
   // A card is on screen.
   cardOpen: boolean;
+  // Swift's question waits for the owner's answer (any request's).
+  asking?: boolean;
 };
 
 export function presence(i: CapsuleInput): Presence {
@@ -41,6 +45,7 @@ export function presence(i: CapsuleInput): Presence {
   if (i.paused === "mic") return "paused-mic";
   if (i.paused) return "paused-locked";
   if (i.cardOpen) return "orb";
+  if (i.asking) return "waiting";
   if (i.state === "working") return "working";
   return "idle";
 }
@@ -82,6 +87,8 @@ export function view(p: Presence, transcript: string, elapsed: string, paused: C
       return plain("", transcript || "Transcribing");
     case "cant-hear":
       return plain("", QUIET_TEXT);
+    case "waiting":
+      return plain("Waiting", "for your answer");
     case "working":
       return plain("Working on it", elapsed);
     case "speaking":

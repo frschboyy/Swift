@@ -108,3 +108,10 @@ test("the theme follows Windows, then the webview, and a pinned one wins", () =>
   assert.equal(themeFrom({ windows: false, override: "light" }), "light");
   assert.equal(themeFrom({ windows: true, override: "nonsense" }), "light");
 });
+
+test("owner check 144: waiting for an answer is never shown as working", () => {
+  assert.equal(presence(at({ state: "working", asking: true })), "waiting");
+  assert.equal(view("waiting", "", "0:12", null).label, "Waiting");
+  assert.equal(presence(at({ state: "working", asking: true, cardOpen: true })), "orb");  // the card says it
+  assert.equal(presence(at({ state: "listening", asking: true })), "listening");  // the owner talking wins
+});

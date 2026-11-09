@@ -201,7 +201,7 @@ const tail = (text: string, max = 60): string => (text.length <= max ? text : `â
 function drawCapsule(): void {
   const paused = C.pausedBy(presence);
   const cardOpen = card.classList.contains("card--in") && !card.classList.contains("card--held");
-  const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused, cardOpen });
+  const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused, cardOpen, asking: asked !== null });
   const elapsed = stageNow() === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "";
   const v = C.view(p, transcriptText, elapsed, paused);
   const was = capsuleEl.dataset.p;
@@ -308,6 +308,8 @@ const ROW_STATE: Record<string, string> = {
   listening: "Listening",
   transcribing: "Transcribing",
   confirm: "Needs your OK",
+  // Swift asked and listens for the answer: never "Working on it" (owner check 144, 2026-11-09).
+  asking: "Waiting for your answer",
   result: "Ready to read",
   error: "Didn't finish",
   done: "Stopped",

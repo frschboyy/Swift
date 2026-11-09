@@ -72,6 +72,7 @@ const settled = D.deckView(deck, pres.rows, Number.MAX_SAFE_INTEGER);
 
 process.stdout.write(JSON.stringify({
   behind: settled.edges.map((e) => e.row.runId),
+  behindStates: settled.edges.map((e) => e.row.state),
   more: settled.edges.reduce((n, e) => n + e.more, 0),
   stage: P.stageOf(pres),
   cardRun: pres.card.runId,

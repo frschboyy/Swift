@@ -458,3 +458,18 @@ async def test_the_same_question_asked_in_other_words_is_one_item_in_the_stack()
     assert len(out.last("stack")["items"]) == 1 and control.radio_state["wifi"] is True
     agree(session, out)
     await finish_all(session, agent)
+
+
+async def test_a_request_waiting_for_an_answer_behind_the_card_says_so() -> None:
+    # Owner check 144, 2026-11-09: while Swift waited for the owner's answer, the overlay said
+    # "Working on it", so the owner couldn't tell it was listening for them.
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    rid = await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    other = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await session._bring(next(r for r in session._runs if r.ui_id == other))
+    await asyncio.sleep(0.1)
+    screen = agree(session, out)
+    states = dict(zip(screen["behind"], screen["behindStates"]))
+    assert states.get(rid) == "asking", screen
+    await finish_all(session, agent)

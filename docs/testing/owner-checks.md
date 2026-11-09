@@ -432,6 +432,14 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
 4. Don't answer again. When it runs out, the stack shows **one** Wi-Fi item, not two.
 5. Click the item in the stack to pick it up, then say "no".
 
+**206. Waiting for your answer looks different from working**
+1. Say "Hey Swift, turn off the Wi-Fi" and don't answer.
+2. On the question card you should see "Waiting for you" and a countdown, never "Working on it".
+3. Before it runs out, say "Hey Swift, research the history of tea".
+4. The research comes to the front. The Wi-Fi request's edge behind it (the thin strip beside the card) or the
+   small pill at the corner should say **"Waiting for your answer"**, not "Working on it".
+5. Let the Wi-Fi question run out (Wi-Fi stays on).
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

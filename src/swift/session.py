@@ -639,6 +639,8 @@ class Run:
         stopped = self.answer is not None and self.answer.data.get("status") == "cancelled"
         if self.queued:
             state = "queued"
+        elif not stopped and self.state == "working" and self.ask is not None:
+            state = "asking"  # its question waits for the owner: the edge says so (owner check 144)
         elif not stopped and (self.alive or self.state in ("result", "error")):
             state = self.state
         else:

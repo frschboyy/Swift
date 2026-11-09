@@ -532,6 +532,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          unless([r for r in rows if r.get("route") == "agent" and any(
              a.get("tool") == "system_action_disruptive" for a in r.get("approvals") or [])]),
          "an agent's approval card for a radio is a FAIL"),
+        ("205 asked again in other words: one fresh card, one item in the stack", LOOK,
+         "check on screen: the old item left the stack when the new card came"),
     ]
 
 

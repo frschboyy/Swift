@@ -424,6 +424,14 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
 2. You should see Swift's own question "Turn off Wi-Fi?" with Yes and No, **not** a yellow approval card.
 3. Say "no".
 
+**205. Asking again in other words gives one fresh card, not two in the stack**
+1. Say "Hey Swift, turn off the Wi-Fi". Don't answer: wait about 30 seconds until it says "No answer, so I've left it as it is".
+   The question is now one item in the stack (the small list in the corner).
+2. Say "Hey Swift, can you switch the Wi-Fi off?" (different words, same thing).
+3. You should see a **new** "Turn off Wi-Fi?" card, and the old item **leaves** the stack.
+4. Don't answer again. When it runs out, the stack shows **one** Wi-Fi item, not two.
+5. Click the item in the stack to pick it up, then say "no".
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

@@ -441,3 +441,20 @@ async def test_skipping_a_waiting_timer_keeps_it() -> None:
     assert [i["id"] for i in out.last("stack")["items"]] == [f"due:{tea.id}"] and sched.items
     await finish_all(session, agent)
 
+
+
+async def test_the_same_question_asked_in_other_words_is_one_item_in_the_stack() -> None:
+    # Owner checks 131 and 8, 2026-11-09: "turn on airplane mode" left unanswered, then "can you turn on
+    # airplane mode?" left two of the same in the stack; matching went by the words, not what was asked.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    await _wifi(session, out, stt)
+    await asyncio.sleep(0.5)
+    assert [i["kind"] for i in out.last("stack")["items"]] == ["parked"]
+    await say(session, stt, "Hey Swift, can you turn the wi-fi off?")
+    await until(lambda: asks(out)[-1].get("open") and asks(out)[-1]["question"] == "Turn off Wi-Fi?")
+    assert out.last("stack")["items"] == []  # asked again: a fresh card, and the old one leaves the stack
+    agree(session, out)
+    await asyncio.sleep(0.5)
+    assert len(out.last("stack")["items"]) == 1 and control.radio_state["wifi"] is True
+    agree(session, out)
+    await finish_all(session, agent)

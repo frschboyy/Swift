@@ -11,6 +11,11 @@ last draft or event Swift showed, and when.
 - After the next answer, the overlay shows one line, "Unfinished: <title>" (the title is from
   the owner's own words, never Swift's wrapper around them), at most
   ``OFFER_TIMES`` times; "not now" stops it, "forget that" drops the thread.
+- **Fresh or resumed (owner checks 131 and 8, 2026-11-09).** A new request with the same intent as an
+  item in the stack starts fresh, on a new card, and that item leaves the stack: the stack never holds
+  two of the same. The same intent: the same system actions with the same details ("turn on airplane
+  mode", "can you turn airplane mode on?"), else the same words, case and punctuation aside. An item
+  is picked up only when the owner asks for it: "continue", "finish the email to Ada", a click on it.
 - Kept ``keep_s`` (24 h) in a local JSON file, so a restart doesn't lose them. Nothing about
   them leaves the machine.
 """
@@ -56,7 +61,14 @@ def _words(text: str) -> set[str]:
 
 
 def _same(words: str) -> str:
-    """Words compared as said: case and punctuation aside."""
+    """What a request asks for, to compare two: its system actions and their details when it is one
+    ("turn on airplane mode" and "can you turn airplane mode on?" are one), else its words as said,
+    case and punctuation aside."""
+    from swift.system import intents as it  # the grammar the lane uses, so "the same" means the same
+
+    found = it.parse(words) if words.strip() else None
+    if found:
+        return "intents:" + repr(sorted((i.name, sorted(i.slots.items())) for i in found))
     return " ".join(_WORD.findall(words.lower()))
 
 

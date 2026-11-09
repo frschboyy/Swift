@@ -800,7 +800,6 @@ class Session:
         # The default provider first, then the ones tried when it's unavailable.
         self.providers = Providers([executor, *fallbacks])
         self._clarified_at: float | None = None
-        self._note: str | None = None
         self.debug_executor = debug_executor
         self.recorder = recorder
         self.transcriber = transcriber

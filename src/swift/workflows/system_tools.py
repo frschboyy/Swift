@@ -47,7 +47,7 @@ def owner_intents(said: str, answers: list[str] | tuple[str, ...] = ()) -> list[
     request, which speech recognition may have misheard ("turn off the wafer")."""
     found = _intents(said)
     for answer in answers:
-        found += [i for i in _intents(answer) if i.name in FROM_ANSWERS]
+        found += [i for i in _intents(answer) if from_answer(i)]
         short = _LEAD.sub("", it.normalize(answer)).strip()
         if not short or len(short.split()) > MAX_STAND_IN or _NOT.search(short):
             continue  # "not Bluetooth" never stands in for anything
@@ -56,7 +56,7 @@ def owner_intents(said: str, answers: list[str] | tuple[str, ...] = ()) -> list[
                 words = clause.split()
                 for i in range(len(words)):
                     one = it.parse_one(" ".join([*words[:i], short, *words[i + 1:]]))
-                    if one is not None and one.name in FROM_ANSWERS:
+                    if one is not None and from_answer(one):
                         found.append(one)
     return found
 
@@ -70,6 +70,15 @@ _LEAD = re.compile(r"^(?:(?:hey|ok|okay|swift|sorry|actually|i|meant|mean|said|i
 FROM_ANSWERS = frozenset({
     "radio", "airplane", "dnd", "volume.set", "volume.step", "mute", "media", "brightness.set", "brightness.step", "theme",
 })
+
+
+def from_answer(intent: it.Intent) -> bool:
+    """Whether an answer may ask for ``intent``. A radio or airplane mode only when the change takes
+    something away, which always has its card: a TV saying "turn on Bluetooth" must not make the PC
+    discoverable with no card (second review of 20ff906)."""
+    if intent.name not in FROM_ANSWERS:
+        return False
+    return it.disruptive(intent) if intent.name in ("radio", "airplane") else True
 _NOT = re.compile(r"\b(?:not|don't|dont|never|no)\b")
 # An answer longer than this is a request of its own, read whole, never put inside another.
 MAX_STAND_IN = 3
@@ -97,8 +106,9 @@ NOT_ASKED = (
     "your best guess and one other likely option (e.g. 'Did you mean the Wi-Fi or Bluetooth?', options "
     "['Wi-Fi', 'Bluetooth']). When they answer by naming it, call system_action again: their answer counts. "
     "If it isn't a likely reading, say in one short sentence that you didn't do it. Never explain Swift's "
-    "rules or tell them to say it again."
+    "rules or tell them to say it again. Ask once: a yes to your own question isn't the owner asking."
 )
+NOT_ASKED_PLAIN = "Not done: the owner didn't ask for that. Say in one short sentence that you didn't do it."
 
 
 def _same(a: it.Intent, b: it.Intent) -> bool:
@@ -122,7 +132,9 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if not missing and any(not any(_same(i, a) for a in owner_intents(scope.said)) for i in wanted):
         logger.info("system action asked for in an answer")  # owner check 201: only the answer named it
     if missing:
-        return ToolResult(False, NOT_ASKED, expected=True)
+        # Offer a guess only when an answer could unlock it, and only once (second review of 20ff906).
+        offer = not scope.answers and all(from_answer(i) for i in missing)
+        return ToolResult(False, NOT_ASKED if offer else NOT_ASKED_PLAIN, expected=True)
     said: list[str] = []
     for intent in wanted:
         disruptive = it.disruptive(intent)

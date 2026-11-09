@@ -319,3 +319,20 @@ async def test_quitting_while_a_question_waits_keeps_it() -> None:
     await session.close()
     kept = store.newest()
     assert kept is not None and kept.reason == "asked"
+
+
+def test_a_workflow_request_picked_up_from_the_stack_gets_todays_date() -> None:
+    # 2026-11-09: a calendar request parked at 22:59 kept "[Now] Monday ... 22:59"; resumed after midnight,
+    # "tomorrow" would have been the wrong day. Its title was always the owner's words.
+    from datetime import datetime
+
+    from swift.parked import Parked
+    from swift.workflows.library import refresh_now
+
+    parked_at = "[Swift workflow: Calendar events]\nPlaybook...\n\n[Now]\nMonday 09 November 2026, 22:59 (UTC+03:00)\n\n" \
+        "[The request, as the owner said it]\nAdd lunch with Sam tomorrow at one."
+    later = refresh_now(parked_at, datetime(2026, 11, 10, 0, 30))  # local time
+    assert "Tuesday 10 November 2026, 00:30" in later and "22:59" not in later
+    assert later.endswith("Add lunch with Sam tomorrow at one.")
+    assert Parked("t", parked_at, "asked", 0.0).title == "Add lunch with Sam tomorrow at one."
+    assert refresh_now("research tea") == "research tea"  # not a workflow: unchanged

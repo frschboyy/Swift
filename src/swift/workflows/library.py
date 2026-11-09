@@ -131,6 +131,20 @@ def names_title(words: list[str], titles: Iterable[str]) -> bool:
     return False
 
 
+def _now_line(now: datetime) -> str:
+    offset = f"{now:%z}"
+    return f"{now:%A %d %B %Y, %H:%M} (UTC{offset[:3]}:{offset[3:]})"
+
+
+_NOW = re.compile(r"(?m)^(\[Now\]\n).*$")
+
+
+def refresh_now(request: str, now: datetime | None = None) -> str:
+    """A workflow request picked up again from the stack, with today's date and time: the one it was
+    parked with would make "tomorrow" the wrong day after midnight (2026-11-09)."""
+    return _NOW.sub(lambda m: m.group(1) + _now_line((now or datetime.now()).astimezone()), request, count=1)
+
+
 class PackageError(ValueError):
     pass
 
@@ -257,8 +271,7 @@ class Package:
             lines.append(f"{name} ({spec.type}): {value if value else '(not given: take it from the request)'}")
         if self.settings:
             lines += ["", "[Settings]"] + [f"{n}: {s.default}" for n, s in self.settings.items()]
-        offset = f"{now:%z}"
-        lines += ["", "[Now]", f"{now:%A %d %B %Y, %H:%M} (UTC{offset[:3]}:{offset[3:]})"]
+        lines += ["", "[Now]", _now_line(now)]
         lines += ["", "[The request, as the owner said it]", said.strip()]
         return "\n".join(lines)
 

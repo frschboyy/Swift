@@ -196,7 +196,7 @@ from swift.system import intents as system_intents
 from swift.system.lane import SystemLane
 from swift.system.scheduler import Item
 from swift.workflows.artifacts import Artifact, ArtifactStore
-from swift.workflows.library import Library, Match, is_question
+from swift.workflows.library import Library, Match, is_question, refresh_now
 from swift.workflows.scope import Decision, Grant, RunScope
 from swift.workflows.tools import CURRENT as CURRENT_SCOPE
 from swift.workflows.tools import ToolHost
@@ -2839,7 +2839,7 @@ class Session:
                     decision = Route("local", resumed.request, action="system")
                 else:
                     decision = replace(
-                        _to_agent(decision), text=resumed.request, demand=estimate(resumed.request) or "standard"
+                        _to_agent(decision), text=refresh_now(resumed.request), demand=estimate(resumed.request) or "standard"
                     )
             if decision is not None:
                 if "network" in lane_needs(decision) and self.online() is False:

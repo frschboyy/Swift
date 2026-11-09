@@ -51,10 +51,11 @@ def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str
     if screen["stage"] in ("working", "confirm") and screen["cardRun"] is not None:
         assert screen["cardRun"] in owners, f"a {screen['stage']} card with nothing behind it: {screen}, owners {owners}"
     if screen["question"] is not None:
-        assert q is not None and q.text == screen["question"], f"a dead question on screen: {screen}"
+        # Asked again, the card shows the words it was asked again with ("Okay, take your time. …").
+        assert q is not None and screen["question"] in (q.text, q.reask_text), f"a dead question on screen: {screen}"
         assert session._on_screen(q), f"on screen, but the backend thinks not, so speech can't answer it: {screen}"
     if q is not None and q.source == "lane" and q.run_id and q.window is not None and q.window.state == "listening":
-        assert (screen["question"] == q.text) == session._on_screen(q), (
+        assert (screen["question"] in (q.text, q.reask_text)) == session._on_screen(q), (
             f"the backend listens for what the owner can't see, or the reverse: {screen}")
     assert screen["confirm"] == session._open_confirm(), f"card on screen and in the backend differ: {screen}"
     # ADR-018: a request has one body, so it is never on the card and behind it at once, or behind it twice.
@@ -498,4 +499,17 @@ async def test_a_question_out_of_view_keeps_its_time_for_when_it_is_back() -> No
     await asyncio.sleep(0.8)
     assert session.dialogue.pending is not asked and control.radio_state["wifi"] is True  # then it runs out
     agree(session, out)
+    await finish_all(session, agent)
+
+
+async def test_a_wordy_yes_with_hold_on_waits_on_screen() -> None:
+    # Owner check 144, 2026-11-09 22:55: "Yeah, turn it off for now. Thanks. Hold on a second." to "Turn off
+    # Wi-Fi?" started a new agent request ("What would you like me to turn off?") instead of answering.
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    await _wifi(session, out, stt)
+    await say(session, stt, "Yeah, turn it off for now. Thanks. Hold on a second.")
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    assert screen["question"] == "Okay, take your time. Turn off Wi-Fi?" and control.radio_state["wifi"] is True
+    assert agent.requests == []  # no new request: the question on screen claimed it
     await finish_all(session, agent)

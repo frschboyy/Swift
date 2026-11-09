@@ -894,3 +894,17 @@ async def test_the_guess_is_offered_only_when_an_answer_could_unlock_it() -> Non
     assert (await system_action(host, scope, {"request": "turn off wifi"})).text == NOT_ASKED
     scope.answers.append("purple")
     assert (await system_action(host, scope, {"request": "turn off wifi"})).text == NOT_ASKED_PLAIN  # once
+
+
+@pytest.mark.parametrize(("said", "kind"), [
+    ("Yeah, turn it off for now. Thanks. Hold on a second.", "wait"),  # owner check 144, 22:55:41
+    ("yes, hold on", "wait"),  # was a yes: Wi-Fi went off while the owner asked to wait
+    ("Yeah, but hold on", "wait"),
+    ("Yeah, turn it off for now. Thanks.", "yes"),
+    ("yes, and also play some jazz on spotify for me later", "unclear"),  # a reply: asked again, not a new request
+    ("okay, what is the weather like there", "elsewhere"),  # a question of its own still goes beside
+])
+def test_a_reply_to_the_question_stays_with_it(said: str, kind: str) -> None:
+    from swift.dialogue import Question, resolve
+
+    assert resolve(Question("Turn off Wi-Fi?", "yes_no"), said, is_request=lambda _s: True).kind == kind

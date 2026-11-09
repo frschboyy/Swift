@@ -471,6 +471,13 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
    (about 10 minutes for Swift's own question). Come back in a few minutes: the ring is shorter.
 4. Click End on it.
 
+**211. "Yes, but hold on" waits, and a wordy reply stays with Swift's question**
+1. Say "Hey Swift, turn off the Wi-Fi".
+2. At "Turn off Wi-Fi?", say "Yeah, turn it off for now. Thanks. Hold on a second."
+3. You should see "Okay, take your time. Turn off Wi-Fi?" on the **same** card. Wi-Fi stays **on**, and no new request starts.
+4. Say "yes". Wi-Fi goes off.
+5. Say "Hey Swift, turn the Wi-Fi back on".
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

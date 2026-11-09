@@ -102,7 +102,9 @@ WORKFLOW_PROMPT = (
     "(write here, open this), use the desktop_* tools. For a timer, reminder, volume, music, dark mode, "
     "Wi-Fi or other PC action the user asked for, use system_action with their words. If you need a detail you can't "
     "safely guess (which file, what time, which of two people), ask with ask_owner: one short question. If a Swift "
-    "tool says something wasn't done, don't try another way: say so in your answer."
+    "tool says something wasn't done, don't try another way: say so in your answer, unless the tool says to ask "
+    "the owner first. Requests are spoken, so a word may be misheard: offer your best guess as a question rather "
+    "than a dead end, and never explain Swift's internals or tell the user to rephrase."
 )
 # Claude Code's own tools a workflow can declare: tool -> capability (ADR-011 §7.1).
 PROVIDER_TOOLS = {"WebSearch": "web.search", "WebFetch": "web.fetch"}

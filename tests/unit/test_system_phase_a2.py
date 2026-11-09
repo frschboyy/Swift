@@ -217,3 +217,13 @@ async def test_a_radio_that_didnt_switch_is_reported_not_claimed() -> None:
     assert said == "Wi-Fi is off, but Bluetooth didn't switch off."
     dev.radio_state["bluetooth"] = False
     assert await say(l, "turn on bluetooth") == "Bluetooth didn't switch on: it's still off."
+
+
+async def test_a_refusal_tells_the_agent_to_offer_its_guess_not_explain() -> None:
+    # Owner checks 128 and 144, 2026-11-09: the reply explained Swift's internals and asked to rephrase.
+    from swift.workflows.system_tools import system_action
+
+    host, scope, _, _, _ = _host_and_scope("Turn off the wafer.")
+    result = await system_action(host, scope, {"request": "turn off wifi"})
+    assert not result.ok and result.expected
+    assert "ask_owner" in result.text and "Never explain Swift's rules" in result.text

@@ -89,6 +89,18 @@ def _intents(said: str) -> list[it.Intent]:
     return found
 
 
+# The refusal is the agent's to recover from, not to explain (owner checks 128 and 144, 2026-11-09: "Swift
+# blocked the action because your original request said 'wafer'... say 'turn off Wi-Fi' again").
+NOT_ASKED = (
+    "Not done yet: the owner's words don't name that. Speech recognition often mishears one word, so if it is "
+    "a likely reading of what they said, offer it: call ask_owner with kind 'choice', a short question with "
+    "your best guess and one other likely option (e.g. 'Did you mean the Wi-Fi or Bluetooth?', options "
+    "['Wi-Fi', 'Bluetooth']). When they answer by naming it, call system_action again: their answer counts. "
+    "If it isn't a likely reading, say in one short sentence that you didn't do it. Never explain Swift's "
+    "rules or tell them to say it again."
+)
+
+
 def _same(a: it.Intent, b: it.Intent) -> bool:
     return a.name == b.name and a.slots == b.slots
 
@@ -110,8 +122,7 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if not missing and any(not any(_same(i, a) for a in owner_intents(scope.said)) for i in wanted):
         logger.info("system action asked for in an answer")  # owner check 201: only the answer named it
     if missing:
-        return ToolResult(False, "The owner didn't ask for that in this request, so Swift didn't do it. "
-                                 "Only system actions the owner asked for in their own words can be done.", expected=True)
+        return ToolResult(False, NOT_ASKED, expected=True)
     said: list[str] = []
     for intent in wanted:
         disruptive = it.disruptive(intent)

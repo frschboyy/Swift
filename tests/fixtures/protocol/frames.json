@@ -36,7 +36,7 @@
     {"type": "runs", "data": {"focus": null, "rows": [], "waiting": 0}},
     {"type": "runs", "data": {"focus": "a-1", "rows": [{"run_id": "a-2", "thread_id": null, "title": "rename the notes file", "state": "working", "activity": "editing", "app": "Word", "agent": {"id": "claude_code", "name": "Claude Code"}, "started_ms": 1793867652488, "summary": "", "words": "rename the notes file"}, {"run_id": "a-3", "thread_id": "t-3", "title": "research tea", "state": "idle", "activity": null, "app": null, "agent": null, "started_ms": 1793867652488, "summary": "Done."}], "waiting": 1}},
     {"type": "stack", "data": {"items": []}},
-    {"type": "stack", "data": {"items": [{"id": "card:swift:2", "kind": "waiting", "title": "Send this email to Ada", "reason": "waiting", "since_ms": 1793867652489, "thread_id": "t-1"}, {"id": "thread:t-2", "kind": "parked", "title": "Plan the trip", "reason": "asked", "since_ms": 1793867652489, "thread_id": null}]}},
+    {"type": "stack", "data": {"items": [{"id": "card:swift:2", "kind": "waiting", "title": "Send this email to Ada", "reason": "waiting", "since_ms": 1793867652489, "thread_id": "t-1", "expires_ms": null}, {"id": "thread:t-2", "kind": "parked", "title": "Plan the trip", "reason": "asked", "since_ms": 1793867652489, "thread_id": null, "expires_ms": 1793868252489}]}},
     {"type": "heard", "data": {"source": "wake", "text": ""}},
     {"type": "speech", "data": {"speaking": true}},
     {"type": "live", "data": {"run_id": "a-1", "kind": "doing", "text": "Reading for a-1"}},

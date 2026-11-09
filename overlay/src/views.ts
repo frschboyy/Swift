@@ -100,7 +100,10 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
         class: `stack-row stack-row--${i.icon}${i.fresh ? " stack-row--fresh" : ""}`, "data-id": i.id, style: `--i:${at}`,
         "aria-selected": String(i.id === selected), onpointerenter: () => h.select?.(i.id),
       },
-      icon(i.icon),
+      // A subtle ring around the icon: the time left before it leaves the stack (owner, 2026-11-09).
+      i.left === null || i.left === undefined
+        ? icon(i.icon)
+        : el("span", { class: "stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
       el("span", { class: "stack-title" }, i.title),
       el("span", { class: "stack-reason" }, i.line),
       el("span", { class: "stack-actions" },

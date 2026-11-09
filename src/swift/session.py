@@ -1378,7 +1378,8 @@ class Session:
             for parked in self.parked.all()[:MAX_PARKED]:
                 if parked.thread not in live:
                     items.append(StackItem(parked_id(parked.thread), "parked", parked.title, parked.reason,
-                                           int(parked.at * 1000), parked.thread))
+                                           int(parked.at * 1000), parked.thread,
+                                           int((parked.at + (parked.keep_s or self.parked.keep_s)) * 1000)))
         return stack_order(items, self._stack_skipped)
 
     async def _send_stack(self) -> None:

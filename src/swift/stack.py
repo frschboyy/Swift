@@ -41,11 +41,13 @@ class StackItem:
     # When it started waiting (ms since the epoch).
     since_ms: int
     thread_id: str | None = None
+    # When it leaves the stack by itself (ms since the epoch), or None: the ring on its row (owner, 2026-11-09).
+    expires_ms: int | None = None
 
     def as_message(self) -> dict[str, Any]:
         return {
             "id": self.id, "kind": self.kind, "title": self.title, "reason": self.reason,
-            "since_ms": self.since_ms, "thread_id": self.thread_id,
+            "since_ms": self.since_ms, "thread_id": self.thread_id, "expires_ms": self.expires_ms,
         }
 
 

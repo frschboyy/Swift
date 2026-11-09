@@ -1863,6 +1863,13 @@ rowsEl.addEventListener("pointermove", () => card.classList.remove("card--hover"
 
 // ---- the one clock: answers fade and the reply window counts down only here ---------
 
+// The stack's rings (time left before an item leaves) move on by themselves: redraw them now and then.
+window.setInterval(() => {
+  if (!stack.items.some((i) => i.expires_ms)) return;
+  void syncPanes();
+  drawStackInline();
+}, 15_000);
+
 window.setInterval(() => {
   const r = P.tick(pres, Date.now());
   pres = r.p;

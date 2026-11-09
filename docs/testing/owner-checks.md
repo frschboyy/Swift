@@ -464,6 +464,13 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
 4. Say "Hey Swift, what works offline?". You should see a short list of five lines, with no examples.
 5. Say "Hey Swift, turn the Wi-Fi back on".
 
+**210. Each item in the stack shows how long it has left**
+1. Say "Hey Swift, turn off the Wi-Fi" and let it run out, so it goes to the stack.
+2. Double-click the stack to open it.
+3. Round the Wi-Fi item's question-mark icon you should see a thin ring. Point at it: it says how long it is kept
+   (about 10 minutes for Swift's own question). Come back in a few minutes: the ring is shorter.
+4. Click End on it.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

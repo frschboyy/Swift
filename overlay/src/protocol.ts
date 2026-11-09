@@ -117,6 +117,8 @@ export type StackEntry = {
   reason: string;
   since_ms: number;
   thread_id: string | null;
+  // When it leaves the stack by itself (ms), or null: it stays until answered.
+  expires_ms?: number | null;
 };
 
 export type RunRow = {

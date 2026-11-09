@@ -88,3 +88,15 @@ test("a timer waiting in the stack has its own icon, line and Done", () => {
   assert.match(reasonLine(due, due.since_ms), /^Came due/);
   assert.equal(openLabel(due), "Done");
 });
+
+test("owner, 2026-11-09: a ring shows how much of an item's time in the stack is left", async () => {
+  const { timeLeft, leftLine, stackView, onStack, initialStack } = await import("../src/stack.ts");
+  const item = { id: "parked:t", kind: "parked" as const, title: "Turn on airplane mode", reason: "asked", since_ms: 0, thread_id: "t", expires_ms: 600_000 };
+  assert.equal(timeLeft(item, 0), 1);
+  assert.equal(timeLeft(item, 300_000), 0.5);
+  assert.equal(timeLeft(item, 900_000), 0);
+  assert.equal(timeLeft({ ...item, expires_ms: null }, 0), null);  // a card waiting for an OK doesn't run out
+  assert.equal(leftLine(item, 120_000), "Kept 8 more min");
+  const v = stackView(onStack(initialStack, [item], 0), 300_000)!;
+  assert.equal(v.items[0].left, 0.5);
+});

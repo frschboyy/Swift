@@ -88,11 +88,23 @@ export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "b
   return item.reason === "asked" ? "question" : "pause";
 }
 
+/** How much of its time in the stack is left, 0 to 1, or null when it doesn't run out (the ring). */
+export function timeLeft(item: StackEntry, now: number): number | null {
+  if (!item.expires_ms || item.expires_ms <= item.since_ms) return null;
+  return Math.min(1, Math.max(0, (item.expires_ms - now) / (item.expires_ms - item.since_ms)));
+}
+
+/** "Kept 8 more min": the ring's words, for the pointer and screen readers. */
+export function leftLine(item: StackEntry, now: number): string {
+  const min = Math.ceil(Math.max(0, (item.expires_ms ?? now) - now) / 60000);
+  return min >= 120 ? `Kept ${Math.round(min / 60)} more hours` : min > 1 ? `Kept ${min} more min` : "Goes in a minute";
+}
+
 /** What the stack pane draws. */
 export type StackView = {
   kind: "stack";
   expanded: boolean;
-  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon> }[];
+  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon>; left?: number | null; leftText?: string }[];
   // The main window's middle on the screen (CSS px): a card arriving comes from that side.
   mainX?: number;
 };
@@ -106,6 +118,7 @@ export function stackView(s: Stack, now: number): StackView | null {
     expanded: s.expanded,
     items: s.items.map((i) => ({
       id: i.id, kind: i.kind, title: i.title, line: reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
+      left: timeLeft(i, now), leftText: timeLeft(i, now) === null ? "" : leftLine(i, now),
     })),
   };
 }

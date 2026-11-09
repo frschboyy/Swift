@@ -793,6 +793,17 @@ code {
 .stack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 456px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
 .stack-row { display: grid; grid-template-columns: 16px 1fr; gap: 2px 10px; padding: 10px 10px 10px 12px; border-radius: 10px; cursor: pointer; }
 .stack-row > .icon { margin-top: 3px; }
+/* The time left before it leaves the stack: a thin arc round its icon, emptying clockwise (owner, 2026-11-09). */
+.stack-ring { position: relative; display: grid; place-items: center; width: 16px; height: 16px; margin-top: 3px; }
+.stack-ring::before {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%; opacity: 0.5;
+  background: conic-gradient(currentColor calc(var(--left, 1) * 1turn), transparent 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+}
+.stack-row--shield > .stack-ring { color: var(--warn-text); }
+.stack-row--question > .stack-ring { color: var(--accent); }
+.stack-row--pause > .stack-ring { color: var(--muted); }
 .stack-row--shield > .icon { color: var(--warn-text); }
 .stack-row--question > .icon { color: var(--accent); }
 .stack-row--pause > .icon { color: var(--muted); }

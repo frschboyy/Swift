@@ -17,6 +17,7 @@ Prints to the terminal only. Transcripts are shown because they are the owner's 
 from __future__ import annotations
 
 import argparse
+import sys
 import json
 import os
 import re
@@ -662,6 +663,8 @@ def could_be_local(rows: list[dict[str, Any]]) -> list[tuple[str, str]]:
 
 
 def main() -> None:
+    # A Windows console is cp1252: one transcript character outside it stopped the report (2026-11-10).
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", required=True, help="HH:MM, the time you started the checks")
     ap.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"))

@@ -1607,7 +1607,7 @@ function renderAsk(a: Q.Ask): void {
         typeSpec && !Q.ownQuestion(a) ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
         Q.ownQuestion(a) ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => {
           ev.stopPropagation();
-          client.send({ type: "run.stop", data: { run_id: a.runId } });
+          client.send({ type: "run.stop", data: { run_id: a.runId, from: "question" } });
         } }, "Stop request")),
     ),
     `working card--question${asking ? "" : " card--waiting"}`,

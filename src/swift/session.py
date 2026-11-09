@@ -1094,15 +1094,17 @@ class Session:
     def _run_by_ui(self, run_id: str) -> Run | None:
         return next((r for r in (*self._runs, *self._gone) if r.ui_id == run_id or r.row()["run_id"] == run_id), None)
 
-    async def _stop_run(self, run_id: str) -> None:
-        """"Stop" in a request's live view: that request only."""
+    async def _stop_run(self, run_id: str, where: str = "live") -> None:
+        """"Stop" in a request's live view, or "Stop request" on its question card: that request only."""
         run = self._run_by_ui(run_id)
         if run is None or not run.alive or run.task is None:
             logger.info("stop from the live view ignored", known=run is not None)
             return
         if run.record is not None:
-            run.record.setdefault("midrun", []).append("stop_live")
-        logger.info("request stopped from the live view", run_id=run_id)
+            run.record.setdefault("midrun", []).append(f"stop_{where}")
+        # Check 94 counts the live view's line only: the question card's Stop isn't one (2026-11-09, 22:34).
+        logger.info("request stopped from the live view" if where == "live" else "request stopped from its question",
+                    run_id=run_id)
         run.task.cancel()
 
     async def _live_app(self, run_id: str) -> None:
@@ -1664,7 +1666,7 @@ class Session:
                 # The live view opened (a click on Watch) or closed: content-free, for the log.
                 logger.info("live view", run_id=msg.data["run_id"], open=msg.data["open"])
             case "run.stop":
-                await self._stop_run(msg.data["run_id"])
+                await self._stop_run(msg.data["run_id"], "question" if msg.data.get("from") == "question" else "live")
             case "live.app":
                 await self._live_app(msg.data["run_id"])
             case "stack.action":

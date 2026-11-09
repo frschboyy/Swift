@@ -91,6 +91,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     # The live view of a request (ADR-017 §7): opened or closed (for the log), its Stop (that request
     # only), and its "Show in Word" (the app it writes in, to the front).
     "watch": {"run_id": (str, None), "open": (bool, None)},
+    # Optional ``from``: "question" when it is the question card's "Stop request".
     "run.stop": {"run_id": (str, None)},
     "live.app": {"run_id": (str, None)},
     # The answer to Swift's question on the card (ADR-016 §5.1): an option clicked. Never approves a card.

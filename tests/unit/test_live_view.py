@@ -233,6 +233,18 @@ async def test_stop_in_a_live_view_stops_that_request_only() -> None:
     await finish_all(session, agent)
     assert agent.cancelled == [research]
     assert sorted(r["status"] for r in records) == ["cancelled", "done"]
+    assert ["stop_live" in (r.get("midrun") or []) for r in records if r["status"] == "cancelled"] == [True]
+
+
+async def test_stop_on_a_question_card_is_not_counted_as_the_live_views() -> None:
+    # 2026-11-09, 22:34: the question card's "Stop request" logged as the live view's Stop (check 94).
+    session, out, records, agent, stt = make(Researcher)
+    research = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await session.handle(Message("run.stop", {"run_id": research, "from": "question"}))
+    await until(lambda: agent.cancelled == [research])
+    await finish_all(session, agent)
+    midrun = [m for r in records for m in r.get("midrun") or []]
+    assert "stop_question" in midrun and "stop_live" not in midrun
 
 
 async def test_show_in_word_from_the_live_view() -> None:

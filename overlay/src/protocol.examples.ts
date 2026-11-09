@@ -78,6 +78,7 @@ export const TO_BACKEND = [
   {"type": "recordings", "data": {"action": "improve"}},
   {"type": "watch", "data": {"run_id": "a-1", "open": false}},
   {"type": "run.stop", "data": {"run_id": "a-1"}},
+  {"type": "run.stop", "data": {"run_id": "a-1", "from": "question"}},
   {"type": "live.app", "data": {"run_id": "a-1"}},
   {"type": "ask.reply", "data": {"ask_id": "ask-2", "text": "Paris"}},
   {"type": "due.shown", "data": {"run_id": "due-timer-4"}},

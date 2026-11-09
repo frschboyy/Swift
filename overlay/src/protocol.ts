@@ -175,7 +175,7 @@ export type Outbound =
   // ADR-017 §7: a live view opened or closed (for the log), its Stop (that request only), and
   // its "Show in Word" (the app the request writes in, to the front).
   | { type: "watch"; data: { run_id: string; open: boolean } }
-  | { type: "run.stop"; data: { run_id: string } }
+  | { type: "run.stop"; data: { run_id: string; from?: "question" } }
   | { type: "live.app"; data: { run_id: string } }
   // ADR-016 §5.1: an option clicked on Swift's question. An answer, never an approval.
   | { type: "ask.reply"; data: { ask_id: string; text: string } }

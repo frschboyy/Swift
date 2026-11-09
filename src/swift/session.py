@@ -3386,10 +3386,34 @@ class Session:
             return False
         return q.owner is self._focus
 
+    def _follow_screen(self, q: Question) -> None:
+        """A question's countdown runs only while the owner can see it (owner check 164, 2026-11-09: a
+        question brought back from behind another request ran out almost at once). Out of view, its
+        window pauses; back in view, it listens for a whole window again, as a confirm card does. Out
+        of view for a whole window, it goes to the stack as unanswered: nothing waits for ever (S4)."""
+        window = q.window
+        if window is None or (q.future is not None and q.future.done()):
+            return
+        if window.state == "listening" and not self._on_screen(q):
+            window.pause()
+            q.out_of_view = True
+            with contextlib.suppress(RuntimeError):
+                q.unseen = asyncio.get_running_loop().call_later(self.wake_question_s, self._question_timeout, q)
+            logger.info("question out of view: its countdown paused")
+        elif q.out_of_view and window.state == "idle" and self._on_screen(q) and not self._away:
+            q.out_of_view = False
+            if q.unseen is not None:
+                q.unseen.cancel()
+                q.unseen = None
+            with contextlib.suppress(RuntimeError):
+                self._background(self._listen_for(q))
+
     def _sync_answer_capture(self) -> None:
         """No open microphone: the recording of an answer follows its question on and off the screen,
         so the microphone isn't open for a question nobody can see, and the card's "listening" is true."""
         q = self.dialogue.pending
+        if q is not None:
+            self._follow_screen(q)
         if q is None or self.wake_on:
             return
         task = self._answer_task

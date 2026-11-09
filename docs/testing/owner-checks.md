@@ -294,7 +294,7 @@ About 8 minutes. Each question Swift asks now has its own countdown, which start
 | 142 | "Hey Swift, set a timer". When the card shows about **3 s left**, say "ten minutes" (take your time saying it) | The timer is set: an answer you began in time counts, however long it takes to say | (seen on screen) |
 | 143 | "Hey Swift, turn off Bluetooth", then "**purple**". Wait for Swift to finish asking again, wait **20 s**, then say "yes" | Bluetooth goes off. The countdown started again only when Swift finished the re-ask | (seen on screen) |
 | 144 | "Hey Swift, turn off the Wi-Fi" and don't answer | The card counts down from **25 s once Swift has finished speaking**, then "No answer, so I've left it as it is." (it used to say 45 s in one place and 25 s in another) | (seen on screen) |
-| 145 | While "Which Sam?" counts down, click another request's edge, then click back | The countdown carries on from where it was; it doesn't start again from 25 | (seen on screen) |
+| 145 | While "Which Sam?" counts down, click another request's edge, then click back | The countdown stops while it's out of sight, and starts again from 25 when it's back (owner check 164, 2026-11-09) | (seen on screen) |
 
 ### One owner of what is on screen (seams audit S1, 2026-11-05)
 
@@ -446,6 +446,15 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
 2. Click the stack to open it, then close it. Do this three times.
 3. Each time, the stack should open **upwards from the same corner**, and close back to the **same place**.
    It should never end up in the middle or at the top of the screen.
+
+**208. A question's time only runs while you can see it**
+1. Say "Hey Swift, research the history of tea".
+2. While it works, say "Hey Swift, turn off the Wi-Fi". The question "Turn off Wi-Fi?" comes to the front with a countdown.
+3. Click the research request's edge (the thin strip beside the card) to bring the research to the front.
+4. Wait about 15 seconds, then click the Wi-Fi edge to bring the question back.
+5. You should see the question with a **whole** countdown (about 25 seconds), not one about to run out.
+6. Say "no". Wi-Fi stays on.
+7. If you leave a question out of sight for its whole time, it goes to the stack, as before.
 
 ## After the checks: the report
 

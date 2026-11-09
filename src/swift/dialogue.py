@@ -89,6 +89,11 @@ class Question:
     # Swift's own question (the system lane's), not a provider's.
     own: bool = False
     window: Any = field(default=None, repr=False, compare=False)
+    # Its window was paused because it left the screen (another request or a card in front): when it
+    # is back, it listens for a whole window again (owner check 164, 2026-11-09).
+    out_of_view: bool = field(default=False, compare=False)
+    # While out of view: after a whole window unseen it goes to the stack, so nothing waits for ever (S4).
+    unseen: Any = field(default=None, repr=False, compare=False)
     # Said again in other words ("Sorry, was that a yes or a no? …"): what its card shows meanwhile.
     reask_text: str | None = None
 

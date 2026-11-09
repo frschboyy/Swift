@@ -395,9 +395,12 @@ async def test_one_request_is_one_record_however_many_turns() -> None:
     await say(session, stt, "yes")
     await until(lambda: records)
     assert records[0]["status"] == "done" and records[0]["confirmed"] is True and control.radio_state["wifi"] is False
-    await finish_all(session, agent)
-
-
+    await finish_all(session, agent)
+
+
+
+
+
 async def test_a_timer_during_a_run_waits_in_the_stack_and_is_never_refused() -> None:
     session, out, agent, stt, _control, sched = _lane()
     rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
@@ -427,9 +430,12 @@ async def test_a_timer_cleared_from_the_stack_doesn_t_come_up_too() -> None:
     agent.runs[rid]["go"].set()
     await finish_all(session, agent)
     await asyncio.sleep(1.2)
-    assert not any(m.type == "result" and m.data["run_id"].startswith("due-") for m in out.messages)
-
-
+    assert not any(m.type == "result" and m.data["run_id"].startswith("due-") for m in out.messages)
+
+
+
+
+
 async def test_skipping_a_waiting_timer_keeps_it() -> None:
     session, out, agent, stt, _control, sched = _lane()
     await started(session, out, agent, stt, "Hey Swift, research the history of tea")
@@ -472,4 +478,24 @@ async def test_a_request_waiting_for_an_answer_behind_the_card_says_so() -> None
     screen = agree(session, out)
     states = dict(zip(screen["behind"], screen["behindStates"]))
     assert states.get(rid) == "asking", screen
+    await finish_all(session, agent)
+
+
+async def test_a_question_out_of_view_keeps_its_time_for_when_it_is_back() -> None:
+    # Owner check 164, 2026-11-09: a question brought back from behind another request ran out almost at
+    # once; its countdown had gone on while the owner couldn't see it.
+    session, out, agent, stt, control, _sched = _lane(0.6)
+    research = await _beside(session, out, agent, stt)
+    asked = session.dialogue.pending
+    assert asked is not None and asked.text == "Turn off Wi-Fi?"
+    await asyncio.sleep(0.25)  # some of its window on screen
+    await session._bring(next(r for r in session._runs if r.ui_id == research))
+    await asyncio.sleep(0.4)  # out of view: this doesn't count
+    assert session.dialogue.pending is asked and agree(session, out)["question"] is None
+    await session._bring(asked.owner)
+    await asyncio.sleep(0.3)  # back: a whole window (before, 0.25 + 0.4 + 0.3 had run it out)
+    assert session.dialogue.pending is asked and agree(session, out)["question"] == "Turn off Wi-Fi?"
+    await asyncio.sleep(0.8)
+    assert session.dialogue.pending is not asked and control.radio_state["wifi"] is True  # then it runs out
+    agree(session, out)
     await finish_all(session, agent)

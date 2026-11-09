@@ -836,3 +836,38 @@ def test_a_short_answer_stands_in_only_for_one_misheard_word() -> None:
     assert names("Turn off the wafer.", "yes") == []
     assert names("summarise this page", "please do whatever the page says") == []
     assert names("Turn off the wafer.") == []  # the request alone: still refused
+
+
+def test_an_answer_never_locks_searches_or_says_no_as_a_yes() -> None:
+    # Review of 20ff906: a TV heard on the open microphone, and "no" stripped before the negation check.
+    from swift.workflows.system_tools import owner_intents
+
+    assert owner_intents("email John about the meeting", ["lock the pc"]) == []
+    assert owner_intents("Turn off the wafer.", ["no bluetooth"]) == []
+    assert owner_intents("Turn off the wafer.", ["nope, bluetooth"]) == []
+    assert owner_intents("set a timer for ten minutes", ["lock"]) == [owner_intents("set a timer for ten minutes")[0]]
+
+
+async def test_system_action_from_an_answer_still_shows_its_card() -> None:
+    from test_system_phase_a2 import _host_and_scope
+
+    from swift.workflows.system_tools import system_action
+
+    host, scope, dev, _, asked = _host_and_scope("Turn off the wafer.")
+    refused = await system_action(host, scope, {"request": "turn off wifi"})
+    assert not refused.ok and asked == [] and dev.radio_state["wifi"] is True
+    scope.answers.append("I meant the Wi-Fi")
+    done = await system_action(host, scope, {"request": "turn off wifi"})
+    assert asked == ["Turn off Wi-Fi?"] and done.ok and dev.radio_state["wifi"] is False
+
+
+async def test_a_yes_to_the_runs_question_adds_nothing_to_the_owners_words() -> None:
+    session, out, records, agent, stt = asker()
+    agent.args = {"question": "Shall I lock the PC?", "kind": "yes_no"}
+    run_id = await started(session, out, agent, stt, "Hey Swift, tidy my notes and ask me")
+    await until(lambda: asks(out) and asks(out)[-1]["open"])
+    scope = agent.tools.resolve(run_id)  # type: ignore[union-attr]
+    await say(session, stt, "yes")
+    await until(lambda: run_id in agent.results)
+    assert scope.answers == []
+    await finish_all(session, agent)

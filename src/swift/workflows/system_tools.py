@@ -6,8 +6,10 @@ can then do the system part with this tool.
 
 **Only what the owner asked for.** The phrase the agent passes is parsed with the same grammar
 as the lane, and each intent must also be found, with the same details, in a clause of the
-owner's own request (``RunScope.said``) or of their own answer to one of the run's questions
-(``RunScope.answers``: said or typed, never a click on an option the run wrote, never a bare yes). So a web page, a file or the model itself can never
+owner's own request (``RunScope.said``), or of their own answer to one of the run's questions
+(``RunScope.answers``: said aloud, or typed in the text box; an answer typed on the card arrives as a
+click and doesn't count; never a click on an option the run wrote, never a bare yes). An answer asks
+only for a switch the owner can see and put back (``FROM_ANSWERS``). So a web page, a file or the model itself can never
 lock the PC, switch off Wi-Fi or open a search the owner didn't ask for: the tool answers
 "not asked for" and does nothing.
 
@@ -45,7 +47,7 @@ def owner_intents(said: str, answers: list[str] | tuple[str, ...] = ()) -> list[
     request, which speech recognition may have misheard ("turn off the wafer")."""
     found = _intents(said)
     for answer in answers:
-        found += _intents(answer)
+        found += [i for i in _intents(answer) if i.name in FROM_ANSWERS]
         short = _LEAD.sub("", it.normalize(answer)).strip()
         if not short or len(short.split()) > MAX_STAND_IN or _NOT.search(short):
             continue  # "not Bluetooth" never stands in for anything
@@ -53,13 +55,21 @@ def owner_intents(said: str, answers: list[str] | tuple[str, ...] = ()) -> list[
             for clause in _CLAUSE.split(it.normalize(sentence)):
                 words = clause.split()
                 for i in range(len(words)):
-                    if (one := it.parse_one(" ".join([*words[:i], short, *words[i + 1:]]))) is not None:
+                    one = it.parse_one(" ".join([*words[:i], short, *words[i + 1:]]))
+                    if one is not None and one.name in FROM_ANSWERS:
                         found.append(one)
     return found
 
 
-# What may lead an answer that names the thing meant: "no, I meant Wi-Fi", "Swift, the Wi-Fi".
-_LEAD = re.compile(r"^(?:(?:hey|ok|okay|swift|no|nope|sorry|actually|i|meant|mean|said|it's|its|it|is|the|my)\s+)+")
+# What may lead an answer that names the thing meant: "I meant Wi-Fi", "Swift, the Wi-Fi". Not "no":
+# "no Bluetooth" must reach ``_NOT`` (review of 20ff906).
+_LEAD = re.compile(r"^(?:(?:hey|ok|okay|swift|sorry|actually|i|meant|mean|said|it's|its|it|is|the|my)\s+)+")
+# What an answer may ask for: switches the owner can see and put back. Never lock, a search, a window,
+# a settings page, a screenshot or a timer: an answer is heard on the open microphone, where a TV
+# saying "lock the PC" must not lock it, and none of those has a card (review of 20ff906).
+FROM_ANSWERS = frozenset({
+    "radio", "airplane", "dnd", "volume.set", "volume.step", "mute", "media", "brightness.set", "brightness.step", "theme",
+})
 _NOT = re.compile(r"\b(?:not|don't|dont|never|no)\b")
 # An answer longer than this is a request of its own, read whole, never put inside another.
 MAX_STAND_IN = 3

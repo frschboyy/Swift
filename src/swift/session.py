@@ -3494,7 +3494,10 @@ class Session:
                 ).allowed:
                     await self._reask(q, f"{SYSTEM_YES_NAME_HINT} {q.text}")  # typing: it needs the name
                     return True
-                self._settle(q, turn.answer)
+                answer = turn.answer
+                if source != "click" and answer.kind not in ("yes", "no", "cancel"):
+                    answer = replace(answer, said=text)  # the owner's own words, not the option the run wrote
+                self._settle(q, answer)
             case "shelve":
                 if q.own and record is not None:
                     record["moved_on"] = True  # asked twice: its card says it's kept for later

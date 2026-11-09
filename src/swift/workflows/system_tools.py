@@ -6,7 +6,8 @@ can then do the system part with this tool.
 
 **Only what the owner asked for.** The phrase the agent passes is parsed with the same grammar
 as the lane, and each intent must also be found, with the same details, in a clause of the
-owner's own request (``RunScope.said``). So a web page, a file or the model itself can never
+owner's own request (``RunScope.said``) or of their own answer to one of the run's questions
+(``RunScope.answers``: said or typed, never a click on an option the run wrote, never a bare yes). So a web page, a file or the model itself can never
 lock the PC, switch off Wi-Fi or open a search the owner didn't ask for: the tool answers
 "not asked for" and does nothing.
 
@@ -22,6 +23,8 @@ import re
 import uuid
 from typing import Any
 
+from loguru import logger
+
 from swift.connectors.base import ConnectorError
 from swift.security.gateway import Action
 from swift.system import intents as it
@@ -36,8 +39,33 @@ _CLAUSE = re.compile(
 _SENTENCE = re.compile(r"(?<=[.!?;])\s+")
 
 
-def owner_intents(said: str) -> list[it.Intent]:
-    """Every system intent in the owner's own words, clause by clause."""
+def owner_intents(said: str, answers: list[str] | tuple[str, ...] = ()) -> list[it.Intent]:
+    """Every system intent in the owner's own words, clause by clause: the request, and their answers
+    to the run's questions. A short answer ("I meant Wi-Fi") also stands in for one word of the
+    request, which speech recognition may have misheard ("turn off the wafer")."""
+    found = _intents(said)
+    for answer in answers:
+        found += _intents(answer)
+        short = _LEAD.sub("", it.normalize(answer)).strip()
+        if not short or len(short.split()) > MAX_STAND_IN or _NOT.search(short):
+            continue  # "not Bluetooth" never stands in for anything
+        for sentence in _SENTENCE.split(said):
+            for clause in _CLAUSE.split(it.normalize(sentence)):
+                words = clause.split()
+                for i in range(len(words)):
+                    if (one := it.parse_one(" ".join([*words[:i], short, *words[i + 1:]]))) is not None:
+                        found.append(one)
+    return found
+
+
+# What may lead an answer that names the thing meant: "no, I meant Wi-Fi", "Swift, the Wi-Fi".
+_LEAD = re.compile(r"^(?:(?:hey|ok|okay|swift|no|nope|sorry|actually|i|meant|mean|said|it's|its|it|is|the|my)\s+)+")
+_NOT = re.compile(r"\b(?:not|don't|dont|never|no)\b")
+# An answer longer than this is a request of its own, read whole, never put inside another.
+MAX_STAND_IN = 3
+
+
+def _intents(said: str) -> list[it.Intent]:
     whole = it.parse(said)
     if whole is not None:
         return whole
@@ -67,8 +95,10 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if any(it.missing(i) for i in wanted):
         return ToolResult(False, "That needs a detail first (how long, or when). Ask the owner with ask_owner, then "
                                  "pass the whole action (\"set a timer for 10 minutes\"). Nothing was done.", expected=True)
-    asked = owner_intents(scope.said)
+    asked = owner_intents(scope.said, scope.answers)
     missing = [i for i in wanted if not any(_same(i, a) for a in asked)]
+    if not missing and any(not any(_same(i, a) for a in owner_intents(scope.said)) for i in wanted):
+        logger.info("system action asked for in an answer")  # owner check 201: only the answer named it
     if missing:
         return ToolResult(False, "The owner didn't ask for that in this request, so Swift didn't do it. "
                                  "Only system actions the owner asked for in their own words can be done.", expected=True)

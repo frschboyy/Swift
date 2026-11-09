@@ -504,6 +504,8 @@ async def ask_owner(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> To
                           "list. Don't guess. End your turn by asking it in one short sentence.",
                           {"answered": False}, expected=True)
     data = answer.for_run()
+    if answer.said:
+        scope.answers.append(answer.said)
     if not data.get("answered"):
         return ToolResult(False, str(data.get("reason") or "No answer."), data, expected=True)
     return ToolResult(True, "The owner answered.", data)

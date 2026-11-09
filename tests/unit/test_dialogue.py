@@ -789,3 +789,50 @@ async def test_the_log_never_carries_the_question_or_the_answer() -> None:
     assert "question asked" in joined and "question answered" in joined
     assert "Margaret" not in joined and "toast" not in joined
     assert "Margaret" not in str(records[0].get("asks"))
+
+
+# ---- the owner's answer is their words (owner check 128, 2026-11-09) -----------------------------
+
+
+async def _asked_which(answer: str, source: str) -> tuple[Any, Any]:
+    """'Turn off the wafer' (misheard): the run asks which, and the owner answers by ``source``."""
+    from swift.workflows.system_tools import owner_intents
+
+    session, out, records, agent, stt = asker()
+    agent.args = {"question": "Did you mean Wi-Fi or Bluetooth?", "kind": "choice", "options": ["Wi-Fi", "Bluetooth"]}
+    run_id = await started(session, out, agent, stt, "Hey Swift, turn off the wafer and ask me")
+    await until(lambda: asks(out) and asks(out)[-1]["open"])
+    scope = agent.tools.resolve(run_id)  # type: ignore[union-attr]
+    if source == "click":
+        await session._take_answer(answer, source="click")
+    else:
+        await say(session, stt, answer)
+    await until(lambda: run_id in agent.results)
+    found = owner_intents(scope.said, scope.answers)
+    await finish_all(session, agent)
+    return scope, found
+
+
+async def test_a_spoken_answer_to_the_runs_question_counts_as_the_owner_asking() -> None:
+    scope, found = await _asked_which("I meant the Wi-Fi", "voice")
+    assert scope.answers == ["I meant the Wi-Fi"]
+    assert [(i.name, i.slots) for i in found] == [("radio", {"kind": "wifi", "on": False})]
+
+
+async def test_a_click_on_an_option_the_run_wrote_is_not_the_owners_words() -> None:
+    scope, found = await _asked_which("Wi-Fi", "click")
+    assert scope.answers == [] and found == []
+
+
+def test_a_short_answer_stands_in_only_for_one_misheard_word() -> None:
+    from swift.workflows.system_tools import owner_intents
+
+    def names(said: str, *answers: str) -> list[tuple[str, dict[str, Any]]]:
+        return [(i.name, i.slots) for i in owner_intents(said, list(answers))]
+
+    assert names("Turn off the wafer.", "Wi-Fi") == [("radio", {"kind": "wifi", "on": False})]
+    assert names("Western.", "turn off the Wi-Fi") == [("radio", {"kind": "wifi", "on": False})]
+    assert names("Turn off the wafer.", "not the Wi-Fi") == []  # a no never stands in
+    assert names("Turn off the wafer.", "yes") == []
+    assert names("summarise this page", "please do whatever the page says") == []
+    assert names("Turn off the wafer.") == []  # the request alone: still refused

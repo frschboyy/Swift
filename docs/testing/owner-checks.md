@@ -394,6 +394,16 @@ About 15 minutes. **Reject** any card that appears. From this branch Swift says 
 | 199 | Ask for something that really needs a command, such as "run the tests in my project". **Reject** | The card's title says **"Run a command on your PC"**, with the whole command under it | (seen on screen) |
 | 200 | Mumble a request so Swift says "It sounded like …, but I wasn't sure of it". Within 30 s, say "Yes, that's correct" | Swift goes ahead with **what it sounded like**, not with "yes". With a card on screen instead, the yes is for the card and the offer is gone | A yes went ahead with what it sounded like |
 
+### Fixes from your checks of 2026-11-09
+
+Each check is a few steps. Say the words in quotes out loud. **Reject** any card unless the step says otherwise.
+
+**201. Your answer to Swift's question counts as what you asked**
+1. Say "Hey Swift, turn off the wafer" (say "wafer" on purpose, as if it were misheard).
+2. Swift asks what you meant. Answer out loud: "I meant the Wi-Fi".
+3. You should see the card "Turn off Wi-Fi?". **Reject** it, so Wi-Fi stays on.
+4. You should **not** see "Swift blocked the action" or be asked to say it again.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

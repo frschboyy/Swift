@@ -115,6 +115,9 @@ class Answer:
     named: bool = False
     # elsewhere: said with "never mind" first, so the question is dropped, not only set aside.
     dropped: bool = False
+    # The owner's own words for this answer, said or typed (never a click on an option the run wrote,
+    # never a yes or no): ``system_action`` counts them as the owner asking (owner check 128, 2026-11-09).
+    said: str = ""
 
     def for_run(self) -> dict[str, Any]:
         """What ``ask_owner`` returns to the provider."""

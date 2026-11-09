@@ -86,6 +86,9 @@ class RunScope:
     done: list[tuple[str, str]] = field(default_factory=list)
     # The owner's own words for this request (the transcript): ``system_action`` does only what they asked.
     said: str = ""
+    # The owner's own answers to this run's questions (``Answer.said``): their words too, so "I meant
+    # Wi-Fi" after "turn off the wafer" asks for Wi-Fi. Nothing a worker read or wrote gets in here.
+    answers: list[str] = field(default_factory=list)
     # How a tool asks the owner something mid-run (``ask_owner``, ``find_contact``); None: it can't.
     ask_fn: Asker | None = None
 

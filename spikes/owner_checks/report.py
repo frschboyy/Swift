@@ -521,6 +521,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("198 the stack kept its corner", LOOK, "check on screen: all six positions, and no drag"),
         ("199 a command's card said what it is", LOOK, "check on screen"),
         ("200 a yes to 'It sounded like …' went ahead with it", LOOK, "check on screen: not with the word 'yes'"),
+        # The checks of 2026-11-09.
+        ("201 your answer to Swift's question counted as what you asked",
+         seen(sum("system action asked for in an answer" in line for line in log)),
+         f"{sum('system action asked for in an answer' in line for line in log)} time(s)"),
     ]
 
 

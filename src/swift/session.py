@@ -2949,7 +2949,6 @@ class Session:
             record["status"] = "cancelled"
             if self._active is not None:
                 self._last_exchange = None
-            if self._active is not None:
                 active_executor, run_id = self._active
                 await active_executor.cancel(run_id)
                 said = PAUSED_HINT if record.get("paused") else "Cancelled."

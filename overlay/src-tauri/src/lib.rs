@@ -381,6 +381,19 @@ async fn reveal(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Swift heard its name, or a card or question came: the overlay and its panes go on top again
+/// where they are, without moving or taking focus. A hotkey raises it by placing it; "Hey Swift"
+/// had nothing, so another topmost window could cover it (owner checks, 2026-11-09).
+#[tauri::command]
+async fn raise(app: AppHandle) -> Result<(), String> {
+    let main = app.get_webview_window("overlay").ok_or("no overlay window")?;
+    win::reshow(main.hwnd().map_err(|e| e.to_string())?.0 as isize);
+    for (hwnd, _) in app.state::<Panes>().0.lock().unwrap().values() {
+        win::reshow(*hwnd);
+    }
+    Ok(())
+}
+
 /// The work area and scale of the monitor under a point (physical px), or the primary one.
 fn area_at(window: &WebviewWindow, point: Option<(i32, i32)>) -> Option<(placement::Area, f64)> {
     let monitor = point
@@ -826,6 +839,7 @@ pub fn run() {
             begin_drag,
             get_placement,
             reveal,
+            raise,
             open_pane,
             close_pane,
             fit_pane,

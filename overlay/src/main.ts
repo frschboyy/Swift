@@ -42,6 +42,7 @@ import * as H from "./heard";
 import * as L from "./live";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
+import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { followTheme } from "./theme";
 import * as V from "./views";
@@ -1984,6 +1985,7 @@ function onEscape(): void {
 // ---- backend messages ----------------------------------------------------------
 
 function onMessage(msg: Inbound): void {
+  if (wantsRaise(msg)) void invoke("raise").catch(() => {});  // on top again, where it is
   if (msg.type !== "level") recent.push(`${msg.type}${"state" in msg.data ? `:${msg.data.state}` : ""}`), recent.splice(0, recent.length - 30);
   switch (msg.type) {
     case "hello.ok":

@@ -344,6 +344,8 @@ def _resolve_kind(question: Question, said: str, raw: str) -> Answer:
             return Answer("no")
         if (m := _YES.match(said)) is not None:
             rest = said[m.end():].strip(" ,")
+            if _ASKING.match(rest):
+                return Answer("unclear")  # "sure, what's the weather": a question of its own, never a yes
             if len(rest.split()) > 4 and not _restates(question, rest):
                 return Answer("unclear")  # "okay, what's the weather like there": not a yes
             return Answer("yes", rest=rest)

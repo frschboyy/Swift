@@ -918,3 +918,12 @@ def test_one_minute_is_still_an_answer_to_how_long() -> None:
     assert resolve(q, "okay, one minute").value == 60
     assert resolve(Question("Which one?", "choice", ("Paris", "Rome")), "no, open Spotify",
                    is_request=lambda _s: True).kind == "elsewhere"
+
+
+@pytest.mark.parametrize("said", ["sure, what's the weather", "yes, is it raining", "okay, what time is it"])
+def test_a_yes_followed_by_a_question_never_turns_the_wifi_off(said: str) -> None:
+    # Review of 021ca25 (from before it): a short question after "sure" was a yes to "Turn off Wi-Fi?".
+    from swift.dialogue import Question, resolve
+
+    answer = resolve(Question("Turn off Wi-Fi?", "yes_no"), said, is_request=lambda _s: True)
+    assert answer.kind == "elsewhere"  # it goes beside; the question waits

@@ -525,6 +525,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("201 your answer to Swift's question counted as what you asked",
          seen(sum("system action asked for in an answer" in line for line in log)),
          f"{sum('system action asked for in an answer' in line for line in log)} time(s)"),
+        ("202 airplane mode said what it really did", LOOK,
+         "check on screen: 'Turn off Wi-Fi and Bluetooth instead?', then which radios are off"),
     ]
 
 

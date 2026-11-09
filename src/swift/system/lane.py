@@ -78,6 +78,9 @@ def plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
+# Swift's question for "turn on airplane mode": what it will really do (owner check, 2026-11-09).
+AIRPLANE_QUESTION = "I can't switch airplane mode itself. Turn off Wi-Fi and Bluetooth instead?"
+
 class SystemLane:
     def __init__(
         self,
@@ -171,7 +174,10 @@ class SystemLane:
         2026-11-04: the explanation was said first and got in the way)."""
         names = {i.name: i for i in found}
         if "airplane" in names:
-            return "Turn on airplane mode?", "Wi-Fi and Bluetooth go off; Swift needs the internet for most requests."
+            # Windows has no supported way for an app to switch airplane mode itself: say so before, not after
+            # (owner check, 2026-11-09: "yes" turned the radios off and it was reported as airplane mode).
+            return (AIRPLANE_QUESTION,
+                    "Windows doesn't let apps switch airplane mode itself. Swift needs the internet for most requests.")
         radio = next(i for i in found if it.disruptive(i))
         if radio["kind"] == "wifi":
             return "Turn off Wi-Fi?", "Swift needs the internet for most requests: only quick commands until it's back."
@@ -471,6 +477,8 @@ class SystemLane:
         if state[kind] == on:
             return f"{name} is already {'on' if on else 'off'}.", None
         await self.control.set_radio(kind, on)
+        if (await self.control.radios()).get(kind) != on:
+            return f"{name} didn't switch {'on' if on else 'off'}: it's still {'off' if on else 'on'}.", None
 
         async def undo() -> str:
             await self.control.set_radio(kind, not on)
@@ -485,7 +493,8 @@ class SystemLane:
         return f"{name} is {'on' if state[i['kind']] else 'off'}.", None
 
     async def _airplane(self, i: it.Intent) -> tuple[str, Undo | None]:
-        """Windows' own airplane switch has no API for apps: this switches every radio instead, and says so."""
+        """Windows' own airplane switch has no supported API for apps: this switches every radio instead,
+        reads them back, and says what actually happened, never "airplane mode" (owner check, 2026-11-09)."""
         before = await self.control.radios()
         if not before:
             return "This PC has no radios to switch.", None
@@ -493,16 +502,28 @@ class SystemLane:
         changed = [k for k, v in before.items() if v != want]
         for kind in changed:
             await self.control.set_radio(kind, want)
+        after = await self.control.radios()
+        verb = "on" if want else "off"
         names = " and ".join(self._radio_name(k) for k in before)
-        if not changed:
-            return f"{names} {'are' if len(before) > 1 else 'is'} already {'on' if want else 'off'}.", None
+        stuck = [k for k in before if after.get(k) != want]
+        moved = [k for k in changed if k not in stuck]
 
         async def undo() -> str:
-            for kind in changed:
+            for kind in moved:
                 await self.control.set_radio(kind, before[kind])
             return "Radios back as they were."
-        verb = "on" if want else "off"
-        return f"{names} {'are' if len(before) > 1 else 'is'} {verb}" + (" (airplane mode)." if not want else "."), undo
+        if stuck:
+            done = " and ".join(self._radio_name(k) for k in moved)
+            left = " and ".join(self._radio_name(k) for k in stuck)
+            said = (f"{done} {'is' if len(moved) == 1 else 'are'} {verb}, but " if moved else "") + (
+                f"{left} didn't switch {verb}.")
+            if want:
+                said += " Windows' airplane mode may be on: its switch is in quick settings."
+            return said, (undo if moved else None)
+        if not changed:
+            return f"{names} {'are' if len(before) > 1 else 'is'} already {verb}.", None
+        tail = " Windows' own airplane mode switch is unchanged." if not want else ""
+        return f"{names} {'are' if len(before) > 1 else 'is'} {verb}.{tail}", undo
 
     async def _dnd(self, i: it.Intent) -> tuple[str, Undo | None]:
         # Do Not Disturb lives in Windows' private settings store: no supported way for an app to switch it.

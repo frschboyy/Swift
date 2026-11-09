@@ -404,6 +404,14 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
 3. You should see the card "Turn off Wi-Fi?". **Reject** it, so Wi-Fi stays on.
 4. You should **not** see "Swift blocked the action" or be asked to say it again.
 
+**202. Airplane mode says what it really does**
+1. Make sure nothing important needs the internet for a minute.
+2. Say "Hey Swift, turn on airplane mode".
+3. You should see the question "I can't switch airplane mode itself. Turn off Wi-Fi and Bluetooth instead?".
+4. Say "yes". You should see "Wi-Fi and Bluetooth are off. Windows' own airplane mode switch is unchanged."
+   If a radio refused, the card says which one, instead of claiming it's done.
+5. Say "Hey Swift, turn it back on" to get Wi-Fi and Bluetooth back.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

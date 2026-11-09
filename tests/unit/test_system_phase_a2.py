@@ -61,7 +61,8 @@ async def test_airplane_mode_switches_every_radio_and_says_so() -> None:
     l, dev, _ = lane()
     out = await l.run("turn on airplane mode")
     assert out is not None and out.pending
-    assert (await l.confirmed(out.pending)).said == "Wi-Fi and Bluetooth are off (airplane mode)."
+    assert out.said.endswith("Turn off Wi-Fi and Bluetooth instead?")  # never promised as airplane mode
+    assert (await l.confirmed(out.pending)).said == "Wi-Fi and Bluetooth are off. Windows' own airplane mode switch is unchanged."
     assert dev.radio_state == {"wifi": False, "bluetooth": False}
     assert await l.undo() == "Radios back as they were." and dev.radio_state == {"wifi": True, "bluetooth": True}
 
@@ -198,3 +199,21 @@ def test_report_lanes_and_runs_that_could_be_local() -> None:
     assert report.could_be_local(rows) == [
         ("now local", "set a timer for 10 minutes"), ("partly system", "turn the volume down and write a haiku"),
     ]
+
+
+async def test_a_radio_that_didnt_switch_is_reported_not_claimed() -> None:
+    # Owner check, 2026-11-09: success was reported without looking. Now the radios are read back.
+    l, dev, _ = lane()
+
+    async def stuck(kind: str, on: bool) -> None:
+        dev.calls.append(("set_radio", (kind, on)))
+        if kind == "wifi":
+            dev.radio_state["wifi"] = on  # Bluetooth refuses (a driver, or Windows' own airplane mode)
+
+    dev.set_radio = stuck  # type: ignore[method-assign]
+    out = await l.run("turn on airplane mode")
+    assert out is not None
+    said = (await l.confirmed(out.pending)).said
+    assert said == "Wi-Fi is off, but Bluetooth didn't switch off."
+    dev.radio_state["bluetooth"] = False
+    assert await say(l, "turn on bluetooth") == "Bluetooth didn't switch on: it's still off."

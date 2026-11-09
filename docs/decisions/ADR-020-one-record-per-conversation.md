@@ -1,7 +1,7 @@
 # ADR-020: One record per conversation, so Swift keeps track of what you meant
 
-- **Status:** Draft, for the owner to decide (2026-11-10). Nothing here is built.
-- **Decided by:** Owner (pending)
+- **Status:** Accepted (2026-11-10): the owner took the recommendations (§6). Step 1 of §5 is being built on `claude/owner-check-fixes-08ab4a`.
+- **Decided by:** Owner
 - **Date:** 2026-11-10
 - **From:** the owner checks of 2026-11-09 (21:55–23:01), the fixes on `claude/owner-check-fixes-08ab4a`, and an outside review of those fixes the owner asked for.
 - **Touches:** ADR-014 (the stack), ADR-016 §5 (Swift asks, you answer), ADR-018 (the Deck). Product rules in `CLAUDE.md` are kept as they are.
@@ -101,10 +101,12 @@ No behaviour change; make the record exist and be the one owner of the owner's w
 
 Then, one at a time: the open question claims first and resolves by slot (replacing the word swap and the "yes … hold on" rule); backend-owned recovery (replacing the prompt text); record states on the overlay.
 
-## 6. Decisions for the owner
+## 6. Decisions (the owner, 2026-11-10: "go ahead with your recommendations")
 
-1. A, B or C (or A then B, as recommended)?
-2. A dedicated wake-word model: try one (a new dependency), or keep speech-to-text matching?
-3. "Turn on the wafer" → "Wi-Fi": should an answer heard on the open microphone be able to switch a radio **on**? Today it can't, so a TV can't turn Bluetooth on. The alternative is a card for it.
-4. A question brought back into view: a whole new countdown (today, as for cards and check 141), or only the time it had left?
-5. Merge the branch's fixes after the real-PC checks 201–211, or hold them until A's first step?
+1. **A, then B** where the grammar fails, with the record underneath so a model interprets but never authorizes.
+2. **Try a dedicated wake-word model.** A new dependency, approved to be tried: scored on the owner's saved clips
+   (misses and false wakes) before it replaces anything, and kept only if it beats speech-to-text matching on both.
+3. **An answer on the open microphone can't switch a radio on** (kept as built): a TV can't turn Bluetooth on.
+   "Turn on the Wi-Fi" said as a request still works.
+4. **A question back in view gets a whole countdown** (kept as built), as cards and check 141 do.
+5. **Merge after the real-PC checks 201–211 pass,** with step 1 of §5 included if it is kept (it must remove more than it adds).

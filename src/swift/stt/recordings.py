@@ -39,6 +39,8 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
+from swift.audio.recorder import save_wav
+
 SAMPLE_RATE = 16_000
 FLAGS = ("unsure", "say_again", "repeated", "missed_wake", "failed")
 INDEX = "index.json"
@@ -82,16 +84,6 @@ def same_request(a: str, b: str) -> bool:
     if not wa or not wb:
         return False
     return len(wa & wb) / min(len(wa), len(wb)) >= SAME_WORDS
-
-
-def save_wav(path: Path, audio: np.ndarray) -> None:
-    """16 kHz mono int16, as the recorder delivers it."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(path), "wb") as f:
-        f.setnchannels(1)
-        f.setsampwidth(2)
-        f.setframerate(SAMPLE_RATE)
-        f.writeframes(np.asarray(audio).astype(np.int16).tobytes())
 
 
 def read_wav(path: Path) -> np.ndarray:

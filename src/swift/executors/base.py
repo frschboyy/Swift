@@ -19,12 +19,12 @@ vocabulary), so the session and the overlay never need provider-specific code.
 
 from __future__ import annotations
 
-import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, get_args
 
 from swift.failures import Failure
+from swift.ipc.protocol import now_ms
 
 # "live": what the live view shows (``data``): a source found or read, a note (ADR-017 §7).
 EventType = Literal["step", "confirm", "log", "live"]
@@ -63,10 +63,6 @@ class ProviderInfo:
 
 
 SWIFT = ProviderInfo("swift", "Swift", is_swift=True)
-
-
-def now_ms() -> int:
-    return int(time.time() * 1000)
 
 
 @dataclass(frozen=True)

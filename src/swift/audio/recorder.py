@@ -63,7 +63,7 @@ def save_wav(path: Path, audio: np.ndarray) -> None:
         f.setnchannels(1)
         f.setsampwidth(2)
         f.setframerate(SAMPLE_RATE)
-        f.writeframes(audio.astype(np.int16).tobytes())
+        f.writeframes(np.asarray(audio).astype(np.int16).tobytes())
 
 
 def warm_up() -> None:

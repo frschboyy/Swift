@@ -163,7 +163,7 @@ from swift.executors.quick import QuickModel
 from swift.failures import Failure, Severity, classify, failure_text
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.logging_setup import redact
-from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads
+from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads, _clip
 from swift.routing import Route, fast
 from swift.routing import route as default_router
 from swift.routing.demand import estimate
@@ -504,11 +504,6 @@ def lane_needs(decision: Route) -> frozenset[str]:
 def _is_retry(text: str, activity: str | None) -> bool:
     """A step that says the provider is retrying a call to its service ("Connection hiccup, retrying…")."""
     return activity == "waiting" and "retrying" in text.lower()
-
-
-def _clip(text: str, limit: int) -> str:
-    text = " ".join(text.split())
-    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
 def _name_words(text: str) -> set[str]:

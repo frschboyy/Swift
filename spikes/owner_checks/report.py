@@ -536,6 +536,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          "check on screen: the old item left the stack when the new card came"),
         ("206 waiting for your answer never said 'Working on it'", LOOK,
          "check on screen: 'Waiting for your answer' on the edge or the pill"),
+        ("207 the stack opened and closed in its corner", LOOK, "check on screen: three times, same corner"),
     ]
 
 

@@ -159,6 +159,14 @@ pub fn web_link(url: &str) -> Option<&str> {
     ok.then_some(url)
 }
 
+/// Where a pane that grows upwards goes for `size`: its bottom edge stays at `bottom`, the one it was
+/// opened with, whatever its size was in between. Taken from the window's current rect instead, a
+/// clamp at the top or two fits racing each other moved the bottom edge, so the stack crept up the
+/// screen each time it opened (owner check, 2026-11-09: middle-left, then top-left).
+pub fn grown_up(area: Area, x: i32, bottom: i32, size: (i32, i32)) -> (i32, i32) {
+    clamp(area, (x, bottom - size.1), size)
+}
+
 /// The reader's height at most: 70 % of the work area.
 pub fn max_height(area: Area) -> i32 {
     (area.h as f64 * 0.7).round() as i32
@@ -207,6 +215,19 @@ mod tests {
         let (x, y) = remembered_origin(small, 1.0, (0.99, 0.99), 0, READER);
         assert!(x >= small.x && x + READER.0 <= small.x + small.w as i32);
         assert!(y >= small.y && y + READER.1 <= small.y + small.h as i32);
+    }
+
+    #[test]
+    fn the_stack_keeps_its_bottom_edge_however_often_it_opens() {
+        let bottom = FHD.y + FHD.h as i32 - 16;
+        let closed = (300, 60);
+        let first = grown_up(FHD, 16, bottom, closed);
+        for _ in 0..3 {
+            let open = grown_up(FHD, 16, bottom, (300, 2000));  // more than fits: clamped at the top
+            assert_eq!(open.1, FHD.y);
+            assert_eq!(grown_up(FHD, 16, bottom, closed), first, "closed again, it must be where it was");
+        }
+        assert_eq!(first.1 + closed.1, bottom);
     }
 
     #[test]

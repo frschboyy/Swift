@@ -440,6 +440,13 @@ Each check is a few steps. Say the words in quotes out loud. **Reject** any card
    small pill at the corner should say **"Waiting for your answer"**, not "Working on it".
 5. Let the Wi-Fi question run out (Wi-Fi stays on).
 
+**207. The stack stays in its corner when you open it**
+1. Get four or more things into the stack: say "Hey Swift, turn off the Wi-Fi" and let it run out, then the same with
+   "turn off Bluetooth", "set a timer" and "turn on airplane mode".
+2. Click the stack to open it, then close it. Do this three times.
+3. Each time, the stack should open **upwards from the same corner**, and close back to the **same place**.
+   It should never end up in the middle or at the top of the screen.
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

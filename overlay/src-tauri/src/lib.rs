@@ -47,6 +47,10 @@ struct Overlay {
 #[derive(Default)]
 struct Panes(Mutex<HashMap<String, (isize, PaneKind)>>);
 
+/// The bottom edge each pane that grows upwards (the stack) was opened with, physical px.
+#[derive(Default)]
+struct Bottoms(Mutex<HashMap<String, i32>>);
+
 /// When this process started, for the startup-time measurement.
 struct Started(Instant);
 
@@ -468,6 +472,9 @@ async fn open_pane(
         eprintln!("warning: pane {label}: capture exclusion failed");
     }
     win::place(hwnd, x, y, size.0, size.1);
+    if kind.grows_up() {
+        app.state::<Bottoms>().0.lock().unwrap().insert(label.clone(), y + size.1);
+    }
     app.state::<Panes>().0.lock().unwrap().insert(label, (hwnd, kind));
     if typing {
         // Opened by a hotkey or the tray menu, so Windows lets Swift take the foreground.
@@ -479,6 +486,7 @@ async fn open_pane(
 #[tauri::command]
 async fn close_pane(app: AppHandle, label: String) -> Result<(), String> {
     app.state::<Panes>().0.lock().unwrap().remove(&label);
+    app.state::<Bottoms>().0.lock().unwrap().remove(&label);
     if let Some(window) = app.get_webview_window(&label) {
         window.destroy().map_err(|e| e.to_string())?;
     }
@@ -496,11 +504,15 @@ async fn fit_pane(app: AppHandle, label: String, w: f64, h: f64) -> Result<(), S
     let (area, scale) = area_at(&window, Some((x, y))).ok_or("no monitor")?;
     let size = ((w.max(40.0) * scale).round() as i32, ((h.max(24.0) * scale).round() as i32).min(panes::max_height(area)));
     let kind = app.state::<Panes>().0.lock().unwrap().get(&label).map(|(_, k)| *k);
-    // The stack keeps its bottom edge where it is: expanded, it grows upwards.
+    // The stack keeps the bottom edge it was opened with: expanded, it grows upwards.
     let (_, _, _, old_h) = win::window_rect(hwnd).unwrap_or((x, y, 0, size.1));
-    let y = if kind.is_some_and(PaneKind::grows_up) { y + old_h - size.1 } else { y };
+    let bottom = app.state::<Bottoms>().0.lock().unwrap().get(&label).copied();
     win::set_size(hwnd, size.0, size.1);
-    let (cx, cy) = panes::clamp(area, (x, y), size);
+    let (cx, cy) = if kind.is_some_and(PaneKind::grows_up) {
+        panes::grown_up(area, x, bottom.unwrap_or(y + old_h), size)
+    } else {
+        panes::clamp(area, (x, y), size)
+    };
     if (cx, cy) != win::window_rect(hwnd).map(|r| (r.0, r.1)).unwrap_or((x, y)) {
         win::move_to(hwnd, cx, cy);
     }
@@ -823,6 +835,7 @@ pub fn run() {
         .manage(shared_hit.clone())
         .manage(Hotkeys::default())
         .manage(Panes::default())
+        .manage(Bottoms::default())
         .manage(Placement(Mutex::new({
             let prefs = prefs::load();
             PlacementState { prefs, current: prefs.anchor, ..Default::default() }

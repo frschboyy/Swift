@@ -1,13 +1,196 @@
 # Wake-word model trial (2026-11-10)
 
 ADR-020, the owner's decision 2: try a dedicated wake-word model and score it on the owner's saved clips
-(misses and false wakes) before it replaces anything. This page is that trial.
+(misses and false wakes) before it replaces anything. This page is that trial, in two rounds. Round 2
+(below) scores a two-stage wake, the way phone assistants do it. Round 1 (further down) is the morning's
+openWakeWord head.
 
-**Result: don't switch.** The candidate, openWakeWord with a "hey swift" head trained on this PC,
-catches most misses but false-wakes 70 to 500 times an hour. Today's matching false-woke 0 times in the
-same 31 minutes. Nothing is wired into `src/swift`.
+**Result of round 2: don't switch yet.** As labelled, no path beats today's on both misses and false wakes.
+The closest is ViolaWake (threshold 0.5) followed by a Parakeet check of the window it fired on: 16.7%
+misses against today's 19.0%, and 20 of the 27 live misses caught against 8. But it makes 2 false wakes
+in 31 minutes (3.9 an hour) where today's path makes none. In both of those clips Parakeet hears "Hey
+Swift" inside a clip labelled negative, so they may be labelling errors. If the owner's ear says they are,
+this path beats today's on both counts. None of the two-stage paths catches the 5 calm office takes:
+stage 1 hears them, stage 2 throws them out. Nothing is wired into `src/swift`.
 
-## Method
+## Round 2: a two-stage wake (afternoon)
+
+### What was tried, and what was dropped
+
+| Engine | Licence | Upkeep | Verdict |
+|---|---|---|---|
+| Picovoice Porcupine, current | Paid. The free tier ended 2026-06-30, replaced by a 7-day trial "for product teams"; third-party listings put the cheapest plan at about $6,000 a year. The AccessKey is checked online. | Active | Dropped: no free personal use |
+| Porcupine 1.9.5 (2021, legacy) | Apache-2.0 (its package LICENSE). No AccessKey, nothing online. | Unmaintained since 2021 | Scored with its built-in "jarvis" only. It can't be given "Hey Swift": custom keywords come from the Console, which as far as I could tell makes keywords for current versions only (not tested: it needs an account). |
+| openWakeWord 0.6.0 | Code Apache-2.0. Its own ready-made models are CC BY-NC-SA 4.0 (non-commercial, fine for personal use). A model trained here is the owner's. | Last commit 2025-12-30 | Trained with its full recipe |
+| ViolaWake 0.2.10 | Apache-2.0 | Active but young: created 2026-03, one maintainer, 9 stars | Trained, with its online TTS switched off (see below) |
+| LiveKit WakeWord 2.x | Apache-2.0 | Active (last commit 2026-11-06) | Skipped at the owner's request: training needs a LiveKit Cloud account for its TTS |
+| Mycroft Precise | Apache-2.0 | Last commit 2023-11; Mycroft AI wound down | Dropped as dead |
+
+### How the two models were trained (all on this PC)
+
+- **Positives:** 5,000 + 1,000 synthetic "Hey Swift" clips from Piper's `en_US-libritts_r-medium` voice
+  (904 speakers, CC BY 4.0), with varied speed and noise. `spikes/wake/piper_samples.py` stands in for
+  openWakeWord's Linux-only generator.
+- **openWakeWord, full recipe** (`train.py` as published, run through `spikes/wake/oww_train_windows.py`
+  for two Windows-only fixes):
+  - Near-misses: 5,000 + 1,000 Piper clips of phoneme-overlap phrases, plus "hey steve", "hey shift",
+    "they sift", "Taylor Swift" and others.
+  - Negatives: its usual 2,000 hours of precomputed ACAV100M features (17 GB).
+  - Augmentation: the MIT room echoes (270), 1,000 AudioSet clips (2.8 h) and 300 clips of Piper office
+    babble.
+  - False-wake validation: its 11-hour set.
+  - Training: 20,000 steps, about 45 minutes on the CPU.
+  - Left out of the recipe: the 1 h of FMA music (AudioSet already has music).
+- **ViolaWake** (`--no-auto-corpus`, run through `spikes/wake/viola_train_offline.py`):
+  - Same positives.
+  - Negatives: the 5,000 near-misses, 1,500 Piper speech clips, the 300 babble clips and the AudioSet clips.
+  - Training: about 21 minutes.
+  - It has no large negative set like openWakeWord's 2,000 hours, and it found no shared corpus of its own.
+  - By default its trainer makes speech with Edge TTS, an online service. Even with `--no-auto-corpus`,
+    its quality gate still does, and it won't save a model without passing the gate. The runner skips the
+    gate and blocks the online call. The first run reached the gate and was stopped. It may have sent its
+    stock check phrases (text only, never audio) before that.
+
+None of the owner's clips were used for training, so every score below is on unseen audio.
+
+**Stage 2** (`wake_bench.py stage2`) runs only when stage 1 fires:
+- Parakeet (with the owner's word fixes) transcribes three windows: 1.2 s and 1.6 s ending 0.3 s after
+  the detection, and 2.0 s ending 1.0 s after it.
+- A lenient check passes if any window has a greeting-like word followed by "swift"/"swiftly" ("He
+  swift", "Eat swift", "Very swift"), or a word or prefix before a "…wift" word at the start ("Exwift",
+  "He dwifts", "Pretty swift"), or today's loose match.
+- The bare name ("Swift.", "Swift, yes") doesn't pass: it's a known hard negative.
+
+Windowing matters. Over the whole 4 s calm takes, which include office voices, Parakeet writes nothing
+like the name ("He drifted", "He's left in my chat"). On windows centred on the loudest point, 3 of the 5
+come out as "He's swift", "Exwift" and "Pretty swift" / "Hey Swift". A cut 0.2 s off flips them back.
+
+### The set
+
+- **Positives:** the same clips as round 1, plus the owner's 5 calm office takes: 168 in all.
+- **Live misses:** labelled by the owner's ear (`miss_labels.json`), giving 27 positives, not round 1's
+  30.
+- **Negatives:** 370 clips (31.1 min), skipping the same 10 clips that open with "Hey Swift".
+
+### Numbers
+
+Misses are over the 168 positives. "Live misses caught" is of the 27 the owner labelled; "calm takes" is
+of the 5. False wakes are per hour of the 31.1 minutes of negatives. One false wake there is 1.9 an hour,
+so this set can't tell 0.5 an hour from 1.9.
+
+| Path | Misses | Live misses caught | Calm takes | False wakes / h |
+|---|---|---|---|---|
+| **Today: Parakeet + `match_wake` loose** | **32 (19.0%)** | **8 / 27** | **0 / 5** | **0** |
+| Parakeet + `match_wake` strict | 43 (25.6%) | 0 / 27 | 0 / 5 | 0 |
+| Parakeet + the lenient check alone (no stage 1) | 20 (11.9%) | 16 / 27 | 0 / 5 | 1.9 * |
+| ViolaWake th 0.5, alone | 9 (5.4%) | 26 / 27 | 5 / 5 | 81 |
+| **ViolaWake th 0.5 → Parakeet lenient** | **28 (16.7%)** | **20 / 27** | **0 / 5** | **3.9 \*** |
+| ViolaWake th 0.8, alone | 39 (23.2%) | 19 / 27 | 2 / 5 | 11.6 |
+| ViolaWake th 0.8 → Parakeet lenient | 49 (29.2%) | 13 / 27 | 0 / 5 | 3.9 * |
+| ViolaWake th 0.95, alone | 102 (60.7%) | 9 / 27 | 0 / 5 | 1.9 |
+| openWakeWord full recipe th 0.1, alone | 24 (14.3%) | 20 / 27 | 1 / 5 | 13.5 |
+| **openWakeWord th 0.1 → Parakeet lenient** | **32 (19.0%)** | **16 / 27** | **0 / 5** | **3.9 \*** |
+| openWakeWord th 0.5, alone | 36 (21.4%) | 18 / 27 | 0 / 5 | 7.7 |
+| openWakeWord th 0.5 → Parakeet lenient | 43 (25.6%) | 13 / 27 | 0 / 5 | 3.9 * |
+| openWakeWord th 0.9, alone | 124 (73.8%) | 5 / 27 | 0 / 5 | 0 |
+| Porcupine 1.9 "jarvis", sensitivity 0.3–0.7 | not measurable † | — | — | 0 |
+| Porcupine 1.9 "jarvis", sensitivity 0.9 | not measurable † | — | — | 1.9 |
+
+\* The same 2 clips each time, both labelled negative, in which Parakeet hears "Hey Swift" on the window:
+- a hotkey dictation (`54360854…`), 55 s in;
+- the tail of a wake clip (`f45307e5…-tail`), 5 s after the first "Hey Swift" (a repeat).
+
+The lenient check alone flags only the first. If the owner's ear says both contain "Hey Swift", every
+starred row drops to 0 false wakes.
+
+† Every positive says "Hey Swift", so "jarvis" can't be scored for misses. That needs a few recorded "Jarvis"
+takes.
+
+**Latency after the name:**
+- **Today:** the utterance must end (0.8 s of silence), then Parakeet transcribes the whole clip (p50 1.1 s
+  here). That's about 1.5–2 s after "Swift".
+- **Two-stage:** stage 1 fires at about the end of the name. Stage 2 waits 0.3 s (or 1.0 s for its long
+  window), then Parakeet takes p50 0.30 / 0.36 / 0.43 s on the 1.2 / 1.6 / 2.0 s windows. That's about
+  0.6–1.4 s after "Swift".
+- **Caveat on the bench's "fires after the name ends" column:** it reads −1 to −1.6 s because "the name
+  ends" is taken from when Parakeet's next word starts, and a pause after "Hey Swift," pushes that later.
+  Where the request follows straight on, both models fire 0.1–0.3 s before that point.
+
+**CPU while listening** (this laptop):
+
+| Engine | CPU | Memory |
+|---|---|---|
+| Porcupine 1.9 | 1.3% of one core | 43 MB process |
+| openWakeWord | 10.7% of one core | +35 MB (process 210 MB) |
+| ViolaWake | 83% of one core in CPU time, measured alone | about 46 MB |
+
+ViolaWake's 83% is for 120 s of audio that took 16 s of wall time, so most of it is probably ONNX Runtime's
+thread pool spinning on tiny per-frame inferences. One thread per session would likely cut it a lot; that
+wasn't tried. Stage 2 adds Parakeet (already loaded for requests) only when stage 1 fires.
+
+### What this says
+
+1. **Stage 2 is the bottleneck for calm speech.** Both models hear the calm takes when they're sensitive
+   (ViolaWake at 0.5 catches all 5), but Parakeet's transcript of the window passes none of them. So the
+   two-stage design fixes misses where the name comes out roughly right ("Hey twift", "He swift"), not
+   where Parakeet can't make out the name at all.
+2. **openWakeWord's full recipe is far better than round 1's head:** 13.5 false wakes an hour at 14.3%
+   misses, against 510 an hour at 3.7%. Alone, it's still not good enough. As stage 1 at th 0.1 it ties
+   today's misses (19.0%), catches 16 live misses against 8, and adds the 2 starred clips.
+3. **ViolaWake hears more but is noisier alone** (81 an hour at 0.5). Behind stage 2 it's the best row.
+4. **The lenient text check alone** (no acoustic stage) does better than any two-stage row here: 11.9%
+   misses, 16 live misses caught, and one false wake, the first starred clip. The owner called a looser
+   text rule on its own superficial, and the risk is real. "A swift reply…" said to someone else would open
+   the microphone, and 31 minutes of negatives can't measure how often that happens.
+
+### Recommendation
+
+1. **Owner: listen to the two starred clips** (`54360854…` at 52–56 s, and `f45307e5…` from 3 s on).
+   - If both contain "Hey Swift": ViolaWake th 0.5 → Parakeet lenient beats today's path on both misses and
+     false wakes, as the rule requires. The next step is scoring it on hours of the owner's real room
+     (`record_negatives.py`), since 31 minutes can't measure false wakes below 2 an hour.
+   - If not: keep today's path.
+2. **Don't count on any of this for calm office speech.** That needs a stage 2 that isn't speech-to-text.
+   Apple's second stage is a larger acoustic model trained on the owner's own voice, which needs the
+   ~300-take positive corpus (`record_corpus.py`). Five takes is far too few to train or judge one.
+3. **"Jarvis" (Porcupine 1.9)** is cheap (1.3% CPU) and quiet (0 false wakes up to sensitivity 0.7) on
+   these clips. Its misses and responsiveness need about 30 recorded "Jarvis" takes. It's an unmaintained
+   2021 binary with a fixed word, so it's a comparison point, not a candidate.
+
+### Reproduce (round 2)
+
+All audio and models stay in a scratch folder outside git. `<oww>` holds the downloads, the generated
+clips and `hey_swift.yaml`. The envs are throwaway `uv run --with` envs: torch 2.5.1+cpu, openwakeword
+0.6.0, `violawake[training,oww]` 0.2.10, piper-tts 1.8.0, pvporcupine 1.9.5, and scipy 1.13.1 for
+`acoustics`.
+
+```bash
+uv run --frozen --group spikes python spikes/wake/wake_bench.py build --out <bench>
+uv run --frozen --group spikes python spikes/wake/wake_bench.py stt --out <bench>
+uv run --frozen --group spikes python spikes/wake/wake_bench.py align --out <bench> --labels <labels.json>
+# Detectors (each in its throwaway env)
+python spikes/wake/wake_bench.py porcupine --out <bench> --keyword jarvis          # with pvporcupine==1.9.5
+python spikes/wake/oww_train_windows.py --training_config <oww>/hey_swift.yaml --generate_clips --augment_clips --train_model
+python spikes/wake/wake_bench.py oww --out <bench> --model <oww>/model/hey_swift.onnx --tag oww_full
+python spikes/wake/viola_train_offline.py --word "hey swift" --positives <oww>/model/hey_swift/positive_train \
+    --negatives <negatives> --no-auto-corpus --output <viola>/hey_swift.onnx
+python spikes/wake/wake_bench.py viola --out <bench> --model <viola>/hey_swift.onnx --tag viola_hey_swift
+# Stage 2 and the table
+uv run --frozen --group spikes python spikes/wake/wake_bench.py stage2 --out <bench> --labels <labels.json> --oww viola_hey_swift oww_full --thresholds 0.1 0.3 0.5 0.7 0.8 0.9 0.95
+uv run --frozen --group spikes python spikes/wake/wake_bench.py report --out <bench> --labels <labels.json> --oww viola_hey_swift oww_full --thresholds 0.1 0.3 0.5 0.7 0.8 0.9 0.95 --porcupine jarvis
+```
+
+`<labels.json>` is the owner's `miss_labels.json` plus round 1's 10 skips, which are in the notes folder.
+
+**Other data licences:**
+- LibriTTS-R (the Piper voice) and AudioSet's labels are CC BY 4.0.
+- AudioSet's audio comes from YouTube, and ACAV100M's features come from web video.
+- All of it was used only locally, for training. Check their terms before sharing a trained model.
+- piper-tts is GPL-3.0. It ran only in the throwaway env and isn't part of Swift.
+
+## Round 1: an openWakeWord head trained on the owner's clips (morning)
+
+### Method
 
 Scripts: `spikes/wake/wake_bench.py` (set, today's path, report) and `spikes/wake/train_head.py` (the head).
 Audio was copied to a scratch folder outside git and never left the PC. No audio and no transcripts are
@@ -49,7 +232,7 @@ no "hey swift" model, so:
 - Positives come in three variants: the owner's clips, the owner's clips plus 300 Piper clips (the
   `en_US-lessac-medium` voice, with varied speed and noise), and Piper alone.
 
-## Numbers
+### Numbers
 
 Misses are false rejects over the 164 positives. False wakes are counted over the 369 negative clips, per
 hour of negative audio. "Live misses caught" means of the 30 hand-labelled misses.
@@ -91,7 +274,7 @@ phrase.
 | Parakeet (today) | about 1.1 core-seconds per second of speech, only when someone speaks | +699 MB, already loaded for requests, so wake listening adds none |
 | openWakeWord frontend + model | 14.9% of one core, all the time while listening | +37 MB (process 210 MB) |
 
-## Why the head fails, and what a real model would need
+### Why the head fails, and what a real model would need
 
 About 160 positives from one voice, with a few hundred synthetic ones from one TTS voice, is far below
 openWakeWord's own recipe. A linear head on 1,536 features learns the owner's voice starting to speak,
@@ -112,7 +295,7 @@ audio stay on the PC. It costs about 30 GB of disk and a day of setup and CPU, a
 It needs the owner's approval for the downloads and the PyTorch dependency, which the approval for
 openWakeWord didn't cover.
 
-## Recommendation
+### Recommendation
 
 1. **Keep today's matching.** On these clips it makes no false wakes. The candidate as trained here is far
    worse on false wakes, so the rule in the task, which requires a candidate to win on both misses and false
@@ -128,7 +311,7 @@ openWakeWord didn't cover.
    the downloads and PyTorch, train with openWakeWord's notebook locally, and rescore with
    `wake_bench.py report`.
 
-## Reproduce
+### Reproduce
 
 ```bash
 uv run --frozen --group spikes python spikes/wake/wake_bench.py build --out <scratch>

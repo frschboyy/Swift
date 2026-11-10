@@ -67,14 +67,12 @@ No work is in progress on `main`. These are the known problems, most serious fir
 
 ### Product-rule and safety gaps
 
-Each is small. Under `CLAUDE.md`, someone other than the author reviews a fix to a product rule.
+X-17, X-07, X-18, X-01 and X-08 are fixed (2026-11-07 and 2026-11-10), each reviewed by someone other than its author. What each left is in its audit entry. Owner checks 183–184 and 212–215 cover them on the real PC.
 
-| Finding | Problem | Evidence |
-|---|---|---|
-| X-18 | A selected file's name goes into the journal as a receipt when it's opened | `workflows/desktop_tools.py:227` |
-| X-08 | A stop during "Sending…" records FAILED, though the email may have gone. Needs seams decision 3 (§5) | expected-failure test |
-| X-01 | A single contact match isn't checked against the whole name said | expected-failure test |
-| X-07 | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list | `executors/read_scope.py` |
+- **X-08's window:** an approved email waits 5 seconds ("Say “stop” to keep it"). A stop then keeps it; after that it goes. Unproven on screen: whether "You stopped it in time" shows over the run's "Cancelled" card (check 215).
+- **X-01's limits:** only the word right after the searched name is compared, so "Chianu Francis" isn't caught. A surname that is also a common word ("Francis Will"), or typed lowercase among capitalised words, gets through without asking. Some typed lowercase requests still ask ("email francis budget numbers"). Where Swift can't ask (no `ask_fn`), a guessed contact is still resolved, as before.
+- **Path spellings:** this PC's own drive shares (`\\localhost\c$`) and `\\?\C:\…` now get the same never-read verdict as `C:\…`. Unproven: whether `\\127.0.0.2\c$` or `\\<PC>.local\c$` make the check raise and refuse the read.
+- **A flaky test:** `test_parked.py::test_finish_the_named_task` fails about one run in three, alone or in the full suite. Nothing changed on 2026-11-10 touches it.
 
 The X-05 entry in the audit lists what that fix left: `workflow skipped` can quote a workflow file, `redact` doesn't recognise a bare `sk-ant-…` key, the backend's stderr is unchecked, and a failed action's text is kept nowhere on disk.
 
@@ -129,9 +127,7 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
    - **The Deck:** 168, 173, 179 and 181 first, then the rest of 169–182. The Deck is on `main`, so these checks run with it: a failure anywhere in this set may come from either the reliability work or the Deck.
    - **The whole change on the card:** 183, 184.
    - **Lock:** 139.
-   - **Two checks with no number yet.** Items 3 and 7 changed behaviour without adding owner checks, so they need numbers and report lines (§4):
-     - "Hey Swift, turn off the Wi-Fi". While it asks, "Hey Swift, what time is it". The time shows, and the Wi-Fi question goes to the stack. Wi-Fi stays on.
-     - "Hey Swift, set a timer". "For how long?" shows as a question card with a countdown. Don't answer: it goes to the stack.
+   - **Items 3 and 7, and the safety fixes of 2026-11-10:** 212 (item 3; check 106 covers item 7), 213 (X-07), 214 (X-01), 215 (X-08).
 3. Paste the report:
    ```bash
    uv run python spikes/owner_checks/report.py --since HH:MM
@@ -156,8 +152,8 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 **Now: close the reliability work**
 
-- **a. Product-rule and safety gaps** (§2), one commit per finding.
-- **b. Owner checks for items 3 and 7:** number the two checks in §3 and add report lines.
+- **a. Product-rule and safety gaps** (§2): done 2026-11-10, X-17 to X-08.
+- **b. Owner checks for items 3 and 7:** done 2026-11-10, checks 212 and 106.
 - **c. The short real-PC checks,** then fixes for what fails (§3).
 - **d. Two weeks of daily use** (§3 step 4). Its numbers decide what comes after the groundwork.
 - **e. The light lane (R-07):** retire it unless the owner wants it retargeted (seams decision 2).
@@ -209,7 +205,6 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 | # | Decision | Recommendation |
 |---|---|---|
 | Seams 2 | The light lane: retarget it at thread questions, "try again" and small talk, or turn it off and drop its warm CLI? | Turn it off until retargeted |
-| Seams 3 | A stop during "Sending…" an approved email: let it finish and tell you, or try to stop it and say it may have gone? | Let it finish and tell you |
 | Seams 4 | One gesture to open the text box: click the capsule, or double-tap the push-to-talk key? | Click the capsule, keep the hotkey |
 | Seams 5 | Try Windows' communications microphone path (echo cancellation) behind a setting, accepting it may change how the mic sounds? | Yes, as a trial |
 | Seams 6 | Answers with "Read more": stay until dismissed, or go to the stack as unread? | Stay until dismissed |
@@ -241,6 +236,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 **Answered:**
 
+- A stop during "Sending…" (seams decision 3): an approved email waits 5 seconds, when a stop keeps it; after that it goes, and a stop lets it finish (2026-11-10, X-08).
 - Saved recordings: keep 7 days, and only if they serve a purpose.
 - B-01 reads: allowed without a card in the working folders, Documents and Downloads.
 - Confirming a reversible change: a Yes/No card; a plain spoken "yes" or a click does it, and typing doesn't. Emails, calendar changes and anything that can't be undone still need "Swift, yes" or a click on Approve. Confirmations aren't read aloud (`speech.read_confirms: false`).

@@ -65,6 +65,9 @@ About 30 minutes. The steps are further down; each number links to its check.
 11. [202](#check-202): airplane mode says what it really does.
 12. [203](#check-203): Swift comes in front of other windows when you call it.
 13. [93](#check-93), [94](#check-94) and [95](#check-95): Watch, Stop in the live view, and Open the answer.
+14. [215](#check-215): five seconds to stop an email you approved.
+15. [214](#check-214): a surname your contact doesn't have is asked about.
+16. [212](#check-212) and [213](#check-213): a new request sends Swift's question to the stack; your interaction log is never read.
 
 Then run the report ("After the checks", at the end) and paste what it prints.
 

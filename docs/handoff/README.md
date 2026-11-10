@@ -1,4 +1,4 @@
-# Swift: handoff (2026-11-07)
+# Swift: handoff (2026-11-10)
 
 Read this first when picking Swift up in a new session or account. It holds everything still open: what's built, what's left, what the owner must run and decide, and in what order. The working rules are in [`CLAUDE.md`](../../CLAUDE.md).
 
@@ -11,7 +11,8 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
 - **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is fixed, so the cards you approve show the whole change.
 
-- **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), on the branch `worktree-voice-reliability`, not merged and not run on the real PC. Swift's replies are off by default there, apart from "Hello". Owner checks 191–199 are waiting, and 191's count decides whether Swift gets a dedicated wake model.
+- **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), merged to `main` and not run on the real PC. Swift's replies are off by default, apart from "Hello". Why checks 191–197 still failed is in [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md), which led to [ADR-020](../decisions/ADR-020-one-record-per-conversation.md). A branch is trialling whether Swift gets a dedicated wake model (§6).
+- **§6 lists the work that isn't on `main` yet, and the next free owner check number (216).** Every session reads §6 before it starts, and adds its own branch there.
 
 ## 1. Where things stand
 
@@ -259,7 +260,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 | 7 | Hotkey works while listening is paused? | Yes |
 | 8 | Chime when a confirm card appears? | Not yet; suggest yes |
 | 9 | "via Claude Code" line on confirm cards? | No |
-| 10 | Voice: Windows voices or Piper? | Windows voices; Piper after a listening test |
+| 10 | Voice: Windows voices or Piper? | Windows voices; Piper after the listening test (`spikes/tts/voice_test.py`, not run by the owner yet) |
 | 11 | When Swift speaks | Only when spoken to (`speech.replies: auto`) |
 | 12 | Mic opens by itself after Swift asks a question | Yes (Phase C) |
 | 13 | Continuous conversation mode | No: one exchange at a time |
@@ -286,11 +287,28 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | 27 | Other AI providers (Codex, Hermes), and which tasks they'd take | A second worker (Later) |
 | 28 | Learning by watching PC use (ADR-011 L3), a strong privacy decision | Never without a yes |
 
-## 6. Leftover branches and folders
+## 6. Branches, sessions and folders
+
+**Checked 2026-11-10.** Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
+
+| Branch | What | State |
+|---|---|---|
+| `claude/wake-porcupine-trial` | Wake trial: openWakeWord, ViolaWake, legacy Porcupine and an own-voice verifier as stage 2, scored on the owner's clips (`docs/spikes/wake-model-trial.md`) | Spike in progress, waiting for the owner's recordings. Takes in `claude/upbeat-mclaren-ac46da` (the rescore by ear) |
+| `worktree-halo-step-a` | Halo Step A: a dev-only look switch, and checks 185–190 | Built, waiting for the owner's go-ahead to merge. It's far behind `main` and edits the handoff, the owner checks and `report.py`, so rebase it first |
+
+**Next free owner check number: 216.** When two sessions add checks at the same time, they take their numbers here first.
+
+**Docs added to `main` on 2026-11-10**, from branches that were never merged:
+- [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md)
+- [`assistant-ux-research.md`](../explorations/assistant-ux-research.md)
+- [`2026-11-10-workflow-lifecycle-audit.md`](../audit/2026-11-10-workflow-lifecycle-audit.md). It recommends run records first, which matches the groundwork in §4.
+- The voice listening test script, `spikes/tts/voice_test.py` (decision 10).
+
+**Moved out of the repo:** the old pen-dev pack from `b9ca8c3` is now in `C:\Users\frchi\Documents\Swift-design-screens\pen-dev-handoff-b9ca8c3`. The current pack is `docs/design/pen-dev-handoff/`.
 
 Cleaned up on 2026-11-06 with the owner's OK: every `claude/*` branch and its worktree. `claude/reliability-audit-review` was force-deleted. Its two commits, ending at `43b1273`, added only the review document, which is on `main` unchanged.
 
-**Merged, and can go once the owner agrees:** the worktrees and branches `claude/overlay-interaction-redesign-8c293c`, `worktree-pen-dev-handoff` and `worktree-deck-step-1` (the last was locked by a running session on 2026-11-07).
+Removed on 2026-11-10 with the owner's OK: every merged worktree and branch.
 
 **Kept on purpose:** `mvp/overlay` and `phase0/scaffold` (both merged), and `C:\Users\frchi\Documents\Swift-design-screens` outside the repo (screenshots for the redesign brief).
 

@@ -69,6 +69,18 @@ struct Rect {
     bottom: i32,
 }
 
+/// WINDOWPLACEMENT: among other things, where a minimised window will go back to.
+#[repr(C)]
+#[derive(Default)]
+struct Placement {
+    length: u32,
+    flags: u32,
+    show_cmd: u32,
+    min: [i32; 2],
+    max: [i32; 2],
+    normal: Rect,
+}
+
 // Declared by hand so the spike adds no crate or feature.
 #[link(name = "user32")]
 extern "system" {
@@ -78,6 +90,7 @@ extern "system" {
     fn IsZoomed(h: Hwnd) -> i32;
     fn IsIconic(h: Hwnd) -> i32;
     fn ShowWindow(h: Hwnd, how: i32) -> i32;
+    fn GetWindowPlacement(h: Hwnd, p: *mut Placement) -> i32;
     fn FindWindowW(class: *const u16, title: *const u16) -> Hwnd;
     fn FindWindowExW(parent: Hwnd, after: Hwnd, class: *const u16, title: *const u16) -> Hwnd;
     fn NotifyWinEvent(event: u32, h: Hwnd, object: i32, child: i32);
@@ -383,6 +396,25 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         // its place still reads as far off screen, and a card unfolded there is never seen.
         // So wait until it's really back, then come back as for any window.
         MIN_END if mine && o.away => {
+            // Where the window is going back to is known before it gets there, so the card
+            // travels with it. Waiting for it to land first looked late to the owner.
+            // shortcut: this place is measured from the work area, which equals the screen
+            // only while the taskbar is at the bottom or right; convert it if that changes.
+            let mut p = Placement { length: 44, ..Default::default() };
+            unsafe { GetWindowPlacement(hwnd as Hwnd, &mut p) };
+            if p.flags & 2 == 0 && p.show_cmd != 3 && p.normal.right > p.normal.left {
+                o.away = false;
+                o.dst = rest(o.kind, p.normal);
+                let js = if o.waiting || o.kind == "push" {
+                    format!("fly({},1,{GROW_MS})", st.arr(o.dst))
+                } else {
+                    st.go_js(o.kind, false, window_rects(p.normal).0, o.dst, None)
+                };
+                println!("{name}, {whose}: the card comes back with it");
+                let _ = app.get_webview_window("canvas").unwrap().eval(&js);
+                return;
+            }
+            // Going back to maximised: that place isn't known yet, so wait for it to land.
             let app = app.clone();
             thread::spawn(move || {
                 for _ in 0..40 {

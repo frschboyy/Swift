@@ -13,6 +13,7 @@
 //! | Made of the same stuff  | 7: a card of Windows' own blur;       | 8: a card tinted by the colour of        |
 //! |                         |    rings take Windows' accent colour  |    what's underneath it                  |
 
+use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::thread;
@@ -32,6 +33,21 @@ use crate::{
     desktop_event, frame, home, on_win_event, taskbar, tray, DwmFlush, GetForegroundWindow, GetWindowRect, Hwnd, Rect,
     SetWinEventHook, St, FOREGROUND, MIN_START, MOVE_END, MOVE_START, TEST_FG,
 };
+
+#[link(name = "advapi32")]
+extern "system" {
+    fn RegGetValueW(key: isize, sub: *const u16, value: *const u16, flags: u32, kind: *mut u32, data: *mut c_void, size: *mut u32) -> i32;
+}
+
+/// Windows' own "Transparency effects" switch. Off, Windows draws its blur materials solid.
+fn transparency_on() -> bool {
+    let (mut on, mut size) = (1u32, 4u32);
+    let hkcu = 0x8000_0001u32 as i32 as isize;
+    let key = crate::wide("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
+    let value = crate::wide("EnableTransparency");
+    unsafe { RegGetValueW(hkcu, key.as_ptr(), value.as_ptr(), 0x10, std::ptr::null_mut(), &mut on as *mut _ as _, &mut size) };
+    on != 0
+}
 
 #[link(name = "user32")]
 extern "system" {
@@ -271,8 +287,13 @@ fn glass(app: &AppHandle) {
             Ok(w) => {
                 // Square corners: rounding them brings Windows' shadow, which arrived late.
                 let _ = w.set_ignore_cursor_events(true);
-                println!("glass: a card of Windows' own blur is above the home spot. Put text or a picture behind it:");
-                println!("glass: if the blur works, what's behind looks frosted, not sharp and not hidden");
+                if transparency_on() {
+                    println!("glass: a card of Windows' own blur is above the home spot. Put text or a picture behind it:");
+                    println!("glass: if the blur works, what's behind looks frosted, not sharp and not hidden");
+                } else {
+                    println!("glass: Windows' transparency effects are turned off on this PC, so Windows draws this card solid.");
+                    println!("glass: the switch is in Settings > Personalisation > Colours. Swift should respect it either way");
+                }
             }
             Err(e) => println!("glass: couldn't make the window: {e}"),
         }

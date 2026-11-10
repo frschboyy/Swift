@@ -4,12 +4,19 @@
 //! is a div inside it, animated by the webview. For the push, the webview says when its
 //! animation began and Rust moves the real window from that moment, on the same curve.
 //!
-//!     cargo run                 Ctrl+Alt+W window, T taskbar, P push, Q quit (same key = back)
-//!     cargo run -- --selftest   opens and closes the taskbar card, prints the webview's delay
+//! A card that came from a window belongs to it, without chasing it:
+//! - you drag the window: the card lets go (lifts and dims), then re-settles when you drop it;
+//! - another window takes the front: the card goes home to Swift's place (a stand-in spot
+//!   above the taskbar), and comes back when its window does;
+//! - a card waiting on an answer stays visible at home. A question never hides itself.
+//!
+//!     cargo run                 Ctrl+Alt+W card from the window, A the same but waiting on an
+//!                               answer, T taskbar, P push, Q quit (same key again = back)
+//!     cargo run -- --selftest   hands-off; moves nothing of yours
 
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicIsize, AtomicU32, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -17,6 +24,7 @@ use tauri::{AppHandle, Manager, PhysicalSize, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 type Hwnd = *mut c_void;
+type WinEventProc = unsafe extern "system" fn(Hwnd, u32, Hwnd, i32, i32, u32, u32);
 
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
@@ -36,6 +44,7 @@ extern "system" {
     fn IsZoomed(h: Hwnd) -> i32;
     fn FindWindowW(class: *const u16, title: *const u16) -> Hwnd;
     fn FindWindowExW(parent: Hwnd, after: Hwnd, class: *const u16, title: *const u16) -> Hwnd;
+    fn SetWinEventHook(min: u32, max: u32, module: Hwnd, f: WinEventProc, pid: u32, tid: u32, flags: u32) -> Hwnd;
 }
 #[link(name = "dwmapi")]
 extern "system" {
@@ -48,6 +57,12 @@ const GROW_MS: u64 = 260;
 const APPROACH_MS: u64 = 120; // the card closes the gap, then card and window travel together
 const PUSH_MS: u64 = 220;
 const MOVE_ONLY: u32 = 0x1 | 0x4 | 0x10; // no size, no z-order, no activate
+const FOREGROUND: u32 = 0x0003; // EVENT_SYSTEM_FOREGROUND
+const MOVE_START: u32 = 0x000A; // EVENT_SYSTEM_MOVESIZESTART
+const MOVE_END: u32 = 0x000B; // EVENT_SYSTEM_MOVESIZEEND
+
+static APP: OnceLock<AppHandle> = OnceLock::new(); // the event hook's callback takes no context
+static TEST_FG: AtomicIsize = AtomicIsize::new(0); // selftest: stands in for the active window
 
 /// A real window's move, waiting for the webview to say its animation began.
 #[derive(Clone, Copy)]
@@ -61,7 +76,12 @@ struct Move {
 
 struct Open {
     kind: &'static str,
-    pushed: Option<(isize, i32, i32)>, // the window and where it was
+    hwnd: isize, // the window the card came from; 0 if it didn't come from one
+    dst: [i32; 4],
+    waiting: bool,
+    away: bool,   // at home, because another window has the front
+    lifted: bool, // let go, because its window is being dragged
+    pushed: Option<(isize, i32, i32)>, // the window made to give room, and where it was
 }
 
 struct St {
@@ -69,6 +89,23 @@ struct St {
     open: Mutex<Option<Open>>,
     pending: Mutex<Option<Move>>,
     started: AtomicU32,
+    seen: Mutex<Option<[f64; 5]>>,
+}
+
+impl St {
+    /// A screen rectangle as the page wants it: device pixels from the canvas's corner.
+    fn arr(&self, r: [i32; 4]) -> String {
+        format!("[{},{},{},{}]", r[0] - self.origin.0, r[1] - self.origin.1, r[2], r[3])
+    }
+
+    fn go_js(&self, kind: &str, waiting: bool, src: [i32; 4], dst: [i32; 4]) -> String {
+        format!(
+            "go({{kind:'{kind}',waiting:{waiting},src:{},dst:{},grow:{GROW_MS},approach:{APPROACH_MS},push:{PUSH_MS}}},{})",
+            self.arr(src),
+            self.arr(dst),
+            now_ms()
+        )
+    }
 }
 
 fn now_ms() -> f64 {
@@ -90,15 +127,32 @@ fn frame(h: Hwnd) -> Rect {
     r
 }
 
+fn taskbar() -> Hwnd {
+    unsafe { FindWindowW(wide("Shell_TrayWnd").as_ptr(), std::ptr::null()) }
+}
+
 fn tray() -> Rect {
     // shortcut: the whole notification area, not one icon; a single icon's rect needs UI Automation
     let mut r = Rect::default();
     unsafe {
-        let bar = FindWindowW(wide("Shell_TrayWnd").as_ptr(), std::ptr::null());
+        let bar = taskbar();
         let area = FindWindowExW(bar, std::ptr::null_mut(), wide("TrayNotifyWnd").as_ptr(), std::ptr::null());
         GetWindowRect(if area.is_null() { bar } else { area }, &mut r);
     }
     r
+}
+
+/// Swift's own place, where a card goes when its window isn't in front.
+/// shortcut: a fixed spot above the taskbar; in Swift this is the Deck's corner.
+fn home() -> [i32; 4] {
+    let r = tray();
+    [(r.right - 352).max(0), r.top - 172, 340, 160]
+}
+
+/// Where a window's card starts (a sliver of its title bar) and where it rests.
+fn window_rects(f: Rect) -> ([i32; 4], [i32; 4]) {
+    let cx = (f.left + f.right) / 2;
+    ([cx - 30, f.top, 60, 6], [cx - 180, f.top + 44, 360, 180])
 }
 
 fn run_move(m: Move) {
@@ -127,6 +181,11 @@ fn started(sent: f64, st: State<St>) {
     }
 }
 
+#[tauri::command]
+fn probe(v: [f64; 5], st: State<St>) {
+    *st.seen.lock().unwrap() = Some(v);
+}
+
 fn toggle(app: &AppHandle, kind: &'static str) {
     let st = app.state::<St>();
     let win = app.get_webview_window("canvas").unwrap();
@@ -145,20 +204,21 @@ fn toggle(app: &AppHandle, kind: &'static str) {
     }
 
     // Read where the source is, once.
-    let (src, dst, pushed) = if kind == "tray" {
+    let (src, dst, hwnd, pushed) = if kind == "tray" {
         let r = tray();
         let (cx, cy) = ((r.left + r.right) / 2, (r.top + r.bottom) / 2);
-        ([cx - 12, cy - 12, 24, 24], [(r.right - 352).max(0), r.top - 172, 340, 160], None)
+        ([cx - 12, cy - 12, 24, 24], home(), 0, None)
     } else {
-        let h = unsafe { GetForegroundWindow() };
+        let test = TEST_FG.load(Ordering::SeqCst);
+        let h = if test != 0 { test as Hwnd } else { unsafe { GetForegroundWindow() } };
         if h.is_null() {
             println!("no active window");
             return;
         }
         let f = frame(h);
-        if kind == "window" {
-            let cx = (f.left + f.right) / 2;
-            ([cx - 30, f.top, 60, 6], [cx - 180, f.top + 44, 360, 180], None)
+        if kind != "push" {
+            let (src, dst) = window_rects(f);
+            (src, dst, h as isize, None)
         } else {
             if unsafe { IsZoomed(h) } != 0 {
                 println!("a maximised window has nowhere to move to");
@@ -168,18 +228,62 @@ fn toggle(app: &AppHandle, kind: &'static str) {
             unsafe { GetWindowRect(h, &mut r) };
             *st.pending.lock().unwrap() =
                 Some(Move { hwnd: h as isize, from: r.left, to: r.left + CARD_W, y: r.top, delay_ms: APPROACH_MS });
-            ([0; 4], [f.left, f.top, CARD_W, f.bottom - f.top], Some((h as isize, r.left, r.top)))
+            ([0; 4], [f.left, f.top, CARD_W, f.bottom - f.top], 0, Some((h as isize, r.left, r.top)))
         }
     };
-    *open = Some(Open { kind, pushed });
-    let (ox, oy) = st.origin;
-    let arr = |r: [i32; 4]| format!("[{},{},{},{}]", r[0] - ox, r[1] - oy, r[2], r[3]);
-    let _ = win.eval(&format!(
-        "go({{kind:'{kind}',src:{},dst:{},grow:{GROW_MS},approach:{APPROACH_MS},push:{PUSH_MS}}},{})",
-        arr(src),
-        arr(dst),
-        now_ms()
-    ));
+    let waiting = kind == "ask";
+    *open = Some(Open { kind, hwnd, dst, waiting, away: false, lifted: false, pushed });
+    let _ = win.eval(&st.go_js(kind, waiting, src, dst));
+}
+
+/// The desktop changed: keep a window's card belonging to its window, without chasing it.
+fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
+    let st = app.state::<St>();
+    let mut open = st.open.lock().unwrap();
+    let Some(o) = open.as_mut() else { return };
+    if o.hwnd == 0 {
+        return; // only a card that came from a window
+    }
+    let mine = hwnd == o.hwnd;
+    let js = match event {
+        MOVE_START if mine && !o.away => {
+            o.lifted = true;
+            let d = o.dst;
+            format!("fly({},0.5,120)", st.arr([d[0], d[1] - 8, d[2], d[3]]))
+        }
+        MOVE_END if mine && o.lifted => {
+            o.lifted = false;
+            o.dst = window_rects(frame(hwnd as Hwnd)).1; // read once, where it was dropped
+            format!("fly({},1,{GROW_MS})", st.arr(o.dst))
+        }
+        FOREGROUND if !mine && !o.away => {
+            o.away = true;
+            o.lifted = false;
+            // A question stays on screen: a plain "yes" only counts while it's visible.
+            format!("fly({},{},{GROW_MS})", st.arr(home()), if o.waiting { 1 } else { 0 })
+        }
+        FOREGROUND if mine && o.away => {
+            o.away = false;
+            let (src, dst) = window_rects(frame(hwnd as Hwnd));
+            o.dst = dst;
+            if o.waiting {
+                format!("fly({},1,{GROW_MS})", st.arr(dst)) // it was visible at home: travel back
+            } else {
+                st.go_js(o.kind, false, src, dst) // it was hidden: unfold from the window again
+            }
+        }
+        _ => return,
+    };
+    let _ = app.get_webview_window("canvas").unwrap().eval(&js);
+}
+
+unsafe extern "system" fn on_win_event(_hook: Hwnd, event: u32, hwnd: Hwnd, id_object: i32, _child: i32, _thread: u32, _ms: u32) {
+    if id_object == 0 && !hwnd.is_null() {
+        // 0 = the window itself
+        if let Some(app) = APP.get() {
+            desktop_event(app, event, hwnd as isize);
+        }
+    }
 }
 
 fn quit(app: &AppHandle) {
@@ -190,8 +294,82 @@ fn quit(app: &AppHandle) {
     app.exit(0);
 }
 
+/// Selftest: where the page says the card is (device pixels from the canvas's corner) and its opacity.
+fn look(app: &AppHandle) -> [f64; 5] {
+    thread::sleep(Duration::from_millis(450)); // let the motion finish
+    let st = app.state::<St>();
+    *st.seen.lock().unwrap() = None;
+    let _ = app.get_webview_window("canvas").unwrap().eval("probe()");
+    for _ in 0..100 {
+        if let Some(v) = *st.seen.lock().unwrap() {
+            return v;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    [f64::NAN; 5]
+}
+
+fn selftest(app: AppHandle) {
+    thread::sleep(Duration::from_secs(3)); // let the page load
+    let st = app.state::<St>();
+    let mut failed = false;
+    let mut check = |what: &str, v: [f64; 5], at: Option<[i32; 4]>, opacity: f64| {
+        let o = [st.origin.0, st.origin.1, 0, 0];
+        let ok = (v[4] - opacity).abs() < 0.05
+            && at.map_or(true, |r| (0..4).all(|i| (v[i] - (r[i] - o[i]) as f64).abs() <= 2.0));
+        println!("{} {what}", if ok { "ok  " } else { "FAIL" });
+        failed |= !ok;
+    };
+
+    toggle(&app, "tray");
+    check("the taskbar card opens at home", look(&app), Some(home()), 1.0);
+    toggle(&app, "tray");
+    check("and goes back", look(&app), None, 0.0);
+
+    // The taskbar stands in for the owner's window: it's always there and nothing moves it.
+    let win = taskbar() as isize;
+    let other = 1;
+    TEST_FG.store(win, Ordering::SeqCst);
+    let dst = window_rects(frame(win as Hwnd)).1;
+
+    toggle(&app, "ask");
+    check("a waiting card opens on its window", look(&app), Some(dst), 1.0);
+    desktop_event(&app, FOREGROUND, other);
+    check("another window in front: it goes home and stays visible", look(&app), Some(home()), 1.0);
+    desktop_event(&app, FOREGROUND, win);
+    check("its window returns: it travels back", look(&app), Some(dst), 1.0);
+    desktop_event(&app, MOVE_START, win);
+    check("its window is dragged: it lets go", look(&app), None, 0.5);
+    desktop_event(&app, MOVE_END, win);
+    check("the window is dropped: it re-settles", look(&app), Some(dst), 1.0);
+    toggle(&app, "ask");
+    check("and goes back", look(&app), None, 0.0);
+
+    toggle(&app, "window");
+    check("a plain card opens on its window", look(&app), Some(dst), 1.0);
+    desktop_event(&app, FOREGROUND, other);
+    check("another window in front: it goes home and hides", look(&app), Some(home()), 0.0);
+    desktop_event(&app, FOREGROUND, win);
+    check("its window returns: it unfolds again", look(&app), Some(dst), 1.0);
+    toggle(&app, "window");
+    check("and goes back", look(&app), None, 0.0);
+
+    if st.started.load(Ordering::SeqCst) != 7 {
+        println!("FAIL the webview answered {} of 7 starts", st.started.load(Ordering::SeqCst));
+        failed = true;
+    }
+    println!("{}", if failed { "selftest FAILED" } else { "selftest ok" });
+    app.exit(failed as i32);
+}
+
 fn main() {
-    let keys = [(Code::KeyW, "window"), (Code::KeyT, "tray"), (Code::KeyP, "push"), (Code::KeyQ, "quit")];
+    let keys = [
+        (Code::KeyW, "window"),
+        (Code::KeyA, "ask"),
+        (Code::KeyT, "tray"),
+        (Code::KeyP, "push"),
+        (Code::KeyQ, "quit"),
+    ];
     tauri::Builder::default()
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -207,7 +385,7 @@ fn main() {
                 })
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![started])
+        .invoke_handler(tauri::generate_handler![started, probe])
         .setup(move |app| {
             let win = app.get_webview_window("canvas").unwrap();
             let mon = win.primary_monitor()?.ok_or("no monitor")?;
@@ -221,29 +399,26 @@ fn main() {
                 open: Mutex::new(None),
                 pending: Mutex::new(None),
                 started: AtomicU32::new(0),
+                seen: Mutex::new(None),
             });
+            let _ = APP.set(app.handle().clone());
 
             if std::env::args().any(|a| a == "--selftest") {
                 let app = app.handle().clone();
-                thread::spawn(move || {
-                    thread::sleep(Duration::from_secs(3)); // let the page load
-                    for _ in 0..2 {
-                        toggle(&app, "tray");
-                        thread::sleep(Duration::from_millis(700));
-                    }
-                    let n = app.state::<St>().started.load(Ordering::SeqCst);
-                    println!("{}", if n == 2 { "selftest ok" } else { "selftest FAILED: the webview didn't answer twice" });
-                    app.exit(if n == 2 { 0 } else { 1 });
-                });
+                thread::spawn(move || selftest(app));
                 return Ok(());
             }
+            // Three system events, each rare: who is in front, and a drag's start and end.
+            // Delivered on this thread's message loop; flag 2 skips our own windows.
+            unsafe { SetWinEventHook(FOREGROUND, MOVE_END, std::ptr::null_mut(), on_win_event, 0, 0, 2) };
             for (code, _) in keys {
                 let key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), code);
                 if app.global_shortcut().register(key).is_err() {
                     println!("Ctrl+Alt+{code} is taken by another app");
                 }
             }
-            println!("Ctrl+Alt+W window, T taskbar, P push, Q quit. Same key again puts the card back.");
+            println!("Ctrl+Alt+W card from the window, A the same but waiting on an answer,");
+            println!("T taskbar, P push, Q quit. Same key again puts the card back.");
             Ok(())
         })
         .run(tauri::generate_context!())

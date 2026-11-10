@@ -9,6 +9,14 @@ slide in and "push" that window aside: the real window moves on the card's curve
 Interactive keys:  Ctrl+Alt+P push / put back   Ctrl+Alt+S spring / rigid   Ctrl+Alt+Q quit
 
 Native windows only: this measures Windows' side of the illusion, not WebView2's.
+
+Result (2026-11-10, owner's PC): following a dragged window per frame is the weak
+pattern. The owner saw the orb trail and, at times, the whole screen lag. Measured:
+each SetWindowPos of the orb costs 2-4 ms (spikes to 45 ms) whatever the flags. A
+bystander process saw 0-3 late compositor ticks in 480 while the orb moved, so the
+whole-screen lag's cause is unproven. The orb following windows was a test stand-in,
+not a design proposal. The push (Swift starts the motion, so it owns the clock) is
+the pattern worth carrying forward.
 """
 
 import argparse
@@ -90,6 +98,8 @@ class S:  # spike state
     moved_at = 0.0
     loc_hook = None
     push = None     # dict while a window is pushed or animating
+    placed = None   # where the orb window was last put
+    parts = []      # per frame: seconds waiting for the compositor, handling events, placing
     own = set()
 
 
@@ -159,8 +169,10 @@ def step(orb, card, dt):
                 S.pos[i] += S.vel[i] * dt
             else:
                 S.pos[i], S.vel[i] = g[i], 0.0
-        u32.SetWindowPos(orb, HWND_TOPMOST, round(S.pos[0]), round(S.pos[1]), 0, 0,
-                         SWP_NOSIZE | SWP_NOACTIVATE)
+        at = (round(S.pos[0]), round(S.pos[1]))
+        if at != S.placed:  # each move costs 2-4 ms of window-manager time: never move for nothing
+            S.placed = at
+            u32.SetWindowPos(orb, HWND_TOPMOST, at[0], at[1], 0, 0, SWP_NOSIZE | SWP_NOACTIVATE)
     p = S.push
     if not p or p["done"]:
         return
@@ -180,7 +192,9 @@ def step(orb, card, dt):
     if not ok and not p["warned"]:
         p["warned"] = True
         print("can't move that window (elevated app?):", ctypes.WinError(ctypes.get_last_error()))
-    S.moved_at = S.moved_at or time.perf_counter()
+    if dx != p.get("dx"):  # time only frames that really move the window
+        p["dx"] = dx
+        S.moved_at = S.moved_at or time.perf_counter()
     u32.SetLayeredWindowAttributes(card, 0, int(alpha), 2)
     u32.SetWindowPos(card, HWND_TOPMOST, round(p["left0"] - CARD_W + dx - gap), p["top"],
                      CARD_W, p["h"], SWP_NOACTIVATE)
@@ -228,11 +242,14 @@ def frames(orb, card, until):
     """Run one step per composed frame (DwmFlush waits for the compositor)."""
     last, n, t0 = time.perf_counter(), 0, time.perf_counter()
     while True:
+        a = time.perf_counter()
         dwm.DwmFlush()  # wait first, so each frame is placed from the freshest events
+        b = time.perf_counter()
         if not pump(card) or until():
             break
         now = time.perf_counter()
         step(orb, card, min(0.05, now - last))
+        S.parts.append((b - a, now - b, time.perf_counter() - now))  # wait, events, placing
         last, n = now, n + 1
     return n / max(1e-9, time.perf_counter() - t0)
 
@@ -243,6 +260,10 @@ def report(fps):
     if gaps:
         print(f"gap between move events: median {statistics.median(gaps) * 1000:.1f} ms, "
               f"p95 {sorted(gaps)[int(len(gaps) * 0.95)] * 1000:.1f} ms")
+    for i, name in enumerate(("wait for frame", "handle events", "place windows")):
+        v = sorted(p[i] * 1000 for p in S.parts) or [0.0]
+        print(f"{name:>15}: median {v[len(v) // 2]:6.2f} ms  p99 {v[int(len(v) * 0.99)]:6.2f}"
+              f"  max {v[-1]:6.2f}  frames over 25 ms: {sum(x > 25 for x in v)}")
     if S.latency:
         print(f"our move -> event arrives: median {statistics.median(S.latency) * 1000:.2f} ms, "
               f"max {max(S.latency) * 1000:.2f} ms  (n={len(S.latency)})")

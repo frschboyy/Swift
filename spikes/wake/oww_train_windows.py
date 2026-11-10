@@ -1,4 +1,7 @@
-"""Run openWakeWord's train.py (0.6.0) on Windows: same arguments, one Linux-only step replaced.
+"""Run openWakeWord's train.py (0.6.0) on Windows: same arguments, two Linux-only steps replaced.
+
+Batches load in-process: train.py's DataLoader workers would need its __main__ lambdas, which spawned
+Windows workers can't unpickle.
 
 openwakeword.utils.compute_features_from_generator trims its output file (openwakeword.data.trim_mmap) while
 the file is still memory-mapped, which Windows refuses (WinError 32 / Errno 22). Here the trim is skipped
@@ -14,6 +17,7 @@ import sys
 import numpy as np
 import openwakeword.data
 import openwakeword.utils
+import torch.utils.data
 
 
 def trim_mmap(mmap_path: str) -> None:
@@ -36,7 +40,16 @@ def compute_features_from_generator(*args, **kwargs):
     trim_mmap(kwargs.get("output_file", args[3] if len(args) > 3 else None))
 
 
+class InProcessDataLoader(torch.utils.data.DataLoader):
+    """train.py's batches use lambdas defined in its __main__, which Windows' spawned workers can't unpickle."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("prefetch_factor", None)
+        super().__init__(*args, **{**kwargs, "num_workers": 0})
+
+
 if __name__ == "__main__":
+    torch.utils.data.DataLoader = InProcessDataLoader
     openwakeword.data.trim_mmap = lambda path: None  # utils imports it from data at call time
     openwakeword.utils.compute_features_from_generator = compute_features_from_generator  # train.py imports it
     sys.argv[0] = "openwakeword.train"

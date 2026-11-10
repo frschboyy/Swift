@@ -304,8 +304,10 @@ def _expanded(paths: list[str]) -> list[str]:
 
 def _swift_s_own(settings: Settings) -> list[str]:
     """Swift's own folders and files, wherever the environment or the settings moved them (X-07)."""
-    paths, log = app_paths(), settings.logging
-    return [str(paths.config_dir), str(paths.data_dir), log.app_log_dir, log.interactions, log.journal]
+    paths, log, stt = app_paths(), settings.logging, settings.stt
+    return [str(paths.config_dir), str(paths.data_dir), log.app_log_dir, log.interactions, log.journal,
+            stt.audio_dir, stt.test_set_dir, stt.word_fixes_file,  # the recordings themselves, and words heard
+            settings.demand_classifier.examples_file, settings.system.schedule_file]
 
 
 def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | None = None) -> Executor:

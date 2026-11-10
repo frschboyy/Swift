@@ -124,10 +124,15 @@ def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path,
     settings = Settings.model_validate({
         "executor": {"kind": "claude_code", "working_dirs": [str(tmp_path)], "read_dirs": [str(tmp_path)]},
         "logging": {"interactions": str(moved / "talk.jsonl"), "app_log_dir": str(moved / "logs"), "journal": str(moved / "j.jsonl")},
+        "stt": {"audio_dir": str(moved / "audio"), "test_set_dir": str(moved / "testset"), "word_fixes_file": str(moved / "fixes.json")},
+        "demand_classifier": {"examples_file": str(moved / "examples.jsonl")},
+        "system": {"schedule_file": str(moved / "schedule.json")},
     })
     executor = _make_executor(settings, MockExecutor())
     assert isinstance(executor, ClaudeCodeExecutor)
-    for path in ("data/recordings/clip.wav", "config/config.yaml", "elsewhere/talk.jsonl", "elsewhere/logs/swift.log", "elsewhere/j.jsonl"):
+    for path in ("data/recordings/clip.wav", "config/config.yaml", "elsewhere/talk.jsonl", "elsewhere/logs/swift.log",
+                 "elsewhere/j.jsonl", "elsewhere/audio/clip.wav", "elsewhere/testset/clip.wav", "elsewhere/fixes.json",
+                 "elsewhere/examples.jsonl", "elsewhere/schedule.json"):
         assert executor.reads.verdict(str(tmp_path / path)) == "never", path  # though inside a read folder
     assert executor.reads.verdict(str(tmp_path / "notes.txt")) == "read"
 

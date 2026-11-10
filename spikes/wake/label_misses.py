@@ -7,7 +7,7 @@ git), so you can stop and come back. Nothing leaves the PC.
 
   y  yes, I said "Hey Swift" (or tried to)
   n  no: room sound, another sentence, a filler
-  s  can't tell
+  s  a voice, but you can't tell what it said
   r  play it again       b  back one clip       q  save and quit
 
   uv run --group spikes python spikes/wake/label_misses.py            # the clips not labelled yet
@@ -73,7 +73,7 @@ def main() -> None:
         print(f"\n[{i + 1}/{len(clips)}] {when}, {c.get('audio_s', '?')} s{had}")
         play(audio_dir / f"{c['id']}.wav")
         while True:
-            key = input("Hey Swift?  y / n / s(can't tell) / r(again) / b(back) / q(quit): ").strip().lower()[:1]
+            key = input("Hey Swift?  y(yes) / n(no, or just noise) / s(a voice, can't tell) / r(again) / b(back) / q(quit): ").strip().lower()[:1]
             if key == "r":
                 play(audio_dir / f"{c['id']}.wav")
             elif key in KEYS:

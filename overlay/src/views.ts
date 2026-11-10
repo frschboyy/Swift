@@ -199,7 +199,7 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
     "section",
     { class: `live${v.running ? " live--running" : " live--ended"}`, role: "region", "aria-label": `Live: ${v.title}` },
     el("header", { class: "card-head", title: "Drag to move" },
-      el("span", { class: "live-badge" }, v.running ? "LIVE" : "DONE"),
+      el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "DONE" : "ENDED"),  // a stop isn't done
       el("p", { class: "words" }, v.title),
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
     el("div", { class: "status live-now" }, status,

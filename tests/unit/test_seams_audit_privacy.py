@@ -101,6 +101,37 @@ async def test_nobody_by_that_name_is_no_match() -> None:
     assert not found.ok and _emails(found) == []
 
 
+# ---- X-07: Swift's own data is never read by the agent, card or not -----------------------------
+
+
+def test_swift_s_data_folder_is_never_read(tmp_path: Path) -> None:
+    from swift.executors.read_scope import ReadScope
+
+    scope = ReadScope([str(tmp_path / "Documents")], home=str(tmp_path))
+    data = tmp_path / "AppData" / "Local" / "Swift"
+    for name in ("interactions.jsonl", "recordings/clip.wav", "logs/swift.log", "journal.jsonl"):
+        assert scope.verdict(str(data / name)) == "never", name
+    assert scope.verdict(str(tmp_path / "AppData" / "Local")) == "ask"  # a folder holding it: never a blanket read
+
+
+def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from swift.backend.__main__ import _make_executor
+    from swift.settings import Settings
+
+    monkeypatch.setenv("SWIFT_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("SWIFT_CONFIG_DIR", str(tmp_path / "config"))
+    moved = tmp_path / "elsewhere"
+    settings = Settings.model_validate({
+        "executor": {"kind": "claude_code", "working_dirs": [str(tmp_path)], "read_dirs": [str(tmp_path)]},
+        "logging": {"interactions": str(moved / "talk.jsonl"), "app_log_dir": str(moved / "logs"), "journal": str(moved / "j.jsonl")},
+    })
+    executor = _make_executor(settings, MockExecutor())
+    assert isinstance(executor, ClaudeCodeExecutor)
+    for path in ("data/recordings/clip.wav", "config/config.yaml", "elsewhere/talk.jsonl", "elsewhere/logs/swift.log", "elsewhere/j.jsonl"):
+        assert executor.reads.verdict(str(tmp_path / path)) == "never", path  # though inside a read folder
+    assert executor.reads.verdict(str(tmp_path / "notes.txt")) == "read"
+
+
 @pytest.mark.xfail(strict=True, reason="seams audit X-01: one match is never narrowed (names.narrow needs two)")
 async def test_the_whole_name_said_but_only_another_francis_is_a_contact() -> None:
     # The owner said "Francis Chianu"; the provider searched the first name only (or the directory

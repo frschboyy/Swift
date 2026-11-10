@@ -302,6 +302,12 @@ def _expanded(paths: list[str]) -> list[str]:
     return out
 
 
+def _swift_s_own(settings: Settings) -> list[str]:
+    """Swift's own folders and files, wherever the environment or the settings moved them (X-07)."""
+    paths, log = app_paths(), settings.logging
+    return [str(paths.config_dir), str(paths.data_dir), log.app_log_dir, log.interactions, log.journal]
+
+
 def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | None = None) -> Executor:
     cfg = settings.executor
     match cfg.kind:
@@ -324,7 +330,7 @@ def _make_executor(settings: Settings, mock: MockExecutor, tools: ToolHost | Non
                 tools=tools,
                 web=cfg.web,
                 read_dirs=[*(expand(d) for d in cfg.working_dirs), *_expanded(cfg.read_dirs)],
-                never_read=_expanded(cfg.never_read),
+                never_read=[*_expanded(cfg.never_read), *_swift_s_own(settings)],
             )
         case _:
             return EchoExecutor()

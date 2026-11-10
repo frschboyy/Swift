@@ -388,7 +388,7 @@ IDs by area:
 | X-04 | Medium | confirmed (test); **fixed 2026-11-06** | gateway | security | B-07 still open: a denied address goes into `swift.log` |
 | X-19 | Medium | confirmed (X-04 review); **fixed 2026-11-06** | gateway | security | A recipient's domain reaches `swift.log` |
 | X-06 | Medium | confirmed (code) | executor | security | B-10 is wider: "Claude is busy, retrying…" on the working card |
-| X-07 | Medium | design concern | executor | security | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list |
+| X-07 | Medium | design concern; **fixed 2026-11-10** | executor | security | `%LOCALAPPDATA%\Swift` (recordings, transcripts) isn't on the never-read list |
 | X-09 | Medium | confirmed (code) | gateway | reliability | B-08 still open: after an "unknown" outcome the same action can be done again |
 | X-10 | Medium | suspected; **fixed 2026-11-05 (S4)** | gateway | reliability | No deadline on a Swift tool call (Google 60 s × 3 retries) |
 | X-11 | Medium | suspected | dependency | reliability | Google API clients shared across threads |
@@ -985,6 +985,7 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 - **Class:** B-01's class. It touches "audio never leaves the PC".
 - **Fix:** add it to `never_read`.
 - **Owner check:** "read my Swift interaction log" is refused without a card.
+- **Fixed 2026-11-10:** `%LOCALAPPDATA%\Swift` is on the default never-read list, and the backend adds Swift's folders and files wherever `SWIFT_DATA_DIR`, `SWIFT_CONFIG_DIR` or the `logging` settings put them. Not changed: an approved search of a folder that holds them (B-01's "ask" for a parent folder) can still reach them, as for `.ssh`. Owner check 213.
 
 #### X-08 · High · confirmed (test) · A stop during "Sending…" journals FAILED
 - **Evidence:** connectors run in `asyncio.to_thread` and continue after the stop, while `gateway.py:192` writes FAILED "interrupted". Test: `test_a_stop_while_the_service_is_sending_is_unknown_not_failed`.

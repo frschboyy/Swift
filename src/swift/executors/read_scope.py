@@ -9,7 +9,8 @@ keys or a browser profile. Now:
 - **Anywhere else:** a confirm card first ("Read notes.txt?"). No answer or a no: not read, and the
   run goes on without it.
 - **Never read**, card or not: secrets and credentials (``.ssh``, ``.claude``, ``.aws``, browser
-  profiles, Windows' credential folders, Swift's own config folder with the Google client file)
+  profiles, Windows' credential folders, Swift's own config and data folders, wherever the settings
+  put them: the Google client file, recordings, transcripts and logs)
   and secret-looking files anywhere (``.env``, private keys, password databases), plus whatever
   the owner adds (``executor.never_read``).
 
@@ -34,6 +35,7 @@ _HOME_NEVER = (
     "AppData/Local/Google/Chrome/User Data", "AppData/Local/Microsoft/Edge/User Data",
     "AppData/Local/BraveSoftware", "AppData/Roaming/Mozilla", "AppData/Roaming/Opera Software",
     "AppData/Roaming/Swift",  # Swift's config: the Google OAuth client file
+    "AppData/Local/Swift",  # Swift's data: recordings, transcripts, logs (X-07: audio never leaves the PC)
     "AppData/Roaming/Claude", "AppData/Roaming/1Password", "AppData/Roaming/Bitwarden",
 )
 # File names never read, wherever they are.

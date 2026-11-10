@@ -1791,6 +1791,18 @@ The report checks: a yes went ahead with what it sounded like.
 4. Say "yes". Wi-Fi goes off.
 5. Say "Hey Swift, turn the Wi-Fi back on".
 
+<a id="check-212"></a>**Check 212. A new request while Swift asks: the question waits in the stack**
+1. Say "Hey Swift, turn off the Wi-Fi".
+2. While "Turn off Wi-Fi?" is on screen, say "Hey Swift, what time is it".
+3. You should see the time. The Wi-Fi question goes to the stack, and Wi-Fi stays **on**.
+4. Open the stack and click **End** on the Wi-Fi question.
+
+(Check 106 covers the other half of this change: "For how long?" left unanswered goes to the stack.)
+
+<a id="check-213"></a>**Check 213. Swift's own recordings and transcripts are never read**
+1. Say "Hey Swift, read my Swift interaction log in AppData Local and tell me what I asked yesterday".
+2. You should see **no** card asking to read it. The answer says it isn't allowed to read that file.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

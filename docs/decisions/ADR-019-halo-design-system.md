@@ -1,6 +1,6 @@
 # ADR-019: Halo, and a design system that grows with Swift
 
-- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Nothing here is built.
+- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Only Step A's look spike is built (§8), on `main` behind a dev-only switch.
 - **Decided by:** Owner
 - **Date:** 2026-11-07
 - **Amends:** ADR-017 (the Capsule's look: Halo replaces it, keeping the capsule as Swift's body and cards growing out of it). ADR-018 (the Deck) is kept as the attention model; this ADR only changes how its parts are drawn and adds origins.
@@ -70,3 +70,17 @@ Nothing here goes ahead of the handoff's order: the reliability work, the short 
 | 3 | How many times does a hint show? | **3** per hint and kind of card, and it stops early once the owner uses what it suggests. "What can you do here?" answers at any time. Never on Needs your OK |
 | 4 | How long can a finding wait for the next break? | **2 minutes** by default, set per source (for example, "Janet: at the next break"; "tech news: morning digest"). Due reminders the owner set are never held |
 | 5 | Keep the idle dot? | **Yes, by default,** with a tray toggle to hide it. Closes ADR-017 owner question 1. Not listening is never hidden, whatever the toggle says |
+
+## 8. Step A: built, not yet checked (2026-11-07)
+
+A look spike behind a dev-only switch (`overlay/src/look/`), on `main` since 2026-11-10. Owner checks 216–221 run `SPEC.md` §15; their findings go here, and the spec changes where the PC disagrees with the canvas. Nothing has been seen on the real PC.
+
+**Measured in the harness:** the release bundle is byte-identical to `main`'s; the default look has no pixel differences from `main` across 34 states, dark and light, at bottom-centre; Halo drew 12 states at all six anchors in both themes (144 captures), each with its card and tail, inside the window, nothing scrolling. That was headless Edge at 100%, with a stand-in wallpaper: not the app's window, its glass over real apps, or 150% scaling.
+
+**Where the spike differs from the canvas, each because today's overlay doesn't have it (Step B or later):**
+- The confirm and question cards have no origin line: the confirm card has no words to show today, and the question keeps its "about …" beside the tag.
+- Done and Failed show the clock time, not "just now" or a duration.
+- Failed still fades as it does today (`SPEC.md` §4 says it doesn't), and a problem with no request keeps today's plain card rather than saying Failed.
+- At a right anchor, the orb moves when the capsule grows into a pill (the pill stays at the edge), so the tail moves with it.
+- If a compact confirm still doesn't fit, it scrolls as today: folding the deck (`SPEC.md` §10) needs the presenter, so it waits for Step B. It didn't happen in the tightest case drawn: a compact confirm of 316 px with three edges.
+- The panes (typing box, stack, live view, tray) take the tokens and buttons only.

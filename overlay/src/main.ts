@@ -166,6 +166,8 @@ let pressAt: { x: number; y: number } | null = null;
 const client = new BackendClient(onMessage, onStatus);
 
 followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
+// The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.
+if (import.meta.env.DEV) void import("./look").then((look) => look.applyLook(stage));
 
 /** The push-to-talk hotkey for sentences: "Ctrl+Shift+Space". */
 const pttText = (): string => (pttSpec ? hotkeyParts(pttSpec).join("+") : "the push-to-talk hotkey");

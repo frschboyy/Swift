@@ -1821,6 +1821,56 @@ The report checks: a yes went ahead with what it sounded like.
 4. Do steps 1 and 2 again, but wait until the "Say stop" line has gone (more than 5 seconds), then say "Hey Swift, stop".
 5. The email arrives: once it's going, it goes. Swift doesn't say it failed.
 
+### The Halo look, before anything is built (ADR-019 Step A, `SPEC.md` §15, 2026-11-07)
+
+About 15 minutes. Nothing here has been seen on your screen: these checks decide whether Halo goes ahead as drawn. Say what you think, not only whether it passes, and click **Reject** on any card. Only the look changes: Swift behaves as it does today, and a release build never shows it.
+
+Quit Swift (Tray → Quit Swift), then in `overlay`:
+
+```powershell
+$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev
+```
+
+To go back to today's look, quit Swift and run `Remove-Item Env:VITE_SWIFT_LOOK` in that terminal before starting it again.
+
+<a id="check-216"></a>**Check 216. Halo's glass is readable over your real screen**
+1. Say "Hey Swift, is it going to rain this afternoon?", then "hey Swift, research the history of tea".
+2. Look at the cards over your real apps and wallpapers: a white page, a dark one, a busy photo.
+3. Do it again with Windows set to the other of dark and light.
+
+You should see: the glass card is **readable everywhere**, and the text never competes with what's behind it. There's no footer band in a different shade.
+
+<a id="check-217"></a>**Check 217. The tail points at the orb from every position**
+1. With an answer on screen, try all six positions from the tray's **Position** menu.
+2. Set Windows' display scale to **150%** and try them again.
+
+You should see: the **tail** points at the orb at every position, from the card's bottom edge at the bottom positions and from its top edge at the top ones. It's joined to the card, with no gap, no cut-off and no blurry seam at 150%.
+
+<a id="check-218"></a>**Check 218. A question and an approval are never confused**
+1. Say "Hey Swift, add lunch next week" and keep going until it asks which day. Look at the blue ring.
+2. Answer it. When the amber card comes, compare the two. Click **Reject**.
+
+You should see: blue with a "Waiting for you" tag is a question, and the amber band with "Needs your OK" is an approval. You can tell them apart at a glance, even from across the room.
+
+<a id="check-219"></a>**Check 219. Edges stand apart from the card**
+1. Say "Hey Swift, research the history of tea", then "hey Swift, compare three e-readers", then a third research request.
+
+You should see: the **edges** are a different tone from the card at a glance, in dark and in light, and each one is readable.
+
+<a id="check-220"></a>**Check 220. The sleeping orb reads as not listening**
+1. Tray → **pause listening**. Look from where you normally sit.
+2. Ask something by typing, so a card opens over it.
+
+You should see: the **sleeping orb** with "Not listening" reads as not listening from your normal viewing distance, and it stays while a card is open. It never fades.
+
+<a id="check-221"></a>**Check 221. A card grows out of the orb**
+1. Say "Hey Swift, what time is it" several times.
+2. Turn Settings → Accessibility → Visual effects → **Animation effects** off, and do it again.
+
+You should see: the card **grows out of the orb** in about a quarter of a second, with no bounce, and the tail settles last. With animations off, it's only a short fade.
+
+Tell Claude what you find: it goes in ADR-019 (§8), and the spec changes where your screen disagrees with the canvas.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

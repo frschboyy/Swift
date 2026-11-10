@@ -138,6 +138,18 @@ async function concurrent(s: Shim): Promise<void> {
   await sleep(300);
 }
 
+/** Past "Got it" (deck.ts ACK_MS), so the edges show what they are doing. */
+const SETTLED_MS = 2700;
+/** Three requests behind the card, all started a while ago. */
+const behind = (): Record<string, unknown>[] => {
+  const now = Date.now();
+  return [
+    { run_id: `c1-${run()}`, thread_id: "t1", title: "Green tea research", state: "working", activity: "reading", app: null, agent: AGENT, started_ms: now - 96_000, summary: "", words: "Look up green tea research" },
+    { run_id: `c2-${run()}`, thread_id: "t2", title: "Email to Priya", state: "confirm", activity: null, app: null, agent: null, started_ms: now - 40_000, summary: "", words: "Email Priya the tea report" },
+    { run_id: `c3-${run()}`, thread_id: "t3", title: "Tea history", state: "result", activity: null, app: null, agent: AGENT, started_ms: now - 200_000, summary: "Tea began in China.", words: "Tea history" },
+  ];
+};
+
 const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // 1. the capsule
   capsuleIdle: async () => {},
@@ -257,6 +269,42 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("state", { state: "result", run_id: "due-reminder-3", agent: null });
     s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null });
     await sleep(200);
+  },
+  // 12. the shrunk working card, and the Deck's tightest cases (ADR-019 Step A's states)
+  workingShrunk: async (s) => {
+    await DESIGN.working(s);
+    document.querySelector<HTMLButtonElement>('#card button[aria-label="Shrink to one line"]')?.click();
+    await sleep(150);
+  },
+  deckFoldedRunning: async (s) => {
+    const id = await answer(s, "Give me a short history of tea", LONG);
+    s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 2).map((r) => ({ ...r, state: "working", activity: "reading", agent: AGENT })) });
+    await sleep(SETTLED_MS);
+    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    await sleep(320);
+  },
+  deckFoldedOk: async (s) => {
+    const id = await answer(s, "Give me a short history of tea", LONG);
+    s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 2) });
+    await sleep(SETTLED_MS);
+    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    await sleep(320);
+  },
+  deckConfirmTight: async (s) => {
+    await DESIGN.confirmEmail(s);
+    s.inject("runs", { focus: `d${n}`, waiting: 0, rows: behind() });
+    await sleep(SETTLED_MS);
+  },
+  deckBehindSpeaking: async (s) => {
+    const id = await answer(s, "What time is it?", "It's 3:42 pm");
+    s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 1) });
+    s.inject("speech", { speaking: true });
+    await sleep(SETTLED_MS);
+  },
+  micOffWithCard: async (s) => {
+    await DESIGN.answerText(s);
+    s.inject("presence", { ...HERE, listening: false, paused: true });
+    await sleep(150);
   },
   // 11. the live view of a running request (ADR-017 §7): research, then writing it into Word
   liveResearch: async (s) => { await liveResearch(s, false); },

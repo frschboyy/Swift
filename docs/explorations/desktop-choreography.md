@@ -1,6 +1,6 @@
 # Desktop choreography: Swift and Windows as one experience (2026-11-11)
 
-- **Status:** exploration with spike results, not decided. No ADR. Nothing here is in Swift: it's all in throwaway spikes on the branch `claude/desktop-choreography-spike`.
+- **Status:** exploration with spike results, not decided. No ADR. Nothing here is in Swift: it's all in throwaway spikes under `spikes/desktop/`.
 - **The spikes:** [`spikes/desktop/card_origin.py`](../../spikes/desktop/card_origin.py) (native windows) and [`spikes/desktop/card_overlay/`](../../spikes/desktop/card_overlay/) (a small separate Tauri app: one transparent, click-through window per monitor, as the overlay would draw).
 - **Builds on:** [`interaction-layer.md`](interaction-layer.md). This answers most of its spikes S1 (stage window) and S2 (following another window).
 - **Evidence:** every result below is from the owner's own PC (Windows build 26300, an Insider build, one monitor, dark theme). Each says how it was judged: by the owner's eye, by a measurement, or by the spike's self-test.
@@ -66,7 +66,7 @@ These came from the owner's reactions, one correction at a time.
 2. Whether Swift's presence reacting to windows (nod, lean, step aside) is wanted on the real orb. The owner said the orb's current design is fine and didn't want it following windows; the stand-in reacting in place felt right.
 3. Whether a frosted look is worth the heavy route (screen capture and a native renderer), given Windows' own blur is out.
 4. Whether reading control positions is acceptable, and under what rule.
-5. Whether to keep the spike branch or delete it once this is read.
+5. Whether to keep the spike code or delete it once this is read.
 
 ## When
 

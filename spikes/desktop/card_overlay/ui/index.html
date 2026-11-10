@@ -8,7 +8,18 @@
     will-change: transform, opacity;
   }
   #card.waiting { border: 2px solid #ffb060; }  /* a card that is waiting on an answer */
+  /* A mark drawn over a control in someone else's window. */
+  #ring {
+    position: absolute; box-sizing: border-box; border: 2px solid #ffb060; border-radius: 8px;
+    box-shadow: 0 0 14px #ffb06099, inset 0 0 8px #ffb06055;
+    opacity: 0; transform: scale(1.08); transition: opacity .16s, transform .16s;
+  }
+  #line { position: fixed; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .16s; }
+  #line line { stroke: #ffb060; stroke-width: 2; stroke-linecap: round; }
+  #ring.on, #line.on { opacity: 1; transform: none; }
 </style>
+<svg id="line"><line /></svg>
+<div id="ring"></div>
 <div id="card"></div>
 <script>
   const card = document.getElementById('card');
@@ -62,6 +73,27 @@
       }
       window.__TAURI__.core.invoke('started', { sent });  // Rust starts the real window on this
     });
+  }
+
+  // Ring a control and tie a card to it. r: the control, c: the card, in device pixels.
+  const ring = document.getElementById('ring'), line = document.getElementById('line');
+  function mark(r, c) {
+    const [x, y, w, h] = px(r), cr = px(c), pad = 4;
+    Object.assign(ring.style, { left: x - pad + 'px', top: y - pad + 'px', width: w + 2 * pad + 'px', height: h + 2 * pad + 'px' });
+    // From the card's centre (hidden under the card) to the nearest point on the ring.
+    const cx = cr[0] + cr[2] / 2, cy = cr[1] + cr[3] / 2;
+    const ex = Math.max(x - pad, Math.min(cx, x + w + pad)), ey = Math.max(y - pad, Math.min(cy, y + h + pad));
+    const l = line.firstElementChild;
+    l.setAttribute('x1', ex); l.setAttribute('y1', ey); l.setAttribute('x2', cx); l.setAttribute('y2', cy);
+    ring.classList.add('on'); line.classList.add('on');
+    card.classList.remove('waiting');
+    place([ex, ey, 8, 8], 0);  // the card grows out of the ring
+    moveTo(cr, 1, 220);
+  }
+  function unmark() {
+    ring.classList.remove('on'); line.classList.remove('on');
+    const b = card.getBoundingClientRect();
+    moveTo([b.x, b.y, b.width, b.height], 0, 120);
   }
 
   // Selftest: where the card really is, in device pixels, and how visible.

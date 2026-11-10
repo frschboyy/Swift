@@ -11,18 +11,25 @@
 //! - a card waiting on an answer never hides itself: it travels home to Swift's place (a
 //!   stand-in spot above the taskbar) and stays visible there.
 //!
+//! Ctrl+Alt+R draws on top of the app's own UI: a ring around whichever control has focus,
+//! tied by a line to a card. It only reads where the control is (UI Automation), never its
+//! text, and changes nothing in the app. One loop owns the ring: it hides the moment the
+//! control moves or its window leaves the front, and returns when the control is still.
+//!
 //!     cargo run                 Ctrl+Alt+W card from the window, A the same but waiting on an
-//!                               answer, T taskbar, P push, Q quit (same key again = back)
+//!                               answer, T taskbar, P push, R ring, Q quit (same key = back)
 //!     cargo run -- --selftest   hands-off; moves nothing of yours
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicIsize, AtomicU32, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{mpsc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Manager, PhysicalSize, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
+use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation, IUIAutomationElement};
 
 type Hwnd = *mut c_void;
 type WinEventProc = unsafe extern "system" fn(Hwnd, u32, Hwnd, i32, i32, u32, u32);
@@ -87,8 +94,16 @@ struct Open {
     pushed: Option<(isize, i32, i32)>, // the window made to give room, and where it was
 }
 
+/// Asked of the thread that talks to UI Automation.
+enum Uia {
+    Ring,
+    Read(mpsc::Sender<Option<f64>>), // selftest: how long finding the focused control took
+}
+
 struct St {
     origin: (i32, i32),
+    size: (i32, i32),
+    uia: Mutex<mpsc::Sender<Uia>>,
     open: Mutex<Option<Open>>,
     pending: Mutex<Option<Move>>,
     started: AtomicU32,
@@ -278,6 +293,9 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         println!("{name}: no card open");
         return;
     };
+    if o.kind == "ring" {
+        return; // the ring's own loop watches its control
+    }
     if o.hwnd == 0 {
         println!("{name}: the open card ({}) belongs to no window, so it stays", o.kind);
         return;
@@ -332,6 +350,113 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
     };
     println!("{name}, {whose}: the card {did}");
     let _ = app.get_webview_window("canvas").unwrap().eval(&js);
+}
+
+/// Where a mark's card goes: below and right of its control, or the other side if that's off screen.
+fn card_for(r: [i32; 4], st: &St) -> [i32; 4] {
+    let (w, h) = (260, 96);
+    let (right, bottom) = (st.origin.0 + st.size.0, st.origin.1 + st.size.1 - 60);
+    let x = if r[0] + r[2] + 48 + w <= right { r[0] + r[2] + 48 } else { r[0] - 48 - w };
+    let y = if r[1] + r[3] + 36 + h <= bottom { r[1] + r[3] + 36 } else { r[1] - 36 - h };
+    [x.max(st.origin.0), y.max(st.origin.1), w, h]
+}
+
+fn ring_key(app: &AppHandle) {
+    let st = app.state::<St>();
+    let mut open = st.open.lock().unwrap();
+    match open.as_ref() {
+        Some(o) if o.kind == "ring" => *open = None, // its loop sees this and takes the ring away
+        Some(_) => println!("put the open card back first (same key again)"),
+        None => {
+            let _ = st.uia.lock().unwrap().send(Uia::Ring);
+        }
+    }
+}
+
+/// UI Automation lives on its own thread: it can be slow, and must never stall the window.
+fn uia_thread(app: AppHandle, rx: mpsc::Receiver<Uia>) {
+    let uia: IUIAutomation = unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        match CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) {
+            Ok(u) => u,
+            Err(e) => return println!("UI Automation isn't available, so no rings: {e}"),
+        }
+    };
+    // Only where the control is. Never its name or text.
+    let place = |el: &IUIAutomationElement| {
+        unsafe { el.CurrentBoundingRectangle() }
+            .ok()
+            .filter(|r| r.right > r.left && r.bottom > r.top)
+            .map(|r| [r.left, r.top, r.right - r.left, r.bottom - r.top])
+    };
+    for req in rx {
+        let t = Instant::now();
+        let el = unsafe { uia.GetFocusedElement() }.ok();
+        let found = el.as_ref().and_then(&place);
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+        match (req, el, found) {
+            (Uia::Read(tx), _, found) => {
+                let _ = tx.send(found.map(|_| ms));
+            }
+            (Uia::Ring, Some(el), Some(first)) => {
+                println!("found the focused control in {ms:.0} ms");
+                watch_ring(&app, first, || place(&el));
+            }
+            _ => println!("nothing has focus that Windows can describe"),
+        }
+    }
+}
+
+/// The one owner of the ring: show it while its control is still and its window is in
+/// front, hide it the moment either changes, and leave when the key is pressed again.
+fn watch_ring(app: &AppHandle, first: [i32; 4], place: impl Fn() -> Option<[i32; 4]>) {
+    let st = app.state::<St>();
+    let win = app.get_webview_window("canvas").unwrap();
+    let hwnd = unsafe { GetForegroundWindow() } as isize;
+    {
+        let mut open = st.open.lock().unwrap();
+        if open.is_some() {
+            return println!("put the open card back first (same key again)");
+        }
+        *open = Some(Open { kind: "ring", hwnd, dst: [0; 4], waiting: false, away: false, lifted: false, pushed: None });
+    }
+    let (mut prev, mut shown, mut reads) = (Some(first), None, Vec::new());
+    while matches!(st.open.lock().unwrap().as_ref(), Some(o) if o.kind == "ring") {
+        let t = Instant::now();
+        let now = place();
+        reads.push(t.elapsed().as_secs_f64() * 1000.0);
+        if now.is_none() {
+            println!("the control is gone: the ring leaves");
+            *st.open.lock().unwrap() = None;
+            break;
+        }
+        let front = unsafe { GetForegroundWindow() } as isize == hwnd;
+        let want = if front && now == prev { now } else { None };
+        if want != shown {
+            println!("ring: {}", match (want, front) {
+                (Some(_), _) => "shown on its control",
+                (None, true) => "hidden, the control is moving",
+                (None, false) => "hidden, its window isn't in front",
+            });
+            let _ = win.eval(&match want {
+                Some(r) => format!("mark({},{})", st.arr(r), st.arr(card_for(r, &st))),
+                None => "unmark()".into(),
+            });
+            shown = want;
+        }
+        prev = now;
+        thread::sleep(Duration::from_millis(50));
+    }
+    if shown.is_some() {
+        let _ = win.eval("unmark()");
+    }
+    reads.sort_by(|a, b| a.total_cmp(b));
+    println!(
+        "ring: asked where the control was {} times, median {:.1} ms, slowest {:.1} ms",
+        reads.len(),
+        reads[reads.len() / 2],
+        reads[reads.len() - 1]
+    );
 }
 
 unsafe extern "system" fn on_win_event(_hook: Hwnd, event: u32, hwnd: Hwnd, id_object: i32, _child: i32, _thread: u32, _ms: u32) {
@@ -457,6 +582,20 @@ fn selftest(app: AppHandle) {
     check("put back: the card leaves", look(&app), None, 0.0);
     report("and the dragged window stays where it was dropped", left() == dropped);
 
+    // Drawing on top of a control: the page's side, and that Windows answers at all.
+    let ctl = [st.origin.0 + 300, st.origin.1 + 300, 200, 40];
+    let _ = app.get_webview_window("canvas").unwrap().eval(&format!("mark({},{})", st.arr(ctl), st.arr(card_for(ctl, &st))));
+    check("a mark's card opens beside its control", look(&app), Some(card_for(ctl, &st)), 1.0);
+    let _ = app.get_webview_window("canvas").unwrap().eval("unmark()");
+    check("and leaves", look(&app), None, 0.0);
+    let (tx, rx) = mpsc::channel();
+    let _ = st.uia.lock().unwrap().send(Uia::Read(tx));
+    match rx.recv_timeout(Duration::from_secs(5)) {
+        Ok(Some(ms)) => println!("info found the focused control in {ms:.0} ms"),
+        Ok(None) => println!("info nothing has focus that Windows can describe right now"),
+        Err(_) => report("UI Automation answers", false),
+    }
+
     if st.started.load(Ordering::SeqCst) != 10 {
         report(&format!("the webview answered {} of 10 starts", st.started.load(Ordering::SeqCst)), false);
     }
@@ -470,6 +609,7 @@ fn main() {
         (Code::KeyA, "ask"),
         (Code::KeyT, "tray"),
         (Code::KeyP, "push"),
+        (Code::KeyR, "ring"),
         (Code::KeyQ, "quit"),
     ];
     tauri::Builder::default()
@@ -481,6 +621,7 @@ fn main() {
                     }
                     match keys.iter().find(|(code, _)| *code == shortcut.key) {
                         Some((_, "quit")) => quit(app),
+                        Some((_, "ring")) => ring_key(app),
                         Some((_, kind)) => toggle(app, kind),
                         None => {}
                     }
@@ -496,14 +637,19 @@ fn main() {
             // screen, and Windows then holds notifications back.
             win.set_size(PhysicalSize::new(mon.size().width, mon.size().height - 1))?;
             win.set_ignore_cursor_events(true)?;
+            let (tx, rx) = mpsc::channel();
             app.manage(St {
                 origin: (mon.position().x, mon.position().y),
+                size: (mon.size().width as i32, mon.size().height as i32),
+                uia: Mutex::new(tx),
                 open: Mutex::new(None),
                 pending: Mutex::new(None),
                 started: AtomicU32::new(0),
                 seen: Mutex::new(None),
             });
             let _ = APP.set(app.handle().clone());
+            let for_uia = app.handle().clone();
+            thread::spawn(move || uia_thread(for_uia, rx));
 
             // Three system events, each rare: who is in front, and a drag's start and end.
             // Delivered on this thread's message loop. Flag 2 skips events our own process
@@ -527,7 +673,7 @@ fn main() {
                 }
             }
             println!("Ctrl+Alt+W card from the window, A the same but waiting on an answer,");
-            println!("T taskbar, P push, Q quit. Same key again puts the card back.");
+            println!("T taskbar, P push, R ring on the focused control, Q quit. Same key again puts it back.");
             Ok(())
         })
         .run(tauri::generate_context!())

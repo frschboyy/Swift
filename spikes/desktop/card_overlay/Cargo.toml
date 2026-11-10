@@ -13,3 +13,5 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-global-shortcut = "2"
+# Already in Tauri's own tree at this version: used to ask Windows where a control is.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Accessibility"] }

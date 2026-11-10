@@ -47,6 +47,8 @@ from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
 MAX_WRITE = 50_000
 MAX_SELECTION = 4000
 MAX_OPEN = 5
+# An open's receipt in the journal: never the file's or app's name (X-18; the journal is metadata only). Nothing undoes an open.
+OPENED = "opened"
 EMAIL_APPS = ("gmail", "outlook")
 
 # The owner asked to put words somewhere: a writing verb, or a place to write ("here", "into Word").
@@ -224,7 +226,7 @@ async def desktop_open(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
 
             async def perform(path: str = path) -> str:
                 await desktop.open_path(path)
-                return Path(path).name
+                return OPENED
 
             action = Action(
                 tool="desktop_open_program" if program else "desktop_open",
@@ -254,7 +256,7 @@ async def desktop_open(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
             await asyncio.to_thread(opener.launch, target)
         except OSError as exc:
             raise DesktopError(f"Windows couldn't start {target.name}: {exc}", "") from None
-        return target.name
+        return OPENED
 
     action = Action(
         tool="desktop_open", targets=(), title=f"Open {target.name}", detail="", artifact_id=None,

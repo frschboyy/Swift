@@ -6,6 +6,7 @@ Nothing on the real screen is read or touched; the Windows implementation is own
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Any
 
@@ -211,6 +212,17 @@ async def test_open_this_opens_the_selection_and_asks_before_running_a_program()
     assert desktop.opened == ["C:/Users/me/Documents/notes.docx"]
     assert owner.asked[0][:3] == ("Run setup.exe?", "It's a program or script: opening it runs it.", "desktop_open_program")
     assert not result.ok and "setup.exe wasn't opened" in result.text
+
+
+async def test_an_opened_file_s_name_stays_out_of_the_journal() -> None:
+    """X-18: the journal is metadata only (ADR-010 §4); a receipt is an id, a count or an intent, never a name."""
+    explorer = FakeApp("explorer.exe", "list item", files=["C:/Users/me/Documents/visa interview notes.docx"])
+    host, desktop, _, journal = make(explorer)
+    assert (await host.call("desktop_open", {"what": "selection"})).ok
+    assert (await host.call("desktop_open", {"name": "word"})).ok
+    assert desktop.opened == ["C:/Users/me/Documents/visa interview notes.docx"]
+    assert [e["state"] for e in journal.entries] == ["PENDING", "DONE"] * 2
+    assert not any(word in json.dumps(journal.entries).lower() for word in ("visa", "notes", "word"))
 
 
 async def test_open_by_name_uses_the_local_names_only() -> None:

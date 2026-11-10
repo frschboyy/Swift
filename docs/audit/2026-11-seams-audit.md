@@ -410,7 +410,7 @@ IDs by area:
 | R-10 | Low | suspected | workflows | efficiency | Calendar workflows on Haiku take 3–6 turns; time to first card is about 15 s |
 | R-11 | Low | suspected; **fixed 2026-11-05 (S4)** | backend | fallback | An expired login reported as "couldn't confirm model" isn't treated as a sign-in |
 | X-05 | Low | confirmed (log); **fixed 2026-11-06, except the lines listed in its entry** | backend | security, diagnosability | Exception and connector texts go into `swift.log` and the journal (none with content yet) |
-| X-18 | Medium | confirmed (X-05 review) | gateway | security | A selected file's name goes into the journal as a receipt |
+| X-18 | Medium | confirmed (X-05 review); **fixed 2026-11-10** | gateway | security | A selected file's name goes into the journal as a receipt |
 | X-12 | Low | confirmed (code); **fixed 2026-11-05 (S4)** | executor | efficiency | Waiting for the spare CLI is outside every timeout |
 | X-13 | Low | confirmed (code) | executor | diagnosability | A cancelled or killed run reports no cost |
 | X-14 | Low | confirmed (code) | backend | effectiveness, fallback | Sign-in hints disagree with the card; no card while away or for "absent" |
@@ -975,6 +975,7 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 #### X-18 · Medium · confirmed (reproduced in the X-05 review; no test in the repo yet) · A selected file's name goes into the journal as a receipt
 - **Evidence:** `desktop_open` returns `Path(path).name` as its receipt (`workflows/desktop_tools.py:227`), and the gateway journals it as `DONE` (`security/gateway.py:218`). On a selected `visa interview notes.docx`, the journal says so. Other receipts are ids, counts or intent names.
 - **Fix:** return a receipt with no name. Check what undo reads first.
+- **Fixed 2026-11-10:** an open, of a selected file or an app by name, is journaled with the receipt `opened`. Nothing undoes an open, so nothing read the name. Older journal lines keep theirs.
 
 #### X-06 · Medium · confirmed (code) · B-10 is wider than recorded
 - **Evidence:** the working-card step "Claude is busy, retrying…" (`claude_mapping.py:61`), "Claude Code stopped…", "Claude asked for a stronger model", and the error title "Claude Code isn't signed in".

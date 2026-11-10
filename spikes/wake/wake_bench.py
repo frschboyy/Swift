@@ -5,8 +5,12 @@ copied into --out (outside git), transcribed locally with Parakeet, and scored l
 
   build  copy the owner's saved clips into --out and write manifest.jsonl (ids, labels, durations; no text)
   stt    transcribe every clip with Parakeet (+ the owner's word fixes) and score swift.wake.match_wake
+  align  when the name ends in each positive clip (Parakeet's token times), for the latency column
   oww    stream every clip through openWakeWord and score it (needs a model: --model NAME_OR_PATH)
-  report print the comparison from the files the other steps wrote
+  porcupine  stream every clip through legacy Porcupine 1.9 (built-in keywords, no AccessKey)
+  stage2 transcribe the window each detector fired on, for the two-stage rows
+  report print the comparison from the files the other steps wrote: each detector alone, and as stage 1
+         of a two-stage wake (detector fires, then Parakeet + a lenient "... swift" check on that window)
 
 Labels. pos: the clip opens with a wake phrase. neg: it doesn't. "wake" clips were started by wake listening,
 so today's path accepted them (selection bias: they can't count as today's misses). "wake_miss" clips have no
@@ -22,8 +26,10 @@ ground truth; they are labelled by hand in --labels (id -> pos/neg/skip) from tw
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -91,6 +97,12 @@ def build(out: Path) -> None:
                 continue
             label = "pos" if match_wake(r["ref"]) else "neg"
             add(SWIFT / folder / r["wav"], f"{folder}-{r['id']}", folder, label, "reference text")
+    # The owner's calm office takes (spikes/wake/record_corpus.py), all "Hey Swift", with or without a request.
+    takes = SWIFT / "corpus" / "wake" / "positives"
+    if (takes / "manifest.csv").exists():
+        with open(takes / "manifest.csv", newline="", encoding="utf-8") as f:
+            for t in csv.DictReader(f):
+                add(takes / t["file"], f"take-{Path(t['file']).stem}", "calm_take", "pos", "recorded as Hey Swift")
     seen = {r["id"] for r in rows}
     for c in json.loads((SWIFT / "stt_testset" / "index.json").read_text(encoding="utf-8"))["clips"]:
         if c["id"] not in seen and c.get("known"):
@@ -174,6 +186,54 @@ def oww(out: Path, model: str, tag: str) -> None:
     (out / f"oww_{tag}_perf.json").write_text(json.dumps(perf), encoding="utf-8")
 
 
+# ---- porcupine: an acoustic detector with built-in keywords ------------------------------------------
+
+def porcupine(out: Path, keyword: str, sens: list[float], tag: str) -> None:
+    """Legacy Porcupine 1.9 (no AccessKey, nothing online): a built-in keyword name or a .ppn path.
+    One handle per sensitivity; a hit is the first frame it fires on, in seconds from the clip's start."""
+    import psutil
+    import pvporcupine
+
+    rows = load_jsonl(out / "manifest.jsonl")
+    kw = {"keyword_paths": [keyword]} if keyword.endswith(".ppn") else {"keywords": [keyword]}
+    handles = {str(s): pvporcupine.create(sensitivities=[s], **kw) for s in sens}
+    n = next(iter(handles.values())).frame_length
+    proc = psutil.Process()
+    cpu0, res = proc.cpu_times(), []
+    for i, r in enumerate(rows, 1):
+        print(f"\rporcupine {i}/{len(rows)}", end="", flush=True)
+        audio = np.concatenate([np.zeros(RATE, np.int16), read_wav(out / "clips" / f"{r['id']}.wav"),
+                                np.zeros(RATE // 2, np.int16)])
+        hits = {}
+        for s, h in handles.items():
+            fired = [j for j in range(0, len(audio) - n + 1, n) if h.process(audio[j:j + n]) >= 0]
+            hits[s] = round((fired[0] + n) / RATE - 1.0, 3) if fired else None
+        res.append({"id": r["id"], "hits": hits})
+    cpu1 = proc.cpu_times()
+    perf = {"model_mb": 0, "peak_rss_mb": round(proc.memory_info().rss / 2**20),
+            "cpu_s": round((cpu1.user + cpu1.system - cpu0.user - cpu0.system) / len(handles), 1),
+            "audio_s": round(sum(r["audio_s"] + 1.5 for r in rows), 1)}
+    print("\n", perf)
+    save_jsonl(out / f"porcupine_{tag}.jsonl", res)
+    (out / f"porcupine_{tag}_perf.json").write_text(json.dumps(perf), encoding="utf-8")
+
+
+def align(out: Path, labels: Path | None) -> None:
+    """When the name ends in each positive clip (Parakeet's token times), for the latency column."""
+    import onnx_asr
+
+    from train_head import swift_end
+
+    path = out / "align.json"
+    done = json.loads(path.read_text()) if path.exists() else {}
+    asr = onnx_asr.load_model("nemo-parakeet-tdt-0.6b-v2", SWIFT / "models" / "parakeet-tdt-0.6b-v2",
+                              quantization="int8").with_timestamps()
+    for r in labelled(out, labels):
+        if r["label"] == "pos" and r["id"] not in done:
+            done[r["id"]] = swift_end(asr, read_wav(out / "clips" / f"{r['id']}.wav"))
+    path.write_text(json.dumps(done))
+
+
 # ---- report ------------------------------------------------------------------------------------------
 
 def labelled(out: Path, labels: Path | None) -> list[dict]:
@@ -204,40 +264,121 @@ def summary(rows: list[dict], fired: dict[str, bool], name: str) -> str:
     by_src = {}
     for r in miss:
         by_src[r["source"]] = by_src.get(r["source"], 0) + 1
-    return (f"{name:28} misses {len(miss):3}/{len(pos):3} ({100 * len(miss) / max(len(pos), 1):4.1f}%) {by_src}"
-            f" | false wakes {len(fa):2}/{len(neg)} clips = {len(fa) / neg_h:5.1f}/h of negatives")
+    live = [r for r in pos if r["source"] == "wake_miss"]
+    takes = [r for r in pos if r["source"] == "calm_take"]
+    return (f"{name:34} misses {len(miss):3}/{len(pos):3} ({100 * len(miss) / max(len(pos), 1):4.1f}%)"
+            f" | live misses caught {sum(fired[r['id']] for r in live)}/{len(live)}"
+            f" | calm takes {sum(fired[r['id']] for r in takes)}/{len(takes)}"
+            f" | false wakes {len(fa):2}/{len(neg)} clips = {len(fa) / neg_h:5.1f}/h  {by_src}")
 
 
-def report(out: Path, labels: Path | None, tags: list[str], thresholds: list[float], patience: int) -> None:
-    rows = labelled(out, labels)
-    neg_min = sum(r["audio_s"] for r in rows if r["label"] == "neg") / 60
-    print(f"{sum(r['label'] == 'pos' for r in rows)} positives, {sum(r['label'] == 'neg' for r in rows)} negatives"
-          f" ({neg_min:.1f} min)")
-    for mode, fired in stt_scores(rows).items():
-        print(summary(rows, fired, f"parakeet+match_wake {mode}"))
-        # The miss clips are what matter: today's path missed them live.
-        sub = [r for r in rows if r["source"] == "wake_miss" and r["label"] == "pos"]
-        print(f"   of the hand-labelled live misses: caught {sum(fired[r['id']] for r in sub)}/{len(sub)} on replay")
-    align = json.loads((out / "align.json").read_text()) if (out / "align.json").exists() else {}
+# Stage 2 of a two-stage wake: run only after an acoustic detector fired, so it can be lenient. What Parakeet
+# writes for a calm "Hey Swift" in the office: "He swift", "Eat swift", "Very swift", "He swiftly" (2026-11-10).
+SOUNDS_LIKE_A_GREETING = ("hey", "hay", "he", "hi", "high", "a", "eh", "eat", "heat", "hate", "they", "very",
+                          "okay", "ok", "hello", "oh", "say")
+_LENIENT = re.compile(rf"\b(?:{'|'.join(SOUNDS_LIKE_A_GREETING)})\W+(?:swift|swiftly|swifts|twift|twif)\b"
+                      # or a word ending in "wift" as the first or second word: "Exwift", "He dwifts", "Pretty swift"
+                      r"|^\W*(?:[\w']+\W+)?[\w']*wift(?:s|ly)?\b")
+
+
+def lenient_wake(text: str) -> bool:
+    from swift.wake import match_wake
+
+    return bool(_LENIENT.search(text.lower())) or match_wake(text, loose=True) is not None
+
+
+def check_lenient() -> None:
+    for text in ("He swift.", "Eat swift", "Very swift", "He swiftly", "Exwift.", "He dwifts.", "Pretty swift."):
+        assert lenient_wake(text), text
+    for text in ("Nice work", "I think Swift is crazy", "He drifted.", "the report was done swiftly and then"):
+        assert not lenient_wake(text), text
+
+
+STAGE2_WINDOWS = (1.2, 1.6)  # seconds of audio ending STAGE2_AFTER s past the detection
+STAGE2_AFTER = 0.3
+
+
+def heard_key(cid: str, t: float) -> str:
+    return f"{cid}@{t:.2f}"
+
+
+def stage_lines(rows: list[dict], hit: dict[str, float | None], late: list[float], name: str,
+                heard: dict[str, list[str]]) -> None:
+    """Stage 1 alone, then stage 1 and the lenient check on Parakeet's transcript of the window it fired on
+    (any of STAGE2_WINDOWS). Without `stage2` run for this detector, the whole clip's transcript stands in."""
+    fired = {r["id"]: hit[r["id"]] is not None for r in rows}
+    line = summary(rows, fired, name)
+    if late:
+        line += f" | fires {np.median(late):+.2f} s after 'swift' ends (median)"
+    print(line)
+    texts = {r["id"]: heard.get(heard_key(r["id"], hit[r["id"]]), [r["parakeet"]]) if fired[r["id"]] else []
+             for r in rows}
+    windowed = all(heard_key(r["id"], hit[r["id"]]) in heard for r in rows if fired[r["id"]])
+    two = {r["id"]: any(lenient_wake(t) for t in texts[r["id"]]) for r in rows}
+    print(summary(rows, two, f"  + parakeet lenient ({'window' if windowed else 'whole clip'})"))
+
+
+def detections(out: Path, rows: list[dict], tags: list[str], thresholds: list[float], patience: int,
+               porcupine_tags: list[str]):
+    """(name, {clip id: seconds from the clip's start when stage 1 first fired, or None}) per setting."""
     for tag in tags:
         res = {r["id"]: r for r in load_jsonl(out / f"oww_{tag}.jsonl")}
         for th in thresholds:
-            fired, late = {}, []
+            hit = {}
             for r in rows:
                 s = res[r["id"]]["scores"]
                 # Score k covers audio up to k * 0.08 + offset s from clip start (streaming: (k+1) chunks - 1 s pad).
                 offset = res[r["id"]].get("offset", 0.08 - 1.0)
-                hits = [k for k in range(len(s) - patience + 1) if min(s[k:k + patience]) >= th]
-                fired[r["id"]] = bool(hits)
-                if hits and r["label"] == "pos" and align.get(r["id"]) is not None:
-                    late.append((hits[0] + patience - 1) * 0.08 + offset - align[r["id"]])
-            line = summary(rows, fired, f"oww {tag} th={th}")
-            sub = [r for r in rows if r["source"] == "wake_miss" and r["label"] == "pos"]
-            line += f" | live misses caught {sum(fired[r['id']] for r in sub)}/{len(sub)}"
-            if late:
-                line += f" | fires {np.median(late):+.2f} s after 'swift' ends (median)"
-            print(line)
-    for p in sorted(out.glob("oww_*_perf.json")):
+                ks = [k for k in range(len(s) - patience + 1) if min(s[k:k + patience]) >= th]
+                hit[r["id"]] = round((ks[0] + patience - 1) * 0.08 + offset, 2) if ks else None
+            yield f"oww {tag} th={th}", hit
+    for tag in porcupine_tags:
+        res = {r["id"]: r["hits"] for r in load_jsonl(out / f"porcupine_{tag}.jsonl")}
+        for sens in next(iter(res.values())):
+            yield f"porcupine {tag} sens={sens}", {r["id"]: res[r["id"]][sens] for r in rows}
+
+
+def stage2(out: Path, labels: Path | None, tags: list[str], thresholds: list[float], patience: int,
+           porcupine_tags: list[str]) -> None:
+    """Transcribe the windows each detector fired on, as stage 2 would live; cached in stage2.json."""
+    from swift.stt.fixes import WordFixes
+    from swift.stt.transcriber import ParakeetTranscriber
+
+    path = out / "stage2.json"
+    heard = json.loads(path.read_text()) if path.exists() else {}
+    rows = labelled(out, labels)
+    todo = {(r["id"], hit[r["id"]]) for _, hit in detections(out, rows, tags, thresholds, patience, porcupine_tags)
+            for r in rows if hit[r["id"]] is not None and heard_key(r["id"], hit[r["id"]]) not in heard}
+    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4, fixes=WordFixes.load(SWIFT / "word_fixes.json"))
+    stt._load()
+    for i, (cid, t) in enumerate(sorted(todo), 1):
+        print(f"\rstage2 {i}/{len(todo)}", end="", flush=True)
+        audio, end = read_wav(out / "clips" / f"{cid}.wav"), int((t + STAGE2_AFTER) * RATE)
+        heard[heard_key(cid, t)] = [stt._transcribe_sync(audio[max(end - int(w * RATE), 0):max(end, 1)]).text
+                                    for w in STAGE2_WINDOWS]
+        if i % 50 == 0:
+            path.write_text(json.dumps(heard))
+    path.write_text(json.dumps(heard))
+    print()
+
+
+def report(out: Path, labels: Path | None, tags: list[str], thresholds: list[float], patience: int,
+           porcupine_tags: list[str]) -> None:
+    check_lenient()
+    rows = labelled(out, labels)
+    neg_min =sum(r["audio_s"] for r in rows if r["label"] == "neg") / 60
+    print(f"{sum(r['label'] == 'pos' for r in rows)} positives, {sum(r['label'] == 'neg' for r in rows)} negatives"
+          f" ({neg_min:.1f} min)")
+    for mode, fired in stt_scores(rows).items():
+        print(summary(rows, fired, f"parakeet+match_wake {mode}"))
+    print(summary(rows, {r["id"]: lenient_wake(r["parakeet"]) for r in rows}, "parakeet lenient alone"))
+    align = json.loads((out / "align.json").read_text()) if (out / "align.json").exists() else {}
+    heard = json.loads((out / "stage2.json").read_text()) if (out / "stage2.json").exists() else {}
+    for name, hit in detections(out, rows, tags, thresholds, patience, porcupine_tags):
+        late = [hit[r["id"]] - align[r["id"]] for r in rows
+                if hit[r["id"]] is not None and r["label"] == "pos" and align.get(r["id"]) is not None]
+        stage_lines(rows, hit, late, name, heard)
+    for p in sorted([*out.glob("oww_*_perf.json"), *out.glob("porcupine_*_perf.json")]):
         perf = json.loads(p.read_text())
         print(f"   {p.stem}: {perf['cpu_s'] / perf['audio_s'] * 100:.1f}% of one core while listening,"
               f" model +{perf['model_mb']} MB, process {perf['peak_rss_mb']} MB")
@@ -249,7 +390,7 @@ def report(out: Path, labels: Path | None, tags: list[str], thresholds: list[flo
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["build", "stt", "oww", "report"])
+    ap.add_argument("step", choices=["build", "stt", "align", "oww", "porcupine", "stage2", "report"])
     ap.add_argument("--out", type=Path, required=True, help="scratch folder outside git")
     ap.add_argument("--whisper", action="store_true", help="stt: also transcribe the miss clips with Whisper")
     ap.add_argument("--model", default="hey_jarvis", help="oww: a bundled model name or an .onnx path")
@@ -258,15 +399,24 @@ def main() -> None:
     ap.add_argument("--oww", nargs="*", default=[], help="report: oww tags to compare")
     ap.add_argument("--thresholds", type=float, nargs="*", default=[0.3, 0.5, 0.7])
     ap.add_argument("--patience", type=int, default=1, help="report: frames in a row over the threshold")
+    ap.add_argument("--keyword", default="jarvis", help="porcupine: a built-in keyword or a .ppn path")
+    ap.add_argument("--sens", type=float, nargs="*", default=[0.3, 0.5, 0.7, 0.9], help="porcupine sensitivities")
+    ap.add_argument("--porcupine", nargs="*", default=[], help="report: porcupine tags to compare")
     a = ap.parse_args()
     if a.step == "build":
         build(a.out)
     elif a.step == "stt":
         stt(a.out, a.whisper)
+    elif a.step == "align":
+        align(a.out, a.labels)
     elif a.step == "oww":
         oww(a.out, a.model, a.tag or Path(a.model).stem)
+    elif a.step == "porcupine":
+        porcupine(a.out, a.keyword, a.sens, a.tag or Path(a.keyword).stem)
+    elif a.step == "stage2":
+        stage2(a.out, a.labels, a.oww, a.thresholds, a.patience, a.porcupine)
     else:
-        report(a.out, a.labels, a.oww, a.thresholds, a.patience)
+        report(a.out, a.labels, a.oww, a.thresholds, a.patience, a.porcupine)
 
 
 if __name__ == "__main__":

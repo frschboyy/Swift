@@ -87,21 +87,31 @@ _AFTER_A_NAME = {
     "tomorrow", "today", "tonight", "now", "again", "back", "at", "on", "in", "by", "from", "im", "we", "you", "its",
     "it", "is", "are", "was", "will", "can", "cc", "too", "also", "when", "what", "whether", "how", "why", "who",
     "this", "next", "here", "there", "then", "letting", "let", "tell", "ask", "say", "invite", "know",
+    "these", "those", "our", "your", "his", "her", "their", "him", "them", "some", "all", "yesterday",
+    "thanks", "thank", "thanking", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
 }
 
 
 def said_otherwise(query: str, said: str, contact: Named) -> bool:
     """Whether the owner named someone else: a name they said right after the one searched for isn't
-    this contact's ("Francis Chianu" said, "Francis" searched, only Muthoni, Francis found: X-01)."""
+    this contact's ("Francis Chianu" said, "Francis" searched, only Muthoni, Francis found: X-01).
+    Every place the name was said counts ("Francis, I mean Francis Chianu"). In words with capitals
+    (speech is transcribed so), only a capitalised word can be a name: "Francis these photos" isn't."""
     q = [w for w in words(query) if w not in _SKIP]
-    s = words(said)
-    ends = [i for i in range(len(s) - len(q) + 1) if q and all(close(s[i + k], w) for k, w in enumerate(q))]
-    if not ends:
-        return False  # the search isn't in the owner's words: nothing to compare with
-    after = s[ends[0] + len(q)] if ends[0] + len(q) < len(s) else ""
-    if len(after) < 3 or after in _SKIP or after in _AFTER_A_NAME:
-        return False
-    return not _has(contact, after, exact=False)
+    tokens = re.findall(r"[A-Za-z]+", said)
+    s = [t.lower() for t in tokens]
+    cased = any(t[:1].isupper() for t in tokens[1:])
+    for i in range(len(s) - len(q) + 1):
+        j = i + len(q)
+        if not q or j >= len(s) or not all(close(s[i + k], w) for k, w in enumerate(q)):
+            continue
+        after = s[j]
+        if len(after) < 3 or after in _SKIP or after in _AFTER_A_NAME or (cased and not tokens[j][:1].isupper()):
+            continue
+        if _has(contact, after, exact=False) or (j + 1 < len(s) and _has(contact, after + s[j + 1], exact=False)):
+            continue  # this contact's own name, a split one included ("Chi Anu")
+        return True
+    return False
 
 
 def narrow(query: str, said: str, found: Sequence[Named]) -> list[Named]:

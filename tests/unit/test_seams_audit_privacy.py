@@ -166,6 +166,22 @@ def test_another_name_said_after_the_search_is_noticed() -> None:
     assert not said_otherwise("Francis", "Draft an email to Francis Chianu", CHIANU)
     assert not said_otherwise("Francis", "Email my colleague", MUTHONI)  # the search isn't in the words said
     assert not said_otherwise("Francis Chianu", "Email Francis Chianu", CHIANU)  # nothing said after it
+    # A correction: the name said again, with another surname.
+    assert said_otherwise("Francis", "Email Francis, I mean Francis Chianu", MUTHONI)
+    assert said_otherwise("Francis", "email Francis no wait Francis Chianu", MUTHONI)
+
+
+@pytest.mark.parametrize("said", [
+    "Email Francis Monday about the trip", "Email Francis these photos", "Send Francis our plan",
+    "Email Francis your notes", "Email Francis thanking him", "Email Francis yesterday's slides",
+    "Email Francis re the budget", "Email Francis's assistant", "Send Francis the file",
+    "Email Francis Chi Anu about lunch",  # the surname heard in two pieces
+    "email francis these photos",  # typed without capitals
+])
+def test_ordinary_words_after_the_name_don_t_make_it_a_guess(said: str) -> None:
+    from swift.workflows.names import said_otherwise
+
+    assert not said_otherwise("Francis", said, CHIANU), said
 
 
 async def test_full_name_query_with_an_any_word_directory_and_one_wrong_match() -> None:

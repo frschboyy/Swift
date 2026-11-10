@@ -74,7 +74,19 @@ class Call:
     delay: float = 0.7
 
 
-ScriptItem = Step | Confirm | Fail | Finish | Call
+@dataclass(frozen=True)
+class Live:
+    """An item for the live view (ADR-017 §7), as the Claude mapping makes them: a source or a note."""
+
+    data: dict[str, Any]
+    delay: float = 0.7
+
+
+ScriptItem = Step | Confirm | Fail | Finish | Call | Live
+
+
+def _source(url: str, title: str, state: str) -> Live:
+    return Live({"kind": "source", "url": url, "title": title, "site": url.split("/")[2], "state": state}, 0.6)
 
 DEMO_EMAIL_BODY = (
     "Dear Dr Lovelace,\n\n"
@@ -128,6 +140,23 @@ SCENARIOS: dict[str, tuple[ScriptItem, ...]] = {
             {"kind": "table", "columns": ["Suite", "Passed", "Failed"],
              "rows": [["protocol", "18", "0"], ["session", "16", "0"], ["mock", "8", "0"]]},
         ),
+    ),
+    # The live view (ADR-017 §7) in the dev harness: sources found, read, and notes, slowly enough to Watch.
+    "research": (
+        Step("Starting…", 0.4),
+        Step("Searching the web for 'history of tea'", 1.5),
+        _source("https://en.wikipedia.org/wiki/History_of_tea", "History of tea", "found"),
+        _source("https://www.britannica.com/topic/tea-beverage", "Tea | Britannica", "found"),
+        Live({"kind": "note", "text": "Two good overviews; reading Wikipedia first."}, 1.0),
+        _source("https://en.wikipedia.org/wiki/History_of_tea", "History of tea", "reading"),
+        Step("Reading en.wikipedia.org", 3.0),
+        _source("https://en.wikipedia.org/wiki/History_of_tea", "History of tea", "read"),
+        _source("https://www.britannica.com/topic/tea-beverage", "Tea | Britannica", "reading"),
+        Step("Reading britannica.com", 3.0),
+        _source("https://www.britannica.com/topic/tea-beverage", "Tea | Britannica", "read"),
+        Live({"kind": "note", "text": "Both agree it began in China; writing it up."}, 1.0),
+        Step("Thinking it over", 6.0),
+        Finish("Tea began in southwest China, spread along trade routes, and reached Europe in the 1600s."),
     ),
     # ADR-010: the email workflow through Swift's tools. The pause after drafting is
     # time to say (or type, in the dev harness) "show me".
@@ -268,6 +297,8 @@ class MockExecutor:
                         if tool == "create_calendar_event" and "NOT added" in result.text:
                             return ExecResult("done", "The event wasn't added.")
                         return ExecResult("error", result.text.split("\n", 1)[0])
+                case Live(data=data):
+                    run.queue.put_nowait(ExecEvent("live", str(data["kind"]), data=data))
                 case Fail(message=message):
                     return ExecResult("error", message)
                 case Finish(summary=summary, details=details):

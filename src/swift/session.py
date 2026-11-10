@@ -210,6 +210,7 @@ DEMO_TRANSCRIPTS = {
     "error": "Check which packages are out of date.",
     "long": "Run the tests and tell me how it went.",
     "email": "Send an email to my lecturer saying I'll miss Thursday's lecture.",
+    "research": "Research the history of tea.",
 }
 
 MIN_SPEECH_S = 0.3

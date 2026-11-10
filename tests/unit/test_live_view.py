@@ -333,3 +333,13 @@ def test_the_owner_checks_report_sees_the_live_view_from_counts_and_lines() -> N
     assert results["91"][1] == "5 source item(s), 2 note(s)"
     # Nothing seen: each says NOT SEEN.
     assert not any(ok for name, ok, _ in report.checks([], []) if name[:2] in ("90", "91", "92", "93", "94", "95"))
+
+
+async def test_the_research_demo_sends_live_items_for_the_dev_harness() -> None:
+    from swift.executors.mock import MockExecutor
+
+    mock = MockExecutor(speed=0)
+    run_id = await mock.start("research the history of tea", "research")
+    kinds = [e.data["kind"] for e in [e async for e in mock.events(run_id)] if e.type == "live" and e.data]
+    assert kinds.count("source") == 6 and kinds.count("note") == 2
+    assert (await mock.result(run_id)).status == "done"

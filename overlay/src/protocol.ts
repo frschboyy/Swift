@@ -12,8 +12,8 @@ export type UiState =
   | "result"
   | "error";
 
-export type Scenario = "happy" | "confirm" | "error" | "long" | "email";
-export const SCENARIOS: Scenario[] = ["happy", "confirm", "error", "long", "email"];
+export type Scenario = "happy" | "confirm" | "error" | "long" | "email" | "research";
+export const SCENARIOS: Scenario[] = ["happy", "confirm", "error", "long", "email", "research"];
 
 // Who is doing the work (ADR-008): a provider working for Swift. Absent or null: Swift itself.
 export type Agent = { id: string; name: string };

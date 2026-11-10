@@ -245,7 +245,8 @@ export function view(r: LiveRun): LiveView {
     title: r.title || r.words || "Request",
     doing: running ? (r.doing ? doingLine(r.doing.text) : "Starting…") : endedLine(r.ended!.status),
     activity: running ? r.doing?.activity ?? null : null,
-    sources: r.sources,
+    // Ended mid-read (stopped): no spinner left turning; it was found, never read (dev harness, 2026-11-10).
+    sources: running ? r.sources : r.sources.map((s) => (s.state === "reading" ? { ...s, state: "found" as const } : s)),
     notes: r.notes,
     written: r.written,
     hint: r.hint,

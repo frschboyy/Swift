@@ -151,3 +151,10 @@ test("Open the answer on a request Swift no longer lists opens the reader, never
   assert.equal(answerOpens(r, true, true), "reader");
   assert.equal(answerOpens(r, false, true), "focus");  // still a row: its card comes forward with the answer
 });
+
+test("a request stopped while reading a page leaves no spinner in its view", () => {
+  let l = onItem(watch(research(), "cc-1", "tea", "tea", T + 5), "cc-1", src("https://en.wikipedia.org/wiki/History_of_tea", "reading"), T + 6);
+  assert.ok(view(l.runs[0]).sources.some((s) => s.state === "reading"));  // while it runs, it spins
+  l = ended(l, "cc-1", "cancelled", "Cancelled.", null, T + 7);
+  assert.ok(!view(l.runs[0]).sources.some((s) => s.state === "reading"));
+});

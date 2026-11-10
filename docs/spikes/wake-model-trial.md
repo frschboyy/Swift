@@ -304,6 +304,22 @@ hour of negative audio. "Live misses caught" means of the 30 hand-labelled misse
 No variant and threshold is at or below today's path on both columns. The head trained on Piper alone
 makes few false wakes, but it hardly hears the owner: one TTS voice doesn't carry over to a real one.
 
+**With the owner's labels (2026-11-10, by ear with `label_misses.py`).** Of the 83 misses, the owner heard
+"Hey Swift" in 27, not in 51, and couldn't tell on 5. That agrees with the transcript labels on 76 clips: 5
+that I had as positive are can't-tell, and 2 longer clips from 2026-11-08 are positive. The set is 161
+positives and 368 negatives. The heads were retrained with these labels.
+
+| Detector | Misses | Live misses caught | False wakes / h |
+|---|---|---|---|
+| Parakeet + `match_wake` strict | 38 (23.6%) | 0 / 27 | 0 |
+| **Parakeet + `match_wake` loose (today)** | **27 (16.8%)** | **8 / 27** | **0** |
+| Head, owner's clips, th 0.9 / 0.995 | 16.1% / 55.9% | 21 / 12 of 27 | 310 / 90 |
+| Head, owner's + Piper, th 0.9 / 0.995 | 19.3% / 60.2% | 20 / 12 of 27 | 242 / 66 |
+| Whisper small.en + `match_wake` loose, on the misses only | — | 12 / 27 | 0 on the 51 negative misses |
+| Parakeet or Whisper, on the misses only | — | 14 / 27 | 0 on the 51 negative misses |
+
+The conclusion doesn't change.
+
 With only the 24 sure misses, today's loose path misses 22 of 158 (13.9%) and catches 10 of 24 on replay.
 
 **Bias in today's numbers.** The 133 wake clips were accepted live, so they flatter today's path. On replay

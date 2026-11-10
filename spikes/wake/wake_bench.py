@@ -58,6 +58,24 @@ def save_jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
 
 
+def write_wav(path: Path, audio: np.ndarray) -> None:
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1), w.setsampwidth(2), w.setframerate(RATE)
+        w.writeframes(audio.tobytes())
+
+
+def utterances(audio: np.ndarray) -> list[np.ndarray]:
+    """Cut a long recording the way live wake listening does (swift.wake.WakeListener, its defaults)."""
+    from swift.audio.recorder import BLOCK
+    from swift.wake import WakeListener
+
+    out: list[np.ndarray] = []
+    listener = WakeListener(lambda utt, ended_at, *short: out.append(utt))
+    for j in range(0, len(audio) - BLOCK + 1, BLOCK):
+        listener.feed(audio[j:j + BLOCK])
+    return out
+
+
 # ---- build -------------------------------------------------------------------------------------------
 
 def build(out: Path) -> None:
@@ -98,12 +116,34 @@ def build(out: Path) -> None:
                 continue
             label = "pos" if match_wake(r["ref"]) else "neg"
             add(SWIFT / folder / r["wav"], f"{folder}-{r['id']}", folder, label, "reference text")
-    # The owner's calm office takes (spikes/wake/record_corpus.py), all "Hey Swift", with or without a request.
+    # The owner's recorded takes (spikes/wake/record_corpus.py), with or without a request. Other phrases
+    # ("Jarvis") are kept apart: `report --phrase jarvis` scores them, and they're neither label otherwise.
     takes = SWIFT / "corpus" / "wake" / "positives"
     if (takes / "manifest.csv").exists():
         with open(takes / "manifest.csv", newline="", encoding="utf-8") as f:
             for t in csv.DictReader(f):
-                add(takes / t["file"], f"take-{Path(t['file']).stem}", "calm_take", "pos", "recorded as Hey Swift")
+                hey_swift = match_wake(t["phrase"]) is not None
+                add(takes / t["file"], f"take-{Path(t['file']).stem}", "take" if hey_swift else "other_take",
+                    "pos" if hey_swift else t["phrase"].strip().lower(), f"recorded as {t['phrase']}")
+    # Room recordings (spikes/wake/record_negatives.py), cut into utterances by Swift's own WakeListener, as
+    # live: that's what today's path sees. Each utterance carries its share of the recording's length, so
+    # false wakes are per hour of room time, not per hour of speech.
+    room = SWIFT / "corpus" / "wake" / "negatives"
+    if (room / "manifest.csv").exists():
+        pending = 0.0  # seconds of chunks with no speech at all, carried to the next utterances
+        with open(room / "manifest.csv", newline="", encoding="utf-8") as f:
+            for c in csv.DictReader(f):
+                n = len(rows)
+                for k, utt in enumerate(utterances(read_wav(room / c["file"]))):
+                    cid = f"room-{Path(c['file']).stem}-{k:04d}"
+                    write_wav(clips / f"{cid}.wav", utt)
+                    add(clips / f"{cid}.wav", cid, "room", "neg", f"room recording: {c['label']}")
+                pending += float(c["seconds"])
+                for r in rows[n:]:
+                    r["covers_s"] = round(pending / (len(rows) - n), 2)
+                pending = 0.0 if len(rows) > n else pending
+        if pending and (last := [r for r in rows if r["source"] == "room"]):
+            last[-1]["covers_s"] += round(pending, 2)
     seen = {r["id"] for r in rows}
     for c in json.loads((SWIFT / "stt_testset" / "index.json").read_text(encoding="utf-8"))["clips"]:
         if c["id"] not in seen and c.get("known"):
@@ -262,12 +302,16 @@ def align(out: Path, labels: Path | None) -> None:
 
 # ---- report ------------------------------------------------------------------------------------------
 
-def labelled(out: Path, labels: Path | None) -> list[dict]:
+def labelled(out: Path, labels: Path | None, phrase: str | None = None) -> list[dict]:
+    """Clips labelled pos/neg. With `phrase` (e.g. "jarvis"), its recorded takes are the positives and every
+    "Hey Swift" clip becomes a negative: the detector for that word must not fire on them."""
     rows = load_jsonl(out / "stt.jsonl")
     hand = json.loads(labels.read_text(encoding="utf-8")) if labels else {}
     for r in rows:
         if r["id"] in hand:
             r["label"] = hand[r["id"]]
+        if phrase:
+            r["label"] = "pos" if r["label"] == phrase.lower() else "neg" if r["label"] == "pos" else r["label"]
     return [r for r in rows if r["label"] in ("pos", "neg")]
 
 
@@ -286,16 +330,21 @@ def summary(rows: list[dict], fired: dict[str, bool], name: str) -> str:
     neg = [r for r in rows if r["label"] == "neg"]
     miss = [r for r in pos if not fired[r["id"]]]
     fa = [r for r in neg if fired[r["id"]]]
-    neg_h = sum(r["audio_s"] for r in neg) / 3600
+    neg_h = sum(r.get("covers_s", r["audio_s"]) for r in neg) / 3600
     by_src = {}
     for r in miss:
         by_src[r["source"]] = by_src.get(r["source"], 0) + 1
     live = [r for r in pos if r["source"] == "wake_miss"]
-    takes = [r for r in pos if r["source"] == "calm_take"]
+    takes = [r for r in pos if r["source"] in ("calm_take", "take", "other_take")]
+    room = [r for r in neg if r["source"] == "room"]
+    room_line = ""
+    if room:
+        room_h = sum(r["covers_s"] for r in room) / 3600
+        room_line = f" (room: {sum(fired[r['id']] for r in room)} in {room_h:.1f} h)"
     return (f"{name:34} misses {len(miss):3}/{len(pos):3} ({100 * len(miss) / max(len(pos), 1):4.1f}%)"
             f" | live misses caught {sum(fired[r['id']] for r in live)}/{len(live)}"
-            f" | calm takes {sum(fired[r['id']] for r in takes)}/{len(takes)}"
-            f" | false wakes {len(fa):2}/{len(neg)} clips = {len(fa) / neg_h:5.1f}/h  {by_src}")
+            f" | takes {sum(fired[r['id']] for r in takes)}/{len(takes)}"
+            f" | false wakes {len(fa):2}/{len(neg)} clips = {len(fa) / neg_h:5.1f}/h{room_line}  {by_src}")
 
 
 # Stage 2 of a two-stage wake: run only after an acoustic detector fired, so it can be lenient. What Parakeet
@@ -393,9 +442,9 @@ def stage2(out: Path, labels: Path | None, tags: list[str], thresholds: list[flo
 
 
 def report(out: Path, labels: Path | None, tags: list[str], thresholds: list[float], patience: int,
-           porcupine_tags: list[str]) -> None:
+           porcupine_tags: list[str], phrase: str | None = None) -> None:
     check_lenient()
-    rows = labelled(out, labels)
+    rows = labelled(out, labels, phrase)
     neg_min =sum(r["audio_s"] for r in rows if r["label"] == "neg") / 60
     print(f"{sum(r['label'] == 'pos' for r in rows)} positives, {sum(r['label'] == 'neg' for r in rows)} negatives"
           f" ({neg_min:.1f} min)")
@@ -432,6 +481,7 @@ def main() -> None:
     ap.add_argument("--keyword", default="jarvis", help="porcupine: a built-in keyword or a .ppn path")
     ap.add_argument("--sens", type=float, nargs="*", default=[0.3, 0.5, 0.7, 0.9], help="porcupine sensitivities")
     ap.add_argument("--porcupine", nargs="*", default=[], help="report: porcupine tags to compare")
+    ap.add_argument("--phrase", default=None, help="report: score another wake word's takes, e.g. jarvis")
     a = ap.parse_args()
     if a.step == "build":
         build(a.out)
@@ -448,7 +498,7 @@ def main() -> None:
     elif a.step == "stage2":
         stage2(a.out, a.labels, a.oww, a.thresholds, a.patience, a.porcupine)
     else:
-        report(a.out, a.labels, a.oww, a.thresholds, a.patience, a.porcupine)
+        report(a.out, a.labels, a.oww, a.thresholds, a.patience, a.porcupine, a.phrase)
 
 
 if __name__ == "__main__":

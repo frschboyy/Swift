@@ -295,6 +295,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 |---|---|---|
 | `claude/wake-porcupine-trial` | Wake trial: openWakeWord, ViolaWake, legacy Porcupine and an own-voice verifier as stage 2, scored on the owner's clips (`docs/spikes/wake-model-trial.md`) | Spike in progress, waiting for the owner's recordings. Takes in `claude/upbeat-mclaren-ac46da` (the rescore by ear) |
 | `worktree-halo-step-a` | Halo Step A: a dev-only look switch, and checks 185–190 | Built, waiting for the owner's go-ahead to merge. It's far behind `main` and edits the handoff, the owner checks and `report.py`, so rebase it first |
+| `claude/desktop-choreography-spike` | Spike: an orb that rides the active window and a card that pushes it aside, timed to Windows' own frames (`spikes/desktop/window_follow.py`). Native windows only; touches nothing in the app | Self-test passes. Waiting for the owner to run it and judge by eye whether the follow and the push convince |
 
 **Next free owner check number: 216.** When two sessions add checks at the same time, they take their numbers here first.
 

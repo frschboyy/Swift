@@ -150,6 +150,13 @@ export function watch(l: Live, runId: string, title: string, words: string, now:
   return close(opened, oldest.runId);
 }
 
+/** "Open the answer": the reader with what this window has, or that request brought forward. A request
+ * Swift no longer lists can't be brought forward (the backend ignores it: dev harness, 2026-11-10), so it
+ * gets the reader with its summary. */
+export function answerOpens(r: LiveRun, inFront: boolean, listed: boolean): "reader" | "focus" {
+  return r.ended && (r.ended.details || inFront || !listed) ? "reader" : "focus";
+}
+
 export const close = (l: Live, runId: string): Live => ({ runs: l.runs.map((r) => (r.runId === runId ? { ...r, open: false } : r)) });
 
 export const touch = (l: Live, runId: string, now: number): Live =>

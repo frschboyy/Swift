@@ -619,8 +619,8 @@ function liveAction(action: string, runId: string): void {
       setLive(L.touch(live, runId, Date.now()));
       break;
     case "live-answer":
-      // The whole answer when this window had it (the request in front); else that request forward.
-      if (r?.ended && (r.ended.details || runId === pres.runId)) {
+      // The whole answer when this window has it; else that request forward.
+      if (r?.ended && L.answerOpens(r, runId === pres.runId, pres.rows.some((row) => row.runId === runId)) === "reader") {
         if (paneWindows) {
           reader = Panes.openReader(r.title, r.ended.summary, r.ended.details, runId, Date.now());
         } else askFocus(runId);

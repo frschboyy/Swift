@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
-  close, doingLine, ended, initialLive, name, onItem, onRows, openRuns, plain, tick, touch, view, watch, webUrl,
+  answerOpens, close, doingLine, ended, initialLive, name, onItem, onRows, openRuns, plain, tick, touch, view, watch, webUrl,
   FORGET_MS, LINGER_MS, MAX_NOTES, MAX_OPEN, MAX_SOURCES, MAX_WRITTEN, type Live,
 } from "../src/live.ts";
 import { diffPanes, paneLabel, paneSize, wantedPanes } from "../src/panes.ts";
@@ -141,4 +141,13 @@ test("each open live view is a pane window of its own, updated in place", () => 
   assert.deepEqual([d.create.length, d.update.map((s) => s.label), d.close], [0, ["pane-live-cc-1"], []]);
   const gone = diffPanes(shown, wantedPanes(null, { live: openRuns(close(l, "cc-1")).map(view) }));
   assert.deepEqual(gone.close, ["pane-live-cc-1"]);
+});
+
+test("Open the answer on a request Swift no longer lists opens the reader, never a focus nobody answers", () => {
+  // Dev harness, 2026-11-10: a short answer (no details), its card gone: the focus was ignored, nothing showed.
+  const done = ended(watch(research(), "cc-1", "tea", "tea", T + 10), "cc-1", "done", "Tea began in China.", null, T + 20);
+  const r = done.runs[0];
+  assert.equal(answerOpens(r, false, false), "reader");
+  assert.equal(answerOpens(r, true, true), "reader");
+  assert.equal(answerOpens(r, false, true), "focus");  // still a row: its card comes forward with the answer
 });

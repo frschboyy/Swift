@@ -6,9 +6,10 @@
 //!
 //! A card that came from a window belongs to it, without chasing it:
 //! - you drag the window: the card lets go (lifts and dims), then re-settles when you drop it;
-//! - another window takes the front: the card goes home to Swift's place (a stand-in spot
-//!   above the taskbar), and comes back when its window does;
-//! - a card waiting on an answer stays visible at home. A question never hides itself.
+//! - another window takes the front: the card folds away where it is, and comes back when
+//!   its window does;
+//! - a card waiting on an answer never hides itself: it travels home to Swift's place (a
+//!   stand-in spot above the taskbar) and stays visible there.
 //!
 //!     cargo run                 Ctrl+Alt+W card from the window, A the same but waiting on an
 //!                               answer, T taskbar, P push, Q quit (same key again = back)
@@ -298,8 +299,20 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         FOREGROUND if !mine && !o.away => {
             o.away = true;
             o.lifted = false;
-            // A question stays on screen: a plain "yes" only counts while it's visible.
-            ("goes home", format!("fly({},{},{GROW_MS})", st.arr(home()), if o.waiting { 1 } else { 0 }))
+            if o.waiting {
+                // A question stays on screen: a plain "yes" only counts while it's visible.
+                ("goes home", format!("fly({},1,{GROW_MS})", st.arr(home())))
+            } else {
+                // A card that only hides folds away where it is. Flying it home while it
+                // faded read as a flicker on the owner's screen.
+                let d = o.dst;
+                let into = if o.kind == "push" {
+                    [d[0] - CARD_W / 2, d[1], d[2], d[3]] // back out the way it came
+                } else {
+                    window_rects(frame(o.hwnd as Hwnd)).0 // into its window's title bar
+                };
+                ("folds away", format!("fly({},0,180)", st.arr(into)))
+            }
         }
         FOREGROUND if mine && o.away => {
             o.away = false;
@@ -396,7 +409,7 @@ fn selftest(app: AppHandle) {
     toggle(&app, "window");
     check("a plain card opens on its window", look(&app), Some(dst), 1.0);
     desktop_event(&app, FOREGROUND, other);
-    check("another window in front: it goes home and hides", look(&app), Some(home()), 0.0);
+    check("another window in front: it folds away into its window", look(&app), Some(window_rects(frame(win as Hwnd)).0), 0.0);
     desktop_event(&app, FOREGROUND, win);
     check("its window returns: it unfolds again", look(&app), Some(dst), 1.0);
     toggle(&app, "window");
@@ -420,7 +433,8 @@ fn selftest(app: AppHandle) {
     check("a push card arrives in the strip its window gives up", look(&app), Some(strip()), 1.0);
     report("and its window moved over by the card's width", left() - left0 == CARD_W);
     desktop_event(&app, FOREGROUND, other);
-    check("another window in front: the push card goes home and hides", look(&app), Some(home()), 0.0);
+    let s = strip();
+    check("another window in front: the push card slides out of the way", look(&app), Some([s[0] - CARD_W / 2, s[1], s[2], s[3]]), 0.0);
     desktop_event(&app, FOREGROUND, sub);
     check("its window returns: the card slides back beside it", look(&app), Some(strip()), 1.0);
     toggle(&app, "push");

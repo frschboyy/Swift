@@ -31,6 +31,30 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
 use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation, IUIAutomationElement};
 
+/// How long a control must hold still before its ring returns. Hiding is instant; coming
+/// back at once made the ring blink through every pause in a scroll.
+const STILL_TICKS: u32 = 8; // of 50 ms
+
+/// What kind of thing the app says has focus. The ring is as big as this is.
+fn kind_name(id: i32) -> &'static str {
+    match id {
+        50000 => "a button",
+        50002 => "a check box",
+        50003 => "a combo box",
+        50004 => "a text box",
+        50005 => "a link",
+        50007 => "a list item",
+        50008 => "a list",
+        50011 => "a menu item",
+        50019 => "a tab",
+        50024 => "a tree item",
+        50030 => "a whole document",
+        50032 => "a whole window",
+        50033 => "a whole pane",
+        _ => "another kind of control",
+    }
+}
+
 type Hwnd = *mut c_void;
 type WinEventProc = unsafe extern "system" fn(Hwnd, u32, Hwnd, i32, i32, u32, u32);
 
@@ -399,7 +423,8 @@ fn uia_thread(app: AppHandle, rx: mpsc::Receiver<Uia>) {
                 let _ = tx.send(found.map(|_| ms));
             }
             (Uia::Ring, Some(el), Some(first)) => {
-                println!("found the focused control in {ms:.0} ms");
+                let kind = unsafe { el.CurrentControlType() }.map_or(0, |k| k.0);
+                println!("found the focused control ({}) in {ms:.0} ms", kind_name(kind));
                 watch_ring(&app, first, || place(&el));
             }
             _ => println!("nothing has focus that Windows can describe"),
@@ -420,7 +445,7 @@ fn watch_ring(app: &AppHandle, first: [i32; 4], place: impl Fn() -> Option<[i32;
         }
         *open = Some(Open { kind: "ring", hwnd, dst: [0; 4], waiting: false, away: false, lifted: false, pushed: None });
     }
-    let (mut prev, mut shown, mut reads) = (Some(first), None, Vec::new());
+    let (mut prev, mut shown, mut reads, mut still) = (Some(first), None, Vec::new(), STILL_TICKS);
     while matches!(st.open.lock().unwrap().as_ref(), Some(o) if o.kind == "ring") {
         let t = Instant::now();
         let now = place();
@@ -431,7 +456,8 @@ fn watch_ring(app: &AppHandle, first: [i32; 4], place: impl Fn() -> Option<[i32;
             break;
         }
         let front = unsafe { GetForegroundWindow() } as isize == hwnd;
-        let want = if front && now == prev { now } else { None };
+        still = if now == prev { still + 1 } else { 0 };
+        let want = if front && still >= STILL_TICKS { now } else { None };
         if want != shown {
             println!("ring: {}", match (want, front) {
                 (Some(_), _) => "shown on its control",

@@ -7,6 +7,7 @@ copied into --out (outside git), transcribed locally with Parakeet, and scored l
   stt    transcribe every clip with Parakeet (+ the owner's word fixes) and score swift.wake.match_wake
   align  when the name ends in each positive clip (Parakeet's token times), for the latency column
   oww    stream every clip through openWakeWord and score it (needs a model: --model NAME_OR_PATH)
+  viola  stream every clip through a ViolaWake model (--model PATH.onnx), scored like oww
   porcupine  stream every clip through legacy Porcupine 1.9 (built-in keywords, no AccessKey)
   stage2 transcribe the window each detector fired on, for the two-stage rows
   report print the comparison from the files the other steps wrote: each detector alone, and as stage 1
@@ -186,6 +187,31 @@ def oww(out: Path, model: str, tag: str) -> None:
     (out / f"oww_{tag}_perf.json").write_text(json.dumps(perf), encoding="utf-8")
 
 
+def viola(out: Path, model: str, tag: str) -> None:
+    """ViolaWake: its detector scores 20 ms frames; kept as the max per 80 ms, in oww's format and timing."""
+    import psutil
+    from violawake_sdk import WakeDetector
+
+    rows = load_jsonl(out / "manifest.jsonl")
+    proc = psutil.Process()
+    cpu0, wall0, res = proc.cpu_times(), time.perf_counter(), []
+    for i, r in enumerate(rows, 1):
+        print(f"\rviola {i}/{len(rows)}", end="", flush=True)
+        det = WakeDetector(model=model, threshold=0.99, confirm_count=1)  # fresh state per clip
+        audio = np.concatenate([np.zeros(RATE, np.int16), read_wav(out / "clips" / f"{r['id']}.wav"),
+                                np.zeros(RATE // 2, np.int16)])
+        frames = [det.process(audio[j:j + 320]) for j in range(0, len(audio) - 320 + 1, 320)]
+        res.append({"id": r["id"], "scores": [round(float(max(frames[k:k + 4])), 4)
+                                              for k in range(0, len(frames) - 3, 4)]})
+    cpu1 = proc.cpu_times()
+    perf = {"model_mb": 0, "peak_rss_mb": round(proc.memory_info().rss / 2**20),
+            "cpu_s": round(cpu1.user + cpu1.system - cpu0.user - cpu0.system, 1),
+            "wall_s": round(time.perf_counter() - wall0, 1), "audio_s": round(sum(r["audio_s"] + 1.5 for r in rows), 1)}
+    print("\n", perf)
+    save_jsonl(out / f"oww_{tag}.jsonl", res)
+    (out / f"oww_{tag}_perf.json").write_text(json.dumps(perf), encoding="utf-8")
+
+
 # ---- porcupine: an acoustic detector with built-in keywords ------------------------------------------
 
 def porcupine(out: Path, keyword: str, sens: list[float], tag: str) -> None:
@@ -277,8 +303,9 @@ def summary(rows: list[dict], fired: dict[str, bool], name: str) -> str:
 SOUNDS_LIKE_A_GREETING = ("hey", "hay", "he", "hi", "high", "a", "eh", "eat", "heat", "hate", "they", "very",
                           "okay", "ok", "hello", "oh", "say")
 _LENIENT = re.compile(rf"\b(?:{'|'.join(SOUNDS_LIKE_A_GREETING)})\W+(?:swift|swiftly|swifts|twift|twif)\b"
-                      # or a word ending in "wift" as the first or second word: "Exwift", "He dwifts", "Pretty swift"
-                      r"|^\W*(?:[\w']+\W+)?[\w']*wift(?:s|ly)?\b")
+                      # or something before a "wift" word at the start: "Exwift", "He dwifts", "Pretty swift"
+                      # (the bare name, "Swift." or "Swift, yes", is a known hard negative)
+                      r"|^\W*(?:[\w']+\W+[\w']*|(?!s?wift)[\w']+)wift(?:s|ly)?\b")
 
 
 def lenient_wake(text: str) -> bool:
@@ -290,12 +317,14 @@ def lenient_wake(text: str) -> bool:
 def check_lenient() -> None:
     for text in ("He swift.", "Eat swift", "Very swift", "He swiftly", "Exwift.", "He dwifts.", "Pretty swift."):
         assert lenient_wake(text), text
-    for text in ("Nice work", "I think Swift is crazy", "He drifted.", "the report was done swiftly and then"):
+    for text in ("Nice work", "I think Swift is crazy", "He drifted.", "the report was done swiftly and then",
+                 "Swift.", "Swift, yes.", "Swiftly done."):
         assert not lenient_wake(text), text
 
 
-STAGE2_WINDOWS = (1.2, 1.6)  # seconds of audio ending STAGE2_AFTER s past the detection
-STAGE2_AFTER = 0.3
+# (seconds of audio, ending this many seconds past the detection). Trained heads can fire on "hey s-",
+# about 1 s before the name ends, so one window runs on past it; live, that one adds 1 s.
+STAGE2_WINDOWS = ((1.2, 0.3), (1.6, 0.3), (2.0, 1.0))
 
 
 def heard_key(cid: str, t: float) -> str:
@@ -353,9 +382,10 @@ def stage2(out: Path, labels: Path | None, tags: list[str], thresholds: list[flo
     stt._load()
     for i, (cid, t) in enumerate(sorted(todo), 1):
         print(f"\rstage2 {i}/{len(todo)}", end="", flush=True)
-        audio, end = read_wav(out / "clips" / f"{cid}.wav"), int((t + STAGE2_AFTER) * RATE)
-        heard[heard_key(cid, t)] = [stt._transcribe_sync(audio[max(end - int(w * RATE), 0):max(end, 1)]).text
-                                    for w in STAGE2_WINDOWS]
+        audio = read_wav(out / "clips" / f"{cid}.wav")
+        heard[heard_key(cid, t)] = [
+            stt._transcribe_sync(audio[max(int((t + after - w) * RATE), 0):max(int((t + after) * RATE), 1)]).text
+            for w, after in STAGE2_WINDOWS]
         if i % 50 == 0:
             path.write_text(json.dumps(heard))
     path.write_text(json.dumps(heard))
@@ -390,7 +420,7 @@ def report(out: Path, labels: Path | None, tags: list[str], thresholds: list[flo
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["build", "stt", "align", "oww", "porcupine", "stage2", "report"])
+    ap.add_argument("step", choices=["build", "stt", "align", "oww", "viola", "porcupine", "stage2", "report"])
     ap.add_argument("--out", type=Path, required=True, help="scratch folder outside git")
     ap.add_argument("--whisper", action="store_true", help="stt: also transcribe the miss clips with Whisper")
     ap.add_argument("--model", default="hey_jarvis", help="oww: a bundled model name or an .onnx path")
@@ -411,6 +441,8 @@ def main() -> None:
         align(a.out, a.labels)
     elif a.step == "oww":
         oww(a.out, a.model, a.tag or Path(a.model).stem)
+    elif a.step == "viola":
+        viola(a.out, a.model, a.tag or Path(a.model).stem)
     elif a.step == "porcupine":
         porcupine(a.out, a.keyword, a.sens, a.tag or Path(a.keyword).stem)
     elif a.step == "stage2":

@@ -327,12 +327,13 @@ def test_the_owner_checks_report_sees_the_live_view_from_counts_and_lines() -> N
         "10:00:05 | INFO | request stopped from the live view | run_id='cc-1'",
         "10:00:09 | INFO | live view: app shown | run_id='cc-1' shown=True",
     ]
-    results = {name.split(" ")[0]: (ok, detail) for name, ok, detail in report.checks(rows, log)}
-    for check in ("90", "91", "92", "93", "94", "95"):
-        assert results[check][0], (check, results[check])
-    assert results["91"][1] == "5 source item(s), 2 note(s)"
+    live = [(name, ok, detail) for name, ok, detail in report.checks(rows, log) if name[:2] in ("90", "91", "92", "93", "94")]
+    assert len(live) == 6 and all(live_ok for _, live_ok, _ in live), live  # 92 has two lines: the text, and Show in Word
+    assert dict((n.split(" ")[0], d) for n, _, d in live)["91"] == "5 source item(s), 2 note(s)"
     # Nothing seen: each says NOT SEEN.
-    assert not any(ok for name, ok, _ in report.checks([], []) if name[:2] in ("90", "91", "92", "93", "94", "95"))
+    assert not any(ok for name, ok, _ in report.checks([], []) if name[:2] in ("90", "91", "92", "93", "94"))
+    # 95 is on screen only: never a PASS.
+    assert [ok for name, ok, _ in report.checks(rows, log) if name.startswith("95 ")] == [report.LOOK]
 
 
 async def test_the_research_demo_sends_live_items_for_the_dev_harness() -> None:

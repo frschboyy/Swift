@@ -410,7 +410,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("92 the text being written showed in the live view", live_text > 0, f"{live_text} paragraph(s)"),
         ("93 Watch on a card or chip opened a live view", bool(watched), f"{len(watched)} time(s)"),
         ("94 Stop in a live view stopped that request", bool(live_stopped), f"{len(live_stopped)} time(s)"),
-        ("95 Show in Word from the live view", bool(live_app), f"{len(live_app)} time(s)"),
+        ("92 Show in Word from the live view", bool(live_app), f"{len(live_app)} time(s)"),
+        ("95 a finished live view: Open the answer, ENDED after a stop", LOOK,
+         "check on screen: Open the answer showed the whole answer even after its card faded; a stopped view says ENDED"),
         # ADR-016 Phase C: the dialogue.
         ("100-101 a lane asked for what was missing", bool(lane_asked), f"{len(lane_asked)} question(s)"),
         ("102 carried on from the last request", bool(carried), f"{len(carried)} time(s)"),

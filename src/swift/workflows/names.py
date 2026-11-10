@@ -98,13 +98,16 @@ def said_otherwise(query: str, said: str, contact: Named) -> bool:
     Every place the name was said counts ("Francis, I mean Francis Chianu"). In words with capitals
     (speech is transcribed so), only a capitalised word can be a name: "Francis these photos" isn't."""
     q = [w for w in words(query) if w not in _SKIP]
-    tokens = re.findall(r"[A-Za-z]+", said)
+    found = list(re.finditer(r"[A-Za-z]+", said))
+    tokens = [m.group() for m in found]
     s = [t.lower() for t in tokens]
     cased = any(t[:1].isupper() for t in tokens[1:])
     for i in range(len(s) - len(q) + 1):
         j = i + len(q)
         if not q or j >= len(s) or not all(close(s[i + k], w) for k, w in enumerate(q)):
             continue
+        if re.search(r"[,.;:!?]", said[found[j - 1].end():found[j].start()]):
+            continue  # "Francis, Kofi and Ama": the next name is someone else's, not this one's surname
         after = s[j]
         if len(after) < 3 or after in _SKIP or after in _AFTER_A_NAME or (cased and not tokens[j][:1].isupper()):
             continue

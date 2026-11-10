@@ -190,6 +190,8 @@ def test_another_name_said_after_the_search_is_noticed() -> None:
     "Email Francis re the budget", "Email Francis's assistant", "Send Francis the file",
     "Email Francis Chi Anu about lunch",  # the surname heard in two pieces
     "email francis these photos",  # typed without capitals
+    "Email Francis, Kofi and Ama the plan",  # several people: the next name is another person
+    "Email Francis. Budget numbers attached",
 ])
 def test_ordinary_words_after_the_name_don_t_make_it_a_guess(said: str) -> None:
     from swift.workflows.names import said_otherwise

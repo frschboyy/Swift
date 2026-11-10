@@ -157,6 +157,15 @@ fn window_rects(f: Rect) -> ([i32; 4], [i32; 4]) {
     ([cx - 30, f.top, 60, 6], [cx - 180, f.top + 44, 360, 180])
 }
 
+/// Where a window's card rests: over the window, or for the push, in the strip beside it.
+fn rest(kind: &str, f: Rect) -> [i32; 4] {
+    if kind == "push" {
+        [f.left - CARD_W, f.top, CARD_W, f.bottom - f.top]
+    } else {
+        window_rects(f).1
+    }
+}
+
 fn run_move(m: Move) {
     thread::sleep(Duration::from_millis(m.delay_ms));
     let t0 = Instant::now();
@@ -197,11 +206,26 @@ fn toggle(app: &AppHandle, kind: &'static str) {
             println!("put the open card back first (same key again)");
             return;
         }
-        if let Some((hwnd, x0, y0)) = o.pushed {
-            *st.pending.lock().unwrap() = Some(Move { hwnd, from: x0 + CARD_W, to: x0, y: y0, delay_ms: 0 });
+        let mut js = format!("go(null,{})", now_ms());
+        match o.pushed {
+            Some((hwnd, x0, y0)) => {
+                let m = Move { hwnd, from: x0 + CARD_W, to: x0, y: y0, delay_ms: 0 };
+                if o.away {
+                    // The card is hidden at home: give the room back without showing it again.
+                    thread::spawn(move || run_move(m));
+                    js.clear();
+                } else {
+                    *st.pending.lock().unwrap() = Some(m);
+                }
+            }
+            // The owner dragged the pushed window: it's theirs to place, so only the card leaves.
+            None if o.kind == "push" => js = format!("fly({},0,{PUSH_MS})", st.arr(o.dst)),
+            None => {}
         }
         *open = None;
-        let _ = win.eval(&format!("go(null,{})", now_ms()));
+        if !js.is_empty() {
+            let _ = win.eval(&js);
+        }
         return;
     }
 
@@ -230,7 +254,7 @@ fn toggle(app: &AppHandle, kind: &'static str) {
             unsafe { GetWindowRect(h, &mut r) };
             *st.pending.lock().unwrap() =
                 Some(Move { hwnd: h as isize, from: r.left, to: r.left + CARD_W, y: r.top, delay_ms: APPROACH_MS });
-            ([0; 4], [f.left, f.top, CARD_W, f.bottom - f.top], 0, Some((h as isize, r.left, r.top)))
+            ([0; 4], [f.left, f.top, CARD_W, f.bottom - f.top], h as isize, Some((h as isize, r.left, r.top)))
         }
     };
     let waiting = kind == "ask";
@@ -254,7 +278,7 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         return;
     };
     if o.hwnd == 0 {
-        println!("{name}: the open card ({}) didn't come from a window, so it stays", o.kind);
+        println!("{name}: the open card ({}) belongs to no window, so it stays", o.kind);
         return;
     }
     let mine = hwnd == o.hwnd;
@@ -267,7 +291,8 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         }
         MOVE_END if mine && o.lifted => {
             o.lifted = false;
-            o.dst = window_rects(frame(hwnd as Hwnd)).1; // read once, where it was dropped
+            o.dst = rest(o.kind, frame(hwnd as Hwnd)); // read once, where it was dropped
+            o.pushed = None; // a window the owner dragged is theirs to place: never put it back
             ("re-settles", format!("fly({},1,{GROW_MS})", st.arr(o.dst)))
         }
         FOREGROUND if !mine && !o.away => {
@@ -278,12 +303,12 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         }
         FOREGROUND if mine && o.away => {
             o.away = false;
-            let (src, dst) = window_rects(frame(hwnd as Hwnd));
-            o.dst = dst;
-            let js = if o.waiting {
-                format!("fly({},1,{GROW_MS})", st.arr(dst)) // it was visible at home: travel back
+            let f = frame(hwnd as Hwnd);
+            o.dst = rest(o.kind, f);
+            let js = if o.waiting || o.kind == "push" {
+                format!("fly({},1,{GROW_MS})", st.arr(o.dst)) // travel back from home
             } else {
-                st.go_js(o.kind, false, src, dst) // it was hidden: unfold from the window again
+                st.go_js(o.kind, false, window_rects(f).0, o.dst) // it was hidden: unfold from the window again
             };
             ("comes back", js)
         }
@@ -331,13 +356,15 @@ fn look(app: &AppHandle) -> [f64; 5] {
 fn selftest(app: AppHandle) {
     thread::sleep(Duration::from_secs(3)); // let the page load
     let st = app.state::<St>();
-    let mut failed = false;
-    let mut check = |what: &str, v: [f64; 5], at: Option<[i32; 4]>, opacity: f64| {
-        let o = [st.origin.0, st.origin.1, 0, 0];
-        let ok = (v[4] - opacity).abs() < 0.05
-            && at.map_or(true, |r| (0..4).all(|i| (v[i] - (r[i] - o[i]) as f64).abs() <= 2.0));
+    let failed = std::cell::Cell::new(false);
+    let report = |what: &str, ok: bool| {
         println!("{} {what}", if ok { "ok  " } else { "FAIL" });
-        failed |= !ok;
+        failed.set(failed.get() | !ok);
+    };
+    let check = |what: &str, v: [f64; 5], at: Option<[i32; 4]>, opacity: f64| {
+        let o = [st.origin.0, st.origin.1, 0, 0];
+        report(what, (v[4] - opacity).abs() < 0.05
+            && at.map_or(true, |r| (0..4).all(|i| (v[i] - (r[i] - o[i]) as f64).abs() <= 2.0)));
     };
 
     toggle(&app, "tray");
@@ -375,12 +402,52 @@ fn selftest(app: AppHandle) {
     toggle(&app, "window");
     check("and goes back", look(&app), None, 0.0);
 
-    if st.started.load(Ordering::SeqCst) != 7 {
-        println!("FAIL the webview answered {} of 7 starts", st.started.load(Ordering::SeqCst));
-        failed = true;
+    // A window of the spike's own to push: nothing of the owner's moves.
+    let subject = tauri::WebviewWindowBuilder::new(&app, "subject", tauri::WebviewUrl::App("index.html".into()))
+        .inner_size(420.0, 300.0)
+        .position(200.0, 200.0)
+        .focused(false)
+        .build()
+        .unwrap();
+    thread::sleep(Duration::from_millis(500));
+    let sub = subject.hwnd().unwrap().0 as isize;
+    TEST_FG.store(sub, Ordering::SeqCst);
+    let left = || frame(sub as Hwnd).left;
+    let strip = || rest("push", frame(sub as Hwnd));
+    let left0 = left();
+
+    toggle(&app, "push");
+    check("a push card arrives in the strip its window gives up", look(&app), Some(strip()), 1.0);
+    report("and its window moved over by the card's width", left() - left0 == CARD_W);
+    desktop_event(&app, FOREGROUND, other);
+    check("another window in front: the push card goes home and hides", look(&app), Some(home()), 0.0);
+    desktop_event(&app, FOREGROUND, sub);
+    check("its window returns: the card slides back beside it", look(&app), Some(strip()), 1.0);
+    toggle(&app, "push");
+    check("put back: the card leaves", look(&app), None, 0.0);
+    report("and its window returns to where it was", left() == left0);
+
+    toggle(&app, "push");
+    look(&app);
+    desktop_event(&app, MOVE_START, sub);
+    check("its window is dragged: the push card lets go", look(&app), None, 0.5);
+    let mut r = Rect::default();
+    unsafe {
+        GetWindowRect(sub as Hwnd, &mut r);
+        SetWindowPos(sub as Hwnd, std::ptr::null_mut(), r.left + 120, r.top + 40, 0, 0, MOVE_ONLY);
     }
-    println!("{}", if failed { "selftest FAILED" } else { "selftest ok" });
-    app.exit(failed as i32);
+    desktop_event(&app, MOVE_END, sub);
+    check("the window is dropped: the card re-settles beside its new place", look(&app), Some(strip()), 1.0);
+    let dropped = left();
+    toggle(&app, "push");
+    check("put back: the card leaves", look(&app), None, 0.0);
+    report("and the dragged window stays where it was dropped", left() == dropped);
+
+    if st.started.load(Ordering::SeqCst) != 10 {
+        report(&format!("the webview answered {} of 10 starts", st.started.load(Ordering::SeqCst)), false);
+    }
+    println!("{}", if failed.get() { "selftest FAILED" } else { "selftest ok" });
+    app.exit(failed.get() as i32);
 }
 
 fn main() {

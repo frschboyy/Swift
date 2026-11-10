@@ -76,6 +76,8 @@ extern "system" {
     fn GetWindowRect(h: Hwnd, r: *mut Rect) -> i32;
     fn SetWindowPos(h: Hwnd, after: Hwnd, x: i32, y: i32, cx: i32, cy: i32, flags: u32) -> i32;
     fn IsZoomed(h: Hwnd) -> i32;
+    fn IsIconic(h: Hwnd) -> i32;
+    fn ShowWindow(h: Hwnd, how: i32) -> i32;
     fn FindWindowW(class: *const u16, title: *const u16) -> Hwnd;
     fn FindWindowExW(parent: Hwnd, after: Hwnd, class: *const u16, title: *const u16) -> Hwnd;
     fn NotifyWinEvent(event: u32, h: Hwnd, object: i32, child: i32);
@@ -355,7 +357,9 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         MIN_START if mine && !o.away && !o.waiting => {
             o.away = true;
             o.lifted = false;
-            ("sweeps into the taskbar with it", format!("fly({},0,220)", st.arr(probes::taskbar_spot())))
+            // The owner saw the card vanish before the window: 220 ms, fast at the start,
+            // was too quick. Still a guess: Windows doesn't say how long its own takes.
+            ("sweeps into the taskbar with it", format!("fly({},0,320,'ease-in')", st.arr(probes::taskbar_spot())))
         }
         FOREGROUND if !mine && !o.away => {
             o.away = true;
@@ -375,7 +379,24 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
                 ("folds away", format!("fly({},0,180)", st.arr(into)))
             }
         }
-        FOREGROUND if mine && o.away => {
+        // A window coming back from the taskbar is named "in front" before it has arrived:
+        // its place still reads as far off screen, and a card unfolded there is never seen.
+        // So wait until it's really back, then come back as for any window.
+        MIN_END if mine && o.away => {
+            let app = app.clone();
+            thread::spawn(move || {
+                for _ in 0..40 {
+                    thread::sleep(Duration::from_millis(25));
+                    if unsafe { IsIconic(hwnd as Hwnd) } == 0 {
+                        break;
+                    }
+                }
+                desktop_event(&app, FOREGROUND, hwnd);
+            });
+            println!("{name}, {whose}: the card waits for the window to arrive");
+            return;
+        }
+        FOREGROUND if mine && o.away && unsafe { IsIconic(hwnd as Hwnd) } == 0 => {
             o.away = false;
             let f = frame(hwnd as Hwnd);
             o.dst = rest(o.kind, f);
@@ -511,7 +532,7 @@ unsafe extern "system" fn on_win_event(_hook: Hwnd, event: u32, hwnd: Hwnd, id_o
             if event == probes::LOCATION {
                 return probes::glue_event(app, hwnd as isize);
             }
-            probes::presence_event(app, event, hwnd as isize);
+            probes::window_event(app, event, hwnd as isize);
             desktop_event(app, event, hwnd as isize);
         }
     }
@@ -648,10 +669,14 @@ fn selftest(app: AppHandle) {
     // The probes that can be checked without eyes.
     toggle(&app, "window");
     look(&app);
-    desktop_event(&app, MIN_START, sub);
+    // Really minimised and restored (without taking focus), so Windows raises the events
+    // and the window really is parked off screen when the card is asked to come back.
+    let at_rest = rest("window", frame(sub as Hwnd));
+    unsafe { ShowWindow(sub as Hwnd, 7) }; // SW_SHOWMINNOACTIVE
     check("its window is minimised: the card sweeps into the taskbar", look(&app), Some(probes::taskbar_spot()), 0.0);
-    desktop_event(&app, FOREGROUND, sub);
-    check("its window is restored: the card unfolds again", look(&app), Some(rest("window", frame(sub as Hwnd))), 1.0);
+    unsafe { ShowWindow(sub as Hwnd, 4) }; // SW_SHOWNOACTIVATE
+    thread::sleep(Duration::from_millis(700)); // the window's own trip back, then the card's
+    check("its window is restored: the card unfolds on it again", look(&app), Some(at_rest), 1.0);
     toggle(&app, "window");
     check("and goes back", look(&app), None, 0.0);
     match probes::swell(&app, sub) {

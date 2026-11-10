@@ -19,12 +19,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use tauri::window::{Effect, EffectsBuilder};
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Dwm::{
-    DwmGetColorizationColor, DwmRegisterThumbnail, DwmSetWindowAttribute, DwmUnregisterThumbnail,
-    DwmUpdateThumbnailProperties, DWMWA_WINDOW_CORNER_PREFERENCE, DWM_THUMBNAIL_PROPERTIES, DWM_TNP_OPACITY,
-    DWM_TNP_RECTDESTINATION, DWM_TNP_VISIBLE,
+    DwmGetColorizationColor, DwmRegisterThumbnail, DwmUnregisterThumbnail, DwmUpdateThumbnailProperties,
+    DWM_THUMBNAIL_PROPERTIES, DWM_TNP_OPACITY, DWM_TNP_RECTDESTINATION, DWM_TNP_VISIBLE,
 };
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
 use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
@@ -105,8 +104,25 @@ pub fn key(app: &AppHandle, which: &str) {
     }
 }
 
+/// Every window event passes through here on its way to the cards.
+pub fn window_event(app: &AppHandle, event: u32, hwnd: isize) {
+    presence_event(app, event, hwnd);
+    // The dim is for the moment a card needs you: turning to another window ends it.
+    if event == FOREGROUND && DIM.swap(false, Ordering::SeqCst) {
+        eval(app, "dim(false)");
+        println!("dim: lifted, you turned to another window");
+    }
+    // The glued bar belongs to whichever window is in front, and to none that's minimised.
+    let glued = GLUE.load(Ordering::SeqCst);
+    if glued != 0 && event == FOREGROUND && hwnd != glued {
+        glue_to(app, hwnd as Hwnd);
+    } else if hwnd == glued && event == MIN_START {
+        eval(app, "glue(null)");
+    }
+}
+
 /// Keep 1: the stand-in for Swift reacts when things start and end. Never per frame.
-pub fn presence_event(app: &AppHandle, event: u32, hwnd: isize) {
+fn presence_event(app: &AppHandle, event: u32, hwnd: isize) {
     if !PRESENCE.load(Ordering::SeqCst) {
         return;
     }
@@ -144,9 +160,8 @@ pub fn presence_event(app: &AppHandle, event: u32, hwnd: isize) {
 
 /// Drop 1: a bar glued to the active window and moved on every frame it moves.
 fn glue_key(app: &AppHandle) {
-    let hook = GLUE_HOOK.swap(0, Ordering::SeqCst);
-    if hook != 0 {
-        unsafe { UnhookWinEvent(hook as Hwnd) };
+    if GLUE.load(Ordering::SeqCst) != 0 {
+        unsafe { UnhookWinEvent(GLUE_HOOK.swap(0, Ordering::SeqCst) as Hwnd) };
         GLUE.store(0, Ordering::SeqCst);
         eval(app, "glue(null)");
         let secs = GLUE_SINCE.lock().unwrap().take().map_or(0.0, |t| t.elapsed().as_secs_f64());
@@ -156,14 +171,23 @@ fn glue_key(app: &AppHandle) {
     if h.is_null() {
         return println!("no active window");
     }
+    *GLUE_SINCE.lock().unwrap() = Some(Instant::now());
+    println!("glue: a bar is glued to the active window's top edge. Drag the window and watch whether it keeps up");
+    glue_to(app, h);
+}
+
+/// Listen to this window's moves, in place of whichever window the bar was on.
+fn glue_to(app: &AppHandle, h: Hwnd) {
+    let old = GLUE_HOOK.swap(0, Ordering::SeqCst);
+    if old != 0 {
+        unsafe { UnhookWinEvent(old as Hwnd) };
+    }
     let mut pid = 0;
     unsafe { GetWindowThreadProcessId(h, &mut pid) };
     // Only this window's process: a hook on everything drowns in cursor moves.
     let hook = unsafe { SetWinEventHook(LOCATION, LOCATION, std::ptr::null_mut(), on_win_event, pid, 0, 2) };
     GLUE_HOOK.store(hook as isize, Ordering::SeqCst);
     GLUE.store(h as isize, Ordering::SeqCst);
-    *GLUE_SINCE.lock().unwrap() = Some(Instant::now());
-    println!("glue: a bar is glued to this window's top edge. Drag the window and watch whether it keeps up");
     glue_event(app, h as isize);
 }
 
@@ -173,6 +197,9 @@ pub fn glue_event(app: &AppHandle, hwnd: isize) {
     }
     GLUE_MOVES.fetch_add(1, Ordering::SeqCst);
     let f = frame(hwnd as Hwnd);
+    if f.left < -30000 {
+        return eval(app, "glue(null)"); // minimised: Windows parks it far off screen
+    }
     eval(app, &format!("glue({})", app.state::<St>().arr([(f.left + f.right) / 2 - 80, f.top - 3, 160, 6])));
 }
 
@@ -225,7 +252,12 @@ fn glass(app: &AppHandle) {
     let app = app.clone();
     thread::spawn(move || {
         let h = home();
+        // Placed and sized as it's made. Made first and moved after, it flashed for a moment
+        // at Windows' default spot, which the owner saw as another card flickering.
+        let scale = app.get_webview_window("canvas").and_then(|c| c.scale_factor().ok()).unwrap_or(1.0);
         let built = WebviewWindowBuilder::new(&app, "glass", WebviewUrl::App("index.html".into()))
+            .position(h[0] as f64 / scale, (h[1] - 180) as f64 / scale)
+            .inner_size(h[2] as f64 / scale, h[3] as f64 / scale)
             .transparent(true)
             .decorations(false)
             .shadow(false)
@@ -237,14 +269,10 @@ fn glass(app: &AppHandle) {
             .build();
         match built {
             Ok(w) => {
-                let _ = w.set_position(PhysicalPosition::new(h[0], h[1] - 180));
-                let _ = w.set_size(PhysicalSize::new(h[2] as u32, h[3] as u32));
+                // Square corners: rounding them brings Windows' shadow, which arrived late.
                 let _ = w.set_ignore_cursor_events(true);
-                if let Ok(hwnd) = w.hwnd() {
-                    let round = 2i32; // rounded corners
-                    let _ = unsafe { DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &round as *const _ as _, 4) };
-                }
-                println!("glass: a card of Windows' own blur is above the home spot. Move things behind it");
+                println!("glass: a card of Windows' own blur is above the home spot. Put text or a picture behind it:");
+                println!("glass: if the blur works, what's behind looks frosted, not sharp and not hidden");
             }
             Err(e) => println!("glass: couldn't make the window: {e}"),
         }

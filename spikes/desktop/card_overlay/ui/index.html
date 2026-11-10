@@ -50,17 +50,17 @@
   }
 
   // Move from wherever the card is now, even mid-motion, so nothing ever jumps.
-  function moveTo(rect, opacity, ms) {
+  function moveTo(rect, opacity, ms, easing = 'cubic-bezier(.33, 1, .68, 1)') {
     const b = card.getBoundingClientRect(), from = getComputedStyle(card).opacity, [x, y, w, h] = rect;
     place(rect, opacity);
     card.animate([
       { transform: `translate(${b.x - x}px, ${b.y - y}px) scale(${b.width / w}, ${b.height / h})`, opacity: from },
       { transform: 'none', opacity },
-    ], { duration: ms, easing: 'cubic-bezier(.33, 1, .68, 1)' });
+    ], { duration: ms, easing });
   }
 
   // Rust calls this when the desktop changes: lift, re-settle, go home, come back.
-  function fly(rect, opacity, ms) { moveTo(px(rect), opacity, ms); }
+  function fly(rect, opacity, ms, easing) { moveTo(px(rect), opacity, ms, easing); }
 
   // a: {kind, waiting, src, dst, grow, approach, push}, times in ms. null puts the open card back.
   function go(a, sent) {

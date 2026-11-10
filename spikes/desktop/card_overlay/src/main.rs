@@ -31,6 +31,8 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
 use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation, IUIAutomationElement};
 
+mod probes;
+
 /// How long a control must hold still before its ring returns. Hiding is instant; coming
 /// back at once made the ring blink through every pause in a scroll.
 const STILL_TICKS: u32 = 8; // of 50 ms
@@ -94,6 +96,8 @@ const MOVE_ONLY: u32 = 0x1 | 0x4 | 0x10; // no size, no z-order, no activate
 const FOREGROUND: u32 = 0x0003; // EVENT_SYSTEM_FOREGROUND
 const MOVE_START: u32 = 0x000A; // EVENT_SYSTEM_MOVESIZESTART
 const MOVE_END: u32 = 0x000B; // EVENT_SYSTEM_MOVESIZEEND
+const MIN_START: u32 = 0x0016; // EVENT_SYSTEM_MINIMIZESTART
+const MIN_END: u32 = 0x0017; // EVENT_SYSTEM_MINIMIZEEND: the window is restored
 
 static APP: OnceLock<AppHandle> = OnceLock::new(); // the event hook's callback takes no context
 static TEST_FG: AtomicIsize = AtomicIsize::new(0); // selftest: stands in for the active window
@@ -140,9 +144,10 @@ impl St {
         format!("[{},{},{},{}]", r[0] - self.origin.0, r[1] - self.origin.1, r[2], r[3])
     }
 
-    fn go_js(&self, kind: &str, waiting: bool, src: [i32; 4], dst: [i32; 4]) -> String {
+    fn go_js(&self, kind: &str, waiting: bool, src: [i32; 4], dst: [i32; 4], tint: Option<u32>) -> String {
         format!(
-            "go({{kind:'{kind}',waiting:{waiting},src:{},dst:{},grow:{GROW_MS},approach:{APPROACH_MS},push:{PUSH_MS}}},{})",
+            "go({{kind:'{kind}',waiting:{waiting},tint:{},src:{},dst:{},grow:{GROW_MS},approach:{APPROACH_MS},push:{PUSH_MS}}},{})",
+            tint.map_or("null".to_string(), |c| format!("'#{c:06x}'")),
             self.arr(src),
             self.arr(dst),
             now_ms()
@@ -299,7 +304,12 @@ fn toggle(app: &AppHandle, kind: &'static str) {
     };
     let waiting = kind == "ask";
     *open = Some(Open { kind, hwnd, dst, waiting, away: false, lifted: false, pushed });
-    let _ = win.eval(&st.go_js(kind, waiting, src, dst));
+    // Read before the card is drawn, so the sample is the window and not the card.
+    let tint = (kind == "tint").then(|| probes::sample(dst));
+    if let Some(c) = tint {
+        println!("tint: the card takes the colour under it, #{c:06x}");
+    }
+    let _ = win.eval(&st.go_js(kind, waiting, src, dst, tint));
 }
 
 /// The desktop changed: keep a window's card belonging to its window, without chasing it.
@@ -311,6 +321,8 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
         FOREGROUND => "front",
         MOVE_START => "drag start",
         MOVE_END => "drag end",
+        MIN_START => "minimise",
+        MIN_END => "restore",
         _ => return,
     };
     let Some(o) = open.as_mut() else {
@@ -338,6 +350,13 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
             o.pushed = None; // a window the owner dragged is theirs to place: never put it back
             ("re-settles", format!("fly({},1,{GROW_MS})", st.arr(o.dst)))
         }
+        // Keep 3: Windows sweeps the window into the taskbar; the card goes with it, on a
+        // guessed 220 ms. A waiting card doesn't: the rule below takes it home, still visible.
+        MIN_START if mine && !o.away && !o.waiting => {
+            o.away = true;
+            o.lifted = false;
+            ("sweeps into the taskbar with it", format!("fly({},0,220)", st.arr(probes::taskbar_spot())))
+        }
         FOREGROUND if !mine && !o.away => {
             o.away = true;
             o.lifted = false;
@@ -363,7 +382,7 @@ fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
             let js = if o.waiting || o.kind == "push" {
                 format!("fly({},1,{GROW_MS})", st.arr(o.dst)) // travel back from home
             } else {
-                st.go_js(o.kind, false, window_rects(f).0, o.dst) // it was hidden: unfold from the window again
+                st.go_js(o.kind, false, window_rects(f).0, o.dst, None) // it was hidden: unfold from the window again
             };
             ("comes back", js)
         }
@@ -489,6 +508,10 @@ unsafe extern "system" fn on_win_event(_hook: Hwnd, event: u32, hwnd: Hwnd, id_o
     if id_object == 0 && !hwnd.is_null() {
         // 0 = the window itself
         if let Some(app) = APP.get() {
+            if event == probes::LOCATION {
+                return probes::glue_event(app, hwnd as isize);
+            }
+            probes::presence_event(app, event, hwnd as isize);
             desktop_event(app, event, hwnd as isize);
         }
     }
@@ -622,8 +645,23 @@ fn selftest(app: AppHandle) {
         Err(_) => report("UI Automation answers", false),
     }
 
-    if st.started.load(Ordering::SeqCst) != 10 {
-        report(&format!("the webview answered {} of 10 starts", st.started.load(Ordering::SeqCst)), false);
+    // The probes that can be checked without eyes.
+    toggle(&app, "window");
+    look(&app);
+    desktop_event(&app, MIN_START, sub);
+    check("its window is minimised: the card sweeps into the taskbar", look(&app), Some(probes::taskbar_spot()), 0.0);
+    desktop_event(&app, FOREGROUND, sub);
+    check("its window is restored: the card unfolds again", look(&app), Some(rest("window", frame(sub as Hwnd))), 1.0);
+    toggle(&app, "window");
+    check("and goes back", look(&app), None, 0.0);
+    match probes::swell(&app, sub) {
+        Ok(n) => report(&format!("a live copy of a window can be drawn and resized ({n} frames)"), n > 5),
+        Err(e) => report(&format!("a live copy of a window can be drawn and resized: {e}"), false),
+    }
+    println!("info the colour under a spot on screen reads #{:06x}", probes::sample(ctl));
+
+    if st.started.load(Ordering::SeqCst) != 13 {
+        report(&format!("the webview answered {} of 13 starts", st.started.load(Ordering::SeqCst)), false);
     }
     println!("{}", if failed.get() { "selftest FAILED" } else { "selftest ok" });
     app.exit(failed.get() as i32);
@@ -636,6 +674,12 @@ fn main() {
         (Code::KeyT, "tray"),
         (Code::KeyP, "push"),
         (Code::KeyR, "ring"),
+        (Code::Digit1, "probe1"),
+        (Code::Digit2, "probe2"),
+        (Code::Digit3, "probe3"),
+        (Code::Digit4, "probe4"),
+        (Code::Digit7, "probe7"),
+        (Code::Digit8, "tint"),
         (Code::KeyQ, "quit"),
     ];
     tauri::Builder::default()
@@ -648,6 +692,7 @@ fn main() {
                     match keys.iter().find(|(code, _)| *code == shortcut.key) {
                         Some((_, "quit")) => quit(app),
                         Some((_, "ring")) => ring_key(app),
+                        Some((_, probe)) if probe.starts_with("probe") => probes::key(app, probe),
                         Some((_, kind)) => toggle(app, kind),
                         None => {}
                     }
@@ -676,13 +721,14 @@ fn main() {
             let _ = APP.set(app.handle().clone());
             let for_uia = app.handle().clone();
             thread::spawn(move || uia_thread(for_uia, rx));
+            probes::start(app.handle().clone());
 
             // Three system events, each rare: who is in front, and a drag's start and end.
             // Delivered on this thread's message loop. Flag 2 skips events our own process
             // raises; the selftest raises its own, so it listens to them.
             let selftest_run = std::env::args().any(|a| a == "--selftest");
             let hook = unsafe {
-                SetWinEventHook(FOREGROUND, MOVE_END, std::ptr::null_mut(), on_win_event, 0, 0, if selftest_run { 0 } else { 2 })
+                SetWinEventHook(FOREGROUND, MIN_END, std::ptr::null_mut(), on_win_event, 0, 0, if selftest_run { 0 } else { 2 })
             };
             if hook.is_null() {
                 println!("the desktop event hook failed: cards won't follow their windows");
@@ -700,6 +746,8 @@ fn main() {
             }
             println!("Ctrl+Alt+W card from the window, A the same but waiting on an answer,");
             println!("T taskbar, P push, R ring on the focused control, Q quit. Same key again puts it back.");
+            println!("Probes (see src/probes.rs): 1 Swift reacts, 2 glued bar, 3 dim, 4 window swells,");
+            println!("7 glass card, 8 tinted card. Minimise a window with a W card; switch virtual desktop with one.");
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -1,0 +1,318 @@
+//! One small probe for each "keep" and each "drop" of the four directions, so the owner
+//! judges them by eye instead of taking a claim on trust. Throwaway by design.
+//!
+//! | Direction               | Keep                                  | Drop                                     |
+//! |-------------------------|---------------------------------------|------------------------------------------|
+//! | Swift reacts to Windows | 1: a stand-in for Swift reacts to     | 2: a bar glued to the active window,     |
+//! |                         |    windows coming forward, being      |    moved on every frame of a drag        |
+//! |                         |    picked up, dropped and minimised   |                                          |
+//! | Windows reacts to Swift | 3: the desktop dims behind a card     | 4: a live copy of the active window      |
+//! |                         |    (the push is the P key)            |    swells and settles                    |
+//! | They move as one        | minimise a window that has a W card:  | switch virtual desktop with a W card     |
+//! |                         | the card sweeps into the taskbar      | open: the terminal says what Swift saw   |
+//! | Made of the same stuff  | 7: a card of Windows' own blur;       | 8: a card tinted by the colour of        |
+//! |                         |    rings take Windows' accent colour  |    what's underneath it                  |
+
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
+use std::sync::Mutex;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use tauri::window::{Effect, EffectsBuilder};
+use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+use windows::Win32::Foundation::{HWND, RECT};
+use windows::Win32::Graphics::Dwm::{
+    DwmGetColorizationColor, DwmRegisterThumbnail, DwmSetWindowAttribute, DwmUnregisterThumbnail,
+    DwmUpdateThumbnailProperties, DWMWA_WINDOW_CORNER_PREFERENCE, DWM_THUMBNAIL_PROPERTIES, DWM_TNP_OPACITY,
+    DWM_TNP_RECTDESTINATION, DWM_TNP_VISIBLE,
+};
+use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED};
+use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
+
+use crate::{
+    desktop_event, frame, home, on_win_event, taskbar, tray, DwmFlush, GetForegroundWindow, GetWindowRect, Hwnd, Rect,
+    SetWinEventHook, St, FOREGROUND, MIN_START, MOVE_END, MOVE_START, TEST_FG,
+};
+
+#[link(name = "user32")]
+extern "system" {
+    fn GetWindowThreadProcessId(h: Hwnd, pid: *mut u32) -> u32;
+    fn UnhookWinEvent(hook: Hwnd) -> i32;
+    fn GetDC(h: Hwnd) -> Hwnd;
+    fn ReleaseDC(h: Hwnd, dc: Hwnd) -> i32;
+}
+#[link(name = "gdi32")]
+extern "system" {
+    fn GetPixel(dc: Hwnd, x: i32, y: i32) -> u32;
+}
+
+pub const LOCATION: u32 = 0x800B; // EVENT_OBJECT_LOCATIONCHANGE
+
+static PRESENCE: AtomicBool = AtomicBool::new(false);
+static STEPPED_ASIDE: AtomicBool = AtomicBool::new(false);
+static DIM: AtomicBool = AtomicBool::new(false);
+static GLUE: AtomicIsize = AtomicIsize::new(0); // the window the bar is glued to
+static GLUE_HOOK: AtomicIsize = AtomicIsize::new(0);
+static GLUE_MOVES: AtomicU32 = AtomicU32::new(0);
+static GLUE_SINCE: Mutex<Option<Instant>> = Mutex::new(None);
+
+fn eval(app: &AppHandle, js: &str) {
+    let _ = app.get_webview_window("canvas").unwrap().eval(js);
+}
+
+fn active() -> Hwnd {
+    let test = TEST_FG.load(Ordering::SeqCst);
+    if test != 0 {
+        test as Hwnd
+    } else {
+        unsafe { GetForegroundWindow() }
+    }
+}
+
+/// Where the stand-in for Swift rests: left of the home spot, just above the taskbar.
+fn pill_home() -> [i32; 4] {
+    let r = tray();
+    [(r.right - 500).max(0), r.top - 52, 120, 36]
+}
+
+pub fn key(app: &AppHandle, which: &str) {
+    let st = app.state::<St>();
+    match which {
+        "probe1" => {
+            let on = !PRESENCE.fetch_xor(true, Ordering::SeqCst);
+            STEPPED_ASIDE.store(false, Ordering::SeqCst);
+            eval(app, &format!("pill({on},{})", st.arr(pill_home())));
+            println!("presence: {}", if on { "shown. Bring windows forward, drag them, drop one on it, minimise one" } else { "put away" });
+        }
+        "probe2" => glue_key(app),
+        "probe3" => {
+            if st.open.lock().unwrap().is_some() {
+                return println!("put the open card back first (same key again)");
+            }
+            let on = !DIM.fetch_xor(true, Ordering::SeqCst);
+            eval(app, &format!("dim({on})"));
+            println!("dim: {}", if on { "the desktop dims behind a card" } else { "lifted" });
+        }
+        "probe4" => {
+            let (app, src) = (app.clone(), active() as isize);
+            thread::spawn(move || match swell(&app, src) {
+                Ok(n) => println!("swell: a live copy of the window swelled and settled over {n} frames"),
+                Err(e) => println!("swell: Windows wouldn't draw a live copy of that window: {e}"),
+            });
+        }
+        "probe7" => glass(app),
+        _ => {}
+    }
+}
+
+/// Keep 1: the stand-in for Swift reacts when things start and end. Never per frame.
+pub fn presence_event(app: &AppHandle, event: u32, hwnd: isize) {
+    if !PRESENCE.load(Ordering::SeqCst) {
+        return;
+    }
+    let (f, p) = (frame(hwnd as Hwnd), pill_home());
+    if f.right <= f.left {
+        return;
+    }
+    // Which way the window is from Swift, as a unit vector.
+    let (dx, dy) = (((f.left + f.right) / 2 - p[0] - p[2] / 2) as f64, ((f.top + f.bottom) / 2 - p[1] - p[3] / 2) as f64);
+    let len = (dx * dx + dy * dy).sqrt().max(1.0);
+    let (dx, dy) = (dx / len, dy / len);
+    let st = app.state::<St>();
+    let (said, js) = match event {
+        FOREGROUND => ("nods toward the window that came forward", format!("pillReact('nod',{dx:.2},{dy:.2})")),
+        MOVE_START => ("leans toward the window you picked up", format!("pillReact('lean',{dx:.2},{dy:.2})")),
+        MIN_START => ("dips as the window goes down", "pillReact('nod',0,1)".to_string()),
+        MOVE_END => {
+            let on_it = f.left < p[0] + p[2] && f.right > p[0] && f.top < p[1] + p[3] && f.bottom > p[1];
+            if on_it {
+                STEPPED_ASIDE.store(true, Ordering::SeqCst);
+                // Above the window if there's room, else to its left.
+                let to = if f.top - 44 >= st.origin.1 { [p[0], f.top - 44, p[2], p[3]] } else { [(f.left - 128).max(st.origin.0), p[1], p[2], p[3]] };
+                ("steps aside: a window was dropped on it", format!("pillReact('rest',0,0);pillMove({})", st.arr(to)))
+            } else if STEPPED_ASIDE.swap(false, Ordering::SeqCst) {
+                ("goes back to its place: the window left", format!("pillReact('rest',0,0);pillMove({})", st.arr(p)))
+            } else {
+                ("settles as the window is dropped", "pillReact('rest',0,0)".to_string())
+            }
+        }
+        _ => return,
+    };
+    println!("presence: {said}");
+    eval(app, &js);
+}
+
+/// Drop 1: a bar glued to the active window and moved on every frame it moves.
+fn glue_key(app: &AppHandle) {
+    let hook = GLUE_HOOK.swap(0, Ordering::SeqCst);
+    if hook != 0 {
+        unsafe { UnhookWinEvent(hook as Hwnd) };
+        GLUE.store(0, Ordering::SeqCst);
+        eval(app, "glue(null)");
+        let secs = GLUE_SINCE.lock().unwrap().take().map_or(0.0, |t| t.elapsed().as_secs_f64());
+        return println!("glue: off. The window reported {} moves in {secs:.0} s", GLUE_MOVES.swap(0, Ordering::SeqCst));
+    }
+    let h = active();
+    if h.is_null() {
+        return println!("no active window");
+    }
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(h, &mut pid) };
+    // Only this window's process: a hook on everything drowns in cursor moves.
+    let hook = unsafe { SetWinEventHook(LOCATION, LOCATION, std::ptr::null_mut(), on_win_event, pid, 0, 2) };
+    GLUE_HOOK.store(hook as isize, Ordering::SeqCst);
+    GLUE.store(h as isize, Ordering::SeqCst);
+    *GLUE_SINCE.lock().unwrap() = Some(Instant::now());
+    println!("glue: a bar is glued to this window's top edge. Drag the window and watch whether it keeps up");
+    glue_event(app, h as isize);
+}
+
+pub fn glue_event(app: &AppHandle, hwnd: isize) {
+    if hwnd != GLUE.load(Ordering::SeqCst) {
+        return;
+    }
+    GLUE_MOVES.fetch_add(1, Ordering::SeqCst);
+    let f = frame(hwnd as Hwnd);
+    eval(app, &format!("glue({})", app.state::<St>().arr([(f.left + f.right) / 2 - 80, f.top - 3, 160, 6])));
+}
+
+/// Drop 2: make a real window look as if it swells, by drawing a live copy of it (one
+/// Windows keeps up to date itself) on top and resizing the copy. The window isn't touched.
+pub fn swell(app: &AppHandle, src: isize) -> Result<u32, String> {
+    let st = app.state::<St>();
+    let canvas = app.get_webview_window("canvas").unwrap().hwnd().map_err(|e| e.to_string())?;
+    let copy = unsafe { DwmRegisterThumbnail(canvas, HWND(src as _)) }.map_err(|e| e.to_string())?;
+    let f = frame(src as Hwnd);
+    let (w, h) = ((f.right - f.left) as f64, (f.bottom - f.top) as f64);
+    let (t0, mut frames, mut result) = (Instant::now(), 0, Ok(0));
+    loop {
+        unsafe { DwmFlush() };
+        let u = (t0.elapsed().as_secs_f64() / 0.36).min(1.0);
+        let grow = 0.04 * (u * std::f64::consts::PI).sin(); // out and back
+        let (gx, gy) = ((w * grow / 2.0) as i32, (h * grow / 2.0) as i32);
+        let props = DWM_THUMBNAIL_PROPERTIES {
+            dwFlags: DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY,
+            rcDestination: RECT {
+                left: f.left - st.origin.0 - gx,
+                top: f.top - st.origin.1 - gy,
+                right: f.right - st.origin.0 + gx,
+                bottom: f.bottom - st.origin.1 + gy,
+            },
+            opacity: 255,
+            fVisible: true.into(),
+            ..Default::default()
+        };
+        if let Err(e) = unsafe { DwmUpdateThumbnailProperties(copy, &props) } {
+            result = Err(e.to_string());
+            break;
+        }
+        frames += 1;
+        if u >= 1.0 {
+            break;
+        }
+    }
+    let _ = unsafe { DwmUnregisterThumbnail(copy) };
+    result.map(|_: u32| frames)
+}
+
+/// Keep 4: a card made of Windows' own blur material, in a window of its own because the
+/// material belongs to a whole window.
+fn glass(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("glass") {
+        let _ = w.close();
+        return println!("glass: put away");
+    }
+    let app = app.clone();
+    thread::spawn(move || {
+        let h = home();
+        let built = WebviewWindowBuilder::new(&app, "glass", WebviewUrl::App("index.html".into()))
+            .transparent(true)
+            .decorations(false)
+            .shadow(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .focused(false)
+            .resizable(false)
+            .effects(EffectsBuilder::new().effect(Effect::Acrylic).build())
+            .build();
+        match built {
+            Ok(w) => {
+                let _ = w.set_position(PhysicalPosition::new(h[0], h[1] - 180));
+                let _ = w.set_size(PhysicalSize::new(h[2] as u32, h[3] as u32));
+                let _ = w.set_ignore_cursor_events(true);
+                if let Ok(hwnd) = w.hwnd() {
+                    let round = 2i32; // rounded corners
+                    let _ = unsafe { DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &round as *const _ as _, 4) };
+                }
+                println!("glass: a card of Windows' own blur is above the home spot. Move things behind it");
+            }
+            Err(e) => println!("glass: couldn't make the window: {e}"),
+        }
+    });
+}
+
+/// Drop 4: the colour of what's under a spot, read once from the screen. Nine pixels,
+/// averaged to one colour, kept nowhere.
+pub fn sample(r: [i32; 4]) -> u32 {
+    let (mut sum, mut n) = ([0u32; 3], 0);
+    unsafe {
+        let dc = GetDC(std::ptr::null_mut());
+        for i in 1..4 {
+            for j in 1..4 {
+                let c = GetPixel(dc, r[0] + r[2] * i / 4, r[1] + r[3] * j / 4); // 0x00bbggrr
+                if c != u32::MAX {
+                    sum = [sum[0] + (c & 255), sum[1] + (c >> 8 & 255), sum[2] + (c >> 16 & 255)];
+                    n += 1;
+                }
+            }
+        }
+        ReleaseDC(std::ptr::null_mut(), dc);
+    }
+    let n = n.max(1);
+    (sum[0] / n) << 16 | (sum[1] / n) << 8 | sum[2] / n
+}
+
+/// Runs for the life of the app: Windows' accent colour once the page is up, then the
+/// virtual desktop watch (drop 3).
+pub fn start(app: AppHandle) {
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(2));
+        let (mut argb, mut opaque) = (0u32, Default::default());
+        if unsafe { DwmGetColorizationColor(&mut argb, &mut opaque) }.is_ok() {
+            eval(&app, &format!("accent('#{:06x}')", argb & 0xff_ffff));
+            println!("accent: rings and waiting cards take Windows' accent colour, #{:06x}", argb & 0xff_ffff);
+        }
+
+        let desks: IVirtualDesktopManager = unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            match CoCreateInstance(&VirtualDesktopManager, None, CLSCTX_ALL) {
+                Ok(d) => d,
+                Err(e) => return println!("virtual desktops: Windows won't say which desktop a window is on: {e}"),
+            }
+        };
+        let mut last: Option<(isize, bool)> = None;
+        loop {
+            thread::sleep(Duration::from_millis(200));
+            let st = app.state::<St>();
+            let hwnd = st.open.lock().unwrap().as_ref().map(|o| o.hwnd).filter(|h| *h != 0);
+            let Some(h) = hwnd else {
+                last = None;
+                continue;
+            };
+            let Ok(here) = (unsafe { desks.IsWindowOnCurrentVirtualDesktop(HWND(h as _)) }) else { continue };
+            let here = here.as_bool();
+            if last == Some((h, !here)) {
+                println!("virtual desktops: the card's window is {}", if here { "back on this desktop" } else { "on another desktop now" });
+                desktop_event(&app, FOREGROUND, if here { h } else { 1 });
+            }
+            last = Some((h, here));
+        }
+    });
+}
+
+/// Selftest: the taskbar's own rectangle, where a minimised window's card goes.
+pub fn taskbar_spot() -> [i32; 4] {
+    let mut t = Rect::default();
+    unsafe { GetWindowRect(taskbar(), &mut t) };
+    [(t.left + t.right) / 2 - 20, t.top + 4, 40, 8]
+}

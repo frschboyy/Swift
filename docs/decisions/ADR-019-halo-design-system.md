@@ -1,6 +1,6 @@
 # ADR-019: Halo, and a design system that grows with Swift
 
-- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Only Step A's look spike is built (§8), on a branch.
+- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Only Step A's look spike is built (§8), on `main` behind a dev-only switch.
 - **Decided by:** Owner
 - **Date:** 2026-11-07
 - **Amends:** ADR-017 (the Capsule's look: Halo replaces it, keeping the capsule as Swift's body and cards growing out of it). ADR-018 (the Deck) is kept as the attention model; this ADR only changes how its parts are drawn and adds origins.
@@ -73,7 +73,7 @@ Nothing here goes ahead of the handoff's order: the reliability work, the short 
 
 ## 8. Step A: built, not yet checked (2026-11-07)
 
-A look spike behind a dev-only switch (`overlay/src/look/`), on the branch `worktree-halo-step-a`. Owner checks 216–221 run `SPEC.md` §15; their findings go here, and the spec changes where the PC disagrees with the canvas. Nothing has been seen on the real PC.
+A look spike behind a dev-only switch (`overlay/src/look/`), on `main` since 2026-11-10. Owner checks 216–221 run `SPEC.md` §15; their findings go here, and the spec changes where the PC disagrees with the canvas. Nothing has been seen on the real PC.
 
 **Measured in the harness:** the release bundle is byte-identical to `main`'s; the default look has no pixel differences from `main` across 34 states, dark and light, at bottom-centre; Halo drew 12 states at all six anchors in both themes (144 captures), each with its card and tail, inside the window, nothing scrolling. That was headless Edge at 100%, with a stand-in wallpaper: not the app's window, its glass over real apps, or 150% scaling.
 

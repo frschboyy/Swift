@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
 from collections.abc import Iterable
 from typing import Any, Literal
 
@@ -48,8 +49,16 @@ _WILDCARDS = "*?[{"
 Verdict = Literal["read", "ask", "never"]
 
 
+def _local(path: str) -> str:
+    """The same file spelled as a local path: ``\\\\?\\C:\\…``, ``\\\\localhost\\c$\\…`` (this PC's drive shares)."""
+    path = re.sub(r"^[\\/]{2}[?.][\\/]UNC[\\/]", r"\\\\", path, flags=re.IGNORECASE)  # \\?\UNC\host\… -> \\host\…
+    path = re.sub(r"^[\\/]{2}[?.][\\/]", "", path)  # \\?\C:\… -> C:\…
+    hosts = "|".join(map(re.escape, ("localhost", "127.0.0.1", "::1", "[::1]", os.environ.get("COMPUTERNAME", "localhost"))))
+    return re.sub(rf"^[\\/]{{2}}(?:{hosts})[\\/]([a-zA-Z])\$(?=[\\/]|$)", r"\1:", path, flags=re.IGNORECASE)
+
+
 def _norm(path: str) -> str:
-    return os.path.normcase(os.path.realpath(os.path.expanduser(path)))
+    return os.path.normcase(os.path.realpath(_local(os.path.expanduser(path))))
 
 
 def _inside(path: str, root: str) -> bool:

@@ -114,6 +114,19 @@ def test_swift_s_data_folder_is_never_read(tmp_path: Path) -> None:
     assert scope.verdict(str(tmp_path / "AppData" / "Local")) == "ask"  # a folder holding it: never a blanket read
 
 
+def test_a_never_read_path_spelled_another_way_is_still_never_read(tmp_path: Path) -> None:
+    from swift.executors.read_scope import ReadScope
+
+    scope = ReadScope([], home=str(tmp_path))
+    plain = str(tmp_path / "AppData" / "Local" / "Swift" / "journal.jsonl")
+    drive, rest = plain[0], plain[2:]
+    for spelled in (rf"\\localhost\{drive.lower()}$" + rest, rf"\\127.0.0.1\{drive}$" + rest, "\\\\?\\" + plain,
+                    rf"\\?\UNC\localhost\{drive}$" + rest, plain.replace("\\", "/")):
+        assert scope.verdict(spelled) == "never", spelled
+    assert scope.verdict(str(tmp_path / ".ssh" / "id_rsa.pub").replace(drive + ":", rf"\\localhost\{drive}$", 1)) == "never"
+    assert scope.verdict(r"\\fileserver\c$\notes.txt") == "ask"  # another PC's share is not this one's drive
+
+
 def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from swift.backend.__main__ import _make_executor
     from swift.settings import Settings

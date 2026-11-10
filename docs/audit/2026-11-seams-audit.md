@@ -352,7 +352,7 @@ IDs by area:
 | O-08 | High | confirmed (code, both sides); **fixed 2026-11-05 (S1)** | backend, overlay | reliability | A due card the overlay drops while a run is in front is still marked shown |
 | V-01 | High | confirmed (test); **fixed 2026-11-05 (S4)** | speech | fallback | With SAPI unavailable, Swift is "speaking" forever and the open mic goes deaf |
 | R-03 | High | confirmed (test); **fixed 2026-11-05 (S4)** | backend | effectiveness, fallback | A local request waits behind three agent runs |
-| X-01 | High | confirmed (test) | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
+| X-01 | High | confirmed (test); **fixed 2026-11-10** | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
 | X-03 | High | confirmed (test, log); **fixed 2026-11-06** | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
 | X-08 | High | confirmed (test) | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
 | X-17 | High | design concern; **fixed 2026-11-07** | executor | security | Edit and Write approval cards show 60–70 characters of what will be written (A-12's class) |
@@ -926,6 +926,7 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
   - Tests: `test_seams_audit_privacy.py` (2 xfail).
 - **Fix:** compare every candidate, a single one included, with the words said. A non-match gets "the closest is…; ask the owner".
 - **Owner check:** "Draft an email to Francis Chianu" with the real contacts. No card for another Francis.
+- **Fixed 2026-11-10:** when one contact is found and the owner said a name right after the one searched for that isn't one of its names ("Francis Chianu", only Muthoni, Francis found), it is a guess, and the owner is asked "Is it …?" as for any guess. Words that often follow a name ("that", "tomorrow"…) don't count. Not changed: only the word after the name is compared, so "Chianu Francis" isn't caught; contacts from `config.yaml` are matched by name or alias as before. Owner check 214.
 
 #### X-02 · Medium · design concern · Every candidate counts as resolved
 - **Evidence:** any address `find_contact` returned may be drafted to. Only the card's recipient line protects the owner.

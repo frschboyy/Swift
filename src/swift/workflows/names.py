@@ -81,6 +81,29 @@ def _all_named(contact: Named, q: list[str], exact: bool) -> bool:
     return True
 
 
+# Words that often follow a name and aren't one ("email Francis that I'm late", "… tomorrow").
+_AFTER_A_NAME = {
+    "that", "saying", "asking", "telling", "re", "regarding", "and", "or", "but", "if", "so", "because", "please",
+    "tomorrow", "today", "tonight", "now", "again", "back", "at", "on", "in", "by", "from", "im", "we", "you", "its",
+    "it", "is", "are", "was", "will", "can", "cc", "too", "also", "when", "what", "whether", "how", "why", "who",
+    "this", "next", "here", "there", "then", "letting", "let", "tell", "ask", "say", "invite", "know",
+}
+
+
+def said_otherwise(query: str, said: str, contact: Named) -> bool:
+    """Whether the owner named someone else: a name they said right after the one searched for isn't
+    this contact's ("Francis Chianu" said, "Francis" searched, only Muthoni, Francis found: X-01)."""
+    q = [w for w in words(query) if w not in _SKIP]
+    s = words(said)
+    ends = [i for i in range(len(s) - len(q) + 1) if q and all(close(s[i + k], w) for k, w in enumerate(q))]
+    if not ends:
+        return False  # the search isn't in the owner's words: nothing to compare with
+    after = s[ends[0] + len(q)] if ends[0] + len(q) < len(s) else ""
+    if len(after) < 3 or after in _SKIP or after in _AFTER_A_NAME:
+        return False
+    return not _has(contact, after, exact=False)
+
+
 def narrow(query: str, said: str, found: Sequence[Named]) -> list[Named]:
     """Of several matches, the ones the owner named: by every word searched for, exactly and then
     as heard; then by the other names in the owner's own words. Unchanged when nothing tells them apart."""

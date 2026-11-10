@@ -187,6 +187,9 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
             guessed = True
     # The ones the owner named ("Francis Chianu", not every Francis): by the whole name, then their words.
     candidates = [c for c in names.narrow(raw, scope.said, candidates) if isinstance(c, Contact)]
+    # One match, but the owner said a name it doesn't have: only a guess, so the owner is asked (X-01).
+    if len(candidates) == 1 and candidates[0].source != "config" and names.said_otherwise(raw, scope.said, candidates[0]):
+        guessed = True
     # Content-free: how many, and where from ("gmail_emailed": someone the owner has emailed).
     logger.info("contact lookup", found=len(candidates), sources=sorted({c.source for c in candidates}),
                 problem=bool(problem))

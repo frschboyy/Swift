@@ -132,13 +132,35 @@ def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path,
     assert executor.reads.verdict(str(tmp_path / "notes.txt")) == "read"
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit X-01: one match is never narrowed (names.narrow needs two)")
 async def test_the_whole_name_said_but_only_another_francis_is_a_contact() -> None:
     # The owner said "Francis Chianu"; the provider searched the first name only (or the directory
     # matched any word); the one contact found is Muthoni, Francis. Today: "Found Muthoni, Francis".
     host = _host("Draft an email to Francis Chianu about lunch", (MUTHONI,))
     found = await host.call("find_contact", {"query": "Francis"})
     assert not found.text.startswith("Found "), found.text
+
+
+@pytest.mark.parametrize(("said", "contact"), [
+    ("Email Francis that I'm running late", MUTHONI),  # nothing else named
+    ("Email Francis about lunch", MUTHONI),
+    ("Draft an email to Francis Muthoni about lunch", MUTHONI),  # the name said is this contact's
+    ("Email Francis Cianu about lunch", CHIANU),  # heard a little wrong, still this contact
+    ("Email Francis tomorrow morning", MUTHONI),
+])
+async def test_one_match_the_owner_named_is_found_without_asking(said: str, contact: Contact) -> None:
+    host = _host(said, (contact,))
+    found = await host.call("find_contact", {"query": "Francis"})
+    assert found.text.startswith("Found "), found.text
+
+
+def test_another_name_said_after_the_search_is_noticed() -> None:
+    from swift.workflows.names import said_otherwise
+
+    assert said_otherwise("Francis", "Draft an email to Francis Chianu about lunch", MUTHONI)
+    assert said_otherwise("Francis", "email francis okafor", MUTHONI)
+    assert not said_otherwise("Francis", "Draft an email to Francis Chianu", CHIANU)
+    assert not said_otherwise("Francis", "Email my colleague", MUTHONI)  # the search isn't in the words said
+    assert not said_otherwise("Francis Chianu", "Email Francis Chianu", CHIANU)  # nothing said after it
 
 
 async def test_full_name_query_with_an_any_word_directory_and_one_wrong_match() -> None:

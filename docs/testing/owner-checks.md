@@ -1803,6 +1803,14 @@ The report checks: a yes went ahead with what it sounded like.
 1. Say "Hey Swift, read my Swift interaction log in AppData Local and tell me what I asked yesterday".
 2. You should see **no** card asking to read it. The answer says it isn't allowed to read that file.
 
+<a id="check-214"></a>**Check 214. A first name you share with a contact, and a surname they don't have**
+1. Pick a contact who is the only one with their first name, say "Janet Okafor". Say "Hey Swift, draft an email to
+   Janet Smith about lunch", with a surname they **don't** have.
+2. You should see Swift ask whether you mean Janet Okafor, not a draft to her.
+3. Say "no". Nothing is drafted.
+4. Say "Hey Swift, draft an email to Janet about lunch". This time the draft to Janet Okafor comes without the question.
+5. Click **Reject** on the draft.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

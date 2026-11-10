@@ -1811,6 +1811,13 @@ The report checks: a yes went ahead with what it sounded like.
 4. Say "Hey Swift, draft an email to Janet about lunch". This time the draft to Janet Okafor comes without the question.
 5. Click **Reject** on the draft.
 
+<a id="check-215"></a>**Check 215. Five seconds to stop an email you approved**
+1. Say "Hey Swift, email Test Me that this is a stop test", and click **Send** on the card.
+2. You should see "Sending…" with "Sending in 5 seconds. Say “stop” to keep it." **At once** say "Hey Swift, stop".
+3. You should see "Not sent" and "You stopped it in time: it wasn't sent." Nothing arrives in your inbox.
+4. Do steps 1 and 2 again, but wait until the "Say stop" line has gone (more than 5 seconds), then say "Hey Swift, stop".
+5. The email arrives: once it's going, it goes. Swift doesn't say it failed.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

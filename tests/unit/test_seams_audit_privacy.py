@@ -190,27 +190,85 @@ def _scope_for(gateway_host: ToolHost) -> Any:
     return scope
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit X-08: a stop while sending journals FAILED, though it may have gone")
-async def test_a_stop_while_the_service_is_sending_is_unknown_not_failed() -> None:
-    journal = Journal(None)
-    gateway = ActionGateway(journal)
-    host = ToolHost(None, (), gateway)
-    scope = _scope_for(host)
-    scope.resolved[CHIANU.email] = CHIANU
-    started = asyncio.Event()
+# ---- X-08: a few seconds to stop a send; after that it goes, and is journaled as it ends ----------
 
-    async def perform() -> str:  # the connector's thread keeps going after the await is cancelled
-        started.set()
-        await asyncio.sleep(10)
+
+def _send(grace_s: float, sending_s: float = 0.0, tool: str = "send_email") -> tuple[Any, Any, Journal, list[tuple[str, dict[str, str]]], list[str]]:
+    journal = Journal(None)
+    gateway = ActionGateway(journal, send_grace_s=grace_s)
+    scope = _scope_for(ToolHost(None, (), gateway))
+    scope.resolved[CHIANU.email] = CHIANU
+    shown: list[tuple[str, dict[str, str]]] = []
+    sent: list[str] = []
+
+    async def status(state: str, extra: dict[str, str]) -> None:
+        shown.append((state, extra))
+
+    async def perform() -> str:
+        await asyncio.sleep(sending_s)  # the service is still busy when the stop comes
+        sent.append("id-1")
         return "id-1"
 
-    action = Action("send_email", (CHIANU,), "Send", "", None, lambda: "d", perform)
-    task = asyncio.create_task(gateway.execute(scope, action))
-    await started.wait()
+    action = Action(tool, (CHIANU,), "Send", "", None, lambda: "d", perform, on_status=status)  # type: ignore[arg-type]
+    return gateway.execute(scope, action), scope, journal, shown, sent
+
+
+async def test_a_stop_in_the_first_seconds_keeps_the_email() -> None:
+    execute, _scope, journal, shown, sent = _send(grace_s=1.0)
+    task = asyncio.create_task(execute)
+    await asyncio.sleep(0.2)
+    assert shown[-1][0] == "sending" and "Say “stop”" in shown[-1][1]["reason"]
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
-    assert journal.entries[-1]["state"] == "UNKNOWN", journal.entries[-1]
+    await asyncio.sleep(1.2)
+    assert sent == [] and journal.entries[-1]["state"] == "CANCELLED"
+    assert shown[-1] == ("failed", {"reason": "You stopped it in time: it wasn't sent."})
+
+
+async def test_a_stop_once_it_is_sending_lets_it_finish_and_journals_it_done() -> None:
+    execute, scope, journal, shown, sent = _send(grace_s=0.2, sending_s=0.5)
+    task = asyncio.create_task(execute)
+    await asyncio.sleep(0.4)  # past the grace: the service has it
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert sent == ["id-1"] and journal.entries[-1]["state"] == "DONE"
+    assert shown[-1][0] == "sent" and scope.done  # shown as sent, and a later change of mind knows it went
+
+
+async def test_a_service_that_hangs_after_a_stop_doesn_t_keep_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    from swift.security import gateway as gateway_module
+
+    monkeypatch.setattr(gateway_module, "LATE_STOP_WAIT_S", 0.3)
+    execute, _scope, journal, shown, sent = _send(grace_s=0.1, sending_s=60.0)
+    task = asyncio.create_task(execute)
+    await asyncio.sleep(0.3)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, 3)
+    assert sent == [] and journal.entries[-1] == {**journal.entries[-1], "state": "UNKNOWN", "reason": "stopped_while_sending"}
+    assert shown[-1] == ("failed", {"reason": "It may have been sent: look in your Sent folder."})
+
+
+async def test_nobody_stops_it_and_it_goes_after_the_grace() -> None:
+    execute, _scope, journal, shown, sent = _send(grace_s=0.2)
+    outcome = await execute
+    assert outcome.status == "done" and sent == ["id-1"]
+    assert [s for s, _ in shown] == ["waiting_approval", "sending", "sending", "sent"]
+    assert "reason" not in shown[2][1]  # once it's going, the "say stop" line goes
+
+
+async def test_only_a_send_that_can_t_be_called_back_waits() -> None:
+    execute, *_rest, shown, sent = _send(grace_s=30.0, tool="create_calendar_event")
+    outcome = await asyncio.wait_for(execute, 2)
+    assert outcome.status == "done" and [s for s, _ in shown] == ["waiting_approval", "sending", "sent"]
+
+
+def test_the_app_gives_sends_five_seconds() -> None:
+    from swift.security.gateway import SEND_GRACE_S
+
+    assert SEND_GRACE_S == 5.0
 
 
 def _captured(*, exceptions: bool = False) -> io.StringIO:

@@ -44,7 +44,7 @@ from swift.routing import Route, route
 from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
 from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog, summary
-from swift.security.gateway import ActionGateway
+from swift.security.gateway import SEND_GRACE_S, ActionGateway
 from swift.security.journal import Journal
 from swift.system.lane import SystemLane
 from swift.session import Session
@@ -282,7 +282,7 @@ def _make_tools(settings: Settings, desktop: Desktop | None, opener: LocalOpener
     journal = Journal(Path(settings.logging.journal))
     journal.report_unfinished()
     logger.info("workflow tools", email=kind, calendar=calendar_kind, desktop=desktop is not None, contacts=len(contacts))
-    return ToolHost(connector, contacts, ActionGateway(journal), ALL_TOOLS, calendar=calendar, desktop=desktop,
+    return ToolHost(connector, contacts, ActionGateway(journal, SEND_GRACE_S), ALL_TOOLS, calendar=calendar, desktop=desktop,
                     opener=opener, owner_name=" ".join(settings.owner_name.split()))
 
 

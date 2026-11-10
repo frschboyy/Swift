@@ -20,7 +20,8 @@ from typing import Any, Literal
 from loguru import logger
 
 # UNKNOWN: the connection dropped before the service answered, and Swift couldn't tell whether it was done.
-State = Literal["PENDING", "DONE", "FAILED", "UNKNOWN"]
+# CANCELLED: the owner stopped it in its last seconds before it went (X-08): never done.
+State = Literal["PENDING", "DONE", "FAILED", "UNKNOWN", "CANCELLED"]
 
 
 class Journal:

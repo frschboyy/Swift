@@ -354,7 +354,7 @@ IDs by area:
 | R-03 | High | confirmed (test); **fixed 2026-11-05 (S4)** | backend | effectiveness, fallback | A local request waits behind three agent runs |
 | X-01 | High | confirmed (test); **fixed 2026-11-10** | backend | effectiveness | A single contact match isn't checked against the name said (#15 still possible) |
 | X-03 | High | confirmed (test, log); **fixed 2026-11-06** | backend | security | `swift.log` redaction is a deny-list over the whole interaction record |
-| X-08 | High | confirmed (test) | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
+| X-08 | High | confirmed (test); **fixed 2026-11-10** | gateway | reliability | A stop during "Sending…" journals FAILED, though the email or event may go out |
 | X-17 | High | design concern; **fixed 2026-11-07** | executor | security | Edit and Write approval cards show 60–70 characters of what will be written (A-12's class) |
 | D-05 | Medium | confirmed (test); **fixed 2026-11-05 (S2)** | backend | effectiveness | "Turn it back on" during a run (typed or named) gets a mid-run hint |
 | D-07 | Medium | suspected; **fixed 2026-11-05 (S2)** | backend | reliability | A click on a lane question's No can reject another request's confirm card |
@@ -993,6 +993,7 @@ Fixed already: research bullets (`0bf901d`), card height (`ab09f51`). Readable t
 - **Evidence:** connectors run in `asyncio.to_thread` and continue after the stop, while `gateway.py:192` writes FAILED "interrupted". Test: `test_a_stop_while_the_service_is_sending_is_unknown_not_failed`.
 - **Fix:** shield an approved send so it finishes and is journaled as it ends (decision 3), or journal UNKNOWN.
 - **Owner check:** in debug mode with the fake mail delay, press Esc during "Sending…". The card doesn't just say "Cancelled".
+- **Fixed 2026-11-10 (owner's decision 3: a 5-second window):** an approved email waits 5 s, showing "Say “stop” to keep it". A stop then keeps it: nothing is sent, and the journal says `CANCELLED`. After that it goes: a stop lets the send finish, journaled `DONE` and shown as sent, then ends the run. If the service hasn't answered within 20 s of that stop, the journal says `UNKNOWN` and the card says it may have been sent. Only `send_email` waits; calendar changes can be undone. Owner check 215.
 
 #### X-09 to X-14
 - **X-09 (Medium, B-08 open):** after an "unknown" outcome, the same action can be approved and done again.

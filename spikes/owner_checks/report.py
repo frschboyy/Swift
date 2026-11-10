@@ -548,6 +548,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("213 Swift's interaction log was refused with no card",
          seen([line for line in log if "| read refused: never-read path |" in line]), "and no card asked first"),
         ("214 a surname the only match doesn't have was asked about, not drafted to", LOOK, "check on screen"),
+        ("215 a stop in the first 5 seconds kept the email",
+         seen([line for line in log if "| action stopped before it went |" in line]), "and nothing arrived"),
         ("211 'yes, but hold on' waited; a wordy reply stayed with the question", LOOK,
          "check on screen: 'Okay, take your time', Wi-Fi still on, no new request"),
     ]

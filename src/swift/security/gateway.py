@@ -113,12 +113,19 @@ class Outcome:
 # How many approved actions are remembered for "undo that" (in memory, this Swift run only),
 # and for how long after it was done "undo that" still means one.
 KEEP_APPROVED = 20
+# Sends that can't be called back once they go: a stop in the first seconds keeps them (X-08).
+GRACE_TOOLS = frozenset({"send_email"})
+SEND_GRACE_S = 5.0
+# After a stop that came too late, how long the run waits for the service before calling the outcome unknown.
+LATE_STOP_WAIT_S = 20.0
 UNDO_WINDOW_S = 15 * 60.0
 
 
 class ActionGateway:
-    def __init__(self, journal: Journal | None = None) -> None:
+    def __init__(self, journal: Journal | None = None, send_grace_s: float = 0.0) -> None:
         self.journal = journal or Journal(None)
+        # How long an approved send waits for a "stop" before it goes (X-08); the app sets SEND_GRACE_S.
+        self.send_grace_s = send_grace_s
         # Approved and done, newest last; an undone one is removed.
         self.approved: list[Approved] = []
 
@@ -196,7 +203,46 @@ class ActionGateway:
             self.journal.write(action_id, "FAILED", reason="changed_after_approval")
             await status("failed", reason="It changed after you approved it, so it wasn't done.")
             return Outcome("denied", "The content changed after the owner approved it; nothing was sent.")
+        if self.send_grace_s and action.tool in GRACE_TOOLS:
+            # X-08 (owner, 2026-11-10): a few seconds to say "stop" before it goes; after that it goes.
+            await status("sending", reason=f"Sending in {self.send_grace_s:g} seconds. Say “stop” to keep it.")
+            try:
+                await asyncio.sleep(self.send_grace_s)
+            except asyncio.CancelledError:
+                self.journal.write(action_id, "CANCELLED", reason="stopped_in_time")
+                await status("failed", reason="You stopped it in time: it wasn't sent.")
+                logger.info("action stopped before it went", tool=action.tool)
+                raise
         await status("sending")
+        if action.tool not in GRACE_TOOLS:
+            # A stop reaches the action itself: a write into an app stops between paragraphs.
+            return await self._perform(scope, action, action_id, policy, approved_digest, status)
+        # Too late to stop it now: a stop lets it finish, journaled and shown as it ends, then ends the run.
+        work = asyncio.ensure_future(self._perform(scope, action, action_id, policy, approved_digest, status))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            if work.cancelled():
+                raise
+        # Stopped while sending: wait for it, but never for ever (a service that hangs mustn't keep the run).
+        deadline = asyncio.get_running_loop().time() + LATE_STOP_WAIT_S
+        while not work.done() and (left := deadline - asyncio.get_running_loop().time()) > 0:
+            try:
+                await asyncio.wait({work}, timeout=left)
+            except asyncio.CancelledError:
+                pass
+        if work.done():
+            logger.info("stop came while sending: it finished first", tool=action.tool)
+        else:
+            self.journal.write(action_id, "UNKNOWN", reason="stopped_while_sending")  # DONE follows if it goes
+            await status("failed", reason="It may have been sent: look in your Sent folder.")
+            logger.warning("stop came while sending: no answer yet", tool=action.tool, action=action_id)
+        raise asyncio.CancelledError
+
+    async def _perform(
+        self, scope: RunScope, action: Action, action_id: str, policy: str, approved_digest: str,
+        status: Callable[..., Awaitable[None]],
+    ) -> Outcome:
         try:
             receipt = await action.perform()
         except ConnectorError as exc:

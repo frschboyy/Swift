@@ -44,6 +44,8 @@ extern "system" {
     fn IsZoomed(h: Hwnd) -> i32;
     fn FindWindowW(class: *const u16, title: *const u16) -> Hwnd;
     fn FindWindowExW(parent: Hwnd, after: Hwnd, class: *const u16, title: *const u16) -> Hwnd;
+    fn NotifyWinEvent(event: u32, h: Hwnd, object: i32, child: i32);
+    fn GetDesktopWindow() -> Hwnd;
     fn SetWinEventHook(min: u32, max: u32, module: Hwnd, f: WinEventProc, pid: u32, tid: u32, flags: u32) -> Hwnd;
 }
 #[link(name = "dwmapi")]
@@ -240,40 +242,57 @@ fn toggle(app: &AppHandle, kind: &'static str) {
 fn desktop_event(app: &AppHandle, event: u32, hwnd: isize) {
     let st = app.state::<St>();
     let mut open = st.open.lock().unwrap();
-    let Some(o) = open.as_mut() else { return };
+    // Say what was noticed and done: three rare events, and the owner can't see inside.
+    let name = match event {
+        FOREGROUND => "front",
+        MOVE_START => "drag start",
+        MOVE_END => "drag end",
+        _ => return,
+    };
+    let Some(o) = open.as_mut() else {
+        println!("{name}: no card open");
+        return;
+    };
     if o.hwnd == 0 {
-        return; // only a card that came from a window
+        println!("{name}: the open card ({}) didn't come from a window, so it stays", o.kind);
+        return;
     }
     let mine = hwnd == o.hwnd;
-    let js = match event {
+    let whose = if mine { "the card's window" } else { "another window" };
+    let (did, js) = match event {
         MOVE_START if mine && !o.away => {
             o.lifted = true;
             let d = o.dst;
-            format!("fly({},0.5,120)", st.arr([d[0], d[1] - 8, d[2], d[3]]))
+            ("lets go", format!("fly({},0.5,120)", st.arr([d[0], d[1] - 8, d[2], d[3]])))
         }
         MOVE_END if mine && o.lifted => {
             o.lifted = false;
             o.dst = window_rects(frame(hwnd as Hwnd)).1; // read once, where it was dropped
-            format!("fly({},1,{GROW_MS})", st.arr(o.dst))
+            ("re-settles", format!("fly({},1,{GROW_MS})", st.arr(o.dst)))
         }
         FOREGROUND if !mine && !o.away => {
             o.away = true;
             o.lifted = false;
             // A question stays on screen: a plain "yes" only counts while it's visible.
-            format!("fly({},{},{GROW_MS})", st.arr(home()), if o.waiting { 1 } else { 0 })
+            ("goes home", format!("fly({},{},{GROW_MS})", st.arr(home()), if o.waiting { 1 } else { 0 }))
         }
         FOREGROUND if mine && o.away => {
             o.away = false;
             let (src, dst) = window_rects(frame(hwnd as Hwnd));
             o.dst = dst;
-            if o.waiting {
+            let js = if o.waiting {
                 format!("fly({},1,{GROW_MS})", st.arr(dst)) // it was visible at home: travel back
             } else {
                 st.go_js(o.kind, false, src, dst) // it was hidden: unfold from the window again
-            }
+            };
+            ("comes back", js)
         }
-        _ => return,
+        _ => {
+            println!("{name}, {whose}: nothing to do");
+            return;
+        }
     };
+    println!("{name}, {whose}: the card {did}");
     let _ = app.get_webview_window("canvas").unwrap().eval(&js);
 }
 
@@ -328,7 +347,9 @@ fn selftest(app: AppHandle) {
 
     // The taskbar stands in for the owner's window: it's always there and nothing moves it.
     let win = taskbar() as isize;
-    let other = 1;
+    let other = unsafe { GetDesktopWindow() } as isize;
+    // Raised as Windows would raise them, so they arrive through the real hook.
+    let desktop_event = |_: &AppHandle, event: u32, h: isize| unsafe { NotifyWinEvent(event, h as Hwnd, 0, 0) };
     TEST_FG.store(win, Ordering::SeqCst);
     let dst = window_rects(frame(win as Hwnd)).1;
 
@@ -403,14 +424,21 @@ fn main() {
             });
             let _ = APP.set(app.handle().clone());
 
-            if std::env::args().any(|a| a == "--selftest") {
+            // Three system events, each rare: who is in front, and a drag's start and end.
+            // Delivered on this thread's message loop. Flag 2 skips events our own process
+            // raises; the selftest raises its own, so it listens to them.
+            let selftest_run = std::env::args().any(|a| a == "--selftest");
+            let hook = unsafe {
+                SetWinEventHook(FOREGROUND, MOVE_END, std::ptr::null_mut(), on_win_event, 0, 0, if selftest_run { 0 } else { 2 })
+            };
+            if hook.is_null() {
+                println!("the desktop event hook failed: cards won't follow their windows");
+            }
+            if selftest_run {
                 let app = app.handle().clone();
                 thread::spawn(move || selftest(app));
                 return Ok(());
             }
-            // Three system events, each rare: who is in front, and a drag's start and end.
-            // Delivered on this thread's message loop; flag 2 skips our own windows.
-            unsafe { SetWinEventHook(FOREGROUND, MOVE_END, std::ptr::null_mut(), on_win_event, 0, 0, 2) };
             for (code, _) in keys {
                 let key = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), code);
                 if app.global_shortcut().register(key).is_err() {

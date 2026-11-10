@@ -32,8 +32,7 @@ with the name and no greeting ("I think Swift is crazy", "Swift, yes") stayed in
 Parakeet and with Whisper small.en. It was labelled positive when either transcript had a greeting-like word
 followed by a Swift-like word ("He swift", "Hey, Twif", "They're swift", "Hate Swift" / Whisper "Hey Swift").
 It was labelled weak when the sound-alike was further off ("He flipped" / "He's moved", "Please lift").
-The numbers are given for all 30 and for the 24 sure ones. Owner check: listen to the 30 and correct the
-labels (`--labels`).
+The numbers are given for all 30 and for the 24 sure ones. To replace them with ground truth, label the misses by ear (below).
 
 **Today's path:** `ParakeetTranscriber._transcribe_sync` (int16-scaled, with the owner's word fixes) and
 `swift.wake.match_wake`, both strict and `loose=True` (what `_wake_match` uses). The live second chance after
@@ -139,4 +138,24 @@ uv run --frozen --group spikes --with openwakeword==0.6.0 python spikes/wake/tra
 uv run --frozen --group spikes python spikes/wake/wake_bench.py report --out <scratch> --labels <labels.json> --oww hey_jarvis head_owner
 ```
 
-The hand labels (clip id → pos/neg/skip, no text) are in the session's notes folder, not in git.
+The trial's hand labels (clip id → pos/neg/skip, no text) are in the session's notes folder, not in git.
+
+## Labelling the misses by ear (owner)
+
+The trial's labels for the 83 saved misses are a reading of two transcripts. To make them ground truth,
+listen to each one:
+
+```bash
+uv run --group spikes python spikes/wake/label_misses.py
+```
+
+It plays each `*-miss.wav` clip, oldest first, with its date and length but no transcript. For each one,
+answer `y` (I said "Hey Swift"), `n` (room sound, another sentence) or `s` (can't tell). `r` plays it
+again, `b` goes back one clip and `q` saves and quits. Every answer is saved at once to
+`%LOCALAPPDATA%\Swift\corpus\wake\miss_labels.json`, so you can stop and come back. A second run only
+plays the clips you haven't labelled; `--all` goes over every clip again. The 83 clips take about
+10 minutes.
+
+To rescore with those labels, use a fresh bench folder (the trial's was temporary): run `build`, `stt`
+and `train_head.py` as above, then `report` with
+`--labels %LOCALAPPDATA%\Swift\corpus\wake\miss_labels.json`.

@@ -265,10 +265,81 @@ async def test_only_a_send_that_can_t_be_called_back_waits() -> None:
     assert outcome.status == "done" and [s for s, _ in shown] == ["waiting_approval", "sending", "sent"]
 
 
-def test_the_app_gives_sends_five_seconds() -> None:
-    from swift.security.gateway import SEND_GRACE_S
+def test_the_app_gives_sends_five_seconds(tmp_path: Path) -> None:
+    from swift.backend.__main__ import _make_tools
+    from swift.settings import Settings
 
-    assert SEND_GRACE_S == 5.0
+    settings = Settings.model_validate({"debug": True, "logging": {"journal": str(tmp_path / "j.jsonl")}})
+    assert _make_tools(settings, None, None).gateway.send_grace_s == 5.0  # type: ignore[arg-type]
+
+
+async def _stopped_the_sdk_s_way(execute: Any, after_s: float) -> None:
+    """A stop as it reaches a tool call: the SDK's anyio cancel scope, which cancels again at every await."""
+    import anyio
+
+    scopes: list[Any] = []
+
+    async def call() -> None:
+        with anyio.CancelScope() as cancel_scope:
+            scopes.append(cancel_scope)
+            await execute
+
+    task = asyncio.create_task(call())
+    await asyncio.sleep(after_s)
+    scopes[0].cancel()
+    await asyncio.wait_for(task, 3)
+
+
+def _yielding(shown: list[tuple[str, dict[str, str]]]) -> Any:
+    async def status(state: str, extra: dict[str, str]) -> None:
+        await asyncio.sleep(0)  # the real one sends a frame: it yields, so a re-cancel can land here
+        shown.append((state, extra))
+    return status
+
+
+def _sdk_send(grace_s: float, sending_s: float = 0.0) -> tuple[Any, Journal, list[tuple[str, dict[str, str]]], list[str]]:
+    journal = Journal(None)
+    gateway = ActionGateway(journal, send_grace_s=grace_s)
+    scope = _scope_for(ToolHost(None, (), gateway))
+    scope.resolved[CHIANU.email] = CHIANU
+    shown: list[tuple[str, dict[str, str]]] = []
+    sent: list[str] = []
+
+    async def perform() -> str:
+        await asyncio.sleep(sending_s)
+        sent.append("id-1")
+        return "id-1"
+
+    action = Action("send_email", (CHIANU,), "Send", "", None, lambda: "d", perform, on_status=_yielding(shown))  # type: ignore[arg-type]
+    return gateway.execute(scope, action), journal, shown, sent
+
+
+async def test_a_stop_in_time_from_the_sdk_still_says_so() -> None:
+    execute, journal, shown, sent = _sdk_send(grace_s=1.0)
+    await _stopped_the_sdk_s_way(execute, 0.3)
+    await asyncio.sleep(1.2)
+    assert sent == [] and journal.entries[-1]["state"] == "CANCELLED"
+    assert shown[-1] == ("failed", {"reason": "You stopped it in time: it wasn't sent."})
+
+
+async def test_a_late_stop_from_the_sdk_waits_for_the_send_without_spinning(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    from swift.security import gateway as gateway_module
+
+    monkeypatch.setattr(gateway_module, "LATE_STOP_WAIT_S", 0.5)
+    execute, journal, shown, _sent = _sdk_send(grace_s=0.1, sending_s=60.0)
+    started = time.process_time()
+    await _stopped_the_sdk_s_way(execute, 0.3)
+    assert time.process_time() - started < 0.4  # waiting, not looping
+    assert journal.entries[-1]["state"] == "UNKNOWN"
+    assert shown[-1] == ("failed", {"reason": "It may have been sent: look in your Sent folder."})
+
+
+async def test_a_late_stop_from_the_sdk_lets_a_quick_send_finish() -> None:
+    execute, journal, shown, sent = _sdk_send(grace_s=0.1, sending_s=0.4)
+    await _stopped_the_sdk_s_way(execute, 0.3)
+    assert sent == ["id-1"] and journal.entries[-1]["state"] == "DONE" and shown[-1][0] == "sent"
 
 
 def _captured(*, exceptions: bool = False) -> io.StringIO:

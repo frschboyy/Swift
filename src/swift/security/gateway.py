@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import asyncio
 import time
+
+import anyio
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
@@ -203,47 +205,52 @@ class ActionGateway:
             self.journal.write(action_id, "FAILED", reason="changed_after_approval")
             await status("failed", reason="It changed after you approved it, so it wasn't done.")
             return Outcome("denied", "The content changed after the owner approved it; nothing was sent.")
-        if self.send_grace_s and action.tool in GRACE_TOOLS:
-            # X-08 (owner, 2026-11-10): a few seconds to say "stop" before it goes; after that it goes.
-            await status("sending", reason=f"Sending in {self.send_grace_s:g} seconds. Say “stop” to keep it.")
-            try:
-                await asyncio.sleep(self.send_grace_s)
-            except asyncio.CancelledError:
-                self.journal.write(action_id, "CANCELLED", reason="stopped_in_time")
-                await status("failed", reason="You stopped it in time: it wasn't sent.")
-                logger.info("action stopped before it went", tool=action.tool)
-                raise
-        await status("sending")
         if action.tool not in GRACE_TOOLS:
             # A stop reaches the action itself: a write into an app stops between paragraphs.
             return await self._perform(scope, action, action_id, policy, approved_digest, status)
+        # A stop reaches a tool call through the SDK's anyio cancel scope, which cancels again at every
+        # await: what a stop must still write and show runs in a shielded scope (X-08 review).
+        if self.send_grace_s:
+            # X-08 (owner, 2026-11-10): a few seconds to say "stop" before it goes; after that it goes.
+            try:
+                await status("sending", reason=f"Sending in {self.send_grace_s:g} seconds. Say “stop” to keep it.")
+                await asyncio.sleep(self.send_grace_s)
+            except asyncio.CancelledError:
+                with anyio.CancelScope(shield=True):
+                    self.journal.write(action_id, "CANCELLED", reason="stopped_in_time")
+                    await status("failed", reason="You stopped it in time: it wasn't sent.")
+                    logger.info("action stopped before it went", tool=action.tool)
+                raise
         # Too late to stop it now: a stop lets it finish, journaled and shown as it ends, then ends the run.
         work = asyncio.ensure_future(self._perform(scope, action, action_id, policy, approved_digest, status))
         try:
             return await asyncio.shield(work)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as stop:
             if work.cancelled():
                 raise
-        # Stopped while sending: wait for it, but never for ever (a service that hangs mustn't keep the run).
-        deadline = asyncio.get_running_loop().time() + LATE_STOP_WAIT_S
-        while not work.done() and (left := deadline - asyncio.get_running_loop().time()) > 0:
-            try:
-                await asyncio.wait({work}, timeout=left)
-            except asyncio.CancelledError:
-                pass
-        if work.done():
-            logger.info("stop came while sending: it finished first", tool=action.tool)
-        else:
-            self.journal.write(action_id, "UNKNOWN", reason="stopped_while_sending")  # DONE follows if it goes
-            await status("failed", reason="It may have been sent: look in your Sent folder.")
-            logger.warning("stop came while sending: no answer yet", tool=action.tool, action=action_id)
-        raise asyncio.CancelledError
+            stopped = stop  # raised again at the end: the canceller knows its own stop
+        with anyio.CancelScope(shield=True):
+            # Wait for it, but never for ever: a service that hangs mustn't keep the run.
+            deadline = asyncio.get_running_loop().time() + LATE_STOP_WAIT_S
+            while not work.done() and (left := deadline - asyncio.get_running_loop().time()) > 0:
+                try:
+                    await asyncio.wait({work}, timeout=left)
+                except asyncio.CancelledError:
+                    pass  # another plain cancel: still waiting
+            if work.done():
+                logger.info("stop came while sending: it finished first", tool=action.tool)
+            else:
+                self.journal.write(action_id, "UNKNOWN", reason="stopped_while_sending")  # DONE follows if it goes
+                await status("failed", reason="It may have been sent: look in your Sent folder.")
+                logger.warning("stop came while sending: no answer yet", tool=action.tool, action=action_id)
+        raise stopped
 
     async def _perform(
         self, scope: RunScope, action: Action, action_id: str, policy: str, approved_digest: str,
         status: Callable[..., Awaitable[None]],
     ) -> Outcome:
         try:
+            await status("sending")
             receipt = await action.perform()
         except ConnectorError as exc:
             if exc.code == "unknown":  # it may have been done: say so, never "failed" (audit 2026-10, A-05)

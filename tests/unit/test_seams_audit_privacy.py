@@ -127,6 +127,17 @@ def test_a_never_read_path_spelled_another_way_is_still_never_read(tmp_path: Pat
     assert scope.verdict(r"\\fileserver\c$\notes.txt") == "ask"  # another PC's share is not this one's drive
 
 
+def test_a_whole_drive_or_volume_spelled_another_way_is_never_a_blanket_read() -> None:
+    from swift.executors.read_scope import ReadScope
+
+    here = Path.cwd()
+    scope = ReadScope([str(here)])  # the current folder is a read folder
+    drive = here.drive[0]
+    for spelled in (rf"\\localhost\{drive}$", rf"\\localhost\{drive}$" + "\\", "\\\\?\\Volume{0a1b2c3d-0000-0000-0000-000000000000}\\Users",
+                    r"\\?\GLOBALROOT\Device\HarddiskVolume3\Users"):
+        assert scope.verdict(spelled) == "ask", spelled
+
+
 def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from swift.backend.__main__ import _make_executor
     from swift.settings import Settings

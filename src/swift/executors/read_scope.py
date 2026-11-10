@@ -52,9 +52,10 @@ Verdict = Literal["read", "ask", "never"]
 def _local(path: str) -> str:
     """The same file spelled as a local path: ``\\\\?\\C:\\…``, ``\\\\localhost\\c$\\…`` (this PC's drive shares)."""
     path = re.sub(r"^[\\/]{2}[?.][\\/]UNC[\\/]", r"\\\\", path, flags=re.IGNORECASE)  # \\?\UNC\host\… -> \\host\…
-    path = re.sub(r"^[\\/]{2}[?.][\\/]", "", path)  # \\?\C:\… -> C:\…
+    path = re.sub(r"^[\\/]{2}[?.][\\/](?=[a-zA-Z]:)", "", path)  # \\?\C:\… -> C:\…; a volume name stays as it is
     hosts = "|".join(map(re.escape, ("localhost", "127.0.0.1", "::1", "[::1]", os.environ.get("COMPUTERNAME", "localhost"))))
-    return re.sub(rf"^[\\/]{{2}}(?:{hosts})[\\/]([a-zA-Z])\$(?=[\\/]|$)", r"\1:", path, flags=re.IGNORECASE)
+    # To the drive's root, never "C:" alone, which Python reads as the current folder on that drive.
+    return re.sub(rf"^[\\/]{{2}}(?:{hosts})[\\/]([a-zA-Z])\$(?:[\\/]|$)", r"\1:\\", path, flags=re.IGNORECASE)
 
 
 def _norm(path: str) -> str:

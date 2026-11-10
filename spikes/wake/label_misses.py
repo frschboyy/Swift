@@ -12,6 +12,9 @@ git), so you can stop and come back. Nothing leaves the PC.
 
   uv run --group spikes python spikes/wake/label_misses.py            # the clips not labelled yet
   uv run --group spikes python spikes/wake/label_misses.py --all      # go over every clip again
+  uv run --group spikes python spikes/wake/label_misses.py --clips 54360854620b@50-58 f45307e54113-tail@0-6
+      # any saved clip by id (or its first 12 characters), only from START to END seconds; a bench "-tail"
+      # clip is the original from 3 s on
 
 Then rescore with the labels:
   uv run --frozen --group spikes python spikes/wake/wake_bench.py report --out <bench folder> \
@@ -36,14 +39,32 @@ def swift_dir() -> Path:
     return Path(os.environ.get("SWIFT_DATA") or Path(os.environ["LOCALAPPDATA"]) / "Swift")
 
 
-def play(path: Path) -> None:
+def play(path: Path, start: float = 0.0, end: float | None = None) -> None:
     import sounddevice as sd
 
     with wave.open(str(path)) as w:
         audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
         rate = w.getframerate()
-    sd.play(audio, rate)
+    sd.play(audio[int(start * rate):None if end is None else int(end * rate)], rate)
     sd.wait()
+
+
+def named(audio_dir: Path, specs: list[str]) -> list[dict]:
+    """--clips: "ID[@START-END]"; an ID ending in -tail is the original clip from 3 s on, as wake_bench cuts it."""
+    index = json.loads((audio_dir / "index.json").read_text(encoding="utf-8"))["clips"]
+    found = []
+    for spec in specs:
+        cid, _, span = spec.partition("@")
+        tail = cid.endswith("-tail")
+        base = cid.removesuffix("-tail")
+        c = next((c for c in index if c["id"] == base), None) or next((c for c in index if c["id"].startswith(base)), None)
+        if c is None:
+            raise SystemExit(f"no saved clip {base}")
+        start, _, end = span.partition("-") if span else ("0", "", "")
+        shift = 3.0 if tail else 0.0
+        found.append({**c, "id": c["id"] + ("-tail" if tail else ""), "file": c["id"],
+                      "start": float(start or 0) + shift, "end": float(end) + shift if end else None})
+    return found
 
 
 def misses(audio_dir: Path) -> list[dict]:
@@ -55,6 +76,7 @@ def misses(audio_dir: Path) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--all", action="store_true", help="also the clips already labelled")
+    ap.add_argument("--clips", nargs="+", help="label these clips instead: ID[@START-END] (seconds)")
     ap.add_argument("--labels", type=Path, default=None, help="where to save (default: corpus\\wake\\miss_labels.json)")
     a = ap.parse_args()
 
@@ -62,7 +84,7 @@ def main() -> None:
     out = a.labels or swift_dir() / "corpus" / "wake" / "miss_labels.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     labels: dict[str, str] = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
-    clips = [c for c in misses(audio_dir) if a.all or c["id"] not in labels]
+    clips = named(audio_dir, a.clips) if a.clips else [c for c in misses(audio_dir) if a.all or c["id"] not in labels]
     print(f"{len(clips)} clips to label, {len(labels)} labelled already. Saving to {out}")
 
     i = 0
@@ -71,11 +93,12 @@ def main() -> None:
         when = datetime.fromtimestamp(c["ts"]).strftime("%a %d %b %H:%M:%S")
         had = f" (was: {labels[c['id']]})" if c["id"] in labels else ""
         print(f"\n[{i + 1}/{len(clips)}] {when}, {c.get('audio_s', '?')} s{had}")
-        play(audio_dir / f"{c['id']}.wav")
+        clip = (audio_dir / f"{c.get('file', c['id'])}.wav", c.get("start", 0.0), c.get("end"))
+        play(*clip)
         while True:
             key = input("Hey Swift?  y(yes) / n(no, or just noise) / s(a voice, can't tell) / r(again) / b(back) / q(quit): ").strip().lower()[:1]
             if key == "r":
-                play(audio_dir / f"{c['id']}.wav")
+                play(*clip)
             elif key in KEYS:
                 labels[c["id"]] = KEYS[key]
                 out.write_text(json.dumps(labels, indent=1), encoding="utf-8")

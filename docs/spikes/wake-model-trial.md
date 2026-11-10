@@ -157,6 +157,56 @@ wasn't tried. Stage 2 adds Parakeet (already loaded for requests) only when stag
    these clips. Its misses and responsiveness need about 30 recorded "Jarvis" takes. It's an unmaintained
    2021 binary with a fixed word, so it's a comparison point, not a candidate.
 
+### Early read on option 3: a stage 2 that knows the owner's voice
+
+`spikes/wake/verifier.py` follows openWakeWord's custom-verifier recipe: a logistic regression on the
+embeddings at the detection, trained on the owner's own clips and scored out of fold by day. With only
+the clips there are today (5 takes, about 160 positives):
+
+| Path | Misses | Live misses caught | Calm takes | False wakes / h |
+|---|---|---|---|---|
+| Today | 19.0% | 8 / 27 | 0 / 5 | 0 |
+| ViolaWake 0.5 → Parakeet lenient | 16.7% | 20 / 27 | 0 / 5 | 3.9 |
+| ViolaWake 0.5 → own-voice verifier 0.7 | 13.7% | 24 / 27 | 4 / 5 | 17.4 |
+| ViolaWake 0.5 → own-voice verifier 0.9 | 19.6% | 21 / 27 | 1 / 5 | 11.6 |
+| openWakeWord 0.1 → own-voice verifier 0.7 | 17.3% | 19 / 27 | 1 / 5 | 7.7 |
+
+The own-voice stage keeps the calm takes, which the Parakeet stage can't do. But it false-wakes far too
+often to use yet. It needs the owner's ~300 takes.
+
+### Next: what the owner records (options 1, 3 and 4)
+
+**Before recording takes, quit Swift, or turn wake listening off.** The takes say "Hey Swift" plus
+commands like "draft an email to my dean" and "remind me every Friday…", and a running Swift would act on
+them. Room recordings are fine with Swift running.
+
+1. **Option 1, the two disputed clips** (about 1 minute). Answer y if you hear "Hey Swift":
+   ```bash
+   uv run --group spikes python spikes/wake/label_misses.py --clips 54360854620b4c9d9e32c66d8030b1fc@50-58 f45307e541134c74b7ce27575be88a21-tail@0-6
+   ```
+2. **Option 1, your room** (at least 2 hours, more is better). Work, take calls, play TV as usual, and don't
+   say "Hey Swift". It writes room audio to disk, so make sure anyone else there is fine with it, and
+   delete the folder when the trial is done.
+   ```bash
+   uv run --group spikes python spikes/wake/record_negatives.py --hours 2 --label office
+   ```
+3. **Option 3, 300 "Hey Swift" takes**: 34 per cell, at 3 distances × 3 noise levels. `media` means a
+   video or podcast playing; `babble` means people talking nearby. At 1.5 m and 3 m, add `--auto`: a beep
+   starts each take.
+   ```bash
+   uv run --group spikes python spikes/wake/record_corpus.py --distance 0.5 --noise quiet --count 34
+   uv run --group spikes python spikes/wake/record_corpus.py --distance 1.5 --noise media --count 34 --auto
+   ```
+   (and the same for the other cells: 0.5 media/babble, 1.5 quiet/babble, 3 quiet/media/babble)
+4. **Option 4, 30 "Jarvis" takes**: 10 each at 0.5 m quiet, 1.5 m quiet and 1.5 m media.
+   ```bash
+   uv run --group spikes python spikes/wake/record_corpus.py --distance 0.5 --noise quiet --count 10 --phrase Jarvis
+   ```
+
+Then a fresh `build`, `stt`, `align`, the detectors, `stage2`, `verifier.py`, and `report`, plus
+`report --phrase jarvis --porcupine jarvis` for option 4, score everything on the new audio. The room
+appears as "room: N in H h".
+
 ### Reproduce (round 2)
 
 All audio and models stay in a scratch folder outside git. `<oww>` holds the downloads, the generated

@@ -258,8 +258,146 @@ pub fn swell(app: &AppHandle, src: isize) -> Result<u32, String> {
     result.map(|_: u32| frames)
 }
 
-/// Keep 4: a card made of Windows' own blur material, in a window of its own because the
-/// material belongs to a whole window.
+/// Where the glass card sits: above the home spot.
+fn glass_spot() -> [i32; 4] {
+    let h = home();
+    [h[0], h[1] - 180, h[2], h[3]]
+}
+
+/// A window of its own for a material, because a material belongs to a whole window.
+/// Placed and sized as it's made: made first and moved after, it flashed for a moment at
+/// Windows' default spot, which the owner saw as another card flickering.
+fn build_glass(app: &AppHandle, label: &str, effect: Effect) -> tauri::Result<tauri::WebviewWindow> {
+    let h = glass_spot();
+    let scale = app.get_webview_window("canvas").and_then(|c| c.scale_factor().ok()).unwrap_or(1.0);
+    WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+        .position(h[0] as f64 / scale, h[1] as f64 / scale)
+        .inner_size(h[2] as f64 / scale, h[3] as f64 / scale)
+        .transparent(true)
+        .decorations(false)
+        .shadow(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(false)
+        .resizable(false)
+        .effects(EffectsBuilder::new().effect(effect).build())
+        .build()
+}
+
+#[repr(C)]
+struct AccentPolicy {
+    state: u32,
+    flags: u32,
+    colour: u32, // AABBGGRR
+    animation: u32,
+}
+#[repr(C)]
+struct CompositionData {
+    attribute: u32,
+    data: *mut AccentPolicy,
+    size: usize,
+}
+#[link(name = "kernel32")]
+extern "system" {
+    fn GetModuleHandleW(name: *const u16) -> Hwnd;
+    fn GetProcAddress(module: Hwnd, name: *const u8) -> Option<unsafe extern "system" fn(Hwnd, *mut CompositionData) -> i32>;
+}
+
+/// The older acrylic, through a call Windows doesn't document. Tools that put blur behind
+/// windows that never have focus use it. Undocumented means it can stop working in any
+/// Windows update.
+fn old_acrylic(h: Hwnd, colour: u32) -> bool {
+    unsafe {
+        let Some(set) = GetProcAddress(GetModuleHandleW(crate::wide("user32.dll").as_ptr()), b"SetWindowCompositionAttribute\0".as_ptr()) else {
+            return false;
+        };
+        let mut policy = AccentPolicy { state: 4, flags: 2, colour, animation: 0 }; // 4 = acrylic blur behind
+        set(h, &mut CompositionData { attribute: 19, data: &mut policy, size: 16 }) != 0 // 19 = accent policy
+    }
+}
+
+/// What the screen really shows across the glass spot: brightness at 40 points along a row.
+fn row(r: [i32; 4]) -> Vec<u32> {
+    unsafe {
+        let dc = GetDC(std::ptr::null_mut());
+        let v = (0..40)
+            .map(|i| {
+                let c = GetPixel(dc, r[0] + 6 + (r[2] - 12) * i / 39, r[1] + r[3] / 2);
+                ((c & 255) + (c >> 8 & 255) + (c >> 16 & 255)) / 3
+            })
+            .collect();
+        ReleaseDC(std::ptr::null_mut(), dc);
+        v
+    }
+}
+
+/// Black and white bands read back as: untouched (only blacks and whites), frosted (greys
+/// in between), or hidden (one flat colour).
+fn read_bands(v: &[u32]) -> String {
+    let (lo, hi) = (*v.iter().min().unwrap(), *v.iter().max().unwrap());
+    let between = v.iter().filter(|&&x| x > lo + 12 && x + 12 < hi).count();
+    let what = if hi - lo < 12 {
+        "HIDDEN: one flat colour, the bands don't come through"
+    } else if between <= 3 {
+        "SHARP: the bands come through untouched"
+    } else {
+        "FROSTED: the bands come through softened"
+    };
+    format!("{what} (darkest {lo}, brightest {hi}, {between} of 40 points in between)")
+}
+
+/// Which of Windows' materials really blur what's behind a window that never has focus?
+/// Measured from the screen, not judged by eye. `cargo run -- --glasstest`
+///
+/// Result (2026-11-11, owner's PC, Windows build 26300, transparency effects on): none.
+/// Acrylic frosts only while its window has focus. Mica and tabbed never show what's
+/// behind. The older blur and acrylic draw a flat colour. A frosted card that never takes
+/// focus would have to be drawn by Swift from a capture of the screen.
+pub fn glass_test(app: AppHandle) {
+    thread::sleep(Duration::from_secs(3)); // let the page load
+    let spot = glass_spot();
+    println!("transparency effects in Windows' settings: {}", if transparency_on() { "on" } else { "OFF" });
+    eval(&app, &format!("stripes({})", app.state::<St>().arr(spot)));
+    thread::sleep(Duration::from_millis(600));
+    println!("{:<22} {}", "no material", read_bands(&row(spot)));
+    let materials = [("acrylic", Effect::Acrylic), ("blur", Effect::Blur), ("mica", Effect::Mica), ("tabbed", Effect::Tabbed)];
+    for (i, (name, effect)) in materials.into_iter().enumerate() {
+        match build_glass(&app, &format!("glasstest{i}"), effect) {
+            Ok(w) => {
+                let _ = w.set_ignore_cursor_events(true);
+                thread::sleep(Duration::from_millis(1200));
+                println!("{name:<22} {}", read_bands(&row(spot)));
+                // Windows may keep its materials for the window being worked in. Swift's
+                // cards never take focus, so measure both ways.
+                let _ = w.set_focus();
+                thread::sleep(Duration::from_millis(900));
+                println!("{:<22} {}", format!("{name}, with focus"), read_bands(&row(spot)));
+                let _ = w.close();
+                thread::sleep(Duration::from_millis(500));
+            }
+            Err(e) => println!("{name:<22} couldn't be made: {e}"),
+        }
+    }
+    // Never focused, with a heavy and then a light tint (the top byte is how opaque).
+    for (i, colour) in [0x6620_2020u32, 0x1020_2020, 0x0120_2020].into_iter().enumerate() {
+        match build_glass(&app, &format!("glassold{i}"), Effect::Blur) {
+            Ok(w) => {
+                let _ = w.set_ignore_cursor_events(true);
+                let took = w.hwnd().map(|h| old_acrylic(h.0 as Hwnd, colour)).unwrap_or(false);
+                thread::sleep(Duration::from_millis(1200));
+                let name = format!("old acrylic {:#04x}", colour >> 24);
+                println!("{name:<22} {}{}", read_bands(&row(spot)), if took { "" } else { " (Windows refused the call)" });
+                let _ = w.close();
+                thread::sleep(Duration::from_millis(500));
+            }
+            Err(e) => println!("old acrylic couldn't be made: {e}"),
+        }
+    }
+    eval(&app, "stripes(null)");
+    app.exit(0);
+}
+
+/// Keep 4: a card made of Windows' own blur material.
 fn glass(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("glass") {
         let _ = w.close();
@@ -267,29 +405,14 @@ fn glass(app: &AppHandle) {
     }
     let app = app.clone();
     thread::spawn(move || {
-        let h = home();
-        // Placed and sized as it's made. Made first and moved after, it flashed for a moment
-        // at Windows' default spot, which the owner saw as another card flickering.
-        let scale = app.get_webview_window("canvas").and_then(|c| c.scale_factor().ok()).unwrap_or(1.0);
-        let built = WebviewWindowBuilder::new(&app, "glass", WebviewUrl::App("index.html".into()))
-            .position(h[0] as f64 / scale, (h[1] - 180) as f64 / scale)
-            .inner_size(h[2] as f64 / scale, h[3] as f64 / scale)
-            .transparent(true)
-            .decorations(false)
-            .shadow(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .focused(false)
-            .resizable(false)
-            .effects(EffectsBuilder::new().effect(Effect::Acrylic).build())
-            .build();
+        let built = build_glass(&app, "glass", Effect::Acrylic);
         match built {
             Ok(w) => {
                 // Square corners: rounding them brings Windows' shadow, which arrived late.
                 let _ = w.set_ignore_cursor_events(true);
                 if transparency_on() {
-                    println!("glass: a card of Windows' own blur is above the home spot. Put text or a picture behind it:");
-                    println!("glass: if the blur works, what's behind looks frosted, not sharp and not hidden");
+                    println!("glass: this card is solid. Windows draws its blur only for the window that has focus,");
+                    println!("glass: and Swift's cards never take focus. Measured by: cargo run -- --glasstest");
                 } else {
                     println!("glass: Windows' transparency effects are turned off on this PC, so Windows draws this card solid.");
                     println!("glass: the switch is in Settings > Personalisation > Colours. Swift should respect it either way");

@@ -144,6 +144,17 @@
     if (on) { place([r[0] + 150, r[1] + 80, 60, 20], 0); moveTo(r, 1, 260); } else moveTo(r, 0, 180);
   }
 
+  // Glass test: hard black and white bands to lay a material over. null takes them away.
+  function stripes(r) {
+    document.getElementById('stripes')?.remove();
+    if (!r) return;
+    const el = document.createElement('div'), band = 80 / devicePixelRatio;
+    el.id = 'stripes';
+    el.style.cssText = `position:absolute;background:repeating-linear-gradient(90deg,#000 0 ${band}px,#fff ${band}px ${2 * band}px)`;
+    box(el, r);
+    document.body.prepend(el);
+  }
+
   // Selftest: where the card really is, in device pixels, and how visible.
   function probe() {
     const b = card.getBoundingClientRect(), d = devicePixelRatio;

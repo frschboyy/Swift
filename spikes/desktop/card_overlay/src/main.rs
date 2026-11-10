@@ -790,6 +790,11 @@ fn main() {
             if hook.is_null() {
                 println!("the desktop event hook failed: cards won't follow their windows");
             }
+            if std::env::args().any(|a| a == "--glasstest") {
+                let app = app.handle().clone();
+                thread::spawn(move || probes::glass_test(app));
+                return Ok(());
+            }
             if selftest_run {
                 let app = app.handle().clone();
                 thread::spawn(move || selftest(app));

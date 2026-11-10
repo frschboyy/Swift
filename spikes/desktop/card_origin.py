@@ -15,6 +15,9 @@ Each key opens its card; the same key again puts it back.
 
 Native windows only: this measures Windows' side of the illusion, not WebView2's.
 
+Result (2026-11-10, owner's PC, judged by eye): all three motions read as coming
+from their source, with no lag on the cards or the rest of the screen.
+
 Earlier result (2026-11-10, owner's PC, in git history as window_follow.py): a
 window that follows a dragged window per frame trails it, and each move of an
 overlay window costs 2-4 ms. Don't chase what the user is moving.

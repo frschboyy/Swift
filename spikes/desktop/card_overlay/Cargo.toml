@@ -1,0 +1,15 @@
+[package]
+name = "card-overlay-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Stands alone: a spike, never part of the overlay's build or tests.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-global-shortcut = "2"

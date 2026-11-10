@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  #card {
+    position: absolute; transform-origin: 0 0; opacity: 0;
+    background: #20282f; border-radius: 12px; box-shadow: 0 8px 30px #0008;
+    will-change: transform, opacity;
+  }
+</style>
+<div id="card"></div>
+<script>
+  const card = document.getElementById('card');
+  const out2 = u => 1 - (1 - u) ** 2, out3 = u => 1 - (1 - u) ** 3;
+  let open = null;
+
+  // a: {kind, src, dst, grow, approach, push} in device pixels from the window's corner,
+  // times in ms. null puts the open card back. Same curves as card_origin.py and main.rs.
+  function go(a, sent) {
+    const back = !a;
+    a = a || open;
+    open = back ? null : a;
+    const k = 1 / devicePixelRatio;
+    const [sx, sy, sw, sh] = a.src.map(v => v * k), [dx, dy, dw, dh] = a.dst.map(v => v * k);
+    Object.assign(card.style, { left: dx + 'px', top: dy + 'px', width: dw + 'px', height: dh + 'px' });
+
+    let total, at;
+    if (a.kind === 'push') {  // dst is where the card ends: the strip the window gives up
+      total = back ? a.push : a.approach + a.push;
+      at = t => {
+        if (back) { const u = t / a.push; return [-dw * out2(u), 1 - u]; }
+        if (t < a.approach) { const n = (t / a.approach) ** 2; return [-dw - 0.5 * dw * (1 - n), n]; }
+        return [-dw + dw * out2((t - a.approach) / a.push), 1];
+      };
+    } else {
+      total = a.grow;
+      at = t => { const u = t / total; return [0, 0, back ? (1 - u) ** 2 : out3(u)]; };
+    }
+    // Sampled keyframes, so the webview's compositor runs the exact curve Rust runs.
+    const n = Math.ceil(total / 8);
+    const frames = Array.from({ length: n + 1 }, (_, i) => {
+      const [x, opacity, e] = at(i / n * total);
+      if (e === undefined) return { transform: `translateX(${x}px)`, opacity };
+      return {
+        transform: `translate(${(sx - dx) * (1 - e)}px, ${(sy - dy) * (1 - e)}px) ` +
+                   `scale(${sw / dw + (1 - sw / dw) * e}, ${sh / dh + (1 - sh / dh) * e})`,
+        opacity: Math.min(1, 2 * e),
+      };
+    });
+    requestAnimationFrame(() => {
+      card.animate(frames, { duration: total, fill: 'forwards' });
+      window.__TAURI__.core.invoke('started', { sent });  // Rust starts the real window on this
+    });
+  }
+</script>

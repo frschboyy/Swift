@@ -207,7 +207,7 @@ class _Google:
 
     def get(self, calendarId: str = "", eventId: str = "", userId: str = "", id: str = "",  # noqa: N803, A002
             format: str = ""):  # noqa: A002
-        from test_google_contacts import Call
+        from test_google_contacts import Call, Status
 
         if eventId:
             found = self.events.get(eventId)

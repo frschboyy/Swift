@@ -341,13 +341,15 @@ def _range(args: dict[str, Any]) -> tuple[datetime, datetime] | str:
     def moment(when: datetime | date) -> datetime:
         return when if isinstance(when, datetime) else datetime.combine(when, time()).astimezone()
 
+    # An end given as a date takes in that whole day, with a start or without ("until Friday").
+    until = None if end is None else moment(end) + (timedelta(days=1) if not isinstance(end, datetime) else timedelta())
     if start is None:
         first = datetime.now().astimezone()
-        last = moment(end) if end is not None else first + timedelta(days=7)
+        last = until if until is not None else first + timedelta(days=7)
     else:
         first = moment(start)
-        if end is not None:
-            last = moment(end) + (timedelta(days=1) if not isinstance(end, datetime) else timedelta())
+        if until is not None:
+            last = until
         else:
             last = moment(start.date() if isinstance(start, datetime) else start) + timedelta(days=1)
     if last <= first:

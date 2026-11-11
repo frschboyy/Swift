@@ -28,6 +28,9 @@ wake:                              # start by voice: "hey / hello / good afterno
                                    # during a run "show me", "stop", "reject" work without it; approving needs "Swift, approve"
   followup_min_p: 0.7              # a reply in that window must be this sure, and sound like you, not the room;
                                    # said less surely, Swift asks you to say it again instead of guessing
+  acoustic: false                  # a second way in (ADR-021): a "Hey Swift" sound detector also listens; when the words
+                                   # didn't match but it fired, that stretch is checked again. Starts requests only.
+  acoustic_threshold: 0.5          # how sure the detector must be
 
 stt:
   engine: "parakeet"               # "parakeet" (fast, accurate) or "whisper"

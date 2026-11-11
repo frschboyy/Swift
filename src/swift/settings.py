@@ -136,6 +136,12 @@ class WakeSettings(_Section):
     # A reply in that window (no wake phrase) must be at least this sure of its words, and sound
     # like you rather than the room (0 = only wake.min_p). Said less surely: "Try saying it again".
     followup_min_p: float = Field(0.7, ge=0.0, le=1.0)
+    # A second way in (ADR-021): a small "Hey Swift" sound detector also listens, and when the words
+    # didn't match but it fired, the speech model checks that stretch again. On this machine only; it
+    # starts requests and never approves. Needs its three model files in models/wake; off without them.
+    acoustic: bool = False
+    # How sure the detector must be (0..1). 0.5 is what was scored on the owner's recordings.
+    acoustic_threshold: float = Field(0.5, ge=0.0, le=1.0)
 
 
 class ExecutorSettings(_Section):

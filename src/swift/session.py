@@ -191,6 +191,7 @@ from swift.stt.transcriber import (
 from swift.wake import (
     CLOSE, NAME, PRIMED_CLOSE, NoiseGate, WakeMatch, after_near_wake, close_control, match_address, match_wake, near_wake,
 )
+from swift.wake_acoustic import second_way_in
 from swift.speech import Speaker, card_speech, spoken
 from swift.system import intents as system_intents
 from swift.system.lane import SystemLane
@@ -951,8 +952,10 @@ class Session:
              "stt_failed", "stt_timeout", "near_wake", "unsure", "unsure_wake", "unsure_midrun", "other_speech", "wake", "peek_wake",
              "queued", "followup", "followup_quiet", "followup_unsure", "followup_long", "hands_free", "own_voice",
              "paused_drop", "answer", "short_answer", "held", "stitched", "over_speech", "no_words",
-             "unsure_answer", "short_wake"), 0,
+             "unsure_answer", "short_wake", "acoustic_hits", "acoustic_wake", "acoustic_rejected"), 0,
         )
+        # The acoustic "Hey Swift" detector (ADR-021), when wake.acoustic is on: ``first_hit(t0, t1)``.
+        self.acoustic: Any = None
         # The last voice capture's transcription, for the checks above.
         self._heard: Transcription | None = None
         self._last_exchange: Exchange | None = None
@@ -2082,12 +2085,43 @@ class Session:
             return
         self._held_utterance = None
         audio, ended_at, _, _, heard, started_at = held
-        self._background(self._hear_transcribed(heard, audio, ended_at, started_at, False))
+        self._background(self._hear_transcribed(heard, audio, ended_at, started_at, False, held=True))
+
+    async def _second_way(
+        self, heard: Transcription, audio: Any, ended_at: float, started_at: float,
+    ) -> tuple[Transcription, WakeMatch | None]:
+        """The second way in (ADR-021), at rest only: the words didn't match, but the acoustic detector heard
+        "Hey Swift" in this utterance and the speech model agrees on that stretch of it. It starts a request
+        like any wake phrase and approves nothing. With a request, ``heard`` becomes the request's own
+        transcription."""
+        if self.acoustic is None or self.transcriber is None:
+            return heard, None
+        if self._listening_for(started_at) is not None or self._in_followup(started_at):
+            return heard, None  # those words answer something: they keep today's meaning
+        hit = self.acoustic.first_hit(started_at, ended_at)
+        if hit is None:
+            return heard, None
+        self.wake_stats["acoustic_hits"] += 1
+        self._hearing = True  # one utterance at a time: the next waits (``hear_wake``)
+        try:
+            found = await asyncio.wait_for(second_way_in(hit, audio, started_at, self.transcriber), WAKE_STT_TIMEOUT_S)
+        except (TimeoutError, SttUnavailable):
+            found = None
+        finally:
+            self._hearing = False
+        # Locked, or something began (the hotkey, a card) while this was checked: it starts nothing (T-07).
+        if found is None or self._deaf() or self._front_busy() or self._capturing():
+            self.wake_stats["acoustic_rejected"] += 1
+            return heard, None
+        self.wake_stats["acoustic_wake"] += 1
+        match, request = found
+        return (request or heard), match
 
     async def _hear_transcribed(
-        self, heard: Transcription, audio: Any, ended_at: float, started_at: float, short: bool,
+        self, heard: Transcription, audio: Any, ended_at: float, started_at: float, short: bool, held: bool = False,
     ) -> None:
-        """``hear_wake`` once the utterance is transcribed (and whole)."""
+        """``hear_wake`` once the utterance is transcribed (and whole). ``held``: it waited mid-thought and
+        came from a timer, outside ``hear_wake``'s queue, so the second way in isn't tried."""
         if self._deaf():
             self.wake_stats["paused_drop"] += 1  # locked while it was held (T-07)
             return
@@ -2108,6 +2142,8 @@ class Session:
             return
         primed = self._wake_primed()
         match = self._wake_match(heard.text)
+        if match is None and not busy and not short and not held:
+            heard, match = await self._second_way(heard, audio, ended_at, started_at)
         if match is None and near_wake(heard.text, self.wake_greetings):
             self.wake_stats["near_wake"] += 1
             self._wake_primed_until = clock.now() + WAKE_PRIMED_S

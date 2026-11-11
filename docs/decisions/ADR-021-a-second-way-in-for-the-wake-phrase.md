@@ -1,6 +1,6 @@
 # ADR-021: A second way in for "Hey Swift": an acoustic detector, checked by Parakeet
 
-- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 (parity), 2 (the detector) and 3 (the window check) are done. Nothing is wired into Swift yet.
+- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 to 4 are done: it's wired into Swift behind `wake.acoustic`, which is off by default. Steps 5 (owner checks) and 6 (rescoring) are next.
 - **Decided by:** Owner (pending)
 - **Date:** 2026-11-11
 - **From:** [`docs/spikes/wake-model-trial.md`](../spikes/wake-model-trial.md), round 3, and ADR-020 §6 decision 2 ("try a dedicated wake-word model, kept only if it beats speech-to-text matching on both").
@@ -113,8 +113,10 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
   - `recorder.on_reopen` calls `reset()`, so nothing heard before the lock is remembered.
   - `_hear_transcribed` already returns when `_deaf()`, before the call site.
 - **The confidence bars:** the utterance still passes the same `wake_phrase_min_p` bar as a loose match.
-- **A stitched utterance** (`_hold`, "set a timer for twenty … five minutes"): detection times are
-  absolute, and `started_at` is recomputed after stitching. A detection inside either part counts.
+- **An utterance held mid-thought** (`_hold`, "set a timer for twenty … five minutes"): only utterances
+  that already matched, or that answer something, are held, so the second way in isn't tried on them
+  (`held=True`). Known limit: a request that only the second way in catches isn't held, so one that
+  pauses mid-thought starts with its first half.
 
 ## 5. Product rules
 
@@ -156,6 +158,22 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
    - A scenario in `tests/unit/test_seam_replay.py`: "a 'He swift, what time is it' utterance with a
      detection starts the request 'what time is it'". It must fail with the change undone.
    - Also the negative cases: locked, a question waiting, a run in front.
+   - **Done (2026-11-11):**
+     - `Session._second_way` is called from `_hear_transcribed` at rest only. It rechecks lock, hotkey and
+       cards after stage 2, and counts `acoustic_hits`, `acoustic_wake` and `acoustic_rejected`.
+     - Settings `wake.acoustic` (off) and `wake.acoustic_threshold`. The backend feeds the detector from the
+       recorder's tap and resets it when the stream reopens. If the models in `models/wake` don't load, it
+       stays off with one warning.
+     - Six scenarios in `tests/unit/test_seam_replay.py`. The first (a wake phrase only the detector heard
+       starts the request on screen) fails with the call site undone. The rest: the detector alone starts
+       nothing, a lock during stage 2, a question open, a run in front.
+     - **Found on real takes, in real time** (real listener, models and Parakeet): the tail of a bare "Hey
+       Swift" was transcribed as the request "Yeah." Now, if nothing from 0.3 s after the hit is within 10 dB
+       of the utterance's loudest block, it's a bare phrase. Measured on the quiet takes: −14 dB or lower
+       after a bare phrase, −6 dB or higher with a request. The cost: a quiet one-word "stop" right after
+       the name can count as bare, and then Swift opens the microphone and waits.
+     - On 24 takes that today's path missed in the bench and the two-stage path caught, 20 woke live. The
+       live cut of an utterance differs from the 4 s take, so step 6 must rescore through the listener.
 5. **Owner checks** in `docs/testing/owner-checks.md` with report lines in `spikes/owner_checks/report.py`:
    - calm "Hey Swift" at 0.5 m and 1.5 m, with today's path off and on;
    - an hour of normal office work with `acoustic_hits` and `acoustic_wake` read from the log;

@@ -87,12 +87,34 @@ class ReadScope:
         return "read" if any(_inside(target, d) for d in self.read_dirs) else "ask"
 
 
+# One name of each never-read kind, and ordinary names that a wide search takes in as well.
+_SECRET_SAMPLES = (
+    ".env", ".env.local", "x.pem", "x.key", "x.pfx", "x.p12", "id_rsa", "id_ed25519", "id_ecdsa", "x.kdbx",
+    "client_secret.json", "credentials.json", ".credentials.json", ".netrc", ".git-credentials", "x.ppk",
+)
+_PLAIN_SAMPLES = ("main.py", "readme.md", "data.json", "notes.txt", "config.yaml", "index")
+
+
+def _braces(glob: str) -> list[str]:
+    """``*.{pem,key}`` as ``*.pem`` and ``*.key``."""
+    m = re.search(r"\{([^{}]*)\}", glob)
+    if m is None:
+        return [glob]
+    return [g for part in m.group(1).split(",") for g in _braces(glob[:m.start()] + part + glob[m.end():])]
+
+
 def names_secret(glob: str) -> bool:
-    """A Grep ``glob`` that picks out never-read files by name (".env", "**/*.pem").
-    shortcut: only a search that asks for them by name. A search of a whole folder still looks inside
-    a secret-named file there; closing that needs every Grep to carry exclusions (owner's decision)."""
-    name = glob.replace("\\", "/").rsplit("/", 1)[-1]
-    return bool(name) and any(fnmatch.fnmatch(name, p) for p in NEVER_NAMES)
+    """A Grep ``glob`` aimed at never-read files: it takes in a secret-named file and no ordinary one
+    (".env", ".env*", "**/*.pem", "cred*.json", "*.{pem,key}").
+    shortcut: a wide search ("*.json", or no glob) still looks inside a secret-named file in the folder;
+    closing that needs every Grep to carry exclusions (owner's decision)."""
+    for one in _braces(glob):
+        name = one.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if name and any(fnmatch.fnmatchcase(s, name) for s in _SECRET_SAMPLES) and not any(
+            fnmatch.fnmatchcase(p, name) for p in _PLAIN_SAMPLES
+        ):
+            return True
+    return False
 
 
 def target_path(tool: str, args: dict[str, Any], cwd: str | None) -> str:

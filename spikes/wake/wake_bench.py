@@ -30,7 +30,6 @@ import argparse
 import csv
 import json
 import os
-import re
 import shutil
 import sys
 import time
@@ -347,28 +346,11 @@ def summary(rows: list[dict], fired: dict[str, bool], name: str) -> str:
             f" | false wakes {len(fa):2}/{len(neg)} clips = {len(fa) / neg_h:5.1f}/h{room_line}  {by_src}")
 
 
-# Stage 2 of a two-stage wake: run only after an acoustic detector fired, so it can be lenient. What Parakeet
-# writes for a calm "Hey Swift" in the office: "He swift", "Eat swift", "Very swift", "He swiftly" (2026-11-10).
-SOUNDS_LIKE_A_GREETING = ("hey", "hay", "he", "hi", "high", "a", "eh", "eat", "heat", "hate", "they", "very",
-                          "okay", "ok", "hello", "oh", "say")
-_LENIENT = re.compile(rf"\b(?:{'|'.join(SOUNDS_LIKE_A_GREETING)})\W+(?:swift|swiftly|swifts|twift|twif)\b"
-                      # or something before a "wift" word at the start: "Exwift", "He dwifts", "Pretty swift"
-                      # (the bare name, "Swift." or "Swift, yes", is a known hard negative)
-                      r"|^\W*(?:[\w']+\W+[\w']*|(?!s?wift)[\w']+)wift(?:s|ly)?\b")
-
-
 def lenient_wake(text: str) -> bool:
-    from swift.wake import match_wake
+    """Stage 2's check: Swift's own (ADR-021), so the bench scores what Swift runs."""
+    from swift.wake import match_wake_window
 
-    return bool(_LENIENT.search(text.lower())) or match_wake(text, loose=True) is not None
-
-
-def check_lenient() -> None:
-    for text in ("He swift.", "Eat swift", "Very swift", "He swiftly", "Exwift.", "He dwifts.", "Pretty swift."):
-        assert lenient_wake(text), text
-    for text in ("Nice work", "I think Swift is crazy", "He drifted.", "the report was done swiftly and then",
-                 "Swift.", "Swift, yes.", "Swiftly done."):
-        assert not lenient_wake(text), text
+    return match_wake_window(text)
 
 
 # (seconds of audio, ending this many seconds past the detection). Trained heads can fire on "hey s-",
@@ -448,7 +430,6 @@ def stage2(out: Path, labels: Path | None, tags: list[str], thresholds: list[flo
 
 def report(out: Path, labels: Path | None, tags: list[str], thresholds: list[float], patience: int,
            porcupine_tags: list[str], phrase: str | None = None) -> None:
-    check_lenient()
     rows = labelled(out, labels, phrase)
     neg_min =sum(r["audio_s"] for r in rows if r["label"] == "neg") / 60
     print(f"{sum(r['label'] == 'pos' for r in rows)} positives, {sum(r['label'] == 'neg' for r in rows)} negatives"

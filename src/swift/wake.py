@@ -117,6 +117,26 @@ def match_wake(
     return None
 
 
+# What Parakeet writes for "hey" on a short window where the acoustic detector heard "Hey Swift" (ADR-021):
+# the owner's calm office takes came out as "He swift", "Eat swift", "Very swift", "He swiftly" (2026-11-10).
+WINDOW_GREETINGS = ("hey", "hay", "he", "hi", "high", "a", "eh", "eat", "heat", "hate", "they", "very", "okay", "ok",
+                    "hello", "oh", "say")
+_WINDOW = re.compile(
+    rf"\b(?:{'|'.join(WINDOW_GREETINGS)})\W+(?:swift|swiftly|swifts|twift|twif)\b"
+    # or something before a "wift" word at the start: "Exwift", "He dwifts", "Pretty swift". Never the bare
+    # name ("Swift.", "Swift, yes"): that's a known hard negative.
+    r"|^\W*(?:[\w']+\W+[\w']*|(?!s?wift)[\w']+)wift(?:s|ly)?\b"
+)
+
+
+def match_wake_window(text: str) -> bool:
+    """Stage 2 of the second way in (ADR-021): does Parakeet's transcript of a short window around an acoustic
+    detection sound like "Hey Swift"? Much looser than ``match_wake``, so it's only ever asked about such a
+    window, never about a whole utterance: alone it would wake on "a swift reply", and approving never uses it.
+    Scored on the owner's recordings: 0 false wakes in 2 h of the office (wake trial, round 3)."""
+    return bool(_WINDOW.search(text.lower())) or match_wake(text, loose=True) is not None
+
+
 def near_wake(text: str, extra_greetings: Iterable[str] = ()) -> bool:
     """Nearly the wake phrase ("He's sweet", "Hey twif"): a greeting, then a word a little like the name.
     Not enough to start anything; it makes the next few seconds more forgiving, because the owner will

@@ -179,3 +179,87 @@ def test_push_copies_the_block():
         assert seen[0].max() == 1
     finally:
         wake.close()
+
+
+# ---- stage 2: the window check and the second way in -------------------------------------------------
+
+from swift.stt.transcriber import Transcription  # noqa: E402
+from swift.wake import match_wake_window  # noqa: E402
+from swift.wake_acoustic import REQUEST_FROM, second_way_in  # noqa: E402
+
+
+@pytest.mark.parametrize("text", [
+    "He swift.", "Eat swift", "Very swift", "He swiftly", "Exwift.", "He dwifts.", "Pretty swift.", "Hey Swift.",
+    "Hey twift, what time is it?",
+])
+def test_the_window_check_takes_what_parakeet_writes_for_a_calm_hey_swift(text):
+    assert match_wake_window(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Nice work", "I think Swift is crazy", "He drifted.", "the report was done swiftly and then",
+    "Swift.", "Swift, yes.", "Swiftly done.", "",
+])
+def test_the_window_check_turns_down_other_words_and_the_bare_name(text):
+    assert not match_wake_window(text)
+
+
+class Windows:
+    """A transcriber that says `texts` in order, and notes each clip's first sample and length."""
+
+    def __init__(self, *texts: str, audio: np.ndarray) -> None:
+        self.texts, self.audio, self.cuts = list(texts), audio, []
+
+    async def transcribe(self, clip: np.ndarray) -> Transcription:
+        start = int(clip[0]) if len(clip) else None  # the test audio's samples are their own index
+        self.cuts.append((start, len(clip)))
+        return Transcription(text=self.texts.pop(0), stt_ms=0, audio_s=len(clip) / RATE)
+
+
+START = 500.0
+
+
+def utterance(seconds: float) -> np.ndarray:
+    return np.arange(int(seconds * RATE), dtype=np.int64)  # sample i holds i, so the cuts can be read back
+
+
+async def test_a_window_that_passes_starts_the_request_from_just_before_the_hit():
+    audio = utterance(4.0)
+    hit = START + 1.5
+    stt = Windows("He swift.", "Draft an email to my dean.", audio=audio)
+    match = await second_way_in(hit, audio, START, stt)
+    assert match is not None and match.remainder == "Draft an email to my dean."
+    assert stt.cuts[0] == (round((1.5 + 0.3 - 1.2) * RATE), round(1.2 * RATE))  # the shortest window first
+    assert stt.cuts[1][0] == round((1.5 + REQUEST_FROM) * RATE)  # the request
+    assert len(stt.cuts) == 2  # stops at the first window that passes
+
+
+async def test_the_long_window_is_tried_last_and_none_passing_is_no_wake():
+    audio = utterance(4.0)
+    stt = Windows("Hmm.", "He drifted.", "Nice work.", audio=audio)
+    assert await second_way_in(START + 1.5, audio, START, stt) is None
+    assert [n for _, n in stt.cuts] == [round(1.2 * RATE), round(1.6 * RATE), round(2.0 * RATE)]
+    assert stt.cuts[2][0] == round((1.5 + 1.0 - 2.0) * RATE)  # 2 s ending 1 s after the hit
+
+
+async def test_windows_are_clipped_to_the_utterance():
+    audio = utterance(1.0)
+    stt = Windows("Hmm.", "Hmm.", "Very swift.", "", audio=audio)
+    match = await second_way_in(START + 0.6, audio, START, stt)
+    assert match is not None
+    assert stt.cuts[0] == (0, round(0.9 * RATE))  # from the first sample, to 0.3 s after the hit
+    assert stt.cuts[2] == (0, len(audio))  # the long window would run past the end
+
+
+async def test_a_piece_of_the_name_is_not_the_request():
+    audio = utterance(4.0)
+    stt = Windows("He swift.", "Swift, what time is it?", audio=audio)
+    match = await second_way_in(START + 1.5, audio, START, stt)
+    assert match is not None and match.remainder == "what time is it?"
+
+
+async def test_a_bare_hey_swift_has_no_request():
+    audio = utterance(1.4)
+    stt = Windows("Hey swift.", audio=audio)  # nothing after the name: no second transcription
+    match = await second_way_in(START + 1.4 - REQUEST_FROM - 0.05, audio, START, stt)
+    assert match is not None and match.remainder == "" and len(stt.cuts) == 1

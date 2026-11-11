@@ -1871,6 +1871,18 @@ You should see: the card **grows out of the orb** in about a quarter of a second
 
 Tell Claude what you find: it goes in ADR-019 (§8), and the spec changes where your screen disagrees with the canvas.
 
+### A second way in for "Hey Swift" (ADR-021, 2026-11-11)
+
+About 20 minutes, plus an hour of normal work. First turn it on: in `config.yaml` (tray → Settings), under `wake:` (next to `enabled: true`), add `acoustic: true`, then restart Swift from the tray. The log should **not** say "acoustic wake is off". To go back, remove the line and restart.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 222 | "Hey Swift" 10 times at your **calm** office voice, at arm's length, with a pause after each. Count the ones that didn't register | More register than in check 191. Tell us the count | The second way in woke Swift |
+| 223 | The same 10 from about 1.5 m, in a quiet room | Most register. Tell us the count | The second way in woke Swift |
+| 224 | Calmly: "Hey Swift, what time is it", "Hey Swift, make it shorter", "Hey Swift, open my project" | The words on each card are the **request**, without "Swift" or a piece of it in front, and with their first word | (seen on screen) |
+| 225 | Work normally for an hour with Swift on: calls, a video, talking to someone. **Don't** say "Hey Swift" | Swift never wakes by itself. If it does, note the time | Detector fired, and what came of it |
+| 226 | Lock the screen (Win+L). Say "Hey Swift, what time is it" twice. Unlock | Nothing happened while locked, and nothing starts when you unlock | 61 nothing heard acted on after a lock; nothing woke through the second way in while locked |
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

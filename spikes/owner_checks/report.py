@@ -558,6 +558,17 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("219 Halo's edges are distinct from the card at a glance", LOOK, "check on screen: dark and light"),
         ("220 the sleeping orb reads as not listening", LOOK, "check on screen: from normal viewing distance"),
         ("221 a card grows from the orb and the tail settles last", LOOK, "check on screen: also with animation effects off"),
+        # A second way in for "Hey Swift" (ADR-021).
+        ("222 the second way in woke Swift (calm voice, close and at 1.5 m)", seen(wake_count("acoustic_wake")),
+         f"{wake_count('acoustic_wake')} through the second way in, {wake_count('wake')} wake phrases in all;"
+         " tell us how many of each 10 didn't register"),
+        ("224 a request after a calm 'Hey Swift' kept its first word", LOOK,
+         "check on screen: no 'Swift' or piece of it in front"),
+        ("225 the detector fired, and what came of it", LOOK,
+         f"{wake_count('acoustic_hits')} checked, {wake_count('acoustic_wake')} woke Swift,"
+         f" {wake_count('acoustic_rejected')} turned down; only you know whether any wake was by itself"),
+        ("226 nothing woke through the second way in while locked", unless(acted_away, locked and unlocked),
+         "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
     ]
 
 

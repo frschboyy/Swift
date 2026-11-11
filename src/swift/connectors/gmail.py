@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import time
 from email.message import EmailMessage
+from email.utils import formataddr
 from typing import Any
 
 from swift.connectors.base import Contact, ConnectorError, Manifest, OutgoingEmail, SentMessage
@@ -39,7 +40,8 @@ EMAILED = "you've emailed them"
 def mime(email: OutgoingEmail) -> str:
     """The email as Gmail's base64url ``raw`` field. Gmail fills in From."""
     msg = EmailMessage()
-    msg["To"] = ", ".join(f"{c.name} <{c.email}>" if c.name else c.email for c in email.to)
+    # formataddr quotes a name with a comma ("Smith, John"), which would otherwise read as two recipients.
+    msg["To"] = ", ".join(formataddr((c.name, c.email)) for c in email.to)
     msg["Subject"] = email.subject
     msg.set_content(email.body)
     return base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")

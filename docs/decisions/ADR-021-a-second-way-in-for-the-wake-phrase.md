@@ -1,6 +1,6 @@
 # ADR-021: A second way in for "Hey Swift": an acoustic detector, checked by Parakeet
 
-- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 to 4 are done: it's wired into Swift behind `wake.acoustic`, which is off by default. Steps 5 (owner checks) and 6 (rescoring) are next.
+- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 to 6 are done: it's wired into Swift behind `wake.acoustic`, which is off by default, and rescored through the live listener (38.8% → 29.0% misses). Waiting on: a review of the lock rule by someone other than the author, a rebase onto `main`, and owner checks 228–232.
 - **Decided by:** Owner (pending)
 - **Date:** 2026-11-11
 - **From:** [`docs/spikes/wake-model-trial.md`](../spikes/wake-model-trial.md), round 3, and ADR-020 §6 decision 2 ("try a dedicated wake-word model, kept only if it beats speech-to-text matching on both").
@@ -174,13 +174,28 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
        the name can count as bare, and then Swift opens the microphone and waits.
      - On 24 takes that today's path missed in the bench and the two-stage path caught, 20 woke live. The
        live cut of an utterance differs from the 4 s take, so step 6 must rescore through the listener.
-5. **Owner checks** in `docs/testing/owner-checks.md` with report lines in `spikes/owner_checks/report.py`:
+5. **Owner checks** in `docs/testing/owner-checks.md` with report lines in `spikes/owner_checks/report.py` (written 2026-11-11 as checks 228–232):
    - calm "Hey Swift" at 0.5 m and 1.5 m, with today's path off and on;
    - an hour of normal office work with `acoustic_hits` and `acoustic_wake` read from the log;
    - locked: the counters don't move.
 6. **Score on the owner's clips again** with the integrated code (confidence bars, `CLAUDE.md`), through the
    bench's `build`/`report` on the same 417/1,502 set. It must match round 3 (28.1%, 0 false wakes) within
    a point.
+   - **Done (2026-11-11)** with `spikes/wake/live_score.py`: all 1,919 labelled clips played through
+     Swift's own `WakeListener`, `AcousticWake` and `second_way_in`, with the `phrase_min_p` bar.
+
+     | Through the live listener | Misses | Live misses caught | Takes caught | False wakes |
+     |---|---|---|---|---|
+     | Today's path | 162 (38.8%) | 10 / 27 | 115 / 247 | 0 |
+     | Today OR the second way in | 121 (29.0%) | 20 / 27 | 136 / 247 | 1 clip, 0 in the 2 h office |
+
+     - That's within a point of round 3's bench (38.6% and 28.1%).
+     - The one "false wake" is `2dd471ee…-tail`, the bench's cut of a wake clip from 3 s on. The owner's
+       "Hey Swift, compare three e-readers" starts late in that clip, so the cut still holds the name: it
+       reads "Swift compared three E-readers". It's the owner's real wake phrase, mislabelled by the 3 s
+       cut, not a wake on other speech.
+     - The listener cut no utterance from 37 clips (2 of them positives), and those count as misses.
+     - Not replayed: the session's state (a run in front, questions, the near-miss second chance).
 7. **Optional, later: an early "heard".** Run the two short windows 0.3 s after a detection, while the
    owner is still talking, and show "heard" as `peek_wake` does. That would make the second way in answer
    about 1 s sooner than today's path. It's a screen change, so it needs its own seam scenario.

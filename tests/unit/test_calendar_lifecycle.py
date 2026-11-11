@@ -98,6 +98,15 @@ async def test_list_ranges_and_queries() -> None:
         assert not result.ok and says in result.text
 
 
+async def test_a_list_cut_at_its_limit_says_there_may_be_more() -> None:
+    host, _, _, _ = make()
+    week = {"start": "2026-10-28", "end": "2026-11-03"}
+    cut = await host.call("list_calendar_events", {**week, "limit": 2})
+    assert len(cut.data["events"]) == 2 and "first 2" in cut.text and "may be more" in cut.text
+    whole = await host.call("list_calendar_events", week)
+    assert len(whole.data["events"]) == 4 and "may be more" not in whole.text
+
+
 async def test_next_meeting_looks_at_the_coming_week() -> None:
     calendar = FakeCalendarConnector(events=(
         StoredEvent("soon", CalendarEvent("Soon", datetime.now().astimezone() + timedelta(hours=2),

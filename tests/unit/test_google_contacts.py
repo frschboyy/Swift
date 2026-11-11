@@ -266,3 +266,17 @@ async def test_a_new_event_whose_connection_keeps_dropping_is_unknown_not_failed
         await connector.create_event(CalendarEvent("Lunch", start, start + timedelta(hours=1)))
     assert raised.value.code == "unknown" and "can't tell" in str(raised.value)
     assert len(events.ids) == 3 and len(set(events.ids)) == 1  # one id: Google can't add it twice
+
+
+def test_a_name_with_a_comma_is_still_one_recipient() -> None:
+    """"Smith, John <j@x>" written bare reads as two recipients, "Smith" and John."""
+    import base64
+    from email import message_from_bytes, policy
+
+    from swift.connectors.base import Contact, OutgoingEmail
+    from swift.connectors.gmail import mime
+
+    to = (Contact("Smith, John", "john@example.com"), Contact("", "ada@example.com"))
+    sent = message_from_bytes(base64.urlsafe_b64decode(mime(OutgoingEmail(to, "Hi", "Body"))), policy=policy.default)
+    assert [(a.display_name, a.addr_spec) for a in sent["To"].addresses] == [
+        ("Smith, John", "john@example.com"), ("", "ada@example.com")]

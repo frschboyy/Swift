@@ -394,6 +394,18 @@ About 15 minutes. **Reject** any card that appears. From this branch Swift says 
 | 199 | Ask for something that really needs a command, such as "run the tests in my project". **Reject** | The card's title says **"Run a command on your PC"**, with the whole command under it | (seen on screen) |
 | 200 | Mumble a request so Swift says "It sounded like …, but I wasn't sure of it". Within 30 s, say "Yes, that's correct" | Swift goes ahead with **what it sounded like**, not with "yes". With a card on screen instead, the yes is for the card and the offer is gone | A yes went ahead with what it sounded like |
 
+### A second way in for "Hey Swift" (ADR-021, 2026-11-11)
+
+About 20 minutes, plus an hour of normal work. First turn it on: in `config.yaml` (tray → Settings), under `wake:` (next to `enabled: true`), add `acoustic: true`, then restart Swift from the tray. The log should **not** say "acoustic wake is off". To go back, remove the line and restart.
+
+| # | Do | You should see | Report checks |
+|---|---|---|---|
+| 222 | "Hey Swift" 10 times at your **calm** office voice, at arm's length, with a pause after each. Count the ones that didn't register | More register than in check 191. Tell us the count | The second way in woke Swift |
+| 223 | The same 10 from about 1.5 m, in a quiet room | Most register. Tell us the count | The second way in woke Swift |
+| 224 | Calmly: "Hey Swift, what time is it", "Hey Swift, make it shorter", "Hey Swift, open my project" | The words on each card are the **request**, without "Swift" or a piece of it in front, and with their first word | (seen on screen) |
+| 225 | Work normally for an hour with Swift on: calls, a video, talking to someone. **Don't** say "Hey Swift" | Swift never wakes by itself. If it does, note the time | Detector fired, and what came of it |
+| 226 | Lock the screen (Win+L). Say "Hey Swift, what time is it" twice. Unlock | Nothing happened while locked, and nothing starts when you unlock | 61 nothing heard acted on after a lock; nothing woke through the second way in while locked |
+
 ## After the checks: the report
 
 From the repository root, with the time you noted in step 3 of "Before you start":

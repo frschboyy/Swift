@@ -1,6 +1,6 @@
 # ADR-021: A second way in for "Hey Swift": an acoustic detector, checked by Parakeet
 
-- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 (parity) and 2 (the detector) are done. Nothing is wired into Swift yet.
+- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 (parity), 2 (the detector) and 3 (the window check) are done. Nothing is wired into Swift yet.
 - **Decided by:** Owner (pending)
 - **Date:** 2026-11-11
 - **From:** [`docs/spikes/wake-model-trial.md`](../spikes/wake-model-trial.md), round 3, and ADR-020 §6 decision 2 ("try a dedicated wake-word model, kept only if it beats speech-to-text matching on both").
@@ -86,8 +86,13 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
 
   It never passes the bare name ("Swift.", "Swift, yes"). It's used **only on detection windows**, never
   on whole utterances: the owner judged a looser text rule on its own superficial.
-- **The request:** Parakeet transcribes the audio from `t + 0.1 s` to the end of the utterance. Empty means
-  a bare "Hey Swift", as today. The result is `WakeMatch(phrase="hey swift", remainder=…)`.
+- **The request:** Parakeet transcribes the audio from `t - 0.2 s` to the end of the utterance. A leading
+  "…wift" word is dropped, and empty means a bare "Hey Swift", as today. The result is
+  `WakeMatch(phrase="hey swift", remainder=…)`.
+  - Measured in step 3 on 84 of the owner's "Hey Swift <command>" takes. The detector fires just after the
+    name ends, so starting before the hit gets the request's first word right more often: 57 from −0.2 s,
+    47 from the hit, 40 from +0.1 s. Today's match got 44 on the same takes.
+  - From −0.3 s, a piece of the name starts to show up.
 - **Cost:** up to 4 short transcriptions (0.3–0.4 s each), only on an utterance that today's path rejected
   and the detector fired in. At threshold 0.5 the detector fired about 2 times a minute in the office.
   Most of those utterances end at the window check, so roughly 2 minutes of Parakeet time per 2 hours.
@@ -141,6 +146,11 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
      check is run by hand: the takes aren't in git.
 3. **`match_wake_window`** in `wake.py`, with the bench's examples as tests, plus `second_way_in` with a
    fake transcriber.
+   - **Done (2026-11-11):** `match_wake_window` is the bench's check, moved unchanged. The bench now imports
+     it, and the round 3 numbers are the same (28.1%, 0 false wakes).
+   - `second_way_in` is in `wake_acoustic.py`: the shortest window first, stopping at the first that passes,
+     windows clipped to the utterance, and the request from −0.2 s.
+   - Tests in `tests/unit/test_wake_acoustic.py`: 17 for the window check, 5 for `second_way_in`.
 4. **The call site** in `_hear_transcribed`, the settings, the wiring in `backend/__main__.py` (tap fan-out,
    reset on reopen), and the counters.
    - A scenario in `tests/unit/test_seam_replay.py`: "a 'He swift, what time is it' utterance with a

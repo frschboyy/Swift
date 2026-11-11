@@ -87,6 +87,14 @@ class ReadScope:
         return "read" if any(_inside(target, d) for d in self.read_dirs) else "ask"
 
 
+def names_secret(glob: str) -> bool:
+    """A Grep ``glob`` that picks out never-read files by name (".env", "**/*.pem").
+    shortcut: only a search that asks for them by name. A search of a whole folder still looks inside
+    a secret-named file there; closing that needs every Grep to carry exclusions (owner's decision)."""
+    name = glob.replace("\\", "/").rsplit("/", 1)[-1]
+    return bool(name) and any(fnmatch.fnmatch(name, p) for p in NEVER_NAMES)
+
+
 def target_path(tool: str, args: dict[str, Any], cwd: str | None) -> str:
     """The file or folder a read tool will look at: its path, or a pattern's fixed start, else the working folder."""
     base = cwd or os.getcwd()

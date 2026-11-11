@@ -514,6 +514,12 @@ async def test_claude_code_asks_before_reading_elsewhere_and_never_reads_secrets
     secret = await ex._ask(run, "cc-1", "Read", {"file_path": str(home / ".claude" / ".credentials.json")})
     assert isinstance(secret, PermissionResultDeny) and "never" in secret.message and not secret.interrupt
     assert run.queue.empty()  # no card for a secret: just no
+    # A search that asks for secret-named files is refused too, even in a folder Swift may read.
+    for glob in (".env", "**/*.pem", "config\credentials.json"):
+        aimed = await ex._ask(run, "cc-1", "Grep", {"pattern": "KEY", "path": str(work), "glob": glob})
+        assert isinstance(aimed, PermissionResultDeny) and "never" in aimed.message, glob
+    plain = await ex._ask(run, "cc-1", "Grep", {"pattern": "TODO", "path": str(work), "glob": "*.py"})
+    assert isinstance(plain, PermissionResultAllow) and run.queue.empty()
     # Elsewhere: a card, and a no lets the run go on.
     asking = asyncio.create_task(ex._ask(run, "cc-1", "Read", {"file_path": str(home / "Pictures" / "list.txt")}))
     card = await asyncio.wait_for(run.queue.get(), 2)

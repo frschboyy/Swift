@@ -77,7 +77,7 @@ from swift.executors.claude_mapping import (
     steps_for,
 )
 from swift.executors.providers import CLAUDE_CODE
-from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
+from swift.executors.read_scope import READ_TOOLS, ReadScope, names_secret, target_path
 from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.executors.web_scope import WebScope, result_text
 from swift.failures import classify, clean_detail, exception_words, failure_text
@@ -656,6 +656,8 @@ class ClaudeCodeExecutor:
 
         path = target_path(name, args, self.cwd)
         verdict = self.reads.verdict(path)
+        if name == "Grep" and names_secret(str(args.get("glob") or "")):
+            verdict = "never"  # a search aimed at secret-named files, in a folder Swift may read
         if verdict == "read":
             return PermissionResultAllow(updated_input=args)
         if verdict == "never":

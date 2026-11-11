@@ -1,6 +1,6 @@
 # ADR-021: A second way in for "Hey Swift": an acoustic detector, checked by Parakeet
 
-- **Status:** Proposed (2026-11-11). The owner asked for the design after the wake trial's round 3. Nothing is built.
+- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Step 1 (parity) is done; the rest is not built.
 - **Decided by:** Owner (pending)
 - **Date:** 2026-11-11
 - **From:** [`docs/spikes/wake-model-trial.md`](../spikes/wake-model-trial.md), round 3, and ADR-020 §6 decision 2 ("try a dedicated wake-word model, kept only if it beats speech-to-text matching on both").
@@ -126,6 +126,9 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
 
 1. **Parity:** Swift's own ONNX inference reproduces ViolaWake's scores on the trial's clips (max
    difference ≤ 0.01). It's a spike check, done before anything else. If it fails, stop.
+   - **Done (2026-11-11):** `swift.wake_acoustic.HeySwiftScorer` against the round 3 ViolaWake run, through
+     `spikes/wake/parity.py`, on all 1,968 clips (3.0 h of audio). Worst score difference 0.00005, and no
+     clip fires differently at 0.5. One thread scored the 3.0 h in under 9 minutes, file reading included.
 2. **`wake_acoustic.py`:** `AcousticWake`, with unit tests for timing, refractory, reset, pause and a full
    queue, on synthetic blocks and a saved "Hey Swift" take.
 3. **`match_wake_window`** in `wake.py`, with the bench's examples as tests, plus `second_way_in` with a

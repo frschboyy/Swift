@@ -1781,10 +1781,8 @@ class Session:
         self._launch(record, capture, self.debug_executor, start)
 
     async def _start_text(self, text: str) -> None:
-        """Debug mode only: run the configured executor on typed text (beside a running one, too)."""
-        if self.debug_executor is None:
-            logger.warning("debug.ask ignored: debug mode is off")
-            return
+        """Debug mode only (``handle`` refuses ``debug.ask`` outside it): run the configured executor on
+        typed text (beside a running one, too)."""
         if self._capturing() or not text.strip():
             return
         if self._front_busy():

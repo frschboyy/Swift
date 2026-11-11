@@ -227,8 +227,9 @@ async def test_a_window_that_passes_starts_the_request_from_just_before_the_hit(
     audio = utterance(4.0)
     hit = START + 1.5
     stt = Windows("He swift.", "Draft an email to my dean.", audio=audio)
-    match = await second_way_in(hit, audio, START, stt)
-    assert match is not None and match.remainder == "Draft an email to my dean."
+    match, heard = await second_way_in(hit, audio, START, stt)
+    assert match.remainder == "Draft an email to my dean." and match.phrase == ""
+    assert heard.text == "Draft an email to my dean."  # the request's own transcription, for its confidence
     assert stt.cuts[0] == (round((1.5 + 0.3 - 1.2) * RATE), round(1.2 * RATE))  # the shortest window first
     assert stt.cuts[1][0] == round((1.5 + REQUEST_FROM) * RATE)  # the request
     assert len(stt.cuts) == 2  # stops at the first window that passes
@@ -245,8 +246,7 @@ async def test_the_long_window_is_tried_last_and_none_passing_is_no_wake():
 async def test_windows_are_clipped_to_the_utterance():
     audio = utterance(1.0)
     stt = Windows("Hmm.", "Hmm.", "Very swift.", "", audio=audio)
-    match = await second_way_in(START + 0.6, audio, START, stt)
-    assert match is not None
+    assert await second_way_in(START + 0.6, audio, START, stt) is not None
     assert stt.cuts[0] == (0, round(0.9 * RATE))  # from the first sample, to 0.3 s after the hit
     assert stt.cuts[2] == (0, len(audio))  # the long window would run past the end
 
@@ -254,12 +254,23 @@ async def test_windows_are_clipped_to_the_utterance():
 async def test_a_piece_of_the_name_is_not_the_request():
     audio = utterance(4.0)
     stt = Windows("He swift.", "Swift, what time is it?", audio=audio)
-    match = await second_way_in(START + 1.5, audio, START, stt)
-    assert match is not None and match.remainder == "what time is it?"
+    match, heard = await second_way_in(START + 1.5, audio, START, stt)
+    assert (match.phrase, match.remainder) == ("Swift,", "what time is it?")
+    assert heard.text == "Swift, what time is it?"  # heard.after(1) is the request, as for any wake match
 
 
 async def test_a_bare_hey_swift_has_no_request():
     audio = utterance(1.4)
     stt = Windows("Hey swift.", audio=audio)  # nothing after the name: no second transcription
-    match = await second_way_in(START + 1.4 - REQUEST_FROM - 0.05, audio, START, stt)
-    assert match is not None and match.remainder == "" and len(stt.cuts) == 1
+    match, heard = await second_way_in(START + 1.4 - REQUEST_FROM - 0.05, audio, START, stt)
+    assert match.remainder == "" and heard is None and len(stt.cuts) == 1
+
+
+async def test_quiet_after_the_name_is_a_bare_hey_swift_not_a_request():
+    """The tail of a bare "Hey Swift" used to be transcribed as the request "Yeah." (real takes, 2026-11-11)."""
+    rng = np.random.default_rng(0)
+    speech, room = rng.normal(0, 3000, int(1.2 * RATE)), rng.normal(0, 30, int(1.1 * RATE))  # 40 dB apart
+    audio = np.concatenate([speech, room]).astype(np.int16)
+    stt = Windows("He swift.", audio=audio)  # a second transcription would fail: nothing left to say
+    match, heard = await second_way_in(START + 1.2, audio, START, stt)
+    assert match.remainder == "" and heard is None and len(stt.cuts) == 1

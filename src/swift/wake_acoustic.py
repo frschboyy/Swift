@@ -24,6 +24,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from swift.stt.transcriber import loudest_db
 from swift.wake import _TRIM, WakeMatch, match_wake_window
 
 RATE = 16_000
@@ -36,6 +37,10 @@ WINDOWS = ((1.2, 0.3), (1.6, 0.3), (2.0, 1.0))
 # owner's "Hey Swift <command>" takes: first word right 57 from -0.2 s, 47 from the hit, 40 from +0.1 s;
 # from -0.3 s a piece of the name ("...wift") starts showing up (2026-11-11).
 REQUEST_FROM = -0.2
+# Nothing this loud after the name means a bare "Hey Swift": the leftover tail must not be transcribed as a
+# request (it came out as "Yeah."). On the owner's quiet takes, the loudest 32 ms from 0.3 s after the hit,
+# against the utterance's loudest: -14 dB or lower after a bare phrase, -6 dB or higher with a request.
+BARE_AFTER_S, BARE_DB = 0.3, -10.0
 _CONTEXT = 480  # samples before each chunk that the melspectrogram also sees
 _MEL_FRAMES = 76  # mel frames per embedding
 _EMBEDDINGS = 9  # embeddings per score
@@ -218,12 +223,21 @@ class AcousticWake:
             self.stats["hits"] += 1
 
 
-async def second_way_in(hit: float, audio: np.ndarray, started_at: float, transcriber: Any) -> WakeMatch | None:
+def _loudest(audio: np.ndarray) -> float:
+    return loudest_db(np.asarray(audio, np.float32) / 32768.0)
+
+
+async def second_way_in(
+    hit: float, audio: np.ndarray, started_at: float, transcriber: Any,
+) -> tuple[WakeMatch, Any] | None:
     """Stage 2 (ADR-021): an utterance today's ``match_wake`` turned down, with an acoustic hit at ``hit``
     (monotonic seconds; the utterance's first sample is ``started_at``). Parakeet transcribes up to three
     windows around the hit, the shortest first. If one passes ``match_wake_window``, the words from just
-    before the hit are the request. Transcription errors reach the caller, which handles them as for
-    any utterance."""
+    before the hit are the request.
+
+    Returns the match and the request's own transcription (None after a bare "Hey Swift"). The match's
+    ``phrase`` is the leading piece of the name in that transcription, if any, so ``after(len(phrase.split()))``
+    is the request's words, as for any wake match. Transcription errors reach the caller."""
 
     def at(t: float) -> int:
         return min(max(round((t - started_at) * RATE), 0), len(audio))
@@ -235,9 +249,11 @@ async def second_way_in(hit: float, audio: np.ndarray, started_at: float, transc
     else:
         return None
     rest = audio[at(hit + REQUEST_FROM):]
-    text = (await transcriber.transcribe(rest)).text if len(rest) >= RATE // 10 else ""
-    text = text.lstrip(_TRIM)
+    if len(rest) < RATE // 10 or _loudest(audio[at(hit + BARE_AFTER_S):]) < _loudest(audio) + BARE_DB:
+        return WakeMatch("", ""), None
+    heard = await transcriber.transcribe(rest)
+    text = heard.text.lstrip(_TRIM)
     first, _, tail = text.partition(" ")
-    if "wift" in first.lower():  # a piece of the name, if the hit came early
-        text = tail
-    return WakeMatch("hey swift", text.lstrip(_TRIM).strip())
+    name = "wift" in first.lower()  # a piece of the name, if the hit came early
+    text = (tail if name else text).lstrip(_TRIM).strip()
+    return WakeMatch(first if name else "", text), heard if text else None

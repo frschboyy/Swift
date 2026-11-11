@@ -1,6 +1,6 @@
 # ADR-021: A second way in for "Hey Swift": an acoustic detector, checked by Parakeet
 
-- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Step 1 (parity) is done; the rest is not built.
+- **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 (parity) and 2 (the detector) are done. Nothing is wired into Swift yet.
 - **Decided by:** Owner (pending)
 - **Date:** 2026-11-11
 - **From:** [`docs/spikes/wake-model-trial.md`](../spikes/wake-model-trial.md), round 3, and ADR-020 §6 decision 2 ("try a dedicated wake-word model, kept only if it beats speech-to-text matching on both").
@@ -131,6 +131,14 @@ session._hear_transcribed(heard, audio, started_at, ended_at)
      clip fires differently at 0.5. One thread scored the 3.0 h in under 9 minutes, file reading included.
 2. **`wake_acoustic.py`:** `AcousticWake`, with unit tests for timing, refractory, reset, pause and a full
    queue, on synthetic blocks and a saved "Hey Swift" take.
+   - **Done (2026-11-11):** `AcousticWake`, with 10 tests in `tests/unit/test_wake_acoustic.py` that use a
+     fake scorer, since the models aren't in git.
+   - The tests cover: hit times, the refractory, forgetting old hits, reset, pause, a block mid-score when
+     the screen locks (no hit), a full queue (dropped, scorer restarted), a failing scorer, and copying the
+     tap's buffer.
+   - **On real audio:** with the real models and 32 ms blocks, 180 of the owner's clips (60 takes, 60 office
+     utterances, 60 wake clips) fire or not exactly as in the round 3 bench, with identical hit times. That
+     check is run by hand: the takes aren't in git.
 3. **`match_wake_window`** in `wake.py`, with the bench's examples as tests, plus `second_way_in` with a
    fake transcriber.
 4. **The call site** in `_hear_transcribed`, the settings, the wiring in `backend/__main__.py` (tap fan-out,

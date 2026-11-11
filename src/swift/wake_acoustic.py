@@ -15,11 +15,16 @@ thread count the same scoring took about 75% of a core instead of 7% (trial, rou
 
 from __future__ import annotations
 
+import queue
+import threading
+import time
 from collections import deque
 from pathlib import Path
+from typing import Protocol
 
 import numpy as np
 
+RATE = 16_000
 CHUNK = 1280  # samples per score: 80 ms at 16 kHz
 _CONTEXT = 480  # samples before each chunk that the melspectrogram also sees
 _MEL_FRAMES = 76  # mel frames per embedding
@@ -72,3 +77,132 @@ class HeySwiftScorer:
             return 0.0
         batch = np.stack(self._embeddings)[None, :, :]
         return float(np.asarray(self._head.run(None, {self._head_in: batch})[0]).reshape(-1)[0])
+
+    @property
+    def pending(self) -> int:
+        """Samples pushed but not yet scored (less than one chunk)."""
+        return len(self._pending)
+
+
+class Scorer(Protocol):
+    pending: int
+
+    def push(self, block: np.ndarray) -> list[float]: ...
+
+    def reset(self) -> None: ...
+
+
+class AcousticWake:
+    """Stage 1, always on: scores the microphone on its own thread and remembers when it heard "Hey Swift".
+
+    ``push(block)`` is the recorder's tap: on the audio thread it only copies the block and its arrival
+    time (``time.monotonic()``, the clock WakeListener's ``ended_at`` uses) into a bounded queue. A worker
+    thread scores the blocks in order. A score at or over ``threshold`` is a hit at the time its 80 ms ended.
+    After a hit, ``refractory_s`` passes before the next one. Hits from the last ``keep_s`` are kept, as times
+    only: the detector keeps no audio. ``first_hit(t0, t1)`` is what the session asks once an utterance has
+    ended.
+
+    If the queue fills (the worker fell behind), its blocks are dropped and the scorer starts over, rather
+    than scoring audio with a hole in it. ``reset()`` (a reopened stream) and ``pause()`` (locked, or
+    listening paused) forget everything heard; while paused, pushed blocks are ignored.
+    """
+
+    def __init__(self, scorer: Scorer, threshold: float = 0.5, refractory_s: float = 1.5, keep_s: float = 15.0,
+                 max_blocks: int = 200) -> None:
+        self.threshold, self.refractory_s, self.keep_s = threshold, refractory_s, keep_s
+        self._scorer = scorer
+        self._queue: queue.Queue[tuple[np.ndarray, float, int] | None] = queue.Queue(max_blocks)
+        self._lock = threading.Lock()
+        self._hits: deque[float] = deque()
+        self._paused = False
+        # A reset bumps the generation: blocks pushed before it are skipped, and a block being scored when it
+        # came adds no hit. The worker owns the scorer and resets it when it sees a new generation or _restart.
+        self._gen = 0
+        self._scored_gen = 0
+        self._restart = False
+        self.stats = {"hits": 0, "dropped": 0}  # content-free counters for the wake listening log line
+        self._worker = threading.Thread(target=self._run, name="acoustic-wake", daemon=True)
+        self._worker.start()
+
+    def push(self, block: np.ndarray, at: float | None = None) -> None:
+        """The audio thread: copy and enqueue, never block. ``at`` is when the block's last sample arrived."""
+        if self._paused:
+            return
+        item = (np.asarray(block, np.int16).reshape(-1).copy(), time.monotonic() if at is None else at, self._gen)
+        try:
+            self._queue.put_nowait(item)
+        except queue.Full:
+            self._drain()
+            self.stats["dropped"] += 1
+            self._restart = True
+            self._queue.put_nowait(item)
+
+    def first_hit(self, t0: float, t1: float) -> float | None:
+        """The earliest hit between t0 and t1 (monotonic seconds), if any."""
+        with self._lock:
+            return next((t for t in self._hits if t0 <= t <= t1), None)
+
+    def reset(self) -> None:
+        """Forget what was heard (the stream reopened)."""
+        with self._lock:
+            self._gen += 1
+            self._hits.clear()
+        self._drain()
+
+    def pause(self) -> None:
+        """Locked or listening paused: hear nothing, and forget what was heard."""
+        self._paused = True
+        self.reset()
+
+    def resume(self) -> None:
+        self.reset()
+        self._paused = False
+
+    def wait_idle(self) -> None:
+        """Until every pushed block is scored (for tests)."""
+        self._queue.join()
+
+    def close(self) -> None:
+        self._drain()
+        self._queue.put(None)
+        self._worker.join(timeout=2)
+
+    def _drain(self) -> None:
+        while True:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                return
+            self._queue.task_done()
+
+    def _run(self) -> None:
+        while (item := self._queue.get()) is not None:
+            try:
+                block, at, gen = item
+                if gen != self._gen:
+                    continue  # pushed before a reset
+                if self._restart or gen != self._scored_gen:
+                    self._restart, self._scored_gen = False, gen
+                    self._scorer.reset()
+                self._score(block, at, gen)
+            except Exception:  # noqa: BLE001 - one bad block must not stop wake listening
+                self._restart = True
+            finally:
+                self._queue.task_done()
+        self._queue.task_done()
+
+    def _score(self, block: np.ndarray, at: float, gen: int) -> None:
+        before = self._scorer.pending
+        for i, score in enumerate(self._scorer.push(block)):
+            # The i-th completed chunk ends this many samples into the block; the block's last sample is `at`.
+            end = (i + 1) * CHUNK - before
+            t = at - (len(block) - end) / RATE
+            if score < self.threshold:
+                continue
+            with self._lock:
+                if gen != self._gen or (self._hits and t - self._hits[-1] < self.refractory_s):
+                    continue
+                self._hits.append(t)
+                while self._hits and self._hits[0] < t - self.keep_s:
+                    self._hits.popleft()
+            self.stats["hits"] += 1

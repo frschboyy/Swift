@@ -396,15 +396,43 @@ About 15 minutes. **Reject** any card that appears. From this branch Swift says 
 
 ### A second way in for "Hey Swift" (ADR-021, 2026-11-11)
 
-About 20 minutes, plus an hour of normal work. First turn it on: in `config.yaml` (tray → Settings), under `wake:` (next to `enabled: true`), add `acoustic: true`, then restart Swift from the tray. The log should **not** say "acoustic wake is off". To go back, remove the line and restart.
+About 20 minutes, plus an hour of normal work. First turn it on:
+1. Open `config.yaml` (tray → Settings).
+2. Under `wake:`, next to `enabled: true`, add `acoustic: true`.
+3. Restart Swift from the tray.
 
-| # | Do | You should see | Report checks |
-|---|---|---|---|
-| 222 | "Hey Swift" 10 times at your **calm** office voice, at arm's length, with a pause after each. Count the ones that didn't register | More register than in check 191. Tell us the count | The second way in woke Swift |
-| 223 | The same 10 from about 1.5 m, in a quiet room | Most register. Tell us the count | The second way in woke Swift |
-| 224 | Calmly: "Hey Swift, what time is it", "Hey Swift, make it shorter", "Hey Swift, open my project" | The words on each card are the **request**, without "Swift" or a piece of it in front, and with their first word | (seen on screen) |
-| 225 | Work normally for an hour with Swift on: calls, a video, talking to someone. **Don't** say "Hey Swift" | Swift never wakes by itself. If it does, note the time | Detector fired, and what came of it |
-| 226 | Lock the screen (Win+L). Say "Hey Swift, what time is it" twice. Unlock | Nothing happened while locked, and nothing starts when you unlock | 61 nothing heard acted on after a lock; nothing woke through the second way in while locked |
+The log should **not** say "acoustic wake is off". To go back, remove the line and restart.
+
+<a id="check-228"></a>**Check 228. A calm "Hey Swift", close**
+1. Say "Hey Swift" 10 times in your **calm** office voice, at arm's length, with a pause after each.
+2. Count the ones that didn't register.
+
+You should see: more register than in check 191. Tell Claude the count.
+
+<a id="check-229"></a>**Check 229. A calm "Hey Swift" from 1.5 m**
+1. Do the same 10 from about 1.5 m, in a quiet room.
+2. Count the ones that didn't register.
+
+You should see: most register. Tell Claude the count.
+
+<a id="check-230"></a>**Check 230. The request keeps its first word**
+1. Say calmly: "Hey Swift, what time is it".
+2. Then "Hey Swift, make it shorter", and "Hey Swift, open my project".
+
+You should see: the words on each card are the **request**, with its first word, and without "Swift" or a piece of it in front.
+
+<a id="check-231"></a>**Check 231. An hour of normal work**
+1. Work normally for an hour with Swift on: calls, a video, talking to someone.
+2. **Don't** say "Hey Swift".
+
+You should see: Swift never wakes by itself. If it does, note the time.
+
+<a id="check-232"></a>**Check 232. Nothing while locked**
+1. Lock the screen (Win+L).
+2. Say "Hey Swift, what time is it" twice.
+3. Unlock.
+
+You should see: nothing happened while locked, and nothing starts when you unlock.
 
 ## After the checks: the report
 

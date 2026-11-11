@@ -522,15 +522,15 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("199 a command's card said what it is", LOOK, "check on screen"),
         ("200 a yes to 'It sounded like …' went ahead with it", LOOK, "check on screen: not with the word 'yes'"),
         # A second way in for "Hey Swift" (ADR-021).
-        ("222 the second way in woke Swift (calm voice, close and at 1.5 m)", seen(wake_count("acoustic_wake")),
+        ("228 the second way in woke Swift (calm voice, close and at 1.5 m)", seen(wake_count("acoustic_wake")),
          f"{wake_count('acoustic_wake')} through the second way in, {wake_count('wake')} wake phrases in all;"
          " tell us how many of each 10 didn't register"),
-        ("224 a request after a calm 'Hey Swift' kept its first word", LOOK,
+        ("230 a request after a calm 'Hey Swift' kept its first word", LOOK,
          "check on screen: no 'Swift' or piece of it in front"),
-        ("225 the detector fired, and what came of it", LOOK,
+        ("231 the detector fired, and what came of it", LOOK,
          f"{wake_count('acoustic_hits')} checked, {wake_count('acoustic_wake')} woke Swift,"
          f" {wake_count('acoustic_rejected')} turned down; only you know whether any wake was by itself"),
-        ("226 nothing woke through the second way in while locked", unless(acted_away, locked and unlocked),
+        ("232 nothing woke through the second way in while locked", unless(acted_away, locked and unlocked),
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
     ]
 

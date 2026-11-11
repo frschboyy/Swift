@@ -58,6 +58,7 @@ from swift.stt.fixes import WordFixes
 from swift.stt.recordings import Recordings
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
 from swift.wake import WakeListener
+from swift.wake_acoustic import AcousticWake, HeySwiftScorer
 from swift.workflows.library import Library, load_library
 from swift.workflows.tools import KnownContact, ToolHost
 from swift.workflows.toolset import ALL_TOOLS
@@ -84,6 +85,15 @@ def _on_finish(runlog: InteractionLog, recordings: Recordings | None = None) -> 
         logger.bind(**summary(record)).info("interaction finished")
 
     return finish
+
+
+def _make_acoustic(threshold: float) -> AcousticWake | None:
+    """The "Hey Swift" sound detector (ADR-021), or None (with one warning) if its models can't be loaded."""
+    try:
+        return AcousticWake(HeySwiftScorer(app_paths().models_dir / "wake"), threshold=threshold)
+    except Exception as exc:  # noqa: BLE001 - missing or broken model files: wake listening goes on without it
+        logger.warning("acoustic wake is off: its models didn't load", error=type(exc).__name__)
+        return None
 
 
 def _make_transcriber(settings: Settings) -> LocalTranscriber:
@@ -466,6 +476,20 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         session.in_speech = lambda: listener.speaking  # an answer still being said joins what came before it
         recorder.tap = listener.feed
         recorder.on_reopen = listener.reset
+        if wake.acoustic and (acoustic := _make_acoustic(wake.acoustic_threshold)) is not None:
+            # ADR-021: the detector hears the same blocks, and forgets them when the stream reopens. A
+            # locked screen closes the stream (``Lifecycle.handle``), so it hears nothing then.
+            session.acoustic = acoustic
+
+            def tap(block: Any) -> None:  # audio thread
+                listener.feed(block)
+                acoustic.push(block)
+
+            def reopened() -> None:
+                listener.reset()
+                acoustic.reset()
+
+            recorder.tap, recorder.on_reopen = tap, reopened
         wake_report = asyncio.create_task(_report_wake(listener, session, recorder))  # noqa: F841
 
     bound = await server.start(port)

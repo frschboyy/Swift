@@ -14,12 +14,13 @@ import asyncio
 import json
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
 import pytest
 from test_dialogue import asker, asks
-from test_runs import finish_all, say, started, until
+from test_runs import SHORT, finish_all, say, started, until
 from test_system_lane import lane
 
 from swift.executors.base import ExecEvent
@@ -395,9 +396,12 @@ async def test_one_request_is_one_record_however_many_turns() -> None:
     await say(session, stt, "yes")
     await until(lambda: records)
     assert records[0]["status"] == "done" and records[0]["confirmed"] is True and control.radio_state["wifi"] is False
-    await finish_all(session, agent)
-
-
+    await finish_all(session, agent)
+
+
+
+
+
 async def test_a_timer_during_a_run_waits_in_the_stack_and_is_never_refused() -> None:
     session, out, agent, stt, _control, sched = _lane()
     rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
@@ -427,9 +431,12 @@ async def test_a_timer_cleared_from_the_stack_doesn_t_come_up_too() -> None:
     agent.runs[rid]["go"].set()
     await finish_all(session, agent)
     await asyncio.sleep(1.2)
-    assert not any(m.type == "result" and m.data["run_id"].startswith("due-") for m in out.messages)
-
-
+    assert not any(m.type == "result" and m.data["run_id"].startswith("due-") for m in out.messages)
+
+
+
+
+
 async def test_skipping_a_waiting_timer_keeps_it() -> None:
     session, out, agent, stt, _control, sched = _lane()
     await started(session, out, agent, stt, "Hey Swift, research the history of tea")
@@ -441,3 +448,94 @@ async def test_skipping_a_waiting_timer_keeps_it() -> None:
     assert [i["id"] for i in out.last("stack")["items"]] == [f"due:{tea.id}"] and sched.items
     await finish_all(session, agent)
 
+
+
+# ---- ADR-021: the second way in ------------------------------------------------------------------------
+
+
+class Detector:
+    """Stands in for AcousticWake: it heard "Hey Swift" at the end of every utterance, or never."""
+
+    def __init__(self, heard: bool = True) -> None:
+        self.heard, self.asked = heard, 0
+
+    def first_hit(self, t0: float, t1: float) -> float | None:
+        self.asked += 1
+        return t1 if self.heard else None
+
+
+def script(stt: Any, *texts: str) -> None:
+    """The speech model says these in turn: the utterance, then each stretch the second way in asks about."""
+    said, plain = list(texts), stt.transcribe
+
+    async def transcribe(audio: Any) -> Any:
+        if said:
+            stt.text = said.pop(0)
+        return await plain(audio)
+
+    stt.transcribe = transcribe
+
+
+async def test_a_wake_phrase_only_the_detector_heard_starts_the_request_on_screen() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    session.acoustic = Detector()
+    script(stt, "He's left in my chat, research the history of tea", "He swift.", "research the history of tea")
+    await session.hear_wake(SHORT, time.monotonic())
+    await until(lambda: "a-1" in agent.runs)
+    assert agent.requests == ["research the history of tea"]
+    assert session.wake_stats["acoustic_wake"] == 1 and session.wake_stats["wake"] == 1
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["stage"] == "working" and screen["cardRun"] is not None
+    await finish_all(session, agent)
+
+
+async def test_the_detector_alone_starts_nothing() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    session.acoustic = Detector()
+    script(stt, "a swift reply would be nice", "Nice.", "Would be nice.", "A reply would be nice.")
+    await session.hear_wake(SHORT, time.monotonic())
+    await asyncio.sleep(0.05)
+    assert agent.requests == [] and session.wake_stats["acoustic_rejected"] == 1
+    assert session.wake_stats["other_speech"] == 1  # what it was before ADR-021
+    assert agree(session, out)["stage"] not in ("working", "confirm")
+
+
+async def test_the_screen_locking_while_the_second_way_in_checks_starts_nothing() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    session.acoustic = Detector()
+    script(stt, "He's left, research the history of tea", "He swift.", "research the history of tea")
+    plain = stt.transcribe
+
+    async def locks(audio: Any) -> Any:
+        heard = await plain(audio)
+        if heard.text == "He swift.":
+            session.listening_paused = session.hands_free_blocked = True  # the lock (Lifecycle.handle)
+        return heard
+
+    stt.transcribe = locks
+    await session.hear_wake(SHORT, time.monotonic())
+    await asyncio.sleep(0.05)
+    assert agent.requests == [] and session.wake_stats["acoustic_wake"] == 0
+    agree(session, out)
+
+
+async def test_words_said_to_swift_s_question_never_take_the_second_way_in() -> None:
+    session, out, agent, stt, _control, _sched = _lane()
+    await _wifi(session, out, stt)
+    session.acoustic = detector = Detector()
+    await say(session, stt, "He's left.")  # whatever today makes of it, the detector isn't asked
+    await asyncio.sleep(0.05)
+    assert detector.asked == 0 and session.wake_stats["acoustic_hits"] == 0
+    await finish_all(session, agent)
+
+
+async def test_with_a_run_in_front_the_second_way_in_isn_t_tried() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    session.acoustic = detector = Detector()
+    await say(session, stt, "He's left, send it to everyone")
+    await asyncio.sleep(0.05)
+    assert detector.asked == 0 and len(agent.requests) == 1
+    agree(session, out)
+    await finish_all(session, agent)

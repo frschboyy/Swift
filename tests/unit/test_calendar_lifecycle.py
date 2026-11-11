@@ -119,6 +119,10 @@ async def test_next_meeting_looks_at_the_coming_week() -> None:
     host.open(owner.publish, owner.confirm)
     result = await host.call("list_calendar_events", {})
     assert [e["title"] for e in result.data["events"]] == ["Soon"]
+    # "Until <a date>", with no start: that day is included, as it is when a start is given.
+    day = (datetime.now().astimezone() + timedelta(days=9)).date().isoformat()
+    until = await host.call("list_calendar_events", {"end": day})
+    assert [e["title"] for e in until.data["events"]] == ["Soon", "Later"]
 
 
 # ---- add, with attendees and a Meet link --------------------------------------------------------

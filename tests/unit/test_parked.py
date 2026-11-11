@@ -34,6 +34,13 @@ def parked(thread: str = "t1", request: str = "Draft an email to Ada about the d
 # ---- the store -----------------------------------------------------------------------------------
 
 
+def test_parked_on_the_same_clock_tick_the_later_one_is_newest() -> None:
+    store = ParkedThreads(None, clock=lambda: 100.0)
+    store.park(parked("t-ada", "Draft an email to Ada about the deadline", at=100.0))
+    store.park(parked("t-tea", "Research the history of tea into Word", at=100.0))
+    assert [p.thread for p in store.all()] == ["t-tea", "t-ada"] and store.newest().thread == "t-tea"  # type: ignore[union-attr]
+
+
 def test_named_tasks() -> None:
     assert named_task("finish the email to Ada") == "email to Ada"
     assert named_task("ok, get back to my essay on tea.") == "essay on tea"

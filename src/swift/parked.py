@@ -159,7 +159,9 @@ class ParkedThreads:
         if len(kept) != len(self._items):
             self._items = kept
             self._save()
-        return sorted(kept, key=lambda p: p.at, reverse=True)
+        # Reversed, not reverse=True: parked on the same clock tick (about 15 ms on Windows), the one
+        # parked later is the newer one.
+        return sorted(kept, key=lambda p: p.at)[::-1]
 
     def newest(self) -> Parked | None:
         items = self.all()

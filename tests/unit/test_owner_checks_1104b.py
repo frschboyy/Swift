@@ -178,6 +178,15 @@ async def test_a_name_that_only_starts_a_contacts_name_is_asked_about() -> None:
     assert not draft.ok
 
 
+async def test_no_answer_to_which_sam_leaves_neither_usable() -> None:
+    okoro = Contact("Sam Okoro", "sam.okoro@example.com", "gmail")
+    host, asked = _asking((SAM_LEE, okoro), None)
+    found = await host.call("find_contact", {"query": "Sam"})
+    assert asked == ["Which Sam: Sam Lee or Sam Okoro?"] and found.ok and "none can be used yet" in found.text
+    for contact in (SAM_LEE, okoro):
+        assert not (await host.call("draft_email", {"to": [contact.email], "subject": "Lunch", "message": "Hi"})).ok
+
+
 async def test_no_answer_about_the_close_contact_leaves_it_unusable() -> None:
     host, _ = _asking((SAMIA,), None)
     found = await host.call("find_contact", {"query": "Sam"})

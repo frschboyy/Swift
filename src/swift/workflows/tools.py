@@ -195,8 +195,8 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
                 problem=bool(problem))
     # A contact the owner has to confirm isn't a recipient until they do (``_is_it``): only then does a
     # "no" leave nothing behind (2026-11-05: a rejected guess still passed the recipient check).
-    # The same for several matches the owner is asked to pick from: only the one picked is a recipient,
-    # and "never mind" leaves none.
+    # The same for several matches the owner is asked to pick from: only the one picked is a recipient;
+    # "never mind", no answer or an unclear one leaves none.
     asks_which = 1 < len(candidates) <= MAX_CHOICES and scope.ask_fn is not None
     asks_first = (guessed and len(candidates) == 1 and scope.ask_fn is not None) or asks_which
     if not asks_first:
@@ -232,9 +232,13 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         return ToolResult(True, f"The owner chose {_described(chosen)}. Use this contact only.",
                           {"candidates": [chosen.as_dict()], "chosen_by_owner": True})
     if len(candidates) > 1:
-        for contact in candidates:  # no answer: the provider asks in its own words, as before
-            scope.resolved[contact.email.lower()] = contact
         listed = "; ".join(_described(c) for c in candidates)
+        if asks_which:
+            # Asked, and no one was picked (no answer, or an unclear one): none of them is a recipient
+            # yet. The provider asks again in its own words, and the next lookup settles it.
+            return ToolResult(True, f"Several contacts match: {listed}. The owner was asked which and hasn't picked "
+                              "one, so none can be used yet. Stop and ask the owner which one, naming each by "
+                              "email and the detail shown.", data)
         return ToolResult(True, f"Several contacts match: {listed}. Use the one the request clearly means; if it's "
                           "not clear, stop and ask the owner which one, naming each by email and the detail shown.",
                           data)

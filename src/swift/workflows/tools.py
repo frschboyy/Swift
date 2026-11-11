@@ -195,7 +195,10 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
                 problem=bool(problem))
     # A contact the owner has to confirm isn't a recipient until they do (``_is_it``): only then does a
     # "no" leave nothing behind (2026-11-05: a rejected guess still passed the recipient check).
-    asks_first = guessed and len(candidates) == 1 and scope.ask_fn is not None
+    # The same for several matches the owner is asked to pick from: only the one picked is a recipient,
+    # and "never mind" leaves none.
+    asks_which = 1 < len(candidates) <= MAX_CHOICES and scope.ask_fn is not None
+    asks_first = (guessed and len(candidates) == 1 and scope.ask_fn is not None) or asks_which
     if not asks_first:
         for contact in candidates:
             scope.resolved[contact.email.lower()] = contact
@@ -208,7 +211,7 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         return ToolResult(False, f"No contact matches “{raw}”. {problem}".strip() +
                           " Don't guess an address: tell the owner who couldn't be found.", data, expected=not problem)
     if guessed and len(candidates) == 1:
-        if not asks_first:
+        if scope.ask_fn is None:
             return ToolResult(True, f"No contact is named exactly “{raw}”; the closest is {_described(candidates[0])}. "
                               "Ask the owner whether that's who they mean before using it.", data)
         sure = await _is_it(scope, raw, candidates[0])
@@ -221,6 +224,7 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
     if len(candidates) > 1 and (chosen := await _which(scope, raw, candidates)) is not None:
         if isinstance(chosen, ToolResult):
             return chosen
+        scope.resolved[chosen.email.lower()] = chosen
         await scope.publish(
             "recipient", "recipient", "resolving", f"Looking up “{raw}”",
             {"query": raw, "candidates": [c.as_dict() for c in candidates], "chosen": candidates.index(chosen)},
@@ -228,6 +232,8 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         return ToolResult(True, f"The owner chose {_described(chosen)}. Use this contact only.",
                           {"candidates": [chosen.as_dict()], "chosen_by_owner": True})
     if len(candidates) > 1:
+        for contact in candidates:  # no answer: the provider asks in its own words, as before
+            scope.resolved[contact.email.lower()] = contact
         listed = "; ".join(_described(c) for c in candidates)
         return ToolResult(True, f"Several contacts match: {listed}. Use the one the request clearly means; if it's "
                           "not clear, stop and ask the owner which one, naming each by email and the detail shown.",

@@ -305,6 +305,12 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 **Moved out of the repo:** the old pen-dev pack from `b9ca8c3` is now in `C:\Users\frchi\Documents\Swift-design-screens\pen-dev-handoff-b9ca8c3`. The current pack is `docs/design/pen-dev-handoff/`.
 
+| Branch | What | State |
+|---|---|---|
+| `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–5 done; step 6 (rescoring through the live listener) running. Not merged, 67 commits behind `main`: needs a rebase. It touches the rule "no hands-free listening while locked", so it needs a reviewer other than the author. Owner checks 228–232 are waiting |
+
+**Next free owner check number: 233.** When two sessions add checks at the same time, they take their numbers here first.
+
 Cleaned up on 2026-11-06 with the owner's OK: every `claude/*` branch and its worktree. `claude/reliability-audit-review` was force-deleted. Its two commits, ending at `43b1273`, added only the review document, which is on `main` unchanged.
 
 Removed on 2026-11-10 with the owner's OK: every merged worktree and branch.

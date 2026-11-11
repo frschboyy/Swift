@@ -293,6 +293,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 | Branch | What | State |
 |---|---|---|
+| `claude/audit-fixes-recipients` | Two fixes from a repo audit (2026-11-11): only the contact the owner picked is a recipient; a contact named "Last, First" is one recipient in the To header | Done, tests pass (1784). Not merged. The first touches a product rule, so it needs a reviewer other than the author. Worktree: `C:\Users\frchi\Documents\Swift-audit-fixes` |
 | `claude/wake-porcupine-trial` | Wake trial: openWakeWord, ViolaWake, legacy Porcupine and an own-voice verifier as stage 2, scored on the owner's clips (`docs/spikes/wake-model-trial.md`) | Spike in progress, waiting for the owner's recordings. Takes in `claude/upbeat-mclaren-ac46da` (the rescore by ear) |
 
 **Next free owner check number: 222.** When two sessions add checks at the same time, they take their numbers here first.

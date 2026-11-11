@@ -211,8 +211,8 @@ class _Google:
 
         if eventId:
             found = self.events.get(eventId)
-            return Call(found if found is not None else Exception("<HttpError 404 Not Found>"))
-        return Call({"id": id} if id in self.drafts else Exception("<HttpError 404 Not Found>"))
+            return Call(found if found is not None else Status(404))
+        return Call({"id": id} if id in self.drafts else Status(404))
 
     # Gmail drafts()
     def create(self, userId: str, body: dict):  # noqa: N803

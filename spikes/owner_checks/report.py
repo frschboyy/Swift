@@ -558,6 +558,14 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("219 Halo's edges are distinct from the card at a glance", LOOK, "check on screen: dark and light"),
         ("220 the sleeping orb reads as not listening", LOOK, "check on screen: from normal viewing distance"),
         ("221 a card grows from the orb and the tail settles last", LOOK, "check on screen: also with animation effects off"),
+        ("222 'Which Sam?' was answered with a pick", seen([line for line in log if "| contact chosen by the owner |" in line]),
+         "and on screen: the draft was to the one you picked"),
+        ("223 no answer to 'Which Sam?' drafted to nobody", LOOK, "check on screen: no draft card to either"),
+        ("224 an email to a contact saved as 'Last, First' went to that one person", LOOK,
+         "check on screen and in Sent; skip it if you have no such contact"),
+        ("225 'until (a day)' listed that day's events too", LOOK, "check on screen"),
+        ("226 'open this' on a .url, .jar or .py asked on a card first", LOOK, "check on screen: nothing opened after Reject"),
+        ("227 a search aimed at .env files was refused with no card", LOOK, "check on screen: no contents shown"),
     ]
 
 

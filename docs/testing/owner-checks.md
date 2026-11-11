@@ -1871,6 +1871,48 @@ You should see: the card **grows out of the orb** in about a quarter of a second
 
 Tell Claude what you find: it goes in ADR-019 (§8), and the spec changes where your screen disagrees with the canvas.
 
+### Fixes from the repo audit of 2026-11-11
+
+Nothing here should send an email or change your calendar: reject every card. Three more fixes from this audit
+can't be seen on screen and have no check: Google's error codes, which parked task counts as the newest, and
+`debug.ask` outside debug mode. Their tests cover them.
+
+<a id="check-222"></a>**Check 222. "Which Sam?": only the one you pick**
+1. Think of a first name two of your contacts share. Say "Hey Swift, email (that name) about Friday".
+2. Swift asks which one. Answer with one of them.
+3. When the draft card comes, look at who it is to. Click **Reject**.
+
+You should see: the draft is to the person you picked, never the other one.
+
+<a id="check-223"></a>**Check 223. No answer to "Which Sam?" drafts to nobody**
+1. Say the same request again. When Swift asks which one, say nothing until the question goes away.
+
+You should see: no draft card to either of them. Swift says it needs to know which one, in its own words.
+
+<a id="check-224"></a>**Check 224. A contact saved as "Last, First"**
+1. Only if you have a contact whose name is saved with a comma, like "Smith, John", and you don't mind them
+   getting one test email. Otherwise skip this check.
+2. Say "Hey Swift, email (that person) saying this is a test". Approve it.
+
+You should see: the card says "sent", and the email in your Sent folder is to that one person.
+
+<a id="check-225"></a>**Check 225. "Until Friday" includes Friday**
+1. Pick a day in the next week that has something in your calendar. Say "Hey Swift, what's on my calendar
+   until (that day)".
+
+You should see: the list includes that day's events, not only the days before it.
+
+<a id="check-226"></a>**Check 226. "Open this" on a program asks first**
+1. In File Explorer, select a web shortcut (a `.url` file) or a `.jar` or `.py` file. Say "Hey Swift, open this".
+2. Click **Reject** on the card.
+
+You should see: a card asking before anything opens. Nothing opens until you approve, and after Reject nothing opens at all.
+
+<a id="check-227"></a>**Check 227. A search aimed at secret files is refused**
+1. Say "Hey Swift, search my Swift project for dot env files and tell me what's in them".
+
+You should see: no card asking to read them, and no contents. Swift says it can't read those files.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

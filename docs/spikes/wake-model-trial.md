@@ -1,9 +1,9 @@
 # Wake-word model trial (2026-11-10)
 
 ADR-020, the owner's decision 2: try a dedicated wake-word model and score it on the owner's saved clips
-(misses and false wakes) before it replaces anything. This page is that trial, in two rounds. Round 2
-(below) scores a two-stage wake, the way phone assistants do it. Round 1 (further down) is the morning's
-openWakeWord head.
+(misses and false wakes) before it replaces anything. This page is that trial, in three rounds, newest
+first. Round 3 rescores everything on the owner's new recordings (takes, Jarvis, 2 h of the office).
+Round 2 scores a two-stage wake, the way phone assistants do it. Round 1 is the first openWakeWord head.
 
 **Result of round 2: don't switch yet.** As labelled, no path beats today's on both misses and false wakes.
 The closest is ViolaWake (threshold 0.5) followed by a Parakeet check of the window it fired on: 16.7%
@@ -12,6 +12,103 @@ in 31 minutes (3.9 an hour) where today's path makes none. In both of those clip
 Swift" inside a clip labelled negative, so they may be labelling errors. If the owner's ear says they are,
 this path beats today's on both counts. None of the two-stage paths catches the 5 calm office takes:
 stage 1 hears them, stage 2 throws them out. Nothing is wired into `src/swift`.
+
+## Round 3: the owner's recordings (2026-11-11)
+
+**Result: switch, by adding a second way in; don't replace today's path.** Keep today's path. Also accept
+a wake when ViolaWake (threshold 0.5, one thread) fires and Parakeet's transcript of that window passes the
+lenient check. On the owner's own recordings this cuts misses from 38.6% to 28.1% (or 26.6% with the lenient
+check as the text rule), with 0 false wakes in 2 hours of the owner's office and on every other negative
+clip. That beats today's path on misses without being worse on false wakes. Nothing is wired into
+`src/swift` yet.
+
+**What the owner recorded:**
+- **Labels:** both disputed clips are "Hey Swift" by ear, so round 2's two "false wakes" were labelling
+  errors.
+- **Takes:** 247 "Hey Swift" takes: 0.5 m quiet (77), 0.5 m with media/babble, and 1.5 m quiet/media/babble
+  (34 each). 3 m was skipped.
+- **Jarvis:** 30 "Jarvis" takes (0.5 m quiet, 1.5 m quiet, 1.5 m media).
+- **Room:** 2 hours of the office (`record_negatives.py`), which Swift's own `WakeListener` cut into 1,128
+  utterances.
+
+The set is now 417 positives and 1,502 negatives: 90.7 min of negative speech, covering 2.0 h of room time
+plus the earlier clips. Nothing was retrained. The ViolaWake and openWakeWord models are round 2's, so
+every clip here is unseen. The own-voice verifier is out of fold by day.
+
+### Numbers
+
+| Path | Misses | Live misses caught | Takes caught | False wakes / h | In the 2 h room |
+|---|---|---|---|---|---|
+| **Today: Parakeet + `match_wake` loose** | **161 (38.6%)** | **8 / 27** | **115 / 247** | **0** | **0** |
+| Parakeet + the lenient check alone | 127 (30.5%) | 16 / 27 | 136 / 247 | 0 | 0 |
+| ViolaWake 0.5 alone | 88 (21.1%) | 26 / 27 | 169 / 247 | 107 | 228 |
+| ViolaWake 0.5 → Parakeet lenient (window) | 165 (39.6%) | 20 / 27 | 106 / 247 | 0 | 0 |
+| **Today OR (ViolaWake 0.5 → Parakeet lenient)** | **117 (28.1%)** | **20 / 27** | **139 / 247** | **0** | **0** |
+| Lenient check OR (ViolaWake 0.5 → Parakeet lenient) | 111 (26.6%) | 21 / 27 | 144 / 247 | 0 | 0 |
+| ViolaWake 0.5 → own-voice verifier 0.9 | 121 (29.0%) | 24 / 27 | 153 / 247 | 4.4 | 1 |
+| ViolaWake 0.5 → own-voice verifier 0.98 | 152 (36.5%) | 19 / 27 | 137 / 247 | 2.0 | 1 |
+| openWakeWord 0.1 alone | 144 (34.5%) | 20 / 27 | 124 / 247 | 2.0 | 0 |
+| Today OR (openWakeWord 0.1 → Parakeet lenient) | 122 (29.3%) | 16 / 27 | 137 / 247 | 0 | 0 |
+
+The own-voice verifier, now trained with the 247 takes (out of fold), went from 17 false wakes an hour in
+round 2 to 4.4 at the same recall. It's the one path that doesn't depend on speech-to-text, but it isn't at
+0 false wakes yet.
+
+**Where the misses are**, the share of "Hey Swift" takes caught in each setting:
+
+| Setting | Today | Lenient | Today OR two-stage | Lenient OR two-stage |
+|---|---|---|---|---|
+| 0.5 m quiet | 66% | 75% | 78% | 78% |
+| 0.5 m media | 68% | 85% | 76% | 88% |
+| 0.5 m babble | 62% | 68% | 76% | 76% |
+| 1.5 m quiet | 50% | 68% | 68% | 71% |
+| 1.5 m media | 9% | 9% | 12% | 12% |
+| 1.5 m babble | 0% | 0% | 0% | 0% |
+
+At 1.5 m with a video playing or people talking, nothing that goes through speech-to-text works:
+Parakeet can't make out the name. That's the case for an acoustic own-voice stage, or a different word.
+
+**Option 4, "Jarvis" with Porcupine 1.9.** The 30 Jarvis takes are the positives here, and every "Hey Swift"
+clip and the room are negatives:
+
+| Sensitivity | Jarvis takes caught | False wakes / h (130 min) | In the 2 h room |
+|---|---|---|---|
+| 0.3 | 23 / 30 | 0 | 0 |
+| **0.5** | **25 / 30** | **0** | **0** |
+| 0.7 | 25 / 30 | 0.3 | 0 |
+| 0.9 | 25 / 30 | 2.2 | 5 |
+
+By setting, at sensitivity 0.5: 0.5 m quiet 10/10 (today's path on "Hey Swift": 66%), 1.5 m quiet 7/10
+(50%), 1.5 m media 8/10 (9%). It fires a median 0.21 s after the word ends. Today's path answers about
+2 s after it (0.8 s of silence, then Parakeet, p50 2.1 s here under load). Only 30 takes, so the
+percentages are rough: one take is 3 to 10 points.
+
+**CPU while listening:**
+- **Porcupine 1.9:** 2.2% of one core.
+- **openWakeWord:** 11.3%.
+- **ViolaWake:** 6.9% with ONNX Runtime held to one thread (`intra_op_num_threads=1`), down from 75% at
+  the default thread count on the same 120 s, with identical scores. Wiring it in must set that.
+
+**Latency of the second way in:** ViolaWake fires about at the end of the name. Stage 2 waits 0.3 s, or
+1.0 s for its long window, and Parakeet takes 0.3–0.43 s. That's about 0.6–1.4 s after "Swift", sooner than
+today's path's ~2 s.
+
+### Recommendation
+
+1. **Add the two-stage path as a second way in**: today's path, or ViolaWake 0.5 → Parakeet's lenient check
+   on the detection window. It's the only change here with fewer misses (38.6% → 28.1%) and no more false
+   wakes (0 in 2 h of the office), and it answers sooner when it's the one that fires.
+   - The lenient check as the text rule for both ways in does slightly better (26.6%). But it makes the
+     first way in looser too, which the owner judged superficial, so it isn't the default here.
+   - Wiring it needs a design: ViolaWake streaming next to the `WakeListener` with one ONNX thread, a
+     window buffer for stage 2, and the product rules unchanged (no hands-free while locked, audio never
+     leaves the PC, a bare "yes" never approves).
+2. **For 1.5 m in noise, which no speech-to-text path handles,** the own-voice verifier is the way forward. It
+   needs more takes and more room hours to reach 0 false wakes. Recording at 1.5 m with media/babble and
+   another few room hours (TV evening, calls) would show whether it gets there.
+3. **"Jarvis" is the most responsive and the most robust at a distance** (25/30, 0 false wakes, 0.2 s,
+   2% CPU). But it's a fixed word on an unmaintained 2021 engine, and Swift wouldn't be called Swift. It's
+   the owner's call whether that trade is worth it. A "Hey Swift" model can't be made for Porcupine 1.9.
 
 ## Round 2: a two-stage wake (afternoon)
 

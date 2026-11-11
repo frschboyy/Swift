@@ -394,6 +394,11 @@ def stage_lines(rows: list[dict], hit: dict[str, float | None], late: list[float
     windowed = all(heard_key(r["id"], hit[r["id"]]) in heard for r in rows if fired[r["id"]])
     two = {r["id"]: any(lenient_wake(t) for t in texts[r["id"]]) for r in rows}
     print(summary(rows, two, f"  + parakeet lenient ({'window' if windowed else 'whole clip'})"))
+    from swift.wake import match_wake
+
+    # Today's path stays, and the two-stage path is a second way in: they miss different clips.
+    either = {r["id"]: two[r["id"]] or match_wake(r["parakeet"], loose=True) is not None for r in rows}
+    print(summary(rows, either, "  ... or today's path"))
 
 
 def detections(out: Path, rows: list[dict], tags: list[str], thresholds: list[float], patience: int,

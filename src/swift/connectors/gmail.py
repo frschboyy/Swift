@@ -25,7 +25,7 @@ from email.utils import formataddr
 from typing import Any
 
 from swift.connectors.base import Contact, ConnectorError, Manifest, OutgoingEmail, SentMessage
-from swift.connectors.google import SCOPES, SIGNIN_HINT, GoogleSession, client_secret_path, transient
+from swift.connectors.google import SCOPES, SIGNIN_HINT, GoogleSession, client_secret_path, status, transient
 from swift.connectors.google import main as google_main
 
 __all__ = ["SCOPES", "SIGNIN_HINT", "GmailConnector", "client_secret_path", "main", "mime"]
@@ -139,7 +139,7 @@ class GmailConnector:
                 sent = drafts().send(userId="me", body={"id": draft_id}).execute()
                 return SentMessage(str(sent.get("id", "")))
             except Exception as exc:
-                gone = tried and "404" in str(exc)  # the try whose connection dropped did send it
+                gone = tried and status(exc) == 404  # the try whose connection dropped did send it
                 tried = True
                 if not (transient(exc) or gone):
                     raise
@@ -154,7 +154,7 @@ class GmailConnector:
         try:
             drafts.get(userId="me", id=draft_id, format="minimal").execute()
         except Exception as exc:
-            if "404" in str(exc):
+            if status(exc) == 404:
                 return False
             raise
         return True

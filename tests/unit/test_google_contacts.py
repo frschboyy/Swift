@@ -213,7 +213,7 @@ class FakeEvents:
 
     def get(self, calendarId: str, eventId: str) -> Call:  # noqa: N803
         if not self.stored:
-            return Call(Exception("<HttpError 410 ... Resource has been deleted>"))
+            return Call(Status(410))
         return Call({"id": eventId, "summary": "Swift check", "status": "confirmed"})
 
     def delete(self, calendarId: str, eventId: str, sendUpdates: str) -> Call:  # noqa: N803
@@ -280,3 +280,20 @@ def test_a_name_with_a_comma_is_still_one_recipient() -> None:
     sent = message_from_bytes(base64.urlsafe_b64decode(mime(OutgoingEmail(to, "Hi", "Body"))), policy=policy.default)
     assert [(a.display_name, a.addr_spec) for a in sent["To"].addresses] == [
         ("Smith, John", "john@example.com"), ("", "ada@example.com")]
+
+
+def test_an_id_that_spells_404_is_not_a_not_found() -> None:
+    """The error's text holds the address asked for, id included: only the status says "not found"."""
+
+    class Failing:
+        def get(self, **kw: Any) -> Call:
+            error = Status(500)
+            error.args = (f"<HttpError 500 when requesting .../{kw.get('eventId') or kw.get('id')}?alt=json>",)
+            return Call(error)
+
+    connector = GoogleCalendarConnector()
+    connector._google._services["calendar"] = type("Cal", (), {"events": lambda self: Failing()})()
+    with pytest.raises(Status):
+        connector._get("abc_20260410T140400Z")  # a repeating event on 10 April at 14:04
+    with pytest.raises(Status):
+        GmailConnector._draft_exists(Failing(), "r-7404410")

@@ -27,7 +27,7 @@ from datetime import date, datetime
 from typing import Any
 
 from swift.connectors.base import CalendarEvent, ConnectorError, Contact, CreatedEvent, Manifest, StoredEvent
-from swift.connectors.google import GoogleSession, transient
+from swift.connectors.google import GoogleSession, status, transient
 
 
 def _when(moment: datetime | date) -> dict[str, str]:
@@ -141,7 +141,7 @@ class GoogleCalendarConnector:
         try:
             raw = self._events().get(calendarId="primary", eventId=event_id).execute()
         except Exception as exc:  # noqa: BLE001 - "not found" is an answer, anything else is a failure
-            if "404" in str(exc) or "410" in str(exc):
+            if status(exc) in (404, 410):
                 return None
             raise
         return None if raw.get("status") == "cancelled" else raw
@@ -165,7 +165,7 @@ class GoogleCalendarConnector:
                     sendUpdates=_notify(event), conferenceDataVersion=1 if event.meet else 0,
                 ).execute()
             except Exception as exc:
-                if not (transient(exc) or "409" in str(exc)):
+                if not (transient(exc) or status(exc) == 409):
                     raise
                 found = self._get(event_id)  # did the try whose connection dropped add it?
                 if found is None:

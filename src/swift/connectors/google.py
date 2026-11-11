@@ -75,17 +75,23 @@ _DROPPED = {10053, 10054, 10060, errno.ECONNABORTED, errno.ECONNRESET, errno.ETI
 T = TypeVar("T")
 
 
+def status(exc: BaseException) -> int | None:
+    """The HTTP status Google answered with, or None. Never read from the error's text: that
+    holds the address asked for, and an event or draft id can spell "404" itself."""
+    try:
+        return int(getattr(getattr(exc, "resp", None), "status", None))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
 def transient(exc: BaseException) -> bool:
     """A failure worth one more try: the connection dropped or timed out, or Google had a 5xx."""
     if isinstance(exc, (ConnectionError, TimeoutError, socket.timeout)):
         return True
     if isinstance(exc, OSError) and (exc.errno in _DROPPED or getattr(exc, "winerror", None) in _DROPPED):
         return True
-    status = getattr(getattr(exc, "resp", None), "status", None)
-    try:
-        return status is not None and 500 <= int(status) < 600
-    except (TypeError, ValueError):
-        return False
+    code = status(exc)
+    return code is not None and 500 <= code < 600
 
 
 def client_secret_path() -> Path:
@@ -209,7 +215,7 @@ class GoogleSession:
                 f"{self.service_name} isn't allowed yet: Swift's Google sign-in is missing a permission.",
                 "Sign in again to grant it: " + SIGNIN_HINT, code="not_connected",
             )
-        if "invalid_grant" in text or "401" in text:
+        if "invalid_grant" in text or status(exc) == 401:
             for listener in expired_listeners:
                 listener()
             return ConnectorError(f"{self.service_name} sign-in has expired.", SIGNIN_HINT, code="not_connected")

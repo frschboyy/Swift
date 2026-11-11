@@ -12,7 +12,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is fixed, so the cards you approve show the whole change.
 
 - **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), merged to `main` and not run on the real PC. Swift's replies are off by default, apart from "Hello". Why checks 191–197 still failed is in [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md), which led to [ADR-020](../decisions/ADR-020-one-record-per-conversation.md). A branch is trialling whether Swift gets a dedicated wake model (§6).
-- **§6 lists the work that isn't on `main` yet, and the next free owner check number (222).** Every session reads §6 before it starts, and adds its own branch there.
+- **§6 lists the work that isn't on `main` yet, and the next free owner check number (233).** Every session reads §6 before it starts, and adds its own branch there.
 
 ## 1. Where things stand
 
@@ -293,9 +293,9 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 | Branch | What | State |
 |---|---|---|
-| `claude/wake-porcupine-trial` | Wake trial: openWakeWord, ViolaWake, legacy Porcupine and an own-voice verifier as stage 2, scored on the owner's clips (`docs/spikes/wake-model-trial.md`) | Spike in progress, waiting for the owner's recordings. Takes in `claude/upbeat-mclaren-ac46da` (the rescore by ear) |
+| `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Rebased onto `main` on 2026-11-11, not merged. It touches the rule "no hands-free listening while locked", so it needs a reviewer other than the author. Owner checks 228–232 are waiting |
 
-**Next free owner check number: 222.** When two sessions add checks at the same time, they take their numbers here first.
+**Next free owner check number: 233.** When two sessions add checks at the same time, they take their numbers here first.
 
 **Docs added to `main` on 2026-11-10**, from branches that were never merged:
 - [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md)
@@ -304,13 +304,6 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 - The voice listening test script, `spikes/tts/voice_test.py` (decision 10).
 
 **Moved out of the repo:** the old pen-dev pack from `b9ca8c3` is now in `C:\Users\frchi\Documents\Swift-design-screens\pen-dev-handoff-b9ca8c3`. The current pack is `docs/design/pen-dev-handoff/`.
-
-| Branch | What | State |
-|---|---|---|
-| `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Not merged, 67 commits behind `main`: needs a rebase. It touches the rule "no hands-free listening while locked", so it needs a reviewer other than the author. Owner checks 228–232 are waiting |
-
-**Next free owner check number: 233.** When two sessions add checks at the same time, they take their numbers here first.
-
 Cleaned up on 2026-11-06 with the owner's OK: every `claude/*` branch and its worktree. `claude/reliability-audit-review` was force-deleted. Its two commits, ending at `43b1273`, added only the review document, which is on `main` unchanged.
 
 Removed on 2026-11-10 with the owner's OK: every merged worktree and branch.

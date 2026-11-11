@@ -40,7 +40,9 @@ BANKING_TITLES = ("bank", "banking", "paypal", "revolut", "monzo", "wise.com", "
 PRIVATE_TITLES = ("(incognito)", "incognito -", "inprivate", "private browsing", "(private)")
 # Opened by "open this" only after a confirm card: running a program isn't reversible.
 PROGRAMS = (".exe", ".msi", ".bat", ".cmd", ".com", ".ps1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".scr", ".lnk",
-            ".reg", ".hta", ".cpl", ".appref-ms")
+            ".reg", ".hta", ".cpl", ".appref-ms",
+            # Run by what's installed (Python, Java) or by Windows itself, or point at something that is.
+            ".py", ".pyw", ".jar", ".msc", ".url", ".pif", ".wsh", ".msix", ".appx", ".appinstaller")
 
 # Terminals and shells: a line typed there runs as a command, so Swift never writes into them.
 # Claude Code's Bash needs a confirm card; writing into a terminal must not be a way around it.

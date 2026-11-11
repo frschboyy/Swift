@@ -27,7 +27,8 @@ dev = [
     "pip-licenses>=5",
     "pytest-asyncio>=0.24",
 ]
-# Phase 0 spikes only (§17). Never imported by src/swift.
+# Phase 0 spikes (§17), and the Google libraries (keyring, google-*) that src/swift/connectors/google.py
+# imports when a Google connector is used: Gmail and Calendar need `uv sync --group spikes`.
 spikes = [
     "numpy>=1.26",
     "psutil>=6",

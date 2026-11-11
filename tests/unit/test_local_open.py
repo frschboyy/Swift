@@ -141,3 +141,11 @@ async def test_launch_failure_shows_an_error(settings: Settings) -> None:
     await ask("launch chrome", session)
     assert spy.calls == [] and rec.last("error")["code"] == "open_failed" and records[0]["status"] == "error"
 
+
+
+@pytest.mark.parametrize("name", ["tool.jar", "clean.py", "Run.PYW", "services.msc", "site.url", "setup.exe"])
+def test_open_this_never_opens_a_program_without_a_card(settings: Settings, name: str) -> None:
+    """A selected program goes on to the agent, whose desktop_open asks on a confirm card."""
+    opener = LocalOpener(settings)
+    assert opener.resolve_files([rf"C:\Users\me\Downloads\{name}"]) is None
+    assert opener.resolve_files([r"C:\Users\me\Documents\notes.txt"]) is not None

@@ -604,6 +604,20 @@ async def test_which_sam_is_asked_and_only_a_found_contact_can_be_chosen() -> No
     await finish_all(session, agent)
 
 
+async def test_debug_ask_answers_nothing_outside_debug_mode() -> None:
+    from swift.ipc.protocol import Message
+
+    session, out, records, agent, stt = asker()
+    run_id = await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1]["open"])
+    session.debug_executor = None  # as the owner runs Swift
+    await session.handle(Message("debug.ask", {"text": "Paris"}))
+    assert session.dialogue.pending is not None and run_id not in agent.results
+    await say(session, stt, "Paris")
+    await until(lambda: run_id in agent.results)
+    await finish_all(session, agent)
+
+
 async def test_never_mind_to_which_sam_leaves_no_recipient() -> None:
     session, out, records, agent, stt = asker()
     run_id = await started(session, out, agent, stt, "Hey Swift, email Sam about Friday")

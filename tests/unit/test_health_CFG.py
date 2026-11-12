@@ -14,7 +14,6 @@ from swift.routing.rules import route
 from swift.settings import Settings, expand
 
 
-@pytest.mark.xfail(strict=True, reason="HA-CFG-01: executor.allowed_tools can pre-approve Bash/Write/Edit, so no card")
 def test_allowed_tools_setting_cannot_pre_approve_writing_tools(tmp_path: Path) -> None:
     cfg = Settings.model_validate({"executor": {"allowed_tools": ["Read", "Glob", "Grep", "Bash", "Write"]}}).executor
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), allowed_tools=cfg.allowed_tools, confirm_tools=cfg.confirm_tools,
@@ -22,6 +21,7 @@ def test_allowed_tools_setting_cannot_pre_approve_writing_tools(tmp_path: Path) 
     opts = ex.options(_Run(), "cc-1")
     # Pre-approved tools never reach can_use_tool, so "rm file" in Bash would run without a card.
     assert "Bash" not in opts.allowed_tools and "Write" not in opts.allowed_tools
+    assert {"Bash", "Write"} <= set(ex.confirm_tools)  # still usable, each call on a card
 
 
 @pytest.mark.xfail(strict=True, reason="HA-CFG-02: 'is it X or Y' sends weather/date questions to the tool-free lane")

@@ -316,8 +316,13 @@ class ClaudeCodeExecutor:
         # Web search and fetch for ordinary requests ("research the history of tea"): read-only,
         # so no card; workflows still get them only by declaring them (owner checks 2026-10-28).
         self.web = web
-        self.allowed_tools = list(allowed_tools)
-        self.confirm_tools = [t for t in confirm_tools if t not in self.allowed_tools]
+        # Only reads and web lookups run without a card, whatever the setting lists: anything else
+        # (Bash, Write, Edit…) could delete a file, and deleting always asks (ADR-019, HA-CFG-01).
+        self.allowed_tools = [t for t in allowed_tools if t in READ_TOOLS or t in PROVIDER_TOOLS]
+        moved = [t for t in allowed_tools if t not in self.allowed_tools]
+        if moved:
+            logger.warning("allowed_tools: these ask on a card instead", tools=moved)
+        self.confirm_tools = list(dict.fromkeys(t for t in [*confirm_tools, *moved] if t not in self.allowed_tools))
         self.max_budget_usd = max_budget_usd
         self.confirm_timeout_s = confirm_timeout_s
         self.stall_timeout_s = STALL_S

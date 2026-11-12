@@ -85,16 +85,13 @@
   area: config
   severity: critical
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: settings.py:150-152 has no validator on allowed_tools/confirm_tools; backend/__main__.py:333-334 passes
-    them through; claude_code.py:320 drops a tool from confirm_tools when it is also allowed, and :503 pre-approves
-    every non-read allowed tool, so can_use_tool (the card) is never called for it. Breaks "deleting a file always
-    asks on a card, whatever a setting says" (ADR-019). docs/threat_model.md T12 claims a fail-closed policy guard,
-    but that lives in the unused swift/config TOML loader (HA-CFG-06).
+  evidence: src/swift/executors/claude_code.py ClaudeCodeExecutor.__init__ keeps allowed_tools to READ_TOOLS and
+    PROVIDER_TOOLS
   test: tests/unit/test_health_CFG.py::test_allowed_tools_setting_cannot_pre_approve_writing_tools
-  note: Fix is a settings validator (or executor filter) that keeps allowed_tools to read-only tools, or refuses
-    to start with a SettingsError.
+  note: Any other listed tool moves to confirm_tools and logs a warning naming the tools. Needs review by someone
+    other than the author (product rule).
 - id: T-04
   title: An answer that asks is parked into the stack while its reply window and countdown still run.
   source: docs/audit/2026-11-seams-audit.md §3.2

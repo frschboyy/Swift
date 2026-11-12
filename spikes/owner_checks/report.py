@@ -388,7 +388,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("62 reads outside the read folders asked first; secrets refused", bool(read_cards) or bool(never_read),
          f"{len(read_cards)} read card(s), {len(never_read)} secret path(s) refused"),
         # The Capsule redesign (ADR-017).
-        ("16 a card that ran out went to the stack, not refused", unless(timed_out, expired),
+        ("68 a card that ran out went to the stack, not refused", unless(timed_out, expired),
          f"{len(expired)} into the stack, {len(timed_out)} refused on time-out"),
         ("64 Stop on the capsule stopped only the voice", bool(voice_stopped), f"{len(voice_stopped)} time(s)"),
         ("66 listening paused and resumed from the tray", bool(paused_tray) and bool(resumed_tray),

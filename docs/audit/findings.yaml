@@ -1,0 +1,3177 @@
+# Swift findings register. One entry per finding from every audit, rechecked against the code on 2026-11-12.
+# Format and rules: tests/unit/test_findings_register.py. Sorted: open first, then by severity.
+- id: B-10
+  title: Result and failure texts name the provider ("Claude Code stopped there") instead of Swift.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md X-06
+  module: src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py
+  area: screen
+  severity: critical
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: claude_code.py:706,864,870; claude_mapping.py:64,69,76 ("Claude is busy, retrying…" as a working-card
+    step)
+  test: null
+  note: 'Also X-06. Provider names in owner-facing texts break ''status labels generic''. untested: a test that
+    scans owner-facing strings for provider names is the fix''s first step.'
+- id: OCT-01
+  title: VS Code's integrated terminal is inside code.exe, which is not on the terminal list, so Swift can still
+    type into it.
+  source: docs/audit/2026-10-audit.md A-02 remaining risk
+  module: src/swift/desktop/base.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: desktop/base.py:47-50 TERMINALS lacks code.exe; line breaks are Shift+Enter (A-01), and B-02 gate needs
+    the owner's words to write
+  test: null
+  note: 'Risk reduced by A-01 and B-02. untested: needs VS Code''s terminal focused; a unit test can only pin the
+    terminal list.'
+- id: RV-15
+  title: The lock rule is checked in about four places where speech acts; a third miss is likely until intake's
+    presence step is the one place.
+  source: docs/audit/2026-11-reliability-audit-review.md §5 T-07 row
+  module: src/swift/intake.py, src/swift/session.py
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: intake.py:10 presence step exists; session.py still has 29 'locked' references and its own _deaf() checks
+    (session.py:2458)
+  test: tests/unit/test_seam_replay.py::test_a_request_said_just_after_the_lock_before_the_next_poll_starts_nothing
+  note: 'Recent commits (5008544, 29a48dc) added more lock checks, which is the pattern warned about. Raised from
+    medium: breaks a product rule.'
+- id: HA-HEAR-01
+  title: Typing "Swift, yes" answers Swift's own reversible question ("Turn off Wi-Fi?") and does the change, though
+    typing never approves.
+  source: health audit 2026-11-12
+  module: src/swift/intake.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: src/swift/intake.py:72-75 (typed + target "reversible" -> ALLOWED when named); reached from session.py:1596
+    (_midrun_text source="typed") -> _take_answer -> session.py:3570. Contradicts dialogue.py:69-71 ("typed, it
+    never does"), docs/handoff/README.md:238 ("typing doesn't") and the hint at session.py:280 ("Typing can't turn
+    it off"). test_audit_2026_10.py only tries a bare typed "yes".
+  test: tests/unit/test_health_HEAR.py::test_a_typed_swift_yes_doesnt_turn_the_wifi_off
+  note: The intake table documents it on purpose, so the table and the rule disagree; the owner decides. The typed
+    "Swift, yes" for a correction offer (test_front_rules.py:748) is a separate path and may be meant.
+- id: HA-HEAR-02
+  title: A wake phrase said just after the screen locks still gets the chime and the "heard" signal from the peek,
+    before the 2 s poll catches up.
+  source: health audit 2026-11-12
+  module: src/swift/session.py, src/swift/wake.py
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: session.py:1885-1904 peek_wake checks only listening_paused (before and not after its transcription),
+    never _deaf() / locked_now; wants_peek (session.py:1880) likewise. _hear_transcribed was fixed for the same
+    gap (5008544, test_seam_replay.py::test_a_request_said_just_after_the_lock_before_the_next_poll_starts_nothing).
+  test: tests/unit/test_health_HEAR.py::test_a_wake_phrase_said_just_after_the_lock_isnt_chimed_by_the_peek
+  note: 'Nothing runs (the full utterance is dropped), but Swift audibly reacts to speech while locked. Fix is _deaf()
+    in peek_wake before and after the await. Raised from high: breaks a product rule.'
+- id: HA-CFG-01
+  title: Listing Bash, Write or Edit in executor.allowed_tools pre-approves them, so a run can delete or overwrite
+    files with no confirm card.
+  source: health audit 2026-11-12
+  module: src/swift/settings.py, src/swift/executors/claude_code.py
+  area: config
+  severity: critical
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: settings.py:150-152 has no validator on allowed_tools/confirm_tools; backend/__main__.py:333-334 passes
+    them through; claude_code.py:320 drops a tool from confirm_tools when it is also allowed, and :503 pre-approves
+    every non-read allowed tool, so can_use_tool (the card) is never called for it. Breaks "deleting a file always
+    asks on a card, whatever a setting says" (ADR-019). docs/threat_model.md T12 claims a fail-closed policy guard,
+    but that lives in the unused swift/config TOML loader (HA-CFG-06).
+  test: tests/unit/test_health_CFG.py::test_allowed_tools_setting_cannot_pre_approve_writing_tools
+  note: Fix is a settings validator (or executor filter) that keeps allowed_tools to read-only tools, or refuses
+    to start with a SettingsError.
+- id: T-04
+  title: An answer that asks is parked into the stack while its reply window and countdown still run.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/session.py
+  area: timers
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: strict xfail still fails 2026-11-12; no fix commit found
+  test: tests/unit/test_seams_audit_state.py::test_s05_an_answer_that_asks_is_put_in_the_stack_while_its_reply_window_is_still_open
+  note: Park timer and reply window are still two deadlines.
+- id: O-03
+  title: A failed text-box open isn't retried, and `typing` stays set, so the next press closes it (#4,
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/panes.ts, overlay/src/main.ts
+  area: screen
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: overlay/tests/seams-audit.test.ts:11 still marked todo; no fix commit found
+  test: null
+  note: Reproduced only by a todo test (overlay/tests/seams-audit.test.ts "O-03"), not a strict xfail. Overlay tests
+    not run here.
+- id: O-04
+  title: The Send card shows about 3 lines of the email with no scroll, so a long draft can't be read before Send
+    (#15).
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/main.ts, overlay/src/styles.css
+  area: screen
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: styles.css:579-592 .mail-body height 66px, overflow hidden; main.ts:1202 expander only when newlines
+    > DRAFT_LINES
+  test: null
+  note: ab09f51 made the card scroll, not the draft box. The handoff's "confirm with check 137" is optimistic; the
+    code still clips a long two-paragraph body.
+- id: RA-02
+  title: 'C2: the overlay can decline a frame and the backend is never told, so ordinary answers can vanish without
+    trace.'
+  source: docs/audit/2026-11-reliability-audit.md §2 C2; review §3; handoff §2 Root causes
+  module: overlay/src/presenter.ts, src/swift/session.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: presenter.ts:267-271 return shown:false with no message back; only due.shown and card.seen acks exist
+    (ipc/protocol.py:80,103)
+  test: null
+  note: Planned fix is review item 9 (versioned screen snapshot acknowledged when drawn). Due cards no longer refused
+    (fdfdb23, O-08).
+- id: RV-10
+  title: 'M4: speech acceptance is tuned incident by incident: confidence bars at 0.2-0.7 moved by eight commits
+    with no proven cause.'
+  source: docs/audit/2026-11-reliability-audit-review.md §4 M4, item 10; handoff §2 Root causes
+  module: src/swift/session.py, src/swift/intake.py, src/swift/stt/transcriber.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: session.py:2164-2180 wake_min_p / wake_phrase_min_p bars; CLAUDE.md rule 'score any change on saved
+    clips' added
+  test: null
+  note: Related seams ids W-01..W-03, V-02 (strict xfails in test_seams_audit_stt.py, test_seams_audit_speech.py).
+- id: II-01
+  title: 'No single owner of the conversation''s state: mic mode, launcher and presenter each decide what speech
+    means and what is in front.'
+  source: docs/audit/2026-11-08-interaction-investigation.md 'In short', §3.1
+  module: src/swift/session.py, overlay/src/presenter.ts
+  area: process
+  severity: high
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: no turn-manager module in src/swift; ADR-020 step 1 dropped (workflow audit §9.3)
+  test: null
+  note: Same family as RA-01.
+- id: HA-SYS-01
+  title: 'Airplane mode on: if Bluetooth refuses after Wi-Fi went off, the owner hears only the Bluetooth error,
+    Wi-Fi stays off, and there is no undo.'
+  source: health audit 2026-11-12
+  module: src/swift/system/lane.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: lane.py:503-504 loops set_radio with no try; a SystemUnavailable from the second radio leaves _airplane
+    before the undo and the read-back (lane.py:505-526); _execute (lane.py:195-196) then says only exc.message,
+    ok=False, no undo. WindowsSystem.set_radio raises exactly this when Windows denies (control.py:539-540). Existing
+    test_a_radio_that_didnt_switch_is_reported_not_claimed covers only a silent no-op, not a raise.
+  test: tests/unit/test_health_SYS.py::test_airplane_half_done_is_said_and_undoable
+  note: Offline after this (Wi-Fi off) with no way to say 'undo that'. Catch per radio, then fall through to the
+    read-back.
+- id: HA-FAKE-01
+  title: Google errors are matched by searching their whole text for "404" or "401", and that text includes the
+    request address (draft id, event id, search words). So a passing outage can make Swift report an email as sent
+    or an event as removed when neither happened, or offer a new sign-in that isn't needed.
+  source: health audit 2026-11-12
+  module: src/swift/connectors/gmail.py, src/swift/connectors/google_calendar.py, src/swift/connectors/google.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'gmail.py:140 (send: "404" means sent) and gmail.py:155 ("404" in str(exc) in _draft_exists); google_calendar.py:144
+    (_get) with google_calendar.py:200-201 (delete_event: tried and None means "removed"); google.py:212 ("401"
+    in text). googleapiclient HttpError.__str__ is its __repr__: ''<HttpError 503 when requesting <uri> returned
+    ...>'' (checked in the installed package). Gmail draft ids are long numbers and Swift''s event ids are uuid
+    hex, so some contain "404". The suite''s fakes raise "<HttpError 404 Not Found>" or "HttpError 503" with no
+    address, so these tests pass falsely: test_audit_2026_10.py::test_an_email_is_sent_once_when_the_connection_drops,
+    test_google_contacts.py::test_a_delete_whose_connection_dropped_is_done_on_the_retry, test_google_contacts.py::test_a_refusal_is_not_retried_or_called_a_refusal.'
+  test: tests/unit/test_health_FAKE.py::test_an_email_not_sent_is_never_reported_sent
+  note: Also tests/unit/test_health_FAKE.py::test_an_event_still_there_is_never_reported_removed and ::test_a_refusal_is_not_an_expired_sign_in.
+    Seams audit X-14 noted the "401" match as loose (Low); the "404" cases are new and turn an outage into a false
+    "sent"/"removed". A faithful fake raises an HttpError-shaped error carrying resp.status and the uri; the fix
+    reads resp.status, not the text.
+- id: HA-FAKE-03
+  title: 'Pressing Esc while a request waits for the warm Claude Code CLI to finish connecting (up to 20 s) is swallowed:
+    the request starts anyway, cold, and Esc doesn''t stop it.'
+  source: health audit 2026-11-12
+  module: src/swift/executors/claude_code.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'claude_code.py:421-425: `except (asyncio.CancelledError, Exception)` around `asyncio.wait_for(task,
+    SPARE_WAIT_S)` catches the caller''s own cancellation, returns None, and start() goes on to create the run (claude_code.py:538-542).
+    Session.cancel (session.py:1727-1735) cancels the interaction task and awaits it. MockExecutor.start and EchoExecutor.start
+    return at once, and the prewarm fakes connect at once, so no test cancels during start: test_executor_contract.py::test_cancel_mid_run_ends_events_and_reports_cancelled,
+    test_claude_prewarm.py (all).'
+  test: tests/unit/test_health_FAKE.py::test_cancel_while_waiting_for_the_warm_cli_stops_the_start
+  note: 'Reproduced at the executor. At the session (Esc waits for the whole run because the task never sees its
+    cancel) it is read in the code, not run. A faithful fake: a provider whose start() awaits something slow. Not
+    the same as X-12 (that wait now has SPARE_WAIT_S).'
+- id: HA-UI-01
+  title: While a request is working or a card waits, Esc pressed in any other app never reaches that app and cancels
+    Swift's request instead.
+  source: health audit 2026-11-12
+  module: overlay/src/main.ts, overlay/src-tauri/src/lib.rs
+  area: actions
+  severity: high
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: main.ts:1979 syncEscape grabs Esc whenever ACTIVE.has(stageNow()) (listening, transcribing, working,
+    confirm); lib.rs:285-296 set_escape uses RegisterHotKey, which takes the key from every app; main.ts:1990-1992
+    onEscape then sends {type:"cancel"} while active.
+  test: null
+  note: The code path is clear; not run on the real system. A background run can take minutes, so pressing Esc in
+    an editor, a dialog or a browser during it stops the run (a Word write mid-way, a waiting card). A low-level
+    keyboard hook that passes Esc on, or grabbing Esc only while the overlay has the pointer or Swift is speaking
+    or listening, would avoid it.
+- id: OCT-10
+  title: Weather, news and "is it open now" go to the full agent (10-17 s); no web lane.
+  source: docs/audit/2026-10-audit.md §1; performance.md
+  module: src/swift/routing/rules.py
+  area: perf
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: probe today - "Is it going to rain today" -> agent/standard, "what is the news" -> agent/light; no web
+    module in src/swift/routing
+  test: null
+  note: ADR-016 Phase I, not built.
+- id: T-05
+  title: No reply window opens after a spoken answer longer than about 8 s.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/session.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: strict xfail still fails 2026-11-12
+  test: tests/unit/test_seams_audit_speech.py::test_s13_the_reply_window_opens_after_a_long_spoken_answer
+  note: null
+- id: T-08
+  title: Every countdown runs separately in Python and in the overlay, paused by different signals.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/session.py, overlay/src/main.ts
+  area: timers
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: handoff §2 "each countdown runs on both sides (T-08)"; e602d8d sends time left, not one absolute deadline
+  test: null
+  note: Planned as review item 9.
+- id: T-09
+  title: Fire-and-forget tasks in session.py, and timers not cancelled on overlay disconnect.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/session.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 17 create_task( calls in session.py today (e.g. 1243, 1269, 3731, 3744, 4409); no architecture guard
+  test: null
+  note: Correctness risk; no leak measured.
+- id: T-12
+  title: A backend restart loses Later cards, lane questions and unfinished runs, with nothing logged.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/session.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: session.py:1737-1746 close() parks only _question; no in-flight marker
+  test: null
+  note: null
+- id: O-10
+  title: Overlay and Rust failures never reach swift.log, and most failed sends are ignored.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/main.ts, overlay/src/panes.ts, src/swift/ipc/server.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no inbound log message in src/swift/ipc; console.warn still used in overlay/src (6 sites)
+  test: null
+  note: null
+- id: V-02
+  title: No echo cancellation, and a "no" said over Swift's voice is lost in four known cases (#7,
+  source: docs/audit/2026-11-seams-audit.md §3.4
+  module: src/swift/audio/recorder.py, src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: four strict xfails still fail 2026-11-12
+  test: tests/unit/test_seams_audit_speech.py::test_s07_no_over_the_card_hint_is_the_owner
+  note: Also test_s07b, test_s08, test_s09. The AEC trial (S5) hasn't started.
+- id: V-03
+  title: Speech confidence is three measures tuned case by case, and the logged number isn't the deciding one.
+  source: docs/audit/2026-11-seams-audit.md §3.4
+  module: src/swift/stt/transcriber.py, src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: no mean_p or deciding-gate log found in src/swift/stt or session.py; review M4 (eight tuning commits,
+    no proven cause)
+  test: null
+  note: null
+- id: W-01
+  title: Word-fix proposals swap common words without context ("text" to "Test").
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/improve.py, src/swift/stt/fixes.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: two strict xfails still fail 2026-11-12
+  test: tests/unit/test_seams_audit_stt.py::test_text_to_test_is_not_proposed
+  note: null
+- id: W-03
+  title: The speech regression gate is aggregate-only, so one sentence going wrong passes.
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/improve.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: strict xfail still fails 2026-11-12
+  test: tests/unit/test_seams_audit_stt.py::test_improvement_pass_reports_sentences_that_got_worse
+  note: The handoff wants this before any more speech tuning.
+- id: W-04
+  title: The owner test set misses systematic mishearings; an identical repeat is skipped.
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/recordings.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: stt/recordings.py:230 still returns on "heard the same twice"
+  test: null
+  note: null
+- id: W-06
+  title: Contacts aren't used when recognizing a name ("Test Me" heard as "Plectomy").
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/transcriber.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no hotword or contact boost in src/swift/stt/transcriber.py
+  test: null
+  note: null
+- id: R-07
+  title: The light lane never answered a real request, yet a second CLI is kept warm for it.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/backend/__main__.py, src/swift/routing/light.py
+  area: perf
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: backend/__main__.py:534-535 still builds QuickModel with prewarm; config.example.yaml:70 quick_answers
+    true
+  test: null
+  note: Waits on owner decision 2 (retire or retarget).
+- id: R-08
+  title: The agent-time metric includes the owner's own speaking and card waits.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: spikes/usage/report.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: spikes/usage/report.py:84-85 still uses interaction_ms; no first_output_ms anywhere
+  test: null
+  note: null
+- id: R-09
+  title: Dispatch is about 20 order-dependent rewrites in one long session.py function.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/session.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: no routing/dispatch.py exists; session.py is 5057 lines
+  test: null
+  note: null
+- id: X-09
+  title: After an "unknown" outcome the same action can be approved and done again (B-08).
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/security/gateway.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: gateway.py:166 blocks only digests in scope.sent within one run; :256-260 an unknown outcome adds no
+    guard against a repeat
+  test: null
+  note: A repeat across runs wasn't tested.
+- id: X-11
+  title: Google API clients are shared across threads, and their HTTP library isn't thread-safe.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/connectors/google.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: google.py:171 caches one service per name in self._services, with no lock
+  test: null
+  note: Never reproduced.
+- id: RA-03
+  title: 'C3: the same words are re-parsed by many separate matchers with their own rules and filler lists, so they
+    disagree.'
+  source: docs/audit/2026-11-reliability-audit.md §2 C3
+  module: src/swift/intake.py, src/swift/routing/rules.py, src/swift/workflows/system_tools.py, src/swift/dialogue.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: intake.py:98-120 fragment/collapse_repeats, session.py:2400 _short_kept, system_tools.py:44 owner_intents
+    each parse separately
+  test: null
+  note: 'Review item 10: normalise once, but keep owner_intents as an independent safety reading. Not started.'
+- id: RA-16
+  title: The stack is re-sent only where code remembers to call _send_stack, so anything derived from it can go
+    stale.
+  source: docs/audit/2026-11-reliability-audit.md §4.6
+  module: src/swift/session.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: session.py:1396 _send_stack, 12 call sites
+  test: null
+  note: Review item 9 (snapshot) would replace it.
+- id: RA-20
+  title: session.py keeps growing (5,057 lines) though the agreed rule is small modules and a split.
+  source: docs/audit/2026-11-reliability-audit.md §2; review M5; handoff §2 Root causes; workflow audit §3
+  module: src/swift/session.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: wc -l src/swift/session.py = 5057 (4,401 when the split was agreed, 4,824 in handoff)
+  test: null
+  note: Split not started; workflow routing also lives here.
+- id: RV-14
+  title: Frames leave through two doors (_send, _raw_send) and fire-and-forget tasks, so order isn't guaranteed
+    (a question's close could arrive after the answer).
+  source: docs/audit/2026-11-reliability-audit-review.md §3 'Atomic by construction'; handoff §2 Root causes
+  module: src/swift/session.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'session.py today: 21 _raw_send(, 30 self._send(, 25 create_task/_background('
+  test: null
+  note: No single ordered outbox. Countdowns on both sides is seams T-08.
+- id: RV-18
+  title: 'Item 9: no versioned screen snapshot derived from the owners and acknowledged when drawn.'
+  source: docs/audit/2026-11-reliability-audit-review.md item 9
+  module: src/swift/session.py, overlay/src/presenter.ts
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: no snapshot message in ipc/protocol.py; presenter still decides who shows
+  test: null
+  note: The planned fix for RA-02, RA-16, RV-14. Ledger decision waits on it.
+- id: II-02
+  title: TV speech written as 'Hey Swift Box...' started a request; text matching can't tell a TV from the owner.
+  source: docs/audit/2026-11-08-interaction-investigation.md check 191, §3.2
+  module: src/swift/wake.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 01:38:34 recording (doc); own-voice verifier only in spikes (110bae4)
+  test: null
+  note: A false start only opens a request whose actions still ask on cards.
+- id: II-03
+  title: 'Check 196: a bare ''Hey Swift'' while Swift''s question waits is taken as the (empty) answer, so it re-asks
+    and shelves.'
+  source: docs/audit/2026-11-08-interaction-investigation.md check 196, §3.1 rule 1
+  module: src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: 'session.py:2185-2197: with a question listening, addressed.remainder ('''' for a bare wake) goes to
+    _take_answer'
+  test: null
+  note: Read from code, not replayed. No test that a bare wake during a question opens a new turn.
+- id: II-06
+  title: 'Check 195: ''Delete the word test from a file'' matched the calendar workflow on ''delete'', ran on calendar
+    tools only, and couldn''t hand the request back.'
+  source: docs/audit/2026-11-08-interaction-investigation.md check 195, §3.3, §3.5
+  module: src/swift/workflows/library/calendar-event/swift.yaml, src/swift/workflows/library.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: 'calendar-event/swift.yaml:36-38 intent with actions incl. delete/remove and titles: true; no hand-back
+    path in library.py or session.py'
+  test: null
+  note: Not replayed; titles match depends on the owner's event titles.
+- id: II-10
+  title: The overlay doesn't log each card's arrival and why it left, so 'it disappeared' can't be proven.
+  source: docs/audit/2026-11-08-interaction-investigation.md §3.1 rule 4
+  module: overlay/src/main.ts, src/swift/ipc/protocol.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no card-arrived/left message in ipc/protocol.py or overlay/src (grep)
+  test: null
+  note: The doc says this should come first.
+- id: WL-01
+  title: 'No run record: nothing records a workflow run''s steps, inputs, worker and outcome, so ''why did it fail''
+    and ''last used'' can''t be answered.'
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §4.1
+  module: src/swift/runlog.py, src/swift/security/journal.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: runlog.py is per interaction, journal per side effect; no run log module
+  test: null
+  note: Groundwork phase 1, shared with ADR-020.
+- id: WL-02
+  title: No Swift-owned writable store for workflows, setting values or memory; Swift can't create, edit or disable
+    a workflow.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3 Persistence, §4.2, §4.4
+  module: src/swift/workflows/library.py
+  area: config
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: library.py:551 load_library reads only; nothing in src/swift writes a package
+  test: null
+  note: Includes the missing instance layer (enabled/paused, settings).
+- id: WL-06
+  title: CAPABILITIES, gateway POLICY and tool-host TOOLS are three hand-kept tables with no test that they agree.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3 Agent and tool discovery, §5
+  module: src/swift/workflows/library.py, src/swift/security/gateway.py, src/swift/workflows/toolset.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: library.py:56 CAPABILITIES; no test references CAPABILITIES (grep tests/unit)
+  test: null
+  note: A library risk and a gateway policy can disagree silently.
+- id: WL-07
+  title: The library's Risk type has no 'destructive', which ADR-019's always-ask deletion rule needs.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3
+  module: src/swift/workflows/library.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: library.py:52 Risk = Literal['read','none','reversible','external']
+  test: null
+  note: 'Latent: no file-deleting tool exists yet (W2). Must land before W2''s file tools, or ADR-019''s always-ask
+    rule has no type to hang on.'
+- id: WL-08
+  title: An owner's package can replace a built-in with wider needs, only logged; no permission diff is shown when
+    needs grow.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3 Permissions, §9 phase 0
+  module: src/swift/workflows/library.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: library.py:569-571 logs 'your workflow replaces the built-in one' and replaces it
+  test: null
+  note: Side effects still go through the gateway's cards.
+- id: WL-09
+  title: Workflow matching is hand-tuned word lists; two intents that both match give no run, silently, and collisions
+    grow with the library.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3 structural risk 1, G6
+  module: src/swift/workflows/library.py, src/swift/workflows/library/calendar-event/swift.yaml
+  area: routing
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: library.py:321 if len(intended) == 1; calendar-event/swift.yaml:18-45 comments on colliding words
+  test: null
+  note: No per-workflow parity cases yet.
+- id: HA-SYS-02
+  title: An alarm or reminder at a clock time, set before a daylight-saving change, rings an hour late or early.
+  source: health audit 2026-11-12
+  module: src/swift/system/lane.py, src/swift/system/intents.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'lane.py:89 default now = datetime.now().astimezone(), a fixed-offset tz; intents.resolve (intents.py:209-212)
+    adds days and replaces the hour in that fixed offset, so 07:00 tomorrow is stored as 07:00+00:00 = 08:00 BST.
+    Repro: due 1806217200 vs wanted 1806213600 (one hour).'
+  test: tests/unit/test_health_SYS.py::test_alarm_across_dst_rings_at_the_wall_clock_time
+  note: Affects 'tomorrow', weekday and 'tonight'-across-the-change alarms twice a year. Timers ('in 10 minutes')
+    are fine (epoch seconds). Fix needs the local zone (tzdata is not installed; Windows' own zone via time.localtime/mktime
+    would do).
+- id: HA-SYS-03
+  title: A question naming a switch with on/off ('Bluetooth on?', 'Wi-Fi on?', 'dark mode on?') is parsed as turning
+    it on and done with no card.
+  source: health audit 2026-11-12
+  module: src/swift/system/intents.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: fast.normalize strips '?' (routing/fast.py:96), then _RADIO_SWITCH form 4 '{radio} (back )?(on|off)'
+    (intents.py:586) and _THEME form 4 (intents.py:414) match. Turning a radio on is not disruptive (intents.py:632-633),
+    so lane.start runs it at once. 'is wifi on' correctly gives radio.get. 'wifi off?' asks first (disruptive),
+    so only the 'on' side acts unasked.
+  test: tests/unit/test_health_SYS.py::test_bluetooth_question_changes_nothing
+  note: Bluetooth on makes the PC discoverable, which system_tools.from_answer treats as needing care. The question
+    mark is lost before the grammar sees it; the lane would need the raw text or a flag from normalize.
+- id: HA-SYS-05
+  title: '''Undo that'' after an action with nothing to undo (next track, lock, a window, a reading) reverses an
+    older change from up to 10 minutes before.'
+  source: health audit 2026-11-12
+  module: src/swift/system/lane.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'lane.py:206-207 replaces _undo only when the new utterance produced an undo; otherwise the old one
+    stays live for UNDO_S=600 (lane.py:47, 210-211). Session routes ''undo'' to the lane when can_undo() (session.py:2848).
+    Repro: volume to 20, then ''skip this song'', can_undo() still True.'
+  test: tests/unit/test_health_SYS.py::test_undo_follows_the_last_action_not_an_older_one
+  note: The same happens after a failed change and after 'X didn't switch' (no undo). Clearing _undo on every executed
+    change fixes it.
+- id: HA-SYS-06
+  title: One schedule.json row with a bad 'due' (null or text) loads, then kills Scheduler.run, and no timer, alarm
+    or reminder fires again until restart, with no log or card.
+  source: health audit 2026-11-12
+  module: src/swift/system/scheduler.py, src/swift/backend/__main__.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: scheduler.py:164 builds Item(**row) with no type check (only kind is checked); due() compares i.due
+    <= now (scheduler.py:125) -> TypeError outside the on_fire try (scheduler.py:131-139). The task is create_task'd
+    with no done callback (__main__.py:251) and only cancelled at exit (__main__.py:554-555). pending() also raises,
+    so 'list my timers' fails as 'Something went wrong'.
+  test: tests/unit/test_health_SYS.py::test_a_bad_due_row_does_not_kill_the_clock
+  note: 'Needs a hand-edited or partly written file (atomic replace makes the latter unlikely). Same class: a row
+    whose id is text. The ''bad rows set aside'' path (B-03 era) misses wrong types.'
+- id: HA-SYS-07
+  title: A failed read of schedule.json (file briefly locked) moves the whole file to .bad and starts empty, so
+    every pending alarm and reminder is lost; a second time overwrites the earlier .bad.
+  source: health audit 2026-11-12
+  module: src/swift/system/scheduler.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'scheduler.py:156-169: OSError on read leaves rows=None, then ''not isinstance(rows, list)'' sets the
+    file aside with os.replace (overwriting any existing .bad) and items stay []; the next add/save writes a fresh
+    file without them. Nothing reads .bad back.'
+  test: tests/unit/test_health_SYS.py::test_a_transient_read_error_keeps_the_schedule
+  note: Antivirus/backup/indexer locks on Windows are the plausible trigger; unproven how often. Only set aside
+    on a parse error, not on OSError.
+- id: HA-SYS-09
+  title: '''Lock it'' about something else (''write a note and lock it'') counts as the owner asking to lock the
+    PC, so the agent''s system_action may lock it with no card.'
+  source: health audit 2026-11-12
+  module: src/swift/system/intents.py, src/swift/workflows/system_tools.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: intents.py:426 _LOCK accepts bare 'lock it' / 'lock up'; system_tools._intents splits on 'and' (system_tools.py:37-39,
+    94-97) and finds lock; _same compares name and slots only (system_tools.py:114-115), and lock has none, so system_action('lock
+    the computer') passes the scope check and runs as 'reversible' with no card (system_tools.py:153-162, 179).
+  test: tests/unit/test_health_SYS.py::test_lock_it_in_another_request_is_not_lock_the_pc
+  note: The gate is shown open; the agent actually choosing to call it is not reproduced. Spoken directly to the
+    lane, 'Swift, lock it' locking is intended.
+- id: HA-HEAR-03
+  title: After a bare "Hey Swift" that only the acoustic detector caught, the request sent to the agent keeps the
+    misheard name and anything said before it.
+  source: health audit 2026-11-12
+  module: src/swift/wake_acoustic.py, src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: wake_acoustic.py:252-253 returns WakeMatch("", "") for a bare hit; session.py:2270-2271 then captures
+    with lead_s = the whole utterance, and session.py:2700-2702 strips the name with match_wake, which already failed
+    on this audio (that is why the second way ran). So "He's left. What time is it?" goes to the agent as is.
+  test: tests/unit/test_health_HEAR.py::test_after_a_bare_hey_swift_only_the_detector_heard_the_request_is_only_what_followed
+  note: Off by default (wake.acoustic). The capture could start its lead at the hit (hit + REQUEST_FROM) instead
+    of the utterance start.
+- id: HA-HEAR-05
+  title: The second-way window check accepts any word before "swift" ("Taylor Swift", "The swift fox", "Swift, Swift"),
+    so a detector hit on such speech starts a request.
+  source: health audit 2026-11-12
+  module: src/swift/wake.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: 'wake.py:124-129 second alternative `^\W*(?:[\w'']+\W+[\w'']*|...)wift` matches any first word; run
+    here: match_wake_window("Taylor Swift.") is True, also "So swift.", "Be swift about it", "Swift, Swift.". The
+    hard negatives in test_wake_acoustic.py:202 don''t include a word before the name.'
+  test: tests/unit/test_health_HEAR.py::test_the_window_check_turns_down_a_name_or_a_word_before_swift
+  note: The regex is confirmed; a real false wake needs stage 1 to fire on such speech too, which wasn't measured
+    (the trial's 2 h of office audio had 0). Off by default. Approves nothing.
+- id: HA-CFG-02
+  title: '"Is it X or Y" questions about weather, temperature or the day ("is it raining or sunny today") go to
+    the tool-free quick model, which has no clock or web.'
+  source: health audit 2026-11-12
+  module: src/swift/routing/light.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: light.py:165 "is it .{1,30} or .{1,30}" in the "language" kind; light.py:233-234 checks only _NOT_COMPOSE
+    and _ON_SCREEN for it, not _NOT_LIGHT, so "today", "weather", "now" do not block it. rules.py:250 then routes
+    it as action=quick. Also "is it on or off" (deictic) takes the quick lane.
+  test: tests/unit/test_health_CFG.py::test_now_questions_do_not_take_the_quick_lane
+  note: The owner gets a guessed or hedged answer instead of a real one. Parity score (413/423) has no such case.
+- id: HA-CFG-03
+  title: An executor.models setting that names only some levels (e.g. just "standard") crashes the backend at start-up
+    with a KeyError instead of a settings error.
+  source: health audit 2026-11-12
+  module: src/swift/settings.py, src/swift/backend/__main__.py
+  area: config
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'settings.py:167-169: a given dict replaces the default whole. claude_code.py:329 merges with DEFAULT_MODELS,
+    but backend/__main__.py:535 reads settings.executor.models["light"] directly (quick_answers is on by default).
+    The KeyError happens inside _serve, after load_settings, so no SWIFT_BACKEND_ERROR config line names the setting.'
+  test: tests/unit/test_health_CFG.py::test_partial_models_setting_keeps_light
+  note: Same key read two ways. Merge the defaults in the settings model, or read through the executor's merged
+    map.
+- id: HA-CFG-04
+  title: '"Open this" on a selected script whose type is not in PROGRAMS (.py, .pyw, .url, .msc, .jar, .pif) resolves
+    to os.startfile, which can run it with no card.'
+  source: health audit 2026-11-12
+  module: src/swift/routing/local.py, src/swift/desktop/base.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: local.py:103-108 refuses only paths ending in desktop/base.py:42 PROGRAMS; session.py:4182-4185 calls
+    it for "open this", then launch() uses os.startfile. Test shows a .py file resolves to an OpenTarget. Whether
+    it runs depends on the file association (none for .py system-wide on this PC; per-user not checked).
+  test: tests/unit/test_health_CFG.py::test_open_selected_script_is_refused
+  note: local.py's docstring promises a program or script is never opened this way. An allow-list of document types
+    would be safer than a deny-list.
+- id: HA-FAKE-04
+  title: When Gmail fills in part-way (To set, then "couldn't put the cursor in the body"), the owner and the provider
+    are told only that it couldn't be filled in; nothing says a half-filled compose window is open, and the hint
+    "Finish the email yourself" is dropped.
+  source: health audit 2026-11-12
+  module: src/swift/desktop/fake.py, src/swift/desktop/windows.py, src/swift/workflows/desktop_tools.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'windows.py:711-712 fills To, then body, then subject, and _set_field raises DesktopError at windows.py:725-727
+    after To is set; gateway.py:261 passes str(exc) only (hint lost); desktop_tools.py:320 "<app> couldn''t be filled
+    in: ... Nothing was sent." FakeDesktop.fill_in_email (desktop/fake.py:129-133) fails before anything or fills
+    everything, so test_desktop.py::test_fill_in_reports_an_unavailable_app passes without the part-way case.'
+  test: tests/unit/test_health_FAKE.py::test_a_part_filled_gmail_window_is_said
+  note: A provider that tries again opens a second compose window (suspected, not run). Why the focus fails is still
+    unproven (reliability audit §4). A faithful fake can stop after a given field with the real error.
+- id: HA-UI-02
+  title: After a display scale change or a monitor being unplugged, the hit-test geometry is stale, so clicks on
+    a card can go through to the app underneath, or an empty area blocks clicks meant for that app.
+  source: health audit 2026-11-12
+  module: overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: hit.rs:44-55 maps the cursor using Geometry {x, y, scale}; only place_on_cursor_monitor (lib.rs:151)
+    and begin_drag (lib.rs:343-345) write it. Nothing handles WM_DPICHANGED, WM_DISPLAYCHANGE or a window move (no
+    on_window_event, and grep finds no ScaleFactorChanged). raise (lib.rs:392-399), used for "Hey Swift" and new
+    cards, re-shows the window but does not re-place it.
+  test: null
+  note: Not reproduced; real DPI changes are an owner check (compare O-09, which covers pane size only). It fixes
+    itself after the next hotkey press or drag. A voice-only session keeps the stale mapping, so a click on Approve
+    or Reject can miss the card and land in the app behind it.
+- id: HA-INT-01
+  title: Three pairs of packages import each other (executors and routing, routing and system, security and workflows),
+    so none of them can be changed or tested alone.
+  source: health audit 2026-11-12 (import graph)
+  module: src/swift/executors, src/swift/routing, src/swift/system, src/swift/security, src/swift/workflows
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: ast import graph of src/swift at bb5cb89; package-level two-way edges listed in the title
+  test: null
+  note: A check that fails on a new two-way edge would stop it getting worse; breaking the existing cycles is part
+    of the session.py split.
+- id: B-08
+  title: An "unknown" outcome is not remembered, so it can't be undone and the same action can be approved and done
+    again.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md X-09
+  module: src/swift/security/gateway.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: gateway.py:256-260 returns Outcome("unknown") without adding to scope.sent or scope.done (only DONE
+    path at gateway.py:273)
+  test: null
+  note: Seams rates the repeat risk (X-09) medium. No fix commit found.
+- id: H-06
+  title: No heartbeat between overlay and backend, so a hung backend with its socket open looks connected.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8; handoff §2
+  module: overlay/src/ipc.ts, src/swift/ipc/server.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no ping/heartbeat in overlay/src/ipc.ts or src/swift/ipc/server.py (grep)
+  test: null
+  note: Tray Restart Swift covers it by hand.
+- id: H-07
+  title: backend-error and backend-ready events from Rust have no listener in the overlay.
+  source: docs/audit/2026-10-audit.md §2
+  module: overlay/src-tauri/src/backend.rs
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: emitted at backend.rs:180,207,211,219; no listener in overlay/src (grep)
+  test: null
+  note: Harmless; the overlay polls backend_info.
+- id: OCT-02
+  title: Some apps treat Shift+Enter as submit (Excel moves a cell), and the paste route still pastes CRLF.
+  source: docs/audit/2026-10-audit.md A-01 remaining risk
+  module: src/swift/desktop/windows.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: desktop/windows.py:160-166 Shift+Enter for every app
+  test: null
+  note: Not rechecked on real apps (owner check 50).
+- id: OCT-03
+  title: A page listing many links lets a run leak a few bits per fetch by choosing one, and search queries go to
+    the provider.
+  source: docs/audit/2026-10-audit.md A-03 remaining risk; privacy-security.md
+  module: src/swift/executors/web_scope.py
+  area: privacy
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: web_scope allows addresses returned in earlier tool results (claude_code.py:231)
+  test: null
+  note: Accepted by design in October.
+- id: OCT-04
+  title: A reworded repeat of a running request starts a second run.
+  source: docs/audit/2026-10-audit.md A-11 remaining risk; day-scenarios.md
+  module: src/swift/session.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: session.py:1253 _same_request compares normalised words only
+  test: null
+  note: Cards still gate any action.
+- id: OCT-06
+  title: After a restart with a card open, nothing tells the owner the action wasn't done.
+  source: docs/audit/day-scenarios.md Lifecycle; 2026-11-seams-audit.md T-12
+  module: src/swift/session.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: same gap as T-12, listed open in docs/handoff/README.md §2; no fix commit found for T-12
+  test: null
+  note: Nothing is done without the card, so low risk.
+- id: OCT-08
+  title: '"Could you tell Ada I''m running late" goes to the general agent, not the email-draft workflow.'
+  source: docs/audit/day-scenarios.md Lane choice
+  module: src/swift/workflows/library.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: probe today - library.match("Could you tell Ada I'm running late") is None, route is agent; "email Ada
+    that…" matches email-draft
+  test: null
+  note: Works through the agent's tools, without the playbook.
+- id: OCT-09
+  title: '"What did I just ask?" goes to the agent on the light model instead of a local answer.'
+  source: docs/audit/day-scenarios.md Conversation; performance.md
+  module: src/swift/routing/rules.py
+  area: perf
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: probe today - route_for_eval("What did I just ask?") is ('agent', 'light')
+  test: null
+  note: 2-3 s for something Swift knows.
+- id: T-10
+  title: Lock and unlock are handled as concurrent tasks with no lock.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/lifecycle.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: lifecycle.py:99 create_task(self.handle(change)); no asyncio.Lock in handle (103)
+  test: null
+  note: Never reproduced.
+- id: O-11
+  title: Content is capped with no marker (timer lists, "and N more", present lists and tables, calendar text).
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: src/swift/system/lane.py, src/swift/workflows/tools.py, src/swift/connectors/calendar.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: system/lane.py:273 timers[:4]; lane.py:305-306 found[:5] with "and N more"
+  test: null
+  note: Calendar and present caps not rechecked.
+- id: O-12
+  title: Answers fade after at most 20 s, whatever their length.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/answer.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: answer.ts:17 READ_MAX_MS = 20000, used at :33
+  test: null
+  note: Waits on decision 6.
+- id: O-13
+  title: Two overlay clients replace each other about twice a second, forever.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/ipc.ts, src/swift/ipc/server.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: server.py:26 CLOSE_REPLACED = 4409; ipc.ts:77-80 onclose special-cases 4401 only
+  test: null
+  note: null
+- id: V-04
+  title: A quiet "Yes." below the fixed -50 dBFS gate never reaches the speech model.
+  source: docs/audit/2026-11-seams-audit.md §3.4
+  module: src/swift/stt/transcriber.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: transcriber.py:34 SILENCE_DB = -50.0, used at :334
+  test: null
+  note: null
+- id: W-02
+  title: Two enabled word fixes rewrite rare real words ("tori", "distal").
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/fixes.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: strict xfail still fails 2026-11-12
+  test: tests/unit/test_seams_audit_stt.py::test_word_fixes_do_not_rewrite_a_correct_common_word
+  note: null
+- id: X-13
+  title: A cancelled or killed run reports no cost.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/executors/claude_code.py, src/swift/session.py
+  area: tests
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no cost handling on cancelled paths in session.py or claude_code.py (grep)
+  test: null
+  note: d6365aa mentions X-13 only as the same gap for exception text.
+- id: X-14
+  title: Sign-in hints still say run `claude` in a terminal; the card times out while away; no card for "absent"
+    Google; a loose "401" match.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/executors/providers.py, src/swift/connectors/google.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: providers.py:29-30, claude_code.py:445; google.py:212 '"401" in text'
+  test: null
+  note: The away timeout and the absent-Google card weren't rechecked.
+- id: Q-03
+  title: Routing parity (97.5%) measures a synthetic set, not the owner's real requests.
+  source: docs/audit/2026-11-seams-audit.md §3.8
+  module: eval/parity/score.py
+  area: tests
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: eval/parity holds only parity.jsonl and passing.txt; no real-request set
+  test: null
+  note: null
+- id: RA-17
+  title: Time limits (25 s to 24 h) live in many modules with no table showing them together.
+  source: docs/audit/2026-11-reliability-audit.md §2 'What these do', §5 step 3; review item 11
+  module: src/swift/session.py, src/swift/attention.py, src/swift/parked.py
+  area: timers
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 74 module-level *_S constants across 26 files (grep '^[A-Z_]+_S = '), 18 in session.py
+  test: null
+  note: Lifetime table not built.
+- id: RV-16
+  title: Lane capabilities (S4) are a 2-entry table with the older online() check beside it.
+  source: docs/audit/2026-11-reliability-audit-review.md §5
+  module: src/swift/session.py, src/swift/network.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: session.py:2892 lane_needs + online(); session.py:2925, 3906 online() alone
+  test: null
+  note: null
+- id: RV-17
+  title: intake imports a private helper (_bare) from stt.transcriber.
+  source: docs/audit/2026-11-reliability-audit-review.md §5 Step 0 table
+  module: src/swift/intake.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: intake.py:27 from swift.stt.transcriber import FILLERS, _bare
+  test: null
+  note: null
+- id: VR-08
+  title: Which requests count as new on a card is a word list; anything unclear stays a change to the card.
+  source: docs/audit/2026-11-07-voice-and-requests.md 'What this doesn't solve'
+  module: src/swift/session.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: session.py:2484 self._new_request(text, strict=True)
+  test: null
+  note: null
+- id: VR-09
+  title: The weather tool sends the PC's address (IP) to wttr.in, a third-party service with no uptime promise.
+  source: docs/audit/2026-11-07-voice-and-requests.md 'What this doesn't solve'
+  module: src/swift/workflows/tools.py
+  area: privacy
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: tools.py:517 WEATHER_URL = https://wttr.in/?format=j1
+  test: null
+  note: Same exposure as the curl it replaced; no audio or words sent.
+- id: VR-11
+  title: Wake matching waits for the end of the utterance, apart from an early look at the first 1.3 s.
+  source: docs/audit/2026-11-07-voice-and-requests.md 'What this doesn't solve'
+  module: src/swift/session.py, src/swift/wake.py
+  area: perf
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: doc; not re-measured
+  test: null
+  note: The acoustic detector (off) would address it.
+- id: II-07
+  title: Duplicates are matched on exact words only, so a long and short version of the same request run separately.
+  source: docs/audit/2026-11-08-interaction-investigation.md check 197, §3.3
+  module: src/swift/session.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: session.py:392, 2795-2800 same-request check on normalised words
+  test: null
+  note: Partly by design; the proposed 'like the one you stopped' edge isn't built.
+- id: II-08
+  title: Weather answers give no source; tools that read the outside world don't return one for Swift to show.
+  source: docs/audit/2026-11-08-interaction-investigation.md check 193, §3.4
+  module: src/swift/workflows/tools.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: tools.py:526-540 _weather_facts returns place/now/today/hours, no source
+  test: null
+  note: null
+- id: II-11
+  title: While TV speech is being transcribed, a real 'Hey Swift' waits behind it.
+  source: docs/audit/2026-11-08-interaction-investigation.md §2
+  module: src/swift/session.py
+  area: perf
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: doc; only the latest waiting utterance is kept
+  test: null
+  note: Not re-measured.
+- id: II-12
+  title: The agent answers by naming a tool's limits ('I only manage calendar events here') instead of finding another
+    way.
+  source: docs/audit/2026-11-08-interaction-investigation.md §3.5
+  module: src/swift/executors/claude_code.py, src/swift/workflows/library/calendar-event/SKILL.md
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: no such instruction found; claude_code.py:105 tells it not to try another way after a refusal
+  test: null
+  note: Only helps once II-06's hand-back exists.
+- id: WL-03
+  title: 'No trigger besides speech: a manifest with schedule or watch is refused.'
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §2 Execution, §4.3, G4
+  module: src/swift/workflows/library.py, src/swift/system/scheduler.py
+  area: timers
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: library.py:426,459-460 _LATER refuses schedule (W5) and watch
+  test: null
+  note: Unattended runs also hit the interactive 90 s watchdog and $1.00 budget (G4).
+- id: WL-04
+  title: The library loads once at start-up; editing a workflow needs a restart.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §1, §2 Growth
+  module: src/swift/workflows/library.py, src/swift/backend/__main__.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: backend/__main__.py:301 load_library at start; no reload path
+  test: null
+  note: null
+- id: WL-05
+  title: Plain agent runs aren't told which workflows exist, so 'what can you automate?' gets an answer unaware
+    of the library.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §2 Discovery, §8.1
+  module: src/swift/session.py, src/swift/executors/claude_code.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no catalogue in session.py, claude_code.py or library.py (grep 'catalog')
+  test: null
+  note: Phase 0 item.
+- id: WL-10
+  title: Manifest scopes (files.write within ...) are parsed and ignored, and version is validated but unused.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3 Capability management, Versioning
+  module: src/swift/workflows/library.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: library.py:499 scope 'is W2's; the name is checked now'
+  test: null
+  note: null
+- id: WL-11
+  title: Workflows can't write or run things (Edit, Write, Bash refused) and integrations are few, which limits
+    what can be a workflow.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §9.1 G1, G2
+  module: src/swift/executors/claude_code.py, src/swift/workflows/scope.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: doc cites claude_code.py:465-507; not re-read
+  test: null
+  note: Capability gap, not a bug; phases 6 and 6b.
+- id: WL-12
+  title: 'No health check: a workflow whose tools changed runs half-broken; only load-time validation exists.'
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §2 Modification, G5
+  module: src/swift/workflows/library.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: library.py:565-568 load-time skip only
+  test: null
+  note: null
+- id: WL-13
+  title: The recipe.yaml files in the example workflows are read by nothing.
+  source: docs/audit/2026-11-10-workflow-lifecycle-audit.md §3 Orchestration
+  module: docs/explorations/workflows
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: _LATER refuses 'recipe' (library.py:426)
+  test: null
+  note: Designed for W3.
+- id: HO-02
+  title: 'X-17 leftover: an approved call to another file also clears the ''Blocked'' note, and it clears on approval
+    rather than success.'
+  source: docs/handoff/README.md §2 What X-17's review left
+  module: src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: claude_code.py:225 'only these stay out of the answer's Blocked note'; claude_mapping.py:290
+  test: null
+  note: Needs the agent to misreport; nothing unapproved is written.
+- id: HO-03
+  title: 'X-17 leftover: the file name in a confirm card''s title is still the agent''s text, unmarked.'
+  source: docs/handoff/README.md §2 What X-17's review left
+  module: src/swift/security/gateway.py, overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: not re-read; the marked path is shown below the title
+  test: null
+  note: Not rechecked.
+- id: HO-04
+  title: 'X-17 leftover: lines of U+2800 aren''t collapsed as blank, and a card reopened after a hold may start
+    at the top.'
+  source: docs/handoff/README.md §2 What X-17's review left
+  module: src/swift/security/gateway.py, overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: no U+2800 handling in src/swift or overlay/src (grep)
+  test: null
+  note: Scroll position on reopen not rechecked.
+- id: HA-SYS-04
+  title: '''Turn on the light'' (a smart-home request) switches Windows to light mode.'
+  source: health audit 2026-11-12
+  module: src/swift/system/intents.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'intents.py:411 _THEME form 1 has ''(?: mode| theme)?'' optional, so ''turn on the light'' fullmatches
+    with m=light. ''switch to dark'', ''go dark'' match the same way.'
+  test: tests/unit/test_health_SYS.py::test_turn_on_the_light_is_not_the_theme
+  note: Reversible (undo works). Requiring mode/theme after 'turn on/switch on' would keep 'switch to dark'.
+- id: HA-SYS-08
+  title: A radio switch that Windows silently ignored is reported to the session and the agent as ok and done, and
+    journaled DONE.
+  source: health audit 2026-11-12
+  module: src/swift/system/lane.py, src/swift/workflows/system_tools.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: lane.py:480-481 returns the 'didn't switch' line with no exception, so _execute marks ok=True, done=(intent,)
+    and journal DONE (lane.py:202-208); system_tools.perform (system_tools.py:144-148) then lets the gateway record
+    it done. Same for airplane 'stuck' (lane.py:515-522).
+  test: tests/unit/test_health_SYS.py::test_a_radio_that_didnt_switch_is_not_ok
+  note: The words are right; the status, the journal and the dialogue carry-over (_carry_system on outcome.done)
+    are wrong.
+- id: HA-SYS-10
+  title: A retraction in the next sentence ('Lock the computer. No wait, don't.') still leaves lock asked for, so
+    the agent's system_action passes the scope check.
+  source: health audit 2026-11-12
+  module: src/swift/workflows/system_tools.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: system_tools._intents parses sentence by sentence (system_tools.py:94-97) and never looks at a following
+    negation; _NOT is applied only to answers (system_tools.py:52). Plain negations ('don't turn off wifi', 'never
+    turn off the bluetooth', "don't lock the computer and turn the volume down") are correctly not actions (probed).
+  test: tests/unit/test_health_SYS.py::test_a_retracted_lock_is_not_asked_for
+  note: The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first
+    sentence.
+- id: HA-SYS-11
+  title: Timers are kept as wall-clock epoch times, so a clock correction or manual change makes a running timer
+    fire early (marked missed) or late.
+  source: health audit 2026-11-12
+  module: src/swift/system/scheduler.py, src/swift/system/lane.py
+  area: timers
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: lane.py:263 due = now().timestamp() + seconds; scheduler.py:118, 125 compare against time.time(). A
+    forward jump of an hour fires a 10-minute timer at once with '(It was due at ...)'.
+  test: null
+  note: Persisting across restart needs wall time; a monotonic deadline for in-run timers would fix the common case.
+    Not reproduced in a test.
+- id: HA-HEAR-04
+  title: Every presence change (here to idle, idle to here) makes the acoustic detector forget its hits and restart,
+    and turns down a second-way check in flight.
+  source: health audit 2026-11-12
+  module: src/swift/session.py, src/swift/lifecycle.py, src/swift/wake_acoustic.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: lifecycle.py:107 calls listening_changed on every change; session.py:3499-3504 then calls acoustic.resume(),
+    which is reset() (wake_acoustic.py:172-174), and bumps _listening_changes, which _second_way reads as a lock
+    (session.py:2117-2119).
+  test: tests/unit/test_health_HEAR.py::test_going_idle_doesnt_make_the_detector_forget_a_hey_swift
+  note: Only at the 10-minute idle edge or the first input after it; the safe direction (a miss, not a false wake).
+    Call resume only when it was paused.
+- id: HA-HEAR-06
+  title: A broken or overloaded acoustic detector is invisible - scorer errors are swallowed without a count and
+    its hits/dropped counters are never logged.
+  source: health audit 2026-11-12
+  module: src/swift/wake_acoustic.py, src/swift/backend/__main__.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: wake_acoustic.py:138 stats "for the wake listening log line", but backend/__main__.py:372 logs only
+    listener.take_stats() and session.take_wake_stats(); grep finds no reader of acoustic.stats. wake_acoustic.py:203-204
+    swallows every exception (each block failing would go unseen).
+  test: null
+  note: Add the acoustic counters (and an error count) to the 5-minute wake listening line.
+- id: HA-CFG-05
+  title: The backend crashes with an uncaught RuntimeError when APPDATA or LOCALAPPDATA is unset, while settings.py
+    deliberately handles that case.
+  source: health audit 2026-11-12
+  module: src/swift/config/paths.py, src/swift/backend/__main__.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: paths.py:48-52 raises; settings.py:22-31 falls back under the profile (commit 4284d06, "a process started
+    with a bare environment"). backend/__main__.py:574 calls app_paths() outside the SettingsError handler, so no
+    SWIFT_BACKEND_ERROR line; Tauri only sees the process exit. Tauri inherits the environment (backend.rs:162-172),
+    so it is unlikely in normal use.
+  test: tests/unit/test_health_CFG.py::test_app_paths_and_settings_agree_on_a_bare_environment
+  note: Two rules for the same folders. Use settings._env_value in paths.py, or catch it in main.
+- id: HA-CFG-06
+  title: The swift/config TOML system (models, loader, defaults) is dead code that still documents unsafe options,
+    including a "voice_yes" mode where a plain spoken yes approves.
+  source: health audit 2026-11-12
+  module: src/swift/config/models.py, src/swift/config/loader.py, src/swift/config/defaults.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'git grep: load_all, SwiftConfig, PermissionsConfig, high_risk_mode are used only in tests/unit/test_config.py;
+    production reads config.yaml through settings.py (backend/__main__.py:569). Only config/paths.py is live. models.py:145
+    and defaults.py:310 describe voice_yes ("a plain spoken yes"), against the rule that a bare yes never approves.
+    defaults.py refers to docs/configuration.md and docs/permissions.md, which do not exist. docs/threat_model.md:36
+    (T12) cites this unused fail-closed loader as a live mitigation.'
+  test: null
+  note: 'Dead code, not a path: nothing loads it. Delete models/loader/defaults and test_config.py, and fix threat
+    model T12 (see HA-CFG-01).'
+- id: HA-CFG-07
+  title: Filler and wake-phrase stripping is written five times with different word lists, so routing, demand and
+    dialogue see differently cleaned text.
+  source: health audit 2026-11-12
+  module: src/swift/routing/demand.py, src/swift/routing/fast.py, src/swift/routing/rules.py, src/swift/dialogue.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: demand.py:43 _LEAD (um/uh/er/ok/so/right/alright), fast.py:37 _LEAD (adds and/then/hey/hmm/quick question...),
+    rules.py:62 _FILLER and :111 _LEAD_IN, dialogue.py:151 _FILLER; the wake regex is copied in fast.py:35 and rules.py:60.
+    classifier.py:139 embeds demand.strip_lead text while examples are embedded raw.
+  test: null
+  note: No wrong route reproduced from this; maintainability only.
+- id: HA-FAKE-02
+  title: When Google refuses (a 429 quota, a 403), the owner's card and the provider get Google's raw error text,
+    with the API address and the search words in it, not a sentence.
+  source: health audit 2026-11-12
+  module: src/swift/connectors/google.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'google.py:216 ConnectorError(f"... couldn''t do that: {text[:200]}") with text = str(HttpError); gateway.py:291-293
+    puts str(exc)[:200] in the send_status card. Fakes raise clean sentences (connectors/fake.py:52, connectors/fake.py:80),
+    so no test sees this.'
+  test: tests/unit/test_health_FAKE.py::test_a_google_refusal_reads_as_a_sentence
+  note: Seams audit X-05 covers the same text in swift.log and the journal; this is the card. A 429 is also not
+    retried (transient() is 5xx only), which may be intended.
+- id: HA-UI-03
+  title: A hotkey removed from config.yaml (or the debug key once debug is off) stays registered after Restart Swift,
+    and keeps its key from other apps until Swift quits.
+  source: health audit 2026-11-12
+  module: overlay/src-tauri/src/lib.rs, overlay/src/main.ts
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: main.ts registerHotkeys sends only the hotkeys that are set (push_to_talk, debug when debugEnabled,
+    type); lib.rs:270-283 register_hotkeys only registers and replaces by name, and never unregisters a name missing
+    from the list. The Hotkeys map keeps it, so on_shortcut (lib.rs:193-211) still emits it.
+  test: null
+  note: Changing a key works (register unregisters the old one by name). Only removing one leaks it. A removed "type"
+    key still opens the text box.
+- id: HA-UI-04
+  title: When the backend exits on its own, its job object (with any Claude Code CLI still running in it) is not
+    ended until Restart Swift or Quit.
+  source: health audit 2026-11-12
+  module: overlay/src-tauri/src/backend.rs
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: backend.rs:217-220 on stdout EOF only calls exited() (info cleared, error set). child, _stdin and job
+    stay in Backend; TerminateJobObject runs only in end() (backend.rs:244-267), reached from restart and stop.
+    The child is also assigned to the job after spawn (backend.rs:186-191), and a failed AssignProcessToJobObject
+    is ignored.
+  test: null
+  note: 'Whether a CLI outlives its parent''s closed pipes was not checked. Small fix: end the job in the reader
+    thread when the current generation exits. A malformed ready line or SWIFT_BACKEND_PORT parses to port 0 (backend.rs:101,
+    205), and the overlay then shows "Reconnecting…" forever rather than an error.'
+- id: HA-UI-05
+  title: A card that has just joined the waiting stack stops glowing early when another card joins within FRESH_MS,
+    so the owner may miss the first one.
+  source: health audit 2026-11-12
+  module: overlay/src/stack.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: stack.ts:36 sets fresh to only the newest ids whenever any id is new, dropping earlier ids still inside
+    their glow.
+  test: 'overlay/tests/health-UI.test.ts::"HA-UI-05: a card that just joined the stack keeps its glow when another
+    joins a moment later"'
+  note: Reproduced (todo test fails with actual ['b']). Polish. The fix keeps the earlier fresh ids that are still
+    inside freshUntil.
+- id: HA-UI-06
+  title: A pane window closed outside PaneSync (Alt+F4 on the focused text box, or a WebView crash) stays in Rust's
+    Panes map, so open_pane for that label returns Ok without opening anything.
+  source: health audit 2026-11-12
+  module: overlay/src-tauri/src/lib.rs
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: lib.rs:421 open_pane returns Ok when Panes contains the label, even if get_webview_window is None. Only
+    close_pane (lib.rs:487-494) removes entries. No window-destroyed handler.
+  test: null
+  note: 'The text box usually heals: its blur sends type-close, which runs close_pane. If no blur arrives, the owner
+    has to press the type hotkey twice. Changing the check to "window exists" (and dropping a stale entry) would
+    fix it.'
+- id: HA-INT-02
+  title: Nine imports reach into another module's private names (_obj from workflows.tools three times, _kill_tree
+    and _claude_children from claude_code, _normalize from routing.rules, _clip, _TRIM, _bare), so a private change
+    breaks a caller nobody sees.
+  source: health audit 2026-11-12 (import graph)
+  module: src/swift/workflows/tools.py, src/swift/executors/claude_code.py, src/swift/routing/rules.py, src/swift/wake.py,
+    src/swift/parked.py, src/swift/stt/transcriber.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: ast import graph of src/swift at bb5cb89
+  test: null
+  note: Make each one public where it is shared (rename, no behaviour change). Supersedes the single _bare entry.
+- id: D-01
+  title: Each entry point (voice, typed, click, lane) had its own copy of the dialogue and approval steps.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/intake.py, src/swift/session.py
+  area: routing
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: design-concern
+  evidence: commit d44cac0 added src/swift/intake.py; session.py still 5057 lines with lane branches
+  test: tests/unit/test_intake.py::test_who_may_approve_what
+  note: 'One approval table exists; an aside during a lane question still ends it (rest of D-02). Review M2/M3 found
+    system questions still differ from run questions. Raised from high: breaks a product rule.'
+- id: X-01
+  title: A single contact match wasn't checked against the full name said, so the wrong Francis could be emailed
+    (#15).
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/workflows/tools.py, src/swift/workflows/names.py
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: confirmed
+  evidence: commit 394f2ae and follow-ups a4e3914, 05ccc47; tools.py:190-191 said_otherwise makes it a guess
+  test: tests/unit/test_seams_audit_privacy.py::test_the_whole_name_said_but_only_another_francis_is_a_contact
+  note: 'Only the word after the name is compared ("Chianu Francis" missed); without ask_fn a guess is still resolved
+    (handoff §2). Raised from high: breaks a product rule.'
+- id: X-02
+  title: Every find_contact candidate counts as resolved, so an unmeant one can be drafted to.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/workflows/tools.py
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: confirmed
+  evidence: tools.py:198-201 resolves every candidate unless a single guess must be asked first
+  test: tests/unit/test_seams_audit_privacy.py::test_the_wrong_francis_offered_can_be_drafted_to_because_resolved_means_found
+  note: Single guesses wait for a yes (7ffa9f5); with several candidates all count. The named test pins the open
+    behaviour (passes today); turn it into a strict xfail of the right behaviour when fixing.
+- id: X-05
+  title: Exception and connector texts, including a selected file's path, went into swift.log and the journal.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/session.py, src/swift/connectors/google.py, src/swift/executors/claude_mapping.py
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: confirmed
+  evidence: commits 6462b09, be89790, 094b1ce, d6365aa, 7c3f839
+  test: tests/unit/test_seams_audit_privacy.py::test_a_failed_open_keeps_the_file_out_of_swift_log
+  note: 'Left - "workflow skipped" can quote a workflow file; redact misses a bare sk-ant- key; backend stderr unchecked.
+    The audit says Low may be too low. Raised from low: breaks a product rule.'
+- id: X-07
+  title: Swift's own data folder (recordings, transcripts) wasn't on the never-read list, so one card could send
+    it out.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/security
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: design-concern
+  evidence: commits 0e28491, 941c813, a9747c9
+  test: tests/unit/test_seams_audit_privacy.py::test_swift_s_data_folder_is_never_read
+  note: 'An approved search of a parent folder can still reach it; \\127.0.0.2\c$ spellings unproven (handoff §2).
+    Raised from medium: breaks a product rule.'
+- id: RA-07
+  title: The contact-guess rule treated titles as names ('Dr Lovelace') and compared the agent's search words, not
+    the owner's.
+  source: docs/audit/2026-11-reliability-audit.md §1
+  module: src/swift/workflows/tools.py, src/swift/workflows/names.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: confirmed
+  evidence: tools.py:189-192 names.narrow/said_otherwise now read scope.said (owner's words); titles dropped in
+    7ffa9f5
+  test: tests/unit/test_owner_checks_1104b.py::test_a_title_is_not_part_of_the_name
+  note: 'Closes the X-01 path; X-01''s own limits (word order, common-word surnames) are in the seams register.
+    Raised from medium: breaks a product rule.'
+- id: B-01
+  title: Claude Code could read any file without asking, including secrets, and send it to the model provider.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8 (X-07)
+  module: src/swift/executors/read_scope.py, src/swift/executors/claude_code.py
+  area: privacy
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: executors/read_scope.py; claude_code.py:314; settings.py:156; Swift's own folder added to never_read
+    (X-07, 2026-11-10)
+  test: tests/unit/test_audit_2026_10.py::test_claude_code_asks_before_reading_elsewhere_and_never_reads_secrets
+  note: A Grep over a read folder, or an approved search of a parent folder, can still reach a secret-looking file
+    inside it.
+- id: D-02
+  title: A wordy yes, "hold on" or an aside dropped the open question and went to the agent.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/dialogue.py, src/swift/intake.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: commit d44cac0; handoff §2 says an aside question during a lane question still ends it (to the stack
+    since 79c3318)
+  test: tests/unit/test_seams_audit_speech.py::test_s12b_hold_on_doesnt_drop_the_question
+  note: Wordy yes and "hold on" fixed; an aside question during a lane question still closes it into the stack.
+- id: T-01
+  title: One timer slot served every question, so a question behind cancelled the on-screen one's timer and the
+    run hung.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/answer_window.py, src/swift/session.py
+  area: timers
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: commit f918be9 (answer_window.py); reliability review §5 rates it "Partial for T-01"
+  test: tests/unit/test_seams_audit_state.py::test_s01_a_lane_question_behind_a_run_question_kills_the_run_questions_timer
+  note: Clock fixed; _front_for_question ignores _bring returning False, so the question may not reach the screen
+    under a confirm card (review M1, case F).
+- id: O-08
+  title: A due card the overlay dropped while a run was in front was still marked shown.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: src/swift/session.py, overlay/src/presenter.ts
+  area: screen
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: session.py:354, 793 due.shown acknowledgement (e602d8d, later fdfdb23)
+  test: null
+  note: The review calls it a workaround; only due cards are acknowledged, so any other frame can still be refused
+    silently (presenter.ts, handoff §2).
+- id: X-17
+  title: Edit and Write approval cards showed only 60-70 characters of what would be written.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/executors/claude_mapping.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: design-concern
+  evidence: commits 20b6404, 5a7c05f, c9b2044, 34ac0dc
+  test: null
+  note: Tests are in tests/unit/test_x17_whole_change_on_card.py and test_seam_replay.py (names not resolved). Left
+    - the generic card for other tools (60-300 chars), the file name in the title unmarked, U+2800 lines not collapsed.
+- id: RA-01
+  title: 'C1: a request isn''t one record; its state is spread over many holders in session.py and copies in the
+    overlay, so cards lose their owner.'
+  source: docs/audit/2026-11-reliability-audit.md §2 C1
+  module: src/swift/session.py, overlay/src/main.ts
+  area: process
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: 79c3318 (system questions belong to a live Run, -385/+110); session.py:2837-3170 still sends results
+    as f"local-{n}" ids; ADR-020 step 1 dropped (workflow audit §9.3)
+  test: tests/unit/test_seam_replay.py::test_one_request_is_one_record_however_many_turns
+  note: System questions now have an owner (review M2/item 7). Local answers still use ownerless local-N ids; no
+    single request record exists. Related seams ids O-, T-.
+- id: RA-05
+  title: owner_intents didn't split on full stops, so a spoken two-sentence request with a system action was refused
+    (Bluetooth).
+  source: docs/audit/2026-11-reliability-audit.md §2 C3, §4.2
+  module: src/swift/workflows/system_tools.py
+  area: routing
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: '7ffa9f5; run today: ''Turn the volume down. Write a haiku about tea.'' -> volume.step; ''Mute. Write
+    a haiku.'' -> [] and ''Mute.'' -> []'
+  test: tests/unit/test_intake.py::test_the_safety_check_reads_each_spoken_sentence
+  note: Sentence split fixed. A bare one-word 'Mute.' still finds no intent (review §3 leftover).
+- id: RA-09
+  title: fragment refused one-word answers ('Tuesday', 'Both') by a confidence bar, giving 'Say that again?'.
+  source: docs/audit/2026-11-reliability-audit.md §3; review §3, item 5
+  module: src/swift/intake.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: intake.py:98-104 fragment refuses hesitations only (d5fa03f)
+  test: tests/unit/test_intake.py::test_what_counts_as_a_fragment
+  note: Regression gone. A misheard single word ('Kern') reaches the agent again until a bar is scored on saved
+    clips.
+- id: VR-03
+  title: 'There was no wake-word detector: ''Hey Swift'' is found by transcribing and matching text, so misheard
+    forms (''He swift'', ''Hate Swift'', ''Take rift'') miss.'
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: src/swift/wake.py, src/swift/wake_acoustic.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: near-miss priming session.py:2155-2157; wake_acoustic.py added (42873d8, cd954c8, 29a48dc), docstring
+    says 'Not wired in yet', merged off by default (c31bbd4)
+  test: tests/unit/test_seam_replay.py::test_a_wake_phrase_only_the_detector_heard_starts_the_request_on_screen
+  note: Detector exists but is off; owner checks 228-232 decide it. Text matching scored 64->74 of 305 clips.
+- id: B-04
+  title: A backend that died was never restarted and the tray had no Restart Swift.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8 (O-02)
+  module: overlay/src-tauri/src/backend.rs, overlay/src/engine.ts
+  area: process
+  severity: medium
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: backend.rs:9-12,55,107 (Restart Swift, generation); commit bb6925f; overlay resync after restart via
+    hello instance (backend/__main__.py:392-393, e602d8d)
+  test: null
+  note: No automatic relaunch (owner question 4 open). Rust test a_restart_starts_clean_and_the_old_readers_news_is_ignored
+    exists but was not run here.
+- id: B-05
+  title: The first request after starting or coming back can be 8-25 s slower because the spare CLI connects beside
+    the speech model.
+  source: docs/audit/2026-10-audit.md §2; performance.md; 2026-11-seams-audit.md §3.8
+  module: src/swift/backend/__main__.py, src/swift/lifecycle.py
+  area: perf
+  severity: medium
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: lifecycle.py:178-193 waits for speech on return; backend/__main__.py:510,532 still starts transcriber
+    loading and executor.prepare() together at start-up
+  test: null
+  note: Start-up ordering unchanged; keeping the spare through a short lock not built. Seams found the first request
+    warm in 13 starts; latency not re-measured.
+- id: Q-01
+  title: The owner-check report couldn't print FAIL; on-screen checks always printed PASS.
+  source: docs/audit/2026-11-seams-audit.md §3.8
+  module: spikes/owner_checks/report.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: commit 43c8077; tests/unit/test_owner_report.py
+  test: null
+  note: The review found check 149 still passed 8 sent / 1 drawn at report.py:471; commit 6ae9672 targets it, not
+    rechecked.
+- id: Q-02
+  title: The fakes hide every seam; nothing drove the backend and overlay together.
+  source: docs/audit/2026-11-seams-audit.md §3.8
+  module: tests/unit/test_seam_replay.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: commit 2610e71 added test_seam_replay.py (real frames through the real presenter)
+  test: null
+  note: The replay is one-way, in a browser not Tauri, with no DOM or pane windows (handoff §1).
+- id: RA-04
+  title: 'C4: tests confirm their own assumptions: they reach into session internals, guess timings with sleeps,
+    and stopped at the overlay seam.'
+  source: docs/audit/2026-11-reliability-audit.md §2 C4
+  module: tests/unit
+  area: tests
+  severity: medium
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: 2610e71 seam test through the real presenter; 6ae9672 report check 149
+  test: tests/unit/test_seam_replay.py::test_d_a_quick_answer_during_a_question_is_seen
+  note: Seam replay exists but stops before the DOM and Tauri and runs one way (handoff §1). Private-attribute tests
+    and sleeps not recounted.
+- id: RV-11
+  title: 'M5: fixes bundle many findings in one big commit with no seam replay or labels, and ''one owner'' claims
+    were made before.'
+  source: docs/audit/2026-11-reliability-audit-review.md §4 M5
+  module: CLAUDE.md
+  area: process
+  severity: medium
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: CLAUDE.md 'Fixing things' rules (one finding per commit, labels, seam scenario, reviewer)
+  test: null
+  note: Rules written; adherence not audited commit by commit.
+- id: B-09
+  title: Docs drift; architecture.md still describes a Tk overlay, Piper and Ollama.
+  source: docs/audit/2026-10-audit.md §2; architecture-as-built.md
+  module: docs/architecture.md, docs/threat_model.md
+  area: process
+  severity: low
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: threat_model.md:35 (T11) and :38 (T14) corrected; docs/architecture.md:10,16,22 still name Ollama, Tk,
+    Piper
+  test: null
+  note: architecture.md thread table not rewritten.
+- id: RA-11
+  title: Stack and set-aside lifetimes are more scattered constants; a set-aside card waits 30 min.
+  source: docs/audit/2026-11-reliability-audit.md §3, §4.5
+  module: src/swift/attention.py, src/swift/session.py
+  area: timers
+  severity: low
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: attention.py:41-45 HOLD_S/ASIDE_S/RETURN_S; agent slot released in session.py:3018 when the run ends
+  test: null
+  note: 'Slot hold for 30 min not rechecked: slots are released in the run''s finally, and system questions no longer
+    take one. See RA-17 for the lifetime table.'
+- id: RA-18
+  title: Wake reliability after idle has had three rounds of fixes with no proven cause.
+  source: docs/audit/2026-11-reliability-audit.md §4; handoff §2 Not understood yet
+  module: src/swift/session.py, src/swift/wake.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: session.py:2405-2410 short_wake; wake_acoustic.py (ADR-021 detector, 'Not wired in yet', merged off
+    by default per c31bbd4)
+  test: null
+  note: Cause still unproven. The acoustic detector may change it once on.
+- id: OCT-07
+  title: Wake transcription timed out after about 30 minutes of quiet while unlocked.
+  source: docs/audit/day-scenarios.md Lifecycle; performance.md
+  module: src/swift/session.py, src/swift/stt/transcriber.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: handoff §2 "Wake reliability after idle - three rounds of fixes, no proven cause"
+  test: null
+  note: Not rechecked; cause never reproduced.
+- id: O-09
+  title: The live view may ratchet narrower with mixed-DPI monitors (#10).
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src-tauri/src/lib.rs
+  area: screen
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: commit b9ca8c3 fixed a 90% pane size from the opening animation and says it "may also explain"
+  test: null
+  note: Mixed DPI never tested; needs an owner check.
+- id: RA-13
+  title: The short 'Hey Swift' rule may raise false wakes by an unmeasured amount; false-wake rate is not measured.
+  source: docs/audit/2026-11-reliability-audit.md §3, §4.7; handoff §2 Not understood yet
+  module: src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: session.py:2405-2410 short_wake counter; session.py:960 wake_stats
+  test: null
+  note: Counter exists so it can be judged; no measurement found. Also voice 11-07 'false starts not well measured'.
+- id: RA-19
+  title: Gmail 'couldn't put the cursor in the body' comes from a focus check; why focus failed is unknown.
+  source: docs/audit/2026-11-reliability-audit.md §4; handoff §2 Not understood yet; review §9
+  module: src/swift/desktop/windows.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: not investigated; desktop/windows.py focus check not re-read
+  test: null
+  note: Not rechecked.
+- id: II-05
+  title: 'Check 194: ''Hey Swift'' during a request takes the front, and the first request''s answer arrives behind,
+    unseen.'
+  source: docs/audit/2026-11-08-interaction-investigation.md check 194, §3.1 rules 2-3
+  module: src/swift/session.py, overlay/src/presenter.ts
+  area: screen
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: presenter.ts:270 notInFront -> shown:false; Deck (ADR-018) keeps a request said beside a working card
+    behind it
+  test: tests/unit/test_seam_replay.py::test_deck_a_quick_answer_sends_the_card_behind_and_the_card_comes_back
+  note: Never proven on screen because the overlay doesn't log what it draws (II-10).
+- id: HO-01
+  title: 'B-05: the first request after start is 8-25 s slower.'
+  source: docs/handoff/README.md §2 Not understood yet
+  module: src/swift/session.py, src/swift/executors/claude_code.py
+  area: perf
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: not rechecked
+  test: null
+  note: Not rechecked.
+- id: HA-FAKE-05
+  title: '"Undo that" after Swift typed into an app by keystrokes presses Ctrl+Z once per paragraph, but apps undo
+    typed text by word or by pause, so part of Swift''s text can stay (or the owner''s earlier text go). The fake
+    undo always restores the text exactly.'
+  source: health audit 2026-11-12
+  module: src/swift/desktop/windows.py, src/swift/desktop/fake.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: windows.py:640-644 _chord(VK_CONTROL, "Z", receipt.chunks) for the keys and paste routes; the keys route
+    is used whenever the clipboard holds anything but plain text (windows.py:223-224, 608-610), e.g. after copying
+    from a web page. desktop/fake.py:114-118 restores the saved text whatever the route, so test_desktop.py::test_another_window_in_front_pauses_a_paste
+    ("still undoable") and the undo tests never see a partial undo.
+  test: null
+  note: Not tried in a real app (no real-world actions). The paste route is probably right (one paste is one undo
+    step in most apps). A faithful fake would undo per app-defined step, e.g. per word for "keys".
+- id: HA-INT-03
+  title: test_parked.py::test_finish_the_named_task fails about one run in three, so a red suite doesn't reliably
+    mean a regression.
+  source: docs/handoff/README.md §2
+  module: tests/unit/test_parked.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: tests/unit/test_parked.py:145; cause not found
+  test: tests/unit/test_parked.py::test_finish_the_named_task
+  note: Reported in the handoff; not reproduced in this audit. Tests now hold 304 sleeps (140 on 2026-11-05), the
+    likely family of cause.
+- id: OCT-05
+  title: When the microphone is unplugged, no card tells the owner; only the tray shows it.
+  source: docs/audit/day-scenarios.md Lifecycle
+  module: src/swift/audio/recorder.py, src/swift/backend/__main__.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: backend/__main__.py:375-382 watchdog only logs; recorder.py:373 logs "reopening"; no overlay notice
+    found by grep
+  test: null
+  note: Tray path not traced.
+- id: OCT-11
+  title: Several fixes from October were never seen live (mid-run "show me"/"stop", second request queued, email
+    subject, drag at 150%).
+  source: docs/audit/2026-10-audit.md §2 recurring failures; day-scenarios.md
+  module: src/swift/session.py, overlay/src/main.ts
+  area: tests
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: owner checks 10, 41/43, 47, 58 named as not run in the October docs
+  test: null
+  note: Not rechecked; owner-check results not read here.
+- id: O-14
+  title: The fallback inline live view loses its header in a short window (720x480).
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: confirmed
+  evidence: no fix commit found
+  test: null
+  note: Not rechecked (needs the harness).
+- id: W-05
+  title: A low-confidence trigger would see only about 25% of recognition errors.
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/recordings.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: confirmed
+  evidence: a measurement on owner data (29 of 39 wrong clips were "clear"); no code to check
+  test: null
+  note: Not rechecked; a design input for §7, not a bug in code.
+- id: W-07
+  title: Boosting expected answers by a score bonus inserts them ("Yes." six times).
+  source: docs/audit/2026-11-seams-audit.md §3.5
+  module: src/swift/stt/transcriber.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: confirmed
+  evidence: an experiment result; no such bonus found in today's code
+  test: null
+  note: A warning for future design, not live code. Not rechecked.
+- id: R-10
+  title: Calendar workflows on Haiku took 3-6 turns, about 15 s to the first card.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/workflows
+  area: perf
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: no first_output_ms metric exists to re-measure it (see R-08)
+  test: null
+  note: Not rechecked.
+- id: VR-10
+  title: Swift's 'Hello' can overlap the owner's first words; the audio is still mixed.
+  source: docs/audit/2026-11-07-voice-and-requests.md 'What this doesn't solve'
+  module: src/swift/session.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: doc only; 2026-11-08 investigation found 'Hello' in no recording
+  test: null
+  note: Not rechecked on the real PC.
+- id: VR-12
+  title: '''Um what do I do?'' and ''Then you create new workflows.'' started requests, likely room speech under
+    the hotkey.'
+  source: docs/audit/2026-11-07-voice-and-requests.md 'What this doesn't solve'
+  module: src/swift/session.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: doc only
+  test: null
+  note: Cause unproven; not rechecked.
+- id: II-04
+  title: The speech model writes 'tea' as the letter 'T' ('Research the history of T').
+  source: docs/audit/2026-11-08-interaction-investigation.md checks 196-197, §3.3
+  module: src/swift/stt/fixes.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: confirmed
+  evidence: 4 recordings (doc); word-fix corpus not checked for this pair
+  test: null
+  note: Proposed as a learned word fix; not rechecked.
+- id: II-09
+  title: 'Check 193: an ellipsis appeared in an answer.'
+  source: docs/audit/2026-11-08-interaction-investigation.md check 193
+  module: src/swift/executors/claude_mapping.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: claude_mapping.py:290 _short cuts step lines; answer not logged
+  test: null
+  note: Needs a screenshot.
+- id: HO-05
+  title: 'X-17 leftover: the generic card for other tools still shows only 60-300 characters.'
+  source: docs/handoff/README.md §2 What X-17's review left
+  module: src/swift/workflows/tools.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: not rechecked; default confirm_tools don't reach it
+  test: null
+  note: Not rechecked.
+- id: HO-06
+  title: 'X-17 leftover: the card''s mouse wheel and the ''More below'' sign were never seen on the real PC.'
+  source: docs/handoff/README.md §2 What X-17's review left
+  module: overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: harness pane was hidden and drew no frames; owner check 183
+  test: null
+  note: Waits on owner check 183.
+- id: A-01
+  title: A line break typed by keystrokes was a bare Enter, so multi-paragraph text sent each paragraph as a chat
+    message.
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/desktop/windows.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: src/swift/desktop/windows.py:160-166 (_keystrokes sends Shift+Enter); commit 88560b6
+  test: tests/unit/test_audit_2026_10.py::test_a_line_break_is_shift_enter_never_a_bare_enter
+  note: Leftovers in OCT-02 (apps where Shift+Enter submits; paste route CRLF). Owner check 50 on real apps.
+- id: A-02
+  title: Swift would type into a terminal, where each line runs as a command without a card.
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/desktop/base.py, src/swift/workflows/desktop_tools.py, src/swift/desktop/windows.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: desktop/base.py:47 TERMINALS; desktop_tools.py:143 and windows.py:594 refuse them; commit 88560b6
+  test: tests/unit/test_audit_2026_10.py::test_writing_into_a_terminal_is_refused
+  note: VS Code's integrated terminal (code.exe) is still writable; see OCT-01.
+- id: A-03
+  title: A run could fetch any web address without a card, so a page it read could make it send the owner's data
+    out.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
+  module: src/swift/executors/web_scope.py, src/swift/executors/claude_code.py
+  area: privacy
+  severity: critical
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: executors/claude_code.py:81-82,231 (WebScope); commit 88560b6
+  test: tests/unit/test_audit_2026_10.py::test_a_fetch_the_model_put_together_is_refused_without_a_card
+  note: Slow channel by link choice and search queries remain; see OCT-03.
+- id: A-04
+  title: A "yes" to "Turn off Wi-Fi?" heard without Swift's name, or typed, did it.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
+  module: src/swift/session.py
+  area: speech
+  severity: critical
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:3215 system_yes path; rule later changed by owner decision in cd3f97b (plain spoken yes or
+    click on Swift's own reversible question); typed yes still refused
+  test: tests/unit/test_audit_2026_10.py::test_a_typed_yes_doesnt_turn_the_wifi_off
+  note: Test set now matches the CLAUDE.md exception (test_a_plain_yes_heard_in_the_reply_window_turns_it_off, test_a_click_on_yes_turns_it_off).
+- id: T-07
+  title: An utterance held mid-thought still acted after the screen locked.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py
+  area: speech
+  severity: critical
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: commit 32e03c0 (on HEAD); test passes 2026-11-12
+  test: tests/unit/test_seams_audit_state.py::test_s08_an_utterance_held_mid_thought_does_not_start_a_request_after_the_screen_locks
+  note: Review labels it a safeguard (checks where speech acts, 4 places); one presence step in intake would be
+    the root.
+- id: RA-06
+  title: A guessed contact the owner rejected stayed in scope.resolved, so a later draft_email to it passed the
+    recipient check.
+  source: docs/audit/2026-11-reliability-audit.md §1, §4.1
+  module: src/swift/workflows/tools.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: 'tools.py:196-218: asks_first guess added to scope.resolved only after the owner''s yes (7ffa9f5)'
+  test: tests/unit/test_owner_checks_1104b.py::test_no_answer_about_the_close_contact_leaves_it_unusable
+  note: Where there is no ask_fn a guess is still resolved (handoff §2, X-01 limits).
+- id: RV-06
+  title: 'M1, scenarios F and G: a bare ''yes'' turned off Wi-Fi when Swift''s question was not on screen (behind
+    a confirm card or a run brought forward).'
+  source: docs/audit/2026-11-reliability-audit-review.md §2 F, G; §4 M1; item 1; §8
+  module: src/swift/session.py
+  area: actions
+  severity: critical
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: dde1105; session.py:3421-3435 _listening_for requires _on_screen(q) (no confirm cards, q.owner is focus);
+    _front_for_question no longer exists
+  test: tests/unit/test_seam_replay.py::test_f_a_question_said_over_a_card_waits_for_the_card
+  note: 'G: tests/unit/test_seam_replay.py::test_g_a_request_brought_forward_hides_the_question. CLAUDE.md now says
+    ''open and on screen''.'
+- id: A-05
+  title: A calendar add whose connection dropped was reported failed and could be added twice.
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/connectors/google_calendar.py, src/swift/security/gateway.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: google_calendar.py:159-164 (Swift's own event id); gateway.py:256-260 journals UNKNOWN; commit 78c501f
+  test: tests/unit/test_audit_2026_10.py::test_an_event_is_added_once_when_the_connection_drops
+  note: Unknown outcome is not remembered (B-08).
+- id: A-06
+  title: A sent email whose connection dropped was reported failed, so the owner sent it again.
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/connectors/gmail.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: connectors/gmail.py:120-130 (draft once, check draft on drop); commit 78c501f; the wider stop-during-send
+    case fixed as X-08 (gateway.py:240-245)
+  test: tests/unit/test_audit_2026_10.py::test_an_email_is_sent_once_when_the_connection_drops
+  note: A send reported through its draft has no message id (low, kept as recorded).
+- id: A-07
+  title: One run could kill another run's Claude Code process because the PID was guessed from a process diff.
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/executors/claude_code.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: executors/claude_code.py:895-905 cli_pid uses client._transport._process.pid, diff only when exactly
+    one new CLI; commit d165ea5
+  test: tests/unit/test_audit_2026_10.py::test_the_cli_pid_comes_from_the_sdk_process_not_a_guess
+  note: Relies on a private SDK attribute; falls back to the safe diff if it changes.
+- id: A-08
+  title: One request ending cancelled other requests' Swift cards, so cards vanished unanswered.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
+  module: src/swift/session.py, src/swift/dialogue.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:3626-3629 _drop_questions per run; commits 874ee40, 5415a68
+  test: tests/unit/test_audit_2026_10.py::test_a_swift_card_waiting_behind_another_survives_that_request_ending
+  note: Same class also had T-01 (one timer slot), handled in the seams register.
+- id: A-12
+  title: A command's card showed only its first 300 characters, so the owner could approve a hidden tail.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
+  module: src/swift/executors/claude_mapping.py, overlay/src/styles.css
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: claude_mapping.py:37 COMMAND_MAX=1500, whole command shown; commit c1c9299; Edit/Write leftover fixed
+    as X-17 (claude_mapping.py:196-208)
+  test: tests/unit/test_audit_2026_10.py::test_a_command_card_shows_the_whole_command_with_its_lines
+  note: Generic card for other tools still 60-300 characters; default confirm_tools don't reach it.
+- id: D-03
+  title: '"Turn the Wi-Fi back on" was refused offline as "I''m offline".'
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/system/intents.py, src/swift/session.py
+  area: routing
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0; test passes 2026-11-12
+  test: tests/unit/test_seams_audit_speech.py::test_s01_turn_the_wifi_back_on_while_offline_turns_it_on
+  note: null
+- id: D-04
+  title: A local answer in between overwrote the one carry-over slot, so "turn it back on" was lost.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/dialogue.py
+  area: routing
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0
+  test: tests/unit/test_seams_audit_speech.py::test_s02_a_time_answer_in_between_doesnt_forget_the_switch
+  note: null
+- id: D-06
+  title: An utterance with no words was taken as an unclear answer and spent the re-ask.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py, src/swift/intake.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0
+  test: tests/unit/test_seams_audit_speech.py::test_s04_an_empty_transcription_is_not_an_answer
+  note: null
+- id: T-02
+  title: A question timed out while the answer was being said or transcribed.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/answer_window.py
+  area: timers
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit f918be9
+  test: tests/unit/test_answer_window.py::test_an_utterance_counts_if_it_started_before_the_deadline
+  note: null
+- id: T-03
+  title: After a re-ask the old answer window stood and the timer ran from the re-ask's start.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/answer_window.py
+  area: timers
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit f918be9
+  test: tests/unit/test_answer_window.py::test_a_reask_starts_a_whole_window_again
+  note: null
+- id: O-01
+  title: An overlay reload (every merge) lost the open card, question and answer; the card expired unseen.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: src/swift/session.py, src/swift/ipc/server.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit e602d8d
+  test: tests/unit/test_seams_audit_ipc.py::test_a_reloaded_overlay_gets_the_open_card_again
+  note: The test file calls it OI-01.
+- id: O-02
+  title: The overlay sent `ready` once per page load, so after Restart Swift there was no stack and due cards waited.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/main.ts, src/swift/ipc/server.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit e602d8d; main.ts:108 tracks the hello.ok backend instance
+  test: tests/unit/test_screen_state.py::test_a_new_overlay_gets_the_card_with_the_time_it_has_left
+  note: The restart itself (OI-02) was never run in the harness.
+- id: O-07
+  title: One run asking two cards made the backend and overlay disagree on which was shown (#14 class).
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: src/swift/session.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit e602d8d
+  test: tests/unit/test_screen_state.py::test_a_request_with_two_cards_replays_the_one_on_screen
+  note: null
+- id: V-01
+  title: With SAPI unavailable, Swift stayed "speaking" forever and the open mic went deaf.
+  source: docs/audit/2026-11-seams-audit.md §3.4
+  module: src/swift/speech.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335
+  test: tests/unit/test_seams_audit_speech.py::test_s10_no_voice_never_leaves_swift_speaking
+  note: null
+- id: R-03
+  title: A local request waited behind three agent runs.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/session.py
+  area: routing
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335
+  test: tests/unit/test_seams_audit_routing.py::test_r03_a_system_request_is_not_queued_behind_three_agent_runs
+  note: null
+- id: X-03
+  title: swift.log redaction was a deny-list over the whole interaction record.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/logging_setup.py, src/swift/backend/__main__.py
+  area: privacy
+  severity: high
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: commits fbf2c11, 9e9e3be, 33bd03f
+  test: tests/unit/test_seams_audit_privacy.py::test_the_interaction_summary_keeps_words_out_of_swift_log
+  note: Allow-list for the interaction line only; older log lines unchanged. Unproven on the PC.
+- id: X-08
+  title: A stop during "Sending…" journaled FAILED though the email might go out.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/security/gateway.py
+  area: actions
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commits 1fa028a, d1357aa; gateway.py:243 journals UNKNOWN stopped_while_sending
+  test: tests/unit/test_seams_audit_privacy.py::test_a_stop_once_it_is_sending_lets_it_finish_and_journals_it_done
+  note: The on-screen message over "Cancelled" is unproven (owner check 215).
+- id: RV-01
+  title: 'Scenario A: unsure answers until the Wi-Fi question goes to the stack, then a timer: stuck ''Working on
+    it'', Stop and Esc dead, timer refused.'
+  source: docs/audit/2026-11-reliability-audit-review.md §2 scenario A
+  module: src/swift/session.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 7ffa9f5, 79c3318; seam test passes today
+  test: tests/unit/test_seam_replay.py::test_a_unsure_answers_put_it_in_the_stack_and_a_timer_shows
+  note: Related seams id T-06.
+- id: RV-02
+  title: 'Scenario B: dropped _front_busy guard: question runs out behind a brought-forward run, overlay state goes
+    to result and the run''s next step never draws.'
+  source: docs/audit/2026-11-reliability-audit-review.md §2 scenario B; audit §3
+  module: overlay/src/main.ts, src/swift/session.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 34b9395 one overlay state (main.ts:77 stageNow = P.stageOf(pres)); guard still at session.py:1028
+  test: tests/unit/test_seam_replay.py::test_b_the_question_runs_out_behind_a_run_that_goes_on
+  note: null
+- id: RV-03
+  title: 'Scenario C: screen locks during the Wi-Fi question, then unlocks: card stuck.'
+  source: docs/audit/2026-11-reliability-audit-review.md §2 scenario C
+  module: src/swift/session.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 7ffa9f5; seam test passes today
+  test: tests/unit/test_seam_replay.py::test_c_the_screen_locks_during_a_question
+  note: null
+- id: RV-04
+  title: 'Scenario D: ''What time is it?'' during the question: the answer is lost and a dead Yes/No card stays.'
+  source: docs/audit/2026-11-reliability-audit-review.md §2 scenario D, item 3
+  module: src/swift/session.py, overlay/src/presenter.ts
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: b653549; seam test passes today
+  test: tests/unit/test_seam_replay.py::test_d_a_quick_answer_during_a_question_is_seen
+  note: Silent refusal itself is still open (RA-02).
+- id: RV-05
+  title: 'Scenario E: after scenario D, a timer falling due is refused too.'
+  source: docs/audit/2026-11-reliability-audit-review.md §2 scenario E, item 3
+  module: src/swift/session.py
+  area: timers
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: b653549, fdfdb23
+  test: tests/unit/test_seam_replay.py::test_e_a_timer_after_that_answer_shows
+  note: null
+- id: RV-08
+  title: 'M2: Swift''s own system questions had a dead Run and a local-N card, unlike run-owned questions, so they
+    had no single exit.'
+  source: docs/audit/2026-11-reliability-audit-review.md §4 M2, item 7
+  module: src/swift/session.py
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 79c3318 (+242/-477 across 24 files); _confirm_lane/_lane_reprompt/_close_lane_ask gone from session.py
+  test: tests/unit/test_seam_replay.py::test_a_run_s_own_question_survives_the_same_events
+  note: Local answers still use local-N ids (RA-01).
+- id: RV-09
+  title: 'M3: the overlay had two state machines (state and pres.card.kind) written separately, with frames half-applied.'
+  source: docs/audit/2026-11-reliability-audit-review.md §4 M3, item 2; audit §4.4
+  module: overlay/src/main.ts, overlay/src/presenter.ts
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 34b9395; main.ts:77 stageNow derived from the presenter
+  test: tests/unit/test_seam_replay.py::test_b_the_question_runs_out_behind_a_run_that_goes_on
+  note: Also overlay/tests/presenter.test.ts 'one state (M3)' block. notInFront still only applies with rows (presenter.ts:124-125);
+    line 271 covers the no-row case.
+- id: RV-13
+  title: 'Item 8: a due card refused by the overlay was resent and spoken each time (''Your timer is up'' on repeat).'
+  source: docs/audit/2026-11-reliability-audit-review.md item 8; audit §1
+  module: src/swift/session.py
+  area: timers
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 'fdfdb23: a due item waits in the stack instead of being sent to be refused'
+  test: tests/unit/test_seam_replay.py::test_a_timer_during_a_run_waits_in_the_stack_and_is_never_refused
+  note: Seams id O-08. due.shown, its backoff and tries still exist (session.py:354,793,3803), unlike the review's
+    'they go'.
+- id: VR-06
+  title: 'A second request didn''t register: a bare ''Hey Swift'' during a request did nothing, and a new request
+    said on a card became a change to the card.'
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: src/swift/session.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 'session.py:2449-2490 _hear_busy: _new_request(strict=True) starts beside the card'
+  test: tests/unit/test_voice_1107.py::test_a_new_request_said_on_a_card_runs_beside_it_and_the_card_stays
+  note: Also test_voice_1107.py::test_a_bare_wake_phrase_during_a_run_opens_a_new_request. Which words count as
+    new is a word list (VR-08).
+- id: M3
+  title: main.ts kept its own UI state beside the presenter's card, so a refused frame could still change the stage.
+  source: docs/audit/2026-11-reliability-audit-review.md item 2
+  module: overlay/src/main.ts, overlay/src/presenter.ts
+  area: screen
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 34b9395; main.ts:77 stageNow = P.stageOf(pres); presenter.ts:115-118 stageOf
+  test: 'overlay/tests/presenter.test.ts::"the stage is the card: another request''s result frame changes nothing"'
+  note: Rechecked today. There is one stage, read from the card. setStage returns early on change.ignored (main.ts:768).
+- id: A-09
+  title: A wake phrase whose transcription finished after the screen locked still acted.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
+  module: src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:1993-1998 rechecks listening_paused after transcription (paused_drop); second member T-07
+    fixed in 32e03c0
+  test: tests/unit/test_audit_2026_10.py::test_a_wake_phrase_whose_transcription_ends_after_the_lock_is_dropped
+  note: Held-utterance case (T-07) covered by tests/unit/test_hands_free.py::test_a_held_swift_approve_does_nothing_once_the_screen_locked.
+    Severity kept as October rated it, though it touches the lock rule.
+- id: A-10
+  title: '"Write a short note about tea here" went to the tool-free light lane and gave an answer card instead of
+    text in the app.'
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/routing/light.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: routing/light.py:89-95 _WRITE_HERE; commit bdbb5ad
+  test: tests/unit/test_audit_2026_10.py::test_writing_here_is_not_a_quick_answer
+  note: none
+- id: A-11
+  title: The same request said again while it ran started it twice.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
+  module: src/swift/session.py, src/swift/intake.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:1238-1253 _same_request; also checked mid-run at session.py:2797; intake.py:18 duplicate
+    step; commit da437c0
+  test: tests/unit/test_audit_2026_10.py::test_the_same_request_again_while_it_runs_is_one_run
+  note: A reworded repeat still starts a second run (OCT-04).
+- id: B-02
+  title: The agent could type into the app in front in a request that never asked for writing.
+  source: docs/audit/2026-10-audit.md §2
+  module: src/swift/workflows/desktop_tools.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: workflows/desktop_tools.py:21 owner-words gate; commit 3a393ff
+  test: tests/unit/test_hardening_2026_10.py::test_a_page_cant_make_swift_write_in_a_request_that_didnt_ask
+  note: A request that does ask for writing still writes what the model chose (may echo a page).
+- id: B-03
+  title: A due timer or reminder was removed from schedule.json before it was shown, so a restart lost it.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8 (O-08)
+  module: src/swift/system/scheduler.py, src/swift/session.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: scheduler.py:14,49 fired flag; commit 0de8981; overlay ack due.shown (protocol.py:103, session.py:3803)
+    from e602d8d closes O-08
+  test: tests/unit/test_hardening_2026_10.py::test_a_due_item_stays_in_the_file_until_it_is_shown
+  note: none
+- id: H-01
+  title: A due item found at startup was sent before the overlay connected and dropped.
+  source: docs/audit/2026-10-audit.md §2 (hardening slice)
+  module: src/swift/session.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit 0de8981; session.py:3739,3813 due queue waits for a connected overlay
+  test: tests/unit/test_hardening_2026_10.py::test_a_due_item_waits_for_the_overlay_and_is_shown_once
+  note: none
+- id: H-02
+  title: Two items due together; the second card replaced the first within a second.
+  source: docs/audit/2026-10-audit.md §2 (hardening slice)
+  module: src/swift/session.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit 0de8981
+  test: tests/unit/test_hardening_2026_10.py::test_items_due_together_share_one_card
+  note: none
+- id: H-03
+  title: Scheduler.run awaited each card, so a second alarm didn't chime until the first card was shown.
+  source: docs/audit/2026-10-audit.md §2 (hardening slice)
+  module: src/swift/system/scheduler.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: commit 0de8981; scheduler hands items to the session queue (scheduler.py:14-16,69)
+  test: null
+  note: No dedicated test found; fix seen in code only.
+- id: D-05
+  title: '"Turn it back on" during a run got a mid-run hint instead of being done.'
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py, src/swift/intake.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0
+  test: tests/unit/test_seams_audit_speech.py::test_s03_turn_it_back_on_typed_during_a_run_is_carried_out
+  note: null
+- id: D-07
+  title: A click on a lane question's No could reject another request's confirm card.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: commit d44cac0; session.py:1604 routes source=="click" to its thread
+  test: null
+  note: Never reproduced before the fix; the commit's click test name is no longer in tests/ (renamed or removed).
+- id: D-08
+  title: A lane question took "stop" as an answer during a run instead of stopping the run.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/intake.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0
+  test: tests/unit/test_intake.py::test_no_words_is_nothing_and_a_mid_run_control_is_never_an_answer_during_a_run
+  note: null
+- id: D-09
+  title: An utterance arriving while another was being transcribed was dropped.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:928, 1914-1918 one-slot _next_heard queue (commit d44cac0)
+  test: null
+  note: No named test found for the queue.
+- id: T-06
+  title: An unsure answer to an open question was dropped without a word.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/intake.py
+  area: speech
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0; the review traced the related stuck card to cd3f97b, handled by 7ffa9f5 and 79c3318
+  test: tests/unit/test_seams_audit_state.py::test_s06_an_unsure_answer_to_an_open_question_is_dropped_without_a_word
+  note: null
+- id: T-13
+  title: A replayed question restarted the overlay's countdown from full, not from the backend's time left.
+  source: docs/audit/2026-11-seams-audit.md §3.9
+  module: src/swift/session.py
+  area: timers
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit f918be9; KNOWN in test_dialogue_model.py is now empty and the model passes
+  test: tests/unit/test_dialogue_model.py::test_the_dialogue_model_holds
+  note: null
+- id: O-05
+  title: A protocol error with no run id wiped the confirm card.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: overlay/src/main.ts, src/swift/ipc/server.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit e602d8d; main.ts:2050 handles bad_message apart
+  test: null
+  note: Test is overlay/tests/seams-audit.test.ts "O-05 ..." (not run here).
+- id: O-06
+  title: No contract test between protocol.py and protocol.ts.
+  source: docs/audit/2026-11-seams-audit.md §3.3
+  module: tests/protocol_contract.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit 0da3295; tests/unit/test_protocol_contract.py
+  test: null
+  note: The review classes it as a safeguard, not root.
+- id: R-01
+  title: Offline, the light lane (20 s) and the workflow offer came before the offline answer.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/session.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335; test passes 2026-11-12
+  test: tests/unit/test_seams_audit_routing.py::test_r01_offline_a_light_request_is_answered_at_once_without_the_light_model
+  note: The review rates S4 partial (a 2-entry needs table beside the older online() check).
+- id: R-02
+  title: online() read "has a connection", not "reaches the internet".
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/network.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: commit eeb3335
+  test: tests/unit/test_liveness.py::test_a_connection_without_the_internet_is_offline
+  note: Never seen on the PC (no offline row in the owner's log).
+- id: R-04
+  title: Internet lost mid-run left "Connection hiccup" until the CLI or the owner gave up.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/executors/claude_code.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335
+  test: tests/unit/test_seams_audit_routing.py::test_r04_offline_mid_run_swift_ends_the_run_and_says_why
+  note: null
+- id: R-05
+  title: A Claude refusal within 10 min of any sign-in check got no sign-in card.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/signin.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335
+  test: tests/unit/test_seams_audit_routing.py::test_r05_a_refusal_soon_after_the_start_up_check_still_offers_the_sign_in
+  note: The Google listener's throttle (connectors/google.py) not rechecked.
+- id: R-06
+  title: No watchdog on a run, so a silent CLI "worked" forever and held a slot.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335
+  test: tests/unit/test_seams_audit_routing.py::test_r06_a_silent_cli_ends_with_a_card_by_itself
+  note: null
+- id: X-04
+  title: A denied action logged its reason text, with the address, to swift.log (B-07).
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/security/gateway.py
+  area: privacy
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: commit 3df4f29
+  test: tests/unit/test_seams_audit_privacy.py::test_a_denied_address_does_not_reach_the_log
+  note: null
+- id: X-19
+  title: A recipient's domain reached swift.log in the `action done` line.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/security/gateway.py
+  area: privacy
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: commit 9c07c33
+  test: tests/unit/test_seams_audit_privacy.py::test_a_recipient_s_domain_stays_out_of_swift_log_and_in_the_journal
+  note: Kept in the journal by the owner's decision.
+- id: X-18
+  title: A selected file's name went into the journal as the open's receipt.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/workflows/desktop_tools.py
+  area: privacy
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: commit c91b9a3
+  test: null
+  note: Covered in tests/unit/test_desktop.py (a docstring at line 218 names X-18); the function name wasn't resolved
+    here. Older journal lines keep names.
+- id: X-10
+  title: A Swift tool call had no deadline (Google 60 s x 3 retries).
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/connectors/google.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: commit eeb3335
+  test: tests/unit/test_liveness.py::test_a_google_call_has_one_deadline_and_a_change_that_overruns_is_unknown
+  note: null
+- id: RA-12
+  title: Ending a stack item whose question was open left the question open.
+  source: docs/audit/2026-11-reliability-audit.md §3 'Stack hides what is on screen', §7
+  module: src/swift/session.py, src/swift/stack.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: 79c3318 questions owned by a live Run; seam scenario passes today
+  test: tests/unit/test_seam_replay.py::test_stopping_during_swift_s_question_ends_it_all
+  note: The seam test covers stop during a question; ending it from the stack row itself not separately tested.
+- id: RA-15
+  title: A system request reported 'done' while its question was still open, so lane timings and report rows misled.
+  source: docs/audit/2026-11-reliability-audit.md §2 C1, §4.3
+  module: src/swift/session.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: '79c3318: the question runs inside its Run, which stays alive until answered'
+  test: tests/unit/test_seam_replay.py::test_one_request_is_one_record_however_many_turns
+  note: Status field of the interaction record itself not re-read.
+- id: RV-07
+  title: 'Scenario H: the question running out replaces the run''s answer the owner is reading with ''No answer,
+    so I''ve left it as it is.'''
+  source: docs/audit/2026-11-reliability-audit-review.md §2 scenario H, item 3
+  module: src/swift/session.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: b653549
+  test: tests/unit/test_seam_replay.py::test_h_a_question_running_out_leaves_an_answer_being_read
+  note: null
+- id: RV-12
+  title: 'Item 4: report check 149 passed with 8 due cards sent and only 1 drawn.'
+  source: docs/audit/2026-11-reliability-audit-review.md §3, item 4; audit §2 C4
+  module: spikes/owner_checks/report.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 6ae9672; report.py:480 unless(len(due_sent) > len(due_drawn))
+  test: tests/unit/test_owner_report.py::test_check_149_fails_when_a_due_card_was_sent_and_not_drawn
+  note: Related seams id Q-01.
+- id: VR-01
+  title: To answer 'is it going to rain', the agent ran curl on the shell, so the owner got a 'Run a command' card.
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: src/swift/workflows/tools.py, src/swift/executors/claude_code.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: tools.py:517-540 weather tool with a fixed URL and no arguments
+  test: tests/unit/test_voice_1107.py::test_the_weather_tool_takes_nothing_from_the_model
+  note: Root for the weather only.
+- id: VR-04
+  title: 'The same request said three times ran three times: the repeat check ran only when words were known before
+    capture.'
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: src/swift/session.py
+  area: routing
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:2795-2800 one check where every request's words are known
+  test: tests/unit/test_voice_1107.py::test_the_same_words_by_the_hotkey_while_it_runs_are_one_request
+  note: null
+- id: B-06
+  title: Saved recordings piled up with no retention, holding room and bystander audio.
+  source: docs/audit/2026-10-audit.md §2; privacy-security.md
+  module: src/swift/stt/recordings.py
+  area: privacy
+  severity: low
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: src/swift/stt/recordings.py; settings.py:97 keep_days; tray Clear saved recordings (overlay lib.rs:913)
+  test: tests/unit/test_recordings.py::test_sweep_deletes_clips_older_than_keep_days_and_keeps_newer
+  note: none
+- id: B-07
+  title: A denied action's reason could write an address the model gave into swift.log.
+  source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md X-04
+  module: src/swift/security/gateway.py
+  area: privacy
+  severity: low
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: gateway.py:284-287 _deny logs code only; commit 3df4f29
+  test: tests/unit/test_seams_audit_privacy.py::test_a_denied_address_does_not_reach_the_log
+  note: Recipient domains in "action done" filed separately as X-19.
+- id: H-04
+  title: A due card could cover a confirm card waiting for an answer.
+  source: docs/audit/2026-10-audit.md §2 (hardening slice)
+  module: src/swift/session.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit 0de8981
+  test: tests/unit/test_hardening_2026_10.py::test_a_due_item_never_covers_a_card_waiting_for_an_answer
+  note: none
+- id: H-05
+  title: Quit ended the backend's job only when the overlay exited, so a leftover CLI lived on.
+  source: docs/audit/2026-10-audit.md §2 (hardening slice)
+  module: overlay/src-tauri/src/backend.rs, overlay/src-tauri/src/lib.rs
+  area: process
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: commit bb6925f; lib.rs:790,916 quit and restart end the job
+  test: null
+  note: Rust test ending_the_backend_ends_everything_in_its_job exists; cargo not run here.
+- id: D-10
+  title: Unclear-speech rows in the interaction log showed no request text.
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py
+  area: tests
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit d44cac0 (code not re-read line by line)
+  test: null
+  note: Only the commit claim checked.
+- id: D-11
+  title: A click on a question card was logged as "typed request".
+  source: docs/audit/2026-11-seams-audit.md §3.1
+  module: src/swift/session.py
+  area: tests
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: session.py:1575 logs "clicked answer" with its source
+  test: null
+  note: null
+- id: T-11
+  title: The lane yes/no window had two clocks (45 s and 25 s) and ADR-016 disagreed with the code.
+  source: docs/audit/2026-11-seams-audit.md §3.2
+  module: src/swift/answer_window.py
+  area: timers
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: design-concern
+  evidence: commit f918be9
+  test: tests/unit/test_answer_window.py::test_it_listens_until_its_deadline_then_closes_once
+  note: ADR update not checked.
+- id: O-15
+  title: A question closed while its request wasn't in front stayed on the overlay.
+  source: docs/audit/2026-11-seams-audit.md §3.9
+  module: src/swift/session.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit e602d8d; KNOWN in test_dialogue_model.py is empty
+  test: tests/unit/test_dialogue_model.py::test_the_dialogue_model_holds
+  note: null
+- id: R-11
+  title: An expired login reported as "couldn't confirm model" wasn't treated as a sign-in problem.
+  source: docs/audit/2026-11-seams-audit.md §3.6
+  module: src/swift/failures.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: suspected
+  evidence: commit eeb3335
+  test: tests/unit/test_liveness.py::test_couldnt_confirm_the_model_while_online_offers_the_sign_in
+  note: null
+- id: X-12
+  title: Waiting for the spare CLI was outside every timeout.
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/executors/claude_code.py
+  area: perf
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: commit eeb3335
+  test: null
+  note: No test named for it.
+- id: RA-08
+  title: A setTimeout added to clear a stuck card broke the presenter's rule of deadlines checked on tick.
+  source: docs/audit/2026-11-reliability-audit.md §3 today's fixes
+  module: overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 7ffa9f5 removed it; remaining setTimeouts in main.ts are drawing/copy/scroll only (main.ts:342,1142,1837)
+  test: null
+  note: Removed in Step 0.
+- id: RA-14
+  title: A speech-model keep-warm and a changed check-13 metric made a number better without making anything faster.
+  source: docs/audit/2026-11-reliability-audit.md §3, §7
+  module: src/swift/stt/transcriber.py, spikes/owner_checks/report.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: no keep-warm in src/swift (grep 'keep.warm' empty); 7ffa9f5
+  test: null
+  note: Both removed in Step 0; the check 13 metric decision stays the owner's.
+- id: VR-05
+  title: 'The stack pane moved by itself: it followed the main window''s side and remembered dragged places.'
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: overlay/src-tauri/src/panes.rs
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 'panes.rs:50-58 side(): stack bottom-right unless the main window is there'
+  test: null
+  note: Rust test panes.rs:248 the_stack_keeps_the_bottom_right_corner_wherever_the_main_window_goes (not run; cargo
+    not rerun).
+- id: VR-02
+  title: Command cards still show the raw command; any other look-up without a Swift tool still asks to run one.
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: src/swift/executors/claude_code.py
+  area: actions
+  severity: medium
+  product_rule: false
+  status: wontfix
+  confidence: design-concern
+  evidence: 'doc: friendly titles built then deleted after two reviews passed false ones'
+  test: null
+  note: 'Deliberate: a false title on an approval card is worse. Fix is more tools, not titles.'
+- id: RA-10
+  title: collapse_repeats only hides an exact repeated sentence; it is a symptom fix over the parsing gap.
+  source: docs/audit/2026-11-reliability-audit.md §3
+  module: src/swift/intake.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: wontfix
+  confidence: confirmed
+  evidence: intake.py:110-123 still present; session.py:2775 calls it
+  test: null
+  note: Harmless now that owner_intents splits sentences (RA-05). Kept as is.
+- id: VR-07
+  title: Swift ignores the microphone while it talks, so speech over its voice is lost.
+  source: docs/audit/2026-11-07-voice-and-requests.md
+  module: src/swift/session.py, src/swift/speech.py
+  area: speech
+  severity: low
+  product_rule: false
+  status: wontfix
+  confidence: confirmed
+  evidence: 'doc: own_voice=12 in one window; replies off except ''Hello'' (session.py:830, 3698)'
+  test: null
+  note: Owner's decision. 'No' over Swift's voice is seams V-02.
+- id: X-06
+  title: Owner-facing texts name the provider ("Claude is busy, retrying…", "Claude Code stopped…") against the
+    generic-labels rule (B-10).
+  source: docs/audit/2026-11-seams-audit.md §3.7
+  module: src/swift/executors/claude_mapping.py, src/swift/executors/claude_code.py
+  area: privacy
+  severity: medium
+  product_rule: true
+  status: stale
+  confidence: confirmed
+  evidence: claude_mapping.py:64, 76; claude_code.py:706, 864, 870
+  test: null
+  note: Duplicate of B-10; tracked there.

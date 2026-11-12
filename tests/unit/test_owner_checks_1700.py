@@ -108,9 +108,11 @@ def test_a_new_time_is_enough_without_knowing_the_title() -> None:
     "cancel the order", "delete the file", "change the font to 12", "move the file to downloads",
     "push the branch to origin", "remove the event listener in main.ts", "update the function call in session.py",
     "cancel my uber", "what is a meeting",
+    # One word sounding like a title isn't naming it (owner, 2026-11-08, with an event "Test me").
+    "delete the word test from a file called notes in documents.", "delete the test results from my notes",
 ])
 def test_other_requests_still_dont_run_it(said: str) -> None:
-    match = load_library(None).match(said, TITLES)
+    match = load_library(None).match(said, (*TITLES, "Test me"))
     assert match is None or match.package.name != "calendar-event" or match.kind != "run", said
 
 

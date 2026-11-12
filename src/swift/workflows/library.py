@@ -117,14 +117,15 @@ def likeness(heard: str, title: str) -> float:
     return SequenceMatcher(None, a, b).ratio() if a and b else 0.0
 
 
-def names_title(words: list[str], titles: Iterable[str]) -> bool:
-    """Whether some run of ``words`` sounds like one of ``titles`` ("swift deck" for "Swift check")."""
+def names_title(words: list[str], titles: Iterable[str], whole: bool = False) -> bool:
+    """Whether some run of ``words`` sounds like one of ``titles`` ("swift deck" for "Swift check").
+    ``whole``: all of ``words`` together, not a run inside them."""
     words = [w for w in words if w not in _TITLE_FILLER]
     for title in titles:
         size = len(_WORD.findall(title.lower()))
         if not size:
             continue
-        for n in {max(1, size - 1), size, size + 1}:
+        for n in ({len(words)} if whole else {max(1, size - 1), size, size + 1}):
             for i in range(max(1, len(words) - n + 1)):
                 if likeness(" ".join(words[i:i + n]), title) >= TITLE_LIKENESS:
                     return True
@@ -221,7 +222,9 @@ class Intent:
             named = said[len(opening) + 1:]
             if (when := _TIME.search(named)) is not None:  # "move swift check to two p m": the name ends there
                 named = named[:when.start()]
-            return names_title(named.split(), titles)
+            # The whole name, so one word that sounds like a title ("delete the word test from a file", with
+            # an event "Test me") doesn't make it a calendar request (owner, 2026-11-08).
+            return names_title(named.split(), titles, whole=True)
         return False
 
 

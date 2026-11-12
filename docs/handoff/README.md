@@ -121,19 +121,12 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
    ```bash
    npm run tauri dev
    ```
-2. Note the time, and run the **short set** below (the estimate is about 30 minutes; these target the fixes most likely to break):
-   - **Questions and approval:** 128, 131, 141, 144, 156, 160, 161, 163, 164.
-   - **What's on screen:** 146, 147, 149, 165.
-   - **Requests side by side:** 152, 158.
-   - **The Deck:** 168, 173, 179 and 181 first, then the rest of 169–182. The Deck is on `main`, so these checks run with it: a failure anywhere in this set may come from either the reliability work or the Deck.
-   - **The whole change on the card:** 183, 184.
-   - **Lock:** 139.
-   - **Items 3 and 7, and the safety fixes of 2026-11-10:** 212 (item 3; check 106 covers item 7), 213 (X-07), 214 (X-01), 215 (X-08).
+2. Note the time, and run the **"Run these first"** list at the top of `owner-checks.md`. `spikes/owner_checks/plan.py` works it out from every result so far and what changed in the code since: checks that failed and have changed come first, then new checks for product rules. Its "Where every check stands" section says what is verified, stale, failing, or never run, and what the open branches will change.
 3. Paste the report:
    ```bash
    uv run python spikes/owner_checks/report.py --since HH:MM
    ```
-   The next session diagnoses it against `%LOCALAPPDATA%\Swift\logs\swift.log` and fixes what failed, using the rules in `CLAUDE.md`: prove the cause first, one finding per commit.
+   The next session records it (`plan.py --record`, `CLAUDE.md`), then diagnoses it against `%LOCALAPPDATA%\Swift\logs\swift.log` and fixes what failed, using the rules in `CLAUDE.md`: prove the cause first, one finding per commit.
 4. **Then use Swift for real, every day, for two weeks:** the requests you'd make anyway, not test phrases. Once a week, paste the usage report (counts only, nothing you said), with the date you started:
    ```bash
    uv run python spikes/usage/report.py --since YYYY-MM-DD
@@ -295,7 +288,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 |---|---|---|
 | `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Merged into `main` on 2026-11-12, off by default. It touches the rule "no hands-free listening while locked": reviewed by a session other than the author, two findings fixed (`29a48dc`, `ff0dc47`) and re-reviewed as safe to turn on. Owner checks 228–232 are waiting, with `wake.acoustic: true` |
 
-**Next free owner check number: 233.** When two sessions add checks at the same time, they take their numbers here first.
+**Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (233 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.
 
 **Docs added to `main` on 2026-11-10**, from branches that were never merged:
 - [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md)

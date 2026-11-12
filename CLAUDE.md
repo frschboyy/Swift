@@ -35,7 +35,12 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
 - **Code:**
   - `session.py` is large: add small modules with narrow interfaces.
   - No new dependencies without a clear need.
-- **Owner checks:** new behaviour gets checks in `docs/testing/owner-checks.md`, plus report lines in `spikes/owner_checks/report.py`.
+- **Owner checks:** new behaviour gets checks in `docs/testing/owner-checks.md`, plus report lines in `spikes/owner_checks/report.py`,
+  plus the code each check proves in `docs/testing/owner-checks-ledger.yaml` (`test_owner_plan.py` fails without it).
+  `spikes/owner_checks/plan.py` keeps the file's run list and status current:
+  - take a new check's number from its "Next free check number";
+  - when the owner pastes a report, save it to a file and record it with `--record FILE`; what they tell you they saw goes in with `--set 216=pass 217=fail --note "…"`;
+  - after recording, and when merging to `main`, run it with `--write`. Don't edit between its markers.
 
 ## Fixing things
 

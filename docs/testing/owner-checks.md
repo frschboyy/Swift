@@ -47,29 +47,39 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 
 3. Wait until Swift says it's ready. **Note the time**: the report at the end needs it.
 
-## Run these first (2026-11-10)
+## Run these first
 
-These are the fixes from your checks of 2026-11-09, and the checks nearest to them, in the order to run them.
-About 30 minutes. The steps are further down; each number links to its check.
+<!-- roadmap:start -->
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-12 at `c31bbd4`, from the ledger of past results
+and what changed in the code since. Most urgent first, a section at a time (each section's setup is
+at its heading); a check that builds on another comes after it.
 
-1. [201](#check-201): your answer to Swift's question counts ("I meant the Wi-Fi").
-2. [204](#check-204): a greeting before a command still gets Swift's own Yes/No question.
-3. [211](#check-211) and [156](#check-156): "Yes, but hold on" waits; a plain "yes" still works.
-4. [128](#check-128): a plain spoken "yes" to "Turn off Wi-Fi?" still turns it off.
-5. [206](#check-206): waiting for your answer doesn't look like working.
-6. [208](#check-208) and [145](#check-145): a question's time only runs while you can see it.
-7. [163](#check-163) and [164](#check-164): a "yes" to a question you can't see does nothing.
-8. [205](#check-205): asking again in other words gives one card, not two in the stack.
-9. [207](#check-207) and [210](#check-210): the stack stays in its corner and shows how long each item is kept.
-10. [209](#check-209): the offline answer is one calm sentence.
-11. [202](#check-202): airplane mode says what it really does.
-12. [203](#check-203): Swift comes in front of other windows when you call it.
-13. [93](#check-93), [94](#check-94) and [95](#check-95): Watch, Stop in the live view, and Open the answer.
-14. [215](#check-215): five seconds to stop an email you approved.
-15. [214](#check-214): a surname your contact doesn't have is asked about.
-16. [212](#check-212) and [213](#check-213): a new request sends Swift's question to the stack; your interaction log is never read.
+**Voice and requests side by side**
+
+1. [195](#check-195): Get an approval card on screen: say "Hey Swift, add lunch with Test Me tomorrow at one". *Why: failed on 2026-11-08; 8 changes since (such as `d1357aa` A stop to an email still says what happened when the SDK delivers it); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+2. [193](#check-193): Say "Hey Swift, is it going to rain this afternoon?". *Why: failed on 2026-11-08; 6 changes since (such as `8d22e08` A workflow picked up from the stack gets today's date, not the one it was parked with).*
+3. [194](#check-194): Say "Hey Swift, research the history of tea". *Why: failed on 2026-11-08; 3 changes since (such as `1f0c19a` Halo Step A: the look behind a dev-only switch).*
+4. [196](#check-196): Say "Hey Swift, research the history of tea". *Why: failed on 2026-11-08; 3 changes since (such as `1f0c19a` Halo Step A: the look behind a dev-only switch).*
+5. [191](#check-191): Say "Hey Swift" 10 times over a few minutes, at normal volume, with a pause after each. *Why: failed on 2026-11-08; 2 changes since (such as `42873d8` ADR-021 step 3: the window check and the second way in).*
+6. [197](#check-197): Say "stop" so that research goes to the stack. *Why: failed on 2026-11-08; 2 changes since (such as `a1aa6a3` Each stack item shows a thin ring for the time it has left).*
+
+**Conversations, corrections and stepping away**
+
+7. [13](#check-13): Right after unlocking, without the hotkey, say "Hey Swift, what time is it". *Why: failed on 2026-11-05; 5 changes since (such as `7ffa9f5` Step 0 of the reliability audit: keep what holds up from the 2026-11-05 checks); product rule: no hands-free listening while locked.*
+
+**Fixes from your checks of 2026-11-09**
+
+8. [215](#check-215): Five seconds to stop an email you approved. *Why: new on 2026-11-10, never run; product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+9. [214](#check-214): A first name you share with a contact, and a surname they don't have. *Why: new on 2026-11-10, never run; product rule: recipients only from contacts or find_contact; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+10. [213](#check-213): Swift's own recordings and transcripts are never read. *Why: new on 2026-11-10, never run; product rule: memory only from the owner's words; Swift's own files are never read; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+11. [203](#check-203): Swift comes to the front when you call it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+12. [207](#check-207): The stack stays in its corner when you open it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+13. [208](#check-208): A question's time only runs while you can see it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+14. [206](#check-206): Waiting for your answer looks different from working. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+15. [212](#check-212): A new request while Swift asks: the question waits in the stack. *Why: new on 2026-11-10, never run; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
 
 Then run the report ("After the checks", at the end) and paste what it prints.
+<!-- roadmap:end -->
 
 ## The checks
 
@@ -1910,6 +1920,33 @@ You should see: Swift never wakes by itself. If it does, note the time.
 3. Unlock.
 
 You should see: nothing happened while locked, and nothing starts when you unlock.
+
+## Where every check stands
+
+Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
+since). Don't edit between the markers: run `plan.py --write` instead.
+
+<!-- status:start -->
+As of 2026-11-12 at `c31bbd4`. Each number links to its check.
+
+- **Changed since it failed: run it again** (7): [13](#check-13), [191](#check-191), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [197](#check-197)
+- **Never run** (108): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [36](#check-36), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [49](#check-49), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [68](#check-68), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [213](#check-213), [214](#check-214), [215](#check-215), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [228](#check-228), [229](#check-229), [230](#check-230), [231](#check-231), [232](#check-232)
+- **Partly seen** (7): [8](#check-8), [15](#check-15), [16](#check-16), [21](#check-21), [24](#check-24), [33](#check-33), [77](#check-77)
+- **Passed, changed since** (76): [1](#check-1), [2](#check-2), [2b](#check-2b), [3](#check-3), [4](#check-4), [5](#check-5), [7](#check-7), [10](#check-10), [11](#check-11), [12](#check-12), [14](#check-14), [17](#check-17), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [31](#check-31), [32](#check-32), [34](#check-34), [35](#check-35), [41](#check-41), [42](#check-42), [43](#check-43), [45](#check-45), [46](#check-46), [47](#check-47), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [54](#check-54), [55](#check-55), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [91](#check-91), [92](#check-92), [93](#check-93), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [107](#check-107), [108](#check-108), [110](#check-110), [114](#check-114), [115](#check-115), [120](#check-120), [121](#check-121), [122](#check-122), [124](#check-124), [125](#check-125), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [139](#check-139), [149](#check-149), [153](#check-153), [160](#check-160), [161](#check-161), [168](#check-168)
+- **Passed, nothing changed since** (4): [111](#check-111), [112](#check-112), [113](#check-113), [123](#check-123)
+- **Only when it happens: the report watches for it** (5): [28](#check-28), [60](#check-60), [146](#check-146), [154](#check-154), [155](#check-155)
+
+**On branches not merged yet:**
+
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 84 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/audit-fixes-recipients`: changes code behind 11 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215).
+
+**Next free check number: 233** (counted across `main` and every open branch).
+
+**Docs that name a check this file doesn't have** (renumbered or removed):
+
+- `docs/handoff/README.md`: check 185
+<!-- status:end -->
 
 ## After the checks: the report
 

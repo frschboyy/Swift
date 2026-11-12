@@ -654,6 +654,15 @@ async def test_a_hey_swift_from_before_the_lock_wakes_nothing_after_it() -> None
         wake.close()
 
 
+async def test_a_request_said_just_after_the_lock_before_the_next_poll_starts_nothing() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    session.locked_now = lambda: True  # Windows says locked; the 2 s poll hasn't set the flags yet
+    await say(session, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    assert agent.requests == [] and session.wake_stats["paused_drop"] == 1
+    assert agree(session, out)["stage"] not in ("working", "confirm")
+
+
 async def test_words_said_to_swift_s_question_never_take_the_second_way_in() -> None:
     session, out, agent, stt, _control, _sched = _lane()
     await _wifi(session, out, stt)

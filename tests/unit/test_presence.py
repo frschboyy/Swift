@@ -381,3 +381,20 @@ def test_the_real_lock_check_answers_without_failing() -> None:
 
     probe = WindowsProbe()
     assert isinstance(probe._session_locked(), bool) and isinstance(probe.locked(), bool)
+
+
+def test_the_lifecycle_asks_windows_itself_between_polls() -> None:
+    m, probe, _clock, _changes = monitor()
+    session = types.SimpleNamespace()
+
+    async def send(_message: Message) -> None:
+        return None
+
+    life = Lifecycle(session, send)
+    assert not life.locked_now()  # no monitor (not Windows): never locked
+    life.attach(m)
+    assert session.locked_now == life.locked_now and not life.locked_now()
+    probe.is_locked = True  # locked, and no poll has run since
+    assert m.listening_allowed and life.locked_now()
+    probe.fail = True
+    assert not life.locked_now()

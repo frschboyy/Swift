@@ -80,6 +80,17 @@ class Lifecycle:
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
+        self.session.locked_now = self.locked_now
+
+    def locked_now(self) -> bool:
+        """Is the screen locked this instant? The monitor looks every 2 s; this asks Windows itself, for
+        speech heard in between (owner check 232). A probe that fails says no: the monitor logs that."""
+        if self.monitor is None:
+            return False
+        try:
+            return self.monitor.probe.locked()
+        except Exception:  # noqa: BLE001 - as ``PresenceMonitor.poll``: a failed probe changes nothing
+            return False
 
     # ---- presence changes ---------------------------------------------------------------
 

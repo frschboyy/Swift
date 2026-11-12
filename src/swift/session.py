@@ -934,6 +934,9 @@ class Session:
         # The screen is locked, the PC asleep or listening paused from the tray, with wake listening on or
         # off (``Lifecycle``): nothing heard acts, however late it arrives (seams audit T-07).
         self.hands_free_blocked = False
+        # Is the screen locked this instant (``Lifecycle.locked_now``)? The two flags above follow a poll
+        # every 2 s; heard speech asks Windows itself, so nothing said just after a lock acts.
+        self.locked_now: Callable[[], bool] | None = None
         # Counts ``listening_changed``: a check that takes time sees a lock that came and went meanwhile.
         self._listening_changes = 0
         # Set when the owner comes back (``mark_return``): the first wake phrase after it logs how long it was.
@@ -2021,7 +2024,7 @@ class Session:
     def _deaf(self) -> bool:
         """Nothing heard may act now (threat model T7): checked where heard speech acts, not only where it
         enters, since a held utterance or a recorded answer arrives after the lock (seams audit T-07)."""
-        return self.listening_paused or self.hands_free_blocked
+        return self.listening_paused or self.hands_free_blocked or (self.locked_now is not None and self.locked_now())
 
     def _drop_heard(self) -> None:
         """The screen locked: forget what was heard and not yet acted on, and end what the open

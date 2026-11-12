@@ -213,7 +213,7 @@ class FakeEvents:
 
     def get(self, calendarId: str, eventId: str) -> Call:  # noqa: N803
         if not self.stored:
-            return Call(Exception("<HttpError 410 ... Resource has been deleted>"))
+            return Call(Status(410))
         return Call({"id": eventId, "summary": "Swift check", "status": "confirmed"})
 
     def delete(self, calendarId: str, eventId: str, sendUpdates: str) -> Call:  # noqa: N803

@@ -198,20 +198,14 @@
   area: actions
   severity: high
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: 'gmail.py:140 (send: "404" means sent) and gmail.py:155 ("404" in str(exc) in _draft_exists); google_calendar.py:144
-    (_get) with google_calendar.py:200-201 (delete_event: tried and None means "removed"); google.py:212 ("401"
-    in text). googleapiclient HttpError.__str__ is its __repr__: ''<HttpError 503 when requesting <uri> returned
-    ...>'' (checked in the installed package). Gmail draft ids are long numbers and Swift''s event ids are uuid
-    hex, so some contain "404". The suite''s fakes raise "<HttpError 404 Not Found>" or "HttpError 503" with no
-    address, so these tests pass falsely: test_audit_2026_10.py::test_an_email_is_sent_once_when_the_connection_drops,
-    test_google_contacts.py::test_a_delete_whose_connection_dropped_is_done_on_the_retry, test_google_contacts.py::test_a_refusal_is_not_retried_or_called_a_refusal.'
+  evidence: src/swift/connectors/google.py http_status(); used by gmail.py send and _draft_exists, google_calendar.py
+    _get and insert, google.py _failure
   test: tests/unit/test_health_FAKE.py::test_an_email_not_sent_is_never_reported_sent
-  note: Also tests/unit/test_health_FAKE.py::test_an_event_still_there_is_never_reported_removed and ::test_a_refusal_is_not_an_expired_sign_in.
-    Seams audit X-14 noted the "401" match as loose (Low); the "404" cases are new and turn an outage into a false
-    "sent"/"removed". A faithful fake raises an HttpError-shaped error carrying resp.status and the uri; the fix
-    reads resp.status, not the text.
+  note: Also test_an_event_still_there_is_never_reported_removed and test_a_refusal_is_not_an_expired_sign_in. The
+    suite's Google fakes now carry resp.status like HttpError, instead of a status only in their text. invalid_grant
+    is still read from text (RefreshError has no status).
 - id: HA-FAKE-03
   title: 'Pressing Esc while a request waits for the warm Claude Code CLI to finish connecting (up to 20 s) is swallowed:
     the request starts anyway, cold, and Esc doesn''t stop it.'

@@ -207,12 +207,12 @@ class _Google:
 
     def get(self, calendarId: str = "", eventId: str = "", userId: str = "", id: str = "",  # noqa: N803, A002
             format: str = ""):  # noqa: A002
-        from test_google_contacts import Call
+        from test_google_contacts import Call, Status
 
         if eventId:
             found = self.events.get(eventId)
-            return Call(found if found is not None else Exception("<HttpError 404 Not Found>"))
-        return Call({"id": id} if id in self.drafts else Exception("<HttpError 404 Not Found>"))
+            return Call(found if found is not None else Status(404))
+        return Call({"id": id} if id in self.drafts else Status(404))
 
     # Gmail drafts()
     def create(self, userId: str, body: dict):  # noqa: N803

@@ -67,7 +67,6 @@ class Drafts:
         return Call(HttpErrorLike(503, uri, "Backend Error"))
 
 
-@pytest.mark.xfail(strict=True, reason="HA-FAKE-01: a 503 whose address holds '404' reads as 'draft gone, so sent'")
 async def test_an_email_not_sent_is_never_reported_sent() -> None:
     drafts = Drafts()
     connector = GmailConnector()
@@ -106,7 +105,6 @@ class Events:
         return Call(run)
 
 
-@pytest.mark.xfail(strict=True, reason="HA-FAKE-01: a 503 whose address holds '404' reads as 'already removed'")
 async def test_an_event_still_there_is_never_reported_removed() -> None:
     events = Events()
     connector = GoogleCalendarConnector()
@@ -116,7 +114,6 @@ async def test_an_event_still_there_is_never_reported_removed() -> None:
     assert events.stored
 
 
-@pytest.mark.xfail(strict=True, reason="HA-FAKE-01: a 403 whose address holds '401' reads as 'sign-in expired'")
 async def test_a_refusal_is_not_an_expired_sign_in(monkeypatch: pytest.MonkeyPatch) -> None:
     fired: list[int] = []
     monkeypatch.setattr(google, "expired_listeners", [lambda: fired.append(1)])

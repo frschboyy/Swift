@@ -24,7 +24,6 @@ def lane(now: datetime = NOW) -> tuple[SystemLane, FakeSystem, Scheduler]:
     return SystemLane(control, sched, now=lambda: now), control, sched
 
 
-@pytest.mark.xfail(strict=True, reason="HA-SYS-01: airplane mode leaves Wi-Fi off, unsaid and with no undo, when Bluetooth raises")
 async def test_airplane_half_done_is_said_and_undoable() -> None:
     l, dev, _ = lane()
     real = dev.set_radio

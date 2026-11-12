@@ -180,15 +180,12 @@
   area: actions
   severity: high
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: lane.py:503-504 loops set_radio with no try; a SystemUnavailable from the second radio leaves _airplane
-    before the undo and the read-back (lane.py:505-526); _execute (lane.py:195-196) then says only exc.message,
-    ok=False, no undo. WindowsSystem.set_radio raises exactly this when Windows denies (control.py:539-540). Existing
-    test_a_radio_that_didnt_switch_is_reported_not_claimed covers only a silent no-op, not a raise.
+  evidence: src/swift/system/lane.py _airplane catches SystemUnavailable per radio, then reads every radio back
   test: tests/unit/test_health_SYS.py::test_airplane_half_done_is_said_and_undoable
-  note: Offline after this (Wi-Fi off) with no way to say 'undo that'. Catch per radio, then fall through to the
-    read-back.
+  note: The refused radio is reported as not switched, the others switch, and undo restores those that moved. Windows'
+    own reason for the refusal isn't repeated.
 - id: HA-FAKE-01
   title: Google errors are matched by searching their whole text for "404" or "401", and that text includes the
     request address (draft id, event id, search words). So a passing outage can make Swift report an email as sent

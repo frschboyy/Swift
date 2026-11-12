@@ -501,7 +501,10 @@ class SystemLane:
         want = not i["on"]
         changed = [k for k, v in before.items() if v != want]
         for kind in changed:
-            await self.control.set_radio(kind, want)
+            try:
+                await self.control.set_radio(kind, want)
+            except SystemUnavailable:  # the read-back says it's stuck; the others still switch, and undo (HA-SYS-01)
+                logger.warning("airplane: a radio refused", kind=kind)
         after = await self.control.radios()
         verb = "on" if want else "off"
         names = " and ".join(self._radio_name(k) for k in before)

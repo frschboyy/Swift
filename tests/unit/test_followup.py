@@ -57,14 +57,42 @@ async def test_a_follow_up_carries_the_previous_request_and_answer() -> None:
     assert "context" not in records[0]
 
 
-async def test_only_the_last_exchange_is_kept() -> None:
+async def test_the_conversation_so_far_is_kept() -> None:
+    # Owner, 2026-11-08: "What dog was I talking about?" got only the turn before, which didn't name it.
     session, _, spy, _ = make()
-    await ask(session, "List the docs folder.")
-    await ask(session, "Read the first file.")
-    await ask(session, "Summarize it.")
+    await ask(session, "My dog is a boerboel.")
+    await ask(session, "It ate its puppies.")
+    await ask(session, "What dog was I talking about?")
     third = spy.calls[2][0]
-    assert "Read the first file." in third and "List the docs folder." not in third
-    assert third.count("[Current request]") == 1
+    assert third.index("Earlier request") < third.index("My dog is a boerboel.") < third.index("It ate its puppies.")
+    assert "Previous request: It ate its puppies." in third
+    assert third.count("[Current request]") == 1 and third.count("My dog is a boerboel.") == 1
+
+
+async def test_only_the_last_few_are_kept() -> None:
+    from swift.session import EARLIER_MAX
+
+    session, _, spy, _ = make()
+    for i in range(EARLIER_MAX + 3):
+        await ask(session, f"Request number {i}.")
+    last = spy.calls[-1][0]
+    assert "Request number 0." not in last and f"Request number {EARLIER_MAX + 1}." in last
+    assert last.count("Earlier request") == EARLIER_MAX
+
+
+async def test_a_misheard_capture_doesnt_end_the_conversation() -> None:
+    # Owner, 2026-11-08: an unclear capture between two turns, and "Yes, that's correct." lost the context.
+    session, _, spy, records = make()
+    await ask(session, "Research the history of tea.")
+
+    async def unclear(rec: dict[str, Any]) -> str:
+        raise session._unclear_error("the mumble")
+
+    session._launch({"source": "followup", "executor": "claude_code"}, unclear, session.executor, session.executor.start)
+    await settled(session)
+    assert records[-1]["error"] == "unclear_speech"
+    await ask(session, "Make it shorter.")
+    assert "Previous request: Research the history of tea." in spy.calls[-1][0]
 
 
 async def test_an_old_exchange_is_not_sent(monkeypatch: Any) -> None:

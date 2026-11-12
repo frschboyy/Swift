@@ -16,8 +16,10 @@ click, "stop"/"cancel" cancel the run like Esc, anything else leaves it open.
 
 A request to Claude within ``followup_s`` of the previous answer carries that
 exchange (request, answer, approved actions) as context, so "now commit it"
-works although every run is a fresh Claude Code process (ADR-007 §9). Only
-one exchange is kept; an error, a cancelled run or "new topic" clears it.
+works although every run is a fresh Claude Code process (ADR-007 §9). The few
+exchanges before it in the same conversation ride along too (``EARLIER_MAX``); an
+error, a cancelled run or "new topic" clears them, but a capture that wasn't heard
+well enough to act on doesn't (``NOT_HEARD``).
 
 Failures reach the overlay as ``error`` messages built from a ``Failure``
 (ADR-009): a plain title, what it means, what to do, and the raw text only as
@@ -247,6 +249,10 @@ HELP_TEXT = (
 TAIL_S = 0.3
 # A request this soon after the previous Claude answer carries that exchange as context.
 FOLLOWUP_S = 300.0
+# Exchanges before the previous one that a follow-up still gets (owner checks 233-234).
+EARLIER_MAX = 4
+# Errors where nothing was heard well enough to act on: the conversation goes on past them.
+NOT_HEARD = ("unclear_speech", "no_speech", "fragment")
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
 # On Swift's own cards (an email, an event) anything else said is a change to make.
 CHANGE_HINT = "Say “approve”, “reject”, or what to change."
@@ -447,11 +453,31 @@ class Exchange:
     proposed: str = ""
     proposed_done: bool = False
     thread: str | None = None
+    # The exchanges before this one in the same conversation, oldest first (none of them nested).
+    earlier: tuple[Exchange, ...] = ()
+
+    def then(self, before: Exchange | None, now: float, window_s: float) -> Exchange:
+        """This exchange, with ``before`` and its earlier ones if the conversation went on (``window_s``)."""
+        if before is None or now - before.at > window_s:
+            return self
+        chain = (*before.earlier, replace(before, earlier=()))[-EARLIER_MAX:]
+        return replace(self, earlier=chain)
 
     def as_context(self, now: float) -> str:
         lines = [
             f"[Context: the previous voice request, {int(now - self.at)} s ago. "
             "Use it only if the current request refers to it.]",
+        ]
+        if self.earlier:
+            lines = [
+                "[Context: this voice conversation so far, oldest first. Use it only if the current request "
+                "refers to it.]",
+            ]
+            for e in self.earlier:
+                lines += [f"Earlier request ({int(now - e.at)} s ago): {_clip(e.request, 200)}",
+                          f"Earlier answer: {_clip(e.answer, 300)}"]
+            lines.append(f"[The previous request, {int(now - self.at)} s ago]")
+        lines += [
             f"Previous request: {_clip(self.request, 300)}",
             f"Previous answer: {_clip(self.answer, 800)}",
         ]
@@ -2998,7 +3024,8 @@ class Session:
         except UserFacingError as exc:
             record["status"] = "error"
             record["error"] = exc.code
-            self._last_exchange = None
+            if exc.code not in NOT_HEARD:  # a misheard capture mid-conversation isn't the end of it
+                self._last_exchange = None
             await self._send_failure(exc.failure, record)
         except Exception as exc:  # noqa: BLE001 - any bug here ends the request with a card
             logger.exception("interaction failed")
@@ -4959,7 +4986,7 @@ class Session:
                 record["id"], request, result.summary, tuple(self._approved), clock.now(), thread=record.get("thread"),
                 # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".
                 proposed=proposed, proposed_done=bool(proposed) and record.get("status") == "done",
-            )
+            ).then(self._last_exchange, clock.now(), self.followup_s)
         else:
             self._last_exchange = None
 

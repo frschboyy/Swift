@@ -7,14 +7,15 @@
   area: screen
   severity: critical
   product_rule: true
-  status: partial
+  status: fixed
   confidence: confirmed
-  evidence: src/swift/executors/claude_mapping.py STOP_REASONS, STOP_FAILURES, RETRY_STEPS and the fallback summary;
-    claude_code.py rejected text
-  test: tests/unit/test_claude_mapping.py::test_owner_facing_stop_and_retry_texts_name_no_provider
-  note: 'Also X-06. Left: session.py''s handoff step (''X isn''t available, so Y is taking this'') names providers
-    on purpose, and only shows with a second provider; the owner decides. The sign-in card naming Claude''s account
-    is not a status label. Needs review by someone other than the author (product rule).'
+  evidence: src/swift/failures.py _KINDS and the fallback are generic; claude_mapping.py tables; claude_code.py
+    stop, stall and rejected texts
+  test: tests/unit/test_failures.py::test_failure_cards_name_no_provider
+  note: 'Also X-06, and test_claude_mapping.py::test_owner_facing_stop_and_retry_texts_name_no_provider. Sign-in
+    and credit still name the provider: that is its account, and the owner acts there. Left for the owner: session.py''s
+    handoff step between providers names them, shown only with a second provider. Reviewed (blocked once, for failures.py
+    titles).'
 - id: OCT-01
   title: VS Code's integrated terminal is inside code.exe, which is not on the terminal list, so Swift can still
     type into it.

@@ -834,7 +834,7 @@ class ClaudeCodeExecutor:
                         run.heard_at = clock.now()  # the owner's turn: not the CLI being silent
                     elif clock.now() - run.heard_at >= self.stall_timeout_s:
                         logger.warning("claude run stalled", stall_s=self.stall_timeout_s, steps=run.steps_at_level)
-                        raise RunStalled(f"timed out: no word from Claude Code for {self.stall_timeout_s:.0f} s")
+                        raise RunStalled(f"timed out: no word for {self.stall_timeout_s:.0f} s")
             finally:
                 if not nxt.done():
                     nxt.cancel()
@@ -876,7 +876,7 @@ class ClaudeCodeExecutor:
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
         detail = f" ({lines[0][:160]})" if lines else ""
-        summary = f"Claude Code stopped without an answer{detail}."
+        summary = f"Stopped without an answer{detail}."
         # The exception's type often names the cause (CLIConnectionError, TimeoutError).
         raw = f"{type(error).__name__}: {exception_words(error)}" if error else summary  # classify and detail mask it
         hints = {"fallback_hint": CLAUDE_CODE.error_hint, "signin_hint": CLAUDE_CODE.signin_hint}

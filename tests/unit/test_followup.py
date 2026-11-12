@@ -122,7 +122,7 @@ async def test_new_topic_clears_it_and_says_so() -> None:
 
 
 async def test_an_error_clears_it() -> None:
-    session, _, spy, _ = make(Scripted(("done", "ok"), ("error", "Claude Code stopped without an answer.")))
+    session, _, spy, _ = make(Scripted(("done", "ok"), ("error", "Stopped without an answer.")))
     await ask(session, "List the docs folder.")
     await ask(session, "Read the first file.")
     await ask(session, "Try again.")

@@ -43,14 +43,15 @@ def test_known_failures_are_classified(raw: str, code: str, retry: bool) -> None
     # The raw text is never the headline, only the detail.
     assert failure.detail and raw[:20] in failure.detail
     assert raw[:20] not in failure.title + failure.message
-    assert "Claude Code" in failure.title + failure.message or code in ("billing", "too_large", "rate_limited")
+    # Only the provider's account (sign-in, credit) is named; status stays generic (B-10).
+    assert ("Claude Code" in failure.title + failure.message) == (code in ("auth", "billing"))
     if code == "auth":
         assert failure.hint == "Run claude."
 
 
 def test_unknown_failures_keep_the_providers_words_and_hint() -> None:
     failure = classify("I couldn't find a file called notes.md.", "Claude Code", fallback_hint="Check it.")
-    assert failure.code == "executor_failed" and failure.title == "Claude Code ran into a problem"
+    assert failure.code == "executor_failed" and failure.title == "That ran into a problem"
     assert failure.message == "I couldn't find a file called notes.md." and failure.hint == "Check it."
     assert failure.detail is None
 
@@ -88,7 +89,7 @@ async def test_error_card_carries_title_detail_and_retry() -> None:
     session, rec, _ = make()
     await run_demo(session, "error")
     err = rec.last("error")
-    assert err["code"] == "crashed" and err["title"] == "Demo agent stopped unexpectedly"
+    assert err["code"] == "crashed" and err["title"] == "The request stopped unexpectedly"
     assert err["severity"] == "error" and err["retry"] is True
     assert "exited with code 1" in err["detail"]
 
@@ -127,7 +128,7 @@ async def test_try_again_sends_the_same_transcript_without_speaking() -> None:
     await session.handle(Message("debug.ask", {"text": "Summarize the README."}))
     await settled(session)
     err = rec.last("error")
-    assert err["code"] == "overloaded" and err["retry"] is True and err["title"] == "Swift is busy right now"
+    assert err["code"] == "overloaded" and err["retry"] is True and err["title"] == "The AI service is busy right now"
     await session.handle(Message("retry", {}))
     await settled(session)
     assert executor.calls == ["Summarize the README.", "Summarize the README."]
@@ -150,7 +151,7 @@ def test_an_unconfirmed_model_reads_plainly() -> None:
 
     failure = classify(f"Exception: {UNCONFIRMED}", "Claude Code")
     assert failure.code == "models" and failure.retry
-    assert failure.message == "Claude Code couldn't reach its models; check your connection or sign-in."
+    assert failure.message == "Swift couldn't reach the AI models; check your connection or sign-in."
     assert "/model" not in failure.message + failure.hint + failure.title  # the CLI's advice isn't Swift's
 
 
@@ -212,5 +213,16 @@ async def test_when_the_default_fails_too_the_card_says_so_plainly(tmp_path) -> 
     result = await asyncio.wait_for(ex.result(run_id), 5)
     assert result.status == "error" and result.failure is not None
     assert result.failure.code == "models"
-    assert result.failure.message == "Claude Code couldn't reach its models; check your connection or sign-in."
+    assert result.failure.message == "Swift couldn't reach the AI models; check your connection or sign-in."
     assert ModelClient.made[0].models == [ex.models["light"], None]  # tried once more, not again and again
+
+
+@pytest.mark.parametrize("raw", [
+    "Couldn't confirm model", "rate limit exceeded", "overloaded_error", "prompt is too long",
+    "getaddrinfo ENOTFOUND api", "timed out", "500 internal server error", "process exited with code 1",
+    "something nobody expected",
+])
+def test_failure_cards_name_no_provider(raw: str) -> None:
+    """Status labels stay generic (B-10): only sign-in and credit, the provider's account, may name it."""
+    failure = classify(raw, "Claude Code")
+    assert "claude" not in f"{failure.title} {failure.message}".lower(), failure

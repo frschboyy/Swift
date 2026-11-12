@@ -5,8 +5,9 @@ CLI message, "API Error: 529 Overloaded". The owner should read what happened in
 plain language, what to do about it, and whether trying again could help. The
 raw text is kept as ``detail``: logged, and shown on the card only on request.
 
-``classify()`` knows failure *kinds*, not providers: titles use the provider's
-display name, so a new provider gets readable errors without changes here.
+``classify()`` knows failure *kinds*, not providers. Titles and messages stay generic ("status
+labels generic", CLAUDE.md; B-10): only signing in and credit name the provider, since those are
+its account and the owner has to act there.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ class Failure:
 
 
 # (code, pattern, title, message, hint, retry). First match wins, so specific kinds
-# come before broad ones ("401" before "API error"). {name} is the provider's name;
+# come before broad ones ("401" before "API error"). {name} is the provider's name, for account kinds only;
 # {signin} and {fallback} are its own hints, since only it knows how to fix those.
 _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
     (
@@ -60,8 +61,8 @@ _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
         # the owner's connection or sign-in, never something to fix in the request (2026-10-27).
         "models",
         r"couldn.?t confirm model|could not confirm model",
-        "{name} couldn't reach its models",
-        "{name} couldn't reach its models; check your connection or sign-in.",
+        "Couldn't reach the AI models",
+        "Swift couldn't reach the AI models; check your connection or sign-in.",
         "Check your internet connection, or sign in again, then try again.",
         True,
     ),
@@ -86,15 +87,15 @@ _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
         "rate_limited",
         r"rate[ _-]?limit|usage limit|\b429\b|too many requests|quota|limit (reached|exceeded)",
         "Usage limit reached",
-        "{name} has hit its usage limit for now.",
+        "The AI service's usage limit is reached for now.",
         "Wait a few minutes and try again. If it keeps happening, check your plan's limits.",
         True,
     ),
     (
         "overloaded",
         r"overloaded|\b529\b|over capacity|at capacity",
-        "{name} is busy right now",
-        "The service behind {name} is overloaded.",
+        "The AI service is busy right now",
+        "The AI service is overloaded.",
         "This usually clears within a minute. Try again shortly.",
         True,
     ),
@@ -102,7 +103,7 @@ _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
         "too_large",
         r"prompt is too long|context (length|window)|too many tokens|request too large|\b413\b",
         "That request was too large",
-        "{name} couldn't fit everything it needed into one request.",
+        "Swift couldn't fit everything it needed into one request.",
         "Try asking for something narrower, or say “new topic” to drop the previous context.",
         False,
     ),
@@ -111,24 +112,24 @@ _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
         r"getaddrinfo|enotfound|econnrefused|econnreset|enetunreach|ehostunreach|network|internet|"
         r"connection (error|refused|reset|aborted|closed)|connecterror|unable to connect|could not connect|"
         r"failed to connect|fetch failed|socket hang up|offline|name resolution|\bdns\b",
-        "Can't reach {name}",
-        "Swift couldn't connect to the service behind {name}.",
+        "Can't reach the AI service",
+        "Swift couldn't connect to the AI service.",
         "Check your internet connection, then try again.",
         True,
     ),
     (
         "timeout",
         r"timed? ?out|timeout|deadline exceeded",
-        "{name} took too long",
-        "{name} didn't respond in time.",
+        "That took too long",
+        "The AI service didn't respond in time.",
         "Try again. If your connection is slow, a shorter request may help.",
         True,
     ),
     (
         "service",
         r"\b50[0-4]\b|internal server error|service unavailable|bad gateway|api error|server error",
-        "{name} had a service problem",
-        "The service behind {name} returned an error. This is usually temporary.",
+        "The AI service had a problem",
+        "The AI service returned an error. This is usually temporary.",
         "Try again in a moment.",
         True,
     ),
@@ -136,8 +137,8 @@ _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
         "crashed",
         r"exit(ed)? (with )?(code|status)|exit code|process (error|exited|terminated)|stopped without an answer|"
         r"cliconnection|broken pipe|terminated unexpectedly|crash",
-        "{name} stopped unexpectedly",
-        "{name} quit before it finished your request.",
+        "The request stopped unexpectedly",
+        "It quit before it finished your request.",
         "{fallback}",
         True,
     ),
@@ -191,8 +192,8 @@ def classify(text: str, name: str, *, fallback_hint: str = DEFAULT_HINT, signin_
             )
     return Failure(
         "executor_failed",
-        f"{name} ran into a problem",
-        detail or f"{name} couldn't finish the request.",
+        "That ran into a problem",
+        detail or "Swift couldn't finish the request.",
         fallback_hint,
         retry=True,
         # Already the message: no separate details.

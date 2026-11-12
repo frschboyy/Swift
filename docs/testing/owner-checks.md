@@ -368,9 +368,9 @@ You should see: it goes on with lunch, on the same card, and shows the approval 
 The report checks: the question picked up later.
 
 <a id="check-28"></a>**Check 28**
-1. Nothing to do, unless Swift ever says Claude Code couldn't reach its models.
+1. Nothing to do, unless Swift ever says it couldn't reach the AI models.
 
-You should see: one card, "Claude Code couldn't reach its models; check your connection or sign-in", after Swift tried
+You should see: one card, "Swift couldn't reach the AI models; check your connection or sign-in", after Swift tried
 once more with the default model.
 
 The report checks: retries with the default model, if any.

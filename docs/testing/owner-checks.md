@@ -50,7 +50,7 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-12 at `36ed69d`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-12 at `5008544`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
@@ -65,7 +65,7 @@ at its heading); a check that builds on another comes after it.
 
 **Conversations, corrections and stepping away**
 
-7. [13](#check-13): Right after unlocking, without the hotkey, say "Hey Swift, what time is it". *Why: failed on 2026-11-05; 5 changes since (such as `7ffa9f5` Step 0 of the reliability audit: keep what holds up from the 2026-11-05 checks); product rule: no hands-free listening while locked.*
+7. [13](#check-13): Right after unlocking, without the hotkey, say "Hey Swift, what time is it". *Why: failed on 2026-11-05; 7 changes since (such as `7ffa9f5` Step 0 of the reliability audit: keep what holds up from the 2026-11-05 checks); product rule: no hands-free listening while locked.*
 
 **Fixes from your checks of 2026-11-09**
 
@@ -1921,27 +1921,99 @@ You should see: Swift never wakes by itself. If it does, note the time.
 
 You should see: nothing happened while locked, and nothing starts when you unlock.
 
+### Where Swift is rigid: requests in your own words (2026-11-12)
+
+About 25 minutes. The checks above reuse a few phrases Swift was tuned on. These use other words, follow-ups
+and requests Swift may have no tool for. **Some are expected to fail**: they show where Swift falls short, so
+note what happened rather than trying again. Reject every approval card, and answer **No** to Swift's own questions.
+
+<a id="check-233"></a>**Check 233. A follow-up that changes the last answer**
+1. Say "Hey Swift, compare three e-readers".
+2. When the answer shows, within 8 seconds, without "Hey Swift", say "say that in one sentence".
+
+You should see: one sentence about the same three e-readers, not "I don't have a previous answer".
+
+The report checks: the follow-up was given the answer before it.
+
+<a id="check-234"></a>**Check 234. Something from two answers back**
+1. Say "Hey Swift, is Claudia a good name?".
+2. Within 8 seconds of the answer, say "and Olivia?".
+3. Within 8 seconds of that answer, say "which name did I ask about first?".
+
+You should see: "Claudia".
+
+The report checks: the third answer names Claudia.
+
+<a id="check-235"></a>**Check 235. One command, said six ways**
+1. Say each of these, one at a time, and wait for Swift before the next:
+   - "Hey Swift, could you switch the Wi-Fi off"
+   - "Hey Swift, kill the Bluetooth"
+   - "Hey Swift, turn on Bluetooth, turn on Bluetooth" (said twice, as people do)
+   - "Hey Swift, play some music"
+   - "Hey Swift, it's too loud"
+   - "Hey Swift, give me ten minutes on the clock"
+
+You should see: each one done, or Swift's own question, within about 3 seconds. Never "Working on it", and never
+"I didn't turn…".
+
+The report checks: none of the six went to the slow lane.
+
+<a id="check-236"></a>**Check 236. A word from a workflow in a different request**
+1. Say "Hey Swift, delete the word test from a file called notes in Documents".
+2. Say "Hey Swift, how do I schedule a meeting in Outlook?".
+3. Say "Hey Swift, what makes a good subject line for an email?".
+
+You should see: the first asks about the file or shows a card for the change (Reject it); the other two are
+answered. None shows a calendar or email card, and none says "I can't do that one".
+
+The report checks: none of the three ran the calendar or email workflow.
+
+<a id="check-237"></a>**Check 237. Things Swift may not be able to do yet**
+1. Say each of these, one at a time:
+   - "Hey Swift, when is my birthday?"
+   - "Hey Swift, remember that my manager is Ada"
+   - "Hey Swift, remind me every Monday at nine to send the report"
+   - "Hey Swift, open my Downloads folder"
+   - "Hey Swift, what's on my screen right now?"
+
+You should see: each one done, or a plain sentence that Swift can't do it yet, within about 15 seconds. None
+waits on a card to run a command. Tell Claude which were done and which Swift said it can't do.
+
+The report checks: none stalled (stopped, rejected, failed, or took over 30 seconds).
+
+<a id="check-238"></a>**Check 238. Ten requests of your own**
+1. Over a day, make ten requests you would really make, in your own words. None from this file.
+2. After each, note whether Swift did what you wanted, and if not, what it did.
+
+You should see: nothing in particular. Tell Claude the ten and your tally: this is the measure the others can't give.
+
+<a id="check-239"></a>**Check 239. Understood, and still not done**
+1. Nothing to do, unless it happens: Swift's answer shows it understood a command ("I didn't turn off Wi-Fi")
+   and it didn't do it.
+
+The report checks: a slow-lane request that tried a PC action and answered "I didn't…" or "I couldn't…".
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-12 at `36ed69d`. Each number links to its check.
+As of 2026-11-12 at `5008544`. Each number links to its check.
 
 - **Changed since it failed: run it again** (7): [13](#check-13), [191](#check-191), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [197](#check-197)
-- **Never run** (108): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [36](#check-36), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [49](#check-49), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [68](#check-68), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [213](#check-213), [214](#check-214), [215](#check-215), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [228](#check-228), [229](#check-229), [230](#check-230), [231](#check-231), [232](#check-232)
+- **Never run** (114): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [36](#check-36), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [49](#check-49), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [68](#check-68), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [213](#check-213), [214](#check-214), [215](#check-215), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [228](#check-228), [229](#check-229), [230](#check-230), [231](#check-231), [232](#check-232), [233](#check-233), [234](#check-234), [235](#check-235), [236](#check-236), [237](#check-237), [238](#check-238)
 - **Partly seen** (7): [8](#check-8), [15](#check-15), [16](#check-16), [21](#check-21), [24](#check-24), [33](#check-33), [77](#check-77)
 - **Passed, changed since** (76): [1](#check-1), [2](#check-2), [2b](#check-2b), [3](#check-3), [4](#check-4), [5](#check-5), [7](#check-7), [10](#check-10), [11](#check-11), [12](#check-12), [14](#check-14), [17](#check-17), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [31](#check-31), [32](#check-32), [34](#check-34), [35](#check-35), [41](#check-41), [42](#check-42), [43](#check-43), [45](#check-45), [46](#check-46), [47](#check-47), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [54](#check-54), [55](#check-55), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [91](#check-91), [92](#check-92), [93](#check-93), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [107](#check-107), [108](#check-108), [110](#check-110), [114](#check-114), [115](#check-115), [120](#check-120), [121](#check-121), [122](#check-122), [124](#check-124), [125](#check-125), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [139](#check-139), [149](#check-149), [153](#check-153), [160](#check-160), [161](#check-161), [168](#check-168)
 - **Passed, nothing changed since** (4): [111](#check-111), [112](#check-112), [113](#check-113), [123](#check-123)
-- **Only when it happens: the report watches for it** (5): [28](#check-28), [60](#check-60), [146](#check-146), [154](#check-154), [155](#check-155)
+- **Only when it happens: the report watches for it** (6): [28](#check-28), [60](#check-60), [146](#check-146), [154](#check-154), [155](#check-155), [239](#check-239)
 
 **On branches not merged yet:**
 
-- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 84 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 89 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 11 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215).
 
-**Next free check number: 233** (counted across `main` and every open branch).
+**Next free check number: 240** (counted across `main` and every open branch).
 
 **Docs that name a check this file doesn't have** (renumbered or removed):
 

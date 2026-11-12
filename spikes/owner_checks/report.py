@@ -569,6 +569,47 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          f" {wake_count('acoustic_rejected')} turned down; only you know whether any wake was by itself"),
         ("232 nothing woke through the second way in while locked", unless(acted_away, locked and unlocked),
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
+        *_rigid(rows),
+    ]
+
+
+def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 233-239: requests in the owner's own words. Matched by their phrases, so a misheard one is NOT SEEN."""
+
+    def said(pattern: str) -> list[dict[str, Any]]:
+        return [r for r in rows if re.search(pattern, r.get("transcript") or "", re.I)]
+
+    def answer(r: dict[str, Any]) -> str:
+        steps = r.get("steps") or []
+        return str(steps[-1].get("text") or "") if steps else ""
+
+    def times(found: list[dict[str, Any]]) -> str:
+        return ", ".join(f"{r['_t']:%H:%M:%S}" for r in found) or "none"
+
+    sentence = said(r"in one sentence")
+    first = said(r"ask(ed)? about first")
+    ways = said(r"switch the wi.?fi|kill the bluetooth|bluetooth.+bluetooth|some music|too loud|on the clock")
+    words = said(r"file called notes|in outlook|subject line")
+    cant = said(r"my birthday|my manager|every monday|downloads folder|on my screen")
+    stalled = [r for r in cant if r.get("status") != "done" or int(r.get("interaction_ms") or 0) > 30_000]
+    tried = [r for r in rows if r.get("route") == "agent"
+             and any("system_action" in str(s.get("text")) for s in r.get("steps") or [])]
+    refused = [r for r in tried if re.match(r"I (didn.t|couldn.t|haven.t)", answer(r))]
+    return [
+        ("233 a follow-up was given the answer before it", unless([r for r in sentence if not r.get("context")], sentence),
+         "without it: " + times([r for r in sentence if not r.get("context")])),
+        ("234 the third answer remembered the first question",
+         unless([r for r in first if "claudia" not in answer(r).lower()], first), "it should name Claudia"),
+        ("235 a command said another way stayed fast", unless([r for r in ways if r.get("route") == "agent"], ways),
+         f"{sum(r.get('route') != 'agent' for r in ways)} of {len(ways)} heard; slow lane: "
+         + times([r for r in ways if r.get("route") == "agent"])),
+        ("236 a workflow's word in another request didn't start the workflow",
+         unless([r for r in words if r.get("workflow")], words),
+         "ran a workflow: " + times([r for r in words if r.get("workflow")])),
+        ("237 a request Swift can't do yet didn't stall", unless(stalled, cant),
+         f"stalled: {times(stalled)}; tell us which were done and which Swift said it can't do"),
+        ("238 ten requests of your own", LOOK, "tell us the ten and your tally"),
+        ("239 a command Swift understood was done", unless(refused, tried), "understood and not done: " + times(refused)),
     ]
 
 

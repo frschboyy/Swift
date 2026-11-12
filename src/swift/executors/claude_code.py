@@ -507,8 +507,9 @@ class ClaudeCodeExecutor:
             cwd=self._check_cwd(),
             cli_path=self._resolve_claude(),
             tools=[*self.allowed_tools, *self.confirm_tools, *web_tools, *extra_tools],
-            # Reads are decided per path in _ask, so they aren't pre-approved.
-            allowed_tools=[*(t for t in self.allowed_tools if t not in READ_TOOLS), *extra_tools],
+            # Reads (per path) and web lookups (per address, per workflow) are decided in _ask, so only
+            # Swift's own tools are pre-approved; the gateway or _ask puts those on a card (HA-CFG-01).
+            allowed_tools=[*(t for t in self.allowed_tools if t not in READ_TOOLS and t not in PROVIDER_TOOLS), *extra_tools],
             permission_mode="default",
             can_use_tool=can_use_tool,
             setting_sources=[],

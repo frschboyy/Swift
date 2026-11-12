@@ -24,6 +24,13 @@ def test_allowed_tools_setting_cannot_pre_approve_writing_tools(tmp_path: Path) 
     assert {"Bash", "Write"} <= set(ex.confirm_tools)  # still usable, each call on a card
 
 
+def test_a_web_tool_in_the_setting_is_still_checked_per_call(tmp_path: Path) -> None:
+    # Pre-approved, WebFetch skipped _ask's checks: an address the owner didn't give, a workflow's manifest.
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), allowed_tools=["Read", "WebFetch", "WebSearch"], claude="claude.exe")
+    opts = ex.options(_Run(), "cc-1")
+    assert not {"WebFetch", "WebSearch"} & set(opts.allowed_tools) and "WebFetch" in opts.tools
+
+
 @pytest.mark.xfail(strict=True, reason="HA-CFG-02: 'is it X or Y' sends weather/date questions to the tool-free lane")
 @pytest.mark.parametrize("text", ["is it raining or sunny today", "is it cold or warm in london", "is it monday or tuesday"])
 def test_now_questions_do_not_take_the_quick_lane(text: str) -> None:

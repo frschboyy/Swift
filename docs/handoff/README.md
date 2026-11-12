@@ -35,6 +35,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | Seams audit | One window per question, what's on screen resent on every connection, lane capabilities and a run watchdog, one set of intake rules, the report can say FAIL | [`2026-11-seams-audit.md`](../audit/2026-11-seams-audit.md), owner checks 139–162 |
 | Reliability review | Items 1–8 of the review's list (below) | [`2026-11-reliability-audit-review.md`](../audit/2026-11-reliability-audit-review.md) §7 |
 | Log privacy | `swift.log`'s interaction line is an allow-list. Failures and denials log a type or a code, tracebacks have no messages, and a recipient's domain stays in the journal. Older lines in `swift.log` are unchanged | Seams audit X-03, X-04, X-05, X-19; owner check 123 |
+| Health audit | Every finding from every audit in one register, rechecked against the code, with fresh reviews of the unaudited modules; fixes for HA-CFG-01, HA-HEAR-02, X-02, HA-FAKE-01, HA-FAKE-03, HA-SYS-01, B-10. `test_findings_register.py` keeps the register honest; `test_structure_ratchet.py` stops new package cycles and `session.py` growth | [`2026-11-12-health-audit.md`](../audit/2026-11-12-health-audit.md), [`findings.yaml`](../audit/findings.yaml), owner checks 240–241 |
 
 **The review's items, all committed:**
 
@@ -215,6 +216,15 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 | Must you scroll to the end before Approve works? | The card says "More below", but Approve works anyway, and "Swift, yes" can't scroll | No, the sign only |
 | Countdown on a long card | A full card can't be read in the 45 s it allows. It goes to the stack, which is safe | Unchanged |
 
+**Open from the health audit** ([`2026-11-12-health-audit.md`](../audit/2026-11-12-health-audit.md); each is an entry in `findings.yaml`):
+
+| Finding | Decision | Recommendation |
+|---|---|---|
+| HA-HEAR-01 | Typing "Swift, yes" answers Swift's own "Turn off Wi-Fi?". The intake table allows it; the rule says typing never approves | Typing never answers it |
+| HA-UI-01 | Esc is taken from every app while Swift works (ADR-017 §2), so an Esc meant for another app can cancel a long run | Grab it during work only while Swift types into an app or a card waits |
+| OCT-01 | VS Code's terminal isn't recognised as a terminal. A real fix needs testing on VS Code; the alternative is never typing into VS Code | Test on VS Code first |
+| B-10 | The handoff step between providers names them, shown only with a second provider | Make it generic |
+
 **Open from the Deck's Step 1** (ADR-018 §4.1):
 
 | Decision | Why it's open | Recommendation |
@@ -289,7 +299,6 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | Branch | What | State |
 |---|---|---|
 | `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Merged into `main` on 2026-11-12, off by default. It touches the rule "no hands-free listening while locked": reviewed by a session other than the author, two findings fixed (`29a48dc`, `ff0dc47`) and re-reviewed as safe to turn on. Owner checks 228–232 are waiting, with `wake.acoustic: true` |
-| `claude/health-audit` | The health audit ([`2026-11-12-health-audit.md`](../audit/2026-11-12-health-audit.md)): every finding from every audit in one register, [`findings.yaml`](../audit/findings.yaml), rechecked against the code, plus fresh reviews of the unaudited modules. Repro tests are strict expected failures; ratchets on package cycles and `session.py` size | The audit, then fixes, one per commit, each flipping its repro: HA-CFG-01 (and web tools checked per call), HA-HEAR-02, X-02, HA-FAKE-01, HA-FAKE-03, HA-SYS-01, B-10. The product-rule fixes passed an independent review (B-10 after one block). Owner checks 240–241. Waiting on the owner: HA-HEAR-01 (typing "Swift, yes"), HA-UI-01 (Esc grabbed from every app, ADR-017), OCT-01 (VS Code's terminal), B-10's provider handoff step. Waits for the owner's OK to merge |
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (240 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.
 

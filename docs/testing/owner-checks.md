@@ -1996,6 +1996,25 @@ You should see: nothing in particular. Tell Claude the ten and your tally: this 
 
 The report checks: a slow-lane request that tried a PC action and answered "I didn't…" or "I couldn't…".
 
+### Health audit fixes (2026-11-12)
+
+About 3 minutes. From `docs/audit/2026-11-12-health-audit.md`. Reject every card.
+
+<a id="check-240"></a>**Check 240. Two contacts with the same first name**
+1. Pick a first name that two of your contacts share (two Francises, two Sams).
+2. Say "Hey Swift, draft an email to <that name> about lunch".
+3. When Swift asks which one, pick one.
+
+You should see: Swift asks which one before any card, and the card's recipient is the one you picked. Reject it.
+
+The report checks: a lookup with several matches was answered by your choice (X-02).
+
+<a id="check-241"></a>**Check 241. "Hey Swift" straight after locking**
+1. Press Win+L, and straight away, within a second, say "Hey Swift, what time is it".
+2. Unlock.
+
+You should see: no chime and no "heard" while locked, and nothing starts when you unlock (HA-HEAR-02).
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

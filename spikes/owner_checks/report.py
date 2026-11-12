@@ -570,6 +570,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("232 nothing woke through the second way in while locked", unless(acted_away, locked and unlocked),
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         *_rigid(rows),
+        *_health(log),
     ]
 
 
@@ -610,6 +611,15 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
          f"stalled: {times(stalled)}; tell us which were done and which Swift said it can't do"),
         ("238 ten requests of your own", LOOK, "tell us the ten and your tally"),
         ("239 a command Swift understood was done", unless(refused, tried), "understood and not done: " + times(refused)),
+    ]
+
+
+def _health(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 240-241: fixes from the health audit (2026-11-12)."""
+    chosen = [line for line in log if "contact chosen by the owner" in line and _counter(line, "options") > 1]
+    return [
+        ("240 of several matching contacts, the one you picked was used", seen(chosen), "pick one when Swift asks which"),
+        ("241 no chime straight after a lock", LOOK, "tell us whether Swift chimed or showed 'heard' while locked"),
     ]
 
 

@@ -197,9 +197,9 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
     # A contact the owner has to confirm isn't a recipient until they do (``_is_it``): only then does a
     # "no" leave nothing behind (2026-11-05: a rejected guess still passed the recipient check).
     asks_first = guessed and len(candidates) == 1 and scope.ask_fn is not None
-    if not asks_first:
-        for contact in candidates:
-            scope.resolved[contact.email.lower()] = contact
+    # Of several, only the one the owner picks becomes a recipient: none is chosen for them (X-02).
+    if not asks_first and len(candidates) == 1:
+        scope.resolved[candidates[0].email.lower()] = candidates[0]
     await scope.publish(
         "recipient", "recipient", "resolving", f"Looking up “{raw}”",
         {"query": raw, "candidates": [c.as_dict() for c in candidates], "chosen": 0 if len(candidates) == 1 else None},
@@ -222,6 +222,7 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
     if len(candidates) > 1 and (chosen := await _which(scope, raw, candidates)) is not None:
         if isinstance(chosen, ToolResult):
             return chosen
+        scope.resolved[chosen.email.lower()] = chosen
         await scope.publish(
             "recipient", "recipient", "resolving", f"Looking up “{raw}”",
             {"query": raw, "candidates": [c.as_dict() for c in candidates], "chosen": candidates.index(chosen)},
@@ -230,9 +231,9 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
                           {"candidates": [chosen.as_dict()], "chosen_by_owner": True})
     if len(candidates) > 1:
         listed = "; ".join(_described(c) for c in candidates)
-        return ToolResult(True, f"Several contacts match: {listed}. Use the one the request clearly means; if it's "
-                          "not clear, stop and ask the owner which one, naming each by email and the detail shown.",
-                          data)
+        return ToolResult(True, f"Several contacts match: {listed}. None is a recipient yet: stop and ask the owner "
+                          "which one, naming each by email and the detail shown. When they say, look them up "
+                          "again by that name.", data)
     return ToolResult(True, f"Found {_described(candidates[0])}.", data)
 
 

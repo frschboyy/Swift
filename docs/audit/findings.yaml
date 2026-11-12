@@ -1614,12 +1614,14 @@
   area: privacy
   severity: critical
   product_rule: true
-  status: partial
+  status: fixed
   confidence: confirmed
-  evidence: tools.py:198-201 resolves every candidate unless a single guess must be asked first
-  test: tests/unit/test_seams_audit_privacy.py::test_the_wrong_francis_offered_can_be_drafted_to_because_resolved_means_found
-  note: Single guesses wait for a yes (7ffa9f5); with several candidates all count. The named test pins the open
-    behaviour (passes today); turn it into a strict xfail of the right behaviour when fixing.
+  evidence: src/swift/workflows/tools.py find_contact resolves a contact only when it is the one match or the owner
+    picked it (_which)
+  test: tests/unit/test_seams_audit_privacy.py::test_of_several_francises_none_is_a_recipient_until_the_owner_picks
+  note: 'With several matches and no answer, the provider is told none is a recipient and to ask, then look up again.
+    Left from X-01: a single guessed match is still resolved when Swift can''t ask (no ask_fn). Needs review by
+    someone other than the author (product rule).'
 - id: X-05
   title: Exception and connector texts, including a selected file's path, went into swift.log and the journal.
   source: docs/audit/2026-11-seams-audit.md §3.7

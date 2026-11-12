@@ -216,13 +216,15 @@ async def test_full_name_query_with_an_any_word_directory_and_one_wrong_match() 
     assert MUTHONI.email not in _emails(found) or "closest" in found.text, found.text
 
 
-async def test_the_wrong_francis_offered_can_be_drafted_to_because_resolved_means_found() -> None:
-    # Design: every candidate find_contact returned is "resolved", so the gateway's T1 check passes
-    # for the one the owner didn't mean; only the card's recipient line stands between them.
+async def test_of_several_francises_none_is_a_recipient_until_the_owner_picks() -> None:
+    # X-02: every candidate used to count as resolved, so a draft to the Francis the owner didn't
+    # mean passed the gateway's recipient check; only the card's recipient line stood in the way.
     host = _host("Email Francis about lunch", (CHIANU, MUTHONI))
-    await host.call("find_contact", {"query": "Francis"})
-    draft = await host.call("draft_email", {"to": [MUTHONI.email], "subject": "Lunch", "message": "Lunch at one?"})
-    assert draft.ok
+    found = await host.call("find_contact", {"query": "Francis"})
+    assert found.ok and "None is a recipient yet" in found.text
+    for who in (MUTHONI, CHIANU):
+        draft = await host.call("draft_email", {"to": [who.email], "subject": "Lunch", "message": "Lunch at one?"})
+        assert not draft.ok
 
 
 # ---- the gateway ------------------------------------------------------------------------------

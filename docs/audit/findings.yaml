@@ -3161,3 +3161,40 @@
   evidence: claude_mapping.py:64, 76; claude_code.py:706, 864, 870
   test: null
   note: Duplicate of B-10; tracked there.
+- id: HA-REV-01
+  title: 'In the 2 s after a lock, a question card can still show "listening": _listen_for checks only listening_paused.'
+  source: independent review of the health audit fixes, 2026-11-13
+  module: src/swift/session.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: session.py _listen_for; nothing heard acts (_hear_transcribed checks _deaf first)
+  test: null
+  note: Display only. The same _deaf() check as peek_wake would close it.
+- id: HA-REV-02
+  title: An agent that keeps calling find_contact while the owner is away may stack repeated "Which Francis?" questions.
+  source: independent review of the health audit fixes, 2026-11-13
+  module: src/swift/workflows/tools.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: tools.py _which returns None on no answer; the run's turn limit caps it
+  test: null
+  note: Not seen in a run. Nothing is sent, since with several matches none is a recipient (X-02).
+- id: HA-REV-03
+  title: A pattern entry in executor.allowed_tools such as "Bash(rm:*)" is now moved into the tools list, and whether
+    the CLI accepts a pattern there is unknown.
+  source: independent review of the health audit fixes, 2026-11-13
+  module: src/swift/executors/claude_code.py
+  area: config
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: ClaudeCodeExecutor.__init__ moves non-read entries to confirm_tools, which options() puts in tools=
+  test: null
+  note: 'No such entry is set on the owner''s PC. Safe either way: the tool asks on a card or isn''t offered.'

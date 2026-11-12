@@ -69,14 +69,12 @@
   area: privacy
   severity: critical
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: session.py:1885-1904 peek_wake checks only listening_paused (before and not after its transcription),
-    never _deaf() / locked_now; wants_peek (session.py:1880) likewise. _hear_transcribed was fixed for the same
-    gap (5008544, test_seam_replay.py::test_a_request_said_just_after_the_lock_before_the_next_poll_starts_nothing).
+  evidence: src/swift/session.py peek_wake checks _deaf() before transcribing and again before signalling
   test: tests/unit/test_health_HEAR.py::test_a_wake_phrase_said_just_after_the_lock_isnt_chimed_by_the_peek
-  note: 'Nothing runs (the full utterance is dropped), but Swift audibly reacts to speech while locked. Fix is _deaf()
-    in peek_wake before and after the await. Raised from high: breaks a product rule.'
+  note: Also test_a_lock_while_the_peek_is_transcribing_isnt_chimed. Needs review by someone other than the author
+    (product rule).
 - id: HA-CFG-01
   title: Listing Bash, Write or Edit in executor.allowed_tools pre-approves them, so a run can delete or overwrite
     files with no confirm card.

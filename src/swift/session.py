@@ -1911,7 +1911,7 @@ class Session:
     async def peek_wake(self, audio: Any) -> None:
         """The first second or so of an utterance still going: if it opens with the wake phrase, show
         (and chime) that Swift heard its name now, while the owner is still saying the request."""
-        if self.recorder is None or self.transcriber is None or self.listening_paused or self._peeking or self._hearing:
+        if self.recorder is None or self.transcriber is None or self._deaf() or self._peeking or self._hearing:
             return
         self._peeking = True
         try:
@@ -1921,7 +1921,7 @@ class Session:
         finally:
             self._peeking = False
         mean_p = heard.mean_p
-        if self._wake_match(heard.text) is None or self.busy:
+        if self._wake_match(heard.text) is None or self.busy or self._deaf():  # locked while transcribing
             return
         if self.wake_phrase_min_p and mean_p is not None and mean_p < self.wake_phrase_min_p:
             return

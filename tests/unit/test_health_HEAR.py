@@ -32,7 +32,6 @@ async def test_a_typed_swift_yes_doesnt_turn_the_wifi_off() -> None:
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
 
 
-@pytest.mark.xfail(strict=True, reason="HA-HEAR-02: the peek chimes and shows 'heard' while Windows says locked")
 async def test_a_wake_phrase_said_just_after_the_lock_isnt_chimed_by_the_peek() -> None:
     session, out, _records, _stt = wake_session()
     session.locked_now = lambda: True  # locked; the 2 s poll hasn't set listening_paused yet
@@ -40,6 +39,15 @@ async def test_a_wake_phrase_said_just_after_the_lock_isnt_chimed_by_the_peek() 
     await session.peek_wake(AUDIO)
     assert not [m for m in out.messages if m.type == "heard"]
     assert session.heard_sounds == []  # type: ignore[attr-defined]
+
+
+async def test_a_lock_while_the_peek_is_transcribing_isnt_chimed() -> None:
+    session, out, _records, _stt = wake_session()
+    answers = iter([False])  # unlocked when the peek starts, locked once its transcript is back
+    session.locked_now = lambda: next(answers, True)
+    session.transcriber.text = "Hey Swift, what"
+    await session.peek_wake(AUDIO)
+    assert not [m for m in out.messages if m.type == "heard"]
 
 
 class EarlyDetector(Detector):

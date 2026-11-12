@@ -26,9 +26,9 @@ question ("what's on my calendar tomorrow", "when is my next meeting"), for work
 that answer them by looking something up. In place of subject words an intent can take a new
 time (``times: true``: "move Swift check to two p.m.") or the title of one of the owner's
 calendar events (``titles: true``: "cancel Swift check", heard as "swift deck" too), from the
-titles the caller passes to ``match``. A request that only shares words with a workflow's title and
-description is offered. Running directly is safe: anything consequential still waits
-for the owner on a confirm card.
+titles the caller passes to ``match``. Anything else isn't matched here: the provider gets the
+``catalogue`` and reads a workflow with ``read_workflow`` when it fits (owner check 236).
+Running directly is safe: anything consequential still waits for the owner on a confirm card.
 """
 
 from __future__ import annotations
@@ -84,12 +84,6 @@ _GAP = r"[\s,.:;!?-]+"
 _QUESTION = frozenset(
     "what what's whats when where which who whose why how did do does is are was were have has had am "
     "should will shall isn't aren't didn't don't doesn't".split()
-)
-# Words that say nothing about which workflow is meant.
-_STOP = frozenset(
-    "a an and the to of in on for with into from by at as is are be it its this that these those my your our "
-    "me you i we they them what which who how when where why can could would should will please swift use "
-    "using some any all one new about up out then there here just also get make do does did have has".split()
 )
 
 
@@ -282,8 +276,8 @@ class Package:
 @dataclass(frozen=True)
 class Match:
     package: Package
-    # "run": a trigger matched with every slot filled, or an intent did; "offer": only the description did.
-    kind: Literal["run", "offer"]
+    # "run": a trigger matched with every slot filled, or an intent did.
+    kind: Literal["run"]
     inputs: dict[str, str] = field(default_factory=dict)
 
 
@@ -323,31 +317,16 @@ class Library:
         intended = [p for p in self.packages.values() if any(i.matches(said, titles) for i in p.intents)]
         if len(intended) == 1:
             return Match(intended[0], "run")  # inputs come from the request as said
-        return self._offer(said)
+        return None
 
-    def _offer(self, said: str) -> Match | None:
-        words = _words(said)
-        scored = []
-        for package in self.packages.values():
-            title = _words(f"{package.title} {package.name.replace('-', ' ')}")
-            shared = words & (title | _words(package.description))
-            if len(shared) >= 2 and words & title:
-                scored.append((len(shared), package))
-        scored.sort(key=lambda s: -s[0])
-        if not scored or (len(scored) > 1 and scored[0][0] == scored[1][0]):
-            return None  # nothing, or not clear which
-        return Match(scored[0][1], "offer")
-
-
-def _stem(word: str) -> str:
-    for suffix in ("ing", "es", "s"):
-        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
-            return word[: -len(suffix)]
-    return word
-
-
-def _words(text: str) -> set[str]:
-    return {_stem(w) for w in _WORD.findall(text.lower()) if len(w) > 2 and w not in _STOP}
+    def catalogue(self) -> str:
+        """For a request no workflow matched: the workflows, so the model reads one if it fits."""
+        if not self.packages:
+            return ""
+        lines = ["[Swift's workflows. If the request is one of these, call read_workflow with its name first and "
+                 "follow it; otherwise ignore this list]"]
+        lines += [f"- {p.name}: {p.description}" for p in sorted(self.packages.values(), key=lambda p: p.name)]
+        return "\n".join(lines)
 
 
 def _fits(spec: InputSpec, value: str) -> bool:

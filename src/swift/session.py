@@ -54,9 +54,9 @@ run's phase (``view``); the card's Show button does the same through inbound ``v
 Workflows (ADR-011 W1): a request the rules send on to a provider is matched against the
 workflow library first. A trigger phrase with its slots filled runs the workflow: the
 provider gets the playbook, the inputs and the request, and the run scope's ``Grant``
-limits it to the workflow's declared tools. A request that only resembles a workflow's
-description gets an offer ("I have a workflow for that ... Use it?"); "yes" runs it, "no"
-sends the request on as usual. "What workflows do I have?" is answered here.
+limits it to the workflow's declared tools. Any other request goes to the provider with
+the list of workflows, and the model reads one with ``read_workflow`` when it fits (owner
+check 236). "What workflows do I have?" is answered here.
 
 Desktop (ADR-012 D1-D2): when an interaction starts, Swift reads where the owner is (the
 app in front, the focused control, whether something is selected). It is kept for that
@@ -67,7 +67,7 @@ Push-to-talk during a write marks the owner as talking, so their key press isn't
 typing in the document.
 
 Threads (ADR-013 §4): every request belongs to a thread. A reply in the follow-up window,
-a correction, "try again" and the answer to a workflow offer continue the thread before;
+a correction and "try again" continue the thread before;
 anything else starts a new one. Run messages carry ``thread_id`` so the overlay continues
 the same card for a thread instead of replacing it.
 
@@ -362,7 +362,7 @@ PARKED_FAILURES = frozenset({"timeout", "offline"})
 WAKE_STT_TIMEOUT_S = 20.0
 # A whole recorded request can be long: more time, but never stuck.
 CAPTURE_STT_TIMEOUT_S = 90.0
-# A workflow offer waits this long for "yes" or "no".
+# "Unfinished: …" waits this long for "yes" or "no".
 OFFER_S = 120.0
 # Reading where the owner is may take this long; after that the request goes on without it.
 CONTEXT_TIMEOUT_S = 1.0
@@ -888,6 +888,8 @@ class Session:
         self.confirm_timeout_s = confirm_timeout_s
         # The workflow library (ADR-011 W1); None: requests are never matched to workflows.
         self.library = library
+        if tools is not None:
+            tools.library = library  # read_workflow (owner check 236)
         # Where the owner is (ADR-012 D1); None: no desktop awareness.
         self.desktop = desktop
         # Holds confirm cards while the owner is away (ADR-014 §4); None: they time out as before.
@@ -945,8 +947,6 @@ class Session:
         self._offered: tuple[str, float] | None = None
         # An answer that asked something, parked if nothing is said before its timer fires.
         self._question: tuple[Parked, asyncio.TimerHandle] | None = None
-        # A workflow offered for the last request, its text, and when: (match, text, at).
-        self._offer: tuple[Match, str, float] | None = None
         self._swift_ids = count(1)
         self._swift_pending: dict[str, asyncio.Future[bool | str]] = {}
         self._hearing = False
@@ -2774,8 +2774,6 @@ class Session:
             await self._close_followup()
         self._drop_question()
         started = clock.now()
-        # Any new request answers or drops the last workflow offer.
-        offer, self._offer = self._offer, None
         fix, self._fix_offer = self._fix_offer, None
         if self.desktop is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "beside", "typed"):
             # Where the owner is when they start speaking, read while they talk.
@@ -2862,7 +2860,7 @@ class Session:
                         answer = NO_TARGET_HINT
                     await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
                     return
-                answered = self._answer_offer(decision, offer, record) or self._answer_fix(decision, fix, record, run, transcript)
+                answered = self._answer_fix(decision, fix, record, run, transcript)
                 if answered is not None:
                     decision, workflow = answered
                 if decision.action != "system":
@@ -2928,9 +2926,6 @@ class Session:
                     decision = replace(decision, action=None)  # no quick answer: the agent takes it
                 if decision.route == "agent" and answered is None and resumed is None and self.library is not None:
                     workflow = self.library.match(decision.text, self._titles())
-                    if workflow is not None and workflow.kind == "offer":
-                        await self._offer_workflow(workflow, decision.text, record)
-                        return
                     if workflow is None and before is not None and before.grant is not None:
                         # A follow-up in a workflow's thread ("Can you send it for me?", "actually say …"): the
                         # same workflow goes on, with its playbook and its tools (owner checks, 2026-10-27).
@@ -2992,6 +2987,9 @@ class Session:
                         request = resumed.as_context(time.time()) + request
                     else:
                         request = self._with_context(self._with_unclear(request, record), record)
+                    if workflow is None and self.library is not None and self.tools is not None:
+                        if listed := self.library.catalogue():  # the model picks a workflow if one fits
+                            request = f"{request}\n\n{listed}"
                     run.sent = request
                     run.launch = {"demand": decision.demand, "override": decision.override, "prefer": prefer}
                     launch = await self.providers.start(
@@ -3974,21 +3972,6 @@ class Session:
 
     # ---- workflows (ADR-011 W1) ---------------------------------------------------------
 
-    def _answer_offer(
-        self, decision: Route, offer: tuple[Match, str, float] | None, record: dict[str, Any]
-    ) -> tuple[Route, Match | None] | None:
-        """"Yes" / "no" to the workflow just offered: the offered request, with or without it."""
-        if offer is None or decision.route != "control" or decision.action not in ("approve", "reject"):
-            return None
-        match, text, at = offer
-        if clock.now() - at > OFFER_S:
-            return None
-        accepted = decision.action == "approve"
-        record["offer"] = "accepted" if accepted else "declined"
-        if self._thread_before:  # the answer belongs with the request that was offered the workflow
-            self._thread = record["thread"] = self._thread_before
-        return _to_agent(replace(decision, text=text)), (replace(match, kind="run") if accepted else None)
-
     def _fix_refused(self, offered: str | None, on_card: str | None, said: str, typed: bool) -> str | None:
         """Why a yes can't take the correction offered on ``offered``'s card, or None if it can."""
         if offered != on_card:
@@ -4151,15 +4134,6 @@ class Session:
         logger.info("change of mind: starting again with it")
         run.restart = change
         await executor.cancel(run_id)
-
-    async def _offer_workflow(self, match: Match, text: str, record: dict[str, Any]) -> None:
-        self._offer = (match, text, clock.now())
-        record["route"] = "local"
-        record["offered"] = match.package.name
-        record["status"] = "done"
-        summary = (f"I have a workflow for that: {match.package.title}. "
-                   "Say “yes” to use it, or “no” to ask as usual.")
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", summary))
 
     def _titles(self) -> tuple[str, ...]:
         """The owner's calendar titles Swift knows, so "cancel Swift check" matches the calendar workflow."""

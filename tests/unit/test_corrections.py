@@ -208,4 +208,4 @@ def test_clear_requests_run_and_questions_do_not() -> None:
         assert ((m.package.name, m.kind) if m else None) == expected, text
     # A question that isn't about the owner's calendar never runs a workflow that does something.
     m = library.match("did I add the meeting")
-    assert m is None or m.kind == "offer"
+    assert m is None

@@ -121,7 +121,7 @@ def test_adjacent_slots_are_refused(tmp_path: Path) -> None:
         load_package(package(tmp_path, "tidy-downloads", manifest=manifest))
 
 
-def test_trigger_with_slots_runs_and_description_offers() -> None:
+def test_trigger_with_slots_runs_and_the_rest_is_left_to_the_model() -> None:
     library = load_library()
     run = library.match("Hey Swift, please email my lecturer saying I'll miss Thursday's lecture.")
     assert run is not None and run.kind == "run" and run.package.name == "email-draft"
@@ -130,8 +130,11 @@ def test_trigger_with_slots_runs_and_description_offers() -> None:
     event = library.match("add lunch with Ada to my calendar tomorrow at noon")
     assert event is not None and event.inputs == {"event": "lunch with Ada", "when": "tomorrow at noon"}
 
-    offer = library.match("find some sources on photosynthesis and put them in a Word document")
-    assert offer is not None and offer.kind == "offer" and offer.package.name == "research-into-word"
+    # Only sharing words with a description: the model reads the catalogue and decides (owner check 236).
+    assert library.match("find some sources on photosynthesis and put them in a Word document") is None
+    assert library.match("delete the word test from a file called notes in documents") is None
+    listed = library.catalogue()
+    assert all(f"- {name}: " in listed for name in library.packages) and "read_workflow" in listed
 
     assert library.match("fix the failing test in session.py") is None
     assert library.match("what's the weather today") is None
@@ -142,7 +145,7 @@ def test_choice_slots_must_match(tmp_path: Path) -> None:
     library = load_library(tmp_path, builtin_dir=tmp_path / "none")
     match = library.match("tidy my downloads folder")
     assert match is not None and match.kind == "run" and match.inputs == {"folder": "downloads"}
-    assert (library.match("tidy my secret folder") or match).kind != "run"
+    assert library.match("tidy my secret folder") is None
 
 
 def test_playbook_request() -> None:

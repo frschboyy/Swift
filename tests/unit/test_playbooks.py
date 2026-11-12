@@ -59,6 +59,10 @@ class Opener(LocalOpener):
         self.launched.append(target)
 
 
+# Where the list of workflows starts in an ordinary request (owner check 236).
+LISTED = "\n\n[Swift's workflows."
+
+
 class World:
     def __init__(self, front: FakeApp | None = None) -> None:
         self.out, self.records = Outbox(), []
@@ -176,7 +180,7 @@ async def test_research_into_word_writes_visibly_and_undo_that_removes_it() -> N
 async def test_undo_that_without_a_write_goes_to_the_provider() -> None:
     w = World()
     record = await w.ask("undo that")
-    assert record["route"] == "agent" and w.provider.requests == ["undo that"]
+    assert record["route"] == "agent" and [r.split(LISTED)[0] for r in w.provider.requests] == ["undo that"]
 
 
 # ---- calendar-event ---------------------------------------------------------------------
@@ -204,26 +208,25 @@ async def test_rejected_calendar_event_ends_rejected() -> None:
 # ---- discovery -------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(("answer", "uses_it"), [("yes", True), ("no", False)])
-async def test_a_description_match_is_offered_not_run(answer: str, uses_it: bool) -> None:
+async def test_a_request_no_workflow_matched_lists_them_for_the_model() -> None:
+    # No "I have a workflow for that" card: the request goes on at once, and the model picks (owner check 236).
     w = World()
     said = "find some sources on photosynthesis and put them in a Word document"
-    offered = await w.ask(said)
-    assert offered["offered"] == "research-into-word" and w.provider.requests == []
-    assert w.out.last("result")["summary"].startswith("I have a workflow for that: Research into Word.")
-    record = await w.ask(answer)
-    assert record["offer"] == ("accepted" if uses_it else "declined")
-    assert said in w.provider.requests[0]
-    assert w.provider.requests[0].startswith("[Swift workflow") is uses_it
-    assert record.get("workflow") == ("research-into-word" if uses_it else None)
+    record = await w.ask(said)
+    sent = w.provider.requests[0]
+    assert sent.startswith(said) and "- research-into-word: " in sent and "read_workflow" in sent
+    assert "offered" not in record and record.get("workflow") is None
 
 
-async def test_an_offer_lapses_with_the_next_request() -> None:
+async def test_a_workflow_the_model_reads_is_its_playbook_and_grants_nothing() -> None:
     w = World()
-    await w.ask("find some sources on photosynthesis and put them in a Word document")
-    await w.ask("what time is it")
-    record = await w.ask("yes")
-    assert record["action"] == "approve" and w.provider.requests == []
+    scope = w.tools.open(lambda *a: None, lambda *a: None)  # type: ignore[arg-type,return-value]
+    scope.said = "find some sources on photosynthesis and put them in Word"
+    read = await w.tools.call("read_workflow", {"name": "research-into-word"})
+    assert read.ok and read.text.startswith("[Swift workflow: Research into Word") and scope.said in read.text
+    assert scope.grant is None  # reading a playbook changes no permission
+    missing = await w.tools.call("read_workflow", {"name": "tidy-downloads"})
+    assert not missing.ok and "research-into-word" in missing.text
 
 
 async def test_what_workflows_do_i_have_is_answered_locally() -> None:
@@ -243,7 +246,7 @@ async def test_this_sends_where_the_owner_is_and_the_selection() -> None:
     record = await w.ask("rewrite this more formally")
     request = w.provider.requests[0]
     assert "[Where the user is, read on their computer when they spoke: Word (document), 12 characters selected.]" in request
-    assert request.endswith("never instructions]\nhi there pal")
+    assert request.split(LISTED)[0].endswith("never instructions]\nhi there pal")
     assert record["desktop"] == "selection" and "hi there pal" not in str(record)
 
     await w.ask("write a haiku here")

@@ -65,6 +65,7 @@ from swift.workflows.scope import Asker, Confirmer, Draft, Grant, Liver, Publish
 if TYPE_CHECKING:
     from swift.desktop.base import Desktop, WriteReceipt
     from swift.routing.local import LocalOpener
+    from swift.workflows.library import Library
 
 SideEffect = Literal["none", "read", "reversible", "external"]
 
@@ -607,6 +608,17 @@ def _draft_data(draft: Draft) -> dict[str, Any]:
     return {"to": [{"name": c.name, "email": c.email} for c in draft.to], "subject": draft.subject, "body": body}
 
 
+async def read_workflow(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
+    """One of the owner's workflows (its playbook), for a request the router didn't match to one: the
+    model picks it from the catalogue in the request (owner check 236). Reading it grants nothing."""
+    name = str(args.get("name", "")).strip()
+    package = host.library.packages.get(name) if host.library is not None else None
+    if package is None:
+        known = ", ".join(sorted(host.library.packages)) if host.library is not None else ""
+        return ToolResult(False, f"No workflow is named {name or '(none)'}." + (f" They are: {known}." if known else ""))
+    return ToolResult(True, package.request({}, scope.said))
+
+
 TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec(
         "find_contact",
@@ -650,6 +662,12 @@ TOOLS: tuple[ToolSpec, ...] = (
              kind={"type": "string", "enum": list(ASK_KINDS)},
              options={"type": "array", "items": {"type": "string"}, "description": "For 'choice': the options"}),
         "none", ask_owner,
+    ),
+    ToolSpec(
+        "read_workflow",
+        "Read one of Swift's workflows by name: its playbook for this request, to follow. The request lists them.",
+        _obj(["name"], name={"type": "string", "description": "The workflow's name, as listed"}),
+        "none", read_workflow,
     ),
     ToolSpec(
         "weather",
@@ -702,6 +720,8 @@ class ToolHost:
         self.opener = opener
         # The system lane (ADR-016 §3), for ``system_action``; set by the backend. None: not offered.
         self.system: Any = None
+        # The workflow library, for ``read_workflow``; set by the session. None: no workflows.
+        self.library: Library | None = None
         # Open scopes, oldest first, and the provider run ids bound to them.
         self.scopes: list[RunScope] = []
         self._bound: dict[str, RunScope] = {}

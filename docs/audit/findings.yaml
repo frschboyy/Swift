@@ -7,13 +7,14 @@
   area: screen
   severity: critical
   product_rule: true
-  status: open
+  status: partial
   confidence: confirmed
-  evidence: claude_code.py:706,864,870; claude_mapping.py:64,69,76 ("Claude is busy, retrying…" as a working-card
-    step)
-  test: null
-  note: 'Also X-06. Provider names in owner-facing texts break ''status labels generic''. untested: a test that
-    scans owner-facing strings for provider names is the fix''s first step.'
+  evidence: src/swift/executors/claude_mapping.py STOP_REASONS, STOP_FAILURES, RETRY_STEPS and the fallback summary;
+    claude_code.py rejected text
+  test: tests/unit/test_claude_mapping.py::test_owner_facing_stop_and_retry_texts_name_no_provider
+  note: 'Also X-06. Left: session.py''s handoff step (''X isn''t available, so Y is taking this'') names providers
+    on purpose, and only shows with a second provider; the owner decides. The sign-in card naming Claude''s account
+    is not a status label. Needs review by someone other than the author (product rule).'
 - id: OCT-01
   title: VS Code's integrated terminal is inside code.exe, which is not on the terminal list, so Swift can still
     type into it.

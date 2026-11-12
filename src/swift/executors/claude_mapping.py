@@ -55,25 +55,25 @@ DETAILS_MAX = 24_000
 STOP_REASONS = {
     "error_max_budget_usd": "Stopped: it reached the spending limit for one request.",
     "error_max_turns": "Stopped: it reached the turn limit.",
-    "error_during_execution": "Claude Code hit an error while working.",
+    "error_during_execution": "Hit an error while working.",
 }
 # The same, as cards the owner can act on. error_during_execution carries no cause: classified.
 STOP_FAILURES = {
     "error_max_budget_usd": Failure(
         "budget", "Spending limit reached",
-        "Claude Code stopped because this request reached its spending limit.",
+        "Stopped because this request reached its spending limit.",
         "Ask for something smaller, or raise executor.max_budget_usd in config.yaml.",
     ),
     "error_max_turns": Failure(
         "max_turns", "Too many steps",
-        "Claude Code stopped because the request took more steps than allowed.",
+        "Stopped because the request took more steps than allowed.",
         "Split it into smaller requests, or raise the turn limit in config.yaml.",
     ),
 }
 # api_retry "error" values -> what the working card says while the CLI retries.
 RETRY_STEPS = {
     "rate_limit": "Hit a usage limit, retrying…",
-    "overloaded": "Claude is busy, retrying…",
+    "overloaded": "Service busy, retrying…",
     "authentication_failed": "Sign-in problem, retrying…",
     "server_error": "Service hiccup, retrying…",
 }
@@ -274,7 +274,7 @@ def outcome_for(event: dict[str, Any], worked_around: Iterable[str] = ()) -> Out
     sub = event.get("subtype")
     text = (event.get("result") or "").strip()
     if event.get("is_error") or sub != "success":
-        message = STOP_REASONS.get(str(sub)) or _short(_plain(text), SUMMARY_MAX) or "Claude Code failed."
+        message = STOP_REASONS.get(str(sub)) or _short(_plain(text), SUMMARY_MAX) or "That didn't work."
         failure = STOP_FAILURES.get(str(sub))
         if failure is None:
             failure = classify(

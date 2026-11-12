@@ -869,7 +869,7 @@ class ClaudeCodeExecutor:
         if run.stopped_by is not None:
             decision, title = run.stopped_by
             why = "No answer in time" if decision == "no_answer" else "Rejected"
-            return ExecResult("rejected", f"{why}: {title}. Claude Code stopped there.", meta=meta | {"stopped_by": decision})
+            return ExecResult("rejected", f"{why}: {title}. Swift stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
             status = "done" if outcome.status == "done" else "error"
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)

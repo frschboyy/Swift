@@ -164,7 +164,7 @@ async def test_approved_actions_are_part_of_the_context() -> None:
 
 
 async def test_a_rejected_run_is_still_context() -> None:
-    session, _, spy, _ = make(Scripted(("rejected", "Rejected: Edit notes.md. Claude Code stopped there.")))
+    session, _, spy, _ = make(Scripted(("rejected", "Rejected: Edit notes.md. Swift stopped there.")))
     await ask(session, "Add a next steps section to my notes.")
     await ask(session, "Do it in a new file instead.")
     assert "Previous answer: Rejected: Edit notes.md." in spy.calls[1][0]

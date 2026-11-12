@@ -136,3 +136,12 @@ def test_made_up_address_refusal_isnt_added_to_the_answer() -> None:
     outcome = outcome_for({"type": "result", "subtype": "success", "result": "Tea is old.",
                            "permission_denials": [{"tool_name": "WebFetch"}]})
     assert outcome is not None and outcome.summary == "Tea is old." and outcome.meta["denied"] == ["WebFetch"]
+
+
+def test_owner_facing_stop_and_retry_texts_name_no_provider() -> None:
+    """Status labels stay generic, never "Claude Code is…" (CLAUDE.md product rules; B-10, X-06)."""
+    from swift.executors import claude_mapping as m
+
+    texts = [*m.STOP_REASONS.values(), *m.RETRY_STEPS.values()]
+    texts += [t for f in m.STOP_FAILURES.values() for t in (f.title, f.message, f.hint)]
+    assert not [t for t in texts if "claude" in t.lower() or "anthropic" in t.lower()]

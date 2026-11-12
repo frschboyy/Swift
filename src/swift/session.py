@@ -3490,6 +3490,9 @@ class Session:
 
     def listening_changed(self) -> None:
         """The owner paused or resumed listening, or locked or unlocked the screen."""
+        if self.acoustic is not None:
+            # Locked or paused, the detector hears nothing and forgets its hits; back on, it starts with none (T-07).
+            self.acoustic.pause() if self._deaf() else self.acoustic.resume()
         self._sync_answer_capture()
 
     def _hold_voice(self, work: Coroutine[Any, Any, None]) -> None:

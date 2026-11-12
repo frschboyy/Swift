@@ -18,15 +18,18 @@ import time
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 from test_dialogue import asker, asks
 from test_runs import SHORT, finish_all, say, started, until
 from test_system_lane import lane
+from test_wake_acoustic import FakeScorer, stream
 
 from swift.executors.base import ExecEvent
 from swift.executors.claude_mapping import confirm_card
 from swift.ipc.protocol import Message
 from swift.parked import ParkedThreads
+from swift.wake_acoustic import AcousticWake
 
 REPLAY = Path(__file__).resolve().parents[2] / "overlay" / "tests" / "seam" / "replay.ts"
 NODE = shutil.which("node")
@@ -584,6 +587,46 @@ async def test_the_screen_locking_while_the_second_way_in_checks_starts_nothing(
     await asyncio.sleep(0.05)
     assert agent.requests == [] and session.wake_stats["acoustic_wake"] == 0
     agree(session, out)
+
+
+def lock(session: Any, locked: bool) -> None:
+    """What ``Lifecycle.handle`` does to the session when the screen locks or unlocks."""
+    session.listening_paused = session.hands_free_blocked = locked
+    session.listening_changed()
+
+
+async def test_locking_the_screen_makes_the_detector_forget_and_hear_nothing() -> None:
+    session, _out, _records, _agent, _stt = asker(parked=ParkedThreads(None))
+    session.acoustic = wake = AcousticWake(FakeScorer(hot=[10]))
+    try:
+        start = time.monotonic()
+        end = stream(wake, 2.0, start=start)
+        assert wake.first_hit(start, end) is not None
+        lock(session, True)
+        assert wake.first_hit(start, end) is None
+        locked_end = stream(wake, 2.0, start=end)  # a hotkey recording keeps the stream open while locked
+        lock(session, False)
+        assert wake.first_hit(start, locked_end) is None
+        assert wake.first_hit(locked_end, stream(wake, 2.0, start=locked_end)) is not None  # it hears again
+    finally:
+        wake.close()
+
+
+async def test_a_hey_swift_from_before_the_lock_wakes_nothing_after_it() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    session.acoustic = wake = AcousticWake(FakeScorer(hot=[10]))
+    try:
+        script(stt, "He's left, research the history of tea", "He swift.", "research the history of tea")
+        start = time.monotonic() - 3.0
+        end = stream(wake, 3.0, start=start)
+        lock(session, True)
+        lock(session, False)
+        await session.hear_wake(np.zeros(3 * 16000, np.int16), end)  # an utterance that covers the old hit
+        await asyncio.sleep(0.05)
+        assert agent.requests == [] and session.wake_stats["acoustic_hits"] == 0
+        agree(session, out)
+    finally:
+        wake.close()
 
 
 async def test_words_said_to_swift_s_question_never_take_the_second_way_in() -> None:

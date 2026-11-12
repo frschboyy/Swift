@@ -165,7 +165,7 @@ class AcousticWake:
         self._drain()
 
     def pause(self) -> None:
-        """Locked or listening paused: hear nothing, and forget what was heard."""
+        """Locked or listening paused (``Session.listening_changed``): hear nothing, and forget what was heard."""
         self._paused = True
         self.reset()
 

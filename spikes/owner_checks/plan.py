@@ -419,6 +419,15 @@ def append_run(run: dict) -> None:
         f.write(line)
 
 
+def compute(checks: dict[str, Check], led: dict, limit: int = 15):
+    """Every check's state, the run list, the open branches, recent commits, main's head and now."""
+    today = datetime.now()
+    since = {sha: commits(f"{sha}..main") for sha in {str(r["commit"]) for r in led["runs"]}}
+    recent = commits(f"--since={today - timedelta(days=RECENT_DAYS):%Y-%m-%d}", "main")
+    states = assess(checks, led["runs"], since, recent, births(), today)
+    return states, run_list(states, limit), branch_view(checks), recent, git("rev-parse", "--short", "main").strip(), today
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     ap = argparse.ArgumentParser()
@@ -459,14 +468,7 @@ def main() -> None:
     if (args.record or args.set) and not args.write:
         return
 
-    today = datetime.now()
-    shas = {str(r["commit"]) for r in led["runs"]}
-    since = {sha: commits(f"{sha}..main") for sha in shas}
-    recent = commits(f"--since={today - timedelta(days=RECENT_DAYS):%Y-%m-%d}", "main")
-    states = assess(checks, led["runs"], since, recent, births(), today)
-    picked = run_list(states, args.limit)
-    branches = branch_view(checks)
-    head = git("rev-parse", "--short", "main").strip()
+    states, picked, branches, recent, head, today = compute(checks, led, args.limit)
     top, bottom = render(states, picked, branches, gaps(led, recent), dangling(checks), head, f"{today:%Y-%m-%d}")
     print("Run these first\n\n" + top + "\n\nWhere every check stands\n\n" + bottom)
     if args.write:

@@ -41,6 +41,10 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
   - take a new check's number from its "Next free check number";
   - when the owner pastes a report, save it to a file and record it with `--record FILE`; what they tell you they saw goes in with `--set 216=pass 217=fail --note "…"`;
   - after recording, and when merging to `main`, run it with `--write`. Don't edit between its markers.
+- **The live roadmap:** the owner's plan for the coming weeks is `docs/handoff/roadmap.md`; `spikes/owner_checks/roadmap.py` writes it,
+  with each step's status, the log problems and failed checks, to `ROADMAP.md` (not in git). Run it after recording a report or a
+  verdict, after a fix or a merge, and when the owner reports a problem, from a session with
+  `--swift-dir //localhost/c$/Users/frchi/AppData/Local/Swift`. Tick a hand-done step (`- [x]`) or change the plan in `roadmap.md`.
 
 ## Fixing things
 

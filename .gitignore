@@ -38,3 +38,6 @@ overlay/src-tauri/gen/
 # Rust spike build output
 spikes/**/target/
 spikes/**/gen/
+
+# The live roadmap, rewritten by spikes/owner_checks/roadmap.py
+/ROADMAP.md

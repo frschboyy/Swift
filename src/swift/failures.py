@@ -70,7 +70,7 @@ _KINDS: tuple[tuple[str, str, str, str, str, bool], ...] = (
         "auth",
         r"invalid api key|not (logged|signed) in|/login|log ?in again|authenticat|unauthori[sz]ed|\b401\b|"
         r"\b403\b|forbidden|oauth token|token (has )?expired",
-        "{name} isn't signed in",
+        "Sign in to {name} again",
         "{name} needs you to sign in before it can work on requests.",
         "{signin}",
         True,

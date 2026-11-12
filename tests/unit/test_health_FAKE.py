@@ -165,7 +165,6 @@ class SlowClient:
     async def disconnect(self) -> None: ...
 
 
-@pytest.mark.xfail(strict=True, reason="HA-FAKE-03: _take_spare catches CancelledError, so the run starts anyway")
 async def test_cancel_while_waiting_for_the_warm_cli_stops_the_start(tmp_path: Path) -> None:
     from swift.executors.claude_code import ClaudeCodeExecutor
 

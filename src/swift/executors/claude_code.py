@@ -425,6 +425,9 @@ class ClaudeCodeExecutor:
             # Still connecting: wait a little, then start cold rather than wait for ever (X-12).
             spare = await asyncio.wait_for(task, SPARE_WAIT_S)
         except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise  # the request itself was stopped (Esc): don't start it cold (HA-FAKE-03)
             if not task.done():
                 logger.warning("warm claude took too long to connect; starting cold")
             return None

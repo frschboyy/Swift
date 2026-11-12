@@ -214,17 +214,12 @@
   area: actions
   severity: high
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: 'claude_code.py:421-425: `except (asyncio.CancelledError, Exception)` around `asyncio.wait_for(task,
-    SPARE_WAIT_S)` catches the caller''s own cancellation, returns None, and start() goes on to create the run (claude_code.py:538-542).
-    Session.cancel (session.py:1727-1735) cancels the interaction task and awaits it. MockExecutor.start and EchoExecutor.start
-    return at once, and the prewarm fakes connect at once, so no test cancels during start: test_executor_contract.py::test_cancel_mid_run_ends_events_and_reports_cancelled,
-    test_claude_prewarm.py (all).'
+  evidence: src/swift/executors/claude_code.py _take_spare re-raises CancelledError when its own task is being cancelled
   test: tests/unit/test_health_FAKE.py::test_cancel_while_waiting_for_the_warm_cli_stops_the_start
-  note: 'Reproduced at the executor. At the session (Esc waits for the whole run because the task never sees its
-    cancel) it is read in the code, not run. A faithful fake: a provider whose start() awaits something slow. Not
-    the same as X-12 (that wait now has SPARE_WAIT_S).'
+  note: The spare that was connecting is cancelled with it (wait_for), so the next request starts cold. A spare
+    that fails on its own still falls back to a cold start.
 - id: HA-UI-01
   title: While a request is working or a card waits, Esc pressed in any other app never reaches that app and cancels
     Swift's request instead.
@@ -234,15 +229,14 @@
   severity: high
   product_rule: false
   status: open
-  confidence: suspected
+  confidence: design-concern
   evidence: main.ts:1979 syncEscape grabs Esc whenever ACTIVE.has(stageNow()) (listening, transcribing, working,
     confirm); lib.rs:285-296 set_escape uses RegisterHotKey, which takes the key from every app; main.ts:1990-1992
     onEscape then sends {type:"cancel"} while active.
   test: null
-  note: The code path is clear; not run on the real system. A background run can take minutes, so pressing Esc in
-    an editor, a dialog or a browser during it stops the run (a Word write mid-way, a waiting card). A low-level
-    keyboard hook that passes Esc on, or grabbing Esc only while the overlay has the pointer or Swift is speaking
-    or listening, would avoid it.
+  note: 'Owner decides. ADR-017 §2 grabs Esc on purpose while Swift works, and ADR-012 relies on Esc to stop Swift
+    typing into an app. Options: keep it; or grab it during work only while Swift types into an app or a card waits,
+    so a long background run can''t be cancelled by an Esc meant for another app.'
 - id: OCT-10
   title: Weather, news and "is it open now" go to the full agent (10-17 s); no web lane.
   source: docs/audit/2026-10-audit.md §1; performance.md

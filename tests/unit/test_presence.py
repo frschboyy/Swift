@@ -351,3 +351,33 @@ async def test_coming_back_readies_the_speech_model_before_the_warm_claude() -> 
     assert life._warming is not None
     await life._warming
     assert spare.order[-1] == "spare"
+
+
+# ---- the lock check itself (owner check 232, 2026-11-12) -----------------------------------------------
+
+
+def test_locked_for_as_long_as_the_session_says_so_even_with_the_input_desktop_open() -> None:
+    """On the owner's PC the input desktop reopens half a second into a lock; the session's flag stays."""
+    from swift.presence import WindowsProbe
+
+    class Probe(WindowsProbe):
+        def __init__(self, session_locked: bool, desktop_open: bool) -> None:
+            self._session_locked = lambda: session_locked  # type: ignore[method-assign]
+            self._input_desktop_open = lambda: desktop_open  # type: ignore[method-assign]
+
+    assert Probe(session_locked=True, desktop_open=True).locked()
+    assert Probe(session_locked=False, desktop_open=False).locked()  # another secure desktop is up
+    assert not Probe(session_locked=False, desktop_open=True).locked()
+
+
+def test_the_real_lock_check_answers_without_failing() -> None:
+    import sys
+
+    import pytest
+
+    if sys.platform != "win32":
+        pytest.skip("Windows only")
+    from swift.presence import WindowsProbe
+
+    probe = WindowsProbe()
+    assert isinstance(probe._session_locked(), bool) and isinstance(probe.locked(), bool)

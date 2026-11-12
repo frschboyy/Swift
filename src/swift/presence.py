@@ -2,8 +2,10 @@
 
 Signals Windows already gives, polled every few seconds (no window, no new permissions):
 
-- **locked**: the input desktop can't be opened while the lock screen (or another secure
-  desktop) is up (``OpenInputDesktop``);
+- **locked**: the session's own lock flag (``WTSQuerySessionInformation``), or the input desktop
+  can't be opened (``OpenInputDesktop``: another secure desktop is up). The flag is the one that
+  lasts: on the owner's PC the input desktop is closed for only about half a second as the screen
+  locks, then opens again behind the lock screen (measured 2026-11-12, owner check 232);
 - **asleep**: a poll that comes far later than scheduled means the machine was suspended;
 - **idle time**: seconds since the last keyboard or mouse input (``GetLastInputInfo``).
 
@@ -138,17 +140,46 @@ class WindowsProbe:
 
     DESKTOP_SWITCHDESKTOP = 0x0100
 
+    WTS_CURRENT_SESSION = 0xFFFFFFFF
+    WTS_SESSION_INFO_EX = 25
+    # WTSINFOEXW: Level (4 bytes, padded to 8), then SessionId, SessionState, SessionFlags (4 bytes each).
+    SESSION_FLAGS_AT = 16
+    WTS_SESSIONSTATE_LOCK = 0
+
     def __init__(self) -> None:
         self._user32 = ctypes.windll.user32  # type: ignore[attr-defined]
         self._kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         self._kernel32.GetTickCount64.restype = ctypes.c_ulonglong
+        self._wts = ctypes.windll.wtsapi32  # type: ignore[attr-defined]
+        self._wts.WTSQuerySessionInformationW.argtypes = [
+            ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_uint),
+        ]
+        self._wts.WTSQuerySessionInformationW.restype = ctypes.c_int
+        self._wts.WTSFreeMemory.argtypes = [ctypes.c_void_p]
 
     def locked(self) -> bool:
+        return self._session_locked() or not self._input_desktop_open()
+
+    def _session_locked(self) -> bool:
+        """The session's lock flag: true for as long as the screen is locked. False if Windows won't say."""
+        info, size = ctypes.c_void_p(), ctypes.c_uint()
+        if not self._wts.WTSQuerySessionInformationW(
+            None, self.WTS_CURRENT_SESSION, self.WTS_SESSION_INFO_EX, ctypes.byref(info), ctypes.byref(size)
+        ):
+            return False
+        try:
+            if size.value < self.SESSION_FLAGS_AT + 4:
+                return False
+            return ctypes.c_int32.from_address(info.value + self.SESSION_FLAGS_AT).value == self.WTS_SESSIONSTATE_LOCK
+        finally:
+            self._wts.WTSFreeMemory(info)
+
+    def _input_desktop_open(self) -> bool:
         desktop = self._user32.OpenInputDesktop(0, False, self.DESKTOP_SWITCHDESKTOP)
         if not desktop:
-            return True  # the lock screen's desktop isn't ours to open
+            return False  # a secure desktop (the lock screen's first moment, a sign-in prompt) isn't ours to open
         self._user32.CloseDesktop(desktop)
-        return False
+        return True
 
     def idle_s(self) -> float:
         class LASTINPUTINFO(ctypes.Structure):

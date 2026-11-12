@@ -28,8 +28,10 @@
   evidence: desktop/base.py:47-50 TERMINALS lacks code.exe; line breaks are Shift+Enter (A-01), and B-02 gate needs
     the owner's words to write
   test: null
-  note: 'Risk reduced by A-01 and B-02. untested: needs VS Code''s terminal focused; a unit test can only pin the
-    terminal list.'
+  note: 'Owner decides. Checking that VS Code''s focused element is its terminal needs UI Automation verified on
+    a real VS Code, which this session can''t do; the alternative, never typing into VS Code, removes a feature.
+    Line breaks are typed as Shift+Enter (A-01) and writing needs the owner''s words (B-02). untested: needs a real
+    VS Code.'
 - id: RV-15
   title: The lock rule is checked in about four places where speech acts; a third miss is likely until intake's
     presence step is the one place.

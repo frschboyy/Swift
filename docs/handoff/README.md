@@ -286,7 +286,6 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 | Branch | What | State |
 |---|---|---|
-| `claude/owner-checks-roadmap` | `plan.py` and the ledger: the owner checks' run list and status worked out from every result and git, kept current with `--record`, `--set` and `--write` | Done, waiting for the owner's OK to merge |
 | `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Merged into `main` on 2026-11-12, off by default. It touches the rule "no hands-free listening while locked": reviewed by a session other than the author, two findings fixed (`29a48dc`, `ff0dc47`) and re-reviewed as safe to turn on. Owner checks 228–232 are waiting, with `wake.acoustic: true` |
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (233 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.

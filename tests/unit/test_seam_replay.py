@@ -532,6 +532,11 @@ class Detector:
         self.asked += 1
         return t1 if self.heard else None
 
+    def pause(self) -> None:  # the lock: this stand-in keeps "hearing", so only the session's own checks stop it
+        pass
+
+    resume = pause
+
 
 def script(stt: Any, *texts: str) -> None:
     """The speech model says these in turn: the utterance, then each stretch the second way in asks about."""
@@ -593,6 +598,26 @@ def lock(session: Any, locked: bool) -> None:
     """What ``Lifecycle.handle`` does to the session when the screen locks or unlocks."""
     session.listening_paused = session.hands_free_blocked = locked
     session.listening_changed()
+
+
+async def test_a_lock_and_unlock_while_the_second_way_in_checks_starts_nothing() -> None:
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
+    session.acoustic = Detector()
+    script(stt, "He's left, research the history of tea", "He swift.", "research the history of tea")
+    plain = stt.transcribe
+
+    async def locks_and_unlocks(audio: Any) -> Any:
+        heard = await plain(audio)
+        if heard.text == "He swift.":
+            lock(session, True)
+            lock(session, False)
+        return heard
+
+    stt.transcribe = locks_and_unlocks
+    await session.hear_wake(SHORT, time.monotonic())
+    await asyncio.sleep(0.05)
+    assert agent.requests == [] and session.wake_stats["acoustic_rejected"] == 1
+    agree(session, out)
 
 
 async def test_locking_the_screen_makes_the_detector_forget_and_hear_nothing() -> None:

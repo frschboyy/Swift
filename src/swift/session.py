@@ -934,6 +934,8 @@ class Session:
         # The screen is locked, the PC asleep or listening paused from the tray, with wake listening on or
         # off (``Lifecycle``): nothing heard acts, however late it arrives (seams audit T-07).
         self.hands_free_blocked = False
+        # Counts ``listening_changed``: a check that takes time sees a lock that came and went meanwhile.
+        self._listening_changes = 0
         # Set when the owner comes back (``mark_return``): the first wake phrase after it logs how long it was.
         self._returned: tuple[str, float] | None = None
         # Called when an overlay says it's ready (the lifecycle announces presence then).
@@ -2103,14 +2105,17 @@ class Session:
             return heard, None
         self.wake_stats["acoustic_hits"] += 1
         self._hearing = True  # one utterance at a time: the next waits (``hear_wake``)
+        changes = self._listening_changes
         try:
             found = await asyncio.wait_for(second_way_in(hit, audio, started_at, self.transcriber), WAKE_STT_TIMEOUT_S)
         except (TimeoutError, SttUnavailable):
             found = None
         finally:
             self._hearing = False
-        # Locked, or something began (the hotkey, a card) while this was checked: it starts nothing (T-07).
-        if found is None or self._deaf() or self._front_busy() or self._capturing():
+        # Locked (even if unlocked again since), or something began (the hotkey, a card) while this was
+        # checked: it starts nothing (T-07).
+        locked = self._deaf() or changes != self._listening_changes
+        if found is None or locked or self._front_busy() or self._capturing():
             self.wake_stats["acoustic_rejected"] += 1
             return heard, None
         self.wake_stats["acoustic_wake"] += 1
@@ -3490,6 +3495,7 @@ class Session:
 
     def listening_changed(self) -> None:
         """The owner paused or resumed listening, or locked or unlocked the screen."""
+        self._listening_changes += 1
         if self.acoustic is not None:
             # Locked or paused, the detector hears nothing and forgets its hits; back on, it starts with none (T-07).
             self.acoustic.pause() if self._deaf() else self.acoustic.resume()

@@ -264,7 +264,7 @@ def reason(s: State, today: datetime, fresh: bool) -> str:
 def run_list(states: list[State], limit: int) -> list[State]:
     by_id = {s.check.id: s for s in states}
     picked: list[State] = []
-    for s in sorted((s for s in states if s.score > 0), key=lambda s: (-s.score, s.born and -int(s.born.replace("-", "")), -len(s.changes), s.check.num)):
+    for s in sorted((s for s in states if s.score > 0), key=lambda s: (-s.score, -int(s.born.replace("-", "") or 0), -len(s.changes), s.check.num)):
         if len(picked) >= limit:
             break
         for need in s.check.needs:  # a check that builds on another runs after it

@@ -58,7 +58,20 @@ By sentence: of 49 wrong sentences, 19 had a word under 0.4 and 46 had a Whisper
 
 Engines compared: Parakeet got 37 of 86 sentences exactly right, Whisper base.en 21, either one 41.
 
-**Whisper small.en as the second opinion:** not in this version. The run takes about 25 minutes on this laptop, which already says it is too slow for anything but idle time.
+**Whisper small.en as the second opinion:** a more precise judge at about three times the cost.
+
+| | base.en | small.en |
+|---|---|---|
+| Wrong words it disputes | 64% | 66% |
+| Right words it disputes | 17.9% | 10.3% |
+| Right sentences with a dispute | 20 of 37 | 8 of 37 |
+| p under 0.4 and a dispute: right words flagged | 0.5% | 0.2% |
+| Three signals combined, wrong words caught at 5% false flags | 53% | 61% |
+| Sentences it got exactly right alone / either engine | 21 / 41 | 34 / 42 |
+| Confidently wrong words (32) it disputes | 7 | 6 |
+| Added time per clip, p50 (forced score / own transcript) | 1.21 s / 1.33 s | 3.32 s / 3.63 s |
+
+Small.en halves the false disputes, so it is the better second opinion for an idle-time monitor. It doesn't raise the rescoring ceiling (42 against 41) and doesn't see the confident errors either.
 
 **Cost measured in the same run** (4 threads, Swift's backend also running): Parakeet p50 0.70 s per clip; the Whisper forced score p50 1.21 s more; Whisper's own transcript p50 1.33 s more. Clips p50 4.6 s long.
 
@@ -100,7 +113,7 @@ Not recommended now, as in the audit: fine-tuning or speaker adaptation (torch, 
 All of acoustic confidence, the second engine, the lexicon, the meaning-level comparison and the agent hint, with nothing new installed. A text language model and embeddings run on the installed runtimes but need a model file each. General rescoring is the poorest fit: Parakeet gives one hypothesis.
 
 **2. Which lightweight local models?**
-- **Second opinion:** Whisper base.en, already on disk. Small.en only if the numbers above say it pays for its time.
+- **Second opinion:** Whisper small.en, already on disk: it disputes 10% of right words where base.en disputes 18%. At 3.3 s per clip it is for idle time only.
 - **Text model, if the spike justifies one:** a causal model of about 135 M parameters in int8 ONNX. It is the smallest class that models sentences at all; anything larger competes with Parakeet for memory on a 16 GB laptop.
 - **Embeddings:** none yet. The router-based comparison covers the same need for local lanes at no cost.
 
@@ -131,7 +144,7 @@ Monitoring first. The evidence: no n-best, a redundant margin, a ceiling of +4 s
 | Looser flagging threshold on p | 0 | 0 | 0 |
 | Lexicon check | under 1 ms | negligible | kilobytes |
 | Router comparison (evaluation only) | milliseconds per pair | 0 | 0 |
-| Whisper base.en second pass | +1.2–1.3 s per clip (measured) | about +300 MB while loaded | 0, on disk |
+| Whisper second pass | base.en +1.2–1.3 s per clip, small.en +3.3–3.6 s (measured) | about +300 MB for base.en while loaded (audit); small.en not measured | 0, on disk |
 | Small text model | 30–100 ms per sentence (estimate) | 250–400 MB (estimate) | about 135 MB |
 | Sentence embeddings | 10–20 ms (estimate) | under 200 MB (estimate) | 23–90 MB |
 
@@ -192,7 +205,7 @@ Product rules it must keep: audio never leaves the PC; the log gets scores and c
 | # | Step | Needs | Why this order |
 |---|---|---|---|
 | 1 | **Make the measurement solid.** Fix the normaliser's spelling cases; add the meaning-level comparison; extend W-03's per-sentence gate to the read and noisy corpora (seams audit G) | nothing new | Every later decision reads these numbers. It also finishes W-03's coverage |
-| 2 | **Monitor v0, no downloads.** A looser flagging threshold on p; the lexicon; Whisper base.en as a second opinion at idle on kept clips; flags feed the labelling card (seams decision 7, still the owner's to confirm) | the owner's yes on the labelling card | Produces labelled real-use data, which is the bottleneck (W-04) |
+| 2 | **Monitor v0, no downloads.** A looser flagging threshold on p; the lexicon; Whisper small.en as a second opinion at idle on kept clips; flags feed the labelling card (seams decision 7, still the owner's to confirm) | the owner's yes on the labelling card | Produces labelled real-use data, which is the bottleneck (W-04) |
 | 3 | **Spike: does a small text model see the confident errors?** Score the 32 confidently wrong words and the protected words. Kill it if it doesn't add detection at 1% false flags | the owner's OK for one model download (about 135 MB; file, source and licence confirmed first) | The only untested idea with a plausible payoff; cheap to disprove |
 | 4 | **Act inside closed sets.** Contacts in a name slot (audit method A), expected answers while a question is open (C), the hint to the agent (D) | step 1's gate | Where accuracy gains were actually observed (audit §7.2) |
 | 5 | **General rescoring or embeddings,** only if step 3 passes its bar or step 1's meaning measure proves too coarse | evidence from 1–3 | Low measured ceiling today |

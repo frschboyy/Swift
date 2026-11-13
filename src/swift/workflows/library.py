@@ -189,22 +189,27 @@ class Intent:
     Requests that ask something never run an intent, so "did I add the meeting?" doesn't add
     one; an intent with ``questions`` runs only on those (its actions are question words).
     Instead of a subject, ``times``: a new time after the action ("move Swift check to two p.m.");
-    ``titles``: the request opens with the action, then names one of ``titles`` ("cancel Swift check")."""
+    ``titles``: the request opens with the action, then names one of ``titles`` ("cancel Swift check").
+    ``opens``: the action counts only as the request's first word, for how speech recognition mishears one
+    ("had lunch with Sam tomorrow at one" is "add"; "I had lunch with Sam" is not)."""
 
     actions: tuple[str, ...]
     subjects: tuple[str, ...] = ()
     questions: bool = False
     times: bool = False
     titles: bool = False
+    opens: bool = False
 
     def matches(self, text: str, titles: Iterable[str] = ()) -> bool:
-        if is_question(text) != self.questions:
+        # "had" opens a question too ("had I added it?"): an ``opens`` intent is a question only with a "?".
+        asks = text.rstrip().endswith("?") if self.opens else is_question(text)
+        if asks != self.questions:
             return False
         said = " ".join(_WORD.findall(text.lower()))
         lead = re.match(_LEAD, said)
         said = (said[lead.end():] if lead else said).strip()
         said = " " + re.sub(r"^(?:(?:and|so|ok|okay|now|then|just|actually|also|please)\s+)+", "", said) + " "
-        actions = [a for a in self.actions if f" {a} " in said]
+        actions = [a for a in self.actions if (said.startswith(f" {a} ") if self.opens else f" {a} " in said)]
         if not actions:
             return False
         if any(f" {s} " in said for s in self.subjects):
@@ -508,13 +513,13 @@ def load_package(folder: Path, source: Literal["built-in", "yours"] = "built-in"
 def _intent(raw: object) -> Intent:
     """``intent: {actions: [add, schedule, set up], subjects: [calendar, meeting], questions?: true}``;
     ``times: true`` or ``titles: true`` can stand in for ``subjects``."""
-    flags = ("questions", "times", "titles")
+    flags = ("questions", "times", "titles", "opens")
     if (
         not isinstance(raw, dict) or "actions" not in raw or not set(raw) <= {"actions", "subjects", *flags}
         or ("subjects" not in raw and not (raw.get("times") or raw.get("titles")))
     ):
         raise PackageError("swift.yaml: intent needs `actions` and `subjects` (lists of words), "
-                           "and optionally `questions: true`, `times: true` or `titles: true`")
+                           "and optionally `questions: true`, `times: true`, `titles: true` or `opens: true`")
     for flag in flags:
         if not isinstance(raw.get(flag, False), bool):
             raise PackageError(f"swift.yaml: intent {flag} must be true or false")
@@ -527,7 +532,8 @@ def _intent(raw: object) -> Intent:
         if not isinstance(words, list) or not words or not all(isinstance(w, str) and w.strip() for w in words):
             raise PackageError(f"swift.yaml: intent {key} must be a list of words")
         lists.append(tuple(" ".join(_WORD.findall(w.lower())) for w in words))
-    return Intent(lists[0], lists[1], raw.get("questions", False), raw.get("times", False), raw.get("titles", False))
+    return Intent(lists[0], lists[1], raw.get("questions", False), raw.get("times", False), raw.get("titles", False),
+                  raw.get("opens", False))
 
 
 def load_library(owner_dir: Path | None = None, builtin_dir: Path = BUILTIN_DIR) -> Library:

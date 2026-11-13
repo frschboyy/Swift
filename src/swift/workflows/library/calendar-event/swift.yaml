@@ -18,6 +18,13 @@ triggers:
       actions: [add, put, schedule, set up, book, create, arrange, plan, organise, organize]
       subjects: [calendar, meeting, appointment, event, call, lunch, dinner, session, office hours,
                  google meet, meet link]
+  # "Add" as speech recognition hears it: "had lunch with Test Me tomorrow at one", "Ad lunch next week"
+  # (owner check 31, 2026-11-13; eight times in the owner's log). Only as the first word, so "I had lunch
+  # with Sam" or "what had the meeting" stay out.
+  - intent:
+      actions: [had, ad]
+      opens: true
+      subjects: [meeting, appointment, event, call, lunch, dinner, session, office hours, google meet, meet link]
   # "Move my meeting with Ada to Friday", "cancel the dentist appointment", "add a Meet link to my
   # meeting", "show me my calendar for tomorrow". No bare "event" or "call" here: "remove the
   # event listener" and "update the function call" are coding requests.

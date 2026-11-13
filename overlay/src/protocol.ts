@@ -160,8 +160,10 @@ export type Outbound =
   | { type: "view"; data: { action: "show" | "hide" } }
   // A background request to the front: a row clicked, or the card in front gone while it runs.
   | { type: "focus"; data: { run_id: string } }
-  // A confirm card is drawn and visible, or hidden again: its countdown runs only while it is (ADR-015 §4.2).
-  | { type: "card.seen"; data: { request_id: string; visible: boolean } }
+  // What is drawn, as of the backend's frame n (review item 9): the stage, the card's request, the confirm
+  // card and question the owner can see ("": none). A confirm card counts down only while seen (ADR-015
+  // §4.2); a due card leaves the schedule once it is the card here (O-08).
+  | { type: "screen"; data: { n: number; stage: UiState; run_id: string; confirm: string; ask_id: string } }
   | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } }
   // The waiting stack: open (bring back / resume), skip (back to the stack), end (gone).
   | { type: "stack.action"; data: { id: string; action: "open" | "skip" | "end" } }
@@ -178,19 +180,18 @@ export type Outbound =
   | { type: "run.stop"; data: { run_id: string; from?: "question" } }
   | { type: "live.app"; data: { run_id: string } }
   // ADR-016 §5.1: an option clicked on Swift's question. An answer, never an approval.
-  | { type: "ask.reply"; data: { ask_id: string; text: string } }
-  // A due card (timer, alarm, reminder) was drawn: only then does it leave the schedule (seams audit O-08).
-  | { type: "due.shown"; data: { run_id: string } };
+  | { type: "ask.reply"; data: { ask_id: string; text: string } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });
 }
 
-export function decode(raw: string): Inbound | null {
+/** n: the frame's place in the order the backend sent it (``screen`` acknowledges up to it). */
+export function decode(raw: string): (Inbound & { n?: number }) | null {
   try {
     const obj = JSON.parse(raw);
     if (obj?.v !== PROTOCOL_VERSION || typeof obj.type !== "string" || typeof obj.data !== "object") return null;
-    return { type: obj.type, data: obj.data } as Inbound;
+    return { type: obj.type, data: obj.data, ...(typeof obj.n === "number" ? { n: obj.n } : {}) } as Inbound & { n?: number };
   } catch {
     return null;
   }

@@ -37,7 +37,7 @@ NODE = shutil.which("node")
 
 def _screen(out: Any) -> dict[str, Any]:
     assert NODE, "the seam test needs Node (the overlay's own tests do too)"
-    frames = [{"type": m.type, "data": m.data} for m in out.messages if m.type != "level"]
+    frames = [{"type": m.type, "data": m.data, "n": m.n} for m in out.messages if m.type != "level"]
     done = subprocess.run([NODE, str(REPLAY)], input=json.dumps(frames, default=str), capture_output=True,
                           text=True, encoding="utf-8", timeout=30, check=False)
     assert done.returncode == 0, done.stderr
@@ -819,4 +819,30 @@ async def test_a_card_brought_back_from_the_stack_resumes_where_it_was() -> None
     screen = agree(session, out)
     assert screen["cardRun"] == research and screen["stage"] == "result", screen
     assert screen["behind"] == [notes] and screen["behindStates"] == ["working"]
+    await finish_all(session, agent)
+
+
+async def _drawn_back(session: Any, out: Any) -> dict[str, Any]:
+    """The overlay's side answers (review item 9): what it drew goes back to the session, as main.ts sends it."""
+    screen = _screen(out)
+    for ack in screen["acks"]:
+        await session.handle(Message("screen", ack))
+    return screen
+
+
+async def test_a_due_card_leaves_the_schedule_once_the_overlay_says_it_drew_it() -> None:
+    """Item 9: the backend hears what was drawn (``screen``), not what it sent. Until the acknowledgement
+    the timer stays on the schedule; after it, the timer is gone, and once only."""
+    session, out, agent, stt, _control, sched = _lane()
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    agent.runs[rid]["go"].set()
+    await asyncio.sleep(0.2)
+    await session.notify_due(_timer(session, sched), False)
+    await asyncio.sleep(0.1)
+    assert sched.items, "off the schedule before the overlay drew it"
+    screen = await _drawn_back(session, out)
+    assert screen["cardRun"].startswith("due-") and screen["acks"][-1]["run_id"] == screen["cardRun"]
+    assert not sched.items and session._due == [] and session._drawn.due == {}
+    agree(session, out)
     await finish_all(session, agent)

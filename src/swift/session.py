@@ -157,6 +157,7 @@ from swift.desktop.base import Desktop, DesktopContext
 from swift import intake
 from swift.dialogue import REASKS, Answer, Dialogue, Question, Turn, elide, reask_text
 from swift.dialogue import resolve as resolve_answer
+from swift.drawn import Drawn
 from swift.endpoint import EndOfTurn
 from swift.executors.base import SWIFT, ExecResult, Executor, ExecutorUnavailable
 from swift.network import OFFLINE_HELP, OFFLINE_ITEMS, OFFLINE_NOT, OFFLINE_SAID
@@ -359,7 +360,6 @@ QUESTION_S = 25.0
 OFFLINE_RETRIES = 2
 # Failures that end a request through no fault of the request: it waits in the stack to pick up again.
 PARKED_FAILURES = frozenset({"timeout", "offline"})
-# How long a due card may take to be drawn before it goes back in line (``due.shown``, O-08).
 # Wake listening never waits longer than this for one utterance's transcription.
 WAKE_STT_TIMEOUT_S = 20.0
 # A whole recorded request can be long: more time, but never stuck.
@@ -786,7 +786,8 @@ class Session:
         followup_min_p: float = FOLLOWUP_MIN_P,
         on_heard: Callable[[str], None] | None = None,
     ) -> None:
-        self._raw_send = send
+        self._drawn = Drawn(send)  # the one door out, and what the overlay says it drew (review item 9)
+        self._raw_send = self._drawn.send
         self.executor = executor
         # Requests running, or ended but still shown (in front, or as a finished row); oldest first.
         self._runs: list[Run] = []
@@ -815,8 +816,6 @@ class Session:
         self._stack_sent: list[dict[str, Any]] | None = []
         # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
         self._rows_sent: dict[str, Any] | None = None
-        # Due cards sent and not yet drawn (``due.shown``), by their card's run id (O-08).
-        self._due_sent: dict[str, list[Any]] = {}
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
         self._last_thread: str | None = None
         # After something that can't be undone: the follow-up offered, its thread, and when.
@@ -1672,8 +1671,8 @@ class Session:
                 await self._send_stack()  # a new overlay: what waits, from before it started
                 await self._resync()  # and everything on screen now
                 await self._kick_due()  # and what came due before it was there
-            case "due.shown":
-                self._due_drawn(msg.data["run_id"])
+            case "screen":
+                await self._screen(msg.data)
             case "cancel":
                 self.speaker.stop()
                 await self.cancel()
@@ -1719,10 +1718,6 @@ class Session:
             case "text":
                 thread = msg.data.get("thread_id")
                 await self._start_typed(msg.data["text"], thread if isinstance(thread, str) else None)
-            case "card.seen":
-                # The overlay drew the card (or hid it): its countdown runs only while seen (ADR-015 §4.2).
-                if self.attention is not None:
-                    self.attention.set_seen(msg.data["request_id"], msg.data["visible"])
             case "ptt" if msg.data["state"] == "down":
                 self.speaker.stop()  # the owner wants to talk: Swift stops at once
                 self._talking(math.inf)  # the hotkey isn't the owner typing in the document
@@ -3824,23 +3819,30 @@ class Session:
         else:
             text = " ".join(self.system.due_text(i, missed) for i, missed, _ in queued)
             run_id = f"due-{queued[0][0].kind}-{queued[-1][0].id}"
-        # Off the schedule only once the overlay says it drew it (``due.shown``, O-08). If the overlay goes
-        # first, it's shown to the next one (``overlay_gone``).
-        self._due_sent[run_id] = queued
+        # Off the schedule only once the overlay says it drew it (``screen``, O-08); not drawn, or the overlay
+        # gone first, it's back in line.
+        self._drawn.due[run_id] = (0, queued)
         await self._send_stack()
         await self._send_result(run_id, ExecResult("done", text))
         logger.info("due sent", items=len(queued))
         if not self.overlay_connected():
             self.overlay_gone()
 
-    def _due_drawn(self, run_id: str) -> None:
-        """The overlay drew the due card ``run_id``: its items leave the schedule (B-03, O-08)."""
-        queued = self._due_sent.pop(run_id, None)
-        if queued is None or self.system is None:
-            return
-        for item, _, _ in queued:
-            self.system.scheduler.shown(item.id)
-        logger.info("due shown", items=len(queued))
+    async def _screen(self, screen: dict[str, Any]) -> None:
+        """What the overlay drew (``drawn.py``): a confirm card counts down only while seen (ADR-015 §4.2); a
+        due card leaves the schedule once drawn (B-03), and one it didn't draw waits in the stack (O-08)."""
+        seen, drawn, refused, rest = self._drawn.ack(screen)
+        for key, visible in seen if self.attention is not None else ():
+            self.attention.set_seen(key, visible)  # type: ignore[union-attr]
+        for item, _, _ in drawn if self.system is not None else ():
+            self.system.scheduler.shown(item.id)  # type: ignore[union-attr]
+        if drawn:
+            logger.info("due shown", items=len(drawn))
+        self._due = refused + self._due
+        if refused:
+            await self._send_stack()  # it waits there, never sent again into a refusal, till the screen rests
+        elif rest and self._due:
+            await self._kick_due()
 
     def _due_cleared(self, key: str) -> None:
         """Cleared from the stack: the owner has seen it, so it won't come up as a card too."""
@@ -4361,9 +4363,7 @@ class Session:
         if shown is not None and self.attention is not None:
             self.attention.set_seen(shown, False)
         # A due card sent and not confirmed may never have been drawn: back in line for the next overlay.
-        sent, self._due_sent = self._due_sent, {}
-        for queued in sent.values():
-            self._due = queued + self._due
+        self._due = self._drawn.gone() + self._due
 
     async def _resync(self) -> None:
         """A new overlay (a reload, a restart, a reconnect) is told everything that is on screen: the rows,

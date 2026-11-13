@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from test_card_timing import seen
 from test_runs import Agent, finish_all, make, sent_for, started, until
 
 from swift.attention import Attention
@@ -22,7 +23,7 @@ async def _one_card() -> tuple[object, object, Attention, Agent, str]:
     agent.runs[first]["ask"].set()
     await until(lambda: sent_for(out, first, "confirm.request"))
     request_id = sent_for(out, first, "confirm.request")[-1]["request_id"]
-    await session.handle(Message("card.seen", {"request_id": request_id, "visible": True}))
+    await session.handle(seen(request_id))
     return session, out, attention, agent, request_id
 
 

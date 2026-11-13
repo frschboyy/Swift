@@ -13,6 +13,7 @@ from swift.lifecycle import Lifecycle
 from swift.parked import ParkedThreads
 from swift.presence import AWAY_S, PresenceMonitor
 
+from test_card_timing import seen
 from test_corrections import finish, make, start
 from test_presence import Clock, Probe
 
@@ -159,7 +160,7 @@ async def test_a_countdown_that_runs_out_sets_the_card_aside_in_the_stack() -> N
     )
     await start(session, out, stt)
     card = out.last("confirm.request")
-    await session.handle(Message("card.seen", {"request_id": card["request_id"], "visible": True}))
+    await session.handle(seen(card["request_id"]))
     await asyncio.sleep(0.4)
     assert session.state == "confirm" and records == [] and calendar.created == []
     assert out.last("confirm.hold") == {"request_id": card["request_id"], "held": True, "timeout_s": pytest.approx(0.2, abs=0.01)}

@@ -16,7 +16,7 @@
 // stops too, since the card is reported as not seen. Approve ignores clicks for its first 400 ms.
 // Letting go of a held answer gives it 1.5 s.
 
-import type { UiState } from "./protocol";
+import type { Outbound, UiState } from "./protocol";
 
 export type CardKind = "none" | "listening" | "transcribing" | "working" | "confirm" | "result" | "error" | "notice";
 
@@ -116,6 +116,15 @@ export function stageOf(p: Presenter): UiState {
   if (p.card.kind === "none") return "idle";
   return p.card.kind === "notice" ? "result" : p.card.kind;
 }
+
+/** Frames the backend hears about once drawn (``screen``, review item 9), even when nothing changed:
+ * a refusal is news too. */
+export const CARD_FRAMES: ReadonlySet<string> = new Set(["state", "confirm.request", "confirm.hold", "result", "error", "runs", "ask"]);
+
+/** What is drawn, as the backend hears it after frame ``n``: the one acknowledgement. ``askId``: the
+ * question on screen, if any. main.ts sends it, and the seam test's replay hands it back the same way. */
+export const drawn = (p: Presenter, n: number, askId: string): Extract<Outbound, { type: "screen" }>["data"] =>
+  ({ n, stage: stageOf(p), run_id: p.card.runId ?? "", confirm: seenCard(p) ?? "", ask_id: askId });
 
 /** No confirm card waiting any more. */
 const noConfirm = { pendingConfirm: null, held: null, heldSince: null, confirmDeadline: 0, confirmLeft: null, confirmShownAt: 0 } as const;

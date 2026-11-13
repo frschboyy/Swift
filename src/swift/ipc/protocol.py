@@ -22,8 +22,10 @@ Several requests at once (ADR-013 phase B): ``runs`` names the request in front 
 its ``run_id``), the others as one-line ``rows``, and how many confirm cards wait behind the
 one on screen. It is sent only while there is more than one. Inbound ``focus`` brings a row
 to the front (a click on it, or the overlay's own card fading while others still run).
-Inbound ``card.seen`` says a confirm card is drawn and visible, or hidden: its countdown runs
-only while it is (ADR-015 §4.2).
+Inbound ``screen`` is the overlay's one acknowledgement (review item 9): what it has drawn, as of
+outbound frame ``n`` (every outbound frame is numbered in order). A confirm card counts down only
+while it is the ``confirm`` there (ADR-015 §4.2); a due card leaves the schedule once it is the card
+there, and goes back in line if the overlay drew something else (O-08).
 The waiting stack (ADR-015 §9): outbound ``stack`` lists what waits for the owner (cards in line or
 set aside, held cards, unfinished conversations); inbound ``stack.action`` opens, skips or ends
 one. Inbound ``text`` is a request typed into the overlay (source ``typed``): routed like speech,
@@ -76,8 +78,9 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "debug.say": {"text": (str, None)},
     # A background request to the front (ADR-013 §3.1).
     "focus": {"run_id": (str, None)},
-    # The overlay drew a confirm card and it is visible (or hid it): its countdown runs only then (ADR-015).
-    "card.seen": {"request_id": (str, None), "visible": (bool, None)},
+    # What the overlay has drawn, as of outbound frame ``n``: its stage, the card's request, and the
+    # confirm card and question the owner can see ("": none). The only acknowledgement (review item 9).
+    "screen": {"n": (int, None), "stage": (str, STATES), "run_id": (str, None), "confirm": (str, None), "ask_id": (str, None)},
     # The waiting stack (ADR-015 §9): open (bring back / resume), skip (back to the stack), end (gone).
     "stack.action": {"id": (str, None), "action": (str, ("open", "skip", "end"))},
     # A request typed into the overlay; optional ``thread_id``: the conversation on screen it follows.
@@ -98,9 +101,6 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "ask.reply": {"ask_id": (str, None), "text": (str, None)},
     # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
     "recordings": {"action": (str, ("clear", "improve"))},
-    # The overlay drew a due card (a timer, alarm or reminder): only then is it taken off the schedule
-    # (seams audit O-08: an overlay that drops it, behind a request in front, must not lose it).
-    "due.shown": {"run_id": (str, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
@@ -119,6 +119,8 @@ class Message:
     type: str
     data: dict[str, Any] = field(default_factory=dict)
     ts: int = 0
+    # Outbound only: its place in the order sent (``screen`` acknowledges up to it); 0: not numbered.
+    n: int = 0
 
 
 def now_ms() -> int:
@@ -162,7 +164,7 @@ def decode(raw: str | bytes) -> Message:
 
 def encode(msg: Message) -> str:
     return json.dumps(
-        {"v": PROTOCOL_VERSION, "type": msg.type, "ts": msg.ts or now_ms(), "data": msg.data},
+        {"v": PROTOCOL_VERSION, "type": msg.type, "ts": msg.ts or now_ms(), "n": msg.n, "data": msg.data},
         ensure_ascii=False,
         separators=(",", ":"),
     )

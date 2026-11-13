@@ -67,7 +67,7 @@ export const TO_BACKEND = [
   {"type": "debug.say", "data": {"text": "show me"}},
   {"type": "view", "data": {"action": "show"}},
   {"type": "focus", "data": {"run_id": "a-2"}},
-  {"type": "card.seen", "data": {"request_id": "a-1:1", "visible": true}},
+  {"type": "screen", "data": {"n": 12, "stage": "confirm", "run_id": "a-1", "confirm": "a-1:1", "ask_id": ""}},
   {"type": "ready", "data": {"startup_ms": 120, "backend_ms": null}},
   {"type": "ready", "data": {"startup_ms": 120, "backend_ms": 900}},
   {"type": "stack.action", "data": {"id": "card:swift:2", "action": "open"}},
@@ -81,7 +81,6 @@ export const TO_BACKEND = [
   {"type": "run.stop", "data": {"run_id": "a-1", "from": "question"}},
   {"type": "live.app", "data": {"run_id": "a-1"}},
   {"type": "ask.reply", "data": {"ask_id": "ask-2", "text": "Paris"}},
-  {"type": "due.shown", "data": {"run_id": "due-timer-4"}},
 ] satisfies Outbound[];
 
 type Missing<All extends { type: string }, Given extends { type: string }> = Exclude<All["type"], Given["type"]>;

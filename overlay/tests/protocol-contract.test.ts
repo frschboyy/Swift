@@ -23,6 +23,7 @@ test("every example survives the overlay's decode", () => {
     assert.deepEqual(decode(raw), { type: f.type, data: f.data });
   }
   assert.equal(decode(JSON.stringify({ v: 2, type: "state", data: {} })), null);
+  assert.equal(decode(JSON.stringify({ v: PROTOCOL_VERSION, type: "state", n: 7, data: {} }))?.n, 7);  // what ``screen`` acknowledges
   assert.ok(encode({ type: "cancel", data: {} }).includes('"type":"cancel"'));
 });
 

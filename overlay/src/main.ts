@@ -133,8 +133,10 @@ let heardTimer = 0;
 const DRAFT_LINES = 8;
 // A card that goes within this long of something joining the stack went there.
 const HANDOFF_MS = 400;
-// The confirm card the backend was last told is on screen (ADR-015 §4.2).
-let seen: string | null = null;
+// What the backend was last told is drawn (screen.ts), and the last frame it sent.
+let told = "";
+let frameN = 0;
+let inFrame = false;
 // Pane windows (ADR-015 §3): what each open one shows. False once opening one failed: rows instead.
 let paneWindows = true;
 let reader: Panes.Reader = null;
@@ -162,7 +164,7 @@ let asked: Q.Ask | null = null;
 // Screen position of the last press on the card: a press that moved was a drag, not a click.
 let pressAt: { x: number; y: number } | null = null;
 
-const client = new BackendClient(onMessage, onStatus);
+const client = new BackendClient(onFrame, onStatus);
 
 followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 // The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.
@@ -255,7 +257,7 @@ function resetRun(keepRequest: boolean): void {
 /** Debug builds: a broken presenter rule is reported with the messages that led to it. */
 function checkPresenter(): void {
   syncStage();
-  reportSeen();
+  if (!inFrame) reportScreen();
   syncTypingNotice();
   if (!debugEnabled) return;
   const broken = P.violations(pres);
@@ -291,14 +293,13 @@ function presentAnswer(kind: "result" | "error" | "notice", ms: number | null, r
   return r.shown;
 }
 
-/** Tell the backend which confirm card is on screen: it counts down only while one is (ADR-015 §4.2),
- * and only while the owner is here (ADR-017). */
-function reportSeen(): void {
-  const now = P.seenCard(pres);
-  if (now === seen) return;
-  if (seen) client.send({ type: "card.seen", data: { request_id: seen, visible: false } });
-  if (now) client.send({ type: "card.seen", data: { request_id: now, visible: true } });
-  seen = now;
+/** Tell the backend what is drawn (screen.ts) when it changed, or ``always`` after a card frame. */
+function reportScreen(always = false): void {
+  const now = P.drawn(pres, frameN, Q.askVisible(asked, stageNow(), pres.focus) ? asked!.id : "");
+  const key = JSON.stringify({ ...now, n: 0 });
+  if (!always && key === told) return;
+  told = key;
+  client.send({ type: "screen", data: now });
 }
 
 // ---- other requests: edges behind the card (ADR-018) ----------------------------------
@@ -1625,8 +1626,6 @@ function onAskMessage(data: Q.AskData): void {
 /** A timer, alarm or reminder came due: it stays until Done (ADR-017). */
 function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   if (!presentAnswer("result", null, data.run_id, data.thread_id, clipLine(data.summary))) return;
-  // Drawn: only now does it leave the schedule; dropped, the backend shows it again later (O-08).
-  client.send({ type: "due.shown", data: { run_id: data.run_id } });
   const kind = data.run_id.split("-")[1];
   const label = { timer: "Timer", alarm: "Alarm", reminder: "Reminder", away: "While you were away" }[kind] ?? "Reminder";
   // The label says what it is; the title is the rest ("Reminder: call mum." → "Call mum.").
@@ -1993,6 +1992,18 @@ function onEscape(): void {
 }
 
 // ---- backend messages ----------------------------------------------------------
+
+/** Each frame is applied whole, then acknowledged (``screen``): the backend hears what was drawn. */
+function onFrame(msg: Inbound & { n?: number }): void {
+  frameN = msg.n ?? frameN;
+  inFrame = true;
+  try {
+    onMessage(msg);
+  } finally {
+    inFrame = false;
+    reportScreen(P.CARD_FRAMES.has(msg.type));
+  }
+}
 
 function onMessage(msg: Inbound): void {
   if (wantsRaise(msg)) void invoke("raise").catch(() => {});  // on top again, where it is

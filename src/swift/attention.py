@@ -19,7 +19,7 @@ line. ``set_queued`` stops a waiting card's countdown the same way, so each card
 when it is shown.
 
 Seen (ADR-015 §4.2): with ``require_seen``, a card counts down only once the overlay says it
-has drawn it (``set_seen``, from the ``card.seen`` message), and stops again when the overlay
+has drawn it (``set_seen``, from the overlay's ``screen`` acknowledgement), and stops again when the overlay
 hides it. A card the overlay never draws waits like a held card instead of running out unseen.
 
 Expiry (ADR-017, the Capsule redesign): with ``on_expire`` set, a countdown that runs out doesn't

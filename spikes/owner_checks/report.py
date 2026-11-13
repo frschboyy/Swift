@@ -583,6 +583,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         *_health(log),
         _gmail(log),
         *_front_and_web(rows),
+        *_command_cards(rows),
     ]
 
 
@@ -662,6 +663,20 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("254 Task Manager's band", LOOK, "paste window_bands.py's last lines; was Swift in front of Task Manager?"),
         ("255 a spoken web address was opened", unless(missed, spoken),
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
+    ]
+
+
+def _command_cards(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 263-264 (B1): a command card leads with a plain sentence, the command folded under it."""
+    cards = [(r, a) for r in rows for a in r.get("approvals", []) if a.get("tool") in ("Bash", "PowerShell")]
+    bare = [r for r, a in cards if a.get("explained") is False]
+    approved = [r for r, a in cards if a.get("decision") == "approve"]
+    return [
+        ("263 every command card led with what it does", unless(bare, cards),
+         f"{len(cards)} command card(s); with no sentence (command shown open): "
+         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in bare) or "none")),
+        ("264 a command card approves as before", LOOK,
+         f"{len(approved)} approved; tell us whether a bare 'yes' or typing ever approved one"),
     ]
 
 

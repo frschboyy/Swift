@@ -55,9 +55,8 @@ const READY_FADE_MS = 4000;
 // Stopped / Not done: one row, gone after 4 s (the reply window can keep it longer).
 const ROW_FADE_MS = 4000;
 const MAX_STEPS = 5;
-// Show the elapsed time once a run takes longer than this; say it's still going after STALL_MS without news.
+// Show the elapsed time once a run takes longer than this; say it's still going after Panes.STALL_MS without news.
 const ELAPSED_AFTER_MS = 3000;
-const STALL_MS = 20000;
 const ACTIVE: ReadonlySet<UiState> = new Set(["listening", "transcribing", "working", "confirm"]);
 // Failures where the log has the cause.
 const LOGGED: ReadonlySet<string> = new Set(["internal", "crashed", "executor_failed", "service"]);
@@ -946,7 +945,7 @@ function renderWorking(): void {
 /** "Still working" shows on the steps only, never over an open artifact or a collapsed card. */
 function isStalled(now: number): boolean {
   const open = viewing ? artifacts.has(viewing) : false;
-  return !(compact && viewing === undefined) && !open && steps.length > 0 && now - lastStepAt > STALL_MS;
+  return Panes.workingStalled((compact || quiet) && viewing === undefined, open, steps.length, lastStepAt, now);
 }
 
 function askView(action: "show" | "hide"): void {

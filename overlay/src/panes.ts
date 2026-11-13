@@ -108,6 +108,13 @@ export function readerTick(r: Reader, now: number, hovering: boolean): Reader {
 export const workingQuiet = (lastNewsAt: number, now: number, hovering: boolean): boolean =>
   !hovering && lastNewsAt > 0 && now - lastNewsAt >= WORKING_QUIET_MS;
 
+export const STALL_MS = 20_000;
+
+/** "Still working" after STALL_MS without news, on the steps only: never on the one-line card, which has
+ * nowhere to show it (A3, 2026-11-13: it was redrawn every second for that, restarting its spinner). */
+export const workingStalled = (oneLine: boolean, open: boolean, steps: number, lastStepAt: number, now: number): boolean =>
+  !oneLine && !open && steps > 0 && now - lastStepAt > STALL_MS;
+
 /** An answer too long for the card: it scrolls there, and "Read all" opens the reader. */
 export function needsReader(summary: string, details: ResultDetails | null | undefined): boolean {
   if (summary.length > READ_ALL_CHARS) return true;

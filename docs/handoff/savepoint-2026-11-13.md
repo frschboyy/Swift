@@ -2,27 +2,39 @@
 
 Read `docs/handoff/README.md` and `docs/handoff/workstreams.md` first (both on this branch, which is built on `claude/workstreams`).
 
-The last Claude status report said seven sessions were running at 16:27. This refresh records the Git state checked
-after that report; the repository cannot confirm whether those Claude processes are still running. Treat the tasks
-below as work to resume, not as live sessions that will transfer.
+The Claude status text pasted by the owner identifies seven sessions: the `Roadmap and owner checks` orchestrator
+and six workers. This refresh records their Git branches and the context in that pasted report; the repository cannot
+confirm whether the Claude processes are still running. Treat them as tasks to resume, not live sessions that will
+transfer.
 
-## Work to resume
+## The seven sessions
 
-The six named worktrees were based on `claude/workstreams` (`5bd9e61`). The `savepoint/<name>` refs now reflect the
-latest worktree state checked at 16:37: dirty worktrees have a WIP commit on their current branch tip; clean worktrees
+The six worker branches were based on `claude/workstreams` (`5bd9e61`). Their `savepoint/<name>` refs reflect the
+worktree state checked at 16:37: dirty worktrees have a WIP commit on their current branch tip; clean worktrees
 point to that branch tip so an older snapshot cannot overwrite later commits. WIP is unreviewed and may fail.
 
-| Task | Branch | Snapshot | State checked at 16:37; next action |
+| Session/task | Branch | Snapshot | State checked at 16:37; next action |
 |---|---|---|---|
+| Main orchestrator: "Roadmap and owner checks" | `claude/workstreams` (`71e7163`) | None; branch is clean | Committed A8 music fix (`41a1773`), A1b refusal-text fix (`1429e81`), owner check 262 and its report/ledger/handoff updates. The owner-pasted report says the new A8 regression test passed and failed with the fix undone; full suite passed except one Windows drive-path test that also fails without these changes; routing parity stayed 413/423, 0 harmful. These results were reported by Claude, not rerun in this savepoint session. Nothing is merged; the branch waits for the owner's OK. Resume by reviewing the six worker results independently, keeping the A8/A1b work on this branch, and not merging without approval. |
 | A2/A3: a question shown as "Working on it"; spinner doesn't turn | `claude/a2-question-state-42bf6d` (`5aa1aa1`) | `savepoint/a2-question-state-42bf6d` (clean) | The A2 front-state and A3 spinner commits are present; no WIP remains. Replay the lunch question in the harness; whether A2 is refused or mis-drawn is still unproven, and A3 has not been checked. |
 | A4–A6: cards vanish unseen; stack restore | `claude/a4-card-lifecycle-f50a7b` (`5bd9e61`) | `savepoint/a4-card-lifecycle-f50a7b` | WIP is `session.py` plus a seam scenario. Its A4 assertions passed, but one test request did not wind down during cleanup. Diagnose that, then replay unseen-card and stack restoration scenarios. |
 | A7: one ask becomes two requests | `claude/a7-duplicates-54bd6a` (`bf71860`) | `savepoint/a7-duplicates-54bd6a` | Commit `bf71860` addresses an utterance begun before Swift asked; the WIP adds `same_request.py` and its test. Run focused tests and finish the duplicate cases; checks 204/205 remain uninvestigated. |
 | A9: Gmail writes only with the cursor in the body | `claude/a9-gmail-focus-03dda1` (`c8bff02`) | `savepoint/a9-gmail-focus-03dda1` (clean) | Three commits now cover failure logging, retrying focus, and bringing a compose window forward. The earlier 14 tests passed; the real failure cause is still unproven. Retest the Gmail path and checks 242/49/215. |
 | A10 + C3: Swift behind Task Manager; opening a website | `claude/a10-front-and-web-9f8dcd` (`6bd3666`) | `savepoint/a10-front-and-web-9f8dcd` | Two commits cover invalid ports and spoken web addresses; WIP adds window-band handling, tests and a report line. Finish the topmost-window investigation (A10) and reproduce the Blackboard failure (C3). |
 | C1: never answer with a location Swift doesn't have | `claude/c1-grounded-facts-556f60` (`5bd9e61`) | `savepoint/c1-grounded-facts-556f60` | WIP adds a location instruction, weather-area separation, tests and owner checks 259–261. Run focused tests; the owner checks still need real-PC evidence. |
-| Misheard-clips labelling card / 10:05 run gaps | No dedicated worktree found. `claude/run-1005-gaps` (`ce92b76`) is clean. | None | The earlier report said this session worked from the main checkout, but there is no Swift WIP in that checkout now. The clean branch contains a separate "Add" → calendar routing fix and is **not merged into `main`**. Resume the labelling-card work from the original Claude notes if available; do not mistake that branch for its save point. |
 
-The prior report assigned owner checks 244–261 among the six named workstreams. C1's current WIP adds 259–261; `plan.py` prints the next free number. The separate workstreams branch has A8 music fix `41a1773`, A1b `1429e81`, and check 262; merging it waits for the owner's OK. Local `main` is 7 commits ahead of `origin/main`.
+The six workers own checks 244–261; C1's current WIP adds 259–261, and `plan.py` prints the next free number. The
+orchestrator owns check 262. The full roadmap context—not just failed checks—is in `docs/handoff/workstreams.md`:
+three themes (task orchestration/state, adaptive UI/UX, agent autonomy), each item mapped to checks, evidence, kind,
+and next steps. It includes the remaining fixes, design decisions and capabilities, with A8/A1b marked fixed on
+`claude/workstreams`. Local `main` is 7 commits ahead of `origin/main`.
+
+## Other local branch, not one of the seven sessions
+
+`claude/run-1005-gaps` (`ce92b76`) is clean and not merged into `main`; its commit is the "Add" → calendar routing fix.
+The prior savepoint mistakenly listed a misheard-clips labelling card as the seventh session. The owner's latest
+session list identifies the seventh as the orchestrator above, and no separate labelling-card worktree or WIP is
+present. Do not treat `claude/run-1005-gaps` as that labelling-card work.
 
 ## Publish refs for the other computer
 

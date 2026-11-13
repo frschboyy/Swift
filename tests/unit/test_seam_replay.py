@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import pytest
 from test_dialogue import asker, asks
-from test_runs import SHORT, finish_all, say, started, until
+from test_runs import SHORT, finish_all, make, say, started, until
 from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
 
@@ -706,3 +706,35 @@ async def test_a_second_stop_while_the_first_cleans_up_still_ends_the_card() -> 
     screen = agree(session, out)
     assert screen["stage"] != "working", screen
     await finish_all(session, agent)
+
+
+async def test_an_answer_that_ends_behind_a_card_waits_there_until_it_is_seen(monkeypatch: Any) -> None:
+    """A4 (owner's run of 2026-11-13): the research ended behind the email's card and its edge went
+    20 s later, before the owner had seen it. A card never presented doesn't run out because another
+    request took the front; once it has been in front long enough to read, its row ages out as before."""
+    monkeypatch.setattr("swift.session.FINISHED_ROW_S", 0.05)
+    monkeypatch.setattr("swift.seen.SEEN_S", 0.2)
+    session, out, _records, agent, stt = make()
+    research = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    email = await started(session, out, agent, stt, "Swift, draft a note to Ada about lunch")
+    agent.runs[email]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == email)
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["cardRun"] == email
+    # The research ends behind the email's answer, and stays there while the owner reads the email.
+    agent.runs[research]["go"].set()
+    await until(lambda: any(r["run_id"] == research and r["state"] == "result" for r in out.last("runs")["rows"]))
+    await asyncio.sleep(0.3)
+    screen = agree(session, out)
+    assert screen["cardRun"] == email and screen["behind"] == [research], "an unseen answer ran out behind the card"
+    # Brought forward and read; when the next request takes the front it goes, as a seen answer always did.
+    await session.handle(Message("focus", {"run_id": research}))
+    await asyncio.sleep(0.3)
+    assert agree(session, out)["cardRun"] == research
+    third = await started(session, out, agent, stt, "Hey Swift, summarise my notes from Monday")
+    await asyncio.sleep(0.1)
+    screen = agree(session, out)
+    assert screen["cardRun"] == third and research not in screen["behind"]
+    await finish_all(session, agent)
+

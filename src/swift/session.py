@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock
+from swift import clock, seen
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -602,6 +602,7 @@ class Run:
     started_ms: int = field(default_factory=now_ms)
     summary: str = ""
     ended: float | None = None
+    sight: seen.Seen = field(default_factory=seen.Seen)  # whether its answer was read (A4)
     # Waiting for a slot (``MAX_RUNS``).
     queued: bool = False
     # The last messages that drew its card, replayed when it comes to the front.
@@ -1200,8 +1201,7 @@ class Session:
 
     def _set_focus(self, run: Run, *, keep_old: bool = False) -> None:
         old, self._focus = self._focus, run
-        if old is not None and old is not run and not old.alive and not keep_old:
-            # It ended while in front and its answer was seen: no row for it.
+        if seen.handover(old, run) and not keep_old:  # it ended in front and was read: no row for it
             with contextlib.suppress(ValueError):
                 self._runs.remove(old)
                 self._gone.append(old)
@@ -1312,7 +1312,7 @@ class Session:
         await self._send_rows()
 
     def _forget_row(self, run: Run) -> None:
-        if run is self._focus or run.alive:
+        if run is self._focus or run.alive or seen.kept(run):
             return
         with contextlib.suppress(ValueError):
             self._runs.remove(run)

@@ -50,7 +50,7 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `860e7e1`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `ce96eb7`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
@@ -2018,7 +2018,7 @@ Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (e
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-13 at `860e7e1`. Each number links to its check.
+As of 2026-11-13 at `ce96eb7`. Each number links to its check.
 
 - **Never run** (101): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [205](#check-205), [206](#check-206), [207](#check-207), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [235](#check-235), [236](#check-236), [238](#check-238)
 - **Partly seen** (5): [8](#check-8), [15](#check-15), [21](#check-21), [24](#check-24), [77](#check-77)
@@ -2045,6 +2045,7 @@ As of 2026-11-13 at `860e7e1`. Each number links to its check.
 
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 90 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 12 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215, 240).
+- `claude/never-read-commands`: changes code behind 29 checks here (19, 19b, 23, 24, 25, 28, 52, 56, 57, 59, 60, 62, …).
 
 **Next free check number: 242** (counted across `main` and every open branch).
 

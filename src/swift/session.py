@@ -371,8 +371,12 @@ CONTEXT_TIMEOUT_S = 1.0
 MAX_SELECTION = 4000
 # Requests running side by side, at most (ADR-013 §5.2); another waits for one to end.
 MAX_RUNS = 3
-# A request that ended in the background keeps its row ("Done: …") this long.
+# A request that ended keeps its row ("Done: …") this long once its answer has been seen; never seen, it
+# keeps it until it has been (owner, 2026-11-13: a card never presented doesn't run out because another
+# request took the front).
 FINISHED_ROW_S = 20.0
+# An answer counts as seen once it has been in front this long (a card displaced sooner wasn't read).
+SEEN_S = 5.0
 # What only the request in front sends to the overlay; the others update their row instead.
 FOCUS_ONLY = frozenset({
     "state", "step", "confirm.request", "confirm.voice", "result", "error", "artifact", "view", "run.voice",
@@ -602,6 +606,11 @@ class Run:
     started_ms: int = field(default_factory=now_ms)
     summary: str = ""
     ended: float | None = None
+    # When its answer came (clock.now()), when it last came to the front (None: not in front), and whether
+    # its answer has been in front SEEN_S: until then its row doesn't age out (``Session._age_row``).
+    answered_at: float | None = None
+    front_at: float | None = None
+    seen: bool = False
     # Waiting for a slot (``MAX_RUNS``).
     queued: bool = False
     # The last messages that drew its card, replayed when it comes to the front.
@@ -620,6 +629,18 @@ class Run:
     @property
     def alive(self) -> bool:
         return self.ended is None
+
+    @property
+    def unread(self) -> bool:
+        """It ended with an answer the owner hasn't seen (one they stopped is not news to them)."""
+        stopped = self.answer is not None and self.answer.data.get("status") == "cancelled"
+        return self.answer is not None and not stopped and not self.seen
+
+    def leave_front(self, now: float) -> None:
+        """It leaves the front: its answer was seen if it was there, in front, for ``SEEN_S``."""
+        if self.answer is not None and self.front_at is not None and self.answered_at is not None:
+            self.seen = self.seen or now - max(self.front_at, self.answered_at) >= SEEN_S
+        self.front_at = None
 
     def remember(self, msg: Message) -> None:
         """Keep what its card shows, for replaying it; and what its row says."""
@@ -644,6 +665,7 @@ class Run:
                 self.ask = msg if data.get("open") else None
             case "result" | "error":
                 self.answer, self.card, self.ask = msg, None, None
+                self.answered_at = clock.now()
                 self.cards.clear()
                 self.summary = _clip(str(data.get("summary") or data.get("title") or data.get("message") or ""), 80)
 
@@ -1190,7 +1212,7 @@ class Session:
         displaced = self._focus if self._focus is not None and not self._focus.alive else None
         self._set_focus(run, keep_old=displaced is not None and displaced.answer is not None)
         if displaced is not None and displaced in self._runs:
-            asyncio.get_running_loop().call_later(FINISHED_ROW_S, self._forget_row, displaced)
+            self._age_row(displaced)
         await self._send_rows()
         shown = self._replay(run)
         for held in shown:
@@ -1200,11 +1222,18 @@ class Session:
 
     def _set_focus(self, run: Run, *, keep_old: bool = False) -> None:
         old, self._focus = self._focus, run
-        if old is not None and old is not run and not old.alive and not keep_old:
+        now = clock.now()
+        if old is not None and old is not run:
+            old.leave_front(now)
+        if old is not None and old is not run and not old.alive and not keep_old and not old.unread:
             # It ended while in front and its answer was seen: no row for it.
             with contextlib.suppress(ValueError):
                 self._runs.remove(old)
                 self._gone.append(old)
+        elif old is not None and old is not run and not old.alive and not keep_old:
+            logger.info("unseen answer kept behind the card")  # it was in front too briefly to be read
+        if old is not run:
+            run.front_at = now
         self.state = run.state
 
     async def _bring(self, run: Run) -> bool:
@@ -1308,11 +1337,19 @@ class Session:
                 with contextlib.suppress(ValueError):
                     self._runs.remove(run)
             else:
-                asyncio.get_running_loop().call_later(FINISHED_ROW_S, self._forget_row, run)
+                self._age_row(run)
         await self._send_rows()
 
+    def _age_row(self, run: Run) -> None:
+        """A row that ended behind the card: gone ``FINISHED_ROW_S`` from now if its answer was seen. One
+        never seen stays until it has been (it ages out after it leaves the front: ``_set_focus``)."""
+        if not run.unread:
+            asyncio.get_running_loop().call_later(FINISHED_ROW_S, self._forget_row, run)
+        else:
+            logger.info("unseen answer kept behind the card")
+
     def _forget_row(self, run: Run) -> None:
-        if run is self._focus or run.alive:
+        if run is self._focus or run.alive or run.unread:
             return
         with contextlib.suppress(ValueError):
             self._runs.remove(run)

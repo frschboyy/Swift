@@ -75,7 +75,9 @@ ES_PASSWORD = 0x20
 EM_GETSEL = 0x00B0
 WM_GETTEXT, WM_GETTEXTLENGTH = 0x000D, 0x000E
 INPUT_MOUSE, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 0, 1, 0x2, 0x4
-MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x2, 0x4
+MOUSEEVENTF_MOVE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x1, 0x2, 0x4
+MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_VIRTUALDESK = 0x8000, 0x4000
+SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN = 76, 77, 78, 79
 SW_RESTORE = 9
 GW_OWNER = 4
 VK_RETURN, VK_SHIFT, VK_CONTROL, VK_RIGHT = 0x0D, 0x10, 0x11, 0x27
@@ -150,6 +152,20 @@ def _focus(tid: int) -> int:
 
 def _key(vk: int, up: bool = False) -> INPUT:
     return INPUT(type=INPUT_KEYBOARD, u=_INPUT_UNION(ki=KEYBDINPUT(wVk=vk, dwFlags=KEYEVENTF_KEYUP if up else 0)))
+
+
+def _click_inputs(x: int, y: int, back: tuple[int, int], desk: tuple[int, int, int, int]) -> list[INPUT]:
+    """A left click at (x, y), then the pointer back, each event carrying its own position: an event without one
+    lands wherever the pointer is when Windows handles it. ``desk`` is the virtual screen (left, top, width, height)."""
+    left, top, width, height = desk
+
+    def at(px: int, py: int, flags: int) -> INPUT:
+        dx = (px - left) * 65535 // max(width - 1, 1)
+        dy = (py - top) * 65535 // max(height - 1, 1)
+        flags |= MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK
+        return INPUT(type=INPUT_MOUSE, u=_INPUT_UNION(mi=MOUSEINPUT(dx=dx, dy=dy, dwFlags=flags)))
+
+    return [at(x, y, MOUSEEVENTF_LEFTDOWN), at(x, y, MOUSEEVENTF_LEFTUP), at(*back, 0)]
 
 
 def _send(inputs: list[INPUT]) -> None:
@@ -448,12 +464,9 @@ class _GmailScreen:
             return False
         saved = wintypes.POINT()
         user32.GetCursorPos(ctypes.byref(saved))
-        user32.SetCursorPos(point.x, point.y)
-        try:
-            _send([INPUT(type=INPUT_MOUSE, u=_INPUT_UNION(mi=MOUSEINPUT(dwFlags=flag)))
-                   for flag in (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)])
-        finally:
-            user32.SetCursorPos(saved.x, saved.y)
+        desk = tuple(user32.GetSystemMetrics(m) for m in
+                     (SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN))
+        _send(_click_inputs(point.x, point.y, (saved.x, saved.y), desk))  # one batch: Windows keeps its order
         return True
 
     def paste(self, text: str) -> None:

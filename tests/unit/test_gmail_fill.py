@@ -299,3 +299,17 @@ def test_a_private_window_behind_is_skipped_not_filled() -> None:
                         front_hwnd=WORD)
     assert gmail_fill.find_compose(screen) == gmail_fill.Waiting("not_browser", "Word")
     assert screen.front_hwnd == WORD
+
+
+def test_the_click_carries_its_own_position_so_it_cannot_land_where_the_pointer_went_back() -> None:
+    """An event without a position lands wherever the pointer is when Windows handles it (review of e845a8e)."""
+    windows = pytest.importorskip("swift.desktop.windows")
+    desk = (-1920, 0, 3840, 1080)  # a second monitor to the left
+    down, up, back = windows._click_inputs(100, 540, (-500, 20), desk)
+    placed = windows.MOUSEEVENTF_MOVE | windows.MOUSEEVENTF_ABSOLUTE | windows.MOUSEEVENTF_VIRTUALDESK
+    for event in (down, up, back):
+        assert event.type == windows.INPUT_MOUSE and event.u.mi.dwFlags & placed == placed
+    assert down.u.mi.dwFlags & windows.MOUSEEVENTF_LEFTDOWN and up.u.mi.dwFlags & windows.MOUSEEVENTF_LEFTUP
+    assert (down.u.mi.dx, down.u.mi.dy) == (up.u.mi.dx, up.u.mi.dy) == (2020 * 65535 // 3839, 540 * 65535 // 1079)
+    assert (back.u.mi.dx, back.u.mi.dy) == (1420 * 65535 // 3839, 20 * 65535 // 1079)
+    assert not back.u.mi.dwFlags & (windows.MOUSEEVENTF_LEFTDOWN | windows.MOUSEEVENTF_LEFTUP)

@@ -50,7 +50,7 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `8c92ea9`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `ed74cc8`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
@@ -2050,16 +2050,32 @@ About 2 minutes. From your run of 2026-11-13, 14:13 ("wafer") and 14:25 ("Wofo")
 
 The report checks: none of the misheard Wi-Fi requests went to the agent.
 
+### Gmail filled in without your click (2026-11-13)
+
+About 3 minutes. From your run of 2026-11-13, 10:43 and 10:44: nothing was written unless the cursor was already in
+the email's body. Nothing is sent: close each email.
+
+<a id="check-253"></a>**Check 253. Gmail is filled in wherever your cursor is**
+1. Click in another app (Notepad or Word), so it's in front. Say "Hey Swift, email Test Me that the Gmail test
+   worked". Don't touch the mouse or keyboard until Swift says it's ready.
+2. You should see: Gmail's compose window comes to the front with To, the subject and the body all filled in, without
+   a click from you. The pointer may jump into the body for a moment and come back. Close it without sending.
+3. Do it again with your browser in front, on a tab that isn't Gmail.
+4. If it stops, it says why on the card ("couldn't put the cursor in Gmail's body", or "opened behind another
+   window: click it"). Tell us which.
+
+The report checks: every fill-in finished, and which step put the cursor in each field (the cause of the old failure).
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-13 at `8c92ea9`. Each number links to its check.
+As of 2026-11-13 at `ed74cc8`. Each number links to its check.
 
 - **Changed since it failed: run it again** (6): [204](#check-204), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [239](#check-239)
-- **Never run** (83): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243)
+- **Never run** (84): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [253](#check-253)
 - **Partly seen** (4): [8](#check-8), [21](#check-21), [24](#check-24), [77](#check-77)
 - **Passed, changed since** (59): [2](#check-2), [2b](#check-2b), [3](#check-3), [4](#check-4), [10](#check-10), [11](#check-11), [14](#check-14), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [107](#check-107), [108](#check-108), [115](#check-115), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [134](#check-134), [149](#check-149), [160](#check-160), [161](#check-161), [193](#check-193), [195](#check-195), [201](#check-201), [202](#check-202), [208](#check-208), [209](#check-209), [233](#check-233), [234](#check-234)
 - **Passed, nothing changed since** (48): [1](#check-1), [5](#check-5), [7](#check-7), [12](#check-12), [15](#check-15), [16](#check-16), [16b](#check-16b), [17](#check-17), [41](#check-41), [42](#check-42), [43](#check-43), [45](#check-45), [46](#check-46), [47](#check-47), [54](#check-54), [55](#check-55), [62](#check-62), [68](#check-68), [91](#check-91), [93](#check-93), [110](#check-110), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [120](#check-120), [123](#check-123), [125](#check-125), [139](#check-139), [153](#check-153), [168](#check-168), [191](#check-191), [194](#check-194), [196](#check-196), [207](#check-207), [210](#check-210), [213](#check-213), [214](#check-214), [216](#check-216), [217](#check-217), [219](#check-219), [220](#check-220), [228](#check-228), [232](#check-232), [236](#check-236), [240](#check-240), [241](#check-241), [242](#check-242)
@@ -2083,10 +2099,15 @@ As of 2026-11-13 at `8c92ea9`. Each number links to its check.
 
 **On branches not merged yet:**
 
-- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 90 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/a10-front-and-web-9f8dcd`: changes code behind 3 checks here (52, 62, 213).
+- `claude/a2-question-state-42bf6d`: changes code behind 24 checks here (18, 58, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, …).
+- `claude/a9-gmail-focus-03dda1`: changes code behind 11 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 253).
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 91 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 12 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215, 240).
+- `claude/run-1005-gaps`: changes code behind 35 checks here (4, 5, 6, 7, 8, 9, 14, 15, 19, 21, 22, 26, …).
+- `claude/workstreams`: adds checks 262; changes code behind 39 checks here (53, 61, 71, 77, 78, 100, 101, 102, 105, 106, 124, 128, …).
 
-**Next free check number: 244** (counted across `main` and every open branch).
+**Next free check number: 263** (counted across `main` and every open branch).
 
 **Docs that name a check this file doesn't have** (renumbered or removed):
 

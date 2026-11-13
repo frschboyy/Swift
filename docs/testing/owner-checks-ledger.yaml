@@ -237,3 +237,19 @@ runs:
     PASS: ['191', '193', '194', '195', '196', '214', '233', '234', '237', '240', '241']
     FAIL: ['197', '213']
     BLOCKED: ['215']
+- date: 2026-11-13 13:37
+  commit: f53d2eb
+  source: report
+  note: Owner's run of 2026-11-13 from 13:37
+  checks:
+    PASS: ['1', '2', 2b, '3', '7', '15', '16', 16b, '17', '26', '27', '43', '45', '46', '47', '55', '62', '68', '91', '93', '103', '104', '105', '110', '111', '112', '113', '114', '125', '128', '130', '133', '134', '120', '123', '153', '160', '161', '168', '201', '208', '228', '236', '242']
+    PARTIAL: ['8', '21']
+    FAIL: ['13', '204', '235', '237', '239']
+- date: 2026-11-13 13:37
+  commit: f53d2eb
+  source: owner
+  note: '201/206: ''wafer''/''Wofo'' gave ''Wi-Fi or Bluetooth?'' after Wi-Fi was confirmed, and never finished. 203: Swift stayed behind Task Manager. 204/205: two requests for one Wi-Fi ask; ''Working on it'' then ''no answer'' with no question shown. 206/211/218: cards say ''Working on it'' while waiting for the owner; spinner not animating. 208/219: background cards (research) vanish before they were seen; reopening from the stack seems to restart, some stay ''Working on it''. 210: works, lifetimes should fit the request. 213: refused as designed. 221: unsure, didn''t see the card grow. 235: ''play some music'' said playing, nothing played. 238: approval cards show raw commands with no plain explanation; too many approvals; distance to CBD guessed (4 km vs 10-11) with no location; Uber, travel booking, diagrams refused; opening a website failed. 242: Gmail write failed unless the cursor was in the body.'
+  checks:
+    FAIL: ['201', '203', '204', '205', '206', '208', '218', '235', '239']
+    PASS: ['202', '207', '209', '210', '213', '216', '217', '219', '220', '236', '242']
+    BLOCKED: ['211']

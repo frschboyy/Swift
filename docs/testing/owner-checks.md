@@ -50,14 +50,14 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `8082af7`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `c9b52c0`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
 **Voice and requests side by side**
 
-1. [195](#check-195): Get an approval card on screen: say "Hey Swift, add lunch with Test Me tomorrow at one". *Why: failed on 2026-11-08; 10 changes since (such as `6c474e4` The model picks a workflow the router isn't sure of, instead of an "I have a workflow" card (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-2. [193](#check-193): Say "Hey Swift, is it going to rain this afternoon?". *Why: failed on 2026-11-08; 8 changes since (such as `6c474e4` The model picks a workflow the router isn't sure of, instead of an "I have a workflow" card (root)).*
+1. [195](#check-195): Get an approval card on screen: say "Hey Swift, add lunch with Test Me tomorrow at one". *Why: failed on 2026-11-08; 17 changes since (such as `3635a46` B-10: the sign-in card's title asks to sign in, rather than saying 'Claude Code isn't…'); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+2. [193](#check-193): Say "Hey Swift, is it going to rain this afternoon?". *Why: failed on 2026-11-08; 14 changes since (such as `3635a46` B-10: the sign-in card's title asks to sign in, rather than saying 'Claude Code isn't…').*
 3. [194](#check-194): Say "Hey Swift, research the history of tea". *Why: failed on 2026-11-08; 3 changes since (such as `1f0c19a` Halo Step A: the look behind a dev-only switch).*
 4. [196](#check-196): Say "Hey Swift, research the history of tea". *Why: failed on 2026-11-08; 3 changes since (such as `1f0c19a` Halo Step A: the look behind a dev-only switch).*
 5. [191](#check-191): Say "Hey Swift" 10 times over a few minutes, at normal volume, with a pause after each. *Why: failed on 2026-11-08; 2 changes since (such as `42873d8` ADR-021 step 3: the window check and the second way in).*
@@ -65,21 +65,24 @@ at its heading); a check that builds on another comes after it.
 
 **Conversations, corrections and stepping away**
 
-7. [13](#check-13): Right after unlocking, without the hotkey, say "Hey Swift, what time is it". *Why: failed on 2026-11-05; 7 changes since (such as `7ffa9f5` Step 0 of the reliability audit: keep what holds up from the 2026-11-05 checks); product rule: no hands-free listening while locked.*
+7. [13](#check-13): Right after unlocking, without the hotkey, say "Hey Swift, what time is it". *Why: failed on 2026-11-05; 8 changes since (such as `0f15ed1` B-10: failure cards no longer name the provider, apart from its sign-in and credit); product rule: no hands-free listening while locked.*
+
+**Health audit fixes (2026-11-12)**
+
+8. [240](#check-240): Two contacts with the same first name. *Why: new on 2026-11-13, never run; product rule: recipients only from contacts or find_contact; asked for: health audit fixes X-02 and HA-HEAR-02 (2026-11-12), both product rules.*
+9. [241](#check-241): "Hey Swift" straight after locking. *Why: new on 2026-11-13, never run; product rule: no hands-free listening while locked; asked for: health audit fixes X-02 and HA-HEAR-02 (2026-11-12), both product rules.*
 
 **Fixes from your checks of 2026-11-09**
 
-8. [215](#check-215): Five seconds to stop an email you approved. *Why: new on 2026-11-10, never run; product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
-9. [214](#check-214): A first name you share with a contact, and a surname they don't have. *Why: new on 2026-11-10, never run; product rule: recipients only from contacts or find_contact; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
-10. [213](#check-213): Swift's own recordings and transcripts are never read. *Why: new on 2026-11-10, never run; product rule: memory only from the owner's words; Swift's own files are never read; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+10. [215](#check-215): Five seconds to stop an email you approved. *Why: new on 2026-11-10, never run; product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+11. [214](#check-214): A first name you share with a contact, and a surname they don't have. *Why: new on 2026-11-10, never run; product rule: recipients only from contacts or find_contact; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+12. [213](#check-213): Swift's own recordings and transcripts are never read. *Why: new on 2026-11-10, never run; product rule: memory only from the owner's words; Swift's own files are never read; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
 
 **Where Swift is rigid: requests in your own words (2026-11-12)**
 
-11. [233](#check-233): A follow-up that changes the last answer. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-12. [234](#check-234): Something from two answers back. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-13. [237](#check-237): Things Swift may not be able to do yet. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-14. [238](#check-238): Ten requests of your own. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-15. [235](#check-235): One command, said six ways. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+13. [233](#check-233): A follow-up that changes the last answer. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+14. [234](#check-234): Something from two answers back. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+15. [237](#check-237): Things Swift may not be able to do yet. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
 
 Then run the report ("After the checks", at the end) and paste what it prints.
 <!-- roadmap:end -->
@@ -2021,7 +2024,7 @@ Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (e
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-13 at `8082af7`. Each number links to its check.
+As of 2026-11-13 at `c9b52c0`. Each number links to its check.
 
 - **Changed since it failed: run it again** (7): [13](#check-13), [191](#check-191), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [197](#check-197)
 - **Never run** (116): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [36](#check-36), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [49](#check-49), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [68](#check-68), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [213](#check-213), [214](#check-214), [215](#check-215), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [228](#check-228), [229](#check-229), [230](#check-230), [231](#check-231), [232](#check-232), [233](#check-233), [234](#check-234), [235](#check-235), [236](#check-236), [237](#check-237), [238](#check-238), [240](#check-240), [241](#check-241)
@@ -2034,7 +2037,7 @@ As of 2026-11-13 at `8082af7`. Each number links to its check.
 
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 90 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 12 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215, 240).
-- `claude/health-audit`: changes code behind 105 checks here (4, 5, 6, 7, 8, 9, 14, 15, 19, 19b, 21, 22, …).
+- `claude/w03-per-sentence-gate`: changes code behind 7 checks here (110, 111, 112, 113, 114, 115, 116).
 
 **Next free check number: 242** (counted across `main` and every open branch).
 

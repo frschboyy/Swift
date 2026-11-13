@@ -93,7 +93,7 @@ The X-05 entry in the audit lists what that fix left: `workflow skipped` can quo
 ### Root causes still open
 
 - **The overlay can still refuse a frame silently.** `presenter.ts:273–277` declines frames and the backend isn't told. Only due cards have an acknowledgement. Frames also go out through two doors (`_send`, `_raw_send`) and fire-and-forget tasks, and each countdown runs on both sides (T-08). The planned fix is review item 9, in §4.
-- **Speech acceptance is tuned incident by incident.** The review's M4 counts eight commits with no proven cause. The improvement pass now reports a sentence that was right and went wrong (W-03, on `claude/w03-per-sentence-gate`), but only on the owner's own test set, which is small; the October corpus isn't checked (seams audit remediation G). Unsafe word fixes can still be proposed (W-01, W-02). Saying "no" over Swift's voice has four failing tests (V-02). A misheard single word reaches the agent again until a bar is scored on saved clips (item 5).
+- **Speech acceptance is tuned incident by incident.** The review's M4 counts eight commits with no proven cause. The improvement pass now reports a sentence that was right and went wrong (W-03, merged 2026-11-13), but only on the owner's own test set, which is small; the October corpus isn't checked (seams audit remediation G). Unsafe word fixes can still be proposed (W-01, W-02). Saying "no" over Swift's voice has four failing tests (V-02). A misheard single word reaches the agent again until a bar is scored on saved clips (item 5).
 - **`session.py` is 4,824 lines**, up from 4,401 when the split was agreed. New work goes in small modules.
 
 ### Not understood yet
@@ -157,7 +157,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 **While the owner uses Swift**
 
-- **f. Speech:** the per-sentence check (W-03) is done on a branch (§6); next, make word-fix proposals safe (W-01, W-02, seams audit §7.4 step 1). Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
+- **f. Speech:** the per-sentence check (W-03) is done (merged 2026-11-13); next, make word-fix proposals safe (W-01, W-02, seams audit §7.4 step 1). Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
 - **g. Review item 9: one versioned screen snapshot,** derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.
 - **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is on `main` (merged 2026-11-07).** It's overlay only apart from what takes the front (ADR-018 §4.1), and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
@@ -299,7 +299,6 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | Branch | What | State |
 |---|---|---|
 | `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Merged into `main` on 2026-11-12, off by default. It touches the rule "no hands-free listening while locked": reviewed by a session other than the author, two findings fixed (`29a48dc`, `ff0dc47`) and re-reviewed as safe to turn on. Owner checks 228–232 are waiting, with `wake.acoustic: true` |
-| `claude/w03-per-sentence-gate` | W-03: the improvement pass reports each sentence that was exactly right last time and isn't now, however little the overall rate moved | One fix, tests green, no new owner check (it can't be staged on the real PC: it needs speech recognition to get worse). Waiting for the owner's OK to merge |
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (240 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.
 

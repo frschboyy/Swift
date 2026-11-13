@@ -42,7 +42,7 @@ While you use it, Claude works on (handoff §4 f–h, nothing you need to run):
 
 - [ ] Speech: the per-sentence check (W-03) before any more tuning, then safe word fixes (W-01, W-02).
 - [ ] Prove the cause of wake misses after idle before another fix.
-- [ ] Context-aware speech: say whether to adopt the investigation's roadmap ([`context-aware-speech.md`](../explorations/context-aware-speech.md)). <!-- branch: claude/speech-context-investigation -->
+- [ ] Context-aware speech ([`context-aware-speech.md`](../explorations/context-aware-speech.md)): step 1 is done; say yes or no to the weekly labelling card (seams decision 7) so step 2, the monitor, can start.
 - [ ] Review item 9: one versioned screen snapshot, kept only if it removes more code than it adds.
 - [ ] Review item 11: one table of lifetimes.
 

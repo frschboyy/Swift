@@ -550,6 +550,11 @@ class ClaudeCodeExecutor:
     # ---- Executor interface ---------------------------------------------------
 
     async def start(self, task: WorkerTask) -> str:
+        if task.privacy != "cloud":
+            raise ExecutorUnavailable(
+                "This request has to stay on this PC, and Claude Code runs in the cloud.",
+                "Nothing was sent. Swift has no local worker for it yet.",
+            )
         run_id = f"cc-{next(self._ids)}"
         request, budget = task.prompt, task.budget
         level = OVERRIDE_LEVEL.get(budget.override or "") or (budget.demand if budget.demand in LEVELS else "standard")

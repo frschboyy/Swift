@@ -233,6 +233,30 @@ async def test_open_by_name_uses_the_local_names_only() -> None:
     assert not made_up.ok and "isn't an app" in made_up.text
 
 
+async def test_a_web_address_the_owner_said_opens_in_their_browser_and_no_other() -> None:
+    """C3 (owner's run 2026-11-13 15:07, cause unproven: that log is on the other PC). Before this, no tool could
+    open a web address. Now one opens, but only one in the owner's own words (check 52's rule)."""
+    host, desktop, owner, journal = make(said="can you open blackboard at usiu dot blackboard dot com on Chrome")
+    opened = await host.call("desktop_open", {"url": "https://usiu.blackboard.com/ultra/course"})
+    assert opened.ok and "usiu.blackboard.com" in opened.text
+    assert desktop.opened == ["https://usiu.blackboard.com/ultra/course"] and owner.asked == []  # reversible: no card
+    assert "usiu" not in json.dumps(journal.entries)  # the journal never holds the address (X-18)
+    bare = await host.call("desktop_open", {"url": "usiu.blackboard.com"})
+    assert bare.ok and desktop.opened[-1] == "https://usiu.blackboard.com"
+    with_port = await host.call("desktop_open", {"url": "usiu.blackboard.com:443/ultra"})
+    assert with_port.ok and desktop.opened[-1] == "https://usiu.blackboard.com:443/ultra"
+
+    for made_up in ("https://blackboard.example/?q=what-it-read", "file:///C:/Windows/System32/cmd.exe",
+                    "javascript:alert(1)", "https://usiu.ac.ke"):
+        refused = await host.call("desktop_open", {"url": made_up})
+        assert not refused.ok and refused.expected and "ask the owner" in refused.text
+    assert len(desktop.opened) == 3
+
+    assert host.scope is not None
+    host.scope.answers.append("no, it's usiu dot ac dot ke")  # the owner's answer to ask_owner: their words too
+    assert (await host.call("desktop_open", {"url": "https://usiu.ac.ke"})).ok
+
+
 async def test_fill_in_email_never_sends_and_only_to_contacts() -> None:
     host, desktop, owner, journal = make(said="email my lecturer that I'll miss Thursday")
     found = await host.call("find_contact", {"query": "lecturer"})

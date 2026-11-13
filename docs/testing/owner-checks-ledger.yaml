@@ -56,7 +56,7 @@ areas:
     checks: [132-134, 150-153, 209]
   deck:
     paths: [src/swift/attention.py, overlay/src/deck.ts, overlay/src/deckdraw.ts, overlay/src/shuffle.ts, overlay/src/panes.ts, overlay/src/pane.ts, overlay/src/raise.ts, overlay/src-tauri/src/panes.rs, overlay/src-tauri/src/placement.rs]
-    checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219]
+    checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 256, 257]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, overlay/src/stack.ts]
     checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212]
@@ -105,6 +105,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [256, 257]
+    why: the owner's run of 2026-11-13 (A4, A6); an unseen answer now waits behind the card, not seen on the real PC
   - checks: [243]
     why: the owner's wafer loop of 2026-11-13; a misheard Wi-Fi gets Swift's own question, not seen on the real PC
   - checks: [242]

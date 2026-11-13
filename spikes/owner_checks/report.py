@@ -580,7 +580,23 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         *_rigid(rows),
         *_health(log),
+        _gmail(log),
     ]
+
+
+def _gmail(log: list[str]) -> tuple[str, Outcome | bool, str]:
+    """Check 252 (A9, 2026-11-13): Gmail filled in with the cursor elsewhere. The detail is the proof of the
+    cause: which step put the cursor in each field, and the code of each fill that failed."""
+    fills = [line for line in log if "tool='fill_in_email'" in line]
+    done = [line for line in fills if "| action done |" in line]
+    failed = [m.group(1) for line in fills if "| action failed |" in line
+              for m in [re.search(r"code='(\w+)'", line)] if m]
+    hows = [re.sub(r".*field='(\w+)' how='(\w+)'.*", r"\1 by \2", line) for line in log
+            if "| gmail field focused |" in line]
+    forward = sum("| gmail compose brought forward |" in line for line in log)
+    return ("252 Gmail filled in without the cursor already in the body", unless(failed, done),
+            f"{len(done)} filled, failed: {', '.join(failed) or 'none'}; cursor: {', '.join(hows) or 'first try'};"
+            f" brought forward {forward} time(s)")
 
 
 def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:

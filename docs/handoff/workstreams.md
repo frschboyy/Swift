@@ -18,14 +18,14 @@ What runs, what it's waiting for, and whether the screen says so. Most of the ru
 
 | # | What the owner saw | Checks | Kind | What's known |
 |---|---|---|---|---|
-| A1 | "Turn off the wafer" asked "Wi-Fi or Bluetooth?" and never finished | 201, 206, 239, 243 | defect, proven | **Fixed** (merged 2026-11-13, `225ca9b`, `106b6dd`, `541ea7c`); check 243 waits. Left: the agent's refusal text still gives "Wi-Fi or Bluetooth" as its example for other words (A1b) |
+| A1 | "Turn off the wafer" asked "Wi-Fi or Bluetooth?" and never finished | 201, 206, 239, 243 | defect, proven | **Fixed** (merged 2026-11-13, `225ca9b`, `106b6dd`, `541ea7c`); check 243 waits. A1b, the agent's refusal text giving "Wi-Fi or Bluetooth" as its example: **fixed** on `claude/workstreams` (`1429e81`). Left for the owner: a click on an option the agent wrote never counts (product rule) |
 | A2 | A question showed "Working on it", with no question to answer (lunch, 13:51:57; also 206, 211) | 206, 211, 218 | defect, unproven | The backend asked it on screen and sent the `ask` frame; the overlay logs nothing, so whether it was refused or mis-drawn is unproven. Next: replay in the harness |
 | A3 | The spinner beside "Working" doesn't turn | 206 | defect, unproven | Not looked at |
 | A4 | Cards behind the main one vanish before they've been seen (research behind an email) | 208, 219 | defect, unproven | The owner's rule: a card never seen doesn't run out; one waiting for them pauses while out of sight |
 | A5 | A card's lifetime should fit the request (a command, a research, a question) | 210 | design | Works; the owner wants lifetimes from the request's kind and whether it needs them |
 | A6 | Opening a card from the stack seemed to restart it, and some stayed "Working on it" | (new check) | defect, unproven | Whether it resumes or restarts, and whether the run is still alive, isn't known |
 | A7 | One ask became two requests ("How are you? Can you turn off the Wi-Fi?" and "Turn off the Wi-Fi") | 204, 205, 197 | defect, partly proven | 197's duplicate is proven (`_same_request` compares exact words); 204/205 not looked at. 204's report FAIL: an agent approval card for a radio (14:44:20) |
-| A8 | Said "Playing." and nothing played | 235 | defect, proven | The play key is pressed and success claimed without a check (`system/lane.py:385`) |
+| A8 | Said "Playing." and nothing played | 235, 262 | defect, proven | **Fixed** on `claude/workstreams` (`41a1773`): Swift listens for sound for 2 s after the key and otherwise says nothing started. Check 262 |
 | A9 | Gmail: nothing written unless the cursor is already in the body | 242 (seen during), 49, 215 | defect, unproven | The focus check in `desktop/windows.py`; `fill_in_email` fails as `connector_failed` with no reason logged |
 | A10 | Swift stayed behind an always-on-top Task Manager | 203 | defect, unproven | Not looked at |
 | A11 | A command Swift understood wasn't done ("I didn't turn off Wi-Fi") | 239 | defect | The wafer cases are A1; any other "I didn't…" still lands here |

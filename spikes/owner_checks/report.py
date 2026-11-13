@@ -613,6 +613,8 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
          f"stalled: {times(stalled)}; tell us which were done and which Swift said it can't do"),
         ("238 ten requests of your own", LOOK, "tell us the ten and your tally"),
         ("239 a command Swift understood was done", unless(refused, tried), "understood and not done: " + times(refused)),
+        ("262 'play some music' with no music app said nothing played", LOOK,
+         "check on screen: 'Nothing started playing', never 'Playing.'"),
         ("243 a misheard Wi-Fi got Swift's own question, not the agent",
          unless([r for r in misheard if r.get("route") == "agent"], misheard),
          f"{len(misheard)} heard; went to the agent: " + times([r for r in misheard if r.get("route") == "agent"])),

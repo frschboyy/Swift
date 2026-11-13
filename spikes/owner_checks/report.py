@@ -570,6 +570,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("232 nothing woke through the second way in while locked", unless(acted_away, locked and unlocked),
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         *_rigid(rows),
+        *_grounded(rows),
         *_health(log),
     ]
 
@@ -616,6 +617,37 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
         ("243 a misheard Wi-Fi got Swift's own question, not the agent",
          unless([r for r in misheard if r.get("route") == "agent"], misheard),
          f"{len(misheard)} heard; went to the agent: " + times([r for r in misheard if r.get("route") == "agent"])),
+    ]
+
+
+def _grounded(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 259-261: Swift doesn't know where the owner is (C1, 2026-11-13: "about 4 km" from the weather's area)."""
+
+    def said(pattern: str) -> list[dict[str, Any]]:
+        return [r for r in rows if re.search(pattern, r.get("transcript") or "", re.I)]
+
+    def steps(r: dict[str, Any]) -> list[str]:
+        return [str(s.get("text") or "") for s in r.get("steps") or []]
+
+    def answer(r: dict[str, Any]) -> str:
+        return (steps(r) or [""])[-1]
+
+    def times(found: list[dict[str, Any]]) -> str:
+        return ", ".join(f"{r['_t']:%H:%M:%S}" for r in found) or "none"
+
+    figure = re.compile(r"\d\s*(km|kilomet|miles?|minutes?|mins?|hours?)\b|you (appear|seem) to be in", re.I)
+    unplaced = said(r"(how far|how long).*(my (current )?location|from here|where i am)")
+    guessed = [r for r in unplaced if figure.search(answer(r)) and "?" not in answer(r)]
+    weather = said(r"\b(rain|weather|forecast)\b")
+    asked_back = [r for r in weather if any("ask_owner" in t for t in steps(r))]
+    between = said(r"how far is .+ from (?!my |here|where)\w+")
+    return [
+        ("259 no distance was given without a starting point", unless(guessed, unplaced),
+         f"{len(unplaced)} asked; answered with a guessed place: " + times(guessed)),
+        ("260 the weather was answered without asking where", unless(asked_back, weather),
+         "asked where: " + times(asked_back)),
+        ("261 a distance between two places you named", LOOK,
+         f"{len(between)} asked ({times(between)}); tell us whether it was about right"),
     ]
 
 

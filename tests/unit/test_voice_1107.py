@@ -345,7 +345,8 @@ async def test_the_weather_tool_takes_nothing_from_the_model(monkeypatch: pytest
     }
     monkeypatch.setattr(tools_module, "_fetch_weather", lambda: raw)
     result = await tools_module.weather(None, None, {"url": "https://x.example/?q=secret"})  # type: ignore[arg-type]
-    assert result.ok and result.data["place"] == "Nairobi"
+    assert result.ok and result.data["forecast_area"] == "Nairobi"
+    assert "place" not in result.data and "not where the user is" in result.data["forecast_area_is"]  # C1
     assert result.data["hours"][0] == {"time": "15:00", "chance_of_rain": "20", "rain_mm": "0.1", "temp_c": "19", "sky": "Light rain"}
     assert tools_module.WEATHER_URL == "https://wttr.in/?format=j1"
 

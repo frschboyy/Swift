@@ -188,7 +188,8 @@ _PLEASANTRY = re.compile(
     r"(?:hey|hi|hello|hiya|good (?:morning|afternoon|evening)|thanks|thank you|cheers"
     r"|how are you(?: doing)?(?: today)?|how's it going|you there)(?: there| swift)?"
 )
-_SENTENCES = re.compile(r"(?<=[.!?])\s+")
+# A greeting ends at a comma as often as at a stop: "How are you, can you turn off the Wi-Fi?" (204).
+_SENTENCES = re.compile(r"(?<=[.!?,])\s+")
 
 
 def _after_pleasantries(text: str) -> str | None:

@@ -25,7 +25,17 @@ while IFS=$'\t' read -r wt ref; do
   br=${ref#refs/heads/}
   [ "$br" = main ] && continue          # main's untracked files are not Swift work
   branches+=("$br")
-  [ -n "$(git -C "$wt" status --porcelain)" ] || continue
+  save="savepoint/${br#claude/}"
+  if [ -z "$(git -C "$wt" status --porcelain)" ]; then
+    # A session may have committed since the last snapshot; don't leave an older
+    # WIP tree that could overwrite the newer branch when restored.
+    if git show-ref --verify --quiet "refs/heads/$save"; then
+      git -C "$wt" update-ref "refs/heads/$save" HEAD
+      echo "current $br -> $save (clean)"
+      branches+=("$save")
+    fi
+    continue
+  fi
   idx=$(mktemp -u)
   GIT_INDEX_FILE="$idx" git -C "$wt" read-tree HEAD
   GIT_INDEX_FILE="$idx" git -C "$wt" add -A
@@ -33,13 +43,13 @@ while IFS=$'\t' read -r wt ref; do
   rm -f "$idx"
   msg="WIP save point of $br ($stamp): uncommitted work, unreviewed and maybe failing
 
-Restore it as uncommitted changes: git checkout $br && git restore --source=savepoint/${br#claude/} -- . (see docs/handoff/savepoint-2026-11-13.md)
+Restore it as uncommitted changes: git checkout $br && git restore --source=$save -- . (see docs/handoff/savepoint-2026-11-13.md)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   commit=$(git -C "$wt" commit-tree "$tree" -p HEAD -m "$msg")
-  git -C "$wt" update-ref "refs/heads/savepoint/${br#claude/}" "$commit"
-  echo "saved   $br -> savepoint/${br#claude/} ($(git -C "$wt" diff --stat HEAD "$commit" | tail -1))"
-  branches+=("savepoint/${br#claude/}")
+  git -C "$wt" update-ref "refs/heads/$save" "$commit"
+  echo "saved   $br -> $save ($(git -C "$wt" diff --stat HEAD "$commit" | tail -1))"
+  branches+=("$save")
 done < <(git --git-dir="$common" worktree list --porcelain \
           | awk '/^worktree /{w=substr($0,10)} /^branch /{print w "\t" substr($0,8)}')
 

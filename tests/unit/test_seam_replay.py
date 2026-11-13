@@ -58,7 +58,8 @@ def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str
         # Asked again, the card shows the words it was asked again with ("Okay, take your time. …").
         assert q is not None and screen["question"] in (q.text, q.reask_text), f"a dead question on screen: {screen}"
         assert session._on_screen(q), f"on screen, but the backend thinks not, so speech can't answer it: {screen}"
-    if q is not None and q.source == "lane" and q.run_id and q.window is not None and q.window.state == "listening":
+    # A request's question too (A2, 2026-11-13: listened for while the card said "Working on it").
+    if q is not None and q.run_id and q.window is not None and q.window.state == "listening":
         assert (screen["question"] in (q.text, q.reask_text)) == session._on_screen(q), (
             f"the backend listens for what the owner can't see, or the reverse: {screen}")
     assert screen["confirm"] == session._open_confirm(), f"card on screen and in the backend differ: {screen}"
@@ -503,6 +504,30 @@ async def test_a_question_out_of_view_keeps_its_time_for_when_it_is_back() -> No
     await asyncio.sleep(0.8)
     assert session.dialogue.pending is not asked and control.radio_state["wifi"] is True  # then it runs out
     agree(session, out)
+    await finish_all(session, agent)
+
+
+async def test_a_question_after_requests_that_ran_together_is_on_its_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A2, 2026-11-13 13:51: "add lunch next week" asked "Which day and time next week for lunch?" and the
+    # owner saw "Working on it". Two requests had run together earlier, so the overlay was told who was
+    # in front; once their rows went, a lone request in front was never sent, and the question of the
+    # next one was hidden as another request's.
+    import swift.session as session_module
+
+    monkeypatch.setattr(session_module, "FINISHED_ROW_S", 0.2)
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None), wake_question_s=5.0)
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    coffee = await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    await asyncio.sleep(0.05)
+    agent.runs[tea]["go"].set()
+    agent.runs[coffee]["go"].set()
+    await until(lambda: not out.last("runs")["rows"], timeout=3.0)  # both ended, their rows gone
+    await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert (screen["stage"], screen["question"]) == ("working", "Paris or Rome?"), screen
     await finish_all(session, agent)
 
 

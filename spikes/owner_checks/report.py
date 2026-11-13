@@ -558,6 +558,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("219 Halo's edges are distinct from the card at a glance", LOOK, "check on screen: dark and light"),
         ("220 the sleeping orb reads as not listening", LOOK, "check on screen: from normal viewing distance"),
         ("221 a card grows from the orb and the tail settles last", LOOK, "check on screen: also with animation effects off"),
+        ("250 'add lunch next week' after two requests showed its question, not 'Working on it'", LOOK,
+         "check on screen: 'Waiting for you' and the question"),
+        ("251 the spinner kept turning, also on the one-line card after 20 s", LOOK,
+         "check on screen: no jump back once a second; say whether animation effects were on"),
         # A second way in for "Hey Swift" (ADR-021).
         ("228 the second way in woke Swift (calm voice, close and at 1.5 m)", seen(wake_count("acoustic_wake")),
          f"{wake_count('acoustic_wake')} through the second way in, {wake_count('wake')} wake phrases in all;"

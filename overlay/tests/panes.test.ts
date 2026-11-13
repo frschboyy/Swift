@@ -6,7 +6,7 @@ import { test } from "node:test";
 import type { LiveView } from "../src/live.ts";
 import {
   diffPanes, needsReader, openReader, paneLabel, readerTick, touchReader, wantedPanes, workingQuiet,
-  PaneSync, READER_QUIET_MS, WORKING_QUIET_MS, type PaneSpec,
+  workingStalled, PaneSync, READER_QUIET_MS, STALL_MS, WORKING_QUIET_MS, type PaneSpec,
 } from "../src/panes.ts";
 import { initialStack, onStack, stackView } from "../src/stack.ts";
 
@@ -46,6 +46,15 @@ test("a working card collapses after a quiet period, not while the pointer is on
   assert.equal(workingQuiet(1000, 1000 + WORKING_QUIET_MS - 1, false), false);
   assert.equal(workingQuiet(1000, 1000 + WORKING_QUIET_MS * 2, true), false);
   assert.equal(workingQuiet(0, WORKING_QUIET_MS * 2, false), false);  // nothing yet
+});
+
+test("the one-line card is never stalled, so the second tick doesn't redraw it and restart its spinner (A3)", () => {
+  const late = 1000 + STALL_MS + 1;
+  assert.equal(workingStalled(false, false, 1, 1000, late), true);
+  assert.equal(workingStalled(true, false, 1, 1000, late), false);
+  assert.equal(workingStalled(false, true, 1, 1000, late), false);  // an open artifact
+  assert.equal(workingStalled(false, false, 0, 1000, late), false);  // no steps yet
+  assert.equal(workingStalled(false, false, 1, 1000, 1000 + STALL_MS), false);
 });
 
 test("Read all for long answers and long tables only", () => {

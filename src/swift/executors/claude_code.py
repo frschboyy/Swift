@@ -643,6 +643,10 @@ class ClaudeCodeExecutor:
         if host is not None and host.in_workflow_for(run_id):
             # The workflow's manifest lists what it may do; nothing else, not even with a card.
             return PermissionResultDeny(message=NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
+        if name in ("Bash", "PowerShell") and (place := self.reads.in_command(str(args.get("command", "")), self.cwd)):
+            # No card: an approval must not be able to read what Read is always refused (owner check 213).
+            logger.info("read refused: never-read path", run_id=run_id, tool=name)
+            return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
         if name in ("Bash", "PowerShell") and len(str(args.get("command", "")).strip()) > COMMAND_MAX:
             # Too long to show whole on a card: the owner would approve what they can't read.
             return _too_long(run, name, LONG_COMMAND_MESSAGE.format(n=COMMAND_MAX))

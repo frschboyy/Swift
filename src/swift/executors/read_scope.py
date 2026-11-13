@@ -71,10 +71,58 @@ def default_never(home: str | None = None) -> tuple[str, ...]:
     return tuple(os.path.join(base, *p.split("/")) for p in _HOME_NEVER)
 
 
+_SPLIT = re.compile(r"""[\s"'`;|&<>()=,]+""")
+_VAR = re.compile(r"\$env:(\w+)|\$\{(\w+)\}|\$(\w+)|%(\w+)%", re.IGNORECASE)
+
+
+def _flat(path: str) -> str:
+    """For comparing inside a command's text: lower case, forward slashes, Git Bash's /c/ and this PC's c$ share as c:/."""
+    path = re.sub(r"/+", "/", path.lower().replace("\\", "/"))
+    path = re.sub(r"(?<![\w:.])/(?:localhost|127\.0\.0\.1)/([a-z])\$(?=/|$)", r"\1:", path)
+    return re.sub(r"(?<![\w:.])/(?:mnt/)?([a-z])(?=/)", r"\1:", path)
+
+
 class ReadScope:
     def __init__(self, read_dirs: Iterable[str], never: Iterable[str] = (), home: str | None = None) -> None:
+        self.home = home or os.path.expanduser("~")
         self.read_dirs = tuple(_norm(d) for d in read_dirs if d)
         self.never = tuple(_norm(p) for p in (*default_never(home), *never) if p)
+
+    def in_command(self, command: str, cwd: str | None) -> str | None:
+        """The never-read place a shell command names, or None (owner check 213, 2026-11-13).
+
+        Read, Glob and Grep are judged by ``verdict``; a command reached the same files on a card the
+        owner approved. This reads the command's text, so it is a safeguard, not a wall:
+        shortcut: a path built in pieces, by a wildcard or inside a script isn't seen; the real fix
+        is running the agent's shell where it can't open these folders at all.
+        """
+        env = {k.upper(): v for k, v in os.environ.items()} | {"HOME": self.home, "USERPROFILE": self.home}
+        text = _VAR.sub(lambda m: env.get(next(g for g in m.groups() if g).upper(), m.group(0)), command)
+        tokens = [self.home + t[1:] if t == "~" or t.startswith(("~/", "~\\")) else t for t in _SPLIT.split(text) if t]
+        flat = _flat(" ".join(tokens))
+        said = {_flat(t).rstrip("/") for t in tokens}
+        home = _flat(_norm(self.home))
+        for never in self.never:
+            n = _flat(never)
+            if n in flat:  # named whole, however the rest is quoted or spaced
+                return never
+            # Named in two steps: `cd "$LOCALAPPDATA" && cat Swift/…`.
+            parent = os.path.dirname(n)
+            while len(parent) >= len(home) and parent != os.path.dirname(parent):
+                rest = re.escape(n[len(parent):].lstrip("/"))
+                if parent in said and re.search(rf"(?<![\w.\-]){rest}(?![\w\-])", flat.replace(n, "")):
+                    return never
+                parent = os.path.dirname(parent)
+        base = cwd or os.getcwd()
+        for token in tokens:  # a relative path ("../../.ssh/id_rsa") or a secret-looking file (".env")
+            token = re.sub(r"^/(?:mnt/)?([a-zA-Z])(?=/)", r"\1:", token)
+            try:
+                path = token if os.path.isabs(token) else os.path.join(base, token)
+                if self.verdict(path) == "never":
+                    return path
+            except (OSError, ValueError):  # not a path at all (a URL, an option): nothing to judge
+                continue
+        return None
 
     def verdict(self, path: str) -> Verdict:
         target = _norm(path)

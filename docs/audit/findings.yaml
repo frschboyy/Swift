@@ -1640,6 +1640,22 @@
   test: tests/unit/test_seams_audit_privacy.py::test_swift_s_data_folder_is_never_read
   note: 'An approved search of a parent folder can still reach it; \\127.0.0.2\c$ spellings unproven (handoff §2).
     Raised from medium: breaks a product rule.'
+- id: X-20
+  title: A shell command could read Swift's own data and the other never-read places on an approval card (owner
+    check 213, 2026-11-13).
+  source: owner's run of 2026-11-13, docs/handoff/README.md §2
+  module: src/swift/executors/read_scope.py, src/swift/executors/claude_code.py
+  area: privacy
+  severity: critical
+  product_rule: true
+  status: partial
+  confidence: confirmed
+  evidence: src/swift/executors/read_scope.py ReadScope.in_command; claude_code.py refuses Bash and PowerShell
+    with no card when it names a never-read place
+  test: tests/unit/test_seams_audit_privacy.py::test_claude_code_refuses_a_command_on_swift_s_data_with_no_card
+  note: A safeguard. It reads the command's text, so a path built in pieces, by a wildcard or inside a script
+    isn't seen. The root fix is running the agent's shell where it can't open these folders. Needs review by
+    someone other than the author.
 - id: RA-07
   title: The contact-guess rule treated titles as names ('Dr Lovelace') and compared the agent's search words, not
     the owner's.

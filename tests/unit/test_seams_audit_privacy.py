@@ -114,6 +114,72 @@ def test_swift_s_data_folder_is_never_read(tmp_path: Path) -> None:
     assert scope.verdict(str(tmp_path / "AppData" / "Local")) == "ask"  # a folder holding it: never a blanket read
 
 
+def _command_scope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
+    from swift.executors.read_scope import ReadScope
+
+    work = tmp_path / "Projects" / "app"
+    work.mkdir(parents=True)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+    return ReadScope([str(work)], home=str(tmp_path)), str(work)
+
+
+def test_a_command_that_reaches_swift_s_data_or_a_secret_is_named(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Owner check 213, 2026-11-13 10:53: the agent read the interaction log through Bash, one approval card
+    # per command. The first two are the commands it ran.
+    scope, work = _command_scope(tmp_path, monkeypatch)
+    data = tmp_path / "AppData" / "Local" / "Swift"
+    posix = "/" + data.drive[0].lower() + data.as_posix()[2:]  # Git Bash: /c/Users/…
+    for command in (
+        """cd "$LOCALAPPDATA/Swift" && grep '"ts": "2026-11-12' interactions.jsonl | head -50""",
+        """cd "$LOCALAPPDATA/Swift" && wc -l interactions.jsonl""",
+        """cd "$LOCALAPPDATA" && cat Swift/interactions.jsonl""",
+        "cat ${LOCALAPPDATA}/Swift/journal.jsonl",
+        r"Get-Content $env:LOCALAPPDATA\Swift\logs\swift.log -Tail 20",
+        r"type %LOCALAPPDATA%\Swift\interactions.jsonl",
+        "Join-Path $env:LOCALAPPDATA Swift | Get-ChildItem",
+        f"cat {posix}/interactions.jsonl",
+        f"python -c \"print(open(r'{data / 'interactions.jsonl'}').read())\"",
+        "cat ../../AppData/Local/Swift/journal.jsonl",
+        "cat ~/.ssh/id_rsa",
+        "cd ~ && cat .ssh/id_rsa",
+        "cat .env",
+        "cp deploy.pem /tmp/x",
+    ):
+        assert scope.in_command(command, work), command
+
+
+def test_an_ordinary_command_still_goes_to_its_card(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scope, work = _command_scope(tmp_path, monkeypatch)
+    for command in (
+        'ls -la "$LOCALAPPDATA" 2>/dev/null | head -50',  # the folder that holds it: listed on a card, as Read asks
+        "git status && git log --oneline -5",
+        "grep -rn swift . --include=*.py",
+        "ls .claude/worktrees",  # the project's own .claude, not the one under home
+        "ls ~/Documents/Swift && cat .claude/launch.json",
+        "curl -s https://example.com/a?b=1 > out.txt 2>/dev/null",
+        "uv run pytest -q tests/unit",
+        "dir /s /b *.md",
+    ):
+        assert scope.in_command(command, work) is None, command
+
+
+async def test_claude_code_refuses_a_command_on_swift_s_data_with_no_card(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from claude_agent_sdk import PermissionResultDeny
+
+    from swift.executors.claude_code import ClaudeCodeExecutor, _Run
+
+    scope, work = _command_scope(tmp_path, monkeypatch)
+    ex = ClaudeCodeExecutor(cwd=work, claude="claude.exe")
+    ex.reads = scope
+    run = _Run()
+    ex._runs["cc-1"] = run
+    for tool, command in (("Bash", 'cd "$LOCALAPPDATA/Swift" && grep -c ts interactions.jsonl'),
+                          ("PowerShell", r"Get-Content $env:LOCALAPPDATA\Swift\interactions.jsonl")):
+        refused = await ex._ask(run, "cc-1", tool, {"command": command})
+        assert isinstance(refused, PermissionResultDeny) and "never" in refused.message and not refused.interrupt
+        assert run.queue.empty()  # no card to approve: an approval must not be able to read it
+
+
 def test_a_never_read_path_spelled_another_way_is_still_never_read(tmp_path: Path) -> None:
     from swift.executors.read_scope import ReadScope
 

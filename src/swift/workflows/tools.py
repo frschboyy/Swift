@@ -526,6 +526,15 @@ def _fetch_weather() -> dict[str, Any]:
         return json.loads(reply.read(2_000_000))
 
 
+# wttr.in places the PC by its internet address, so the area is the network's (Nairobi Industrial Area on
+# the owner's PC), not where the owner is: the agent took it for their location and gave a distance from it
+# (2026-11-13, 15:02, C1). Named and labelled so it reads as the forecast's area only.
+FORECAST_AREA_NOTE = (
+    "The forecast's area, placed roughly from the PC's internet connection: fine for the weather, "
+    "but not where the user is. Never use it as their location."
+)
+
+
 def _weather_facts(raw: dict[str, Any]) -> dict[str, Any]:
     """Today's weather, cut down to what answers a question about it."""
     now = (raw.get("current_condition") or [{}])[0]
@@ -533,7 +542,7 @@ def _weather_facts(raw: dict[str, Any]) -> dict[str, Any]:
     today = (raw.get("weather") or [{}])[0]
     text = lambda d, key: ((d.get(key) or [{}])[0]).get("value", "")  # noqa: E731
     return {
-        "place": text(area, "areaName"), "country": text(area, "country"),
+        "forecast_area": text(area, "areaName"), "country": text(area, "country"), "forecast_area_is": FORECAST_AREA_NOTE,
         "now": {"temp_c": now.get("temp_C"), "feels_c": now.get("FeelsLikeC"), "sky": text(now, "weatherDesc")},
         "today": {"max_c": today.get("maxtempC"), "min_c": today.get("mintempC")},
         "hours": [
@@ -672,8 +681,9 @@ TOOLS: tuple[ToolSpec, ...] = (
     ),
     ToolSpec(
         "weather",
-        "Today's weather where the owner's PC is: now, and hour by hour with the chance of rain. No arguments: "
-        "it works out the place itself. Use it for any question about the weather here, and don't ask where.",
+        "Today's weather here: now, and hour by hour with the chance of rain. No arguments: it places the PC "
+        "roughly from its internet connection. Use it for any question about the weather here, and don't ask "
+        "where. Its area is for the forecast only, never the user's location.",
         _obj([]),
         "read", weather,
     ),

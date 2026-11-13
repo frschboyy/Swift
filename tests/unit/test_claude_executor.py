@@ -142,6 +142,58 @@ async def test_swift_tools_are_offered_without_a_claude_prompt(tmp_path: Path) -
     assert published[0].kind == "recipient"
 
 
+# C1 (2026-11-13, 15:02): "How far away is CBD from my current location?" The weather tool's area, placed
+# from the PC's internet connection ("Nairobi Industrial Area", 3-4 km from CBD), was taken for the owner's
+# location and the agent answered "about 4 km"; it was 10-11. Undo either half below and its test fails.
+
+
+def test_every_agent_run_is_told_swift_does_not_know_where_the_user_is(tmp_path: Path) -> None:
+    from swift.connectors.fake import FakeMailConnector
+    from swift.executors.claude_code import LOCATION_PROMPT, NO_QUESTIONS_MESSAGE
+    from swift.workflows.tools import ToolHost
+
+    plain = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", escalation=False)
+    tooled = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=ToolHost(FakeMailConnector(contacts=())))
+    for ex in (plain, tooled):
+        prompt = ex.options(_Run(), "cc-1").system_prompt
+        assert LOCATION_PROMPT in prompt
+    assert "doesn't know where the user is" in LOCATION_PROMPT and "Never assume a starting place" in LOCATION_PROMPT
+    assert "weather's area" in LOCATION_PROMPT and "ask where they're starting from" in LOCATION_PROMPT
+    assert "Never assume where the user is" in NO_QUESTIONS_MESSAGE  # "make a reasonable assumption" stops short of it
+
+
+async def test_the_weather_area_reaches_the_agent_as_the_forecasts_never_the_users_location(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from claude_agent_sdk import tool
+
+    from swift.connectors.fake import FakeMailConnector
+    from swift.workflows import tools as tools_module
+    from swift.workflows.tools import ToolHost
+
+    raw = {  # what wttr.in gives the owner's PC (fetched 2026-11-13)
+        "current_condition": [{"temp_C": "22", "FeelsLikeC": "22", "weatherDesc": [{"value": "Partly cloudy"}]}],
+        "nearest_area": [{"areaName": [{"value": "Nairobi Industrial Area"}], "country": [{"value": "Kenya"}]}],
+        "weather": [{"maxtempC": "25", "mintempC": "14", "hourly": []}],
+    }
+    monkeypatch.setattr(tools_module, "_fetch_weather", lambda: raw)
+    host = ToolHost(FakeMailConnector(contacts=()))
+    spec = host.tools["weather"]
+    assert "never the user's location" in spec.description and "where the owner's PC is" not in spec.description
+
+    async def publish(_: Any) -> None:
+        return None
+
+    async def confirm(*_: Any) -> str:
+        return "approve"
+
+    host.open(publish, confirm)
+    out = await ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=host)._sdk_tool(tool, spec).handler({})
+    text = out["content"][0]["text"]
+    assert out["is_error"] is False and "Nairobi Industrial Area" in text
+    assert '"forecast_area"' in text and '"place"' not in text and "Never use it as their location" in text
+
+
 def test_setup_problems_are_reported_before_anything_starts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ExecutorUnavailable, match="No working folder"):
         ClaudeCodeExecutor(cwd=None, claude="c").options(_Run(), "cc-1")

@@ -69,6 +69,18 @@ def test_nothing_logged_is_not_seen_rather_than_pass() -> None:
         assert _find(results, prefix)[0] is report.NOT_SEEN, prefix
 
 
+def test_checks_259_and_260_fail_on_a_guessed_place_and_a_weather_question_back() -> None:
+    t = datetime(2026, 11, 13, 15, 2)
+    guessed = {"_t": t, "transcript": "how far away is CBD from my current location",
+               "steps": [{"text": "You're about 4 km from the CBD."}]}
+    asked = {**guessed, "steps": [{"text": "Where are you starting from?"}]}
+    rain = {"_t": t, "transcript": "is it going to rain later", "steps": [{"text": "Using swift: ask_owner"}]}
+    results = _results([guessed, rain], [])
+    assert _find(results, "259 ")[0] is report.FAIL and _find(results, "260 ")[0] is report.FAIL
+    results = _results([asked, {**rain, "steps": [{"text": "No rain today."}]}], [])
+    assert _find(results, "259 ")[0] is report.PASS and _find(results, "260 ")[0] is report.PASS
+
+
 def test_check_61_fails_when_something_heard_acted_while_the_screen_was_locked() -> None:
     log = [
         "2026-11-04 16:00:00 | INFO | presence | state='away' reason='locked'",

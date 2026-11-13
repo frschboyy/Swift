@@ -2076,6 +2076,21 @@ The report checks: nothing to look up in the logs; tell Claude what you saw.
 3. Leave the card alone: after about 12 seconds it shrinks to one line. Watch the one-line spinner for at least
    20 more seconds: it should keep turning smoothly, never jump back once a second.
 4. Point at the card: it opens, and after a while without news says "Still working".
+<a id="check-256"></a>**Check 256. An answer that ends behind a card waits there until you've seen it**
+1. Say "Hey Swift, research the history of tea".
+2. While it works, say "Hey Swift, draft a note to Test Me about lunch" and keep its card in front. Don't click the research's edge.
+3. Wait until the research's edge says it's done, then wait another minute.
+4. You should see the research's edge still there. Click it: its answer comes forward.
+5. Read it for a few seconds, then ask "Hey Swift, what time is it". The research's edge goes about 20 seconds later.
+
+The report counts the answers kept behind the card because they hadn't been seen.
+
+<a id="check-257"></a>**Check 257. A card brought back from the stack carries on where it was**
+1. Say "Hey Swift, research the history of tea", then "Hey Swift, compare three e-readers".
+2. When the e-readers' edge shows what it's doing, click it.
+3. You should see its own card with its last step and a timer counting from when you asked, not from zero, and not a
+   new request starting.
+4. Let the research end behind it, then click the research's edge: you see its answer, never "Working on it".
 
 ## Where every check stands
 
@@ -2087,6 +2102,7 @@ As of 2026-11-13 at `ed74cc8`. Each number links to its check.
 
 - **Changed since it failed: run it again** (6): [204](#check-204), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [239](#check-239)
 - **Never run** (84): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [262](#check-262)
+- **Never run** (85): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [256](#check-256), [257](#check-257)
 - **Partly seen** (4): [8](#check-8), [21](#check-21), [24](#check-24), [77](#check-77)
 - **Passed, changed since** (59): [2](#check-2), [2b](#check-2b), [3](#check-3), [4](#check-4), [10](#check-10), [11](#check-11), [14](#check-14), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [107](#check-107), [108](#check-108), [115](#check-115), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [134](#check-134), [149](#check-149), [160](#check-160), [161](#check-161), [193](#check-193), [195](#check-195), [201](#check-201), [202](#check-202), [208](#check-208), [209](#check-209), [233](#check-233), [234](#check-234)
 - **Passed, nothing changed since** (48): [1](#check-1), [5](#check-5), [7](#check-7), [12](#check-12), [15](#check-15), [16](#check-16), [16b](#check-16b), [17](#check-17), [41](#check-41), [42](#check-42), [43](#check-43), [45](#check-45), [46](#check-46), [47](#check-47), [54](#check-54), [55](#check-55), [62](#check-62), [68](#check-68), [91](#check-91), [93](#check-93), [110](#check-110), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [120](#check-120), [123](#check-123), [125](#check-125), [139](#check-139), [153](#check-153), [168](#check-168), [191](#check-191), [194](#check-194), [196](#check-196), [207](#check-207), [210](#check-210), [213](#check-213), [214](#check-214), [216](#check-216), [217](#check-217), [219](#check-219), [220](#check-220), [228](#check-228), [232](#check-232), [236](#check-236), [240](#check-240), [241](#check-241), [242](#check-242)
@@ -2114,6 +2130,13 @@ As of 2026-11-13 at `ed74cc8`. Each number links to its check.
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 90 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 12 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215, 240).
 - `claude/workstreams`: changes code behind 40 checks here (53, 61, 71, 77, 78, 100, 101, 102, 105, 106, 124, 128, …).
+- `claude/a2-question-state-42bf6d`: changes code behind 24 checks here (18, 58, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, …).
+- `claude/a9-gmail-focus-03dda1`: adds checks 253; changes code behind 9 checks here (10, 38, 39, 50, 51, 75, 76, 92, 95).
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 90 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/audit-fixes-recipients`: changes code behind 12 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215, 240).
+- `claude/c1-grounded-facts-556f60`: adds checks 259, 260, 261; changes code behind 39 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
+- `claude/run-1005-gaps`: changes code behind 35 checks here (4, 5, 6, 7, 8, 9, 14, 15, 19, 21, 22, 26, …).
+- `claude/workstreams`: adds checks 262; changes code behind 39 checks here (53, 61, 71, 77, 78, 100, 101, 102, 105, 106, 124, 128, …).
 
 **Next free check number: 263** (counted across `main` and every open branch).
 

@@ -2079,6 +2079,8 @@ About 4 minutes. New: the memory store (workstream C7). Swift keeps only what yo
 3. Say "Hey Swift, remember that". You should see "Tell me in your own words, like “remember that my manager is
    Ada”.", and nothing is kept.
 4. Say "Hey Swift, what do you know about me?". Mallory is never listed. Close Notepad without saving.
+5. Say "Hey Swift, remember that my card number is 4111 1111 1111 1111" (a made-up test number, not yours). You should
+   see "I don't keep card or ID numbers: …", and "what do you know about me?" doesn't list it.
 
 <a id="check-293"></a>**Check 293. "Remember to …" is still an errand, not a memory**
 1. Say "Hey Swift, remember to stretch in two minutes".

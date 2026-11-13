@@ -198,6 +198,9 @@ def answer(store: Store | None, words: str, source: str, run: str) -> tuple[str,
         return "Tell me in your own words, like “remember that my manager is Ada”.", None
     if action == "remember" and re.search(r"\b(?:password|passcode|pin)\b", x, re.I):
         return "I don't keep passwords or PINs: a password manager keeps them safer.", None
+    if action == "remember" and (any(_luhn(d) for d in re.findall(r"\d{13,19}", re.sub(r"[\s-]", "", x))) or (
+            re.search(r"\d", x) and re.search(r"\b(?:card|account|id|passport|social security|ssn|bank)\b", x, re.I))):
+        return "I don't keep card or ID numbers: keep them in a password manager or your wallet app.", None
     if len(x) > MAX_TEXT:
         return "That's too long for me to keep: say it in a sentence.", None
     if action == "remember":
@@ -215,6 +218,12 @@ def answer(store: Store | None, words: str, source: str, run: str) -> tuple[str,
                 {"kind": "list", "items": [_to_you(r.text) for r in matches]})
     store.forget("memory", matches[0].key, run=run)
     return f"Okay, I've forgotten {_to_you(matches[0].text)}.", None
+
+
+def _luhn(digits: str) -> bool:
+    """A card number's check digit (Luhn): tells a card from a phone number of the same length."""
+    total = sum(d if i % 2 == 0 else (d * 2 - 9 if d > 4 else d * 2) for i, d in enumerate(map(int, reversed(digits))))
+    return total % 10 == 0
 
 
 def _matching(store: Store, what: str) -> list[Record]:

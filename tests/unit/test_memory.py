@@ -102,6 +102,28 @@ def test_passwords_and_vague_requests_are_not_kept(store: Store) -> None:
     assert store.all("memory") == []
 
 
+@pytest.mark.parametrize("fact", [
+    "my visa is 4111 1111-1111 1111",  # 16 digits that pass the Luhn check, spaces and dashes removed
+    "the one for groceries is 5500 0000 0000 0004",
+    "my national ID is 8001015009087",
+    "my passport number is A1234567",  # names an ID, with digits
+    "my bank account is 12-345",
+    "my social security number is 078-05-1120",
+])
+def test_card_and_id_numbers_are_not_kept(store: Store, fact: str) -> None:
+    assert said(store, f"remember that {fact}").startswith("I don't keep card or ID numbers")
+    assert store.all("memory") == []
+
+
+def test_ordinary_numbers_are_still_kept(store: Store) -> None:
+    said(store, "remember that my desk extension is 4021")
+    said(store, "remember that I started at the company in 2019")
+    said(store, "remember that my account manager is Ada")  # names an account, no digits
+    said(store, "remember that Ada's phone is +254 712 345 678")  # an international phone number
+    said(store, "remember that the office line is 4111 1111 1111 1112")  # 16 digits, fails the Luhn check
+    assert len(store.all("memory")) == 5
+
+
 def test_reserved_windows_names_get_a_safe_file() -> None:
     assert key_of("con is short for console") == "con-" and key_of("My Manager is Ada") == "my-manager"
 

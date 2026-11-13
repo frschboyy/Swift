@@ -113,6 +113,15 @@ NOT_IN_WORKFLOW_MESSAGE = (
     "This workflow doesn't allow {tool}, so Swift refused it. Continue with the workflow's own tools."
 )
 NO_WEB_MESSAGE = "Web access isn't available for this request. Answer without it."
+# C1 (2026-11-13, 15:02): asked how far CBD was "from my current location", the agent took the weather's
+# area (placed from the PC's internet connection) for the owner's location and answered 4 km; it was 10-11.
+LOCATION_PROMPT = (
+    " Swift doesn't know where the user is. Never assume a starting place, and never take the weather's area "
+    "for their location: it is only placed roughly from the internet connection. For a distance, a route, a "
+    "travel time or anything near them, ask where they're starting from (with ask_owner if you have it, or "
+    "end your turn with that one question). Give a distance or time only from a source you found, and say it "
+    "is approximate; don't state one from memory as if it were measured."
+)
 SYSTEM_PROMPT = (
     "You are working for Swift, the user's voice assistant: the user talks to Swift, Swift handed you this "
     "request, and Swift shows your final answer to the user. Answer the request directly; don't introduce "
@@ -122,6 +131,7 @@ SYSTEM_PROMPT = (
     "The user isn't expected to know what a terminal is. To find something out, use the weather tool if you have "
     "one and web search or fetch, never the shell: every shell command stops and asks the user on a card. Use the "
     "shell only when the request needs it. Don't mention commands or tools in your answer."
+    + LOCATION_PROMPT
 )
 ESCALATE_PROMPT = (
     " If the request needs more capability than you have (multi-step changes, debugging, design or "
@@ -155,7 +165,8 @@ NEVER_READ_MESSAGE = (
 READ_DECLINED_MESSAGE = "The user didn't allow reading {path}. Go on without it; don't try another way."
 NO_QUESTIONS_MESSAGE = (
     "The user can't answer questions in this mode. Make a reasonable assumption, "
-    "say what you assumed in your final answer, and continue."
+    "say what you assumed in your final answer, and continue. Never assume where the user is: if the "
+    "answer needs their starting place, say so in your answer instead."
 )
 
 

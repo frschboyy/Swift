@@ -142,6 +142,26 @@ async def test_swift_tools_are_offered_without_a_claude_prompt(tmp_path: Path) -
     assert published[0].kind == "recipient"
 
 
+# C1 (2026-11-13, 15:02): "How far away is CBD from my current location?" The weather tool's area, placed
+# from the PC's internet connection ("Nairobi Industrial Area", 3-4 km from CBD), was taken for the owner's
+# location and the agent answered "about 4 km"; it was 10-11.
+
+
+def test_every_agent_run_is_told_swift_does_not_know_where_the_user_is(tmp_path: Path) -> None:
+    from swift.connectors.fake import FakeMailConnector
+    from swift.executors.claude_code import LOCATION_PROMPT, NO_QUESTIONS_MESSAGE
+    from swift.workflows.tools import ToolHost
+
+    plain = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", escalation=False)
+    tooled = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", tools=ToolHost(FakeMailConnector(contacts=())))
+    for ex in (plain, tooled):
+        prompt = ex.options(_Run(), "cc-1").system_prompt
+        assert LOCATION_PROMPT in prompt
+    assert "doesn't know where the user is" in LOCATION_PROMPT and "Never assume a starting place" in LOCATION_PROMPT
+    assert "weather's area" in LOCATION_PROMPT and "ask where they're starting from" in LOCATION_PROMPT
+    assert "Never assume where the user is" in NO_QUESTIONS_MESSAGE  # "make a reasonable assumption" stops short of it
+
+
 def test_setup_problems_are_reported_before_anything_starts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ExecutorUnavailable, match="No working folder"):
         ClaudeCodeExecutor(cwd=None, claude="c").options(_Run(), "cc-1")

@@ -27,9 +27,10 @@ FOCUS_PLACES = ("to", "body", "subject", "page", "other_window", "none")
 
 # Why the compose window isn't ready to fill yet (``Waiting.reason``), and the error code if it never is.
 WAIT_CODES = {
-    "not_browser": "gmail_not_in_front",  # no browser in front
+    "not_browser": "gmail_not_in_front",  # no browser in front, and no compose window found behind
     "not_loaded": "gmail_not_loaded",  # a browser in front, but not all three fields in it
     "in_use": "gmail_in_use",  # the fields found already hold a subject: not a window Swift opened
+    "behind": "gmail_behind",  # the compose window is open behind, and Windows wouldn't bring it forward
 }
 
 
@@ -40,8 +41,10 @@ class ComposeScreen(Protocol):
     def front_label(self, hwnd: int) -> str: ...
     def is_browser(self, hwnd: int) -> bool: ...
     def private(self, hwnd: int) -> bool: ...
+    def browser_windows(self) -> list[int]: ...
     def fields(self, hwnd: int) -> dict[str, Any]: ...
     def subject_in_use(self, fields: dict[str, Any]) -> bool: ...
+    def bring_forward(self, hwnd: int) -> bool: ...
     def settable(self, element: Any) -> bool: ...
     def set_value(self, element: Any, text: str) -> None: ...
     def value(self, element: Any) -> str | None: ...
@@ -68,7 +71,7 @@ class Clock:
 
 
 def find_compose(screen: ComposeScreen) -> tuple[int, dict[str, Any]] | Waiting:
-    """The compose window to fill: the one in front, once all its fields exist."""
+    """The compose window to fill: the one in front, or one found behind and brought forward."""
     front = screen.front()
     label = screen.front_label(front)
     waiting: Waiting
@@ -85,6 +88,18 @@ def find_compose(screen: ComposeScreen) -> tuple[int, dict[str, Any]] | Waiting:
             waiting = Waiting("not_loaded", label, tuple(fields))
     else:
         waiting = Waiting("not_browser", label)
+    # Windows keeps the foreground for the app the owner is in, so the compose window Swift asked the
+    # browser for can open behind it. Find it there and bring it forward; never a window with a subject.
+    for hwnd in screen.browser_windows():
+        if hwnd == front or screen.private(hwnd):
+            continue
+        fields = screen.fields(hwnd)
+        if len(fields) < len(FIELDS) or screen.subject_in_use(fields):
+            continue
+        if screen.bring_forward(hwnd):
+            logger.info("gmail compose brought forward", front=label)
+            return hwnd, fields
+        return Waiting("behind", label, tuple(fields))
     return waiting
 
 
@@ -94,6 +109,10 @@ def gave_up(waiting: Waiting | None, waited_s: float) -> DesktopError:
     logger.warning("gmail compose not filled", waited_s=round(waited_s, 1), reason=reason,
                    front=waiting.front if waiting else "", found=list(waiting.found) if waiting else [])
     code = WAIT_CODES.get(reason, "gmail_not_in_front")
+    if reason == "behind":
+        return DesktopError("Gmail's compose window opened behind another window, and Windows wouldn't let "
+                            "Swift bring it forward.", "Click the Gmail window: Swift fills it in. Or ask again.",
+                            code=code)
     return DesktopError("Gmail's compose window didn't appear.", "Check you're signed in to Gmail in your browser.",
                         code=code)
 

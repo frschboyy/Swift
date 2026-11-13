@@ -69,12 +69,15 @@ WINDOW_CLASSES = {"Edit": "edit", "_WwG": "document", "Chrome_RenderWidgetHostHW
 # ---- Win32 -------------------------------------------------------------------------------------
 
 user32 = ctypes.WinDLL("user32", use_last_error=True) if os.name == "nt" else None
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True) if os.name == "nt" else None
 GWL_STYLE = -16
 ES_PASSWORD = 0x20
 EM_GETSEL = 0x00B0
 WM_GETTEXT, WM_GETTEXTLENGTH = 0x000D, 0x000E
 INPUT_MOUSE, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 0, 1, 0x2, 0x4
 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x2, 0x4
+SW_RESTORE = 9
+GW_OWNER = 4
 VK_RETURN, VK_SHIFT, VK_CONTROL, VK_RIGHT = 0x0D, 0x10, 0x11, 0x27
 CF_TEXT, CF_OEMTEXT, CF_UNICODETEXT, CF_LOCALE = 1, 7, 13, 16
 ULONG_PTR = ctypes.c_size_t
@@ -84,6 +87,9 @@ class GUITHREADINFO(ctypes.Structure):
     _fields_ = [("cbSize", wintypes.DWORD), ("flags", wintypes.DWORD), ("hwndActive", wintypes.HWND),
                 ("hwndFocus", wintypes.HWND), ("hwndCapture", wintypes.HWND), ("hwndMenuOwner", wintypes.HWND),
                 ("hwndMoveSize", wintypes.HWND), ("hwndCaret", wintypes.HWND), ("rcCaret", wintypes.RECT)]
+
+
+WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
 
 class LASTINPUTINFO(ctypes.Structure):
@@ -335,6 +341,19 @@ class _GmailScreen:
     def private(self, hwnd: int) -> bool:
         return self.never_read.blocks(_process(hwnd)[2], _title(hwnd))
 
+    def browser_windows(self) -> list[int]:
+        """Visible top-level browser windows, top of the z-order first."""
+        found: list[int] = []
+
+        @WNDENUMPROC
+        def visit(hwnd: int, _: int) -> bool:
+            if user32.IsWindowVisible(hwnd) and not user32.GetWindow(hwnd, GW_OWNER) and self.is_browser(hwnd):
+                found.append(int(hwnd))
+            return True
+
+        user32.EnumWindows(visit, 0)
+        return found
+
     def fields(self, hwnd: int) -> dict[str, Any]:
         try:
             root = self.uia.automation.ElementFromHandle(hwnd)
@@ -346,6 +365,23 @@ class _GmailScreen:
     def subject_in_use(self, fields: dict[str, Any]) -> bool:
         """A compose window Swift opened has an empty subject; a reply or the owner's own draft doesn't."""
         return bool((self.value(fields["subject"]) or "").strip())
+
+    def bring_forward(self, hwnd: int) -> bool:
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, SW_RESTORE)
+        if user32.SetForegroundWindow(hwnd) and _foreground() == hwnd:
+            return True
+        # Windows lets a background process bring a window forward only through the input of the app in front.
+        mine = kernel32.GetCurrentThreadId()
+        theirs = user32.GetWindowThreadProcessId(_foreground(), None)
+        attached = bool(theirs) and theirs != mine and bool(user32.AttachThreadInput(mine, theirs, True))
+        try:
+            user32.BringWindowToTop(hwnd)
+            user32.SetForegroundWindow(hwnd)
+        finally:
+            if attached:
+                user32.AttachThreadInput(mine, theirs, False)
+        return _foreground() == hwnd
 
     def settable(self, element: Any) -> bool:
         value = self.uia.value(element)

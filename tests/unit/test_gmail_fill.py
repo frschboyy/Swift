@@ -266,7 +266,36 @@ def test_the_cursor_already_in_the_body_still_works() -> None:
     assert screen.text["body"] == BODY and not screen.clicks
 
 
-def test_a_window_with_a_subject_is_never_filled() -> None:
+# ---- the compose window behind another app (check 258) -----------------------------------------------
+
+
+def test_a_compose_window_behind_the_app_in_front_is_brought_forward_and_filled() -> None:
+    screen = FakeScreen({WORD: Window(browser=False, label="Word"), COMPOSE: Window()}, front_hwnd=WORD)
+    _fill(screen)
+    assert screen.front_hwnd == COMPOSE and screen.text["body"] == BODY
+
+
+def test_a_compose_window_windows_won_t_bring_forward_waits_and_says_so() -> None:
+    screen = FakeScreen({WORD: Window(browser=False, label="Word"), COMPOSE: Window()}, front_hwnd=WORD,
+                        forward=False)
+    waiting = gmail_fill.find_compose(screen)
+    assert waiting == gmail_fill.Waiting("behind", "Word", gmail_fill.FIELDS)
+    error = gmail_fill.gave_up(waiting, 20)
+    assert error.code == "gmail_behind" and "Click the Gmail window" in error.hint
+    assert screen.text == {}  # nothing written into a window that isn't in front
+
+
+def test_a_window_with_a_subject_is_never_filled_in_front_or_behind() -> None:
     """A reply or the owner's own draft: To would be replaced. Only an empty compose window is Swift's."""
-    assert gmail_fill.find_compose(FakeScreen({COMPOSE: Window(subject="Re: their thread")})) == gmail_fill.Waiting(
+    in_use = Window(subject="Re: their thread")
+    assert gmail_fill.find_compose(FakeScreen({COMPOSE: in_use})) == gmail_fill.Waiting(
         "in_use", "Chrome", gmail_fill.FIELDS)
+    screen = FakeScreen({WORD: Window(browser=False, label="Word"), OTHER_BROWSER: in_use}, front_hwnd=WORD)
+    assert isinstance(gmail_fill.find_compose(screen), gmail_fill.Waiting) and screen.front_hwnd == WORD
+
+
+def test_a_private_window_behind_is_skipped_not_filled() -> None:
+    screen = FakeScreen({WORD: Window(browser=False, label="Word"), OTHER_BROWSER: Window(private=True)},
+                        front_hwnd=WORD)
+    assert gmail_fill.find_compose(screen) == gmail_fill.Waiting("not_browser", "Word")
+    assert screen.front_hwnd == WORD

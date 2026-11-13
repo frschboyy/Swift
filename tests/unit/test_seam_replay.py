@@ -515,6 +515,7 @@ async def test_a_question_after_requests_that_ran_together_is_on_its_card(monkey
     import swift.session as session_module
 
     monkeypatch.setattr(session_module, "FINISHED_ROW_S", 0.2)
+    monkeypatch.setattr("swift.seen.SEEN_S", 0.05)
     session, out, _records, agent, stt = asker(parked=ParkedThreads(None), wake_question_s=5.0)
     tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
     await asyncio.sleep(0.05)
@@ -522,7 +523,11 @@ async def test_a_question_after_requests_that_ran_together_is_on_its_card(monkey
     await asyncio.sleep(0.05)
     agent.runs[tea]["go"].set()
     agent.runs[coffee]["go"].set()
-    await until(lambda: not out.last("runs")["rows"], timeout=3.0)  # both ended, their rows gone
+    await until(lambda: all(r["state"] == "result" for r in out.last("runs")["rows"]))
+    for run in (tea, coffee, tea):  # the owner reads both answers (A4: an unseen answer keeps its row)
+        await session.handle(Message("focus", {"run_id": run}))
+        await asyncio.sleep(0.1)
+    await until(lambda: not out.last("runs")["rows"], timeout=3.0)  # both ended and read, their rows gone
     await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
     await until(lambda: asks(out) and asks(out)[-1].get("open"))
     await asyncio.sleep(0.05)

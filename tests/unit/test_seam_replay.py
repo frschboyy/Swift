@@ -738,3 +738,32 @@ async def test_an_answer_that_ends_behind_a_card_waits_there_until_it_is_seen(mo
     assert screen["cardRun"] == third and research not in screen["behind"]
     await finish_all(session, agent)
 
+
+async def test_a_card_brought_back_from_the_stack_resumes_where_it_was() -> None:
+    """A6 (owner's run of 2026-11-13): a card opened from the stack seemed to restart, and some stayed
+    "Working on it". Brought forward, a working request shows its own last step (the same run, not a new
+    one) and one that ended behind shows its answer, never a working card."""
+    session, out, _records, agent, stt = make()
+    research = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    notes = await started(session, out, agent, stt, "Swift, summarise my notes from Monday")
+    agent.runs[notes]["queue"].put_nowait(ExecEvent("step", "Reading the notes", activity="reading"))
+    await until(lambda: any(r["run_id"] == notes and r["activity"] == "reading" for r in out.last("runs")["rows"]))
+    # The working one comes forward: its own card, its last step, and the provider started nothing new.
+    n = len(out.messages)
+    await session.handle(Message("focus", {"run_id": notes}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == notes and screen["stage"] == "working" and screen["behind"] == [research]
+    assert screen["cardWords"] == "summarise my notes from Monday"
+    assert [m.data["text"] for m in out.messages[n:] if m.type == "step"][-1:] == ["Reading the notes"]
+    assert len(agent.requests) == 2 and not agent.cancelled
+    # The research ends behind it; brought forward, it shows its answer, not "Working on it".
+    agent.runs[research]["go"].set()
+    await until(lambda: any(r["run_id"] == research and r["state"] == "result" for r in out.last("runs")["rows"]))
+    await session.handle(Message("focus", {"run_id": research}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == research and screen["stage"] == "result", screen
+    assert screen["behind"] == [notes] and screen["behindStates"] == ["working"]
+    await finish_all(session, agent)

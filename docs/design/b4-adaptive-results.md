@@ -10,9 +10,10 @@ document preview, a chart, or plain text. The card's look follows. Swift may use
 **In one paragraph:** the worker sends Swift a *typed result*, a shape plus its data, through a tool Swift
 gives it, never as markup. Swift's backend checks it, may change the shape or the size it's shown at, and adds who
 made it. The overlay draws it with Halo blocks that only Swift's own code draws. When anything doesn't fit, the
-card shows plain text. Swift says a sentence or two aloud and the card shows the rest. The free tools are
-renderers that ship with Swift, pinned and offline, and the owner approves the list once. Installing on demand,
-with a card each time as C4 says, is for the worker's own tools, never for what draws the overlay.
+card shows plain text. Swift says a sentence or two aloud and the card shows the rest. The owner decided the tools question (2026-11-13): a vetted set of free
+tools ships with Swift and the owner approves the list once. Anything else is installed only when needed, with a
+card every time (C4). It runs on the worker's side, and its output reaches the card as data, never as code in the
+overlay. §4 has the recommended set and how an install is asked for and kept.
 
 ## 1. What's there today
 
@@ -132,16 +133,69 @@ listed. Mermaid's input is the worker's text, so it gets the same care as any wo
 Mermaid has had XSS advisories in earlier versions. That's the reason for pinning, strict mode and the review that
 comes with every version bump (`uv`/`npm` lockfiles already pin).
 
-**Ship a vetted set, or install when needed? Recommendation: ship the set, and the owner approves it once.**
-- What draws the overlay runs in the same page that draws Needs your OK. Code downloaded while Swift runs would
-  sit next to the approval button. Product rules and X-17 depend on that page running only reviewed code.
-- Shipped renderers work offline, cost nothing until used (lazy import), and go through the same tests, seam
-  replay and licence check as the rest of Swift.
-- "Install when needed, asking on a card each time" (C4) stays for the **worker's** tools: a Python package to
-  read a spreadsheet, a converter for an odd file type. Those run in the worker's sandbox and never in the overlay.
-  The C4 card says what will be installed, from where, why and its licence.
-- The list Swift ships and its versions go in an ADR, so adding a renderer later is an owner decision and not a
-  surprise.
+### The owner's decision (2026-11-13): a vetted set, and installs outside it ask
+
+A vetted set of free tools ships with Swift, and the owner approves that list once. Anything outside the set is
+installed only when needed, and Swift asks on a card every time (C4).
+
+### The vetted set (recommended, for the owner's one-time approval)
+
+| # | Tool | Covers | Licence | Size | Offline | New dependency |
+|---|---|---|---|---|---|---|
+| 1 | **Swift's own blocks** (overlay TypeScript) | Text, list, headed table, comparison, project cards, simple bar and line charts (≤4 series, SVG) | Swift's | ~70 lines per shape (prototype) | yes | no |
+| 2 | **Mermaid**, `@mermaid-js/tiny` 12.3, pinned | Diagrams: flow, sequence, state, class, ER, timeline, gantt, mind map, quadrant | MIT | 2.9 MB unpacked; measure the bundle with `vite build` before approval | yes, it renders in WebView2 with no network | **yes**, the only one |
+| 3 | **Windows Shell thumbnails** (`IShellItemImageFactory`), through `comtypes` / `pywin32` | Document previews: the first page of a PDF, Word, PowerPoint or Excel file, and images | Windows; `comtypes` MIT, `pywin32` PSF | 0, both already in `pyproject.toml` | yes | no. Unproven on the PC: needs a spike |
+| 4 | **Word through COM** (ADR-012, already used) | A document's excerpt and title beside its thumbnail | — | 0 | yes | no |
+
+That's the whole set: **one new dependency.** Everything in it draws in the overlay or in Swift's backend, runs
+offline, sends nothing off the PC, and loads only when a result needs it (lazy import). The list, versions and
+licences go in an ADR, and the overlay's licence check covers them. A version bump is a code change, reviewed with
+Mermaid's advisories in mind (strict mode, §4 above), not an install.
+
+Kept out of the set, and why (the full table above): ECharts (60 MB), Vega-Lite (a second spec language), Chart.js
+(canvas, no text for screen readers), Graphviz WASM and dagre (Mermaid covers them), elkjs (EPL/GPL licence),
+pdf.js and mammoth (a thumbnail covers a card; mammoth's HTML would have to be trusted), and KaTeX (no request
+yet). Each can still come in later through the install path below, or by the owner adding it to the set.
+
+### An install outside the set
+
+**Where it runs.** An installed tool runs on the worker's side, never in the overlay page. The overlay draws Needs
+your OK, so it only ever runs reviewed, shipped code. An outside tool's output reaches the card as data, or as a
+PNG through the Preview block, so Swift still draws everything (principle 3). For example, a chart library the set
+lacks makes a PNG, and Swift shows that PNG as a Preview. It never adds a script to the overlay. Installs go into a
+folder Swift owns (`%LOCALAPPDATA%\Swift\tools\<name>\`, a `uv` venv for Python or a local `npm` prefix for Node),
+never a global install and never the PATH. Removing one deletes that folder.
+
+**How it's asked: a Needs your OK card, every time.**
+- **The worker asks** through a `request_tool` tool, giving the package, the ecosystem (pip or npm) and a reason in
+  a few words. Swift never installs anything from a worker's shell command: the command card refuses
+  `pip install`, `npm i`, `winget` and the like, and points the worker to `request_tool`.
+- **Swift looks up the facts itself** from the package index, never from the worker: the name, the exact version,
+  the source (PyPI or npm), the licence, the download size, and whether it needs network access when it runs.
+  If a fact can't be found, the card says so.
+- **The card:** "Install *name* *version* to make the chart you asked for?" The facts box holds the source,
+  licence, size, where it goes, and "works offline: yes / no / unknown". The worker's reason is shown as the
+  worker's, marked as on X-17. The buttons are **Install** and **Not now**.
+- **Product rules hold:** approving hands-free needs Swift's name, and a bare "yes" never installs (this isn't
+  the reversible-change exception). Typing never approves. Approve ignores clicks for its first 400 ms. The card
+  never times out into a yes.
+- **Refused by default, without a card:** licences that aren't OSI-approved, GPL/AGPL code that would ship with
+  Swift (a separate tool the worker runs is fine), packages that need a sign-in or an account (sign-in is the
+  owner's), and anything that sends audio off the PC.
+
+**How it's kept.** Each approved install writes a record to `%LOCALAPPDATA%\Swift\tools\installed.yaml`: the name,
+version, source, licence, hash of what was downloaded, when, the run that asked, and that the owner approved by
+voice or by click. This is a content-free record, so it fits the logging rule. The record is how Swift knows what
+it has:
+- **Using an installed tool again doesn't ask again.** The decision was "asking every time it is installed". An
+  upgrade to a new version is a new install and asks. *For the owner to confirm (decision 3b).*
+- **The owner can see and remove them:** "what tools have you installed?" reads the record, and "remove *name*"
+  deletes the folder and its entry. Deleting asks on a card, as every delete does (ADR-019).
+- **Promoting a tool into the vetted set** is the owner's decision and a code change, never automatic. That way the
+  set grows only by review.
+
+**Built with C4, not B4.** The install path is C4's work, after the groundwork (the `WorkerTask` grant and run
+records). B4 needs only the vetted set, so B4 doesn't wait for C4.
 
 ## 5. Words and visuals: what's said and what's shown
 
@@ -190,11 +244,15 @@ scaling, forced colours, reduced motion, and the Windows thumbnail call.
 1. **Who chooses the shape:** the worker proposes it through a `show_result` tool, and Swift checks it, sizes it
    and marks it. *Recommended.* Alternative: Swift guesses the shape from the worker's text, which is weaker and
    guesses wrong on prose.
-2. **Ship or install:** ship a vetted set of renderers and approve the list once. *Recommended.* Installing on
-   demand (C4, a card each time) stays for the worker's own tools only.
-3. **The list:** Mermaid (`@mermaid-js/tiny`, MIT) as the one new overlay dependency, for diagrams. Swift's own code
-   for tables, comparisons, cards and simple charts. Windows thumbnails for document previews, with no new
-   dependency. *Recommended.* Without Mermaid, dagre does flow diagrams only.
+2. **Ship or install:** **decided by the owner (2026-11-13).** A vetted set ships and is approved once. Anything
+   outside it is installed when needed, with a card every time (§4).
+3. **The vetted set, for the one-time approval:** Swift's own blocks, Mermaid (`@mermaid-js/tiny`, MIT, the one new
+   dependency), Windows Shell thumbnails, and Word through COM (§4). *Recommended.* Without Mermaid, dagre does
+   flow diagrams only.
+   - **3b.** An installed tool outside the set is reused without asking again, and a new version asks again.
+     *Recommended.* The other reading is to ask before every use, which means a card on every chart from that tool.
+   - **3c.** Outside tools run on the worker's side and reach the card as data or a PNG, never as code in the
+     overlay. *Recommended*; it follows from the product rules.
 4. **The worker's judgment is labelled as the worker's** ("Claude's pick"), never in Swift's voice. *Recommended.*
 5. **Order:** Halo Step B first, built as a table of typed blocks with no protocol change. Then the shapes one at a
    time: compare, diagram, preview, chart and cards. *Recommended.* B4 can't land before Step B without drawing

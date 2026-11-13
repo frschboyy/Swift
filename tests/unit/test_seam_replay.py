@@ -24,6 +24,7 @@ from test_dialogue import asker, asks
 from test_runs import SHORT, finish_all, make, say, started, until
 from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
+from virtual_clock import VirtualLoop
 
 from swift.executors.base import ExecEvent
 from swift.executors.claude_mapping import confirm_card
@@ -35,6 +36,36 @@ REPLAY = Path(__file__).resolve().parents[2] / "overlay" / "tests" / "seam" / "r
 NODE = shutil.which("node")
 
 
+class _Virtual(asyncio.DefaultEventLoopPolicy):
+    def new_event_loop(self) -> asyncio.AbstractEventLoop:
+        return VirtualLoop(time.monotonic())
+
+
+# shortcut: pytest-asyncio deprecates this override; its hook would move every async test onto a loop factory.
+pytestmark = pytest.mark.filterwarnings('ignore:Overriding the "event_loop_policy" fixture:DeprecationWarning')
+
+
+@pytest.fixture
+def event_loop_policy() -> _Virtual:
+    """Virtual time: the Node replay blocks the loop 0.7 s (5 s under load) and a question's window
+    used to run out while the test only looked (2026-11-13: three seam tests failed under load)."""
+    return _Virtual()
+
+
+@pytest.fixture(autouse=True)
+def _one_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Utterances and ``until`` stamp ``time.monotonic()``: the loop's virtual clock here, as in Swift."""
+    real = time.monotonic
+
+    def now() -> float:
+        try:
+            return asyncio.get_running_loop().time()
+        except RuntimeError:
+            return real()
+
+    monkeypatch.setattr(time, "monotonic", now)
+
+
 def _screen(out: Any) -> dict[str, Any]:
     assert NODE, "the seam test needs Node (the overlay's own tests do too)"
     frames = [{"type": m.type, "data": m.data} for m in out.messages if m.type != "level"]
@@ -42,6 +73,15 @@ def _screen(out: Any) -> dict[str, Any]:
                           text=True, encoding="utf-8", timeout=30, check=False)
     assert done.returncode == 0, done.stderr
     return json.loads(done.stdout)
+
+
+async def _shows(out: Any, check: Any, timeout: float = 4.0) -> None:
+    """Wait for the screen to show something. Each look replays every frame in real time, so look every 0.1 s."""
+    for _ in range(int(timeout / 0.1)):
+        if check(_screen(out)):
+            return
+        await asyncio.sleep(0.1)
+    raise AssertionError("timed out")
 
 
 def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str, Any]:
@@ -359,7 +399,7 @@ async def test_a_timer_waits_for_a_question_on_screen() -> None:
     await asyncio.sleep(0.1)
     assert agree(session, out)["question"] == "Turn off Wi-Fi?", "the timer was sent over the question and refused"
     await say(session, stt, "no")
-    await until(lambda: _screen(out)["cardRun"].startswith("due-"), timeout=4.0)
+    await _shows(out, lambda s: (s["cardRun"] or "").startswith("due-"))
     agree(session, out)
     await finish_all(session, agent)
 
@@ -419,7 +459,7 @@ async def test_a_timer_during_a_run_waits_in_the_stack_and_is_never_refused() ->
     assert [i["kind"] for i in out.last("stack")["items"]] == ["due"]
     agent.runs[rid]["go"].set()
     await finish_all(session, agent)
-    await until(lambda: _screen(out)["cardRun"].startswith("due-"), timeout=4.0)
+    await _shows(out, lambda s: (s["cardRun"] or "").startswith("due-"))
     agree(session, out)
     assert out.last("stack")["items"] == []
 

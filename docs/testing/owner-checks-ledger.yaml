@@ -58,7 +58,7 @@ areas:
     paths: [src/swift/attention.py, overlay/src/deck.ts, overlay/src/deckdraw.ts, overlay/src/shuffle.ts, overlay/src/panes.ts, overlay/src/pane.ts, overlay/src/raise.ts, overlay/src-tauri/src/panes.rs, overlay/src-tauri/src/placement.rs]
     checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219]
   stack:
-    paths: [src/swift/stack.py, src/swift/parked.py, overlay/src/stack.ts]
+    paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
     checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212]
   presence:
     rule: no hands-free listening while locked

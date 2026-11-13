@@ -16,7 +16,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun
+from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun, WorkerTask
 from swift.stt.fixes import WordFixes
 from swift.stt.improve import Proposal, Report, decide, run_pass
 from swift.stt.recordings import Recordings
@@ -59,7 +59,7 @@ class ImproveExecutor:
         self._answers: dict[str, asyncio.Future[bool]] = {}
         self.last: Report | None = None
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
         run_id = f"improve-{next(self._ids)}"
         self._results[run_id] = None
         return run_id

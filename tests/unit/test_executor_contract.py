@@ -6,6 +6,7 @@ import asyncio
 
 import pytest
 
+from swift.executors.base import WorkerTask
 from swift.executors.base import ExecEvent, UnknownRun
 from swift.executors.mock import SCENARIOS, MockExecutor
 
@@ -24,7 +25,7 @@ async def drain(ex: MockExecutor, run_id: str, approve: bool | None = None) -> l
 @pytest.mark.parametrize("scenario", ["happy", "long"])
 async def test_scenario_runs_to_done(scenario: str) -> None:
     ex = MockExecutor(speed=0)
-    run_id = await ex.start("request", scenario=scenario)
+    run_id = await ex.start(WorkerTask("request"), scenario=scenario)
     events = await drain(ex, run_id)
     result = await ex.result(run_id)
     assert result.status == "done"
@@ -35,7 +36,7 @@ async def test_scenario_runs_to_done(scenario: str) -> None:
 async def test_result_details_are_card_shaped() -> None:
     ex = MockExecutor(speed=0)
     for scenario in ("happy", "long"):
-        run_id = await ex.start("r", scenario=scenario)
+        run_id = await ex.start(WorkerTask("r"), scenario=scenario)
         await drain(ex, run_id)
         details = (await ex.result(run_id)).details
         assert details is not None and details["kind"] in {"text", "list", "table"}
@@ -43,7 +44,7 @@ async def test_result_details_are_card_shaped() -> None:
 
 async def test_confirm_approve_continues() -> None:
     ex = MockExecutor(speed=0)
-    run_id = await ex.start("r", scenario="confirm")
+    run_id = await ex.start(WorkerTask("r"), scenario="confirm")
     events = await drain(ex, run_id, approve=True)
     confirm = [e for e in events if e.type == "confirm"]
     assert len(confirm) == 1 and confirm[0].tool == "Edit" and confirm[0].detail
@@ -53,7 +54,7 @@ async def test_confirm_approve_continues() -> None:
 
 async def test_confirm_reject_stops() -> None:
     ex = MockExecutor(speed=0)
-    run_id = await ex.start("r", scenario="confirm")
+    run_id = await ex.start(WorkerTask("r"), scenario="confirm")
     events = await drain(ex, run_id, approve=False)
     assert events[-1].type == "confirm"
     result = await ex.result(run_id)
@@ -63,14 +64,14 @@ async def test_confirm_reject_stops() -> None:
 
 async def test_error_scenario() -> None:
     ex = MockExecutor(speed=0)
-    run_id = await ex.start("r", scenario="error")
+    run_id = await ex.start(WorkerTask("r"), scenario="error")
     await drain(ex, run_id)
     assert (await ex.result(run_id)).status == "error"
 
 
 async def test_cancel_mid_run_ends_events_and_reports_cancelled() -> None:
     ex = MockExecutor(speed=0.05)
-    run_id = await ex.start("r", scenario="long")
+    run_id = await ex.start(WorkerTask("r"), scenario="long")
     seen = []
 
     async def consume() -> None:
@@ -87,7 +88,7 @@ async def test_cancel_mid_run_ends_events_and_reports_cancelled() -> None:
 
 async def test_cancel_while_waiting_for_confirm() -> None:
     ex = MockExecutor(speed=0)
-    run_id = await ex.start("r", scenario="confirm")
+    run_id = await ex.start(WorkerTask("r"), scenario="confirm")
     async for event in ex.events(run_id):
         if event.type == "confirm":
             await ex.cancel(run_id)
@@ -96,7 +97,7 @@ async def test_cancel_while_waiting_for_confirm() -> None:
 
 async def test_cancel_after_finish_is_harmless() -> None:
     ex = MockExecutor(speed=0)
-    run_id = await ex.start("r", scenario="happy")
+    run_id = await ex.start(WorkerTask("r"), scenario="happy")
     await drain(ex, run_id)
     await ex.cancel(run_id)
     assert (await ex.result(run_id)).status == "done"
@@ -104,8 +105,8 @@ async def test_cancel_after_finish_is_harmless() -> None:
 
 async def test_runs_are_independent_and_ids_unique() -> None:
     ex = MockExecutor(speed=0)
-    a = await ex.start("a", scenario="happy")
-    b = await ex.start("b", scenario="error")
+    a = await ex.start(WorkerTask("a"), scenario="happy")
+    b = await ex.start(WorkerTask("b"), scenario="error")
     assert a != b
     await drain(ex, a)
     await drain(ex, b)

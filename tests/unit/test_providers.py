@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from test_session import Recorder
 
+from swift.executors.base import WorkerTask
 from swift import identity
 from swift.executors.base import ACTIVITIES, ExecutorUnavailable, ProviderInfo
 from swift.executors.claude_code import SYSTEM_PROMPT, ClaudeCodeExecutor
@@ -28,7 +29,8 @@ class Unavailable(EchoExecutor):
     name = "away"
     provider = ProviderInfo("away", "Away agent")
 
-    async def start(self, request: str, **kw: Any) -> str:
+    async def start(self, task: WorkerTask, **kw: Any) -> str:
+        request = task.prompt
         raise ExecutorUnavailable("Away agent isn't installed.", "Install it.")
 
 
@@ -91,14 +93,14 @@ def test_claude_is_told_it_works_for_swift() -> None:
 
 
 async def test_start_falls_back_past_an_unavailable_provider() -> None:
-    started = await Providers([Unavailable(), MockExecutor(speed=0)]).start("hi")
+    started = await Providers([Unavailable(), MockExecutor(speed=0)]).start(WorkerTask("hi"))
     assert started.provider is MOCK
     assert [p.id for p, _ in started.skipped] == ["away"]
 
 
 async def test_start_raises_when_no_provider_is_available() -> None:
     with pytest.raises(ExecutorUnavailable, match="Away agent"):
-        await Providers([Unavailable()]).start("hi")
+        await Providers([Unavailable()]).start(WorkerTask("hi"))
 
 
 def test_agents_leave_out_swifts_own_stand_ins() -> None:
@@ -232,8 +234,9 @@ def as_claude() -> MockExecutor:
             super().__init__(speed=0)
             self.requests: list[str] = []
 
-        async def start(self, request: str, scenario: str | None = None, **kw: Any) -> str:
+        async def start(self, task: WorkerTask, scenario: str | None = None) -> str:
+            request = task.prompt
             self.requests.append(request)
-            return await super().start(request, scenario, **kw)
+            return await super().start(task, scenario)
 
     return AsClaude()

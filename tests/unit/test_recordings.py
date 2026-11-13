@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 from loguru import logger
 
+from swift.executors.base import WorkerTask
 from swift.backend.__main__ import _make_recordings, _on_finish, _recordings_action
 from swift.executors.improve import ImproveExecutor
 from swift.ipc.protocol import decode
@@ -404,7 +405,7 @@ class FakeTranscriber:
 
 
 async def drive(executor: ImproveExecutor, answer: bool | None) -> tuple[list[Any], Any]:
-    run_id = await executor.start("Improve speech recognition")
+    run_id = await executor.start(WorkerTask("Improve speech recognition"))
     events = []
     async for event in executor.events(run_id):
         events.append(event)

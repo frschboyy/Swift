@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from test_google_contacts import Call, aborted
 
+from swift.executors.base import WorkerTask
 from swift.connectors import google
 from swift.connectors.base import ConnectorError, Contact, OutgoingEmail
 from swift.connectors.gmail import GmailConnector
@@ -171,7 +172,7 @@ async def test_cancel_while_waiting_for_the_warm_cli_stops_the_start(tmp_path: P
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=SlowClient)
     ex.prepare()  # the spare starts connecting
     await asyncio.sleep(0.05)
-    starting = asyncio.create_task(ex.start("what's on my calendar"))
+    starting = asyncio.create_task(ex.start(WorkerTask("what's on my calendar")))
     await asyncio.sleep(0.05)
     starting.cancel()  # Esc: Session.cancel() cancels the interaction task
     try:

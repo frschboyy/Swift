@@ -17,7 +17,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from swift.executors.base import ExecEvent, ExecResult, UnknownRun
+from swift.executors.base import ExecEvent, ExecResult, UnknownRun, WorkerTask
 from swift.executors.providers import MOCK
 
 if TYPE_CHECKING:
@@ -204,9 +204,7 @@ class MockExecutor:
         self._pending: dict[str, asyncio.Future[bool]] = {}
         self._ids = itertools.count(1)
 
-    async def start(
-        self, request: str, scenario: str | None = None, *, demand: str | None = None, override: str | None = None
-    ) -> str:
+    async def start(self, task: WorkerTask, scenario: str | None = None) -> str:
         script = SCENARIOS[scenario or self.default_scenario]
         run_id = f"mock-{next(self._ids)}"
         run = _Run()

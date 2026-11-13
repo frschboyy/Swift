@@ -10,6 +10,7 @@ from test_dialogue import asker, asks
 from test_runs import Agent, SameSession, finish_all, make, runs, say, sent_for, started, until
 from test_seam_replay import _beside, _lane, agree
 
+from swift.executors.base import WorkerTask
 from swift.executors.base import ExecEvent, ExecResult
 from swift.ipc.protocol import Message
 
@@ -297,10 +298,11 @@ class SlowToStart(Agent):
         super().__init__(tools)
         self.gate = asyncio.Event()
 
-    async def start(self, request: str, **kw: Any) -> Any:
+    async def start(self, task: WorkerTask, **kw: Any) -> Any:
+        request = task.prompt
         self.requests.append(request)
         await self.gate.wait()
-        return await super().start(request, **kw)
+        return await super().start(task, **kw)
 
 
 async def test_a_request_being_spoken_is_in_front_and_esc_abandons_it() -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import AsyncIterator
 
-from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun
+from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun, WorkerTask
 
 
 class EchoExecutor:
@@ -21,11 +21,11 @@ class EchoExecutor:
         self._results: dict[str, ExecResult] = {}
         self._ids = itertools.count(1)
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
         run_id = f"echo-{next(self._ids)}"
         self._results[run_id] = ExecResult(
             "done",
-            f"“{request}”",
+            f"“{task.prompt}”",
             {"kind": "text", "text": "Transcribed on this PC. No agent is configured yet, so nothing was sent anywhere."},
         )
         return run_id

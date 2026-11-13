@@ -29,7 +29,7 @@ areas:
     checks: [110-116]
   conversation:
     paths: [src/swift/dialogue.py, src/swift/answer_window.py, src/swift/intake.py, overlay/src/ask.ts]
-    checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218]
+    checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243]
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
     paths: [src/swift/security/*, overlay/src/answer.ts, overlay/src/cardtext.ts]
@@ -47,7 +47,7 @@ areas:
     checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
-    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239]
+    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243]
   stopping:
     paths: [src/swift/cleanup.py]
     checks: [242]
@@ -105,6 +105,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [243]
+    why: the owner's wafer loop of 2026-11-13; a misheard Wi-Fi gets Swift's own question, not seen on the real PC
   - checks: [242]
     why: the owner's stuck card of 2026-11-13; fixed for a second Stop, not seen on the real PC
   - checks: [240, 241]

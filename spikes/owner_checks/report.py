@@ -575,7 +575,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
 
 
 def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
-    """Checks 233-239: requests in the owner's own words. Matched by their phrases, so a misheard one is NOT SEEN."""
+    """Checks 233-239: requests in the owner's own words. Matched by their phrases, so a misheard one is NOT SEEN.
+    243: a misheard "turn off the Wi-Fi" ("wafer", 2026-11-13) gets Swift's own question, not the agent."""
 
     def said(pattern: str) -> list[dict[str, Any]]:
         return [r for r in rows if re.search(pattern, r.get("transcript") or "", re.I)]
@@ -593,6 +594,7 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     words = said(r"file called notes|in outlook|subject line")
     cant = said(r"my birthday|my manager|every monday|downloads folder|on my screen")
     stalled = [r for r in cant if r.get("status") != "done" or int(r.get("interaction_ms") or 0) > 30_000]
+    misheard = said(r"\b(wafer|wofo|waffle|why fi)\b")
     tried = [r for r in rows if r.get("route") == "agent"
              and any("system_action" in str(s.get("text")) for s in r.get("steps") or [])]
     refused = [r for r in tried if re.match(r"I (didn.t|couldn.t|haven.t)", answer(r))]
@@ -611,6 +613,9 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
          f"stalled: {times(stalled)}; tell us which were done and which Swift said it can't do"),
         ("238 ten requests of your own", LOOK, "tell us the ten and your tally"),
         ("239 a command Swift understood was done", unless(refused, tried), "understood and not done: " + times(refused)),
+        ("243 a misheard Wi-Fi got Swift's own question, not the agent",
+         unless([r for r in misheard if r.get("route") == "agent"], misheard),
+         f"{len(misheard)} heard; went to the agent: " + times([r for r in misheard if r.get("route") == "agent"])),
     ]
 
 

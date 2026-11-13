@@ -218,6 +218,10 @@ def _close(a: str, b: str) -> bool:
 
 def _option_score(words: list[str], option: str) -> int:
     names = [w for w in _words(option) if w not in _NAME_STOP]
+    if len(names) > 1:
+        # Written as one word too: speech recognition says "WiFi" for the option "Wi-Fi" (owner check 201,
+        # 2026-11-13: two spoken answers were asked again, then set aside).
+        names.append("".join(names))
     return sum(1 for w in words if w not in _NAME_STOP and any(_close(w, n) for n in names))
 
 

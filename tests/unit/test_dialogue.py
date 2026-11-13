@@ -45,6 +45,16 @@ def test_choices_by_ordinal_and_by_name(said: str, index: int) -> None:
     assert (answer.kind, answer.index, answer.value) == ("choice", index, CHOICE.options[index])
 
 
+RADIOS = Question("Did you mean the Wi-Fi or Bluetooth?", "choice", ("Wi-Fi", "Bluetooth"))
+
+
+@pytest.mark.parametrize("said", ["WiFi", "the WiFi", "I meant WiFi", "wifi.", "Wi Fi", "Wi-Fi", "the wi-fi please"])
+def test_an_option_said_as_one_word_is_that_option(said: str) -> None:
+    # Owner check 201, 2026-11-13: "WiFi", as speech recognition writes it, matched neither option.
+    answer = resolve(RADIOS, said)
+    assert (answer.kind, answer.value) == ("choice", "Wi-Fi")
+
+
 @pytest.mark.parametrize("said", ["Sam", "the third one", "banana", "um"])
 def test_a_choice_that_names_none_or_both_is_unclear(said: str) -> None:
     assert resolve(CHOICE, said).kind == "unclear"

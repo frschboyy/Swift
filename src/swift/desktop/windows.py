@@ -40,8 +40,10 @@ from typing import Any, TypeVar
 import psutil
 from loguru import logger
 
+from swift.desktop import gmail_fill
 from swift.desktop.base import (
-    BROWSERS, TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name,
+    APP_NAMES, BROWSERS, TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt,
+    app_name,
 )
 
 T = TypeVar("T")
@@ -52,8 +54,6 @@ GMAIL_WAIT_S = 20.0
 GMAIL_FIELDS = {"to": ("To recipients", "To"), "subject": ("Subject",), "body": ("Message Body", "Message body")}
 # A paste is read by the app after Ctrl+V is processed: wait before the clipboard changes again.
 PASTE_SETTLE_S = 0.12
-# How long a field Swift put the cursor in has to take it, before a paste.
-FOCUS_WAIT_S = 1.0
 MAX_SELECTION_READ = 100_000
 
 # UI Automation control type ids -> the words the context uses.
@@ -309,6 +309,100 @@ class _Uia:
             return bool(self.automation.CompareElements(a, b))
         except Exception:  # noqa: BLE001
             return False
+
+
+class _GmailScreen:
+    """Gmail's compose window as Win32 and UI Automation see it (``gmail_fill.ComposeScreen``).
+
+    Titles are read only for the never-read list; nothing read here is logged.
+    """
+
+    def __init__(self, uia: _Uia, never_read: NeverRead) -> None:
+        self.uia, self.never_read = uia, never_read
+
+    def front(self) -> int:
+        return _foreground()
+
+    def front_label(self, hwnd: int) -> str:
+        """The app in front, by a name Swift knows, else "other": never a title."""
+        exe = _process(hwnd)[2].lower() if hwnd else ""
+        return APP_NAMES.get(exe, "other") if exe else "none"
+
+    def is_browser(self, hwnd: int) -> bool:
+        return bool(hwnd) and _process(hwnd)[2].lower() in BROWSERS
+
+    def private(self, hwnd: int) -> bool:
+        return self.never_read.blocks(_process(hwnd)[2], _title(hwnd))
+
+    def fields(self, hwnd: int) -> dict[str, Any]:
+        try:
+            root = self.uia.automation.ElementFromHandle(hwnd)
+        except Exception:  # noqa: BLE001 - the window closed while being read
+            return {}
+        found = {key: self.uia.find(root, names) for key, names in GMAIL_FIELDS.items()}
+        return {key: element for key, element in found.items() if element}
+
+    def subject_in_use(self, fields: dict[str, Any]) -> bool:
+        """A compose window Swift opened has an empty subject; a reply or the owner's own draft doesn't."""
+        return bool((self.value(fields["subject"]) or "").strip())
+
+    def settable(self, element: Any) -> bool:
+        value = self.uia.value(element)
+        return value is not None and not value.CurrentIsReadOnly
+
+    def set_value(self, element: Any, text: str) -> None:
+        self.uia.value(element).SetValue(text)
+
+    def value(self, element: Any) -> str | None:
+        value = self.uia.value(element)
+        try:
+            return None if value is None else str(value.CurrentValue)
+        except Exception:  # noqa: BLE001 - the page changed while being read
+            return None
+
+    def set_focus(self, element: Any) -> None:
+        try:
+            element.SetFocus()
+        except Exception:  # noqa: BLE001 - has_focus decides: a refusal is a field that didn't take it
+            pass
+
+    def _inside(self, node: Any, element: Any) -> bool:
+        walker = self.uia.automation.RawViewWalker
+        for _ in range(6):
+            if node is None:
+                return False
+            if self.uia.same(node, element):
+                return True
+            node = walker.GetParentElement(node)
+        return False
+
+    def has_focus(self, element: Any) -> bool:
+        """Whether the keyboard is in ``element`` (or inside it): a paste goes wherever it is."""
+        try:
+            return self._inside(self.uia.focused(), element)
+        except Exception:  # noqa: BLE001 - the page changed while being read
+            return False
+
+    def focus_place(self, fields: dict[str, Any], hwnd: int) -> str:
+        for key in gmail_fill.FIELDS:
+            if key in fields and self.has_focus(fields[key]):
+                return key
+        if _foreground() != hwnd:
+            return "other_window"
+        try:
+            return "page" if self.uia.focused() is not None else "none"
+        except Exception:  # noqa: BLE001
+            return "none"
+
+    def paste(self, text: str) -> None:
+        saved = _saved_clipboard()
+        if saved is None:
+            _type(text)
+            return
+        _set_clipboard(text.replace("\n", "\r\n"))
+        _chord(VK_CONTROL, ord("V"))
+        time.sleep(PASTE_SETTLE_S)
+        _set_clipboard(saved)
 
 
 # ---- writers ------------------------------------------------------------------------------------
@@ -683,76 +777,28 @@ class WindowsDesktop:
             return await self._run(self._outlook_draft, to, subject, body)
         if await self._run(self._uia) is None:
             raise DesktopError("Filling in Gmail needs UI Automation, which isn't installed yet.",
-                               "Run `uv sync`, then restart Swift; or use Outlook.")
+                               "Run `uv sync`, then restart Swift; or use Outlook.", code="gmail_no_uia")
         await asyncio.to_thread(os.startfile, GMAIL_COMPOSE_URL)  # type: ignore[attr-defined]
-        deadline = time.monotonic() + GMAIL_WAIT_S
-        while time.monotonic() < deadline:
+        started = time.monotonic()
+        waiting: gmail_fill.Waiting | None = None
+        while time.monotonic() - started < GMAIL_WAIT_S:
             await asyncio.sleep(0.5)
-            if (filled := await self._run(self._fill_gmail, to, subject, body)) is not None:
-                return filled
-        raise DesktopError("Gmail's compose window didn't appear.", "Check you're signed in to Gmail in your browser.")
+            found = await self._run(self._fill_gmail, to, subject, body)
+            if isinstance(found, str):
+                return found
+            waiting = found
+        raise gmail_fill.gave_up(waiting, time.monotonic() - started)
 
-    def _fill_gmail(self, to: list[str], subject: str, body: str) -> str | None:
-        """Fill the compose window in front, once its fields exist; None while it is still loading."""
-        hwnd = _foreground()
-        _, _, exe = _process(hwnd)
-        if exe.lower() not in BROWSERS:
-            return None
-        if self.never_read.blocks(exe, _title(hwnd)):
-            raise DesktopError("Gmail opened in a private window.", "Open a normal window and try again.")
+    def _fill_gmail(self, to: list[str], subject: str, body: str) -> str | gmail_fill.Waiting:
+        """Fill the compose window once its fields exist; ``Waiting`` (why not yet) while they don't."""
         uia = self._uia()
         assert uia is not None
-        root = uia.automation.ElementFromHandle(hwnd)
-        fields = {key: uia.find(root, names) for key, names in GMAIL_FIELDS.items()}
-        if not all(fields.values()):
-            return None
-        # The subject last, and set directly: a paste meant for the body that Gmail sends to the field in
-        # focus can't end up in it (owner checks, 2026-10-27: the message landed in the subject).
-        for key, text in (("to", ", ".join(to)), ("body", body), ("subject", subject)):
-            self._set_field(uia, fields[key], text, key)
-        value = uia.value(fields["subject"])
-        if value is not None and " ".join(str(value.CurrentValue).split()) != " ".join(subject.split()):
-            logger.warning("gmail subject was wrong after filling in: set again")
-            value.SetValue(subject)
+        screen = _GmailScreen(uia, self.never_read)
+        found = gmail_fill.find_compose(screen)
+        if isinstance(found, gmail_fill.Waiting):
+            return found
+        gmail_fill.fill(screen, *found, to, subject, body)
         return f"gmail-compose-{next(self._ids)}"
-
-    def _set_field(self, uia: _Uia, element: Any, text: str, field: str = "") -> None:
-        value = uia.value(element)
-        if value is not None and not value.CurrentIsReadOnly:
-            value.SetValue(text)
-            return
-        element.SetFocus()
-        if not self._has_focus(uia, element):
-            raise DesktopError(f"Swift couldn't put the cursor in Gmail's {field or 'field'}, so it stopped there.",
-                               "Finish the email yourself, or try again.")
-        saved = _saved_clipboard()
-        if saved is None:
-            _type(text)
-            return
-        _set_clipboard(text.replace("\n", "\r\n"))
-        _chord(VK_CONTROL, ord("V"))
-        time.sleep(PASTE_SETTLE_S)
-        _set_clipboard(saved)
-
-    @staticmethod
-    def _has_focus(uia: _Uia, element: Any) -> bool:
-        """Whether the keyboard is in ``element`` (or inside it) yet: a paste goes wherever it is."""
-        deadline = time.monotonic() + FOCUS_WAIT_S
-        walker = uia.automation.RawViewWalker
-        while True:
-            try:
-                node = uia.focused()
-                for _ in range(6):
-                    if node is None:
-                        break
-                    if uia.same(node, element):
-                        return True
-                    node = walker.GetParentElement(node)
-            except Exception:  # noqa: BLE001 - the page changed while being read
-                pass
-            if time.monotonic() > deadline:
-                return False
-            time.sleep(0.05)
 
     def _outlook_draft(self, to: list[str], subject: str, body: str) -> str:
         import win32com.client

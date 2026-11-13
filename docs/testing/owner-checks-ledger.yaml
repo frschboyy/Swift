@@ -82,10 +82,13 @@ areas:
     checks: [10, 38, 39, 50, 51, 75, 76, 92, 95]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
-    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239]
+    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
     checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239]
+  weather:
+    paths: [src/swift/workflows/tools.py]
+    checks: [193, 259, 260]
   reads:
     rule: memory only from the owner's words; Swift's own files are never read
     paths: [src/swift/executors/read_scope.py, src/swift/executors/web_scope.py, src/swift/workflows/scope.py]
@@ -105,6 +108,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [259-261]
+    why: C1 from the owner's run of 2026-11-13 at 15.02, a distance guessed from the weather's area; Swift now asks where you start
   - checks: [243]
     why: the owner's wafer loop of 2026-11-13; a misheard Wi-Fi gets Swift's own question, not seen on the real PC
   - checks: [242]

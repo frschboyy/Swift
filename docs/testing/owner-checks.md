@@ -2050,6 +2050,36 @@ About 2 minutes. From your run of 2026-11-13, 14:13 ("wafer") and 14:25 ("Wofo")
 
 The report checks: none of the misheard Wi-Fi requests went to the agent.
 
+### Where you are (2026-11-13)
+
+About 3 minutes. From your run of 2026-11-13, 15:02: asked how far the CBD was "from my current location", Swift said
+about 4 km. It had taken the weather's area (placed from the PC's internet connection: Nairobi Industrial Area) for
+where you were. Swift doesn't know where you are, so it should ask.
+
+<a id="check-259"></a>**Check 259. A distance from "my current location" asks where you're starting from**
+1. Say "Hey Swift, how far away is the CBD from my current location?".
+2. You should see Swift ask where you're starting from (it may also ask which CBD), and **no distance yet**: no
+   "you appear to be in…", no "about 4 km".
+3. Answer with a place you know, e.g. "from Westlands". Swift gives a distance from there, said to be approximate.
+4. Say "Hey Swift, how long would it take me to drive to the airport from here?". Again it asks where you're starting
+   from before giving a time.
+
+The report checks: no distance or travel time was given without a starting point.
+
+<a id="check-260"></a>**Check 260. The weather still knows where to look**
+1. Say "Hey Swift, is it going to rain later?".
+2. You should see the forecast straight away, **without being asked where**, as in check 193. It may say the
+   forecast is for the area your internet connection is in.
+
+The report checks: the weather was answered without a question back.
+
+<a id="check-261"></a>**Check 261. A distance between two places you name is about right**
+1. Say "Hey Swift, how far is the CBD from Westlands?" (or two places you know the distance between).
+2. You should see a distance said to be approximate, with no question back (you gave the starting point).
+3. Tell us whether it's about right against a map.
+
+The report checks: a distance between two named places was answered (only you know whether it's right).
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

@@ -56,7 +56,7 @@ Swift as an agent that works out how to reach a goal, inside the product rules, 
 
 | # | What the owner wants | Checks | Kind | What's known |
 |---|---|---|---|---|
-| C1 | Never invent a fact it doesn't have: the distance to CBD was guessed at 4 km (really 10–11) with no location | (new check) | defect | The agent answered without a location; it must ask, or use the PC's location with permission |
+| C1 | Never invent a fact it doesn't have: the distance to CBD was guessed at 4 km (really 10–11) with no location | 259–261 | defect, fixed on `claude/c1-grounded-facts-556f60` | Proven: the weather tool's fixed wttr.in request places the PC by its internet address ("Nairobi Industrial Area", 3–4 km from CBD); the agent took that for the owner's location and gave a distance from memory, 2 of 2 times when replayed. Fixed: the agent is told Swift doesn't know where the user is and must ask for a starting point, and the weather's area now reaches it labelled as the forecast's only. Replayed with the fix: it asks where you're starting from (3 of 3), and the weather still answers without asking |
 | C2 | Book an Uber, a flight to Abidjan: find the way, ask for sign-in and details, do it with the owner watching, confirm before paying | 238 | capability | Refused today. Paying always needs the owner's OK; sign-in is the owner's (product rule) |
 | C3 | Opening a website failed (Blackboard, 15:07) | 238 | defect, unproven | Not looked at |
 | C4 | Find and use a tool it lacks (diagrams): explain why, ask before installing, ask for sign-in | 238 | capability | Installing needs the owner's OK every time |
@@ -64,6 +64,8 @@ Swift as an agent that works out how to reach a goal, inside the product rules, 
 | C6 | "Play some music": find out how the owner plays music (an app, YouTube, a folder, a service) and check it started | 235 | capability (after A8) | — |
 | C7 | "Remember that my manager is Ada" | 237 | capability | The settings and memory store (groundwork) |
 | C8 | GitHub: create a repository and pull it down | 238 | worked | It asked for approvals with raw commands: B1, B2 |
+
+**Using the PC's location (C1, needs the owner's OK):** the owner's alternative to asking is to use the PC's own location with permission. That is Windows Location (the WinRT `Geolocator`), a new capability and a new dependency or native call, so it isn't built. If wanted: a `location` tool that asks on a card the first time, says plainly when the location is off or unknown, and never falls back to the internet address.
 
 A **credentials vault** (the owner's idea for C2 and C4) touches a product rule: sign-in is the owner's. It needs a
 decision before anything is built: what may be stored, who enters it, and what Swift may do with it.

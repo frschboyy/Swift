@@ -129,7 +129,12 @@ def test_a_command_that_reaches_swift_s_data_or_a_secret_is_named(tmp_path: Path
     scope, work = _command_scope(tmp_path, monkeypatch)
     data = tmp_path / "AppData" / "Local" / "Swift"
     posix = "/" + data.drive[0].lower() + data.as_posix()[2:]  # Git Bash: /c/Users/…
+    for name in (".env", "deploy.pem"):  # a secret-looking name counts when the file is there
+        (Path(work) / name).write_text("x", encoding="utf-8")
     for command in (
+        r"Get-Content ${env:LOCALAPPDATA}\Swift\interactions.jsonl",
+        r"cat $LOCALAPPDATA/Google/Chrome/User\ Data/Default/Cookies",
+        """cd "$LOCALAPPDATA" && cat ./Swift/interactions.jsonl""",
         """cd "$LOCALAPPDATA/Swift" && grep '"ts": "2026-11-12' interactions.jsonl | head -50""",
         """cd "$LOCALAPPDATA/Swift" && wc -l interactions.jsonl""",
         """cd "$LOCALAPPDATA" && cat Swift/interactions.jsonl""",
@@ -159,6 +164,12 @@ def test_an_ordinary_command_still_goes_to_its_card(tmp_path: Path, monkeypatch:
         "curl -s https://example.com/a?b=1 > out.txt 2>/dev/null",
         "uv run pytest -q tests/unit",
         "dir /s /b *.md",
+        'grep -rn ".env" src/',  # a secret-looking name as a word to search for, with no such file here
+        'git commit -m "config: .env is never read"',
+        "cd ~ && cat Documents/Swift/.claude/launch.json",  # home, then a .claude that isn't home's
+        "cat //nosuchhost-zz/share/x",  # another computer: not judged, and not looked up
+        # A known limit, as for Grep there: a search of a whole folder that holds one gets a card.
+        'grep -r ts "$LOCALAPPDATA" --include=*.jsonl',
     ):
         assert scope.in_command(command, work) is None, command
 
@@ -169,7 +180,7 @@ async def test_claude_code_refuses_a_command_on_swift_s_data_with_no_card(tmp_pa
     from swift.executors.claude_code import ClaudeCodeExecutor, _Run
 
     scope, work = _command_scope(tmp_path, monkeypatch)
-    ex = ClaudeCodeExecutor(cwd=work, claude="claude.exe")
+    ex = ClaudeCodeExecutor(cwd=work, claude="claude.exe", confirm_timeout_s=1)  # fails fast if a card is asked
     ex.reads = scope
     run = _Run()
     ex._runs["cc-1"] = run

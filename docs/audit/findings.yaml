@@ -1654,8 +1654,12 @@
     with no card when it names a never-read place
   test: tests/unit/test_seams_audit_privacy.py::test_claude_code_refuses_a_command_on_swift_s_data_with_no_card
   note: A safeguard. It reads the command's text, so a path built in pieces, by a wildcard or inside a script
-    isn't seen. The root fix is running the agent's shell where it can't open these folders. Needs review by
-    someone other than the author.
+    isn't seen, nor a search of a whole folder that holds a never-read place (a card, as for Grep). The root fix
+    is running the agent's shell where it can't open these folders. Reviewed 2026-11-13 by a session other than
+    the author - pass with follow-ups; its two pre-merge points and four others are in the follow-up commit.
+    Left open - cd to a folder that isn't a plain parent, then a relative path; short (8.3) names. Unverified -
+    whether the CLI runs read-only commands inside the working folder without asking, which would skip this
+    check for a secret file there; and a backend started from inside a packaged app sees AppData redirected.
 - id: RA-07
   title: The contact-guess rule treated titles as names ('Dr Lovelace') and compared the agent's search words, not
     the owner's.

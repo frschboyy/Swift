@@ -72,7 +72,7 @@ def default_never(home: str | None = None) -> tuple[str, ...]:
 
 
 _SPLIT = re.compile(r"""[\s"'`;|&<>()=,]+""")
-_VAR = re.compile(r"\$env:(\w+)|\$\{(\w+)\}|\$(\w+)|%(\w+)%", re.IGNORECASE)
+_VAR = re.compile(r"\$\{env:(\w+)\}|\$env:(\w+)|\$\{(\w+)\}|\$(\w+)|%(\w+)%", re.IGNORECASE)
 
 
 def _flat(path: str) -> str:
@@ -93,11 +93,13 @@ class ReadScope:
 
         Read, Glob and Grep are judged by ``verdict``; a command reached the same files on a card the
         owner approved. This reads the command's text, so it is a safeguard, not a wall:
-        shortcut: a path built in pieces, by a wildcard or inside a script isn't seen; the real fix
-        is running the agent's shell where it can't open these folders at all.
+        shortcut: a path built in pieces, by a wildcard or inside a script isn't seen, nor is a
+        search of a whole folder that holds one (`grep -r … ~`, which gets a card as Grep does there);
+        the real fix is running the agent's shell where it can't open these folders at all.
         """
         env = {k.upper(): v for k, v in os.environ.items()} | {"HOME": self.home, "USERPROFILE": self.home}
         text = _VAR.sub(lambda m: env.get(next(g for g in m.groups() if g).upper(), m.group(0)), command)
+        text = text.replace("\\ ", " ")  # Git Bash's escaped space: "User\ Data"
         tokens = [self.home + t[1:] if t == "~" or t.startswith(("~/", "~\\")) else t for t in _SPLIT.split(text) if t]
         flat = _flat(" ".join(tokens))
         said = {_flat(t).rstrip("/") for t in tokens}
@@ -110,15 +112,20 @@ class ReadScope:
             parent = os.path.dirname(n)
             while len(parent) >= len(home) and parent != os.path.dirname(parent):
                 rest = re.escape(n[len(parent):].lstrip("/"))
-                if parent in said and re.search(rf"(?<![\w.\-]){rest}(?![\w\-])", flat.replace(n, "")):
+                # At the start of a path ("Swift/x", "./Swift"), not inside another one ("Documents/Swift/.claude").
+                if parent in said and re.search(rf"(?<![\w.\-/])(?:\./)?{rest}(?![\w\-])", flat.replace(n, "")):
                     return never
                 parent = os.path.dirname(parent)
         base = cwd or os.getcwd()
         for token in tokens:  # a relative path ("../../.ssh/id_rsa") or a secret-looking file (".env")
             token = re.sub(r"^/(?:mnt/)?([a-zA-Z])(?=/)", r"\1:", token)
+            if re.match(r"[\\/]{2}", token) and _local(token) == token:
+                continue  # another computer's share: not this PC's files, and resolving it would go looking for the host
             try:
                 path = token if os.path.isabs(token) else os.path.join(base, token)
-                if self.verdict(path) == "never":
+                # A secret-looking name counts only if the file is there: ".env" is also a word in a search or a message.
+                if self.verdict(path) == "never" and (
+                        os.path.exists(path) or any(_inside(_norm(path), n) for n in self.never)):
                     return path
             except (OSError, ValueError):  # not a path at all (a URL, an option): nothing to judge
                 continue

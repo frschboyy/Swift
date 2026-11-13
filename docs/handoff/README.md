@@ -299,6 +299,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | Branch | What | State |
 |---|---|---|
 | `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Merged into `main` on 2026-11-12, off by default. It touches the rule "no hands-free listening while locked": reviewed by a session other than the author, two findings fixed (`29a48dc`, `ff0dc47`) and re-reviewed as safe to turn on. Owner checks 228–232 are waiting, with `wake.acoustic: true` |
+| `claude/speech-context-investigation` | An investigation, no production code: can Swift judge how likely each recognised word is? [`context-aware-speech.md`](../explorations/context-aware-speech.md), with measurements on the labelled clips and two spike scripts | Not decided. Waits on the owner: whether to adopt its roadmap, the labelling card (seams decision 7), and one model download for its step 3 |
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (240 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.
 

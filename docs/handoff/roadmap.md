@@ -26,6 +26,45 @@ once a report from that day on is recorded. A step with none of these is ticked 
 - [ ] Say whether to merge the audit's fixes to reading rules, "open this" and contacts (owner checks 222–227). <!-- branch: claude/audit-fixes-google-calendar -->
 - [ ] Say whether to merge the audit's recipient fixes ("Last, First" contacts, only the contact you picked). <!-- branch: claude/audit-fixes-recipients -->
 
+## The three workstreams (from your run of 2026-11-13)
+
+Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line passes when its checks pass on today's code.
+
+**A. Task orchestration and state: what runs, what it waits for, and whether the screen says so**
+
+- [ ] A1. A misheard "turn off the Wi-Fi" gets Swift's own question (fixed; run it). <!-- checks: 201, 243 -->
+- [ ] A2. A question is shown as a question, never "Working on it". <!-- checks: 206, 211, 218 -->
+- [ ] A4. Cards you haven't seen don't run out; a question out of sight keeps its time. <!-- checks: 208, 219 -->
+- [ ] A5. Each card's lifetime fits its request. <!-- checks: 210 -->
+- [ ] A6. A card opened from the stack carries on where it was, or says it ended.
+- [ ] A7. One ask is one request, however it's worded. <!-- checks: 197, 204, 205 -->
+- [ ] A8. Swift checks a thing happened before it says so ("Playing.", "Wi-Fi off"). <!-- checks: 235, 239 -->
+- [ ] A9. An email is written wherever the cursor was. <!-- checks: 49, 215 -->
+- [ ] A10. "Hey Swift" brings Swift in front of an always-on-top window. <!-- checks: 203 -->
+- [ ] Structure: review item 9, one versioned screen snapshot acknowledged when drawn (the fix under A2–A6).
+
+**B. Adaptive UI and UX, extending Halo**
+
+- [ ] B1. An approval card says in a plain sentence what it does and why; the command folds underneath. <!-- checks: 199 -->
+- [ ] B2. Fewer approvals: one grant for a coherent step of a task.
+- [ ] B3. Working, waiting for you, waiting for an OK, doing and failed each look different. <!-- checks: 206, 218 -->
+- [ ] B4. Results laid out to fit them: tables, cards, diagrams (Halo Step B first).
+- [ ] B5. Cards grow when the content needs it, and expand by hand.
+- [ ] B6. The watch and working views each have their own look.
+- [ ] B7. Motion you can see: the card grows from the orb. <!-- checks: 221 -->
+- [ ] B8. Your pen.dev prompt that extends Halo.
+
+**C. Agent autonomy: working out how to reach a goal, inside the product rules**
+
+- [ ] C1. Never answer with a fact Swift doesn't have (your location): it asks.
+- [ ] C2. Booking (a ride, a flight): find the way, sign-in by you, confirm before paying.
+- [ ] C3. Opening a website works.
+- [ ] C4. Find a tool it lacks, say why, and ask before installing it.
+- [ ] C5. Reminders, schedules and repeating automations. <!-- checks: 237, 239 -->
+- [ ] C6. "Play some music" finds out how you play music.
+- [ ] C7. "Remember that…" (the memory store).
+- [ ] Decide on a credentials vault for C2 and C4 (sign-in is yours today).
+
 ## Next week, when you have 15 minutes each
 
 - [ ] The second way in for "Hey Swift": set `wake.acoustic: true` in `config.yaml`, restart, and run these (ADR-021). <!-- checks: 228-232 -->

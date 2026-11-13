@@ -14,6 +14,7 @@ Read this first when picking Swift up in a new session or account. It holds ever
 - **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), merged to `main` and not run on the real PC. Swift's replies are off by default, apart from "Hello". Why checks 191–197 still failed is in [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md), which led to [ADR-020](../decisions/ADR-020-one-record-per-conversation.md). A branch is trialling whether Swift gets a dedicated wake model (§6).
 - **§6 lists the work that isn't on `main` yet, and the next free owner check number (233).** Every session reads §6 before it starts, and adds its own branch there.
 
+- **Three workstreams** (owner, 2026-11-13): task orchestration and state, adaptive UI and UX, agent autonomy. Every item from the owner's run, with its checks and what's known, is in [`workstreams.md`](workstreams.md); `roadmap.md` tracks them.
 - **The owner's plan for the coming weeks** is [`roadmap.md`](roadmap.md). Its live version, with where each step stands and the problems in the logs, is `ROADMAP.md` at the top of the Swift folder, written by `spikes/owner_checks/roadmap.py`.
 
 ## 1. Where things stand

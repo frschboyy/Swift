@@ -682,3 +682,27 @@ async def test_with_a_run_in_front_the_second_way_in_isn_t_tried() -> None:
     assert detector.asked == 0 and len(agent.requests) == 1
     agree(session, out)
     await finish_all(session, agent)
+
+
+async def test_a_second_stop_while_the_first_cleans_up_still_ends_the_card() -> None:
+    # The owner's run of 2026-11-13, 10:49:49: Stop twice, 0.2 s apart, on a request waiting for an answer. The
+    # second one cut the first one's clean-up short, so "Cancelled" was never sent and the card stayed
+    # "working" on a request that was over: Stop and Esc did nothing more, since nothing was left to stop.
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    rid = await started(session, out, agent, stt, "Hey Swift, plan the trip and ask me where")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    stop_now = agent.cancel
+
+    async def a_real_agent_takes_a_moment_to_stop(run_id: str) -> None:
+        await asyncio.sleep(0.3)
+        await stop_now(run_id)
+
+    agent.cancel = a_real_agent_takes_a_moment_to_stop
+    await session.handle(Message("run.stop", {"run_id": rid, "from": "question"}))
+    await asyncio.sleep(0.1)
+    await session.handle(Message("run.stop", {"run_id": rid, "from": "question"}))
+    await until(lambda: not session._live())
+    await asyncio.sleep(0.5)
+    screen = agree(session, out)
+    assert screen["stage"] != "working", screen
+    await finish_all(session, agent)

@@ -148,6 +148,7 @@ from loguru import logger
 
 from swift import clock
 from swift.answer_window import AnswerWindow
+from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
 from swift.attention import Attention, wait_answer
 from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, save_wav
@@ -3013,11 +3014,10 @@ class Session:
             if self._active is not None:
                 self._last_exchange = None
                 active_executor, run_id = self._active
-                await active_executor.cancel(run_id)
-                said = PAUSED_HINT if record.get("paused") else "Cancelled."
-                await self._send_result(run_id, ExecResult("cancelled", said), self._agent())
+                said = ExecResult("cancelled", PAUSED_HINT if record.get("paused") else "Cancelled.")
+                await to_the_end(in_turn(active_executor.cancel(run_id), self._send_result(run_id, said, self._agent())))
             else:
-                await self._set_state("idle")
+                await to_the_end(self._set_state("idle"))
             raise
         except UserFacingError as exc:
             record["status"] = "error"

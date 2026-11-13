@@ -42,12 +42,13 @@ def _canonical(url: str) -> str:
     url = url.strip().rstrip(_TRAILING)
     try:
         parts = urlsplit(url)
+        given_port = parts.port  # "https://x:abc" raises here
     except ValueError:
         return ""
     if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
         return ""
     host = parts.hostname.lower()
-    port = parts.port if parts.port not in (None, 80, 443) else None
+    port = given_port if given_port not in (None, 80, 443) else None
     netloc = host + (f":{port}" if port else "")
     path = parts.path.rstrip("/") or ""
     return urlunsplit(("https", netloc, path, parts.query, ""))

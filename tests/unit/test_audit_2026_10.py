@@ -61,6 +61,7 @@ def test_web_scope_takes_given_addresses_and_named_sites_only() -> None:
     assert not web.allows("https://example.com/post?id=7&leak=secret")  # changed: not what was given
     assert not web.allows("https://evil.example/?q=secret") and not web.allows("https://notes.md/")
     assert not web.allows("file:///C:/Users/me/.ssh/id_rsa") and not web.allows("")
+    assert not web.allows("https://example.com:alert(1)")  # a port that isn't a number: refused, not an error
     web.note("Results: [Tea - Wikipedia](https://en.wikipedia.org/wiki/Tea). More: https://tea.example/a.")
     assert web.allows("https://en.wikipedia.org/wiki/Tea") and web.allows("https://tea.example/a")
     assert not web.allows("https://en.wikipedia.org/wiki/Tea?x=1")

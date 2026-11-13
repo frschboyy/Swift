@@ -78,9 +78,9 @@ from swift.executors.claude_mapping import (
 )
 from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
-from swift.executors.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
-from swift.executors.web_scope import WebScope, result_text
 from swift.failures import classify, clean_detail, exception_words, failure_text
+from swift.security.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
+from swift.security.web_scope import WebScope, result_text
 from swift.workflows.tools import ToolHost, ToolSpec
 
 _DONE = object()

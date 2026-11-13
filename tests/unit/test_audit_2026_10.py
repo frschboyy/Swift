@@ -52,7 +52,7 @@ async def test_writing_into_an_ordinary_app_still_works() -> None:
 
 
 def test_web_scope_takes_given_addresses_and_named_sites_only() -> None:
-    from swift.executors.web_scope import WebScope
+    from swift.security.web_scope import WebScope
 
     web = WebScope()
     web.note_request("Summarise https://example.com/post?id=7#top and what python.org says; see notes.md")
@@ -69,7 +69,7 @@ def test_web_scope_takes_given_addresses_and_named_sites_only() -> None:
 
 def test_web_scope_reads_a_spoken_address() -> None:
     """C3: the transcript says "dot"; "usiu dot ac dot ke" is the site usiu.ac.ke, and nothing else is."""
-    from swift.executors.web_scope import WebScope, spoken_addresses
+    from swift.security.web_scope import WebScope, spoken_addresses
 
     assert spoken_addresses("open usiu dot ac dot ke on Chrome") == "open usiu.ac.ke on Chrome"
     assert spoken_addresses("a dot") == "a dot" and spoken_addresses("dot com") == "dot com"

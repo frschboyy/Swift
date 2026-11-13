@@ -88,7 +88,7 @@ areas:
     checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239]
   reads:
     rule: memory only from the owner's words; Swift's own files are never read
-    paths: [src/swift/executors/read_scope.py, src/swift/executors/web_scope.py, src/swift/workflows/scope.py]
+    paths: [src/swift/executors/read_scope.py, src/swift/security/web_scope.py, src/swift/workflows/scope.py]
     checks: [52, 62, 213]
   signin:
     paths: [src/swift/signin.py, src/swift/executors/signin.py, src/swift/connectors/google.py]

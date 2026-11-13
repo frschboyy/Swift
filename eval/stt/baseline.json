@@ -1,0 +1,452 @@
+{
+"stt_corpus/read-0001": [
+5,
+1,
+1
+],
+"stt_corpus/read-0002": [
+8,
+1,
+1
+],
+"stt_corpus/read-0003": [
+9,
+1,
+1
+],
+"stt_corpus/read-0004": [
+8,
+0,
+1
+],
+"stt_corpus/read-0005": [
+7,
+0,
+1
+],
+"stt_corpus/read-0006": [
+8,
+0,
+1
+],
+"stt_corpus/read-0007": [
+7,
+1,
+1
+],
+"stt_corpus/read-0008": [
+6,
+2,
+1
+],
+"stt_corpus/read-0009": [
+10,
+0,
+1
+],
+"stt_corpus/read-0010": [
+12,
+3,
+1
+],
+"stt_corpus/read-0011": [
+9,
+4,
+1
+],
+"stt_corpus/read-0012": [
+8,
+0,
+1
+],
+"stt_corpus/read-0013": [
+9,
+1,
+1
+],
+"stt_corpus/read-0014": [
+10,
+1,
+1
+],
+"stt_corpus/read-0015": [
+12,
+0,
+1
+],
+"stt_corpus/read-0016": [
+9,
+0,
+1
+],
+"stt_corpus/read-0017": [
+8,
+0,
+1
+],
+"stt_corpus/read-0018": [
+8,
+1,
+1
+],
+"stt_corpus/read-0019": [
+11,
+2,
+1
+],
+"stt_corpus/read-0020": [
+8,
+0,
+1
+],
+"stt_corpus/read-0021": [
+8,
+0,
+1
+],
+"stt_corpus/read-0022": [
+10,
+4,
+1
+],
+"stt_corpus/read-0023": [
+11,
+1,
+1
+],
+"stt_corpus/read-0024": [
+9,
+0,
+1
+],
+"stt_corpus/read-0025": [
+12,
+0,
+1
+],
+"stt_corpus/read-0026": [
+9,
+0,
+1
+],
+"stt_corpus/read-0027": [
+10,
+1,
+1
+],
+"stt_corpus/read-0028": [
+9,
+2,
+1
+],
+"stt_corpus/read-0029": [
+9,
+2,
+1
+],
+"stt_corpus/read-0030": [
+7,
+2,
+1
+],
+"stt_corpus/read-0031": [
+9,
+6,
+1
+],
+"stt_corpus/read-0032": [
+9,
+2,
+1
+],
+"stt_corpus/read-0033": [
+10,
+0,
+1
+],
+"stt_corpus/read-0034": [
+11,
+0,
+1
+],
+"stt_corpus/read-0035": [
+9,
+1,
+1
+],
+"stt_corpus/read-0036": [
+9,
+0,
+1
+],
+"stt_corpus/read-0037": [
+8,
+0,
+1
+],
+"stt_corpus/read-0038": [
+12,
+0,
+1
+],
+"stt_corpus/read-0039": [
+14,
+0,
+1
+],
+"stt_corpus/read-0040": [
+1,
+0,
+1
+],
+"stt_corpus/swift-074aabd5627640c488a9b69a03f472fb": [
+6,
+0,
+1
+],
+"stt_corpus/swift-09a7b67ff7194710acadfc6bd18281b2": [
+28,
+2,
+1
+],
+"stt_corpus/swift-13b97b3a084e447784e44e13a005fb50": [
+9,
+0,
+1
+],
+"stt_corpus/swift-20fb43d699f14dce8dfc1667880b3d0f": [
+5,
+0,
+1
+],
+"stt_corpus/swift-5eb0cae11f6c4092b5863fa8d5befc86": [
+1,
+0,
+1
+],
+"stt_corpus/swift-a001c92f57cd47b589fef87b37ad7c71": [
+24,
+0,
+1
+],
+"stt_corpus/swift-c15c46cb5ec04fafac2311d7412dcad1": [
+1,
+0,
+1
+],
+"stt_corpus/swift-e0a6bbf21ffc41b582b9794d035f703a": [
+6,
+0,
+1
+],
+"stt_corpus/swift-e46e68a19f5645ef9aa6dfe9320eb7ab": [
+4,
+0,
+1
+],
+"stt_corpus/swift-eaed28c201ce4c63a14ce281b4c87771": [
+10,
+0,
+1
+],
+"stt_corpus/swift-fea9ebed1d104d9887a09ecdcb92885d": [
+5,
+0,
+1
+],
+"stt_noisy/read-0001": [
+5,
+8,
+1
+],
+"stt_noisy/read-0002": [
+8,
+5,
+1
+],
+"stt_noisy/read-0003": [
+9,
+1,
+1
+],
+"stt_noisy/read-0004": [
+7,
+5,
+1
+],
+"stt_noisy/read-0005": [
+12,
+4,
+1
+],
+"stt_noisy/read-0006": [
+8,
+2,
+1
+],
+"stt_noisy/read-0007": [
+9,
+2,
+1
+],
+"stt_noisy/read-0008": [
+1,
+1,
+0
+],
+"stt_noisy/read-0011": [
+5,
+0,
+1
+],
+"stt_noisy/read-0012": [
+8,
+1,
+1
+],
+"stt_noisy/read-0013": [
+9,
+0,
+1
+],
+"stt_noisy/read-0014": [
+7,
+0,
+1
+],
+"stt_noisy/read-0015": [
+12,
+0,
+1
+],
+"stt_noisy/read-0016": [
+8,
+3,
+1
+],
+"stt_noisy/read-0017": [
+9,
+0,
+1
+],
+"stt_noisy/read-0018": [
+1,
+0,
+1
+],
+"stt_noisy/read-0021": [
+5,
+0,
+1
+],
+"stt_noisy/read-0022": [
+8,
+0,
+1
+],
+"stt_noisy/read-0023": [
+9,
+0,
+1
+],
+"stt_noisy/read-0024": [
+7,
+0,
+1
+],
+"stt_noisy/read-0025": [
+12,
+2,
+1
+],
+"stt_noisy/read-0026": [
+8,
+0,
+1
+],
+"stt_noisy/read-0027": [
+9,
+3,
+1
+],
+"stt_noisy/read-0028": [
+1,
+0,
+1
+],
+"stt_testset/1cee68377ec14f25ac6a889382d2b4c7": [
+9,
+6,
+1
+],
+"stt_testset/2dd471ee66a14b26bfb72cc3e7120213": [
+3,
+6,
+1
+],
+"stt_testset/69282cd486124b488bbceff0cb12ae0e": [
+1,
+1,
+0
+],
+"stt_testset/75679ec69868400daa1533a5c7040496": [
+4,
+5,
+0
+],
+"stt_testset/77e9de99a21045339a79cc9e4d15e853": [
+4,
+8,
+0
+],
+"stt_testset/813d675cf41047eba48efa88dbe6d478": [
+4,
+4,
+0
+],
+"stt_testset/81f58fd8d76f4ae3859690601bb27e24": [
+6,
+6,
+1
+],
+"stt_testset/82373f84f71444dc851c3adf659a4972": [
+4,
+2,
+1
+],
+"stt_testset/92bdf8ee8f094f1792b44c336618aba9": [
+5,
+3,
+0
+],
+"stt_testset/9c1ac673312d47c9b3c63340ec00ce3d": [
+4,
+3,
+1
+],
+"stt_testset/cf087e4e7d474414ab9684d3acaf49b8": [
+4,
+3,
+0
+],
+"stt_testset/d45fc73d81cb4315af1d36deb20ed468": [
+5,
+0,
+1
+],
+"stt_testset/da82e4e82b944996b25e694a5f6ad596": [
+4,
+4,
+0
+],
+"stt_testset/fd36b51306854678993d4b3d4786589c": [
+8,
+8,
+1
+],
+"stt_testset/fe991402c9ab464989dc8c23ba8f503a": [
+3,
+1,
+0
+]
+}

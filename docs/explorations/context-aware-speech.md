@@ -204,7 +204,7 @@ Product rules it must keep: audio never leaves the PC; the log gets scores and c
 
 | # | Step | Needs | Why this order |
 |---|---|---|---|
-| 1 | **Make the measurement solid.** Fix the normaliser's spelling cases; add the meaning-level comparison; extend W-03's per-sentence gate to the read and noisy corpora (seams audit G) | nothing new | Every later decision reads these numbers. It also finishes W-03's coverage |
+| 1 ✅ | **Make the measurement solid** (done, §8). Fix the normaliser's spelling cases; add the meaning-level comparison; extend W-03's per-sentence gate to the read and noisy corpora (seams audit G) | nothing new | Every later decision reads these numbers. It also finishes W-03's coverage |
 | 2 | **Monitor v0, no downloads.** A looser flagging threshold on p; the lexicon; Whisper small.en as a second opinion at idle on kept clips; flags feed the labelling card (seams decision 7, still the owner's to confirm) | the owner's yes on the labelling card | Produces labelled real-use data, which is the bottleneck (W-04) |
 | 3 | **Spike: does a small text model see the confident errors?** Score the 32 confidently wrong words and the protected words. Kill it if it doesn't add detection at 1% false flags | the owner's OK for one model download (about 135 MB; file, source and licence confirmed first) | The only untested idea with a plausible payoff; cheap to disprove |
 | 4 | **Act inside closed sets.** Contacts in a name slot (audit method A), expected answers while a question is open (C), the hint to the agent (D) | step 1's gate | Where accuracy gains were actually observed (audit §7.2) |
@@ -212,7 +212,25 @@ Product rules it must keep: audio never leaves the PC; the log gets scores and c
 
 Steps 1 and 2 need no decision about models. Step 2 touches what the owner sees (a card), so it gets owner checks when built.
 
-## 8. Not verified
+## 8. Step 1, done (2026-11-13)
+
+- **The gate:** `eval/stt/gate.py` transcribes every labelled clip as Swift would and fails if a sentence that was exactly right in `eval/stt/baseline.json` isn't now, or one that routed like its known sentence doesn't now. Two runs gave identical results. It needs the models and the clips, so it is a command, not a unit test; `tests/unit/test_stt_gate.py` covers its comparison.
+  ```bash
+  uv run python eval/stt/gate.py --data //localhost/c$/Users/frchi/AppData/Local/Swift
+  ```
+- **Scoring:** "summarise"/"summarize" and the same letters spaced differently ("Read Me"/"README", "p.m."/"pm") no longer count as errors (`stt/improve.py` `normalize`, `edits`). The per-word labels in §2 were made before this and are unchanged.
+- **The baseline:**
+
+  | Set | Clips | Exactly right | Word error rate | Routes like the known sentence |
+  |---|---|---|---|---|
+  | Read corpus | 51 | 30 | 0.090 | 51 |
+  | Noisy corpus | 24 | 12 | 0.209 | 23 |
+  | Kept clips | 15 | 1 | 0.882 | 7 |
+
+- **What the meaning measure shows:** in the read corpus, 21 sentences had a word error and none changed where the request went. On the kept clips, 8 of 15 would have gone somewhere else. Word errors in long agent requests rarely change the route; the damage is in the clips the owner had to repeat.
+- **Its limit:** it compares the route, action, target and app only. Two agent requests always "route alike", and a wrong number inside a system request ("volume 40" heard as "14") isn't seen. It is a floor on meaning-changing errors, not a count of them.
+
+## 9. Not verified
 
 - Every figure for a text model or an embedding model is an estimate. Nothing was downloaded.
 - Whether the exact ONNX file of a 135 M model exists at the size and licence assumed.

@@ -69,6 +69,10 @@ Rules from the reliability audit and its review (`docs/audit/2026-11-reliability
   ```bash
   uv run python eval/parity/score.py
   ```
+- **Speech gate** (before and after any change to speech recognition; no sentence that was right may go wrong):
+  ```bash
+  uv run python eval/stt/gate.py --data //localhost/c$/Users/frchi/AppData/Local/Swift
+  ```
 - **Overlay:** in `overlay/`, run `npx --no-install tsc --noEmit` and `npm test`. A worktree has no `node_modules`; link it temporarily and remove the link afterwards:
   ```powershell
   New-Item -ItemType Junction -Path <worktree>\overlay\node_modules -Target C:\Users\frchi\Documents\Swift\overlay\node_modules

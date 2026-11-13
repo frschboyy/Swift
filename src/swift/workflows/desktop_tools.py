@@ -23,6 +23,12 @@ or a configured name, and recipients only from ``find_contact``.
 writing ("write … here", "put this in Word", "rewrite this") or for an email. So a web page, a
 document or a tool result can't make Swift type into the app in front, as ``system_action``
 can't lock the PC. A workflow's manifest already decides whether it writes.
+
+**A web address** (owner checks 2026-11-13, C3): ``desktop_open(url=…)`` opens it in the owner's
+default browser only when the address, or its site, is in the owner's own words for this request
+(``RunScope.said`` and their answers), written or spoken ("usiu dot ac dot ke"). The same rule as a
+fetch (audit 2026-10, A-03; check 52): an address the model put together, or one a page gave, could
+carry what it read to someone else, so it isn't opened; the model asks the owner for the address.
 """
 
 from __future__ import annotations
@@ -35,12 +41,14 @@ import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from loguru import logger
 
 from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
+from swift.security.web_scope import WebScope
 from swift.workflows.scope import RunScope
 from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
 
@@ -208,8 +216,46 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                       {"written": written, "route": outcome.receipt.split(":", 1)[0]})
 
 
+NOT_NAMED_URL = (
+    "Not opened: Swift opens only a web address the owner said or wrote in this request (or its site). "
+    "If you aren't sure of the address, ask the owner for it with ask_owner; don't guess one."
+)
+
+
+async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
+    desktop = host.desktop
+    if desktop is None:
+        return _unavailable()
+    url = url.strip().rstrip(".,;:!?")
+    if "://" not in url:  # "usiu.ac.ke" or "usiu.ac.ke:443"; "javascript:…" then fails the scope check
+        url = "https://" + url
+    allowed = WebScope()
+    for words in (scope.said, *scope.answers):
+        allowed.note_request(words)
+    if not url.lower().startswith(("https://", "http://")) or not allowed.allows(url):
+        logger.info("web address not opened: not the owner's")  # never the address
+        return ToolResult(False, NOT_NAMED_URL, expected=True)
+    host_name = (urlsplit(url).hostname or "").removeprefix("www.")
+
+    async def perform() -> str:
+        await desktop.open_path(url)  # the default browser
+        return OPENED
+
+    action = Action(
+        tool="desktop_open", targets=(), title=f"Open {host_name}", detail="", artifact_id=None,
+        digest=lambda: hashlib.sha256(url.encode()).hexdigest(), perform=perform, targets_required=False,
+    )
+    outcome = await host.gateway.execute(scope, action)
+    if outcome.status != "done":
+        return ToolResult(False, f"Not opened: {outcome.reason}")
+    return ToolResult(True, f"Opened {host_name} in the owner's browser. Check with the owner that it's the page "
+                      "they meant; Swift can't see the page.")
+
+
 async def desktop_open(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     desktop = host.desktop
+    if url := str(args.get("url", "")).strip():
+        return await _open_url(host, scope, url)
     what = str(args.get("what", "")).strip()
     if what == "selection":
         if desktop is None:
@@ -345,9 +391,10 @@ DESKTOP_TOOLS: tuple[ToolSpec, ...] = (
     ),
     ToolSpec(
         "desktop_open",
-        "Open what the owner selected in File Explorer (what: 'selection'), or an app, folder or project Swift "
-        "knows by name (name). Never a path you made up.",
-        _obj([], what={"type": "string", "enum": ["selection"]}, name={"type": "string"}),
+        "Open what the owner selected in File Explorer (what: 'selection'), an app, folder or project Swift "
+        "knows by name (name), or a web address in the owner's browser (url: one the owner said or wrote, "
+        "'dot' read as '.', e.g. 'usiu dot ac dot ke' is usiu.ac.ke). Never a path or address you made up.",
+        _obj([], what={"type": "string", "enum": ["selection"]}, name={"type": "string"}, url={"type": "string"}),
         "reversible", desktop_open,
     ),
     ToolSpec(

@@ -2106,6 +2106,30 @@ the email's body. Nothing is sent: close each email.
    window: click it"). Tell us which.
 
 The report checks: every fill-in finished, and which step put the cursor in each field (the cause of the old failure).
+### Swift in front, and a website by voice (2026-11-13)
+
+About 5 minutes. From your run of 2026-11-13 (203: Swift behind Task Manager; 15:07: Blackboard didn't open).
+
+<a id="check-253"></a>**Check 253. Swift comes in front of an ordinary always-on-top window**
+1. Open Notepad and click in it.
+2. In a terminal in the Swift folder, run `uv run python spikes/desktop/window_bands.py --cover`. A small window,
+   "Always on top (test)", opens for 60 seconds. Drag it over where Swift's orb sits.
+3. Click back in Notepad, then say "Hey Swift, what time is it".
+4. Swift's card should show **in front of** the test window, and Notepad should keep the cursor (type a letter: it
+   goes into Notepad).
+
+<a id="check-254"></a>**Check 254. Which band Task Manager is in**
+1. Open Task Manager, tick **Options > Always on top**, then close Task Manager and open it again.
+2. With Swift running, run `uv run python spikes/desktop/window_bands.py` and paste its last lines into the report.
+3. Say "Hey Swift, what time is it" with Task Manager over the orb, and say whether Swift showed in front of it.
+
+Nothing to judge here: the lines say whether Task Manager sits in a band above every ordinary app, which decides the fix.
+
+<a id="check-255"></a>**Check 255. A website you name opens**
+1. Say "Hey Swift, open usiu dot ac dot ke". The site opens in your browser, with no approval card.
+2. Say "Hey Swift, open my university's website" (no address). Swift asks you for the address instead of guessing one.
+
+The report checks: every spoken "… dot …" address was opened.
 
 ## Where every check stands
 

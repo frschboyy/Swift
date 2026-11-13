@@ -52,7 +52,7 @@ async def test_writing_into_an_ordinary_app_still_works() -> None:
 
 
 def test_web_scope_takes_given_addresses_and_named_sites_only() -> None:
-    from swift.executors.web_scope import WebScope
+    from swift.security.web_scope import WebScope
 
     web = WebScope()
     web.note_request("Summarise https://example.com/post?id=7#top and what python.org says; see notes.md")
@@ -61,9 +61,21 @@ def test_web_scope_takes_given_addresses_and_named_sites_only() -> None:
     assert not web.allows("https://example.com/post?id=7&leak=secret")  # changed: not what was given
     assert not web.allows("https://evil.example/?q=secret") and not web.allows("https://notes.md/")
     assert not web.allows("file:///C:/Users/me/.ssh/id_rsa") and not web.allows("")
+    assert not web.allows("https://example.com:alert(1)")  # a port that isn't a number: refused, not an error
     web.note("Results: [Tea - Wikipedia](https://en.wikipedia.org/wiki/Tea). More: https://tea.example/a.")
     assert web.allows("https://en.wikipedia.org/wiki/Tea") and web.allows("https://tea.example/a")
     assert not web.allows("https://en.wikipedia.org/wiki/Tea?x=1")
+
+
+def test_web_scope_reads_a_spoken_address() -> None:
+    """C3: the transcript says "dot"; "usiu dot ac dot ke" is the site usiu.ac.ke, and nothing else is."""
+    from swift.security.web_scope import WebScope, spoken_addresses
+
+    assert spoken_addresses("open usiu dot ac dot ke on Chrome") == "open usiu.ac.ke on Chrome"
+    assert spoken_addresses("a dot") == "a dot" and spoken_addresses("dot com") == "dot com"
+    web = WebScope()
+    web.note_request("read www dot python dot org for me")
+    assert web.allows("https://docs.python.org/3/") and not web.allows("https://python.org.evil.example/")
 
 
 async def test_a_fetch_the_model_put_together_is_refused_without_a_card(tmp_path) -> None:  # type: ignore[no-untyped-def]

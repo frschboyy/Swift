@@ -31,6 +31,15 @@ _NOT_SITES = frozenset({"md", "py", "txt", "json", "yaml", "yml", "toml", "ts", 
                         "xlsx", "pptx", "pdf", "png", "jpg", "jpeg", "gif", "csv", "log", "html", "htm", "css",
                         "zip", "msi", "ps1", "bat", "cmd", "lnk", "ini", "cfg", "tsx", "jsx", "lock"})
 
+# A spoken address: "usiu dot ac dot ke", "www dot python dot org" (the transcript writes "dot" as a word).
+_SPOKEN = re.compile(r"\b[a-z0-9][a-z0-9-]*(?:\s+dot\s+[a-z0-9][a-z0-9-]*)+\b", re.I)
+
+
+def spoken_addresses(text: str) -> str:
+    """The text with spoken addresses written as addresses ("usiu dot ac dot ke" -> "usiu.ac.ke")."""
+    return _SPOKEN.sub(lambda m: re.sub(r"\s+dot\s+", ".", m.group(0), flags=re.I), text or "")
+
+
 DENIED_MESSAGE = (
     "Swift only fetches pages whose address came from the user's request or from an earlier result in this "
     "request (search results, a page's links). Search for it first, or use an address exactly as a result gave it."
@@ -42,12 +51,13 @@ def _canonical(url: str) -> str:
     url = url.strip().rstrip(_TRAILING)
     try:
         parts = urlsplit(url)
+        given_port = parts.port  # "https://x:abc" raises here
     except ValueError:
         return ""
     if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
         return ""
     host = parts.hostname.lower()
-    port = parts.port if parts.port not in (None, 80, 443) else None
+    port = given_port if given_port not in (None, 80, 443) else None
     netloc = host + (f":{port}" if port else "")
     path = parts.path.rstrip("/") or ""
     return urlunsplit(("https", netloc, path, parts.query, ""))
@@ -67,9 +77,10 @@ class WebScope:
                 self.urls.add(canonical)
 
     def note_request(self, text: str) -> None:
-        """The request: its addresses, and the sites it names by name."""
+        """The request: its addresses, and the sites it names by name, written or spoken ("usiu dot ac dot ke")."""
+        text = spoken_addresses(text)
         self.note(text)
-        for match in _SITE.finditer(_URL.sub(" ", text or "")):
+        for match in _SITE.finditer(_URL.sub(" ", text)):
             host = match.group(1).lower().rstrip(".")
             if host.rsplit(".", 1)[-1] not in _NOT_SITES:
                 self.sites.add(host.removeprefix("www."))

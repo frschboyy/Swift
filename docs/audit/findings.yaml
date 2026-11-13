@@ -922,7 +922,7 @@
   title: A page listing many links lets a run leak a few bits per fetch by choosing one, and search queries go to
     the provider.
   source: docs/audit/2026-10-audit.md A-03 remaining risk; privacy-security.md
-  module: src/swift/executors/web_scope.py
+  module: src/swift/security/web_scope.py
   area: privacy
   severity: low
   product_rule: false
@@ -2211,7 +2211,7 @@
   title: A run could fetch any web address without a card, so a page it read could make it send the owner's data
     out.
   source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8
-  module: src/swift/executors/web_scope.py, src/swift/executors/claude_code.py
+  module: src/swift/security/web_scope.py, src/swift/executors/claude_code.py
   area: privacy
   severity: critical
   product_rule: false

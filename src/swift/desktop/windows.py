@@ -73,7 +73,8 @@ GWL_STYLE = -16
 ES_PASSWORD = 0x20
 EM_GETSEL = 0x00B0
 WM_GETTEXT, WM_GETTEXTLENGTH = 0x000D, 0x000E
-INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 1, 0x2, 0x4
+INPUT_MOUSE, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 0, 1, 0x2, 0x4
+MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x2, 0x4
 VK_RETURN, VK_SHIFT, VK_CONTROL, VK_RIGHT = 0x0D, 0x10, 0x11, 0x27
 CF_TEXT, CF_OEMTEXT, CF_UNICODETEXT, CF_LOCALE = 1, 7, 13, 16
 ULONG_PTR = ctypes.c_size_t
@@ -393,6 +394,31 @@ class _GmailScreen:
             return "page" if self.uia.focused() is not None else "none"
         except Exception:  # noqa: BLE001
             return "none"
+
+    def click(self, element: Any, hwnd: int) -> bool:
+        """Click just inside the field's top left, where its first line starts; only if the compose window
+        is in front and that point is this field, not a window or popup over it. The mouse goes back."""
+        if _foreground() != hwnd:
+            return False
+        try:
+            rect = element.CurrentBoundingRectangle
+            width, height = rect.right - rect.left, rect.bottom - rect.top
+            if width <= 0 or height <= 0:
+                return False
+            point = wintypes.POINT(rect.left + min(24, width // 4), rect.top + min(16, height // 4))
+            if not self._inside(self.uia.automation.ElementFromPoint(point), element):
+                return False
+        except Exception:  # noqa: BLE001 - the page changed while being read
+            return False
+        saved = wintypes.POINT()
+        user32.GetCursorPos(ctypes.byref(saved))
+        user32.SetCursorPos(point.x, point.y)
+        try:
+            _send([INPUT(type=INPUT_MOUSE, u=_INPUT_UNION(mi=MOUSEINPUT(dwFlags=flag)))
+                   for flag in (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP)])
+        finally:
+            user32.SetCursorPos(saved.x, saved.y)
+        return True
 
     def paste(self, text: str) -> None:
         saved = _saved_clipboard()

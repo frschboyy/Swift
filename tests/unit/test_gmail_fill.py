@@ -39,15 +39,18 @@ class FakeScreen:
     """Windows and Gmail's fields as ``gmail_fill`` sees them.
 
     ``focus_after``: how many ``set_focus`` calls on the body before the keyboard is in it (0: never;
-    the owner's run: Gmail's body didn't take it). ``forward``: whether Windows lets Swift bring a window forward.
+    the owner's run: Gmail's body didn't take it). ``click_lands``: whether a click at the body's top
+    left is the body. ``forward``: whether Windows lets Swift bring a window forward.
     """
 
     windows: dict[int, Window]
     front_hwnd: int = COMPOSE
     focus_after: int = 1
+    click_lands: bool = True
     forward: bool = True
     focused: str | None = "to"  # Gmail puts the cursor in To when a compose window opens
     focus_calls: int = 0
+    clicks: list[tuple[str, int]] = field(default_factory=list)
     text: dict[str, str] = field(default_factory=dict)
     steps: list[str] = field(default_factory=list)
 
@@ -99,6 +102,13 @@ class FakeScreen:
     def focus_place(self, fields: dict[str, Any], hwnd: int) -> str:
         return self.focused or "none"
 
+    def click(self, element: Any, hwnd: int) -> bool:
+        if self.front_hwnd != hwnd or not self.click_lands:
+            return False
+        self.clicks.append((element[1], hwnd))
+        self.focused = element[1]
+        return True
+
     def paste(self, text: str) -> None:
         assert self.focused is not None
         self.text[self.focused] = self.text.get(self.focused, "") + text
@@ -144,7 +154,7 @@ def _content_free(log: str) -> None:
 
 
 def test_a_body_that_won_t_take_the_cursor_says_so_in_the_log_without_the_email() -> None:
-    screen = FakeScreen({COMPOSE: Window()}, focus_after=0)
+    screen = FakeScreen({COMPOSE: Window()}, focus_after=0, click_lands=False)
     sink = _captured()
     try:
         with pytest.raises(DesktopError) as failed:
@@ -208,20 +218,52 @@ async def test_the_gateway_logs_the_desktop_s_reason_code() -> None:
     assert "action failed" in sink.getvalue() and "code='gmail_focus_body'" in sink.getvalue(), sink.getvalue()
 
 
-# ---- filling in --------------------------------------------------------------
+# ---- the body takes the cursor (check 257) --------------------------------------------------------------
 
 
 def test_the_body_is_pasted_into_once_it_has_the_cursor_and_the_subject_is_set_last() -> None:
     screen = FakeScreen({COMPOSE: Window()})
     _fill(screen)
     assert screen.steps == ["set to", "paste body", "set subject"]
+    assert screen.text == {"to": TO[0], "body": BODY, "subject": SUBJECT} and not screen.clicks
+
+
+def test_gmail_taking_the_cursor_back_once_is_asked_again() -> None:
+    screen = FakeScreen({COMPOSE: Window()}, focus_after=2)
+    sink = _captured()
+    try:
+        _fill(screen)
+    finally:
+        logger.remove()
+    assert screen.text["body"] == BODY and screen.focus_calls == 2 and not screen.clicks
+    assert "how='set_focus_again'" in sink.getvalue()
+
+
+def test_a_body_that_ignores_set_focus_is_clicked_in_like_the_owner_does() -> None:
+    """The owner's run: nothing was written unless the cursor was already in the body."""
+    screen = FakeScreen({COMPOSE: Window()}, focus_after=0)
+    sink = _captured()
+    try:
+        _fill(screen)
+    finally:
+        logger.remove()
+    assert screen.clicks == [("body", COMPOSE)]
     assert screen.text == {"to": TO[0], "body": BODY, "subject": SUBJECT}
+    assert "how='click'" in sink.getvalue()
+    _content_free(sink.getvalue())
+
+
+def test_no_click_lands_outside_the_body_and_nothing_is_pasted() -> None:
+    screen = FakeScreen({COMPOSE: Window()}, focus_after=0, click_lands=False)
+    with pytest.raises(DesktopError):
+        _fill(screen)
+    assert not screen.clicks and "paste body" not in screen.steps
 
 
 def test_the_cursor_already_in_the_body_still_works() -> None:
     screen = FakeScreen({COMPOSE: Window()}, focused="body", focus_after=0)
     _fill(screen)
-    assert screen.text["body"] == BODY
+    assert screen.text["body"] == BODY and not screen.clicks
 
 
 def test_a_window_with_a_subject_is_never_filled() -> None:

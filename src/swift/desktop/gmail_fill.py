@@ -48,6 +48,7 @@ class ComposeScreen(Protocol):
     def set_focus(self, element: Any) -> None: ...
     def has_focus(self, element: Any) -> bool: ...
     def focus_place(self, fields: dict[str, Any], hwnd: int) -> str: ...
+    def click(self, element: Any, hwnd: int) -> bool: ...
     def paste(self, text: str) -> None: ...
 
 
@@ -121,6 +122,8 @@ def set_field(screen: ComposeScreen, hwnd: int, fields: dict[str, Any], key: str
                        focus=place if place in FOCUS_PLACES else "none")
         raise DesktopError(f"Swift couldn't put the cursor in Gmail's {key}, so it stopped there.",
                            "Finish the email yourself, or try again.", code=f"gmail_focus_{key}")
+    if how != "set_focus":
+        logger.info("gmail field focused", field=key, how=how)
     screen.paste(text)
 
 
@@ -129,6 +132,14 @@ def focus(screen: ComposeScreen, element: Any, hwnd: int, clock: Clock) -> str |
     screen.set_focus(element)
     if _wait_for_focus(screen, element, clock):
         return "set_focus"
+    # Gmail can take the focus back while the compose window finishes loading: ask once more.
+    screen.set_focus(element)
+    if _wait_for_focus(screen, element, clock):
+        return "set_focus_again"
+    # A click in the field is what the owner does, and it works (run of 2026-11-13). Only at a point
+    # that is inside this field, in the compose window in front: ``click`` checks both.
+    if screen.click(element, hwnd) and _wait_for_focus(screen, element, clock):
+        return "click"
     return None
 
 

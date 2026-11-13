@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swift B4 prototype (dev only)</title>
+    <!-- B4 study (docs/design/b4-adaptive-results.md): ?shape=compare|diagram|bad&theme=light. Not the overlay. -->
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/look/halo.css" />
+    <style>
+      body { background: #3a5f7d linear-gradient(135deg, #d9dee6, #5b7a99); margin: 0; min-height: 100vh; }
+      #stage { position: relative; min-height: 100vh; }
+      #stage .card.b4-card { position: absolute; top: 24px; left: 24px; right: auto; bottom: auto; opacity: 1; transform: none; visibility: visible; }
+      .b4-say { margin: 0 0 10px; font-size: 17px; line-height: 1.45; }
+      .b4-said { font-size: 12px; color: var(--faint); margin: 0 0 8px; }
+      .b4-compare { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
+      .b4-compare th, .b4-compare td { padding: 7px 10px 7px 0; text-align: left; vertical-align: top; border-top: 1px solid var(--rim); }
+      .b4-compare thead th { border-top: none; font-weight: 600; font-size: 13px; color: var(--text); }
+      .b4-compare tbody th { color: var(--muted); font-weight: 500; white-space: nowrap; width: 1%; }
+      .b4-compare td { font-variant-numeric: tabular-nums; }
+      .b4-compare .b4-pick { background: var(--accent-soft); padding-left: 8px; }
+      .b4-compare thead .b4-pick { border-radius: 10px 10px 0 0; }
+      .b4-tag { display: block; font-size: 11px; font-weight: 600; color: var(--accent); }
+      .b4-diagram { display: block; margin: 4px auto 0; overflow: visible; }
+      .b4-node { fill: var(--raise); stroke: var(--accent-edge); stroke-width: 1; }
+      .b4-node-label { fill: var(--text); font: 600 13px system-ui, sans-serif; }
+      .b4-edge { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+      .b4-edge--back { stroke-dasharray: 4 3; }
+      .b4-arrowhead { fill: var(--muted); }
+      .b4-edge-label { fill: var(--faint); font: 12px system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <main id="stage" data-look="halo" data-theme="dark" data-state="idle"></main>
+    <script type="module" src="./b4/page.ts"></script>
+  </body>
+</html>

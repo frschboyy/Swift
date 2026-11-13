@@ -50,33 +50,30 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `ce96eb7`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-13 at `7c6ab6f`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
-**Where Swift is rigid: requests in your own words (2026-11-12)**
-
-1. [238](#check-238): Ten requests of your own. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-2. [235](#check-235): One command, said six ways. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-3. [236](#check-236): A word from a workflow in a different request. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-
 **Fixes from your checks of 2026-11-09**
 
-4. [203](#check-203): Swift comes to the front when you call it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-5. [207](#check-207): The stack stays in its corner when you open it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-6. [206](#check-206): Waiting for your answer looks different from working. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-7. [212](#check-212): A new request while Swift asks: the question waits in the stack. *Why: new on 2026-11-10, never run; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
-8. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-9. [201](#check-201): Your answer to Swift's question counts as what you asked. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-10. [211](#check-211): "Yes, but hold on" waits, and a wordy reply stays with Swift's question. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-11. [209](#check-209): Offline answers are short and calm. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-12. [202](#check-202): Airplane mode says what it really does. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-13. [210](#check-210): Each item in the stack shows how long it has left. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+1. [213](#check-213): Swift's own recordings and transcripts are never read. *Why: failed on 2026-11-13; 4 changes since (such as `31abf14` X-20: a shell command that names a never-read place is refused, with no card); product rule: memory only from the owner's words; Swift's own files are never read; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+2. [203](#check-203): Swift comes to the front when you call it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+3. [207](#check-207): The stack stays in its corner when you open it. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+4. [206](#check-206): Waiting for your answer looks different from working. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+5. [212](#check-212): A new request while Swift asks: the question waits in the stack. *Why: new on 2026-11-10, never run; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).*
+6. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+7. [201](#check-201): Your answer to Swift's question counts as what you asked. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+8. [211](#check-211): "Yes, but hold on" waits, and a wordy reply stays with Swift's question. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+9. [209](#check-209): Offline answers are short and calm. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+10. [202](#check-202): Airplane mode says what it really does. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+11. [210](#check-210): Each item in the stack shows how long it has left. *Why: new on 2026-11-10, never run; asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
 
-**The Deck: how requests share the screen (ADR-018)**
+**Where Swift is rigid: requests in your own words (2026-11-12)**
 
-14. [181](#check-181): Start two research requests. *Why: new on 2026-11-07, never run; asked for: ADR-018 §4.1, whether to keep the Deck's Step 1 rests on these.*
-15. [173](#check-173): With two other requests running, say "Hey Swift, give me a detailed history of tea", and click …. *Why: new on 2026-11-07, never run; asked for: ADR-018 §4.1, whether to keep the Deck's Step 1 rests on these.*
+12. [239](#check-239): Understood, and still not done. *Why: failed on 2026-11-13; 2 changes since (such as `a80c7d8` X-20: the review's follow-ups (still a safeguard)).*
+13. [238](#check-238): Ten requests of your own. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+14. [235](#check-235): One command, said six ways. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+15. [236](#check-236): A word from a workflow in a different request. *Why: new on 2026-11-12, never run; asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
 
 Then run the report ("After the checks", at the end) and paste what it prints.
 <!-- roadmap:end -->
@@ -2012,19 +2009,33 @@ The report checks: a lookup with several matches was answered by your choice (X-
 
 You should see: no chime and no "heard" while locked, and nothing starts when you unlock (HA-HEAR-02).
 
+### A card that stays "working" (2026-11-13)
+
+About 2 minutes. From your run of 2026-11-13, 10:49.
+
+<a id="check-242"></a>**Check 242. Stop pressed twice**
+1. Pick a first name that two of your contacts share. Say "Hey Swift, draft an email to <that name> about lunch".
+2. When Swift asks which one, click **Stop request** on the question twice, quickly. Then press Esc.
+
+You should see: the card says "Cancelled" within a couple of seconds and goes. Nothing is left saying it's
+working, and nothing is left that Stop and Esc can't end.
+
+The report checks: no Stop was pressed on a request that had already ended.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-13 at `ce96eb7`. Each number links to its check.
+As of 2026-11-13 at `7c6ab6f`. Each number links to its check.
 
-- **Never run** (101): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [205](#check-205), [206](#check-206), [207](#check-207), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [235](#check-235), [236](#check-236), [238](#check-238)
+- **Changed since it failed: run it again** (2): [213](#check-213), [239](#check-239)
+- **Never run** (102): [6](#check-6), [9](#check-9), [16b](#check-16b), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [62](#check-62), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [134](#check-134), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [201](#check-201), [202](#check-202), [203](#check-203), [205](#check-205), [206](#check-206), [207](#check-207), [209](#check-209), [210](#check-210), [211](#check-211), [212](#check-212), [216](#check-216), [217](#check-217), [218](#check-218), [219](#check-219), [220](#check-220), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [235](#check-235), [236](#check-236), [238](#check-238), [242](#check-242)
 - **Partly seen** (5): [8](#check-8), [15](#check-15), [21](#check-21), [24](#check-24), [77](#check-77)
-- **Passed, changed since** (43): [4](#check-4), [10](#check-10), [11](#check-11), [14](#check-14), [22](#check-22), [23](#check-23), [29](#check-29), [30](#check-30), [50](#check-50), [51](#check-51), [53](#check-53), [56](#check-56), [57](#check-57), [59](#check-59), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [107](#check-107), [108](#check-108), [110](#check-110), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [115](#check-115), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [149](#check-149), [153](#check-153)
-- **Passed, nothing changed since** (51): [1](#check-1), [2](#check-2), [2b](#check-2b), [3](#check-3), [5](#check-5), [7](#check-7), [12](#check-12), [13](#check-13), [16](#check-16), [17](#check-17), [26](#check-26), [27](#check-27), [41](#check-41), [42](#check-42), [43](#check-43), [45](#check-45), [46](#check-46), [47](#check-47), [52](#check-52), [54](#check-54), [55](#check-55), [61](#check-61), [68](#check-68), [91](#check-91), [93](#check-93), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [120](#check-120), [123](#check-123), [125](#check-125), [139](#check-139), [160](#check-160), [161](#check-161), [168](#check-168), [191](#check-191), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [204](#check-204), [208](#check-208), [214](#check-214), [228](#check-228), [232](#check-232), [233](#check-233), [234](#check-234), [237](#check-237), [240](#check-240), [241](#check-241)
-- **Failed, waiting for a fix** (10): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [213](#check-213), [239](#check-239)
+- **Passed, changed since** (49): [4](#check-4), [10](#check-10), [11](#check-11), [14](#check-14), [22](#check-22), [23](#check-23), [29](#check-29), [30](#check-30), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [56](#check-56), [57](#check-57), [59](#check-59), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [107](#check-107), [108](#check-108), [110](#check-110), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [115](#check-115), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [149](#check-149), [153](#check-153), [193](#check-193), [195](#check-195), [233](#check-233), [234](#check-234), [237](#check-237)
+- **Passed, nothing changed since** (45): [1](#check-1), [2](#check-2), [2b](#check-2b), [3](#check-3), [5](#check-5), [7](#check-7), [12](#check-12), [13](#check-13), [16](#check-16), [17](#check-17), [26](#check-26), [27](#check-27), [41](#check-41), [42](#check-42), [43](#check-43), [45](#check-45), [46](#check-46), [47](#check-47), [54](#check-54), [55](#check-55), [61](#check-61), [68](#check-68), [91](#check-91), [93](#check-93), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [120](#check-120), [123](#check-123), [125](#check-125), [139](#check-139), [160](#check-160), [161](#check-161), [168](#check-168), [191](#check-191), [194](#check-194), [196](#check-196), [204](#check-204), [208](#check-208), [214](#check-214), [228](#check-228), [232](#check-232), [240](#check-240), [241](#check-241)
+- **Failed, waiting for a fix** (8): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197)
 - **Only when it happens: the report watches for it** (5): [28](#check-28), [60](#check-60), [146](#check-146), [154](#check-154), [155](#check-155)
 - **Blocked** (1): [215](#check-215)
 
@@ -2038,16 +2049,13 @@ As of 2026-11-13 at `ce96eb7`. Each number links to its check.
 - [36](#check-36) Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**: Failed, waiting for a fix; product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.
 - [49](#check-49) Say "Hey Swift, email Test Me that I'm running late": Failed, waiting for a fix; product rule: recipients only from contacts or find_contact.
 - [197](#check-197) Say "stop" so that research goes to the stack: Failed, waiting for a fix.
-- [213](#check-213) Swift's own recordings and transcripts are never read: Failed, waiting for a fix; product rule: memory only from the owner's words; Swift's own files are never read; asked for: the safety fixes of 2026-11-10 (items 3 and 7, X-07, X-01, X-08).
-- [239](#check-239) Understood, and still not done: Failed, waiting for a fix.
 
 **On branches not merged yet:**
 
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 90 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 12 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 214, 215, 240).
-- `claude/never-read-commands`: changes code behind 29 checks here (19, 19b, 23, 24, 25, 28, 52, 56, 57, 59, 60, 62, …).
 
-**Next free check number: 242** (counted across `main` and every open branch).
+**Next free check number: 243** (counted across `main` and every open branch).
 
 **Docs that name a check this file doesn't have** (renumbered or removed):
 

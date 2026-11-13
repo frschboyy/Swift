@@ -48,6 +48,9 @@ areas:
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
     checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239]
+  stopping:
+    paths: [src/swift/cleanup.py]
+    checks: [242]
   offline:
     paths: [src/swift/network.py]
     checks: [132-134, 150-153, 209]
@@ -102,6 +105,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [242]
+    why: the owner's stuck card of 2026-11-13; fixed for a second Stop, not seen on the real PC
   - checks: [240, 241]
     why: health audit fixes X-02 and HA-HEAR-02 (2026-11-12), both product rules
   - checks: [233-238]

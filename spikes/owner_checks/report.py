@@ -615,11 +615,16 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 
 
 def _health(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
-    """Checks 240-241: fixes from the health audit (2026-11-12)."""
+    """Checks 240-241: fixes from the health audit (2026-11-12). 242: the stuck card of 2026-11-13."""
+    # The overlay asked to stop a request the backend had already ended: its card was still on screen.
+    ghosts = [line for line in log if "| stop from the live view ignored |" in line and "known=True" in line]
+    stops = [line for line in log if "| request stopped from" in line]
     chosen = [line for line in log if "contact chosen by the owner" in line and _counter(line, "options") > 1]
     return [
         ("240 of several matching contacts, the one you picked was used", seen(chosen), "pick one when Swift asks which"),
         ("241 no chime straight after a lock", LOOK, "tell us whether Swift chimed or showed 'heard' while locked"),
+        ("242 no card left working after its request ended", unless(ghosts, stops),
+         f"{len(stops)} stop(s); pressed on a request already over: {len(ghosts)}"),
     ]
 
 

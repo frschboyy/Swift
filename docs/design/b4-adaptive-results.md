@@ -2,7 +2,8 @@
 
 Status: **the owner adopted these recommendations (2026-11-13), and both pre-approval checks are done (§9).** The
 checks changed one item: Windows Shell thumbnails are out (2 of 24 real files gave one), and Windows' built-in PDF
-renderer plus a standard-library text excerpt replace them. Nothing here is built into Swift yet. A dev-only
+renderer plus a standard-library text excerpt replace them; the owner accepted that change on 2026-11-14.
+Nothing here is built into Swift yet. A dev-only
 prototype draws the shapes (`overlay/dev/b4.html`, §6).
 
 **The owner's decision (2026-11-13):** results aren't a fixed list of layouts. For each result, Swift works out
@@ -268,8 +269,9 @@ scaling, forced colours and reduced motion.
    outside it is installed when needed, with a card every time (§4).
 3. **The vetted set:** **adopted by the owner (2026-11-13).** Swift's own blocks; Mermaid (`@mermaid-js/tiny`
    12.3.0, MIT), the one new dependency; Windows' PDF renderer; and a standard-library excerpt for Office files
-   (§4). The checks replaced Windows thumbnails with the last two (§9). *Still the owner's:* that change, and
-   whether mind maps (which tiny leaves out) matter enough to need anything more.
+   (§4). The checks replaced Windows thumbnails with the last two (§9). The owner accepted that change
+   on 2026-11-14. *Still the owner's:* whether mind maps (which tiny leaves out) matter enough to need anything
+   more.
    - **3b.** An installed tool outside the set is reused without asking again, and a new version asks again.
      *Recommended.* The other reading is to ask before every use, which means a card on every chart from that tool.
    - **3c.** Outside tools run on the worker's side and reach the card as data or a PNG, never as code in the

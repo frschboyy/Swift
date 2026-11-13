@@ -753,6 +753,9 @@ async def test_the_request_said_again_before_swift_asked_is_not_a_second_request
     assert screen["question"] == "Turn off Wi-Fi?", screen
     await say(session, stt, "yes")  # the question still takes its answer
     await until(lambda: control.radio_state.get("wifi") is False)
+    await finish_all(session, agent)
+
+
 async def test_an_answer_that_ends_behind_a_card_waits_there_until_it_is_seen(monkeypatch: Any) -> None:
     """A4 (owner's run of 2026-11-13): the research ended behind the email's card and its edge went
     20 s later, before the owner had seen it. A card never presented doesn't run out because another

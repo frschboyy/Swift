@@ -2062,6 +2062,11 @@ About 1 minute. From your run of 2026-11-13, 15:12 ("play some music" said "Play
 4. Open your music app with something paused, then say "Hey Swift, play some music" again. It plays, and Swift says "Playing.".
 
 The report checks: nothing to look up in the logs; tell Claude what you saw.
+
+### Questions, the spinner and cards behind the front (2026-11-13)
+
+About 4 minutes. From your run of 2026-11-13 (A2, A3, A4, A6).
+
 <a id="check-250"></a>**Check 250. A question after two requests ran together is shown as a question**
 1. Say "Hey Swift, research the history of tea", and while it works, "Hey Swift, research the history of coffee".
 2. Let both finish, and wait about a minute until their edges and rows are gone.
@@ -2076,6 +2081,7 @@ The report checks: nothing to look up in the logs; tell Claude what you saw.
 3. Leave the card alone: after about 12 seconds it shrinks to one line. Watch the one-line spinner for at least
    20 more seconds: it should keep turning smoothly, never jump back once a second.
 4. Point at the card: it opens, and after a while without news says "Still working".
+
 <a id="check-256"></a>**Check 256. An answer that ends behind a card waits there until you've seen it**
 1. Say "Hey Swift, research the history of tea".
 2. While it works, say "Hey Swift, draft a note to Test Me about lunch" and keep its card in front. Don't click the research's edge.
@@ -2091,6 +2097,7 @@ The report counts the answers kept behind the card because they hadn't been seen
 3. You should see its own card with its last step and a timer counting from when you asked, not from zero, and not a
    new request starting.
 4. Let the research end behind it, then click the research's edge: you see its answer, never "Working on it".
+
 ### Gmail filled in without your click (2026-11-13)
 
 About 3 minutes. From your run of 2026-11-13, 10:43 and 10:44: nothing was written unless the cursor was already in
@@ -2106,6 +2113,7 @@ the email's body. Nothing is sent: close each email.
    window: click it"). Tell us which.
 
 The report checks: every fill-in finished, and which step put the cursor in each field (the cause of the old failure).
+
 ### Swift in front, and a website by voice (2026-11-13)
 
 About 5 minutes. From your run of 2026-11-13 (203: Swift behind Task Manager; 15:07: Blackboard didn't open).

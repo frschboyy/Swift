@@ -662,6 +662,9 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("254 Task Manager's band", LOOK, "paste window_bands.py's last lines; was Swift in front of Task Manager?"),
         ("255 a spoken web address was opened", unless(missed, spoken),
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
+    ]
+
+
 def _grounded(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     """Checks 259-261: Swift doesn't know where the owner is (C1, 2026-11-13: "about 4 km" from the weather's area)."""
 

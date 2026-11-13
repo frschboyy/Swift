@@ -56,8 +56,7 @@ areas:
     checks: [132-134, 150-153, 209]
   deck:
     paths: [src/swift/attention.py, overlay/src/deck.ts, overlay/src/deckdraw.ts, overlay/src/shuffle.ts, overlay/src/panes.ts, overlay/src/pane.ts, overlay/src/raise.ts, overlay/src-tauri/src/panes.rs, overlay/src-tauri/src/placement.rs]
-    checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 251]
-    checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 256, 257]
+    checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 251, 256, 257]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
     checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212]
@@ -70,8 +69,7 @@ areas:
     checks: [54, 146-149, 165, 171, 180, 181]
   capsule:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
-    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251]
-    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 253, 254]
+    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]
@@ -81,8 +79,7 @@ areas:
   apps:
     rule: Swift writes into apps only when the owner's own words asked
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252]
-    checks: [10, 38, 39, 50, 51, 75, 76, 92, 95, 255]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261]

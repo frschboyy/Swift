@@ -133,6 +133,8 @@ class FakeSystem(SystemControl):
     volume: int = 40
     muted: bool = False
     playing: bool = True
+    # Whether an app answers the play key: False is a PC with no music app open (owner check 235).
+    player: bool = True
     dark: bool = False
     brightness: int | None = 60
     battery_state: Battery | None = field(default_factory=lambda: Battery(76, False, 190))
@@ -170,7 +172,7 @@ class FakeSystem(SystemControl):
 
     async def media_key(self, key: MediaKey) -> None:
         self._log("media_key", key)
-        if key == "play_pause":
+        if key == "play_pause" and self.player:
             self.playing = not self.playing
 
     async def get_dark_mode(self) -> bool:

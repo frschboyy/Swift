@@ -30,6 +30,7 @@ this PC and either reversible or harmless (ADR-016 §3.1, docs/architecture.md).
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -45,6 +46,10 @@ from swift.system.control import SystemControl, SystemUnavailable
 from swift.system.scheduler import Item, Scheduler, SchedulerError
 
 UNDO_S = 600.0
+# Pressing play: how long sound has to start before Swift says nothing played, in how many looks.
+PLAY_CHECK_S = 2.0
+PLAY_CHECKS = 4
+NOTHING_PLAYED = "Nothing started playing: no music app seems to be open. Open one, then ask again."
 # Intents that change the device or reach outside Swift: journaled.
 CHANGES = frozenset({
     "volume.step", "volume.set", "mute", "media", "theme", "brightness.set", "brightness.step", "lock",
@@ -383,9 +388,21 @@ class SystemLane:
             if action == "play" and playing:
                 return "It's already playing.", None
             await self.control.media_key("play_pause")
+            if action == "play" and not await self._started_playing():
+                # The key reached no player: nothing is open to play (owner check 235, 2026-11-13: "Playing." and
+                # silence). Choosing how to play music is a capability of its own (workstreams C6).
+                return NOTHING_PLAYED, None
             return ("Paused." if action == "pause" else "Playing."), None
         await self.control.media_key("next" if action == "next" else "prev")
         return ("Next track." if action == "next" else "Previous track."), None
+
+    async def _started_playing(self) -> bool:
+        """Whether sound starts within ``PLAY_CHECK_S`` of pressing play: a player takes a moment to start."""
+        for _ in range(PLAY_CHECKS):
+            if await self.control.audio_playing():
+                return True
+            await asyncio.sleep(PLAY_CHECK_S / PLAY_CHECKS)
+        return False
 
     # ---- display, power, information ---------------------------------------------------
 

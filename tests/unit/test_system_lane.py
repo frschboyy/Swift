@@ -304,6 +304,16 @@ async def test_volume_limits_and_unmuting() -> None:
     assert dev.muted is False
 
 
+async def test_play_with_no_music_app_open_says_nothing_played(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Owner check 235, 2026-11-13: "play some music" said "Playing." and nothing played.
+    from swift.system import lane as lane_mod
+
+    monkeypatch.setattr(lane_mod, "PLAY_CHECK_S", 0.0)
+    l, dev, _ = lane(playing=False, player=False)
+    assert await say(l, "play some music") == lane_mod.NOTHING_PLAYED
+    assert ("media_key", ("play_pause",)) in dev.calls and not dev.playing
+
+
 async def test_mute_and_media() -> None:
     l, dev, _ = lane(playing=True)
     assert await say(l, "mute the sound") == "Muted." and dev.muted

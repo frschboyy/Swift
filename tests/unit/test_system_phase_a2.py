@@ -96,7 +96,10 @@ def test_a_misheard_wifi_is_read_as_wifi_off(heard: str) -> None:
 
 
 @pytest.mark.parametrize("heard", ["turn on the wafer", "switch the wafer on", "turn off the water", "turn off the window",
-                                   "turn off the weather", "turn off the wire", "turn off the lights", "eat a wafer"])
+                                   "turn off the weather", "turn off the wire", "turn off the lights", "eat a wafer",
+                                   # Review of 225ca9b: a sound-alike rule took these, and a plain yes then did it.
+                                   "turn off the wave", "turn off my wife", "turn off the weave", "disconnect the waver",
+                                   "switch off we feel", "turn off the whiff", "turn off the woofer"])
 def test_a_guess_is_never_read_as_switching_on_or_from_another_word(heard: str) -> None:
     # A guessed "on" would have no question and act on a guess.
     assert names(heard) is None
@@ -168,6 +171,17 @@ def _host_and_scope(said: str, **device: object):  # type: ignore[no-untyped-def
     scope = RunScope(publish, confirm)  # type: ignore[arg-type]
     scope.said = said
     return host, scope, dev, journal, asked
+
+
+async def test_a_misheard_wifi_on_the_agent_path_still_has_its_approval_card() -> None:
+    # Review of 225ca9b: "turn off the wafer and write me a haiku" now counts as asking for Wi-Fi off. The
+    # agent's system_action is disruptive, so it still has the confirm card (never a plain yes).
+    from swift.workflows.system_tools import system_action
+
+    host, scope, dev, journal, asked = _host_and_scope("turn off the wafer and write me a haiku")
+    result = await system_action(host, scope, {"request": "turn off wifi"})
+    assert asked == ["Turn off Wi-Fi?"] and result.ok and dev.radio_state["wifi"] is False
+    assert [e.get("tool") for e in journal.entries if e["state"] == "PENDING"] == ["system_action_disruptive"]
 
 
 async def test_the_agent_can_do_the_system_part_the_owner_asked_for() -> None:

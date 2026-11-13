@@ -121,7 +121,8 @@ Failed: 201, 203, 204, 205, 206, 208, 218, 235, 239; 211 couldn't be done. Sorte
   itself (Swift's own question about a reversible change, where a plain yes works), and the matcher treats "wifi" and
   "wi fi" as one word. Whether the owner's two spoken answers at 14:14 were "WiFi" is likely, unproven (answers aren't saved).
   **Fixed on `claude/owner-run-1337` (not merged, needs a review by someone other than the author: it changes which
-  words reach Swift's own question, where a plain yes works):** a word that sounds like Wi-Fi in a switch-off command
+  words reach Swift's own question, where a plain yes works):** in a switch-off command, a way speech recognition has
+  written Wi-Fi (`HEARD_AS_WIFI`: wafer, Wofo, waffle, why fi and close spellings; a new one is added from a saved clip)
   is read as Wi-Fi off, so it gets "Turn off Wi-Fi?" and never the agent (`225ca9b`; a guessed "on" stays unparsed:
   it has no question); and an option said as one word ("WiFi") is that option (`106b6dd`). Owner check 243.
   Not changed: `NOT_ASKED`'s example still names "Wi-Fi or Bluetooth" for other misheard words; a click on an option
@@ -367,7 +368,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 | Branch | What | State |
 |---|---|---|
-| `claude/owner-run-1337` | The owner's run of 2026-11-13 13:37 recorded, and the wafer loop fixed (`225ca9b`, `106b6dd`), owner check 243 | Waiting for a review by someone other than the author (product rule), then the owner's OK to merge. Python 1909 passed (one failure that also fails on `main` here: WinError 1005), routing parity 413/423, 0 harmful |
+| `claude/owner-run-1337` | The owner's run of 2026-11-13 13:37 recorded, and the wafer loop fixed (`225ca9b`, `106b6dd`), owner check 243 | Reviewed by a session other than the author: pass with notes. Its main note (a sound-alike rule also took "wave", "wife", "we feel") is fixed by a fixed word list (`HEARD_AS_WIFI`), with a test; the agent path's card is now tested. Left as the review found it: a compound like "turn off the wafer and turn on Bluetooth" puts both behind one question, as it already did for "Wi-Fi". Waiting for the owner's OK to merge. Python 1909 passed (one failure that also fails on `main` here: WinError 1005), routing parity 413/423, 0 harmful |
 | `claude/wake-porcupine-trial` | The wake trial (`docs/spikes/wake-model-trial.md`, three rounds on the owner's recordings) and ADR-021 (proposed): a second way in for "Hey Swift", an acoustic detector checked by Parakeet, behind `wake.acoustic` (off by default) | ADR-021 steps 1–6 done: through the live listener, misses go from 38.8% to 29.0% with no false wake in the 2 h office. Merged into `main` on 2026-11-12, off by default. It touches the rule "no hands-free listening while locked": reviewed by a session other than the author, two findings fixed (`29a48dc`, `ff0dc47`) and re-reviewed as safe to turn on. Owner checks 228–232 are waiting, with `wake.acoustic: true` |
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (240 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.

@@ -612,14 +612,16 @@ def _on(m: re.Match[str]) -> bool:
     return g.get("verb") not in _OFF_VERBS
 
 
+# How speech recognition has written "Wi-Fi" (owner checks 201 and 206, 2026-11-13: "wafer", "Wofo"), and
+# close spellings of those. Only these: a sound-alike rule also took "wave", "wife" and "we feel" (review of
+# 225ca9b), and a plain yes to "Turn off Wi-Fi?" is for a change the owner asked for. Add a word when a saved
+# clip shows it.
+HEARD_AS_WIFI = frozenset({"wafer", "wafers", "wofo", "woofo", "wofa", "waffle", "why fi", "wi fy", "wi fry"})
+
+
 def heard_as_wifi(words: str) -> bool:
-    """Whether ``words`` is how speech recognition mishears "Wi-Fi": "wafer", "Wofo", "waffle", "why fi"
-    (owner checks 201 and 206, 2026-11-13). Its consonants are a w then an f or v, and at most one more."""
-    joined = words.replace(" ", "")
-    if not joined.isalpha() or not joined.startswith("w") or len(joined) > 6 or len(words.split()) > 2:
-        return False
-    skeleton = re.sub(r"(.)\1+", r"\1", re.sub(r"[aeiouyh]", "", joined))
-    return re.fullmatch(r"w[fv][rl]?", skeleton) is not None
+    """Whether ``words`` is one of the ways speech recognition has misheard "Wi-Fi" (``HEARD_AS_WIFI``)."""
+    return " ".join(words.split()) in HEARD_AS_WIFI
 
 
 # "Turn off the wafer": the radio slot, whatever was heard there, for ``heard_as_wifi``.

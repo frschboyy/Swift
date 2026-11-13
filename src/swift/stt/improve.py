@@ -11,7 +11,8 @@ on this PC only. Over the test set (clips whose words the owner gave by repeatin
    owner approves (``approve`` writes them to ``stt.word_fixes_file``, ``reject`` remembers them).
 2. **Accuracy check** (as ``spikes/stt/model_compare.py`` and ``noise_bench.py``): the word error
    rate with the fixes in use, clean and with pink noise mixed in at 10 dB, compared clip for clip
-   with the last pass. A rise of more than ``DROP`` on the clips both passes saw is reported.
+   with the last pass. A rise of more than ``DROP`` on the clips both passes saw is reported, and
+   so is any sentence that was exactly right last time and isn't now (seams audit W-03).
 3. **End-of-speech feed:** per clip, how long it was, the silence before and after the speech
    and the longest pause inside it (``endpoint_feed.json`` in the test set's folder, content-free),
    for end-of-speech tuning (``swift/endpoint.py``, ``spikes/endpointing``).
@@ -197,12 +198,17 @@ class Report:
     wer_noisy_before: float | None = None
     wer_after: float | None = None
     wer_noisy_after: float | None = None
+    # Clip ids that were exactly right last pass and aren't now (W-03). Clean audio only: a clip's
+    # noise depends on its place in the set, so its noisy result can change with nothing else changed.
+    regressed: list[str] = field(default_factory=list)
     proposals: list[Proposal] = field(default_factory=list)
 
     @property
     def dropped(self) -> bool:
         if not self.compared:
             return False
+        if self.regressed:
+            return True
         clean = self.wer_before is not None and self.wer_after is not None and self.wer_after - self.wer_before > DROP
         noisy = (self.wer_noisy_before is not None and self.wer_noisy_after is not None
                  and self.wer_noisy_after - self.wer_noisy_before > DROP)
@@ -211,7 +217,8 @@ class Report:
     def counts(self) -> dict[str, Any]:
         """For the log: numbers only."""
         return {"clips": self.clips, "wer": self.wer, "wer_noisy": self.wer_noisy, "compared": self.compared,
-                "wer_before": self.wer_before, "wer_after": self.wer_after, "dropped": self.dropped, "proposals": len(self.proposals)}
+                "wer_before": self.wer_before, "wer_after": self.wer_after, "dropped": self.dropped, "regressed": len(self.regressed),
+                "proposals": len(self.proposals)}
 
     def summary(self) -> str:
         """The card's text (no transcripts)."""
@@ -221,7 +228,12 @@ class Report:
         pct = lambda v: f"{round(v * 100)}%"  # noqa: E731
         lines = [f"Checked {self.clips} of your recordings: {pct(1 - (self.wer or 0))} of words right"
                  f" ({pct(1 - (self.wer_noisy or 0))} with noise added)."]
-        if self.dropped:
+        if self.regressed:
+            n = len(self.regressed)
+            lines.append(f"{n} sentence{'s' if n > 1 else ''} Swift got right last time "
+                         f"{'are' if n > 1 else 'is'} wrong now. "
+                         "Something changed in speech recognition: worth a look.")
+        elif self.dropped:
             lines.append(f"That's worse than last time on the same clips ({pct(1 - (self.wer_after or 0))}, "
                          f"was {pct(1 - (self.wer_before or 0))}). "
                          "Something changed in speech recognition: worth a look.")
@@ -302,6 +314,7 @@ def run_pass(recognize: Recognize, recordings: Recordings, fixes_file: Path) -> 
         report.compared = len(common)
         report.wer_before, report.wer_noisy_before = rate(before, common, 1), rate(before, common, 2)
         report.wer_after, report.wer_noisy_after = rate(per_clip, common, 1), rate(per_clip, common, 2)
+        report.regressed = sorted(i for i in common if before[i][1] == 0 and per_clip[i][1] > 0)
     store = load_store(fixes_file)
     known = {(f["heard"], f["meant"]) for f in store["fixes"]} | {tuple(r) for r in store["rejected"]}
     report.proposals = candidates(rows, known)  # type: ignore[arg-type]

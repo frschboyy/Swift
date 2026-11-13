@@ -373,7 +373,7 @@ IDs by area:
 | V-02 | Medium | confirmed (tests) | speech | effectiveness | No echo cancellation; the "no over Swift's voice" rule has four gaps (#7, #8) |
 | V-03 | Medium | design concern | speech | reliability, diagnosability | The confidence model is three measures tuned case by case; the logged number isn't the deciding one |
 | W-01 | Medium | confirmed (test, owner data) | speech | effectiveness | Word-fix proposals swap common words without context ("text → Test") |
-| W-03 | Medium | confirmed (test) | speech | testability | The speech regression gate is aggregate-only |
+| W-03 | Medium | confirmed (test); **fixed 2026-11-13** (the owner's test set, clean audio) | speech | testability | The speech regression gate is aggregate-only |
 | W-04 | Medium | confirmed (owner data) | speech | testability | The owner test set misses systematic mishearings (2 labelled clips) |
 | W-06 | Medium | confirmed (experiment) | speech | effectiveness | Contacts aren't used when recognizing a name ("Test Me" → "Plectomy") |
 | R-01 | Medium | confirmed (test); **fixed 2026-11-05 (S4)** | backend | fallback, efficiency | Offline, the light lane (20 s) and the workflow offer come before the offline answer |

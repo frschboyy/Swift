@@ -355,11 +355,12 @@
   area: tests
   severity: medium
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: strict xfail still fails 2026-11-12
-  test: tests/unit/test_seams_audit_stt.py::test_improvement_pass_reports_sentences_that_got_worse
-  note: The handoff wants this before any more speech tuning.
+  evidence: src/swift/stt/improve.py run_pass fills Report.regressed; Report.dropped and summary() report it
+  test: tests/unit/test_recordings.py::test_run_pass_reports_one_sentence_going_wrong_among_many
+  note: Clean audio only (a clip's noise depends on its place in the set). It covers the owner's 7-day test
+    set, not stt_corpus or stt_noisy (seams audit remediation G). Not seen on the real PC.
 - id: W-04
   title: The owner test set misses systematic mishearings; an identical repeat is skipped.
   source: docs/audit/2026-11-seams-audit.md §3.5

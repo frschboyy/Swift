@@ -30,9 +30,11 @@ def test_word_fixes_do_not_rewrite_a_correct_common_word():
     assert fixes.apply("Send Muthoni a text about lunch.") == "Send Muthoni a text about lunch."
 
 
-@pytest.mark.xfail(strict=True, reason="seams audit W-03: open finding; remove this marker with the fix")
 def test_improvement_pass_reports_sentences_that_got_worse():
     # SA-STT-3: the gate is an aggregate WER rise > 0.02; one sentence going from right to wrong
     # among 50 clips (~450 words) moves WER by ~0.002 and is not reported.
     r = Report(clips=50, compared=50, wer_before=0.100, wer_after=0.102, wer_noisy_before=0.2, wer_noisy_after=0.2)
-    assert hasattr(r, "regressed"), "Report has no per-sentence regression list"
+    assert not r.dropped
+    r.regressed = ["c7"]
+    assert r.dropped and "1 sentence Swift got right last time is wrong now" in r.summary()
+    assert r.counts()["regressed"] == 1 and "c7" not in r.summary()

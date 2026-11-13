@@ -354,6 +354,21 @@ def test_run_pass_proposes_fixes_scores_and_feeds_end_of_speech(rec: Recordings,
     again = run_pass(worse, rec, fixes)
     assert again.compared == 2 and again.dropped and "worse than last time" in again.summary()
     assert "tori" not in again.summary()  # the card's summary: no transcript
+    assert again.regressed == []  # neither sentence was exactly right before
+
+
+def test_run_pass_reports_one_sentence_going_wrong_among_many(rec: Recordings, clock: Clock, tmp_path: Path) -> None:
+    # W-03: one right sentence going wrong among 30 moves the word error rate by under DROP.
+    said = "open the settings app for me now please"
+    wrong = said.replace("settings", "sittings")
+    make_test_set(rec, clock, [(wrong, said)] * 30)
+    fixes = tmp_path / "word_fixes.json"
+    first = run_pass(lambda audio: (said, said), rec, fixes)
+    assert first.clips == 30 and first.wer == 0 and not first.dropped
+    calls = iter(range(60))  # each clip clean, then noisy
+    again = run_pass(lambda audio: (wrong, wrong) if next(calls) == 0 else (said, said), rec, fixes)
+    assert again.wer_after - again.wer_before <= improve.DROP
+    assert len(again.regressed) == 1 and again.dropped and "1 sentence" in again.summary()
 
 
 def test_decide_writes_approved_fixes_and_remembers_rejected(tmp_path: Path) -> None:

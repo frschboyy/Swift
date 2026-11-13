@@ -1661,7 +1661,13 @@
     through), and a third review blocked the repair (removing quotes glued a path to the letter before it).
     The fourth commit reads the command both ways and refuses on either, and drops the two rules that tried
     to tell a secret's name from a word - so '.env' in a search or a commit message is refused too. Against
-    the reviewer's 8,627 generated commands it refuses everything the first two versions did.
+    the reviewer's 8,627 generated commands it refuses everything the first two versions did. A fourth review
+    passed it (0ab00f4) with follow-ups, none needed before merge. Ordinary spellings it found that no
+    version refuses - a never-read folder with a space in its name reached by a non-canonical path
+    (..\\..\\AppData\\Local\\Google\\Chrome\\User Data); a Bash-escaped c\\$ share; $PWD or $(pwd) followed
+    by ../..; an option glued to a relative path (-Path:..\\..\\.ssh\\config, curl -d @.env); a bare cd
+    (home in Bash) then a relative path; git show HEAD:.env. One small regression on another computer's
+    share (a name followed by \\.). The check takes about 0.5 s on a 1,500-character command.
     Left open - cd to a folder that isn't a plain parent, then a relative path; short (8.3) names. Unverified -
     whether the CLI runs read-only commands inside the working folder without asking, which would skip this
     check for a secret file there; and a backend started from inside a packaged app sees AppData redirected.

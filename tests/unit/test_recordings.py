@@ -530,3 +530,9 @@ def test_the_owner_checks_report_sees_recordings_from_counts_and_lines() -> None
     assert results["111-113"][1] == "failed 1, say_again 1, unsure 1"
     empty = {name.split(" ")[0]: ok for name, ok, _ in report.checks([], [])}
     assert not any(empty[c] for c in ("110", "111-113", "112-113", "114", "115", "116"))
+
+
+def test_scoring_ignores_spelling_and_spacing_but_not_words() -> None:
+    n = improve.normalize
+    assert improve.edits(n("Summarize the README at 3 p.m."), n("Summarise the Read Me at three pm.")) == 0
+    assert improve.edits(n("set the beam size"), n("set the bean size")) == 1

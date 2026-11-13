@@ -45,6 +45,7 @@ FEED = "endpoint_feed.json"
 NUMBERS = "zero one two three four five six seven eight nine ten eleven twelve".split()
 FILLERS = {"um", "umm", "uh", "uhh", "er", "erm", "hmm", "mm", "ah"}
 _WORD = re.compile(r"[\w']+")
+_ISE = re.compile(r"is(e|ed|es|ing)$")
 BLOCK = 512  # 32 ms
 
 # (text with fixes, text without) for 16 kHz int16-scaled samples.
@@ -62,7 +63,7 @@ def normalize(text: str) -> list[str]:
         if w.isdigit() and int(w) < len(NUMBERS):
             w = NUMBERS[int(w)]
         if w not in FILLERS:
-            out.append(w)
+            out.append(_ISE.sub(r"iz\1", w))  # "summarise" is "summarize" spelled, not misheard
     return out
 
 
@@ -71,7 +72,7 @@ def compact(phrase: str) -> str:
     out = []
     for w in phrase.lower().replace("'", "").split():
         w = str(NUMBERS.index(w)) if w in NUMBERS else w
-        out.append(re.sub(r"is(e|ed|es|ing)$", r"iz\1", w))
+        out.append(_ISE.sub(r"iz\1", w))
     return "".join(out)
 
 
@@ -101,6 +102,8 @@ def align(ref: list[str], hyp: list[str]) -> list[tuple[str, int, int, int, int]
 
 
 def edits(ref: list[str], hyp: list[str]) -> int:
+    if "".join(ref) == "".join(hyp):
+        return 0  # the same letters spaced differently ("read me" / "readme", "p m" / "pm")
     return sum(op != "equal" for op, *_ in align(ref, hyp)) if ref or hyp else 0
 
 

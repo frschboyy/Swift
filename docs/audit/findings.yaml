@@ -1656,7 +1656,9 @@
   note: A safeguard. It reads the command's text, so a path built in pieces, by a wildcard or inside a script
     isn't seen, nor a search of a whole folder that holds a never-read place (a card, as for Grep). The root fix
     is running the agent's shell where it can't open these folders. Reviewed 2026-11-13 by a session other than
-    the author - pass with follow-ups; its two pre-merge points and four others are in the follow-up commit.
+    the author - pass with follow-ups, applied in a follow-up commit. A second review blocked that commit (a
+    quoted variable before the path, and secret names tested for existence in the wrong folder, were let
+    through); both are fixed in a third commit, with the reviewer's commands as tests.
     Left open - cd to a folder that isn't a plain parent, then a relative path; short (8.3) names. Unverified -
     whether the CLI runs read-only commands inside the working folder without asking, which would skip this
     check for a secret file there; and a backend started from inside a packaged app sees AppData redirected.

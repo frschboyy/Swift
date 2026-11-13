@@ -71,6 +71,8 @@ def default_never(home: str | None = None) -> tuple[str, ...]:
     return tuple(os.path.join(base, *p.split("/")) for p in _HOME_NEVER)
 
 
+# Hosts that are this PC, and the "\\?\" and "\\.\" prefixes, in a path that starts with two slashes.
+_HERE = frozenset({"localhost", "127.0.0.1", "::1", "[::1]", "?", ".", os.environ.get("COMPUTERNAME", "localhost").lower()})
 _SPLIT = re.compile(r"""[\s"'`;|&<>()=,]+""")
 _VAR = re.compile(r"\$\{env:(\w+)\}|\$env:(\w+)|\$\{(\w+)\}|\$(\w+)|%(\w+)%", re.IGNORECASE)
 
@@ -100,6 +102,7 @@ class ReadScope:
         env = {k.upper(): v for k, v in os.environ.items()} | {"HOME": self.home, "USERPROFILE": self.home}
         text = _VAR.sub(lambda m: env.get(next(g for g in m.groups() if g).upper(), m.group(0)), command)
         text = text.replace("\\ ", " ")  # Git Bash's escaped space: "User\ Data"
+        text = re.sub(r"""["'`]""", "", text)  # quotes join what they hold to what follows: "$HOME"/.ssh
         tokens = [self.home + t[1:] if t == "~" or t.startswith(("~/", "~\\")) else t for t in _SPLIT.split(text) if t]
         flat = _flat(" ".join(tokens))
         said = {_flat(t).rstrip("/") for t in tokens}
@@ -113,19 +116,23 @@ class ReadScope:
             while len(parent) >= len(home) and parent != os.path.dirname(parent):
                 rest = re.escape(n[len(parent):].lstrip("/"))
                 # At the start of a path ("Swift/x", "./Swift"), not inside another one ("Documents/Swift/.claude").
-                if parent in said and re.search(rf"(?<![\w.\-/])(?:\./)?{rest}(?![\w\-])", flat.replace(n, "")):
+                if parent in said and re.search(rf"(?<![\w.\-])(?<![\w\-]/){rest}(?![\w\-])", flat.replace(n, "")):
                     return never
                 parent = os.path.dirname(parent)
         base = cwd or os.getcwd()
+        tokens = [re.sub(r"^/(?:mnt/)?([a-zA-Z])(?=/)", r"\1:", t) for t in tokens]
+        # Another computer's share isn't this PC's files, and resolving it would go looking for the host.
+        tokens = [t for t in tokens if not ((m := re.match(r"[\\/]{2}([^\\/]+)", t)) and m.group(1).lower() not in _HERE)]
         for token in tokens:  # a relative path ("../../.ssh/id_rsa") or a secret-looking file (".env")
-            token = re.sub(r"^/(?:mnt/)?([a-zA-Z])(?=/)", r"\1:", token)
-            if re.match(r"[\\/]{2}", token) and _local(token) == token:
-                continue  # another computer's share: not this PC's files, and resolving it would go looking for the host
             try:
                 path = token if os.path.isabs(token) else os.path.join(base, token)
-                # A secret-looking name counts only if the file is there: ".env" is also a word in a search or a message.
-                if self.verdict(path) == "never" and (
-                        os.path.exists(path) or any(_inside(_norm(path), n) for n in self.never)):
+                if self.verdict(path) != "never":
+                    continue
+                if any(c in token for c in "\\/*?[") or any(_inside(_norm(path), n) for n in self.never):
+                    return path
+                # A bare secret-looking name (".env") is also a word in a search or a message: it counts
+                # when that file is there, in the working folder or a folder the command names (`cd sub`).
+                if any(os.path.exists(os.path.join(base, d, token)) for d in ("", *tokens)):
                     return path
             except (OSError, ValueError):  # not a path at all (a URL, an option): nothing to judge
                 continue

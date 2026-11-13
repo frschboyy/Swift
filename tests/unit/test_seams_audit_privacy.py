@@ -129,9 +129,26 @@ def test_a_command_that_reaches_swift_s_data_or_a_secret_is_named(tmp_path: Path
     scope, work = _command_scope(tmp_path, monkeypatch)
     data = tmp_path / "AppData" / "Local" / "Swift"
     posix = "/" + data.drive[0].lower() + data.as_posix()[2:]  # Git Bash: /c/Users/…
-    for name in (".env", "deploy.pem"):  # a secret-looking name counts when the file is there
+    for name in (".env", "deploy.pem", "my dir/.env", "sub/id_rsa", "sub/server.pem", "../../.netrc"):
+        (Path(work) / name).parent.mkdir(exist_ok=True)  # a bare secret-looking name counts when the file is there
         (Path(work) / name).write_text("x", encoding="utf-8")
     for command in (
+        # From the second review (2026-11-13): spellings a follow-up had let through.
+        'cat "$HOME"/.ssh/id_rsa',
+        'cat "$LOCALAPPDATA"/Swift/interactions.jsonl',
+        r'type "%LOCALAPPDATA%"\Swift\logs\swift.log',
+        'cat "${HOME}"/.aws/credentials',
+        r'Get-Content "$env:LOCALAPPDATA"\Swift\x',
+        r"Get-Content ($env:LOCALAPPDATA + '\Swift\interactions.jsonl')",
+        "cd $LOCALAPPDATA && cat ././Swift/x",
+        'cat "my dir/.env"',
+        r"cat my\ dir/.env",
+        "cd sub; cat server.pem",
+        "pushd sub; type id_rsa",
+        "cd ~ && cat .netrc",
+        "cat sub/*.pem",
+        'cat "$HOME"/.netrc',
+        r"type \\localhost\Users\me\.ssh\id_rsa",
         r"Get-Content ${env:LOCALAPPDATA}\Swift\interactions.jsonl",
         r"cat $LOCALAPPDATA/Google/Chrome/User\ Data/Default/Cookies",
         """cd "$LOCALAPPDATA" && cat ./Swift/interactions.jsonl""",

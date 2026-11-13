@@ -706,3 +706,26 @@ async def test_a_second_stop_while_the_first_cleans_up_still_ends_the_card() -> 
     screen = agree(session, out)
     assert screen["stage"] != "working", screen
     await finish_all(session, agent)
+
+
+async def test_the_request_said_again_before_swift_asked_is_not_a_second_request() -> None:
+    # A7, the owner's run of 2026-11-13, 14:21: "Turn off Wi-Fi?" took 8 s to appear, so the owner began the request
+    # again and stopped mid-sentence when the question came up. That utterance began before the question and was
+    # taken as its answer: a new request ("How are you? Can you turn off the"), beside the first, to the agent.
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    await say(session, stt, "Hey Swift, how are you? Can you turn off the wifi")
+    await until(lambda: session._listening_for() is not None)
+    q = session.dialogue.pending
+    assert q is not None and q.text == "Turn off Wi-Fi?"
+    stt.text = "How are you? Can you turn off the"
+    began = q.asked_at - 1.0  # a second before the question appeared
+    now = time.monotonic()
+    await session.hear_wake(np.zeros(int((now - began) * 16000), dtype=np.int16), now)
+    await asyncio.sleep(1.6)  # it ends mid-thought ("the"), so it is held a moment for the rest
+    assert agent.requests == [] and len(session._live()) == 1, "a second request"
+    assert session.dialogue.pending is q and session._listening_for() is q, "the question went"
+    screen = agree(session, out)
+    assert screen["question"] == "Turn off Wi-Fi?", screen
+    await say(session, stt, "yes")  # the question still takes its answer
+    await until(lambda: control.radio_state.get("wifi") is False)
+    await finish_all(session, agent)

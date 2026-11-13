@@ -180,6 +180,7 @@ from swift.routing.rules import (
     route_target,
     strip_wake,
 )
+from swift.same_request import same_request
 from swift.security.gateway import UNDO_WINDOW_S, Approved
 from swift.stack import MAX_PARKED, StackItem, card_id, due_id, parked_id, split_id
 from swift.stack import order as stack_order
@@ -398,10 +399,6 @@ LIVE_TEXT_MAX = 8000
 QUEUED_HINT = "That's waiting: {n} requests are running. It starts when one of them is done."
 # The same request said again while it runs: one run, not two.
 STILL_ON_IT = "Still on it: “{words}”."
-
-
-def _same_words(text: str) -> str:
-    return " ".join(re.findall(r"[a-z0-9']+", text.lower()))
 REDIRECT_NAME_HINT = "To change it hands-free, say “Swift, actually …”."
 NO_TARGET_HINT = "I couldn't tell which request you mean."
 # After something that can't be taken back, the follow-up Swift offers (ADR-014 §7).
@@ -1278,11 +1275,9 @@ class Session:
         return self._chip_now(self._launch(record, capture, self.executor, self.executor.start, title=_short_title(text)), text)
 
     def _same_request(self, text: str, besides: Run | None = None) -> Run | None:
-        """A running request with the same words (case, punctuation and the wake phrase aside)."""
-        words = _same_words(strip_wake(text) or text)
-        if not words:
-            return None
-        return next((r for r in self._live(besides=besides) if r.words and _same_words(r.words) == words), None)
+        """A running request this one asks again: misheard a little, or cut off (``same_request``)."""
+        said = strip_wake(text) or text
+        return next((r for r in self._live(besides=besides) if r.words and same_request(said, r.words, cut_off=True)), None)
 
     async def _still_on_it(self, run: Run) -> None:
         with self._as(self._focus or self._none):
@@ -3449,7 +3444,7 @@ class Session:
         q = self.dialogue.pending
         if q is None or q.window is None or not self._on_screen(q):
             return None  # a confirm card on screen hears its own answers ("Swift, yes"), never the question
-        return q if q.window.takes(started_at) else None
+        return q if q.window.takes(started_at, q.asked_at) else None
 
     def _on_screen(self, q: Question) -> bool:
         """Whether the owner can see ``q``: only then can what they say answer it (owner, 2026-11-05: a

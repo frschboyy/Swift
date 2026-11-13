@@ -31,6 +31,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from swift.same_request import same_request
+
 KEEP_S = 24 * 3600
 # Swift's own question about a change for now ("Turn off Bluetooth?"), unanswered in the stack.
 QUESTION_KEEP_S = 10 * 60
@@ -58,18 +60,6 @@ _STOP = frozenset(
 
 def _words(text: str) -> set[str]:
     return {w for w in _WORD.findall(text.lower()) if w not in _STOP and len(w) > 1}
-
-
-def _same(words: str) -> str:
-    """What a request asks for, to compare two: its system actions and their details when it is one
-    ("turn on airplane mode" and "can you turn airplane mode on?" are one), else its words as said,
-    case and punctuation aside."""
-    from swift.system import intents as it  # the grammar the lane uses, so "the same" means the same
-
-    found = it.parse(words) if words.strip() else None
-    if found:
-        return "intents:" + repr(sorted((i.name, sorted(i.slots.items())) for i in found))
-    return " ".join(_WORD.findall(words.lower()))
 
 
 def _clip(text: str, limit: int) -> str:
@@ -187,8 +177,7 @@ class ParkedThreads:
 
     def drop_same(self, words: str) -> bool:
         """The owner asked the same thing again: the unfinished one is replaced, not a second of it."""
-        same = _same(words)
-        kept = [p for p in self._items if not same or _same(p.words) != same]
+        kept = [p for p in self._items if not same_request(words, p.words)]
         if len(kept) == len(self._items):
             return False
         self._items = kept
@@ -196,8 +185,7 @@ class ParkedThreads:
         return True
 
     def park(self, parked: Parked) -> None:
-        same = _same(parked.words)
-        self._items = [p for p in self._items if p.thread != parked.thread and (not same or _same(p.words) != same)] + [parked]
+        self._items = [p for p in self._items if p.thread != parked.thread and not same_request(parked.words, p.words)] + [parked]
         self._items = sorted(self._items, key=lambda p: p.at)[-MAX_PARKED:]
         self._save()
         logger.info("conversation parked", reason=parked.reason)

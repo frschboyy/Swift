@@ -31,6 +31,9 @@ State = Literal["idle", "asking", "listening", "closed"]
 # How long past its deadline a window waits for an answer still being said, and how often it looks.
 CAP_S = 6.0
 STEP_S = 0.5
+# An utterance from the open microphone starts with this much room noise before the words (wake.py's pad):
+# one that "starts" up to this long before Swift asked can still be the answer.
+ANSWER_LEAD_S = 0.3
 
 
 class AnswerWindow:
@@ -78,12 +81,17 @@ class AnswerWindow:
     def open(self) -> bool:
         return self.state in ("asking", "listening")
 
-    def takes(self, started_at: float | None = None) -> bool:
+    def takes(self, started_at: float | None = None, asked_at: float | None = None) -> bool:
         """Whether something said belongs to this window: it is listening, and the utterance started
-        before the deadline (``started_at``), or, with no time given, the window hasn't closed."""
+        before the deadline (``started_at``), or, with no time given, the window hasn't closed. One begun
+        before the question was asked (``asked_at``) is the owner saying the request again, not answering
+        (A7, owner's run 2026-11-13 14:21: "How are you? Can you turn off the", cut short as the question
+        appeared, became a second request beside the first)."""
         if self.state != "listening" or self.deadline is None:
             return False
-        return started_at <= self.deadline if started_at is not None else True
+        if started_at is None:
+            return True
+        return started_at <= self.deadline and (asked_at is None or started_at >= asked_at - ANSWER_LEAD_S)
 
     def left(self) -> float | None:
         """Seconds until the deadline while listening (0 while it waits past it), else None."""

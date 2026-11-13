@@ -193,3 +193,14 @@ def test_a_greeting_before_a_system_command_leaves_it_to_swift() -> None:
     assert (r.route, r.action, r.text) == ("local", "system", "Can you turn on airplane mode?")
     assert route("How are you?").route == "agent"  # small talk alone stays as it was
     assert route("Thanks. Write a poem about tea.").route == "agent"
+
+
+@pytest.mark.parametrize("text", ["How are you, can you turn off the Wi-Fi?", "Hello, can you turn off the Wi-Fi?",
+                                  "Swift, how are you doing, turn off the wifi"])
+def test_a_greeting_ended_by_a_comma_leaves_the_command_to_swift(text: str) -> None:
+    # Check 204: the same greeting with a comma where the "?" was went to the agent (an approval card).
+    from swift.routing.rules import route
+
+    r = route(text)
+    assert (r.route, r.action) == ("local", "system")
+    assert route("How are you, Swift?").route == "agent"  # small talk alone stays as it was

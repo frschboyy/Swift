@@ -2050,6 +2050,21 @@ About 2 minutes. From your run of 2026-11-13, 14:13 ("wafer") and 14:25 ("Wofo")
 
 The report checks: none of the misheard Wi-Fi requests went to the agent.
 
+<a id="check-250"></a>**Check 250. A question after two requests ran together is shown as a question**
+1. Say "Hey Swift, research the history of tea", and while it works, "Hey Swift, research the history of coffee".
+2. Let both finish, and wait about a minute until their edges and rows are gone.
+3. Say "Hey Swift, add lunch next week" (no day or time, so Swift has to ask).
+4. You should see the question ("Which day…?") under **"Waiting for you"**, with a countdown, never "Working on it".
+5. Say "Hey Swift, never mind" or press **Stop**: nothing is added to the calendar.
+
+<a id="check-251"></a>**Check 251. The spinner beside "Working" turns, and keeps turning**
+1. Say "Hey Swift, research the history of tea in detail".
+2. The spinner beside "Working on it" (or what it's doing) should **turn smoothly**. If Windows' *Animation effects*
+   are off (Settings → Accessibility → Visual effects), it turns more slowly, but it still turns.
+3. Leave the card alone: after about 12 seconds it shrinks to one line. Watch the one-line spinner for at least
+   20 more seconds: it should keep turning smoothly, never jump back once a second.
+4. Point at the card: it opens, and after a while without news says "Still working".
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

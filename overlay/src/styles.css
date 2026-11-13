@@ -576,6 +576,12 @@ code {
 .facts-line--agent { border-left: 2px solid var(--muted); padding-left: 8px; }
 .facts-more { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--warn, var(--muted)); }
 .facts-more[hidden] { display: none; }
+/* B1: a command card's lead (the agent's words, under its bar) and the command folded under it. */
+.confirm-purpose { margin: 6px 0 0; font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+.confirm-purpose-by { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+.command-fold { margin-top: 8px; }
+.command-fold > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+.command-fold > .facts { margin-top: 6px; }
 .mail-body {
   grid-column: 1 / -1;
   height: 66px;

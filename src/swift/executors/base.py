@@ -74,6 +74,8 @@ class ExecEvent:
     request_id: str | None = None
     detail: str | None = None
     tool: str | None = None
+    # A command card only: what the agent says it's for, in its own words (B1, X-17).
+    purpose: str | None = None
     activity: Activity = "working"
     # True when a sub-agent the provider started did this step ("Claude Code's helper is reading").
     subagent: bool = False

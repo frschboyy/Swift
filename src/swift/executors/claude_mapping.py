@@ -45,6 +45,8 @@ QUOTE = "│ "
 _UNSEEN = frozenset({"Cc", "Cf", "Cs", "Zl", "Zp"})
 # A longer run of blank lines becomes one line saying so: it could only push what follows out of sight.
 BLANK_RUN = 2
+# What the agent says a command is for, as the card's lead (B1): one plain sentence, not an essay.
+PURPOSE_MAX = 240
 NOTEBOOK_MODES = frozenset({"replace", "insert", "delete"})
 # Every item and the whole text go to the card; these only keep one message well inside an IPC frame (64 KB).
 LIST_MAX = 200
@@ -219,6 +221,15 @@ def confirm_card(name: str, args: dict[str, Any], cwd: str | None = None) -> tup
         case _:
             detail = ", ".join(f"{k}={_short(str(v), 60)}" for k, v in args.items())
             return describe_tool(name, args), _short(detail, 300)
+
+
+def command_purpose(name: str, args: dict[str, Any]) -> str:
+    """What the agent says a command is for (its ``description``), on one line: the card leads with it and
+    folds the command (B1). The agent's words, never Swift's: the card marks them as the agent's (X-17).
+    Empty when it gave none, and then the card shows the command open."""
+    if name not in ("Bash", "PowerShell"):
+        return ""
+    return _visible(_short(str(args.get("description") or ""), PURPOSE_MAX))
 
 
 def _first_sentence(text: str) -> str:

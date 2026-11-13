@@ -222,6 +222,9 @@ MIN_SPEECH_S = 0.3
 # (owner checks 2026-11-04, 7: "no" was lost under Swift talking). Never a yes: approving needs
 # words Swift could have said itself, and the microphone hears Swift too.
 OVER_SPEECH_MAX_S = 2.0
+# An utterance from the open microphone starts with this much room noise before the words (wake.py's pad):
+# one that "starts" up to this long before Swift asked can still be the answer.
+ANSWER_LEAD_S = 0.3
 # How long a near miss of the wake phrase makes the next try easier.
 WAKE_PRIMED_S = 6.0
 # Swift's own greeting, picked up by the microphone at the start of the words that follow it.
@@ -3449,6 +3452,11 @@ class Session:
         q = self.dialogue.pending
         if q is None or q.window is None or not self._on_screen(q):
             return None  # a confirm card on screen hears its own answers ("Swift, yes"), never the question
+        if started_at is not None and started_at < q.asked_at - ANSWER_LEAD_S:
+            # Begun before Swift asked: the owner saying the request again, not answering (A7, owner's run
+            # 2026-11-13 14:21: "How are you? Can you turn off the", cut short as the question appeared,
+            # became a second request beside the first).
+            return None
         return q if q.window.takes(started_at) else None
 
     def _on_screen(self, q: Question) -> bool:

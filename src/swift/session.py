@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock, seen
+from swift import clock, memory, seen
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -905,6 +905,7 @@ class Session:
         # None (tests, or ``system.enabled: false``): those requests go to the agent.
         self.system: SystemLane | None = None
         self.system_chime = True
+        self.memories: memory.Store | None = None  # what the owner asked Swift to remember (swift/memory.py)
         # Whether the owner is away (ADR-014: ``hold_cards``).
         self._away = False
         # Timers, alarms and reminders due but not shown yet, as (item, missed, came due while away):
@@ -3122,8 +3123,8 @@ class Session:
             answer = "Okay. Say “continue” whenever you want to pick it up."
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
             return
-        if action == "workflows":
-            summary, details = self._workflows_answer()
+        if action == "workflows" or action in memory.ACTIONS:  # memory: only the owner's own words write it
+            summary, details = self._workflows_answer() if action == "workflows" else memory.answer(self.memories, decision.text, record.get("source", ""), record["id"])
             record["status"] = "done"
             await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", summary, details))
             return

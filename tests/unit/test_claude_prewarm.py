@@ -11,6 +11,7 @@ from claude_agent_sdk import PermissionResultAllow
 from loguru import logger
 from test_claude_executor import sdk_messages
 
+from swift.executors.base import Budget, WorkerTask
 from swift.executors.claude_code import ClaudeCodeExecutor
 
 
@@ -72,7 +73,7 @@ def make(tmp_path: Path, **kw: Any) -> ClaudeCodeExecutor:
 
 
 async def run_to_end(ex: ClaudeCodeExecutor, text: str) -> tuple[str, list[str]]:
-    run_id = await ex.start(text)
+    run_id = await ex.start(WorkerTask(text))
     steps = [e.text async for e in ex.events(run_id) if e.type == "step"]
     result = await ex.result(run_id)
     assert result.status == "done"
@@ -89,7 +90,7 @@ async def test_a_failed_run_s_text_stays_out_of_swift_log(tmp_path: Path) -> Non
     sink = logger.add(lambda line: lines.append(str(line)), level="INFO", format="{message} {extra}")
     try:
         ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=Failing)
-        run_id = await ex.start("write a letter")
+        run_id = await ex.start(WorkerTask("write a letter"))
         async for _ in ex.events(run_id):
             pass
         result = await ex.result(run_id)
@@ -110,7 +111,7 @@ async def test_a_failure_after_the_answer_keeps_its_text_for_the_local_log(tmp_p
 
     TEXT = "exit code 1, about the visa interview, Authorization: Bearer abcdef123456"
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=FailsLate)
-    run_id = await ex.start("write a letter")
+    run_id = await ex.start(WorkerTask("write a letter"))
     async for _ in ex.events(run_id):
         pass
     result = await ex.result(run_id)
@@ -150,7 +151,7 @@ async def test_permission_requests_reach_the_run_the_spare_was_given(tmp_path: P
     FakeClient.ask_tool = "Write"
     ex = make(tmp_path)
     ex.prepare()
-    run_id = await ex.start("write a file")
+    run_id = await ex.start(WorkerTask("write a file"))
     confirm = None
     async for event in ex.events(run_id):
         if event.type == "confirm":
@@ -205,7 +206,7 @@ async def test_close_disconnects_the_waiting_spare(tmp_path: Path) -> None:
 )
 async def test_run_starts_on_the_model_for_its_demand(tmp_path: Path, demand: str | None, override: str | None, model: str) -> None:
     ex = make(tmp_path)
-    run_id = await ex.start("hello", demand=demand, override=override)
+    run_id = await ex.start(WorkerTask("hello", budget=Budget(demand=demand, override=override)))
     [_ async for _ in ex.events(run_id)]
     result = await ex.result(run_id)
     assert FakeClient.made[-1].models == [model]
@@ -217,7 +218,7 @@ async def test_run_starts_on_the_model_for_its_demand(tmp_path: Path, demand: st
 async def test_model_asking_for_more_moves_the_run_up_one_step(tmp_path: Path) -> None:
     FakeClient.escalate = "needs edits in three files"
     ex = make(tmp_path)
-    run_id = await ex.start("refactor it", demand="light")
+    run_id = await ex.start(WorkerTask("refactor it", budget=Budget(demand="light")))
     steps = [e.text async for e in ex.events(run_id) if e.type == "step"]
     result = await ex.result(run_id)
     client = FakeClient.made[-1]
@@ -233,7 +234,7 @@ async def test_model_asking_for_more_moves_the_run_up_one_step(tmp_path: Path) -
 async def test_nothing_above_the_strongest_model(tmp_path: Path) -> None:
     FakeClient.escalate = "harder"
     ex = make(tmp_path)
-    run_id = await ex.start("x", override="opus")
+    run_id = await ex.start(WorkerTask("x", budget=Budget(override="opus")))
     [_ async for _ in ex.events(run_id)]
     assert FakeClient.made[-1].models == ["claude-opus-5-5"]
     assert FakeClient.made[-1].escalation_reply.startswith("You're already on the most capable model")
@@ -243,7 +244,7 @@ async def test_nothing_above_the_strongest_model(tmp_path: Path) -> None:
 async def test_escalation_off_keeps_the_model(tmp_path: Path) -> None:
     FakeClient.escalate = "harder"
     ex = make(tmp_path, escalation=False)
-    run_id = await ex.start("x", demand="light")
+    run_id = await ex.start(WorkerTask("x", budget=Budget(demand="light")))
     [_ async for _ in ex.events(run_id)]
     assert FakeClient.made[-1].models == ["claude-haiku-5-5"]
     await ex.close()
@@ -252,7 +253,7 @@ async def test_escalation_off_keeps_the_model(tmp_path: Path) -> None:
 async def test_confirm_strong_asks_before_opus(tmp_path: Path) -> None:
     FakeClient.escalate = "design decision"
     ex = make(tmp_path, confirm_strong=True)
-    run_id = await ex.start("x", demand="standard")
+    run_id = await ex.start(WorkerTask("x", budget=Budget(demand="standard")))
     asked = None
     async for event in ex.events(run_id):
         if event.type == "confirm":
@@ -266,7 +267,7 @@ async def test_confirm_strong_asks_before_opus(tmp_path: Path) -> None:
 
 async def test_swift_moves_a_run_up_after_too_many_steps(tmp_path: Path) -> None:
     ex = make(tmp_path, turn_limits={"light": 2})
-    run_id = await ex.start("x", demand="light")
+    run_id = await ex.start(WorkerTask("x", budget=Budget(demand="light")))
     steps = [e.text async for e in ex.events(run_id) if e.type == "step"]
     result = await ex.result(run_id)  # the recorded run makes 5 tool-using steps
     [esc] = result.meta["escalations"]

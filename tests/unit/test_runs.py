@@ -20,6 +20,7 @@ from test_session import Recorder as Outbox
 from test_voice import FakeTranscriber
 from test_wake import LeadRecorder
 
+from swift.executors.base import WorkerTask
 from swift.attention import Attention, wait_answer
 from swift.audio.recorder import SAMPLE_RATE
 from swift.connectors.fake import FakeMailConnector
@@ -53,7 +54,8 @@ class Agent:
         self._ids = itertools.count(1)
         self.runs: dict[str, dict[str, Any]] = {}
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
+        request = task.prompt
         run_id = f"a-{next(self._ids)}"
         self.requests.append(request)
         run: dict[str, Any] = {"queue": asyncio.Queue(), "go": asyncio.Event(), "ask": asyncio.Event(),
@@ -590,7 +592,7 @@ async def test_claude_code_takes_a_change_of_mind_as_the_next_turn(tmp_path: Any
 
     TurnClient.made = []
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", prewarm=False, client_factory=TurnClient)
-    run_id = await ex.start("Summarise the README")
+    run_id = await ex.start(WorkerTask("Summarise the README"))
     await until(lambda: TurnClient.made and TurnClient.made[0].prompts)
     assert await ex.redirect(run_id, "actually only the setup section")
     result = await asyncio.wait_for(ex.result(run_id), 5)

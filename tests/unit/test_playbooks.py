@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from test_session import Recorder as Outbox
 
+from swift.executors.base import WorkerTask
 from swift.connectors.fake import FakeCalendarConnector, FakeMailConnector
 from swift.desktop.fake import FakeApp, FakeDesktop
 from swift.executors.mock import Call, Finish, MockExecutor, ScriptItem, _Run
@@ -40,8 +41,8 @@ class Provider(MockExecutor):
         self.script: tuple[ScriptItem, ...] = (Finish("Done."),)
         self.requests: list[str] = []
 
-    async def start(self, request: str, scenario: str | None = None, *, demand: str | None = None,
-                    override: str | None = None) -> str:
+    async def start(self, task: WorkerTask, scenario: str | None = None) -> str:
+        request = task.prompt
         self.requests.append(request)
         run_id = f"mock-{next(self._ids)}"
         run = _Run()

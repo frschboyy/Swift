@@ -13,6 +13,7 @@ from claude_agent_sdk import AssistantMessage, TextBlock
 from test_routing import SpyExecutor, ask
 from test_session import Recorder
 
+from swift.executors.base import Budget
 from swift.desktop.base import WriteReceipt
 from swift.desktop.fake import FakeDesktop
 from swift.executors.mock import MockExecutor
@@ -94,13 +95,13 @@ async def test_light_lane_answers_without_the_agent() -> None:
 async def test_light_lane_falls_back_to_the_agent_on_haiku() -> None:
     quick = FakeQuick(None)  # failed or too slow
     _, _, spy, records = await _ask_with("who wrote Middlemarch", quick=quick)
-    assert spy.calls == [("who wrote Middlemarch", {"demand": "light", "override": None})]
+    assert spy.calls == [("who wrote Middlemarch", Budget("light", None))]
     assert records[0]["route"] == "agent"
 
 
 async def test_without_a_quick_model_light_requests_go_to_the_agent() -> None:
     _, _, spy, _ = await ask("what does ubiquitous mean")
-    assert spy.calls and spy.calls[0][1]["demand"] == "light"
+    assert spy.calls and spy.calls[0][1].demand == "light"
 
 
 async def test_fast_lane_answers_in_the_session_without_the_agent() -> None:

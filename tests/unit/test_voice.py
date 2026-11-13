@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from swift.executors.base import WorkerTask
 from swift.audio.recorder import SAMPLE_RATE, MicError, level_from_block
 from swift.executors.echo import EchoExecutor
 from swift.ipc.protocol import Message
@@ -255,7 +256,7 @@ def test_level_mapping(amplitude: int, expected: float) -> None:
 
 async def test_echo_executor_contract() -> None:
     ex = EchoExecutor()
-    run_id = await ex.start("hello there")
+    run_id = await ex.start(WorkerTask("hello there"))
     assert [e async for e in ex.events(run_id)] == []
     result = await ex.result(run_id)
     assert result.status == "done" and "hello there" in result.summary

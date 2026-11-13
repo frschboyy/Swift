@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from swift.executors.base import WorkerTask
 from swift.audio.recorder import SAMPLE_RATE
 from swift.connectors.base import CalendarEvent, Contact, StoredEvent
 from swift.connectors.fake import FakeCalendarConnector, FakeMailConnector
@@ -339,9 +340,10 @@ class UndoAgent(CalendarAgent):
         super().__init__(tools)
         self.requests: list[str] = []
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
+        request = task.prompt
         self.requests.append(request)
-        return await super().start(request, demand=demand, override=override)
+        return await super().start(task)
 
     async def _work(self, queue: asyncio.Queue[Any]) -> ExecResult:
         try:

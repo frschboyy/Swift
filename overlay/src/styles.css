@@ -970,9 +970,10 @@ code {
   .card, .card--out, .capsule, .stack-open, .live { transform: none !important; }
   .orb { transform: none !important; }
   .bars i { transition: none !important; }
-  /* the heard pulse is a static ring, spinners a static three-quarter arc */
+  /* the heard pulse is a static ring. The spinner still turns, slowly: it is the only sign a request
+     is still going (A3, 2026-11-13: Windows' "Animation effects" off made it a still arc, "doesn't turn") */
   .capsule[data-p="heard"] .orb { box-shadow: 0 0 0 4px rgba(138, 180, 255, 0.35), 0 0 0 9px rgba(138, 180, 255, 0.14); }
-  .spinner { border-bottom-color: var(--accent); }
+  .spinner { animation: spin 1.8s linear infinite !important; }
   .wave i { height: 12px; }
   .timebar { display: none; }
 }

@@ -76,3 +76,11 @@ test("compact confirm (SPEC §10) needs a confirm, edges behind it and a tight w
   assert.equal(needsCompact(true, 0, 500, 0, 560), false);
   assert.equal(needsCompact(false, 3, 412, 102, 560), false);
 });
+
+test("with reduced motion the spinner still turns, slowly (A3: Windows' animation effects off)", () => {
+  const css = read("../src/styles.css");
+  const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  const block = reduced.slice(0, reduced.indexOf("\n}\n"));
+  assert.match(block, /animation: none !important/);
+  assert.match(block, /\.spinner \{ animation: spin [\d.]+s linear infinite !important; \}/);
+});

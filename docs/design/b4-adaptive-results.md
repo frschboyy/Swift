@@ -1,7 +1,9 @@
 # B4: results shaped to fit them (proposal, 2026-11-13)
 
-Status: **proposal, for the owner.** Nothing here is built into Swift. A dev-only prototype draws two shapes
-(`overlay/dev/b4.html`, below).
+Status: **the owner adopted these recommendations (2026-11-13), and both pre-approval checks are done (§9).** The
+checks changed one item: Windows Shell thumbnails are out (2 of 24 real files gave one), and Windows' built-in PDF
+renderer plus a standard-library text excerpt replace them. Nothing here is built into Swift yet. A dev-only
+prototype draws the shapes (`overlay/dev/b4.html`, §6).
 
 **The owner's decision (2026-11-13):** results aren't a fixed list of layouts. For each result, Swift works out
 how best to show it, visually and in words: a table, a side-by-side comparison, project cards, a real diagram, a
@@ -93,7 +95,7 @@ New blocks: **Compare, Diagram, Chart, Cards, Preview,** and Table gains heading
 seam scenario (`tests/unit/test_seam_replay.py`) and owner checks:
 1. **Compare** and headed tables. No dependency. The most common case in the owner's run (238).
 2. **Diagram** through Mermaid. The one new dependency, after the owner's OK.
-3. **Preview** through Windows' own thumbnails. No new dependency.
+3. **Preview**: Windows' own PDF renderer and a text excerpt (§9). No new dependency.
 4. **Chart** and **Cards**, drawn by Swift's own code.
 
 ## 4. Free tools: which shapes, licences, sizes
@@ -107,17 +109,20 @@ content off the PC.**
 |---|---|---|---|---|---|---|
 | Table, compare, list, cards | Swift's own code (prototype: ~70 lines) | — | — | yes | no | **Ship** |
 | Simple charts (bar, line, ≤4 series) | Swift's own SVG code (as the diagram prototype) | — | — | yes | no | **Ship** |
-| Diagrams (flow, sequence, state, timeline, gantt, mind map, ER) | Mermaid, `@mermaid-js/tiny` 12.3 | MIT | 2.9 MB (full `mermaid`: 124 MB, every build) | yes | **yes** | **Ship, if the owner approves** |
+| Diagrams (flow, sequence, state, class, ER, timeline, gantt, quadrant, journey) | Mermaid, `@mermaid-js/tiny` 12.3 | MIT | 2.85 MB, one minified file; 0.76 MB gzipped (measured, §9) | yes | **yes** | **Ship** |
+| Diagrams, full build | `mermaid` 12.3 | MIT, but it bundles elkjs (EPL-2.0/GPL) and KaTeX | 5.4 MB in 105 lazy chunks (1.6 MB gzipped) | yes | yes | Rejected: the ELK licence; tiny covers the need |
 | Graph layout only | `@dagrejs/dagre` 3.1 | MIT | 1.4 MB | yes | yes | Fallback if Mermaid is refused: fixes the crossing in the prototype, but flows only |
-| Document preview (PDF, Word, PowerPoint, images) | Windows Shell thumbnails (`IShellItemImageFactory`) through `comtypes`/`pywin32` | Windows / MIT, PSF | 0 | yes | **no** (both already in `pyproject.toml`) | **Ship.** Unproven on the PC: needs a spike |
-| Word excerpt | Word through COM (ADR-012, already used) | — | 0 | yes | no | Ship |
+| PDF preview (first page as PNG) | Windows' own renderer, `Windows.Data.Pdf` (Windows 10+) | Windows | 0 | yes | **no** | **Ship.** 6 of 6 PDFs rendered (§9) |
+| Office preview (Word, PowerPoint, Excel) | A text excerpt from the file's XML, Python standard library (`zipfile`) | Python's | ~30 lines | yes | **no** | **Ship.** 14 of 14 real files, ≤62 ms (§9) |
+| Document thumbnails | Windows Shell thumbnails (`IShellItemImageFactory`), through `comtypes` | Windows / MIT | 0 | yes | no | **Rejected after the spike:** 2 of 24 real files, failures took up to 9 s |
+| Word excerpt | Word through COM (ADR-012, already used) | — | 0 | yes | no | Not needed: the standard-library excerpt doesn't open Word |
 | Dense time series | uPlot 1.6 | MIT | 0.5 MB | yes | yes | Not now: own SVG covers the need |
 | Charts, general | Chart.js 4.6 | MIT | 6.2 MB | yes | yes | Rejected: canvas (no text for screen readers), bigger than needed |
 | Charts, grammar | Vega-Lite 6.5 + vega-embed | BSD-3 | 5.9 + 0.6 MB (+ vega) | yes | yes | Rejected: a second spec language for the worker |
 | Charts, all-in-one | ECharts 6.1 | Apache-2.0 | 60 MB | yes | yes | Rejected: size |
 | Graphviz | `@viz-js/viz` 3.31 (WASM) | MIT | 5.0 MB | yes | yes | Rejected: Mermaid covers it |
 | Graph layout | elkjs 0.12 | EPL-2.0 or GPL-3.0+ | 8.2 MB | yes | yes | Rejected: licence |
-| PDF pages | pdf.js (`pdfjs-dist` 6.5) | Apache-2.0 | 37.6 MB | yes | yes | Rejected: a thumbnail and an "Open" covers a card |
+| PDF pages | pdf.js (`pdfjs-dist` 6.5) | Apache-2.0 | 37.6 MB | yes | yes | Rejected: Windows renders PDF pages already |
 | .docx to HTML | mammoth 1.13 / docx-preview 0.4 | BSD-2 / Apache-2.0 | 1.7 / 1.0 MB | yes | yes | Rejected: produces markup the overlay would have to trust |
 | Math | KaTeX 0.19 | MIT | 4.0 MB | yes | yes | Not now: no request for it yet |
 
@@ -126,7 +131,10 @@ listed. Mermaid's input is the worker's text, so it gets the same care as any wo
 - `mermaid.parse()` first: a diagram that doesn't parse becomes text.
 - `securityLevel: "strict"` and `htmlLabels: false`: labels are text, scripts and clicks are off. Mermaid sanitises
   its SVG with DOMPurify, bundled inside it.
-- The SVG goes into a sandboxed shadow root, with no `foreignObject` and no external `href`.
+- The SVG is parsed as SVG, never as HTML, and refused if it holds a `script` or `foreignObject` (the prototype
+  does this, `overlay/dev/b4/mermaid.ts`).
+- Mermaid is loaded only when the first diagram arrives, or while Swift is idle after start-up: cold, it takes
+  0.8 s to load and parse once (§9).
 - Halo's tokens are passed as Mermaid's `themeVariables`, so it matches dark and light.
 - There's a size cap: source over a few kB, or more than about 40 nodes, opens in the reader or becomes text.
 
@@ -138,14 +146,15 @@ comes with every version bump (`uv`/`npm` lockfiles already pin).
 A vetted set of free tools ships with Swift, and the owner approves that list once. Anything outside the set is
 installed only when needed, and Swift asks on a card every time (C4).
 
-### The vetted set (recommended, for the owner's one-time approval)
+### The vetted set (adopted by the owner 2026-11-13, changed by the checks in §9)
 
 | # | Tool | Covers | Licence | Size | Offline | New dependency |
 |---|---|---|---|---|---|---|
 | 1 | **Swift's own blocks** (overlay TypeScript) | Text, list, headed table, comparison, project cards, simple bar and line charts (≤4 series, SVG) | Swift's | ~70 lines per shape (prototype) | yes | no |
-| 2 | **Mermaid**, `@mermaid-js/tiny` 12.3, pinned | Diagrams: flow, sequence, state, class, ER, timeline, gantt, mind map, quadrant | MIT | 2.9 MB unpacked; measure the bundle with `vite build` before approval | yes, it renders in WebView2 with no network | **yes**, the only one |
-| 3 | **Windows Shell thumbnails** (`IShellItemImageFactory`), through `comtypes` / `pywin32` | Document previews: the first page of a PDF, Word, PowerPoint or Excel file, and images | Windows; `comtypes` MIT, `pywin32` PSF | 0, both already in `pyproject.toml` | yes | no. Unproven on the PC: needs a spike |
-| 4 | **Word through COM** (ADR-012, already used) | A document's excerpt and title beside its thumbnail | — | 0 | yes | no |
+| 2 | **Mermaid**, `@mermaid-js/tiny` 12.3.0, pinned | Diagrams: flow, sequence, state, class, ER, timeline, gantt, quadrant, journey. *Not* mind maps or architecture diagrams (tiny leaves them out) | MIT | 2.85 MB minified, one file, 0.76 MB gzipped (measured) | yes: no network calls in the file, and only localhost requests when rendering (§9) | **yes**, the only one |
+| 3 | **`Windows.Data.Pdf`**, Windows' own PDF renderer | A PDF's first page as a PNG on a Preview block, plus its page count | Windows | 0 | yes | no |
+| 4 | **A text excerpt from Office files**, Python standard library (`zipfile` + the file's XML) | The opening words of a Word document, the first slide of a PowerPoint, an Excel file's text | Python's | ~30 lines (spike) | yes | no |
+| + | Windows Shell thumbnails, opportunistically | A PowerPoint's own embedded preview picture, *when the file has one*; never asked for a PDF | Windows; `comtypes` MIT | 0 | yes | no. Optional: 2 of 6 PowerPoints had one, and a failure can take seconds, so only with a short timeout |
 
 That's the whole set: **one new dependency.** Everything in it draws in the overlay or in Swift's backend, runs
 offline, sends nothing off the PC, and loads only when a result needs it (lazy import). The list, versions and
@@ -154,8 +163,10 @@ Mermaid's advisories in mind (strict mode, §4 above), not an install.
 
 Kept out of the set, and why (the full table above): ECharts (60 MB), Vega-Lite (a second spec language), Chart.js
 (canvas, no text for screen readers), Graphviz WASM and dagre (Mermaid covers them), elkjs (EPL/GPL licence),
-pdf.js and mammoth (a thumbnail covers a card; mammoth's HTML would have to be trusted), and KaTeX (no request
-yet). Each can still come in later through the install path below, or by the owner adding it to the set.
+pdf.js (Windows renders PDFs already) and mammoth (its HTML would have to be trusted), the full Mermaid build
+(it bundles elkjs), and KaTeX (no request yet). A page *image* of a Word or PowerPoint file is left out too: it
+needs Office to export it, which is slow and opens the owner's apps. If the owner wants it, it's a later step
+behind "Show me", not on the card. Each can still come in later through the install path below, or by the owner adding it to the set.
 
 ### An install outside the set
 
@@ -223,9 +234,16 @@ boundary check. Run it with the dev harness's Vite on port 1431:
 `/dev/b4.html?shape=compare|diagram|bad&theme=light`. Tests are in `overlay/tests/b4-shapes.test.ts`: malformed
 shapes, including markup, fall back to text, and layers stop on a cycle.
 
-| Comparison, dark | Comparison, light | Diagram, dark |
+| Comparison, dark | Comparison, light | Diagram, hand-made layout |
 |---|---|---|
 | ![](b4/compare-dark.jpg) | ![](b4/compare-light.jpg) | ![](b4/diagram-dark.jpg) |
+
+| The same diagram, Mermaid | Sequence, Mermaid, light | Labels that try markup, Mermaid |
+|---|---|---|
+| ![](b4/mermaid-flow-dark.jpg) | ![](b4/mermaid-sequence-light.jpg) | ![](b4/mermaid-markup-dark.jpg) |
+
+The Mermaid cases are `?shape=mermaid|mermaid-seq|mermaid-evil`. They need `mermaid.tiny.js` copied into
+`overlay/dev/b4/vendor/`, which git ignores (the steps are in `overlay/dev/b4/mermaid.ts`).
 
 **What it showed:**
 - **The comparison works with no dependency.** Headings, row labels, a highlighted column and tabular numbers fit a
@@ -234,10 +252,12 @@ shapes, including markup, fall back to text, and layers stop on a cycle.
   "Result card" runs through "Needs your OK". A real layout needs dummy nodes and crossing reduction, which is
   exactly what Mermaid (or dagre) already does. This is the clear need for the one new dependency.
 - **The fallback holds:** `?shape=bad` (an edge to a missing node) shows the worker's words, not a broken drawing.
+- **Mermaid lays the same seven nodes out with no crossing,** in Halo's colours, dark and light.
 - The "Best fit" tag in Swift's accent reads like Swift's own advice. Rename it "Claude's pick" (§2).
+- A sequence diagram of six messages is taller than a card: it belongs in the expanded card (`fits()`, §3).
 
 Not checked: the real overlay (`main.ts` isn't touched, to keep clear of B1 and the screen-snapshot work), 150%
-scaling, forced colours, reduced motion, and the Windows thumbnail call.
+scaling, forced colours and reduced motion.
 
 ## 7. Decisions for the owner
 
@@ -246,9 +266,10 @@ scaling, forced colours, reduced motion, and the Windows thumbnail call.
    guesses wrong on prose.
 2. **Ship or install:** **decided by the owner (2026-11-13).** A vetted set ships and is approved once. Anything
    outside it is installed when needed, with a card every time (§4).
-3. **The vetted set, for the one-time approval:** Swift's own blocks, Mermaid (`@mermaid-js/tiny`, MIT, the one new
-   dependency), Windows Shell thumbnails, and Word through COM (§4). *Recommended.* Without Mermaid, dagre does
-   flow diagrams only.
+3. **The vetted set:** **adopted by the owner (2026-11-13).** Swift's own blocks; Mermaid (`@mermaid-js/tiny`
+   12.3.0, MIT), the one new dependency; Windows' PDF renderer; and a standard-library excerpt for Office files
+   (§4). The checks replaced Windows thumbnails with the last two (§9). *Still the owner's:* that change, and
+   whether mind maps (which tiny leaves out) matter enough to need anything more.
    - **3b.** An installed tool outside the set is reused without asking again, and a new version asks again.
      *Recommended.* The other reading is to ask before every use, which means a card on every chart from that tool.
    - **3c.** Outside tools run on the worker's side and reach the card as data or a PNG, never as code in the
@@ -265,5 +286,63 @@ scaling, forced colours, reduced motion, and the Windows thumbnail call.
 - Each shape: a seam scenario that fails with it undone, owner checks numbered from "Next free check number", their
   ledger lines, and report lines.
 - Routing parity unchanged: the routing doesn't move.
-- A spike before Preview: Windows thumbnails for a PDF, a .docx and a .pptx on the owner's PC.
+- Preview: decide where `Windows.Data.Pdf` is called from (§9). The spike scripts are in `spikes/b4_previews/`.
 - An ADR for the shipped renderer list and the `show_result` contract.
+
+## 9. The two checks before approval (2026-11-13, on the owner's PC)
+
+### Mermaid's real size and behaviour
+
+Measured from the npm tarballs, without installing them in the project (`npm pack` into a scratch folder):
+
+| | `@mermaid-js/tiny` 12.3.0 | `mermaid` 12.3.0 (full) |
+|---|---|---|
+| What ships | one file, `mermaid.tiny.js` | 105 lazily loaded chunks |
+| Size | 2.85 MB minified, 0.76 MB gzipped | 5.4 MB, 1.6 MB gzipped |
+| Dependencies at run time | none (all bundled) | none at run time; bundles elkjs (EPL-2.0/GPL-3.0) and KaTeX |
+| Diagrams | all but mind map and architecture | all |
+
+**Timings (WebView2 / Chromium):**
+- Loading and parsing the file cold takes 0.8 s, once. After that, loading it again takes 26–32 ms.
+- Rendering a diagram takes 82–106 ms.
+- The dev server took 5–37 s, because Vite adds a 13 MB inline source map to the file. A built Swift won't do that.
+
+**Offline:** the file holds no `fetch` calls, and its only URLs are documentation strings. With Mermaid rendering,
+the page made requests to `localhost` only.
+
+**Markup in a worker's labels** (`?shape=mermaid-evil`):
+- An `<img onerror>` label is drawn as the literal text `<img src="x">`.
+- A `<script>` label is dropped, leaving an empty node.
+- `click a "javascript:…"` leaves an `<a>` with no `href`.
+- The rendered SVG has no `img`, `script` or `foreignObject` element and no `on*` attribute.
+
+So strict mode holds. The one loss is that a dropped label shows as an empty box: `parseShape`'s check should
+refuse labels with `<` or `>` before Mermaid sees them, and show words instead.
+
+**Verdict:** ship `@mermaid-js/tiny` 12.3.0, pinned, imported lazily. Its README says it's meant for a CDN.
+Swift bundles the same file from npm with the lockfile's integrity hash, so nothing is fetched while Swift runs.
+
+### Document previews
+
+- **Windows Shell thumbnails fail on this PC.** Of 24 real files (6 each of PDF, Word, PowerPoint and Excel, from
+  Documents, Downloads, Desktop and OneDrive), only 2 PowerPoints gave a thumbnail.
+  - PDFs have no thumbnail handler (Adobe isn't installed, and Edge doesn't register one).
+  - Office's handlers only return a preview picture saved inside the file, and most files don't have one.
+  - Failures took 0.1–1.8 s on the owner's files and 5–9 s on files the spike made itself.
+- **`Windows.Data.Pdf` renders PDFs:** 6 of 6, the spike's own PDF and 5 of the owner's, first page to PNG, in
+  0.8–2.3 s each. That's through a PowerShell helper (`Windows.Data.Pdf` through `AsTask`), and PowerShell's start-up
+  is most of it.
+- **The Office text excerpt works:** 14 of 14 real Word, PowerPoint and Excel files, in 1–62 ms, with the Python
+  standard library alone. It reads at most 2 MB of the part, never the whole file. Four more files in the sample
+  were macOS `._` metadata files with an Office name, and the check refuses them (they aren't zip files).
+
+Only counts and timings were kept from the owner's files. No file names, text or images were saved or looked at.
+
+**Where to call `Windows.Data.Pdf` from: decide when building Preview.**
+- *A PowerShell helper from the backend* is proven here and needs no dependency, but costs about 1–2 s a page.
+- *Rust in the Tauri app* uses the `windows` crate. It's already in `Cargo.lock` (0.62, through Tauri), but Swift's
+  own `Cargo.toml` uses `windows-sys`, which has no WinRT, so it would be a new direct dependency on a crate that's
+  already built.
+- *Python's `winrt` packages* (MIT) are a new dependency.
+
+Start with the PowerShell helper (`shortcut:` with its cost), and move to Rust if 1–2 s shows on the card.

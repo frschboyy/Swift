@@ -2,6 +2,7 @@
 // The samples stand in for a worker's typed result; `parseShape` is the boundary they cross.
 
 import { el, icon } from "../../src/dom.ts";
+import { drawMermaid } from "./mermaid.ts";
 import { drawShape, parseShape } from "./shapes.ts";
 
 type Sample = { asked: string; say: string; raw: unknown };
@@ -57,12 +58,45 @@ const SAMPLES: Record<string, Sample> = {
   },
 };
 
+// Mermaid samples: the same flow as `diagram` (to compare layouts), a sequence, and labels that try markup.
+const MERMAID: Record<string, Sample & { source: string }> = {
+  "mermaid": { ...SAMPLES.diagram, raw: null, source: `flowchart TD
+  you[You speak] --> stt[Speech to text] --> route[Swift routes it]
+  route --> own[Swift's own tool]
+  route --> worker["Worker (Claude)"]
+  worker -- a change --> ok[Needs your OK]
+  own --> card[Result card]
+  ok --> card` },
+  "mermaid-seq": { asked: "Show how approving an email works", say: "Claude drafts it, Swift shows you the card, and it's sent only after you say yes.", raw: null, source: `sequenceDiagram
+  participant You
+  participant Swift
+  participant Claude
+  You->>Swift: Email Ada the notes
+  Swift->>Claude: the request
+  Claude-->>Swift: a draft
+  Swift->>You: Needs your OK
+  You->>Swift: Swift, send it
+  Swift-->>You: Sent` },
+  "mermaid-evil": { asked: "Draw it", say: "Here it is.", raw: null, source: `flowchart LR
+  a["<img src=x onerror=alert(1)>"] --> b["<script>alert(2)</script>"]
+  click a "javascript:alert(3)"` },
+};
+
 const q = new URLSearchParams(location.search);
-const sample = SAMPLES[q.get("shape") ?? "compare"] ?? SAMPLES.compare;
+const asked = q.get("shape") ?? "compare";
+const sample = MERMAID[asked] ?? SAMPLES[asked] ?? SAMPLES.compare;
 const stage = document.getElementById("stage")!;
 if (q.get("theme") === "light") stage.dataset.theme = "light";
 
-const shape = parseShape(sample.raw, "The worker's answer, as plain text, when its shape didn't check out.");
+const shape = parseShape(sample.raw, "source" in sample ? "" : "The worker's answer, as plain text, when its shape didn't check out.");
+const slot = el("div", { class: "b4-slot" });
+if ("source" in sample) {
+  const started = performance.now();
+  void drawMermaid(sample.source as string, stage, 1).then((svg) => {
+    slot.replaceChildren(svg ?? el("p", {}, "The diagram didn't check out, so here are the words."));
+    stage.dataset.mermaidMs = String(Math.round(performance.now() - started));
+  });
+}
 stage.append(el("section", { class: "card card--result card--in b4-card", "data-shape": shape.shape },
   el("div", { class: "card-in" },
     el("div", { class: "halo-state halo-state--done" },
@@ -73,5 +107,5 @@ stage.append(el("section", { class: "card card--result card--in b4-card", "data-
       el("p", { class: "b4-said" }, "Said aloud:"),
       el("p", { class: "b4-say" }, sample.say),
       shape.shape !== "text" && shape.title ? el("p", { class: "section-title" }, shape.title) : null,
-      drawShape(shape)),
+      "source" in sample ? slot : drawShape(shape)),
     el("footer", { class: "card-foot" }, el("span", { class: "byline" }, "Swift · via Claude")))));

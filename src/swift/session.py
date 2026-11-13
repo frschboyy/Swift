@@ -1175,7 +1175,11 @@ class Session:
         waiting = max(0, len(self._cards) - 1)
         payload = {"focus": focus.ui_id if focus else None, "rows": rows, "waiting": waiting}
         last = self._rows_sent
-        if not force and not rows and not waiting and (last is None or (not last["rows"] and not last["waiting"])):
+        # Never sent: the overlay has no request in front, so a single request looks as before. Once
+        # sent, the overlay keeps the last one in front, so a new one in front is always sent, rows or
+        # not: a stale one hid the next request's question behind "Working on it" (A2, 2026-11-13).
+        quiet = last is None or (not last["rows"] and not last["waiting"] and last["focus"] == payload["focus"])
+        if not force and not rows and not waiting and quiet:
             return
         if not force and payload == last:
             return

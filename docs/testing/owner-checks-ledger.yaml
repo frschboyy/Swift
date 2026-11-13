@@ -79,7 +79,7 @@ areas:
   apps:
     rule: Swift writes into apps only when the owner's own words asked
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 253]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239]
@@ -105,7 +105,7 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
-  - checks: [253]
+  - checks: [252]
     why: A9, the owner's run of 2026-11-13; Gmail written only with the cursor in the body, cause unproven until this runs
   - checks: [243]
     why: the owner's wafer loop of 2026-11-13; a misheard Wi-Fi gets Swift's own question, not seen on the real PC

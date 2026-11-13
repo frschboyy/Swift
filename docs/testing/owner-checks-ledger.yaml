@@ -216,3 +216,19 @@ runs:
   note: the owner saw these; causes in docs/audit/2026-11-08-interaction-investigation.md
   checks:
     FAIL: ['191', '193', '194', '195', '196', '197']
+- date: 2026-11-13 10:05
+  commit: aa6e47c
+  source: report
+  note: Owner's run of 2026-11-13 from 10:05
+  checks:
+    PASS: ['1', '2', 2b, '3', '5', '7', '12', '13', '16', '17', '26', '27', '41', '42', '43', '45', '46', '47', '52', '54', '55', '60', '61', '68', '91', '93', '103', '104', '105', '106', '110', '111', '112', '113', '114', '125', '120', '123', '139', '160', '161', '168', '204', '208', '228', '232', '233', '234', '237']
+    PARTIAL: ['8', '15', '21']
+    FAIL: ['31', '32', '33', '34', '35', '36', '49', '239']
+- date: 2026-11-13 10:05
+  commit: aa6e47c
+  source: owner
+  note: '191: 8 of 10 registered. 195: the spoken reject was slow to be heard, the click worked. 197: after ''yes, tea the drink'' Swift said ''Still on it'' and lost the context; the same research said in messier words got two cards doing the same work. 213: Swift asked to run commands, one approval each, then listed yesterday''s requests from the interaction log. 214: ''I think it worked''. 215: couldn''t be reached, the email went to an approval card instead and then said it wasn''t drafted. 237: birthday answered, ''remember'' and the daily reminder refused in a plain sentence, Downloads opened, the screen question named Chrome only. Also: a draft-email card at 10:48 stayed ''working'' and ignored Stop and Esc until the next ''Hey Swift''; cards behind the main card shouldn''t go before they''ve been read.'
+  checks:
+    PASS: ['191', '193', '194', '195', '196', '214', '233', '234', '237', '240', '241']
+    FAIL: ['197', '213']
+    BLOCKED: ['215']

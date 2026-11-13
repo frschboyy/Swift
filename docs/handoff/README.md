@@ -90,6 +90,18 @@ The X-05 entry in the audit lists what that fix left: `workflow skipped` can quo
 - The generic card for other tools still shows 60–300 characters. The default `confirm_tools` don't reach it.
 - Not seen on the real PC: the mouse wheel on the card and the "More below" sign hiding itself as you scroll. The Claude browser pane was hidden, so it drew no frames. Owner check 183 covers both.
 
+### The owner's run of 2026-11-13 (10:05 to 11:05)
+
+Recorded with `plan.py`. Passed by the owner: 191 (8 of 10), 193–196, 214, 233, 234, 237, 240, 241. What it found, most serious first; none is fixed yet:
+
+- **Check 213 failed, cause proven: the never-read rule covers Read, Glob and Grep only.** The agent used Bash (`cd "$LOCALAPPDATA/Swift" && grep … interactions.jsonl`), each command came on an approval card, the owner clicked Approve six times, and yesterday's requests were read back. `claude_code.py` sends Bash straight to `confirm_card`; `ReadScope.verdict` is only called from `_ask_read`. The same path reaches `.ssh`, `.env` and the other never-read places. A product rule: the fix needs a reviewer who didn't write it. A check of the command's text can only be a safeguard.
+- **A card stayed "working" for a request that had ended (10:48 to 10:52).** The backend stopped `cc-6` at 10:49:50 and parked it; at 10:51 the owner opened its live view and pressed Stop four times ("stop from the live view ignored | known=True"). So the backend knew it was over and the overlay still showed it. Why the overlay kept it is unproven (two stops 220 ms apart, then a `ProcessError`, came just before). This is the class review item 9 is for. A cheap safeguard: when the overlay asks about a request that is over, send it the rows again.
+- **Check 197 failed, cause proven for the duplicate cards:** `_same_request` compares the words exactly, so "…history of T" and "…history of tea" are two requests. "Yes, tea the drink" answered with "Still on it" is not reproduced yet.
+- **Check 215 wasn't reached the normal way:** `fill_in_email` failed 3 times of 4 (`connector_failed`; the log doesn't say why, as before). The one send that reached the 5-second window was stopped about 8 s after it went, so the window itself is still untested.
+- **Two emails were really sent during the run,** both approved by a click: 10:36:27 and 10:45:11.
+- **The report's FAILs:** 31–36 (a calendar request at 10:08 went to the agent, not the workflow), 49 (an email thread's follow-ups left the workflow after the fill failed), 239 (the daily reminder: Swift said it only does one-off reminders).
+- **Asked for by the owner:** cards behind the main card shouldn't leave before they've been read; "remember that…" isn't built (the memory store, §4 groundwork); a repeating reminder (a small leftover in §4).
+
 ### Root causes still open
 
 - **The overlay can still refuse a frame silently.** `presenter.ts:273–277` declines frames and the backend isn't told. Only due cards have an acknowledgement. Frames also go out through two doors (`_send`, `_raw_send`) and fire-and-forget tasks, and each countdown runs on both sides (T-08). The planned fix is review item 9, in §4.

@@ -67,6 +67,17 @@ def test_web_scope_takes_given_addresses_and_named_sites_only() -> None:
     assert not web.allows("https://en.wikipedia.org/wiki/Tea?x=1")
 
 
+def test_web_scope_reads_a_spoken_address() -> None:
+    """C3: the transcript says "dot"; "usiu dot ac dot ke" is the site usiu.ac.ke, and nothing else is."""
+    from swift.executors.web_scope import WebScope, spoken_addresses
+
+    assert spoken_addresses("open usiu dot ac dot ke on Chrome") == "open usiu.ac.ke on Chrome"
+    assert spoken_addresses("a dot") == "a dot" and spoken_addresses("dot com") == "dot com"
+    web = WebScope()
+    web.note_request("read www dot python dot org for me")
+    assert web.allows("https://docs.python.org/3/") and not web.allows("https://python.org.evil.example/")
+
+
 async def test_a_fetch_the_model_put_together_is_refused_without_a_card(tmp_path) -> None:  # type: ignore[no-untyped-def]
     from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
 

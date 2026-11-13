@@ -98,13 +98,16 @@ def _intents(said: str) -> list[it.Intent]:
     return found
 
 
+# Its example once named Wi-Fi and Bluetooth, and the agent copied it word for word, offering Bluetooth the owner
+# never said (owner checks 201 and 206, 2026-11-13).
 # The refusal is the agent's to recover from, not to explain (owner checks 128 and 144, 2026-11-09: "Swift
 # blocked the action because your original request said 'wafer'... say 'turn off Wi-Fi' again").
 NOT_ASKED = (
     "Not done yet: the owner's words don't name that. Speech recognition often mishears one word, so if it is "
-    "a likely reading of what they said, offer it: call ask_owner with kind 'choice', a short question with "
-    "your best guess and one other likely option (e.g. 'Did you mean the Wi-Fi or Bluetooth?', options "
-    "['Wi-Fi', 'Bluetooth']). When they answer by naming it, call system_action again: their answer counts. "
+    "a likely reading of what they said, offer it: call ask_owner with kind 'choice', a short question naming your "
+    "best guess, and as the other option only another reading of the same misheard word, never a thing they "
+    "didn't mention (e.g. heard 'turn the volume town': 'Did you mean down or up?', options ['down', 'up']). When "
+    "they answer by naming it, call system_action again: their answer counts. "
     "If it isn't a likely reading, say in one short sentence that you didn't do it. Never explain Swift's "
     "rules or tell them to say it again. Ask once: a yes to your own question isn't the owner asking."
 )

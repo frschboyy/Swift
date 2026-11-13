@@ -173,6 +173,19 @@ def _host_and_scope(said: str, **device: object):  # type: ignore[no-untyped-def
     return host, scope, dev, journal, asked
 
 
+async def test_the_refusals_own_example_works_and_names_no_other_device() -> None:
+    # Owner checks 201 and 206, 2026-11-13: the example named "Wi-Fi or Bluetooth" and the agent copied it.
+    from swift.workflows.system_tools import NOT_ASKED, system_action
+
+    assert "Bluetooth" not in NOT_ASKED and "Wi-Fi" not in NOT_ASKED
+    host, scope, dev, _, _ = _host_and_scope("turn the volume town", volume=40)
+    refused = await system_action(host, scope, {"request": "turn the volume down"})
+    assert not refused.ok and refused.text == NOT_ASKED
+    scope.answers.append("down")  # the owner names it, as the example asks
+    done = await system_action(host, scope, {"request": "turn the volume down"})
+    assert done.ok and dev.volume == 30
+
+
 async def test_a_misheard_wifi_on_the_agent_path_still_has_its_approval_card() -> None:
     # Review of 225ca9b: "turn off the wafer and write me a haiku" now counts as asking for Wi-Fi off. The
     # agent's system_action is disruptive, so it still has the confirm card (never a plain yes).

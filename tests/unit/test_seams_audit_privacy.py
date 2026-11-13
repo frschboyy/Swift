@@ -133,6 +133,21 @@ def test_a_command_that_reaches_swift_s_data_or_a_secret_is_named(tmp_path: Path
         (Path(work) / name).parent.mkdir(exist_ok=True)  # a bare secret-looking name counts when the file is there
         (Path(work) / name).write_text("x", encoding="utf-8")
     for command in (
+        # From the third review: a quoted path glued to the letter or option before it.
+        """python -c "import os; print(open(os.path.expanduser(r'~\\.ssh\\config')).read())" """,
+        """python -c "from pathlib import Path; print(Path(r'~/.claude/settings.json').expanduser().read_text())" """,
+        """python -c "print(open(r'.env').read())" """,
+        r'Get-Content -Path:"~\.ssh\config"',
+        'tar -C"$HOME" -cf x.tar .ssh',
+        'git -C"$HOME" show HEAD:.ssh/config',
+        '7z a x.7z -w"$LOCALAPPDATA" Swift',
+        'cd "my dir" && cat deploy.pem',
+        "find . -name server.key | xargs cat",
+        "cd ~ && cat $PWD/.ssh/config",
+        r"type \\wsl.localhost\Ubuntu\home\me\.ssh\id_rsa",
+        r"ls -la \\otherpc\share\.netrc/",
+        # A secret-looking name is refused wherever it stands, also as a word: telling them apart let reads through.
+        'grep -rn ".env" src/',
         # From the second review (2026-11-13): spellings a follow-up had let through.
         'cat "$HOME"/.ssh/id_rsa',
         'cat "$LOCALAPPDATA"/Swift/interactions.jsonl',
@@ -181,10 +196,7 @@ def test_an_ordinary_command_still_goes_to_its_card(tmp_path: Path, monkeypatch:
         "curl -s https://example.com/a?b=1 > out.txt 2>/dev/null",
         "uv run pytest -q tests/unit",
         "dir /s /b *.md",
-        'grep -rn ".env" src/',  # a secret-looking name as a word to search for, with no such file here
-        'git commit -m "config: .env is never read"',
-        "cd ~ && cat Documents/Swift/.claude/launch.json",  # home, then a .claude that isn't home's
-        "cat //nosuchhost-zz/share/x",  # another computer: not judged, and not looked up
+        "cat //nosuchhost-zz/share/x",  # another computer: judged by its name only, and not looked up
         # A known limit, as for Grep there: a search of a whole folder that holds one gets a card.
         'grep -r ts "$LOCALAPPDATA" --include=*.jsonl',
     ):

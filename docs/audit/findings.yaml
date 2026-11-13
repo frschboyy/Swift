@@ -1658,7 +1658,10 @@
     is running the agent's shell where it can't open these folders. Reviewed 2026-11-13 by a session other than
     the author - pass with follow-ups, applied in a follow-up commit. A second review blocked that commit (a
     quoted variable before the path, and secret names tested for existence in the wrong folder, were let
-    through); both are fixed in a third commit, with the reviewer's commands as tests.
+    through), and a third review blocked the repair (removing quotes glued a path to the letter before it).
+    The fourth commit reads the command both ways and refuses on either, and drops the two rules that tried
+    to tell a secret's name from a word - so '.env' in a search or a commit message is refused too. Against
+    the reviewer's 8,627 generated commands it refuses everything the first two versions did.
     Left open - cd to a folder that isn't a plain parent, then a relative path; short (8.3) names. Unverified -
     whether the CLI runs read-only commands inside the working folder without asking, which would skip this
     check for a secret file there; and a backend started from inside a packaged app sees AppData redirected.

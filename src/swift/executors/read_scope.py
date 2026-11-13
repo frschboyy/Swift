@@ -102,8 +102,15 @@ class ReadScope:
         env = {k.upper(): v for k, v in os.environ.items()} | {"HOME": self.home, "USERPROFILE": self.home}
         text = _VAR.sub(lambda m: env.get(next(g for g in m.groups() if g).upper(), m.group(0)), command)
         text = text.replace("\\ ", " ")  # Git Bash's escaped space: "User\ Data"
-        text = re.sub(r"""["'`]""", "", text)  # quotes join what they hold to what follows: "$HOME"/.ssh
-        tokens = [self.home + t[1:] if t == "~" or t.startswith(("~/", "~\\")) else t for t in _SPLIT.split(text) if t]
+        # Read both ways, and either one refuses: a quote ends a word (r'~/.ssh/x', -C"$HOME"), and a
+        # quote joins what it holds to what follows ("$HOME"/.ssh). Each alone misses the other's spelling.
+        for view in (text, re.sub(r"""["'`]""", "", text)):
+            if place := self._named([t for t in _SPLIT.split(view) if t], cwd):
+                return place
+        return None
+
+    def _named(self, tokens: list[str], cwd: str | None) -> str | None:
+        tokens = [self.home + t[1:] if t == "~" or t.startswith(("~/", "~\\")) else t for t in tokens]
         flat = _flat(" ".join(tokens))
         said = {_flat(t).rstrip("/") for t in tokens}
         home = _flat(_norm(self.home))
@@ -115,24 +122,22 @@ class ReadScope:
             parent = os.path.dirname(n)
             while len(parent) >= len(home) and parent != os.path.dirname(parent):
                 rest = re.escape(n[len(parent):].lstrip("/"))
-                # At the start of a path ("Swift/x", "./Swift"), not inside another one ("Documents/Swift/.claude").
-                if parent in said and re.search(rf"(?<![\w.\-])(?<![\w\-]/){rest}(?![\w\-])", flat.replace(n, "")):
+                if parent in said and re.search(rf"(?<![\w.\-]){rest}(?![\w\-])", flat.replace(n, "")):
                     return never
                 parent = os.path.dirname(parent)
         base = cwd or os.getcwd()
-        tokens = [re.sub(r"^/(?:mnt/)?([a-zA-Z])(?=/)", r"\1:", t) for t in tokens]
-        # Another computer's share isn't this PC's files, and resolving it would go looking for the host.
-        tokens = [t for t in tokens if not ((m := re.match(r"[\\/]{2}([^\\/]+)", t)) and m.group(1).lower() not in _HERE)]
-        for token in tokens:  # a relative path ("../../.ssh/id_rsa") or a secret-looking file (".env")
+        # A relative path ("../../.ssh/id_rsa") or a secret-looking name (".env"). A name counts wherever it
+        # stands, also as a word in a search or a message: telling those apart let real reads through.
+        for token in tokens:
+            token = re.sub(r"^/(?:mnt/)?([a-zA-Z])(?=/)", r"\1:", token)
+            if (m := re.match(r"[\\/]{2}([^\\/]+)", token)) and m.group(1).lower() not in _HERE:
+                # Another computer's share: judged by its name only, since resolving it goes looking for the host.
+                if any(fnmatch.fnmatch(re.split(r"[\\/]", token.rstrip("\\/"))[-1].lower(), p) for p in NEVER_NAMES):
+                    return token
+                continue
             try:
                 path = token if os.path.isabs(token) else os.path.join(base, token)
-                if self.verdict(path) != "never":
-                    continue
-                if any(c in token for c in "\\/*?[") or any(_inside(_norm(path), n) for n in self.never):
-                    return path
-                # A bare secret-looking name (".env") is also a word in a search or a message: it counts
-                # when that file is there, in the working folder or a folder the command names (`cd sub`).
-                if any(os.path.exists(os.path.join(base, d, token)) for d in ("", *tokens)):
+                if self.verdict(path) == "never":
                     return path
             except (OSError, ValueError):  # not a path at all (a URL, an option): nothing to judge
                 continue

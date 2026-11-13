@@ -87,6 +87,39 @@ async def test_the_session_asks_and_a_yes_does_it() -> None:
     assert session.system.control.radio_state["wifi"] is False and spy.calls == []  # type: ignore[union-attr]
 
 
+@pytest.mark.parametrize("heard", ["Turn off the wafer", "turn off the wafer.", "Turn off the Wofo.",
+                                   "switch the waffle off", "turn off why fi", "disable the wafer"])
+def test_a_misheard_wifi_is_read_as_wifi_off(heard: str) -> None:
+    # Owner checks 201 and 206, 2026-11-13: "wafer" went to the agent, which asked "Wi-Fi or Bluetooth?" and
+    # could never be answered. Off always has Swift's own "Turn off Wi-Fi?", so the guess is asked, never acted on.
+    assert names(heard) == ["radio"] and it.parse(heard)[0].slots == {"kind": "wifi", "on": False}  # type: ignore[index]
+
+
+@pytest.mark.parametrize("heard", ["turn on the wafer", "switch the wafer on", "turn off the water", "turn off the window",
+                                   "turn off the weather", "turn off the wire", "turn off the lights", "eat a wafer"])
+def test_a_guess_is_never_read_as_switching_on_or_from_another_word(heard: str) -> None:
+    # A guessed "on" would have no question and act on a guess.
+    assert names(heard) is None
+
+
+async def test_a_misheard_wifi_gets_swifts_own_question_and_a_plain_yes_does_it() -> None:
+    session, rec, spy, records = await _session()
+    await ask("Turn off the wafer.", session)
+    assert rec.last("ask")["question"] == "Turn off Wi-Fi?" and spy.calls == []  # never the agent
+    assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
+    await ask("yes", session)
+    assert rec.last("result")["summary"] == "Wi-Fi off." and records[0]["asked"] is True
+    assert session.system.control.radio_state["wifi"] is False  # type: ignore[union-attr]
+
+
+async def test_a_misheard_wifi_and_a_no_leaves_it_on() -> None:
+    session, rec, _, _ = await _session()
+    await ask("Turn off the Wofo.", session)
+    await ask("no", session)
+    assert rec.last("result")["summary"] == "Okay, I've left it as it is."
+    assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
+
+
 async def test_the_session_asks_and_a_no_leaves_it() -> None:
     session, rec, _, records = await _session()
     await ask("turn off bluetooth", session)
@@ -223,7 +256,7 @@ async def test_a_refusal_tells_the_agent_to_offer_its_guess_not_explain() -> Non
     # Owner checks 128 and 144, 2026-11-09: the reply explained Swift's internals and asked to rephrase.
     from swift.workflows.system_tools import system_action
 
-    host, scope, _, _, _ = _host_and_scope("Turn off the wafer.")
+    host, scope, _, _, _ = _host_and_scope("Turn off the wire.")
     result = await system_action(host, scope, {"request": "turn off wifi"})
     assert not result.ok and result.expected
     assert "ask_owner" in result.text and "Never explain Swift's rules" in result.text

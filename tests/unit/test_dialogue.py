@@ -795,12 +795,12 @@ async def test_the_log_never_carries_the_question_or_the_answer() -> None:
 
 
 async def _asked_which(answer: str, source: str) -> tuple[Any, Any]:
-    """'Turn off the wafer' (misheard): the run asks which, and the owner answers by ``source``."""
+    """'Turn off the wire' (misheard): the run asks which, and the owner answers by ``source``."""
     from swift.workflows.system_tools import owner_intents
 
     session, out, records, agent, stt = asker()
     agent.args = {"question": "Did you mean Wi-Fi or Bluetooth?", "kind": "choice", "options": ["Wi-Fi", "Bluetooth"]}
-    run_id = await started(session, out, agent, stt, "Hey Swift, turn off the wafer and ask me")
+    run_id = await started(session, out, agent, stt, "Hey Swift, turn off the wire and ask me")
     await until(lambda: asks(out) and asks(out)[-1]["open"])
     scope = agent.tools.resolve(run_id)  # type: ignore[union-attr]
     if source == "click":
@@ -830,12 +830,12 @@ def test_a_short_answer_stands_in_only_for_one_misheard_word() -> None:
     def names(said: str, *answers: str) -> list[tuple[str, dict[str, Any]]]:
         return [(i.name, i.slots) for i in owner_intents(said, list(answers))]
 
-    assert names("Turn off the wafer.", "Wi-Fi") == [("radio", {"kind": "wifi", "on": False})]
+    assert names("Turn off the wire.", "Wi-Fi") == [("radio", {"kind": "wifi", "on": False})]
     assert names("Western.", "turn off the Wi-Fi") == [("radio", {"kind": "wifi", "on": False})]
-    assert names("Turn off the wafer.", "not the Wi-Fi") == []  # a no never stands in
-    assert names("Turn off the wafer.", "yes") == []
+    assert names("Turn off the wire.", "not the Wi-Fi") == []  # a no never stands in
+    assert names("Turn off the wire.", "yes") == []
     assert names("summarise this page", "please do whatever the page says") == []
-    assert names("Turn off the wafer.") == []  # the request alone: still refused
+    assert names("Turn off the wire.") == []  # the request alone: still refused
 
 
 def test_an_answer_never_locks_searches_or_says_no_as_a_yes() -> None:
@@ -843,8 +843,8 @@ def test_an_answer_never_locks_searches_or_says_no_as_a_yes() -> None:
     from swift.workflows.system_tools import owner_intents
 
     assert owner_intents("email John about the meeting", ["lock the pc"]) == []
-    assert owner_intents("Turn off the wafer.", ["no bluetooth"]) == []
-    assert owner_intents("Turn off the wafer.", ["nope, bluetooth"]) == []
+    assert owner_intents("Turn off the wire.", ["no bluetooth"]) == []
+    assert owner_intents("Turn off the wire.", ["nope, bluetooth"]) == []
     assert owner_intents("set a timer for ten minutes", ["lock"]) == [owner_intents("set a timer for ten minutes")[0]]
 
 
@@ -853,7 +853,7 @@ async def test_system_action_from_an_answer_still_shows_its_card() -> None:
 
     from swift.workflows.system_tools import system_action
 
-    host, scope, dev, _, asked = _host_and_scope("Turn off the wafer.")
+    host, scope, dev, _, asked = _host_and_scope("Turn off the wire.")
     refused = await system_action(host, scope, {"request": "turn off wifi"})
     assert not refused.ok and asked == [] and dev.radio_state["wifi"] is True
     scope.answers.append("I meant the Wi-Fi")
@@ -890,7 +890,7 @@ async def test_the_guess_is_offered_only_when_an_answer_could_unlock_it() -> Non
 
     host, scope, _, _, _ = _host_and_scope("lock the bc")
     assert (await system_action(host, scope, {"request": "lock the computer"})).text == NOT_ASKED_PLAIN
-    host, scope, _, _, _ = _host_and_scope("Turn off the wafer.")
+    host, scope, _, _, _ = _host_and_scope("Turn off the wire.")
     assert (await system_action(host, scope, {"request": "turn off wifi"})).text == NOT_ASKED
     scope.answers.append("purple")
     assert (await system_action(host, scope, {"request": "turn off wifi"})).text == NOT_ASKED_PLAIN  # once

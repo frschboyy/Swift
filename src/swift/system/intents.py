@@ -612,11 +612,34 @@ def _on(m: re.Match[str]) -> bool:
     return g.get("verb") not in _OFF_VERBS
 
 
+def heard_as_wifi(words: str) -> bool:
+    """Whether ``words`` is how speech recognition mishears "Wi-Fi": "wafer", "Wofo", "waffle", "why fi"
+    (owner checks 201 and 206, 2026-11-13). Its consonants are a w then an f or v, and at most one more."""
+    joined = words.replace(" ", "")
+    if not joined.isalpha() or not joined.startswith("w") or len(joined) > 6 or len(words.split()) > 2:
+        return False
+    skeleton = re.sub(r"(.)\1+", r"\1", re.sub(r"[aeiouyh]", "", joined))
+    return re.fullmatch(r"w[fv][rl]?", skeleton) is not None
+
+
+# "Turn off the wafer": the radio slot, whatever was heard there, for ``heard_as_wifi``.
+_HEARD_OFF = [
+    re.compile(r"(?:turn|switch|put|flip) (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?) off(?: (?:now|please))*"),
+    re.compile(r"(?:turn|switch|put|flip) off (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?)(?: (?:now|please))*"),
+    re.compile(r"(?:disable|deactivate|disconnect) (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?)"),
+]
+
+
 def _radios(t: str) -> Intent | None:
     for pattern in _RADIO_SWITCH:
         if m := pattern.fullmatch(t):
             kind = "bluetooth" if "blue" in m.group("radio") else "wifi"
             return Intent("radio", {"kind": kind, "on": _on(m)})
+    for pattern in _HEARD_OFF:
+        # Only off: that always has Swift's own "Turn off Wi-Fi?", so a wrong guess costs a "no". A guessed
+        # "on" has no question and would act on a guess, so it stays unparsed.
+        if (m := pattern.fullmatch(t)) and heard_as_wifi(m.group("radio")):
+            return Intent("radio", {"kind": "wifi", "on": False})
     if m := _RADIO_GET.fullmatch(t):
         return Intent("radio.get", {"kind": "bluetooth" if "blue" in (m.group("radio") or m.group("radio2")) else "wifi"})
     for pattern in _AIRPLANE:

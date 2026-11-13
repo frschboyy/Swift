@@ -571,6 +571,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         *_rigid(rows),
         *_health(log),
+        *_front_and_web(rows),
     ]
 
 
@@ -616,6 +617,23 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
         ("243 a misheard Wi-Fi got Swift's own question, not the agent",
          unless([r for r in misheard if r.get("route") == "agent"], misheard),
          f"{len(misheard)} heard; went to the agent: " + times([r for r in misheard if r.get("route") == "agent"])),
+    ]
+
+
+def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3)."""
+    spoken = [r for r in rows if re.search(r"open.*\w+ dot (com|org|net|edu|ac|co|io)", r.get("transcript") or "", re.I)]
+
+    def opened(r: dict[str, Any]) -> bool:
+        return any("desktop_open" in str(s.get("text")) for s in r.get("steps") or [])
+
+    missed = [r for r in spoken if not opened(r)]
+    return [
+        ("253 Swift came in front of an ordinary always-on-top window", LOOK,
+         "tell us whether Swift was in front of the test window, and whether Notepad kept the cursor"),
+        ("254 Task Manager's band", LOOK, "paste window_bands.py's last lines"),
+        ("255 a spoken web address was opened", unless(missed, spoken),
+         f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
     ]
 
 

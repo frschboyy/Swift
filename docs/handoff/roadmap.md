@@ -88,7 +88,7 @@ While you use it, Claude works on (handoff §4 f–h, nothing you need to run):
 ## After daily use: decide what comes next
 
 - [ ] Decide on the light lane: retarget it or turn it off (seams decision 2, handoff §5).
-- [ ] Go-ahead for Halo Step B, one card renderer (ADR-019).
+- [x] Go-ahead for Halo Step B, one card renderer (ADR-019). Given and merged 2026-11-14; owner checks 305–306.
 - [ ] The interaction layer's nine decisions, before any ADR ([`interaction-layer.md`](../explorations/interaction-layer.md)).
 - [ ] Choose the first two watchers (decision 22: boss emails, tech news, …).
 - [ ] The rest of handoff §5, by the usage report's numbers.

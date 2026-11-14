@@ -123,6 +123,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [305, 306]
+    why: Halo Step B (2026-11-14), one card renderer; the default look should be unchanged except the working card's time bar, not seen on the real PC
   - checks: [320]
     why: A10, the owner's decision of 2026-11-14 after check 254 (Task Manager on top is in band 16); Swift's card now moves to the nearest uncovered anchor, not seen on the real PC
   - checks: [330]

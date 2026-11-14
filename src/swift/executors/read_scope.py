@@ -144,7 +144,12 @@ class ReadScope:
         return None
 
     def verdict(self, path: str) -> Verdict:
-        target = _norm(path)
+        try:
+            target = _norm(path)
+        except OSError:
+            # A volume or device spelling that can't be opened (\\?\GLOBALROOT\Device\HarddiskVolume9):
+            # where it leads can't be known, so it is refused, never raised to the CLI as an error.
+            return "never"
         name = os.path.basename(target)
         if any(_inside(target, n) for n in self.never) or any(fnmatch.fnmatch(name, p) for p in NEVER_NAMES):
             return "never"

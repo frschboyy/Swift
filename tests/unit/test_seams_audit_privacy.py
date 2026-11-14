@@ -254,6 +254,18 @@ def test_a_whole_drive_or_volume_spelled_another_way_is_never_a_blanket_read() -
         assert scope.verdict(spelled) == "ask", spelled
 
 
+def test_a_volume_spelling_that_cannot_be_resolved_is_refused_not_raised() -> None:
+    # realpath raises on these (WinError 6 for a device that isn't there, 1005 for a volume with no file
+    # system). Raising sent the CLI an error instead of an answer: no card, no "read refused" line, and
+    # whether the read happened was left to the CLI. Where such a path leads can't be known, so: never.
+    from swift.executors.read_scope import ReadScope
+
+    scope = ReadScope([str(Path.cwd())])
+    spelled = r"\\?\GLOBALROOT\Device\HarddiskVolume999\Users"
+    assert scope.verdict(spelled) == "never"
+    assert scope.in_command(f"type {spelled}\\notes.txt", None) is not None  # a command naming it is refused too
+
+
 def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from swift.backend.__main__ import _make_executor
     from swift.settings import Settings

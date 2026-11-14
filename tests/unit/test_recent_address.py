@@ -14,6 +14,8 @@ from __future__ import annotations
 from settling import settled
 
 import asyncio
+
+import pytest
 from typing import Any
 
 from test_routing import SpyExecutor
@@ -179,3 +181,55 @@ async def test_words_that_only_contain_open_this_dont_point_back_at_a_recent_add
     for words in ("open that site again", "open this site", "the same page", "the one I just opened", "open it",
                   "open it again, please", "bring that up"):
         assert points_back(words), words  # the owner's pointing words still point
+
+
+# QA-04 (2026-11-15): QA-02's fix still read a few words after a pointing word, and "again" anywhere. Each of these
+# opened usiu.ac.ke said a moment ago through Session and desktop_open (interrogate of d28e4bd); the first group
+# were already open before QA-02, the last five were refused only after it.
+NOT_POINTING = (
+    "Show this week's timetable on my university's website again.",
+    "Once again, show this week's timetable on my university's website.",
+    "Show this one week timetable on my university's website.",
+    "Show this page of results on my university's website.",
+    "Show this website’s timetable on my university's website.",
+    "Open that site's contact page.",
+    "Open that one drive folder.",
+    "Find my university's website and open it.",
+    "Open Spotify again.",
+    "Search again for the timetable.",
+    "Reopen my Word document.",
+    "Open that document again.",
+    "Open it up in Word.",
+    "Try that again.",
+    "Ask again.",
+    "Do that again.",
+)
+POINTING = (
+    "Open it in Edge.", "Open that in Chrome.", "Open it in a new tab.", "Show that to me.", "Open it — please.",
+    "Open that site again.", "Open this site.", "The same page.", "The one I just opened.", "Open it.",
+    "Open it again, please.", "Bring that up.", "Pull that up.", "Open that uh site.",
+)
+
+
+@pytest.mark.parametrize("words", NOT_POINTING)
+async def test_a_request_that_names_anything_else_doesnt_reopen_a_recent_address(words: str) -> None:
+    session, agent, desktop, _ = make()
+    await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
+    await ask(session, agent, words, open="usiu.ac.ke")
+    assert not agent.opens[-1].ok and desktop.opened == ["https://usiu.ac.ke"], words
+
+
+@pytest.mark.parametrize("words", POINTING)
+async def test_a_request_that_is_only_pointing_words_reopens_the_recent_address(words: str) -> None:
+    session, agent, desktop, _ = make()
+    await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
+    await ask(session, agent, words, open="usiu.ac.ke")
+    assert agent.opens[-1].ok and desktop.opened == ["https://usiu.ac.ke"] * 2, words
+
+
+def test_an_answer_points_back_only_by_the_same_whole_clause_rule() -> None:
+    """points_back also reads the owner's answers to Swift's questions (desktop_tools._open_url)."""
+    for words in ("yes, again", "no, not again", "yes", "again please"):
+        assert not points_back(words), words
+    for words in ("that one I just opened", "yes, that one I just opened", "yeah, open that site"):
+        assert points_back(words), words

@@ -3268,7 +3268,7 @@
   area: actions
   severity: high
   product_rule: true
-  status: fixed
+  status: partial
   confidence: confirmed
   evidence: owner_address.py _POINTS_BACK; "open/show/visit this|that|it" points only when the clause ends there or
     goes on with again, up, back, please, now or a word for a site; "that site" not as "that site's"; "again" not
@@ -3277,3 +3277,23 @@
   note: The web-address rule (a recent address only when the owner points at it). Only the owner's own earlier
     addresses could open, never the agent's. The session-level test fails with the fix undone. Built on the
     orchestrator's go-ahead; second review by the orchestrator pending.
+  # 2026-11-15 (qa1-pstack): partial, not root. interrogate proved it still opened for "again" anywhere and for a
+  # pointing word followed by "one", "page" or "back", and refused "open it in Edge": see QA-04.
+- id: QA-04
+  title: 'After QA-02, a recent address still opened for words that point at something else ("show this week''s
+    timetable on my university''s website again", "open Spotify again", "find my university''s website and open
+    it"), and no longer opened for "open it in Edge" or "show that to me".'
+  source: pstack interrogate of d28e4bd (QA-02), 2026-11-15, three adversaries (opus xhigh, the session model, sonnet)
+  module: src/swift/workflows/owner_address.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: points_back read a few words after a pointing word, and "again" or "reopen" anywhere; 22 phrasings went
+    wrong through Session and desktop_open. Now every clause of the request, stripped of the wake word, fillers,
+    "again", "please" and "in Edge", must be one pointing phrase, and a bare "it"/"that" needs a verb.
+  test: tests/unit/test_recent_address.py::test_a_request_that_names_anything_else_doesnt_reopen_a_recent_address
+  note: Also test_a_request_that_is_only_pointing_words_reopens_the_recent_address and
+    test_an_answer_points_back_only_by_the_same_whole_clause_rule. 23 of the 39 tests fail with d28e4bd's rule, 19 on
+    main. The web-address rule; built on the orchestrator's go-ahead, second review by the orchestrator pending.

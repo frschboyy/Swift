@@ -1,9 +1,24 @@
 # Backend settings for the dev harness (overlay/dev/harness.html): debug scenarios on, the
-# fake email connector (debug always uses it), and logs in %TEMP% instead of your profile.
+# fake email connector (debug always uses it), and every file Swift reads or writes in
+# %TEMP%/swift-harness, never your profile's Swift folders: a harness run once swept the owner's
+# recordings (QA 3, finding 1). tests/unit/test_dev_harness_config.py fails if a path setting is
+# left at its default here. Speech models still load read-only from %LOCALAPPDATA%\Swift\models.
 debug: true
 executor:
   kind: echo
   prewarm: false
+stt:
+  word_fixes_file: "%TEMP%/swift-harness/word_fixes.json"
+  audio_dir: "%TEMP%/swift-harness/audio"
+  test_set_dir: "%TEMP%/swift-harness/stt_testset"
+demand_classifier:
+  model_dir: "%TEMP%/swift-harness/models/bge-small-en-v1.5"
+  examples_file: "%TEMP%/swift-harness/demand_examples.jsonl"
+workflows:
+  dir: "%TEMP%/swift-harness/workflows"
+system:
+  schedule_file: "%TEMP%/swift-harness/schedule.json"
+memory_dir: "%TEMP%/swift-harness/memory"
 logging:
   interactions: "%TEMP%/swift-harness/interactions.jsonl"
   app_log_dir: "%TEMP%/swift-harness/logs"

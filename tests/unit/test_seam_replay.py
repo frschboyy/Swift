@@ -1102,3 +1102,33 @@ async def test_an_answer_whose_first_sentence_is_too_long_for_the_summary_says_i
     assert drawn.count("Tea began in southwest China") == 1, drawn
     assert drawn.count("Shennong") == 1 and drawn.count("change trade and empire") == 1, drawn
     await finish_all(session, agent)
+
+
+async def test_a_long_first_sentence_is_never_cut_inside_bold_code_or_a_link() -> None:
+    """QA-05 (interrogate of QA-01, 2026-11-15): the cut for one first sentence over 300 characters fell inside a
+    **bold** run, so the card's summary ended "**bold phrase…" and Read more began "straddles**". Through the
+    real result mapping to the card: every marker the card would show is on one side, paired."""
+    from swift.executors.base import ExecResult
+    from swift.executors.claude_mapping import outcome_for
+    from test_runs import Agent
+
+    first = ("Intro " + "word " * 57 + "**the bold phrase that straddles the summary's end** and then "
+             + "more " * 30 + "to the end.")
+    answer = first + "\n\nA second paragraph."
+
+    class Researcher(Agent):
+        async def result(self, run_id: str) -> ExecResult:
+            await super().result(run_id)
+            o = outcome_for({"type": "result", "subtype": "success", "result": answer})
+            assert o is not None
+            return ExecResult("done", o.summary, o.details, o.meta)
+
+    session, out, _records, agent, stt = make(Researcher)
+    rid = await started(session, out, agent, stt, "Hey Swift, research something long")
+    agent.runs[rid]["go"].set()
+    await until(lambda: out.last("result").get("details") is not None)
+    shown = out.last("result")
+    assert "**" not in shown["summary"], shown["summary"]
+    body = shown["details"]["text"]
+    assert body.count("**") % 2 == 0 and "**the bold phrase that straddles the summary's end**" in body, body
+    await finish_all(session, agent)

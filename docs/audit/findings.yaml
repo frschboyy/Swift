@@ -3297,3 +3297,18 @@
   note: Also test_a_request_that_is_only_pointing_words_reopens_the_recent_address and
     test_an_answer_points_back_only_by_the_same_whole_clause_rule. 23 of the 39 tests fail with d28e4bd's rule, 19 on
     main. The web-address rule; built on the orchestrator's go-ahead, second review by the orchestrator pending.
+- id: QA-05
+  title: A long first sentence over 300 characters was cut inside **bold**, `code` or a [link](…), so the card's
+    summary ended "**bold phrase…" and Read more began "straddles**".
+  source: pstack interrogate of 13405a5 (QA-01), 2026-11-15, the sonnet adversary
+  module: src/swift/executors/claude_mapping.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: _lead_words cut at the last clause break or space that fit, measured on _plain text but made in the raw
+    markdown; now a cut inside a bold, code or link span is never chosen while another break fits
+  test: tests/unit/test_seam_replay.py::test_a_long_first_sentence_is_never_cut_inside_bold_code_or_a_link
+  note: Came in with QA-01. Fails with the fix undone. Left as is, an opening that is one span longer than the
+    summary is still cut at a word inside it.

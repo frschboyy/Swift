@@ -46,6 +46,7 @@ class VirtualLoop(asyncio.SelectorEventLoop):
     def __init__(self, start: float = 10_000.0) -> None:
         super().__init__()
         self._virtual_now = start
+        self._start, self._wall_start = start, time.time()
         self._selector = _Selector(self, self._selector)  # type: ignore[assignment]
 
     def time(self) -> float:
@@ -53,6 +54,19 @@ class VirtualLoop(asyncio.SelectorEventLoop):
 
     def advance(self, seconds: float) -> None:
         self._virtual_now += max(0.0, seconds)
+
+    def wall(self) -> float:
+        """The wall clock (``time.time()``) as it would read on virtual time: real when the loop began."""
+        return self._wall_start + self._virtual_now - self._start
+
+
+def wall_ms() -> int:
+    """``protocol.now_ms()`` on the running loop's clock when it is virtual, else the real one."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    return int((loop.wall() if isinstance(loop, VirtualLoop) else time.time()) * 1000)
 
 
 # ---- a whole test module on virtual time (pytest-asyncio) ------------------------------------------
@@ -86,3 +100,9 @@ def one_clock(monkeypatch: pytest.MonkeyPatch) -> None:
             return real()
 
     monkeypatch.setattr(time, "monotonic", now)
+    # Messages are stamped with the wall clock (``protocol.now_ms``), and the seam replay's countdown check
+    # compares a stamp with now: on the loop's clock too, or a starved replay counts on one side only
+    # (2026-11-14: test_a_card_counts_down_…_seen_away_and_back failed 27 of 30 runs beside 8 CPU burners).
+    from swift.ipc import protocol
+
+    monkeypatch.setattr(protocol, "now_ms", wall_ms)

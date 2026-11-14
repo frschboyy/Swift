@@ -24,7 +24,7 @@ from test_dialogue import asker, asks
 from test_runs import SHORT, finish_all, make, say, started, until
 from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
-from virtual_clock import VIRTUAL, event_loop_policy, one_clock  # noqa: F401 (fixtures)
+from virtual_clock import VIRTUAL, event_loop_policy, one_clock, wall_ms  # noqa: F401 (fixtures)
 
 from swift.executors.base import ExecEvent
 from swift.executors.claude_mapping import command_purpose, confirm_card
@@ -86,7 +86,7 @@ def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str
         assert drawn["paused"] == (not att._runs(screen["confirm"])), f"one side runs, the other doesn't: {screen}"
         # The replay has no clock: what the card shows now is what it was told, less the time since then.
         told = [m for m in out.messages if m.type == "countdown" and m.data["request_id"] == screen["confirm"]][-1]
-        since = (time.time() * 1000 - told.ts) / 1000 if not drawn["paused"] else 0.0
+        since = (wall_ms() - told.ts) / 1000 if not drawn["paused"] else 0.0  # the stamp's clock (virtual_clock)
         assert abs(drawn["ms"] / 1000 - since - att.left(screen["confirm"])) < 1.0, f"the two disagree on the time left: {screen}"
     # ADR-018: a request has one body, so it is never on the card and behind it at once, or behind it twice.
     assert screen["cardRun"] not in screen["behind"], f"a request in two places: {screen}"

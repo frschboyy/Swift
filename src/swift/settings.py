@@ -13,10 +13,10 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 _ENV_REF = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
 # Where Windows puts these when the variable is missing (a process started with a bare environment).
@@ -34,6 +34,10 @@ def _env_value(name: str) -> str:
 def expand(value: str) -> str:
     """Replace ``%VAR%`` references; ValueError names an unset variable."""
     return _ENV_REF.sub(lambda m: _env_value(m.group(1)), value)
+
+
+# A path setting: ``%VAR%`` expanded when the settings load, defaults included (``validate_default``).
+Expanded = Annotated[str, AfterValidator(expand)]
 
 
 class _Section(BaseModel):
@@ -59,7 +63,7 @@ class SttSettings(_Section):
     # Heard phrase -> meant phrase, e.g. {"tori": "Tauri"}. Both engines. Merged
     # over the learned fixes in word_fixes_file (these win).
     word_fixes: dict[str, str] = Field(default_factory=dict)
-    word_fixes_file: str = "%LOCALAPPDATA%/Swift/word_fixes.json"
+    word_fixes_file: Expanded = "%LOCALAPPDATA%/Swift/word_fixes.json"
     # Noise checks (docs/stt-noise.md). The agent is told which words the model was
     # less sure of than unclear_p, so it asks instead of guessing. A transcript whose
     # words average below reject_p isn't acted on ("I couldn't make that out").
@@ -72,15 +76,10 @@ class SttSettings(_Section):
     noisy_db: float = Field(-50.0, le=0.0)
     # Debug: keep every recording for audio.keep_days, not only the useful ones (audio.keep_all).
     save_audio: bool = False
-    audio_dir: str = "%LOCALAPPDATA%/Swift/audio"
+    audio_dir: Expanded = "%LOCALAPPDATA%/Swift/audio"
     # Clips with words the owner gave (a repeat, a correction), kept after audio.keep_days to check
     # transcription against (swift/stt/recordings.py). At most audio.test_set_max, oldest dropped first.
-    test_set_dir: str = "%LOCALAPPDATA%/Swift/stt_testset"
-
-    @field_validator("audio_dir", "word_fixes_file", "test_set_dir")
-    @classmethod
-    def _expand(cls, v: str) -> str:
-        return expand(v)
+    test_set_dir: Expanded = "%LOCALAPPDATA%/Swift/stt_testset"
 
     @property
     def model_label(self) -> str:
@@ -216,18 +215,13 @@ class DemandClassifierSettings(_Section):
     # Off by default (owner decision 2026-10-23): on the test split it under-estimated 1 of 13 standard
     # requests, where the keywords had 0. Turn on once that is back to 0 (more examples, learn_demand.py).
     enabled: bool = False
-    model_dir: str = "%LOCALAPPDATA%/Swift/models/bge-small-en-v1.5"
+    model_dir: Expanded = "%LOCALAPPDATA%/Swift/models/bge-small-en-v1.5"
     # int8 model (34 MB, ~14 ms); false uses the fp32 one (133 MB, ~20 ms), same accuracy on the eval set.
     quantized: bool = True
     # Share of the nearest examples' weight that must say light; below it the request starts on Sonnet.
     threshold: float = Field(0.7, gt=0, le=1)
     # Examples you approved with spikes/routing/learn_demand.py, added to the built-in ones.
-    examples_file: str = "%LOCALAPPDATA%/Swift/demand_examples.jsonl"
-
-    @field_validator("model_dir", "examples_file")
-    @classmethod
-    def _expand(cls, v: str) -> str:
-        return expand(v)
+    examples_file: Expanded = "%LOCALAPPDATA%/Swift/demand_examples.jsonl"
 
 
 class ContactSettings(_Section):
@@ -251,12 +245,7 @@ class WorkflowSettings(_Section):
     """Workflows (ADR-011 W1): the built-in ones ship with Swift; yours live in ``dir``."""
 
     enabled: bool = True
-    dir: str = "%APPDATA%/Swift/workflows"
-
-    @field_validator("dir")
-    @classmethod
-    def _expand(cls, v: str) -> str:
-        return expand(v)
+    dir: Expanded = "%APPDATA%/Swift/workflows"
 
 
 class DesktopSettings(_Section):
@@ -279,14 +268,9 @@ class SystemSettings(_Section):
 
     enabled: bool = True
     # Timers, alarms and reminders, kept across restarts.
-    schedule_file: str = "%LOCALAPPDATA%/Swift/schedule.json"
+    schedule_file: Expanded = "%LOCALAPPDATA%/Swift/schedule.json"
     # A short sound when one is due.
     chime: bool = True
-
-    @field_validator("schedule_file")
-    @classmethod
-    def _expand(cls, v: str) -> str:
-        return expand(v)
 
 
 class SpeechSettings(_Section):
@@ -311,18 +295,13 @@ class SpeechSettings(_Section):
 
 
 class LoggingSettings(_Section):
-    interactions: str = "%LOCALAPPDATA%/Swift/interactions.jsonl"
-    app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
+    interactions: Expanded = "%LOCALAPPDATA%/Swift/interactions.jsonl"
+    app_log_dir: Expanded = "%LOCALAPPDATA%/Swift/logs"
     # Every side effect (a sent email), before and after; metadata only (ADR-010 §4).
-    journal: str = "%LOCALAPPDATA%/Swift/journal.jsonl"
+    journal: Expanded = "%LOCALAPPDATA%/Swift/journal.jsonl"
     # One file per request: what happened in it, content-free (``swift/runs.py``).
-    runs: str = "%LOCALAPPDATA%/Swift/runs"
+    runs: Expanded = "%LOCALAPPDATA%/Swift/runs"
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-
-    @field_validator("interactions", "app_log_dir", "journal", "runs")
-    @classmethod
-    def _expand(cls, v: str) -> str:
-        return expand(v)
 
 
 class Settings(_Section):
@@ -353,13 +332,8 @@ class Settings(_Section):
     owner_name: str = ""
     # What you asked Swift to remember, and Swift's own settings: one plain file each, with every
     # version kept (swift/memory.py). Swift writes it only from your words; config.yaml still wins.
-    memory_dir: str = "%LOCALAPPDATA%/Swift/memory"
+    memory_dir: Expanded = "%LOCALAPPDATA%/Swift/memory"
     debug: bool = False
-
-    @field_validator("memory_dir")
-    @classmethod
-    def _expand(cls, v: str) -> str:
-        return expand(v)
 
 
 class SettingsError(ValueError):

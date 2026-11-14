@@ -103,5 +103,5 @@ Built so far: `connectors/fake.py` (tests, debug mode) and `connectors/gmail.py`
 - **Providers** are executors that work for Swift. Today that is Claude Code; the demo executor appears as "Demo agent".
 - Each provider declares a `ProviderInfo` and reports normalized `activity` steps.
 - The session attaches `agent` to every run message.
-- The overlay renders "Claude Code is reading", "Swift · via Claude Code", and so on from that normalized data, in `overlay/src/agents.ts`.
+- The overlay turns that normalized data into words in `overlay/src/agents.ts`. Status labels never name the provider ("Reading", "Working on it"; owner, 2026-10-26); only the byline on a result does ("Swift · via Claude Code").
 - When the owner calls Swift "Claude" or "Codex", Swift says who it is, at most once an hour.

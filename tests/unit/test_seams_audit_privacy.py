@@ -233,14 +233,24 @@ def test_a_never_read_path_spelled_another_way_is_still_never_read(tmp_path: Pat
     assert scope.verdict(r"\\fileserver\c$\notes.txt") == "ask"  # another PC's share is not this one's drive
 
 
+def _device_of(drive: str) -> str:
+    r"""This PC's device name for a drive (``\Device\HarddiskVolume4``): the number differs from PC to PC."""
+    import ctypes
+
+    buf = ctypes.create_unicode_buffer(1024)
+    assert ctypes.windll.kernel32.QueryDosDeviceW(f"{drive}:", buf, len(buf)), drive  # type: ignore[attr-defined]
+    return buf.value
+
+
 def test_a_whole_drive_or_volume_spelled_another_way_is_never_a_blanket_read() -> None:
     from swift.executors.read_scope import ReadScope
 
     here = Path.cwd()
     scope = ReadScope([str(here)])  # the current folder is a read folder
     drive = here.drive[0]
+    # The drive's own device name, looked up: "HarddiskVolume3" was C: on one PC and an unformatted volume on another.
     for spelled in (rf"\\localhost\{drive}$", rf"\\localhost\{drive}$" + "\\", "\\\\?\\Volume{0a1b2c3d-0000-0000-0000-000000000000}\\Users",
-                    r"\\?\GLOBALROOT\Device\HarddiskVolume3\Users"):
+                    rf"\\?\GLOBALROOT{_device_of(drive)}\Users"):
         assert scope.verdict(spelled) == "ask", spelled
 
 

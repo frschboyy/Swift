@@ -4,6 +4,7 @@
 // stdout. No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
+import { commandFolded } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
 import * as P from "../../src/presenter.ts";
 
@@ -14,6 +15,8 @@ const now = 1_000_000;
 let pres = P.initial;
 let asked: Q.Ask | null = null;
 let deck = D.initialDeck;
+// The confirm card's frame, as main.ts keeps it (lastConfirm).
+let confirmData: Record<string, any> | null = null;
 // The words on the card, as main.ts keeps them.
 let words = "";
 const lost: string[] = [];
@@ -49,6 +52,7 @@ for (const { type, data: d } of frames) {
       break;
     case "confirm.request":
       pres = P.onConfirm(pres, d.request_id, d.run_id, d.timeout_s ?? 0, now);
+      confirmData = d;
       break;
     case "confirm.hold":
       pres = P.onConfirmHold(pres, d.request_id, d.held, d.timeout_s, now);
@@ -79,6 +83,9 @@ process.stdout.write(JSON.stringify({
   cardWords: words,
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
   confirm: P.confirmVisible(pres) ? pres.pendingConfirm : null,
+  // B1: what a command card leads with (the agent's words), and whether its command is folded under it.
+  confirmLead: P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm && commandFolded(confirmData.tool, confirmData.purpose)
+    ? confirmData.purpose : null,
   lost,
   broken: [...broken],
 }));

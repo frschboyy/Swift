@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live view study (B6, dev only)</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/dev/live-b6.css" />
+    <!-- Dev only: the B6 study (docs/design/b6-live-view.md). Fake data, no backend.
+         http://localhost:1431/dev/live-b6.html?work=email|deck&feel=technical|visual[&at=MS][&theme=light]
+         ``at`` freezes the run at that many milliseconds (for screenshots); without it, it plays. -->
+    <style>
+      body { margin: 0; min-height: 100vh; background: #3a5f7d linear-gradient(135deg, #d9dee6, #5b7a99); }
+      #stage { position: static; display: flex; flex-direction: row; gap: 20px; align-items: flex-start; padding: 24px; }
+    </style>
+  </head>
+  <body>
+    <main id="stage" data-state="idle" data-theme="dark"></main>
+    <script type="module" src="/dev/live-b6.ts"></script>
+  </body>
+</html>

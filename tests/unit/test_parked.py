@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+from swift.executors.base import WorkerTask
 from swift.audio.recorder import SAMPLE_RATE
 from swift.parked import OFFER_TIMES, Parked, ParkedThreads, named_task
 from swift.routing import route
@@ -101,9 +102,10 @@ class Recording(CalendarAgent):
         super().__init__(tools)
         self.requests: list[str] = []
 
-    async def start(self, request: str, **kw: Any) -> str:
+    async def start(self, task: WorkerTask, **kw: Any) -> str:
+        request = task.prompt
         self.requests.append(request)
-        return await super().start(request, **kw)
+        return await super().start(task, **kw)
 
 
 def make_parking(store: ParkedThreads) -> tuple[Any, ...]:

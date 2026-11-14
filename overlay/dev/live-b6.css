@@ -1,0 +1,60 @@
+/* Dev only: the B6 study (docs/design/b6-live-view.md). The live view as a monitor: solid, dark in
+   both themes, a bar like a window's, mono for the technical parts; the working card stays glass. */
+
+#stage { --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace; --mon: #0d1018; --mon-2: #151a26; --mon-line: #ffffff17; --mon-text: #dfe4f0; --mon-dim: #8d95a8; --mon-acc: #8ab4ff; --rec: #ff6b6b; }
+
+.b6-cap { margin: 0 0 6px; color: #fff; font: 600 12px/16px var(--font-text); opacity: 0.85; }
+.b6-working { width: 300px; }
+.b6-work-card { padding: 12px 16px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--panel-edge); box-shadow: var(--shadow); backdrop-filter: var(--glass); color: var(--text); }
+.b6-work-words { margin: 0 0 8px; font: 600 15px/20px var(--font-text); }
+.b6-work-now { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+
+.b6-live { width: 460px; display: flex; flex-direction: column; border-radius: 10px; background: var(--mon); border: 1px solid var(--mon-line); box-shadow: 0 0 0 1px #00000060, var(--shadow); color: var(--mon-text); overflow: hidden; font-family: var(--font-text); }
+.b6-bar { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; background: var(--mon-2); border-bottom: 1px solid var(--mon-line); }
+.b6-bar .icon-btn { color: var(--mon-dim); }
+.b6-rec { flex: none; display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--mono); letter-spacing: 0.08em; color: var(--rec); }
+.b6-rec::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: live-pulse 1.6s var(--ease) infinite; }
+.b6-live--done .b6-rec { color: var(--ok); }
+.b6-live--done .b6-rec::before { animation: none; }
+.b6-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px/18px var(--font-text); }
+.b6-clock { font: 12px/1 var(--mono); color: var(--mon-dim); font-variant-numeric: tabular-nums; }
+.b6-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--mon-line); background: var(--mon-2); }
+.b6-foot .btn--ghost { background: #ffffff10; color: var(--mon-text); border-color: var(--mon-line); }
+
+/* technical */
+.b6-console { height: 300px; font-weight: 400; overflow-y: auto; padding: 10px 12px; font: 12.5px/20px var(--mono); scrollbar-width: thin; }
+.b6-console ol { list-style: none; margin: 0; padding: 0; }
+.b6-con-row { display: flex; gap: 10px; font-weight: 400; white-space: nowrap; color: var(--mon-text); animation: step-in var(--dur-slow) var(--ease); }
+.b6-con-row > span:nth-child(3) { overflow: hidden; text-overflow: ellipsis; }
+.b6-con-t { flex: none; color: var(--mon-dim); font-variant-numeric: tabular-nums; }
+.b6-con-tool { flex: none; width: 104px; color: var(--mon-acc); }
+.b6-con-res { flex: none; margin-left: auto; color: var(--ok); }
+.b6-con-row--now::after { content: "▍"; color: var(--mon-acc); animation: live-pulse 1s steps(2) infinite; }
+
+/* visual: the thing being made, on paper */
+.b6-sheet { background: #fbfbfd; color: #1d2230; border-radius: 6px; }
+.b6-mail { margin: 12px; padding: 4px 16px 14px; font: 14px/21px var(--font-text); min-height: 276px; }
+.b6-field { display: flex; align-items: center; gap: 10px; min-height: 38px; border-bottom: 1px solid #e3e6ee; transition: background var(--dur-fast); }
+.b6-label { width: 52px; color: #6b7287; font-size: 13px; }
+.b6-chip { padding: 2px 10px; border-radius: 12px; background: #e6ecfb; color: #1d3f8f; font-size: 13px; }
+.b6-field--now { background: #2357c914; box-shadow: inset 3px 0 0 #2357c9; }
+.b6-mail-body { padding-top: 10px; }
+.b6-mail-body p { margin: 0; min-height: 21px; }
+.b6-caret::after { content: ""; display: inline-block; width: 2px; height: 16px; margin-left: 1px; vertical-align: -3px; background: #2357c9; animation: live-pulse 1s steps(2) infinite; }
+
+.b6-deck { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.b6-deck-main { aspect-ratio: 16 / 9; display: grid; place-items: stretch; overflow: hidden; }
+.b6-wait { place-self: center; color: #6b7287; font: 13px var(--mono); }
+.b6-slide { height: 100%; padding: 8% 9%; box-sizing: border-box; }
+.b6-slide h4 { margin: 0 0 0.6em; font: 700 1em/1.2 var(--font-text); color: #1d3f8f; animation: step-in var(--dur-slow) var(--ease); }
+.b6-slide ul { margin: 0; padding-left: 1.1em; }
+.b6-slide li { margin: 0.25em 0; font-size: 0.62em; line-height: 1.35; animation: step-in var(--dur-slow) var(--ease); }
+.b6-slide--big { font-size: 26px; }
+.b6-slide--big h4 { border-bottom: 3px solid #2357c9; padding-bottom: 0.25em; }
+.b6-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.b6-strip li { position: relative; aspect-ratio: 16 / 9; border-radius: 4px; background: #fbfbfd; overflow: hidden; outline: 1px solid var(--mon-line); color: #1d2230; font-size: 7px; }
+.b6-strip li > span { position: absolute; right: 4px; bottom: 2px; color: #6b7287; font: 9px var(--mono); }
+.b6-strip .b6-slide--empty { background: #ffffff12; }
+.b6-strip li:has(.b6-slide--empty) { background: transparent; outline-style: dashed; }
+.b6-strip--now { outline: 2px solid var(--mon-acc) !important; }
+.b6-ticker { font-weight: 400; display: flex; gap: 10px; margin: 0; padding: 8px 12px; border-top: 1px solid var(--mon-line); font: 12px/18px var(--mono); white-space: nowrap; overflow: hidden; }

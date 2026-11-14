@@ -14,3 +14,10 @@ export function cardLines(detail: string): CardLine[] {
   return detail.split("\n").map((line) =>
     line.startsWith(QUOTE) ? { text: line.slice(QUOTE.length), agent: true } : { text: line, agent: false });
 }
+
+// B1: a command card leads with what the agent says the command is for (its own words, marked as its), and
+// the command, what actually runs, is folded underneath. With no such words it stays open, as before.
+const COMMANDS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
+
+export const commandFolded = (tool: string, purpose: string | undefined): boolean =>
+  COMMANDS.has(tool) && !!purpose?.trim();

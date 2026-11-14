@@ -580,9 +580,11 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         *_rigid(rows),
         *_grounded(rows),
+        *_memory(rows),
         *_health(log),
         _gmail(log),
         *_front_and_web(rows),
+        *_command_cards(rows),
     ]
 
 
@@ -650,7 +652,7 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 
 def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3)."""
-    spoken = [r for r in rows if re.search(r"open.*\w+ dot (com|org|net|edu|ac|co|io)", r.get("transcript") or "", re.I)]
+    spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
     def opened(r: dict[str, Any]) -> bool:
         return any("desktop_open" in str(s.get("text")) for s in r.get("steps") or [])
@@ -662,6 +664,20 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("254 Task Manager's band", LOOK, "paste window_bands.py's last lines; was Swift in front of Task Manager?"),
         ("255 a spoken web address was opened", unless(missed, spoken),
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
+    ]
+
+
+def _command_cards(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 263-264 (B1): a command card leads with a plain sentence, the command folded under it."""
+    cards = [(r, a) for r in rows for a in r.get("approvals", []) if a.get("tool") in ("Bash", "PowerShell")]
+    bare = [r for r, a in cards if a.get("explained") is False]
+    approved = [r for r, a in cards if a.get("decision") == "approve"]
+    return [
+        ("263 every command card led with what it does", unless(bare, cards),
+         f"{len(cards)} command card(s); with no sentence (command shown open): "
+         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in bare) or "none")),
+        ("264 a command card approves as before", LOOK,
+         f"{len(approved)} approved; tell us whether a bare 'yes' or typing ever approved one"),
     ]
 
 
@@ -693,6 +709,32 @@ def _grounded(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str
          "asked where: " + times(asked_back)),
         ("261 a distance between two places you named", LOOK,
          f"{len(between)} asked ({times(between)}); tell us whether it was about right"),
+    ]
+
+
+def _memory(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 290-293: the memory store (swift/memory.py, C7). Only the owner's words write it."""
+
+    def said(pattern: str) -> list[dict[str, Any]]:
+        return [r for r in rows if re.search(pattern, r.get("transcript") or "", re.I)]
+
+    def times(found: list[dict[str, Any]]) -> str:
+        return ", ".join(f"{r['_t']:%H:%M:%S}" for r in found) or "none"
+
+    kept = said(r"\bremember (that )?my manager is")
+    forgot = said(r"\bforget (that )?my manager")
+    errands = said(r"\bremember to\b")
+    return [
+        ("290 'remember that my manager is …' was Swift's own, not the agent",
+         unless([r for r in kept if r.get("action") != "remember"], kept), "went elsewhere: " + times(
+             [r for r in kept if r.get("action") != "remember"])),
+        ("291 'forget that my manager …' was Swift's own", unless([r for r in forgot if r.get("action") != "forget"], forgot),
+         "went elsewhere: " + times([r for r in forgot if r.get("action") != "forget"])),
+        ("292 nothing a page or a note said was remembered", LOOK,
+         "check on screen: 'what do you know about me' never lists Mallory"),
+        ("293 'remember to …' stayed a reminder, not a memory",
+         unless([r for r in errands if r.get("action") == "remember"], errands),
+         "kept as a memory: " + times([r for r in errands if r.get("action") == "remember"])),
     ]
 
 

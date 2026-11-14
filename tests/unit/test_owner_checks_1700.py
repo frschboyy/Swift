@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from swift.executors.base import WorkerTask
 from swift.connectors.base import CalendarEvent, StoredEvent
 from swift.executors.mock import Call, Finish
 from swift.ipc.protocol import Message
@@ -47,10 +48,9 @@ class Demands(World):
         self.demands: list[str | None] = []
         start = self.provider.start
 
-        async def started(request: str, scenario: str | None = None, *, demand: str | None = None,
-                          override: str | None = None) -> str:
-            self.demands.append(demand)
-            return await start(request, scenario, demand=demand, override=override)
+        async def started(task: WorkerTask, scenario: str | None = None) -> str:
+            self.demands.append(task.budget.demand)
+            return await start(task, scenario)
 
         self.provider.start = started  # type: ignore[method-assign]
 

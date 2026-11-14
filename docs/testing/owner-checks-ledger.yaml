@@ -33,7 +33,7 @@ areas:
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
     paths: [src/swift/security/*, overlay/src/answer.ts, overlay/src/cardtext.ts]
-    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218]
+    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264]
   typing:
     rule: typing never approves
     paths: [overlay/src/entry.ts, src/swift/intake.py]
@@ -66,10 +66,10 @@ areas:
     checks: [12-14, 61, 66, 139, 220, 232, 241]
   screen:
     paths: [overlay/src/presenter.ts, overlay/src/ipc.ts, overlay/src/protocol.ts, src/swift/ipc/*]
-    checks: [54, 146-149, 165, 171, 180, 181]
+    checks: [54, 146-149, 165, 171, 180, 181, 263]
   capsule:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
-    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254]
+    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]
@@ -82,7 +82,7 @@ areas:
     checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
-    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261]
+    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
     checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239]
@@ -93,6 +93,10 @@ areas:
     rule: memory only from the owner's words; Swift's own files are never read
     paths: [src/swift/executors/read_scope.py, src/swift/security/web_scope.py, src/swift/workflows/scope.py]
     checks: [52, 62, 213, 255]
+  memory:
+    rule: memory is written only from the owner's words or an approved card, never from what a worker read
+    paths: [src/swift/memory.py]
+    checks: [290-293]
   signin:
     paths: [src/swift/signin.py, src/swift/executors/signin.py, src/swift/connectors/google.py]
     checks: [120-122, 155]
@@ -108,6 +112,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [290-293]
+    why: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC
   - checks: [262]
     why: the owner's 'Playing.' with nothing playing (2026-11-13); fixed, not seen on the real PC
   - checks: [256, 257]

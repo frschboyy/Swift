@@ -10,6 +10,7 @@ from typing import Any
 from test_routing import SpyExecutor
 from test_session import Recorder
 
+from swift.executors.base import WorkerTask
 from swift.executors.base import ExecResult
 from swift.executors.mock import MockExecutor
 from swift.ipc.protocol import Message
@@ -51,7 +52,7 @@ async def test_a_follow_up_carries_the_previous_request_and_answer() -> None:
     assert "Previous request: Add a next steps section to my notes." in second
     assert "Previous answer: Added a Next steps section to notes.md." in second
     assert second.endswith("[Current request]\nNow commit it.")
-    assert spy.calls[1][1]["demand"] == "standard"  # the demand comes from the words, not the context
+    assert spy.calls[1][1].demand == "standard"  # the demand comes from the words, not the context
     assert records[1]["transcript"] == "Now commit it."
     assert records[1]["context"] == {"previous": records[0]["id"], "age_s": 0}
     assert "context" not in records[0]
@@ -142,9 +143,10 @@ class RecordingMock(MockExecutor):
         super().__init__(speed=0, default_scenario="confirm")
         self.requests: list[str] = []
 
-    async def start(self, request: str, scenario: str | None = None, **kw: Any) -> str:
+    async def start(self, task: WorkerTask, scenario: str | None = None) -> str:
+        request = task.prompt
         self.requests.append(request)
-        return await super().start(request, scenario, **kw)
+        return await super().start(task, scenario)
 
 
 async def test_approved_actions_are_part_of_the_context() -> None:

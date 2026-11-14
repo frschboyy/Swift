@@ -31,7 +31,7 @@ import * as Q from "./ask";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, hasMarkedLines } from "./cardtext";
+import { cardLines, commandFolded, hasMarkedLines } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -122,6 +122,8 @@ let artifacts = new Map<string, Artifact>();
 let viewing: string | null | undefined;
 let lastConfirm: Extract<Inbound, { type: "confirm.request" }>["data"] | null = null;
 let fullDraft = false;
+// A folded command on the confirm card (B1) was opened: a redraw of the same card keeps it open.
+let commandShown = false;
 // The row last asked to come forward, so the clock asks once.
 let promoted: string | null = null;
 // Push-to-talk on the working card (mid-run grammar).
@@ -1216,7 +1218,21 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     ? el("div", { class: "facts-text facts-text--mono" }, ...cardLines(data.detail).map((line) =>
       el("div", { class: line.agent ? "facts-line--agent" : "facts-line" }, line.text || " ")))
     : el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
-  return el("div", { class: "facts" }, box, moreBelow(box));
+  const facts = el("div", { class: "facts" }, box, moreBelow(box));
+  if (!commandFolded(data.tool, data.purpose)) return facts;
+  // B1: the agent's words lead, under its bar (X-17); the command, what actually runs, is one click away.
+  const fold = el("details", { class: "command-fold", open: commandShown }, el("summary", {}, "Show the command (what will actually run)"), facts);
+  fold.addEventListener("toggle", () => {
+    commandShown = fold.open;
+    box.dispatchEvent(new Event("scroll"));  // "More below" measures the box only once it can be seen
+    scheduleRegions();
+  });
+  return el(
+    "div",
+    { class: "confirm-lead" },
+    el("p", { class: "confirm-purpose facts-line--agent" }, el("span", { class: "confirm-purpose-by" }, "What it says this does"), data.purpose ?? ""),
+    fold,
+  );
 }
 
 /** Says there's more until the end has been reached: what's out of view must not look like the end (X-17).
@@ -1238,7 +1254,10 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   };
   // A re-render (show me / hide on the card) keeps the deadline it already had.
   const again = lastConfirm?.request_id === data.request_id;
-  if (!again) fullDraft = false;
+  if (!again) {
+    fullDraft = false;
+    commandShown = false;
+  }
   lastConfirm = data;
   // Redrawn while it's being read (presence, the countdown coming back): keep the reader's place.
   const place = again ? card.querySelector<HTMLElement>(".facts-text")?.scrollTop ?? 0 : 0;

@@ -79,3 +79,27 @@ decision before anything is built: what may be stored, who enters it, and what S
 5. B1 (a plain sentence on approval cards): the first design item that is a small change.
 6. Review item 9, then Halo Step B and the interaction layer's decisions, for B3–B7.
 7. Groundwork (run records, the grant, the memory store), then C2, C4, C5, C7.
+
+## The owner's design decisions (2026-11-13)
+
+Taken from the orchestrator's recommendations, except B4 and B6, which are the owner's own:
+
+- **A5:** a command's card goes a few seconds after it's done; an answer stays until it has been seen; a question stays while it waits for the owner and pauses its countdown out of sight.
+- **B2:** one approval covers one coherent step of a task, with its commands listed inside; anything outside that step asks again, and anything irreversible (deleting, paying, sending) always has its own card. Built after the grant (groundwork).
+- **B4:** not a fixed list of layouts. For each result Swift works out how best to show it, visually and in words (a table, a comparison, a diagram, a preview, plain text), and the card's look follows. Swift may use free tools to do that, so it is flexible rather than limited to what's built in. Decided: a vetted set of free tools ships with Swift (the owner approves the list once); anything outside that set is installed only when needed, asking on a card every time, as C4 says.
+- **B5:** both: a card grows with its content up to a limit that never covers the owner's work, and can be expanded by hand beyond that.
+- **B6:** to study before building: whether the live view ("watch me") is a card of its own, and whether it feels technical (steps ticking by) or visual: the email being written or the deck being built, shown as it happens, as pen.dev does.
+- **B7:** transitions slow enough to see; the card growing out of the orb is tried in the harness before the owner chooses.
+
+## The owner's decisions of 2026-11-14
+
+All taken from the orchestrator's recommendations:
+
+- **B1:** the agent's own sentence leads, marked as the agent's; the command's first line always shows under it, and only the rest folds.
+- **Review item 9:** carries on, on its branch: with B1 in, the countdowns move to one side; it merges only if the total deletes code.
+- **B4:** the vetted set is approved: Swift's own code (text, tables, comparisons, simple charts), Mermaid's tiny build (diagrams), Windows' PDF renderer and a text excerpt (documents). A mind-map shape is prototyped now; a map that grows as the owner talks is a later item, on run records and memory.
+- **Halo Step B:** go, after item 9's countdown move (both change how cards are drawn).
+- **B6:** its own window restyled as a monitor; visual where there's something to see, technical otherwise; the LIVE mark in Halo's accent blue (red means failure); email shows the finished draft first, streaming later; the visual deck waits for a deck capability.
+- **Memory store:** plain files under `%LOCALAPPDATA%\Swift\memory`; "forget" doesn't ask, since every version is kept. Card and ID numbers are refused, like passwords and PINs.
+- **B2:** built now, on the `WorkerTask` grant; Swift, never the agent, decides what's irreversible.
+- **A10:** waits for owner check 254 before any fix (a signed install only if nothing else works).

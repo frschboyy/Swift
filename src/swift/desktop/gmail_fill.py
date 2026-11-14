@@ -24,6 +24,10 @@ FIELDS = ("to", "body", "subject")
 FOCUS_WAIT_S = 1.0
 # Where the keyboard was when a field wouldn't take it: the only words about it the log gets.
 FOCUS_PLACES = ("to", "body", "subject", "page", "other_window", "none")
+# What lay under the point a click in the field aims at, when the field wouldn't take the cursor: the field
+# itself, a reason there was no point to click, or the kind of thing over it (a suggestion list, a popup).
+CLICK_SPOTS = ("field", "not_front", "no_size", "unreadable", "button", "combo box", "edit", "link", "list item",
+               "list", "text", "custom", "group", "data item", "document", "window", "pane", "table", "other")
 
 # Why the compose window isn't ready to fill yet (``Waiting.reason``), and the error code if it never is.
 WAIT_CODES = {
@@ -53,6 +57,7 @@ class ComposeScreen(Protocol):
     def has_focus(self, element: Any) -> bool: ...
     def focus_place(self, fields: dict[str, Any], hwnd: int) -> str: ...
     def click(self, element: Any, hwnd: int) -> bool: ...
+    def click_spot(self, element: Any, hwnd: int) -> str: ...
     def paste(self, text: str) -> None: ...
 
 
@@ -152,9 +157,10 @@ def set_field(screen: ComposeScreen, hwnd: int, fields: dict[str, Any], key: str
         return
     how = focus(screen, element, hwnd, clock or Clock())
     if how is None:
-        place = screen.focus_place(fields, hwnd)
+        place, spot = screen.focus_place(fields, hwnd), screen.click_spot(element, hwnd)
         logger.warning("gmail field didn't take the cursor", field=key,
-                       focus=place if place in FOCUS_PLACES else "none")
+                       focus=place if place in FOCUS_PLACES else "none",
+                       click=spot if spot in CLICK_SPOTS else "other", settable=screen.settable(element))
         raise DesktopError(f"Swift couldn't put the cursor in Gmail's {key}, so it stopped there.",
                            "Finish the email yourself, or try again.", code=f"gmail_focus_{key}")
     if how != "set_focus":

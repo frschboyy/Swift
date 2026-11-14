@@ -467,20 +467,31 @@ class _GmailScreen:
         except Exception:  # noqa: BLE001
             return "none"
 
-    def click(self, element: Any, hwnd: int) -> bool:
-        """Click just inside the field's top left, where its first line starts; only if the compose window
-        is in front and that point is this field, not a window or popup over it. The mouse goes back."""
+    def _click_point(self, element: Any, hwnd: int) -> tuple[Any, str]:
+        """Just inside the field's top left, where its first line starts, and what is there (``CLICK_SPOTS``)."""
         if _foreground() != hwnd:
-            return False
+            return None, "not_front"
         try:
             rect = element.CurrentBoundingRectangle
             width, height = rect.right - rect.left, rect.bottom - rect.top
             if width <= 0 or height <= 0:
-                return False
+                return None, "no_size"
             point = wintypes.POINT(rect.left + min(24, width // 4), rect.top + min(16, height // 4))
-            if not self._inside(self.uia.automation.ElementFromPoint(point), element):
-                return False
+            under = self.uia.automation.ElementFromPoint(point)
+            if self._inside(under, element):
+                return point, "field"
+            return point, CONTROL_TYPES.get(under.CurrentControlType, "other") if under else "other"
         except Exception:  # noqa: BLE001 - the page changed while being read
+            return None, "unreadable"
+
+    def click_spot(self, element: Any, hwnd: int) -> str:
+        return self._click_point(element, hwnd)[1]
+
+    def click(self, element: Any, hwnd: int) -> bool:
+        """Click there; only if the compose window is in front and that point is this field, not a window or
+        popup over it. The mouse goes back."""
+        point, spot = self._click_point(element, hwnd)
+        if spot != "field":
             return False
         saved = wintypes.POINT()
         user32.GetCursorPos(ctypes.byref(saved))

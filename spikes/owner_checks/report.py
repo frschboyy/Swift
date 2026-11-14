@@ -715,16 +715,37 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3).
     320: out from under Task Manager, which no ordinary app can come in front of (A10).
-    330: "open my university's website" opens the address said in the last 10 minutes (C3, 2026-11-14)."""
+    330: "open that site again" reuses the address said in the last 10 minutes; "my university's website" opens only
+    after the owner's "remember …" (C3, owner's decisions of 2026-11-14)."""
     spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
     def opened(r: dict[str, Any]) -> bool:
         return any("desktop_open" in str(s.get("text")) for s in r.get("steps") or [])
 
     missed = [r for r in spoken if not opened(r)]
-    # 330: "open … website/site" with no address said, within 10 minutes after a spoken one.
-    bare = [r for r in rows if re.search(r"\bopen\b.*\b(website|site)\b", r.get("transcript") or "", re.I)
-            and r not in spoken and any(0 <= (r["_t"] - s["_t"]).total_seconds() <= 600 for s in spoken)]
+    # 330: pointing at an address said in the last 10 minutes, with no "new topic" between, must open it; a
+    # description ("my university's website") opens only after a "remember …" of the owner's, else Swift asks.
+    def said(r: dict[str, Any]) -> str:
+        return r.get("transcript") or ""
+
+    pointing = re.compile(r"\bagain\b|\bthat (?:web ?site|site|page|one)\b|\bthe one (?:i|we) (?:just )?opened\b", re.I)
+    fresh = re.compile(r"new topic|start (?:over|fresh)|different topic", re.I)
+
+    def follows_spoken(r: dict[str, Any]) -> bool:
+        i = rows.index(r)
+        for s in reversed(rows[:i]):
+            if (r["_t"] - s["_t"]).total_seconds() > 600 or fresh.search(said(s)):
+                return False
+            if s in spoken:
+                return True
+        return False
+
+    asks_to_open = [r for r in rows if re.search(r"\bopen\b", said(r), re.I) and r not in spoken]
+    bare = [r for r in asks_to_open if pointing.search(said(r)) and follows_spoken(r)]
+    described = [r for r in asks_to_open if not pointing.search(said(r))
+                 and re.search(r"\bmy \w+(?:'s)? (?:web ?site|site|page|portal)\b", said(r), re.I)]
+    taught = [r for r in described
+              if any(re.match(r"\s*(?:hey )?(?:swift[, ]*)?remember\b", said(m), re.I) for m in rows[:rows.index(r)])]
 
     def asked_or_refused(r: dict[str, Any]) -> bool:
         texts = [str(s.get("text")) for s in r.get("steps") or []]
@@ -732,6 +753,8 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
             re.search(r"\b(couldn't|can't|could not|cannot) open\b", t, re.I) for t in texts)
 
     again = [r for r in bare if asked_or_refused(r)]
+    unasked = [r for r in described if r not in taught and not asked_or_refused(r)]  # opened a description he never taught
+    not_opened = [r for r in taught if asked_or_refused(r)]
     return [
         ("253 Swift came in front of an ordinary always-on-top window", LOOK,
          "tell us whether Swift was in front of the test window, and whether Notepad kept the cursor"),
@@ -740,10 +763,14 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
         ("320 the card moved out from under Task Manager, and came back", LOOK,
          "tell us where the card showed with Task Manager over the orb, then after closing it, and whether Notepad kept the cursor"),
-        ("330 the address said a moment ago opened from 'my university's website'", unless(again, bare),
+        ("330 'that site again' opened the address said a moment ago", unless(again, bare),
          f"{len(bare)} heard; asked or refused instead: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in again) or "none")),
-        ("330 after 'new topic' Swift asked for the address", LOOK,
-         "tell us whether Swift asked you to say it, or offered an address"),
+        ("330 'my university's website' opened only after you told Swift", unless(unasked + not_opened, described),
+         f"{len(described)} heard; opened without being told: "
+         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in unasked) or "none") + "; told but not opened: "
+         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in not_opened) or "none")),
+        ("330 without a remembered address Swift asked you to say it", LOOK,
+         "tell us whether Swift asked you to say the address, or offered one"),
     ]
 
 

@@ -29,11 +29,12 @@ default browser only when the address, or its site, is in the owner's own words 
 (``RunScope.said`` and their answers), written or spoken ("usiu dot ac dot ke"). The same rule as a
 fetch (audit 2026-10, A-03; check 52): an address the model put together, or one a page gave, could
 carry what it read to someone else, so it isn't opened; the model asks the owner for the address.
-An address the owner said or typed earlier in the same conversation, in the last ``RECENT_ADDRESS_S``,
-counts too (owner's decision 2026-11-14, check 255: "open usiu dot ac dot ke", then "open my
-university's website"). Those words come from Swift's own record of the conversation
-(``RunScope.earlier``, from the exchanges the request goes on from), never from the agent's context;
-a yes to an address the agent offered is still not the owner's address.
+Two more sources, both the owner's own words (swift/workflows/owner_address.py; decisions of 2026-11-14):
+an address said or typed earlier in the same conversation, in the last ``RECENT_ADDRESS_S``
+(``RunScope.earlier``, Swift's own record of the conversation), only when this request points at it
+("open that site again"); and for a description ("my university's website"), a memory the owner had
+Swift keep ("remember my university is usiu dot ac dot ke"). Never the agent's context; a yes to an
+address the agent offered is still not the owner's address.
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
 from swift.security.web_scope import WebScope
+from swift.workflows.owner_address import points_back, remembered
 from swift.workflows.scope import RunScope
 from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
 
@@ -225,9 +227,10 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
 # How long an address the owner gave earlier in the conversation may still be opened (C3, 2026-11-14).
 RECENT_ADDRESS_S = 600.0
 NOT_NAMED_URL = (
-    "Not opened: Swift opens only a web address the owner said or wrote in this request, or earlier in this "
-    "conversation in the last 10 minutes (or its site). When no address the owner gave fits, ask the owner to "
-    "say it with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest doesn't count."
+    "Not opened: Swift opens only a web address the owner said or wrote in this request; one from earlier in this "
+    "conversation (last 10 minutes) only when they point at it (\"open that site again\"); for a description "
+    "(\"my university's website\") only one they asked Swift to remember. Otherwise ask the owner to say the "
+    "address with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest doesn't count."
 )
 
 
@@ -240,8 +243,9 @@ async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
         url = "https://" + url
     allowed = WebScope()
     now = clock.now()
-    recent = (words for heard, words in scope.earlier if now - heard <= RECENT_ADDRESS_S)
-    for words in (scope.said, *scope.answers, *recent):
+    own = (scope.said, *scope.answers)
+    recent = [w for heard, w in scope.earlier if now - heard <= RECENT_ADDRESS_S] if any(map(points_back, own)) else []
+    for words in (*own, *recent, *remembered(host.memories, " ".join(own))):
         allowed.note_request(words)
     if not url.lower().startswith(("https://", "http://")) or not allowed.allows(url):
         logger.info("web address not opened: not the owner's")  # never the address
@@ -405,8 +409,9 @@ DESKTOP_TOOLS: tuple[ToolSpec, ...] = (
         "Open what the owner selected in File Explorer (what: 'selection'), an app, folder or project Swift "
         "knows by name (name), or a web address in the owner's browser (url: one the owner said or wrote, in this "
         "request or earlier in this conversation, 'dot' read as '.', e.g. 'usiu dot ac dot ke' is usiu.ac.ke). "
-        "Never a path or address you made up; when no address the owner gave fits, ask them to say it with "
-        "ask_owner rather than offering one.",
+        "An address from earlier only when the owner points at it ('open that site again'); a description "
+        "('my university's website') only through what they asked Swift to remember. Never a path or address you "
+        "made up; when no address the owner gave fits, ask them to say it with ask_owner rather than offering one.",
         _obj([], what={"type": "string", "enum": ["selection"]}, name={"type": "string"}, url={"type": "string"}),
         "reversible", desktop_open,
     ),

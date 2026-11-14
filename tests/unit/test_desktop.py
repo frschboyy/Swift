@@ -258,12 +258,12 @@ async def test_a_web_address_the_owner_said_opens_in_their_browser_and_no_other(
 
 
 async def test_an_address_the_owner_gave_earlier_opens_for_ten_minutes_and_a_yes_to_the_agents_never() -> None:
-    """C3, owner's decision 2026-11-14 (check 255): the owner's own words earlier in the conversation count
-    for ten minutes (``RunScope.earlier``, which the session fills from its record of the conversation)."""
+    """C3, owner's decisions 2026-11-14 (checks 255, 330): the owner's own words earlier in the conversation count
+    for ten minutes when the request points at them (``RunScope.earlier``, filled from Swift's record)."""
     from swift import clock
     from swift.workflows.desktop_tools import RECENT_ADDRESS_S
 
-    host, desktop, _, _ = make(said="Open my university's website.")
+    host, desktop, _, _ = make(said="Open that site again.")
     assert host.scope is not None
     host.scope.answers.append("yes")  # to the agent's "Should I open usiu.ac.ke?": not the owner's address
     refused = await host.call("desktop_open", {"url": "usiu.ac.ke"})

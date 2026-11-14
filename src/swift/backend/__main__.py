@@ -543,6 +543,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         signin_task = asyncio.create_task(signins.run())  # noqa: F841 - lives as long as the backend
     # What the owner asked Swift to remember (swift/memory.py); debug mode never touches the owner's.
     session.memories = Store(Path(tempfile.mkdtemp(prefix="swift-memory-")) if settings.debug else Path(settings.memory_dir))
+    if session.tools is not None:
+        session.tools.memories = session.memories  # read only: a described web address (C3)
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)

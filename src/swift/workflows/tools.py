@@ -731,6 +731,8 @@ class ToolHost:
         self.opener = opener
         # The system lane (ADR-016 §3), for ``system_action``; set by the backend. None: not offered.
         self.system: Any = None
+        # What the owner asked Swift to remember (swift/memory.py's Store): read only, for a described web address.
+        self.memories: Any = None
         # The workflow library, for ``read_workflow``; set by the session. None: no workflows.
         self.library: Library | None = None
         # Open scopes, oldest first, and the provider run ids bound to them.

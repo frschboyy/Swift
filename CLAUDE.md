@@ -10,7 +10,7 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
 
 - **Git:**
   - Work on a branch in a worktree; commit there only. If git has no identity on this PC, commit with
-    `git -c user.name="Francis Chianu" -c user.email=<the email on main's recent commits>` *(foundation decision 14)*.
+    `git -c user.name=... -c user.email=...` with the identity from `git log -1 --format="%an <%ae>" main` (never guessed) *(foundation decision 14)*.
   - **Never push.** To move work to another PC, make a `git bundle` of the named branches when the owner asks
     *(foundation decision 13)*. Merge into `main` only when the owner says so.
   - End commit messages with a `Co-Authored-By:` line.
@@ -54,6 +54,9 @@ answered, and whether the owner is there. Swift decides reversibility and reach,
   everything"** raises level 0 to 1, except reads in the read folders and volume.
 - **`intake.approves` is the one place approval is decided**, and its test checks it against the table above
   *(foundation decision 10)*. Change both together.
+- **An approval covers exactly what its card showed.** The gateway binds it to the action's digest and recomputes it
+  before running: a changed recipient, path, command or payload voids it, and an approval is never reused for
+  another action (ADR-010, threat model T3). Enforcement lives in the backend, never in the agent or the overlay.
 - **No hands-free listening while locked, away or paused.**
 - **Logs:** `swift.log` holds no content (the owner's words, names, addresses, file contents) but does hold
   structure (reason codes, error classes, field roles, timings). The owner's local interaction log keeps their words
@@ -101,6 +104,20 @@ these rules, never away. Not built yet:
   generated between markers in `docs/testing/owner-checks.md` (by `plan.py --write`).
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
 
+## How to work
+
+- **Specified, implemented, verified are three different claims.** A rule in this file is specified; it's
+  implemented only when the code and a test show it; it's verified only when its owner check has passed on the real
+  PC. Never describe behaviour from this file alone: read the code and its tests. Never change a rule to fit what the
+  code happens to do; say where they differ.
+- **Understand, then prove, then change:** read the handoff and the code a change touches, reproduce the problem,
+  name the cause (or say "unproven"), make the smallest change that fixes it, verify the original case, and report
+  what was and wasn't verified.
+- **Stay in scope.** A problem found on the way is recorded (in `docs/audit/findings.yaml` or the report) and fixed
+  separately, unless it blocks the task.
+- **Respect the owners.** Before adding logic, find the code that already owns that responsibility and change it
+  there; two owners of one thing is a bug.
+
 ## Fixing things
 
 Rules from the reliability audit and its review (`docs/audit/2026-11-reliability-audit.md`, `docs/audit/2026-11-reliability-audit-review.md`):
@@ -116,10 +133,12 @@ Rules from the reliability audit and its review (`docs/audit/2026-11-reliability
 
 ## Commands (Windows; from a worktree)
 
-- **Python tests** (in a worktree on this PC `uv run` hangs; use `PYTHONPATH=src /c/Users/frchi/Documents/Swift/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`, and the same interpreter for parity and the speech gate):
+- **Python tests:** from a worktree on this PC (`uv run` hangs building a worktree venv), use the main checkout's
+  interpreter; where `uv` works, `uv run --frozen pytest -q -p no:cacheprovider` is the same:
   ```bash
-  /c/Users/frchi/AppData/Local/Microsoft/WinGet/Links/uv.exe run --frozen pytest -q -p no:cacheprovider
+  PYTHONPATH=src /c/Users/frchi/Documents/Swift/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
   ```
+  Use the same interpreter (`PYTHONPATH=src … python.exe`) for `eval/parity/score.py` and `eval/stt/gate.py` below.
 - **Routing parity** (must not drop):
   ```bash
   uv run python eval/parity/score.py

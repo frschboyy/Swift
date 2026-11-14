@@ -50,7 +50,7 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-14 at `2d49d62`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-14 at `30ffede`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
@@ -62,13 +62,13 @@ at its heading); a check that builds on another comes after it.
 **Fixes from your checks of 2026-11-09**
 
 3. [204](#check-204): A greeting before a command doesn't change how Swift asks. *Why: failed on 2026-11-13; 9 changes since (such as `fbdaed2` A greeting ended by a comma leaves a system command to Swift (A7, check 204, partial; cause unproven)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-4. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: failed on 2026-11-13; 7 changes since (such as `5f5aaff` The question's window, not session.py, says an utterance begun before it was asked isn't its answer (A7, structure)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-5. [206](#check-206): Waiting for your answer looks different from working. *Why: failed on 2026-11-13; 7 changes since (such as `1429e81` The agent's "did you mean" example no longer names Wi-Fi and Bluetooth); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-6. [203](#check-203): Swift comes to the front when you call it. *Why: failed on 2026-11-13; 5 changes since (such as `f0970e6` One clock for a confirm card's countdown (T-08, review item 9 step 1)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+4. [203](#check-203): Swift comes to the front when you call it. *Why: failed on 2026-11-13; 7 changes since (such as `f0970e6` One clock for a confirm card's countdown (T-08, review item 9 step 1)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+5. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: failed on 2026-11-13; 7 changes since (such as `5f5aaff` The question's window, not session.py, says an utterance begun before it was asked isn't its answer (A7, structure)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+6. [206](#check-206): Waiting for your answer looks different from working. *Why: failed on 2026-11-13; 7 changes since (such as `1429e81` The agent's "did you mean" example no longer names Wi-Fi and Bluetooth); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
 
 **The Halo look, before anything is built (ADR-019 Step A, `SPEC.md` §15, 2026-11-07)**
 
-7. [218](#check-218): A question and an approval are never confused. *Why: failed on 2026-11-13; 4 changes since (such as `bce7b36` B1: a command card leads with what the agent says it does, the command folded under it); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+7. [218](#check-218): A question and an approval are never confused. *Why: failed on 2026-11-13; 6 changes since (such as `093014b` Run records: one content-free event log per request (groundwork)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
 
 **Emails written as you, and people you've emailed**
 
@@ -77,9 +77,9 @@ at its heading); a check that builds on another comes after it.
 **Your calendar: look, change, cancel, Meet links, undo**
 
 9. [33](#check-33): Hold the hotkey, say "set up a meeting with Test Me on Thursday at three with a Meet link", and let …. *Why: failed on 2026-11-13; 1 change since (such as `ce92b76` "Add" heard as "had" or "Ad" opens the calendar workflow, only as the request's first word).*
-10. [34](#check-34): Right after check 33, say "Hey Swift, undo that". *Why: failed on 2026-11-13; 3 changes since (such as `bce7b36` B1: a command card leads with what the agent says it does, the command folded under it); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-11. [35](#check-35): Hold the hotkey, say "change Swift check to 3 pm", and let go. Click **Approve**. *Why: failed on 2026-11-13; 3 changes since (such as `bce7b36` B1: a command card leads with what the agent says it does, the command folded under it); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-12. [36](#check-36): Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**. *Why: failed on 2026-11-13; 3 changes since (such as `bce7b36` B1: a command card leads with what the agent says it does, the command folded under it); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+10. [34](#check-34): Right after check 33, say "Hey Swift, undo that". *Why: failed on 2026-11-13; 5 changes since (such as `093014b` Run records: one content-free event log per request (groundwork)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+11. [35](#check-35): Hold the hotkey, say "change Swift check to 3 pm", and let go. Click **Approve**. *Why: failed on 2026-11-13; 5 changes since (such as `093014b` Run records: one content-free event log per request (groundwork)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+12. [36](#check-36): Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**. *Why: failed on 2026-11-13; 5 changes since (such as `093014b` Run records: one content-free event log per request (groundwork)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
 
 **What Swift remembers about you (2026-11-13)**
 
@@ -2278,7 +2278,7 @@ Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (e
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-14 at `2d49d62`. Each number links to its check.
+As of 2026-11-14 at `30ffede`. Each number links to its check.
 
 - **Changed since it failed: run it again** (16): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [237](#check-237), [239](#check-239)
 - **Never run** (105): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [252](#check-252), [253](#check-253), [254](#check-254), [255](#check-255), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [263](#check-263), [264](#check-264), [270](#check-270), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293)
@@ -2297,10 +2297,7 @@ As of 2026-11-14 at `2d49d62`. Each number links to its check.
 
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 97 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 15 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
-- `claude/blissful-williams-3f266e`: adds checks 300, 301, 302; changes code behind 108 checks here (4, 5, 6, 7, 8, 14, 18, 19, 19b, 21, 22, 23, …).
-- `claude/gracious-jones-e3211c`: changes code behind 85 checks here (4, 5, 6, 7, 8, 14, 18, 21, 22, 34, 35, 36, …).
-- `claude/integration-2026-11-14b`: changes code behind 85 checks here (4, 5, 6, 7, 8, 14, 18, 21, 22, 34, 35, 36, …).
-- `claude/jolly-babbage-741c26`: changes code behind 63 checks here (4, 5, 6, 7, 8, 14, 18, 21, 22, 34, 35, 36, …).
+- `claude/blissful-williams-3f266e`: adds checks 300, 301, 302; changes code behind 99 checks here (4, 5, 6, 7, 8, 14, 18, 19, 19b, 21, 22, 23, …).
 
 **Next free check number: 303** (counted across `main` and every open branch).
 

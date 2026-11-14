@@ -33,9 +33,9 @@ refuses them here. They were **applied by hand**: each `SKILL.md` was read from
 | QA-01 | A long answer's 300+ character first sentence was said twice on its card | fixed (13405a5). interrogate found QA-05 in it |
 | QA-02 | A recent address opened for "show this week's…" | **partial**: interrogate proved 22 more wrong phrasings → QA-04 |
 | QA-03 | Gmail with two composes mixes fields | open. The mechanism is proven with a fake UIA tree; the real tree order needs the PC |
-| QA-04 | After QA-02, still opened for "…again", "find my university's website and open it"; refused "open it in Edge" | fixed (965e9c0, plus round 2). Web-address rule; second review pending |
+| QA-04 | After QA-02, still opened for "…again", "find my university's website and open it"; refused "open it in Edge" | fixed (965e9c0, a48dd24). An interim tightening: the foundation review's decision 4 replaces `points_back` with a card |
 | QA-05 | QA-01's cut could fall inside `**bold**`, code or a link | fixed (277afd6) |
-| QA-06 | A+B: a compound request restated in another order does nothing ("turn off bluetooth and turn off wifi" to "Turn off Wi-Fi?") | proven end to end. Fix waits for the orchestrator (`restated.py`) |
+| QA-06 | A+B: a compound request restated in another order did nothing | fixed (5d41e34). One `same_intents`; second review pending |
 
 Checked, and **not regressions from this range** (kept for QA 2):
 
@@ -100,12 +100,32 @@ All of these were fixed in round 2 and are now tests.
 
 ### QA-05 (277afd6)
 
+**interrogate** (by hand, as the orchestrator asked). Tried an unclosed `**`, code holding `**`, a link with commas,
+bold with commas inside, two adjacent spans, and a span over the limit at the start. No finding breaks the intent.
+What's left:
+- an opening that is one span longer than the summary is still cut inside it (named in the commit);
+- malformed markdown from the agent, such as an unclosed `**`, shows as written.
+
 **blast-radius.** The one fact: QA-01's `split_answer` and this one differ only where QA-01 split a span. On 20,000
 answers, 1,423 differ and none differ without a split span (`qa05_diff.py`).
 
+### QA-06 (5d41e34)
+
+**interrogate** (by hand, run on `restated_as` and `restated`):
+- The reversed order, spoken, approves.
+- Typed, it is asked again.
+- These are not "same": "turn off the wifi" alone, a duplicate ("turn off the wifi and turn off the wifi"), and the
+  opposite intent.
+- Older than this fix, and left open: "he has turn off bluetooth and wifi" and a comma for "and" get no verdict, not
+  even "like".
+
+**blast-radius.** The one fact: `same_request`'s verdicts don't change, and `restated_as` changes only for a
+reordering of the same set. Over 4,761 pairs, `same_request` changed 0 verdicts and `restated_as` changed 42, all of
+them reorderings (`qa06_diff.py`).
+
 ## Decisions for the orchestrator
 
-1. QA-04: the second review (web-address rule).
-2. QA-06: the go-ahead to make `restated_as` compare intents as `same_request` does (sorted).
+1. QA-04: no further work. Decision 4 replaces `points_back`; QA-04 stays as an interim tightening.
+2. QA-06: the second review (A+B).
 3. QA-03: the go-ahead to scope the Gmail fields to one compose dialog (it writes into apps). Check 372 asks the
    owner for the real tree order first.

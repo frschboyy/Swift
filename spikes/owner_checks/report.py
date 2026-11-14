@@ -794,6 +794,8 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("372 Gmail with your own empty draft open: every field went into Swift's compose", LOOK,
          "tell us which compose window got the To, the subject and the body; nothing sent"),
         ("373 a long bold opening showed no stars on the card or after Read more", LOOK, "check on screen"),
+        ("374 the two radios said again in the other order turned both off; only the Wi-Fi didn't approve both", LOOK,
+         "tell us what went off at step 2 and at step 3"),
     ]
 
 

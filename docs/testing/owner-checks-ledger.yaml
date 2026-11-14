@@ -51,7 +51,7 @@ areas:
     checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240, 350]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
-    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304]
+    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304, 374]
   stopping:
     paths: [src/swift/cleanup.py]
     checks: [242]
@@ -127,6 +127,8 @@ focus:
     why: QA-04 (2026-11-15), a recent address reopens only for a request that is all pointing words; product rule (web addresses), not seen on the real PC
   - checks: [372]
     why: QA-03, with two Gmail composes in one window the fields may come from different ones (proven with a fake UIA tree); the real tree order decides the fix
+  - checks: [374]
+    why: "QA-06 (2026-11-15), A+B, the same request said again in another order is its question's yes; product rule, not seen on the real PC"
   - checks: [373]
     why: QA-05 (2026-11-15), a long first sentence is no longer cut inside bold or a link; not seen on the real PC
   - checks: [340]

@@ -6,7 +6,7 @@ Swift is a voice-first Windows assistant: a Python asyncio backend in `src/swift
 
 Owner's principle: **"Swift adapts to the user, not the user to Swift."**
 
-## Rules
+## Hard limits
 
 - **Git:**
   - Work on a branch in a worktree; commit there only. If git has no identity on this PC, commit with
@@ -20,10 +20,12 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
   ```
 - **No real-world actions to test** (emails, calendar, Wi-Fi, locking, deleting). Use the fakes, debug mode and the dev harness.
 - **Port 1420 is the owner's running Swift.** Never start a dev server on it; the harness uses 1431.
+- **Edits in the owner's main checkout:** an edit hook blocks the Edit tool there. Make changes in a worktree, then fast-forward `main` (`git merge --ff-only`) when the owner approves a merge.
 
-### Product rules
+## Product rules
 
 A path that breaks one is a critical bug, and a fix to one is reviewed by someone other than its author.
+The full model, with where the code enforces each rule: [`docs/product/action-authority.md`](docs/product/action-authority.md).
 
 **What an action needs** follows from four things Swift knows: how reversible it is, who it reaches, how the owner
 answered, and whether the owner is there. Swift decides reversibility and reach, never the agent.
@@ -54,55 +56,25 @@ answered, and whether the owner is there. Swift decides reversibility and reach,
   everything"** raises level 0 to 1, except reads in the read folders and volume.
 - **`intake.approves` is the one place approval is decided**, and its test checks it against the table above
   *(foundation decision 10)*. Change both together.
-- **An approval covers exactly what its card showed.** The gateway binds it to the action's digest and recomputes it
-  before running: a changed recipient, path, command or payload voids it, and an approval is never reused for
-  another action (ADR-010, threat model T3). Enforcement lives in the backend, never in the agent or the overlay.
+- **An approval covers exactly what its card showed.** For Swift's own actions the gateway binds it to the action's
+  digest and recomputes it before running: a changed recipient, path, command or payload voids it, and an approval
+  is never reused for another action (ADR-010, threat model T3). A worker's tool is allowed with exactly the
+  arguments its card was built from (`updated_input`), but with no digest re-check or journal line yet (OWN-05).
+  Enforcement lives in the backend, never in the agent or the overlay.
 - **No hands-free listening while locked, away or paused.**
 - **Logs:** `swift.log` holds no content (the owner's words, names, addresses, file contents) but does hold
   structure (reason codes, error classes, field roles, timings). The owner's local interaction log keeps their words
   and answers *(foundation decision 8)*.
 - **Swift speaks as itself.** Status, cards and speech never name the provider ("Claude Code is…"); setup errors and
   the settings that choose one may.
-- **Audio never leaves the PC.** A request's words go to the model that answers it; recordings don't.
+- **Audio never leaves the PC.** A request's words go to the model that answers it; recordings don't. What else is
+  kept and sent: [`docs/security/privacy.md`](docs/security/privacy.md).
 
-### Code
-
-- `session.py` is large: add small modules with narrow interfaces.
-- No new dependencies without a clear need.
-
-### Owner checks
-
-New behaviour gets checks in `docs/testing/owner-checks.md`, report lines in `spikes/owner_checks/report.py`, and the
-code each check proves in `docs/testing/owner-checks-ledger.yaml` (`test_owner_plan.py` fails without it).
-`spikes/owner_checks/plan.py` keeps the run list and status in `owner-checks-status.md`:
-
-- on a branch, give a new check a provisional id, `<branch>-<n>`; `plan.py --renumber` numbers it when it merges into
-  `main` *(foundation decision 11)*;
-- when the owner pastes a report, save it to a file and record it with `--record FILE`; what they tell you they saw
-  goes in with `--set 216=pass 217=fail --note "…"`;
-- after recording, and after every merge, run it with `--write`. The status file is generated and never merged by
-  hand (`merge=ours`) *(foundation decision 12)*.
-
-### The live roadmap
-
-Unchanged: `docs/handoff/roadmap.md`, written to `ROADMAP.md` by `spikes/owner_checks/roadmap.py`.
-
-### While the foundation decisions are being built (2026-11-15)
-
-The owner accepted all 14 decisions in `docs/explorations/foundation-rules-review.md` §7 on 2026-11-15. The rules
-above are the target; until each decision's code is merged, the code may differ. A change must move the code toward
-these rules, never away. Not built yet:
-
-- **1, 3, 10:** `intake.approves` still lets a typed "Swift, yes" answer Swift's reversible question (HA-HEAR-01's
-  strict xfail), and three places still decide approval outside it (`_fix_refused`, `restated.py`, the hands-free fix
-  offer).
-- **2:** no keyboard Tab and Enter on the card's own button yet.
-- **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and
-  `find_contact`; an unclear write into an app is still refused, not asked about.
-- **8:** `swift.log` has no reason codes for connector failures yet.
-- **11, 12:** check numbers are still whole numbers taken from "Next free check number", and the run list is still
-  generated between markers in `docs/testing/owner-checks.md` (by `plan.py --write`).
-- **7, 9:** apply when the W2 file tools and paying (C2) are built.
+**While the foundation decisions are being built (2026-11-15):** The owner accepted all 14 decisions in
+`docs/explorations/foundation-rules-review.md` §7 on 2026-11-15. The rules above are the target; until each
+decision's code is merged, the code may differ. A change must move the code toward these rules, never away. What
+isn't built yet: [`docs/product/action-authority.md`](docs/product/action-authority.md) §5 (decisions 1-10) and
+[`docs/testing/strategy.md`](docs/testing/strategy.md) §4 (decisions 11-12).
 
 ## How to work
 
@@ -116,46 +88,22 @@ these rules, never away. Not built yet:
 - **Stay in scope.** A problem found on the way is recorded (in `docs/audit/findings.yaml` or the report) and fixed
   separately, unless it blocks the task.
 - **Respect the owners.** Before adding logic, find the code that already owns that responsibility and change it
-  there; two owners of one thing is a bug.
+  there; two owners of one thing is a bug. The map: [`docs/architecture/ownership.md`](docs/architecture/ownership.md).
+- **Fixing things** follows [`docs/engineering/reliability.md`](docs/engineering/reliability.md) §3: prove the cause
+  first; one finding per commit; label the fix (root, partial, safeguard, workaround or symptom); screen fixes need a
+  seam scenario; another author reviews a product-rule fix; big claims need a test; structural steps delete code;
+  confidence bars are scored on the owner's saved clips.
+- **Testing** follows [`docs/testing/strategy.md`](docs/testing/strategy.md): which layers a change needs (a speech
+  change needs the speech gate, a screen change a seam scenario, a routing change parity), the commands, and owner
+  checks for new behaviour.
+- `session.py` is large: add small modules with narrow interfaces. No new dependencies without a clear need.
 
-## Fixing things
+## Where to look
 
-Rules from the reliability audit and its review (`docs/audit/2026-11-reliability-audit.md`, `docs/audit/2026-11-reliability-audit-review.md`):
-
-- **Prove the cause first.** Reproduce it where it happens before naming a cause. Say "unproven" when it is.
-- **One finding per commit.**
-- **Label the fix in its commit message:** root, partial, safeguard, workaround or symptom. A workaround names what would replace it.
-- **Screen fixes need the seam.** A fix to what's on screen isn't done until it has a scenario in `tests/unit/test_seam_replay.py`, which fails with the fix undone.
-- **Product rules:** someone other than the author reviews a fix to one, unless the owner waives it.
-- **Big claims need a test.** A commit that claims "one owner of X" names the test that would fail if there were two.
-- **Structural steps delete code.** Prototype on a branch and keep it only if it removes more than it adds.
-- **Confidence bars:** score any change to one on the owner's saved clips.
-
-## Commands (Windows; from a worktree)
-
-- **Python tests:** from a worktree on this PC (`uv run` hangs building a worktree venv), use the main checkout's
-  interpreter; where `uv` works, `uv run --frozen pytest -q -p no:cacheprovider` is the same:
+- **Python tests** from a worktree on this PC (`uv run` hangs building a worktree venv):
   ```bash
   PYTHONPATH=src /c/Users/frchi/Documents/Swift/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
   ```
-  Use the same interpreter (`PYTHONPATH=src … python.exe`) for `eval/parity/score.py` and `eval/stt/gate.py` below.
-- **Routing parity** (must not drop):
-  ```bash
-  uv run python eval/parity/score.py
-  ```
-- **Speech gate** (before and after any change to speech recognition; no sentence that was right may go wrong):
-  ```bash
-  uv run python eval/stt/gate.py --data //localhost/c$/Users/frchi/AppData/Local/Swift
-  ```
-- **Overlay:** in `overlay/`, run `npx --no-install tsc --noEmit` and `npm test`. A worktree has no `node_modules`; link it temporarily and remove the link afterwards:
-  ```powershell
-  New-Item -ItemType Junction -Path <worktree>\overlay\node_modules -Target C:\Users\frchi\Documents\Swift\overlay\node_modules
-  ```
-- **Rust:** `cargo test` in `overlay/src-tauri`, using the worktree's own `target` (a long target path breaks Windows linking).
-- **Dev harness:**
-  - Add a temporary `.claude/launch.json` entry running `npm --prefix overlay exec -- vite overlay --port 1431 --strictPort`, plus the existing `backend-harness` entry (debug backend on 8765).
-  - Open `http://localhost:1431/dev/harness.html?port=8765&token=devharness-token-0123456789abcdef`.
-  - Drive states with `window.__shim.inject(type, data)`; the `Agent` shape is `{id, name}`.
-  - Revert `launch.json` afterwards.
-- **Owner's logs:** `C:\Users\frchi\AppData\Local\Swift\logs\swift.log`. From a worktree, read them at `//localhost/c$/Users/frchi/AppData/Local/Swift/logs/swift.log`.
-- **Edits in the owner's main checkout:** an edit hook blocks the Edit tool there. Make changes in a worktree, then fast-forward `main` (`git merge --ff-only`) when the owner approves a merge.
+  Every other command (parity, speech gate, overlay, Rust, dev harness, the owner's logs): [`docs/testing/strategy.md`](docs/testing/strategy.md) §3.
+- **State and plan:** [`docs/handoff/README.md`](docs/handoff/README.md); the live roadmap `docs/handoff/roadmap.md`, written to `ROADMAP.md` by `spikes/owner_checks/roadmap.py`.
+- **Findings:** `docs/audit/findings.yaml`. **Threat model:** `docs/threat_model.md`. **Decisions:** `docs/decisions/`.

@@ -50,17 +50,17 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-15 at `baa103d`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-15 at `b7a85ef`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
 **Gmail's To box when the compose window opens without the cursor (2026-11-14)**
 
-1. [310](#check-310): Gmail's To is filled in, also when it opens as "Recipients". *Why: failed on 2026-11-14; 4 changes since (such as `69558d5` A recent address only when pointed at; a description only from the owner's memory (C3, check 330, root)); product rule: Swift writes into apps only when the owner's own words asked; asked for: A9, the owner's runs of 2026-11-13 and 2026-11-14; the collapsed To row is fixed (310); the body not taking the cursor on the other PC (16:00) is unproven, and 311 names what was in the way.*
+1. [310](#check-310): Gmail's To is filled in, also when it opens as "Recipients". *Why: failed on 2026-11-14; 7 changes since (such as `a48dd24` Pointing words: "that one" or "the last one" alone don't reopen a recent address; "go ahead and…", "the site I was on" do (QA-04, root, round 2)); product rule: Swift writes into apps only when the owner's own words asked; asked for: A9, the owner's runs of 2026-11-13 and 2026-11-14; the collapsed To row is fixed (310); the body not taking the cursor on the other PC (16:00) is unproven, and 311 names what was in the way.*
 
 **Gmail filled in without your click (2026-11-13)**
 
-2. [252](#check-252): Gmail is filled in wherever your cursor is. *Why: failed on 2026-11-14; 4 changes since (such as `20f07e5` Gmail: a field that won't take the cursor says what the click would have hit, and whether it was settable (A9, check 252, safeguard)); product rule: Swift writes into apps only when the owner's own words asked; asked for: A9, the owner's runs of 2026-11-13 and 2026-11-14; the collapsed To row is fixed (310); the body not taking the cursor on the other PC (16:00) is unproven, and 311 names what was in the way.*
+2. [252](#check-252): Gmail is filled in wherever your cursor is. *Why: failed on 2026-11-14; 7 changes since (such as `20f07e5` Gmail: a field that won't take the cursor says what the click would have hit, and whether it was settable (A9, check 252, safeguard)); product rule: Swift writes into apps only when the owner's own words asked; asked for: A9, the owner's runs of 2026-11-13 and 2026-11-14; the collapsed To row is fixed (310); the body not taking the cursor on the other PC (16:00) is unproven, and 311 names what was in the way.*
 
 **One way to draw every card (Halo Step B, 2026-11-14)**
 
@@ -72,29 +72,29 @@ at its heading); a check that builds on another comes after it.
 
 **Where Swift is rigid: requests in your own words (2026-11-12)**
 
-5. [237](#check-237): Things Swift may not be able to do yet. *Why: failed on 2026-11-13; 9 changes since (such as `59fa830` A long answer's opening is said once on its card (check 305, root)); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+5. [237](#check-237): Things Swift may not be able to do yet. *Why: failed on 2026-11-13; 11 changes since (such as `277afd6` A long first sentence is never cut inside bold, code or a link on its card (QA-05, root)); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
 6. [235](#check-235): One command, said six ways. *Why: failed on 2026-11-13; 8 changes since (such as `41a1773` "Play some music" checks that sound started before it says "Playing."); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
 
 **Fixes from your checks of 2026-11-09**
 
 7. [203](#check-203): Swift comes to the front when you call it. *Why: failed on 2026-11-13; 16 changes since (such as `78ac413` A10: the 125%/150% test and check 345 say how much is still covered at 150%); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
 8. [206](#check-206): Waiting for your answer looks different from working. *Why: failed on 2026-11-13; 13 changes since (such as `1429e81` The agent's "did you mean" example no longer names Wi-Fi and Bluetooth); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-9. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: failed on 2026-11-13; 9 changes since (such as `e21bc50` Parked work: on the same clock tick, the one parked later is newest (root)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+9. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: failed on 2026-11-13; 10 changes since (such as `5d41e34` A compound request said again in another order is its question's yes: one comparison of intents (QA-06, root)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
 
 **The Halo look, before anything is built (ADR-019 Step A, `SPEC.md` §15, 2026-11-07)**
 
-10. [218](#check-218): A question and an approval are never confused. *Why: failed on 2026-11-13; 10 changes since (such as `dc549f9` The restatement's verdict lives in restated.py, not session.py (A7, check 204, safeguard)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+10. [218](#check-218): A question and an approval are never confused. *Why: failed on 2026-11-13; 11 changes since (such as `5d41e34` A compound request said again in another order is its question's yes: one comparison of intents (QA-06, root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
 
 **Emails written as you, and people you've emailed**
 
-11. [49](#check-49): Say "Hey Swift, email Test Me that I'm running late". *Why: failed on 2026-11-13; 14 changes since (such as `69558d5` A recent address only when pointed at; a description only from the owner's memory (C3, check 330, root)); product rule: recipients only from contacts or find_contact.*
+11. [49](#check-49): Say "Hey Swift, email Test Me that I'm running late". *Why: failed on 2026-11-13; 17 changes since (such as `a48dd24` Pointing words: "that one" or "the last one" alone don't reopen a recent address; "go ahead and…", "the site I was on" do (QA-04, root, round 2)); product rule: recipients only from contacts or find_contact.*
 
 **Your calendar: look, change, cancel, Meet links, undo**
 
 12. [33](#check-33): Hold the hotkey, say "set up a meeting with Test Me on Thursday at three with a Meet link", and let …. *Why: failed on 2026-11-13; 3 changes since (such as `d9c6ddc` Calendar: an end date with no start takes in that day (root)).*
-13. [34](#check-34): Right after check 33, say "Hey Swift, undo that". *Why: failed on 2026-11-13; 10 changes since (such as `d9c6ddc` Calendar: an end date with no start takes in that day (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-14. [35](#check-35): Hold the hotkey, say "change Swift check to 3 pm", and let go. Click **Approve**. *Why: failed on 2026-11-13; 10 changes since (such as `d9c6ddc` Calendar: an end date with no start takes in that day (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-15. [36](#check-36): Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**. *Why: failed on 2026-11-13; 10 changes since (such as `d9c6ddc` Calendar: an end date with no start takes in that day (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+13. [34](#check-34): Right after check 33, say "Hey Swift, undo that". *Why: failed on 2026-11-13; 11 changes since (such as `5d41e34` A compound request said again in another order is its question's yes: one comparison of intents (QA-06, root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+14. [35](#check-35): Hold the hotkey, say "change Swift check to 3 pm", and let go. Click **Approve**. *Why: failed on 2026-11-13; 11 changes since (such as `5d41e34` A compound request said again in another order is its question's yes: one comparison of intents (QA-06, root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+15. [36](#check-36): Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**. *Why: failed on 2026-11-13; 11 changes since (such as `5d41e34` A compound request said again in another order is its question's yes: one comparison of intents (QA-06, root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
 
 Then run the report ("After the checks", at the end) and paste what it prints.
 <!-- roadmap:end -->
@@ -2645,7 +2645,7 @@ Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (e
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-15 at `baa103d`. Each number links to its check.
+As of 2026-11-15 at `b7a85ef`. Each number links to its check.
 
 - **Changed since it failed: run it again** (19): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [203](#check-203), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [237](#check-237), [239](#check-239), [252](#check-252), [305](#check-305), [310](#check-310), [320](#check-320)
 - **Never run** (126): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [253](#check-253), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [264](#check-264), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [304](#check-304), [311](#check-311), [340](#check-340), [345](#check-345), [350](#check-350), [351](#check-351), [352](#check-352), [353](#check-353), [370](#check-370), [371](#check-371), [372](#check-372), [373](#check-373), [374](#check-374), [380](#check-380), [381](#check-381), [382](#check-382), [383](#check-383), [384](#check-384), [385](#check-385), [386](#check-386), [387](#check-387), [388](#check-388), [389](#check-389)
@@ -2665,8 +2665,7 @@ As of 2026-11-15 at `baa103d`. Each number links to its check.
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 116 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 18 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
 - `claude/c3-recent-address-83f24a`: changes code behind 8 checks here (52, 62, 213, 255, 330, 353, 370, 371).
-- `claude/qa-review-fix-1707cc`: changes code behind 57 checks here (10, 19, 19b, 23, 24, 25, 28, 38, 39, 49, 50, 51, …).
-- `claude/qa1-pstack-161dc6`: changes code behind 102 checks here (4, 5, 6, 7, 8, 10, 14, 15, 16, 19, 19b, 21, …).
+- `claude/qa2-pstack-2cefcc`: changes code behind 145 checks here (1, 2, 2b, 3, 4, 8, 11, 13, 15, 16, 19, 19b, …).
 
 **Next free check number: 390** (counted across `main` and every open branch).
 

@@ -903,6 +903,34 @@ async def test_the_request_typed_again_never_approves_its_question() -> None:
     await finish_all(session, agent)
 
 
+async def test_a_compound_request_said_again_in_another_order_is_its_yes() -> None:
+    # QA-06 (thermos review of 2026-11-15): restated_as compared the intents in order, same_request sorted. Said
+    # in another order, the same two requests weren't the question's yes: the question went to the stack and
+    # nothing was turned off, though the owner had said what he wanted twice.
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    control.radio_state["bluetooth"] = True
+    await say(session, stt, "Hey Swift, turn off the wifi and turn off the bluetooth")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    await say(session, stt, "turn off the bluetooth and turn off the wifi")
+    await until(lambda: control.radio_state.get("wifi") is False, timeout=1.0)
+    assert control.radio_state["bluetooth"] is False and agent.requests == []
+    await finish_all(session, agent)
+
+
+async def test_part_of_a_compound_request_said_to_its_question_never_approves_it() -> None:
+    # QA-06's guard: "turn off the wifi" alone, to the question about the Wi-Fi and the Bluetooth, is another set
+    # of intents, not the request said again: nothing is turned off by it as the question's yes.
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    control.radio_state["bluetooth"] = True
+    await say(session, stt, "Hey Swift, turn off the wifi and turn off the bluetooth")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    await say(session, stt, "turn off the wifi")
+    await asyncio.sleep(0.5)
+    assert control.radio_state["bluetooth"] is True, "a part of the request approved the whole question"
+    assert control.radio_state["wifi"] is True, "a part of the request approved without its own question"
+    await finish_all(session, agent)
+
+
 async def test_the_opposite_request_said_to_the_question_never_approves_it() -> None:
     # "Turn on the Wi-Fi" is another intent, not the request said again: it never answers "Turn off Wi-Fi?" yes.
     session, out, agent, stt, control, _sched = _lane(0.2)
@@ -1069,4 +1097,66 @@ async def test_a_long_research_answer_reaches_the_card_without_its_opening_twice
     assert "…" not in drawn, drawn
     for sentence in ("Tea began in southwest China", "Whatever the truth of that story"):
         assert drawn.count(sentence) == 1, drawn
+    await finish_all(session, agent)
+
+
+async def test_an_answer_whose_first_sentence_is_too_long_for_the_summary_says_it_once() -> None:
+    """The edge check 305's fix left (QA of 2026-11-14): one first sentence over the summary's 300 characters
+    was cut with "…" on the card and drawn whole again under it. Through the real result mapping to the
+    card: the sentence's opening is drawn once, and the card goes on from the cut."""
+    from swift.executors.base import ExecResult
+    from swift.executors.claude_mapping import outcome_for
+    from test_runs import Agent
+
+    first = ("Tea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan and legend "
+             "credits the emperor Shennong with a first cup around 2737 BCE when leaves blew into his boiling water "
+             "and a drink was born that would travel by caravan and ship to every corner of the world in the "
+             "centuries that followed and change trade and empire along the way.")
+    answer = first + "\n\n## Europe\nDutch traders brought tea to Europe in 1610."
+
+    class Researcher(Agent):
+        async def result(self, run_id: str) -> ExecResult:
+            await super().result(run_id)
+            o = outcome_for({"type": "result", "subtype": "success", "result": answer})
+            assert o is not None
+            return ExecResult("done", o.summary, o.details, o.meta)
+
+    session, out, _records, agent, stt = make(Researcher)
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[rid]["go"].set()
+    await until(lambda: out.last("result").get("details") is not None)
+    shown = out.last("result")
+    drawn = shown["summary"] + "\n\n" + shown["details"]["text"]
+    assert drawn.count("Tea began in southwest China") == 1, drawn
+    assert drawn.count("Shennong") == 1 and drawn.count("change trade and empire") == 1, drawn
+    await finish_all(session, agent)
+
+
+async def test_a_long_first_sentence_is_never_cut_inside_bold_code_or_a_link() -> None:
+    """QA-05 (interrogate of QA-01, 2026-11-15): the cut for one first sentence over 300 characters fell inside a
+    **bold** run, so the card's summary ended "**bold phrase…" and Read more began "straddles**". Through the
+    real result mapping to the card: every marker the card would show is on one side, paired."""
+    from swift.executors.base import ExecResult
+    from swift.executors.claude_mapping import outcome_for
+    from test_runs import Agent
+
+    first = ("Intro " + "word " * 57 + "**the bold phrase that straddles the summary's end** and then "
+             + "more " * 30 + "to the end.")
+    answer = first + "\n\nA second paragraph."
+
+    class Researcher(Agent):
+        async def result(self, run_id: str) -> ExecResult:
+            await super().result(run_id)
+            o = outcome_for({"type": "result", "subtype": "success", "result": answer})
+            assert o is not None
+            return ExecResult("done", o.summary, o.details, o.meta)
+
+    session, out, _records, agent, stt = make(Researcher)
+    rid = await started(session, out, agent, stt, "Hey Swift, research something long")
+    agent.runs[rid]["go"].set()
+    await until(lambda: out.last("result").get("details") is not None)
+    shown = out.last("result")
+    assert "**" not in shown["summary"], shown["summary"]
+    body = shown["details"]["text"]
+    assert body.count("**") % 2 == 0 and "**the bold phrase that straddles the summary's end**" in body, body
     await finish_all(session, agent)

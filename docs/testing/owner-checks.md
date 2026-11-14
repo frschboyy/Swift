@@ -50,7 +50,7 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-15 at `55a4886`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-15 at `baa103d`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
@@ -2594,16 +2594,61 @@ the same; this run is on `main` after C3's merge.)
 The report checks: 389's steps through the run's tools (as 255 and 330); the rest is for your eyes. Tell us what you saw
 in each.
 
+### QA with pstack: pointing at a recent address, Gmail with two drafts, a bold opening (2026-11-15)
+
+About 6 minutes. Nothing here sends an email: in check 372 click **Reject** (or close the card), and delete the two
+drafts afterwards. Checks 370 and 371 run straight after each other; each starts by saying an address aloud.
+
+<a id="check-370"></a>**Check 370. Words that name something else don't reopen the address said a moment ago**
+1. Say "Hey Swift, open usiu dot ac dot ke". It opens.
+2. Within a minute, say "Hey Swift, show this week's timetable on my university's website again".
+3. Then say "Hey Swift, find my university's website and open it".
+
+You should see: neither step 2 nor step 3 opens usiu.ac.ke. Swift asks you to say the address (unless you taught it
+your university's address earlier: then it may open that one).
+
+<a id="check-371"></a>**Check 371. Pointing words reopen it, also with a browser or "please"**
+1. Say "Hey Swift, open usiu dot ac dot ke". Close the browser tab.
+2. Say "Hey Swift, open it in Edge". Close the tab.
+3. Say "Hey Swift, go ahead and open that site again, please".
+
+You should see: usiu.ac.ke opens at step 2 (in your default browser is fine) and again at step 3, with no question.
+
+<a id="check-372"></a>**Check 372. Gmail with your own draft open writes only into the one Swift opened**
+1. In Chrome, open Gmail and click **Compose**. Leave that draft empty, with no subject, and don't click into it.
+2. Say "Hey Swift, email (a contact) saying this is a test". When its compose window opens, don't touch anything.
+3. Look at both compose windows before you approve anything, then click **Reject** (or close Swift's card).
+
+You should see: the To, Subject and body are all in the same compose window, the one Swift opened. Your own draft
+stays empty. Tell us which window got which field if they were split.
+
+<a id="check-373"></a>**Check 373. A long bold opening shows no stars on the card**
+1. Type in the text box: "Answer in one paragraph whose first sentence is over 350 characters long and has a long
+   bold phrase in the middle of it, then a second paragraph."
+2. Read the first lines on the card, then click **Read more**.
+
+You should see: no "**" anywhere, on the card or after Read more, and no words said twice.
+
+<a id="check-374"></a>**Check 374. Two radios said again in the other order turn both off**
+1. Make sure Wi-Fi and Bluetooth are on. Say "Hey Swift, turn off the wifi and turn off the bluetooth".
+2. While Swift's question is on screen, say "turn off the bluetooth and turn off the wifi".
+3. Turn both back on. Say the request of step 1 again, and this time answer only "turn off the wifi".
+
+You should see: at step 2 both go off, with no second question. At step 3 the Bluetooth stays on (Swift may ask
+about the Wi-Fi on its own).
+
+The report checks: nothing to judge from the log; tell us what you saw in each.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-15 at `55a4886`. Each number links to its check.
+As of 2026-11-15 at `baa103d`. Each number links to its check.
 
 - **Changed since it failed: run it again** (19): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [203](#check-203), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [237](#check-237), [239](#check-239), [252](#check-252), [305](#check-305), [310](#check-310), [320](#check-320)
-- **Never run** (121): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [253](#check-253), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [264](#check-264), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [304](#check-304), [311](#check-311), [340](#check-340), [345](#check-345), [350](#check-350), [351](#check-351), [352](#check-352), [353](#check-353), [380](#check-380), [381](#check-381), [382](#check-382), [383](#check-383), [384](#check-384), [385](#check-385), [386](#check-386), [387](#check-387), [388](#check-388), [389](#check-389)
+- **Never run** (126): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [253](#check-253), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [264](#check-264), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [304](#check-304), [311](#check-311), [340](#check-340), [345](#check-345), [350](#check-350), [351](#check-351), [352](#check-352), [353](#check-353), [370](#check-370), [371](#check-371), [372](#check-372), [373](#check-373), [374](#check-374), [380](#check-380), [381](#check-381), [382](#check-382), [383](#check-383), [384](#check-384), [385](#check-385), [386](#check-386), [387](#check-387), [388](#check-388), [389](#check-389)
 - **Partly seen** (6): [8](#check-8), [15](#check-15), [16](#check-16), [21](#check-21), [24](#check-24), [77](#check-77)
 - **Passed, changed since** (80): [4](#check-4), [5](#check-5), [7](#check-7), [10](#check-10), [11](#check-11), [14](#check-14), [17](#check-17), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [41](#check-41), [42](#check-42), [47](#check-47), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [54](#check-54), [55](#check-55), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [62](#check-62), [68](#check-68), [69](#check-69), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [104](#check-104), [106](#check-106), [107](#check-107), [108](#check-108), [110](#check-110), [115](#check-115), [120](#check-120), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [134](#check-134), [139](#check-139), [153](#check-153), [168](#check-168), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [201](#check-201), [202](#check-202), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [213](#check-213), [214](#check-214), [216](#check-216), [217](#check-217), [219](#check-219), [220](#check-220), [233](#check-233), [234](#check-234), [236](#check-236), [240](#check-240), [254](#check-254), [255](#check-255), [263](#check-263)
 - **Passed, nothing changed since** (32): [1](#check-1), [2](#check-2), [2b](#check-2b), [3](#check-3), [12](#check-12), [16b](#check-16b), [43](#check-43), [45](#check-45), [46](#check-46), [71](#check-71), [91](#check-91), [93](#check-93), [103](#check-103), [105](#check-105), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [123](#check-123), [125](#check-125), [149](#check-149), [160](#check-160), [161](#check-161), [191](#check-191), [204](#check-204), [228](#check-228), [232](#check-232), [241](#check-241), [242](#check-242), [270](#check-270), [303](#check-303), [306](#check-306)
@@ -2617,11 +2662,11 @@ As of 2026-11-15 at `55a4886`. Each number links to its check.
 
 **On branches not merged yet:**
 
-- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 112 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 116 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 18 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
-- `claude/c3-recent-address-83f24a`: changes code behind 6 checks here (52, 62, 213, 255, 330, 353).
-- `claude/qa-review-fix-1707cc`: changes code behind 53 checks here (10, 19, 19b, 23, 24, 25, 28, 38, 39, 49, 50, 51, …).
-- `claude/qa1-pstack-161dc6`: adds checks 370, 371, 372, 373; changes code behind 98 checks here (4, 5, 6, 7, 8, 10, 14, 15, 16, 19, 19b, 21, …).
+- `claude/c3-recent-address-83f24a`: changes code behind 8 checks here (52, 62, 213, 255, 330, 353, 370, 371).
+- `claude/qa-review-fix-1707cc`: changes code behind 57 checks here (10, 19, 19b, 23, 24, 25, 28, 38, 39, 49, 50, 51, …).
+- `claude/qa1-pstack-161dc6`: changes code behind 102 checks here (4, 5, 6, 7, 8, 10, 14, 15, 16, 19, 19b, 21, …).
 
 **Next free check number: 390** (counted across `main` and every open branch).
 

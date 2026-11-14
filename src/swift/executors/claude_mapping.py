@@ -316,6 +316,29 @@ def _lead_sentences(text: str) -> tuple[str, str]:
     return text[:cut].strip(), text[cut:].strip()
 
 
+_CLAUSE_END = re.compile(r"(?<=[,;:])\s+|\s+(?=[—–]\s)")
+_SPAN = re.compile(r"\*\*.+?\*\*|`[^`]+`|\[[^\]\n]*\]\([^)\s]*\)")  # bold, code, a link: kept whole on one side
+
+
+def _lead_words(text: str) -> tuple[str, str]:
+    """For one sentence longer than the summary: its words up to the last clause break that fits (else the last
+    whole word), and the rest of it. Never inside bold, code or a link, which would show "**" or "[" on the card
+    (QA-05, 2026-11-15)."""
+    spans = [m.span() for m in _SPAN.finditer(text)]
+
+    def outside(cut: int) -> bool:
+        return not any(start < cut < end for start, end in spans)
+
+    clauses = [m.start() for m in _CLAUSE_END.finditer(text) if len(_plain(text[: m.start()])) < SUMMARY_MAX]
+    words = [m.start() for m in re.finditer(r"\s+", text[:SUMMARY_MAX])]
+    cut = next((c for c in reversed(clauses) if outside(c)), None) or next(
+        (c for c in reversed(words) if c > 0 and outside(c)), 0
+    )
+    if cut <= 0:  # the whole opening is one span: any word break, else where the summary ends
+        cut = next((c for c in reversed(words) if c > 0), SUMMARY_MAX - 1)
+    return text[:cut].rstrip(), text[cut:].strip()
+
+
 def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
     """The answer's opening lines -> summary; the rest whole, for the card's "Read more".
 
@@ -335,9 +358,13 @@ def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
         # that fit; the card's body goes on from the next one, nothing said twice.
         lead, rest = _lead_sentences(" ".join(" ".join(head).split()))
         if lead:
-            summary, lines = _plain(lead), [rest, *(lines if lines and not lines[0].strip() else ["", *lines])]
+            summary = _plain(lead)
         else:
-            lines = [*head, "", *lines]  # one sentence longer than the summary: kept whole below it
+            # One first sentence longer than the summary: cut at a clause or word, marked "…", and the
+            # body goes on from the cut, so that sentence too is said once (it used to be kept whole below).
+            lead, rest = _lead_words(" ".join(" ".join(head).split()))
+            summary = _plain(lead) + "…"
+        lines = [rest, *(lines if lines and not lines[0].strip() else ["", *lines])]
     body = [line for line in lines if line.strip()]
     if not body:
         return summary, None

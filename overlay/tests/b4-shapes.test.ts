@@ -2,7 +2,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { type Diagram, layers, parseShape } from "../dev/b4/shapes.ts";
+import { type Diagram, layers, type MindMap, mindMapText, parseShape } from "../dev/b4/shapes.ts";
 
 test("a well-formed comparison passes, with its pick", () => {
   const s = parseShape({ shape: "compare", items: ["A", "B"], pick: 1, rows: [{ label: "Price", values: ["1", "2"] }] }, "x");
@@ -21,6 +21,21 @@ test("anything malformed falls back to the plain text", () => {
     { shape: "diagram", nodes: Array.from({ length: 17 }, (_, i) => ({ id: `n${i}`, label: "x" })), edges: [] },
   ];
   for (const raw of bad) assert.deepEqual(parseShape(raw, "words"), { shape: "text", text: "words" }, JSON.stringify(raw));
+});
+
+test("a mind map keeps three levels and thirty ideas; past either, it's words", () => {
+  const leaf = (label: string, children: unknown[] = []) => ({ label, children });
+  const ok = parseShape({ shape: "mindmap", root: "Trip", children: [leaf("A", [leaf("B", [leaf("C")])])] }, "words");
+  assert.equal(ok.shape, "mindmap");
+  assert.equal(mindMapText(ok as MindMap), "Trip\n  - A\n    - B\n      - C");
+  const tooDeep = { shape: "mindmap", root: "Trip", children: [leaf("A", [leaf("B", [leaf("C", [leaf("D")])])])] };
+  const tooMany = { shape: "mindmap", root: "Trip", children: Array.from({ length: 31 }, (_, i) => leaf(`idea ${i}`)) };
+  const thirty = { shape: "mindmap", root: "Trip", children: Array.from({ length: 30 }, (_, i) => leaf(`idea ${i}`)) };
+  const unnamed = { shape: "mindmap", root: "Trip", children: [leaf("A", [{ label: " " }])] };
+  for (const raw of [tooDeep, tooMany, unnamed, { shape: "mindmap", root: "", children: [leaf("A")] }, { shape: "mindmap", root: "Trip", children: [] }]) {
+    assert.deepEqual(parseShape(raw, "words"), { shape: "text", text: "words" });
+  }
+  assert.equal(parseShape(thirty, "words").shape, "mindmap");
 });
 
 test("layers follow the longest path, and a cycle stops", () => {

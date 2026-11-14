@@ -14,6 +14,7 @@ import functools
 import os
 import shutil
 import sys
+import tempfile
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -37,6 +38,7 @@ from swift.executors.quick import QuickModel
 from swift.ipc.server import OverlayServer
 from swift.attention import Attention
 from swift.lifecycle import Lifecycle
+from swift.memory import Store
 from swift.parked import ParkedThreads
 from swift.presence import PresenceMonitor, WindowsProbe
 from swift.logging_setup import setup_logging
@@ -44,6 +46,7 @@ from swift.routing import Route, route
 from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
 from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog, summary
+from swift.runs import RunRecords
 from swift.security.gateway import SEND_GRACE_S, ActionGateway
 from swift.security.journal import Journal
 from swift.system.lane import SystemLane
@@ -315,7 +318,7 @@ def _expanded(paths: list[str]) -> list[str]:
 def _swift_s_own(settings: Settings) -> list[str]:
     """Swift's own folders and files, wherever the environment or the settings moved them (X-07)."""
     paths, log, stt = app_paths(), settings.logging, settings.stt
-    return [str(paths.config_dir), str(paths.data_dir), log.app_log_dir, log.interactions, log.journal,
+    return [str(paths.config_dir), str(paths.data_dir), log.app_log_dir, log.interactions, log.journal, log.runs,
             stt.audio_dir, stt.test_set_dir, stt.word_fixes_file,  # the recordings themselves, and words heard
             settings.demand_classifier.examples_file, settings.system.schedule_file]
 
@@ -446,6 +449,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         on_finish=_on_finish(
             InteractionLog(Path(settings.logging.interactions), stt_model=settings.stt.model_label), recordings
         ),
+        runs=RunRecords(Path(settings.logging.runs)),
     )
     # The test set outlives audio.keep_days, so the pass works even with saving off.
     improve = ImproveExecutor(recordings, transcriber, Path(settings.stt.word_fixes_file), settings.stt.word_fixes)
@@ -537,6 +541,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     _make_speaker(settings, session, loop)
     if (signins := _watch_signins(settings, session)) is not None:
         signin_task = asyncio.create_task(signins.run())  # noqa: F841 - lives as long as the backend
+    # What the owner asked Swift to remember (swift/memory.py); debug mode never touches the owner's.
+    session.memories = Store(Path(tempfile.mkdtemp(prefix="swift-memory-")) if settings.debug else Path(settings.memory_dir))
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)

@@ -6,7 +6,7 @@ import * as P from "../src/presenter.ts";
 
 import {
   confirmVisible, initial, isActive, onAnswer, onConfirm, onConfirmHold, onDismiss, onFollowup, onHold, onRuns, onState,
-  promotion, seenCard, tick, violations, waitingSince, RESUME_MS,
+  promotion, seenCard, confirmLeftMs, onCountdown, tick, violations, waitingSince, RESUME_MS,
   type Presenter, type Row,
 } from "../src/presenter.ts";
 
@@ -250,43 +250,45 @@ test("ADR-014 §4: a card put aside while the owner is away waits, then comes ba
 });
 
 
-test("owner check 14: held, then back: the card is on screen with a fresh deadline and says it waited", () => {
+test("owner check 14: held, then back: the card is on screen with the backend's time and says it waited", () => {
   const o = new Overlay();
   o.now = 1_000_000;
   o.state("working", "cc-25", "t1");
   o.state("confirm", "cc-25", "t1");
-  o.p = onConfirm(o.p, "swift:1", "cc-25", 120, o.now);
-  assert.equal(o.p.confirmDeadline, o.now + 120_000);
+  o.p = onConfirm(o.p, "swift:1", "cc-25", o.now);
+  o.p = onCountdown(o.p, "swift:1", 120, true, o.now);
+  assert.deepEqual(confirmLeftMs(o.p, o.now), { ms: 120_000, paused: false });
   assert.equal(waitingSince(o.p), null);  // never put aside: no "waiting" line
   o.now += 12_000;
   const lockedAt = o.now;
-  o.p = onConfirmHold(o.p, "swift:1", true, 108, o.now);  // locked
+  o.p = onConfirmHold(o.p, "swift:1", true, o.now);  // locked
   assert.deepEqual(violations(o.p), []);
   assert.equal(confirmVisible(o.p), false);
-  assert.equal(o.p.confirmDeadline, 0);  // no countdown while put aside
+  assert.equal(confirmLeftMs(o.p, o.now), null);  // no countdown while put aside
   o.now += 2_000;
-  o.p = onConfirmHold(o.p, "swift:1", false, 108, o.now);  // unlocked: the backend gives it its time back
+  o.p = onConfirmHold(o.p, "swift:1", false, o.now);  // unlocked
+  o.p = onCountdown(o.p, "swift:1", 108, true, o.now);  // the backend gives it its time back
   assert.deepEqual(violations(o.p), []);
   assert.equal(confirmVisible(o.p), true);
   assert.equal(o.p.card.kind, "confirm");
-  assert.equal(o.p.confirmDeadline, o.now + 108_000);  // fresh, from now
+  assert.deepEqual(confirmLeftMs(o.p, o.now), { ms: 108_000, paused: false });  // fresh, from now
   assert.equal(waitingSince(o.p), lockedAt);  // "1 card waiting, since …"
   assert.equal(tick(o.p, o.now + 60_000).hide, false);
   // Drawn again (a new draft version): the same card keeps its deadline and its line.
-  const again = onConfirm(o.p, "swift:1", "cc-25", 120, o.now + 5_000);
-  assert.equal(again.confirmDeadline, o.now + 108_000);
+  const again = onConfirm(o.p, "swift:1", "cc-25", o.now + 5_000);
+  assert.deepEqual(confirmLeftMs(again, o.now), { ms: 108_000, paused: false });
   assert.equal(waitingSince(again), lockedAt);
   // Locked twice: "since" is the first time.
-  o.p = onConfirmHold(o.p, "swift:1", true, 100, o.now + 10_000);
-  o.p = onConfirmHold(o.p, "swift:1", false, 100, o.now + 20_000);
+  o.p = onConfirmHold(o.p, "swift:1", true, o.now + 10_000);
+  o.p = onConfirmHold(o.p, "swift:1", false, o.now + 20_000);
   assert.equal(waitingSince(o.p), lockedAt);
   // Answered: nothing waits any more.
   o.answer("result", 4000, "cc-25", "t1", "Added: Lunch");
   assert.equal(o.p.heldSince, null);
-  assert.equal(o.p.confirmDeadline, 0);
+  assert.equal(confirmLeftMs(o.p, o.now), null);
   // The next card starts clean.
   o.state("confirm", "cc-26", "t2");
-  o.p = onConfirm(o.p, "swift:2", "cc-26", 120, o.now);
+  o.p = onConfirm(o.p, "swift:2", "cc-26", o.now);
   assert.equal(waitingSince(o.p), null);
 });
 
@@ -389,9 +391,9 @@ test("the card the owner can see: shown, put aside while away, back, answered", 
   o.state("working", "r1", "t1");
   o.confirm("c1", "r1");
   assert.equal(seenCard(o.p), "c1");
-  o.p = onConfirmHold(o.p, "c1", true, 0, 1000);
+  o.p = onConfirmHold(o.p, "c1", true, 1000);
   assert.equal(seenCard(o.p), null);
-  o.p = onConfirmHold(o.p, "c1", false, 60, 3000);
+  o.p = onConfirmHold(o.p, "c1", false, 3000);
   assert.equal(seenCard(o.p), "c1");
   o.answer("result", 6000, "r1", "t1", "Not added");
   assert.equal(seenCard(o.p), null);
@@ -401,7 +403,7 @@ test("owner check 18: back after the overlay lost the card still draws it, becau
   const o = new Overlay();
   o.state("working", "r1", "t1");
   o.confirm("c1", "r1");
-  o.p = onConfirmHold(o.p, "c1", true, 0, 1000);
+  o.p = onConfirmHold(o.p, "c1", true, 1000);
   // While it was hidden, another request came to the front and went again: the overlay forgot the card.
   o.runs("r2", [row("r1", "confirm")]);
   assert.equal(o.p.pendingConfirm, null);
@@ -409,46 +411,40 @@ test("owner check 18: back after the overlay lost the card still draws it, becau
   o.runs("r1", []);
   o.state("confirm", "r1", "t1");
   o.confirm("c1", "r1");
-  o.p = onConfirmHold(o.p, "c1", false, 60, 3000);
+  o.p = onConfirmHold(o.p, "c1", false, 3000);
   assert.equal(seenCard(o.p), "c1");
-  assert.equal(o.p.confirmDeadline, 3000 + 60_000);
 });
 
 // ---- ADR-017: the confirm countdown runs only while the owner is here; Approve waits 400 ms ----
 
-test("idle or away, a confirm countdown stops where it is and the card isn't reported seen", async () => {
+test("idle or away, the card isn't reported seen; the countdown drawn is the backend's (T-08)", async () => {
   const P = await import("../src/presenter.ts");
   let p = P.onState(P.initial, "confirm", "r1", "t1").p;
-  p = P.onConfirm(p, "c1", "r1", 45, 1000);
+  p = P.onConfirm(p, "c1", "r1", 1000);
+  assert.equal(P.confirmLeftMs(p, 1000), null);  // no clock of its own: nothing until the backend says
+  p = P.onCountdown(p, "c1", 45, true, 1000);
   assert.equal(P.seenCard(p), "c1");
   assert.deepEqual(P.confirmLeftMs(p, 11_000), { ms: 35_000, paused: false });
-  p = P.onPresent(p, false, 11_000);
-  assert.deepEqual(P.violations(p), []);
-  assert.equal(P.seenCard(p), null);  // the backend's countdown stops too
+  p = P.onPresent(p, false);
+  assert.equal(P.seenCard(p), null);  // so the backend's countdown stops, and it says so:
+  p = P.onCountdown(p, "c1", 35, false, 11_050);
   assert.deepEqual(P.confirmLeftMs(p, 99_000), { ms: 35_000, paused: true });
-  p = P.onPresent(p, true, 100_000);
-  assert.deepEqual(P.confirmLeftMs(p, 100_000), { ms: 35_000, paused: false });
+  p = P.onPresent(p, true);
   assert.equal(P.seenCard(p), "c1");
-  assert.deepEqual(P.violations(p), []);
-});
-
-test("a card that arrives while the owner is away starts stopped", async () => {
-  const P = await import("../src/presenter.ts");
-  let p = P.onPresent(P.initial, false, 0);
-  p = P.onState(p, "confirm", "r1", null).p;
-  p = P.onConfirm(p, "c1", "r1", 45, 500);
-  assert.deepEqual(P.confirmLeftMs(p, 9000), { ms: 45_000, paused: true });
+  p = P.onCountdown(p, "c1", 35, true, 100_000);
+  assert.deepEqual(P.confirmLeftMs(p, 100_000), { ms: 35_000, paused: false });
+  assert.equal(P.confirmLeftMs(P.onCountdown(p, "c2", 9, true, 100_000), 100_000), null);  // another card's time
   assert.deepEqual(P.violations(p), []);
 });
 
 test("Approve ignores clicks for the first 400 ms, again after the card comes back", async () => {
   const P = await import("../src/presenter.ts");
   let p = P.onState(P.initial, "confirm", "r1", null).p;
-  p = P.onConfirm(p, "c1", "r1", 45, 1000);
+  p = P.onConfirm(p, "c1", "r1", 1000);
   assert.equal(P.approveReady(p, 1000 + P.APPROVE_DELAY_MS - 1), false);
   assert.equal(P.approveReady(p, 1000 + P.APPROVE_DELAY_MS), true);
-  p = P.onConfirmHold(p, "c1", true, 0, 5000);
-  p = P.onConfirmHold(p, "c1", false, 60, 9000);
+  p = P.onConfirmHold(p, "c1", true, 5000);
+  p = P.onConfirmHold(p, "c1", false, 9000);
   assert.equal(P.approveReady(p, 9100), false);
   assert.equal(P.approveReady(p, 9400), true);
 });
@@ -477,7 +473,7 @@ test("the stage follows an answer only when the answer is shown", () => {
 
 test("an error for no request doesn't move a card waiting for an answer", () => {
   let p = P.onState(P.initial, "confirm", "a-1", "t1").p;
-  p = P.onConfirm(p, "a-1:1", "a-1", 45, 0);
+  p = P.onConfirm(p, "a-1:1", "a-1", 0);
   p = P.onState(p, "error", null, null).p;
   p = P.onAnswer(p, { kind: "error", ms: 1000 }, 0).p;
   assert.equal(P.stageOf(p), "confirm");

@@ -1,7 +1,7 @@
 /* Dev only: the B6 study (docs/design/b6-live-view.md). The live view as a monitor: solid, dark in
    both themes, a bar like a window's, mono for the technical parts; the working card stays glass. */
 
-#stage { --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace; --mon: #0d1018; --mon-2: #151a26; --mon-line: #ffffff17; --mon-text: #dfe4f0; --mon-dim: #8d95a8; --mon-acc: #8ab4ff; --rec: #ff6b6b; }
+#stage { --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace; --mon: #0d1018; --mon-2: #151a26; --mon-line: #ffffff17; --mon-text: #dfe4f0; --mon-dim: #8d95a8; --mon-acc: #8ab4ff; --mon-ok: #7fd8a4; --rec: var(--mon-acc); /* Halo accent (dark-theme value): the monitor is dark in both themes */ }
 
 .b6-cap { margin: 0 0 6px; color: #fff; font: 600 12px/16px var(--font-text); opacity: 0.85; }
 .b6-working { width: 300px; }
@@ -14,7 +14,7 @@
 .b6-bar .icon-btn { color: var(--mon-dim); }
 .b6-rec { flex: none; display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--mono); letter-spacing: 0.08em; color: var(--rec); }
 .b6-rec::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: live-pulse 1.6s var(--ease) infinite; }
-.b6-live--done .b6-rec { color: var(--ok); }
+.b6-live--done .b6-rec { color: var(--mon-ok); }
 .b6-live--done .b6-rec::before { animation: none; }
 .b6-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px/18px var(--font-text); }
 .b6-clock { font: 12px/1 var(--mono); color: var(--mon-dim); font-variant-numeric: tabular-nums; }
@@ -28,7 +28,7 @@
 .b6-con-row > span:nth-child(3) { overflow: hidden; text-overflow: ellipsis; }
 .b6-con-t { flex: none; color: var(--mon-dim); font-variant-numeric: tabular-nums; }
 .b6-con-tool { flex: none; width: 104px; color: var(--mon-acc); }
-.b6-con-res { flex: none; margin-left: auto; color: var(--ok); }
+.b6-con-res { flex: none; margin-left: auto; color: var(--mon-ok); }
 .b6-con-row--now::after { content: "▍"; color: var(--mon-acc); animation: live-pulse 1s steps(2) infinite; }
 
 /* visual: the thing being made, on paper */

@@ -17,6 +17,8 @@ export const SCENARIOS: Scenario[] = ["happy", "confirm", "error", "long", "emai
 
 // Who is doing the work (ADR-008): a provider working for Swift. Absent or null: Swift itself.
 export type Agent = { id: string; name: string };
+// Who started a run (ADR-019 N2): the owner ("asked"), or Swift on its own.
+export type Origin = "asked" | "scheduled" | "watching" | "reminder" | "noticed" | "learned" | "away";
 // Normalized by the backend from each provider's own events (executors/base.py Activity).
 export type Activity =
   | "starting" | "reading" | "searching" | "editing" | "running" | "browsing"
@@ -57,13 +59,12 @@ export type Inbound =
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
   | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
-  // timeout_s: how long the card waits before the run stops without an answer.
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; timeout_s?: number | null; artifact_id?: string | null; thread_id?: string } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
-  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string } }
+  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.
   // retry: "Try again" re-runs the request. severity "info": a nudge, not a failure.
   | { type: "error"; data: ErrorData }
@@ -79,8 +80,11 @@ export type Inbound =
   // paused: the owner paused listening from the tray (ADR-017): "Not listening · Mic off".
   | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
-  // held false: they're back, and the card has timeout_s left.
-  | { type: "confirm.hold"; data: { request_id: string; held: boolean; timeout_s: number } }
+  // held false: they're back, and the card shows again.
+  | { type: "confirm.hold"; data: { request_id: string; held: boolean } }
+  // T-08: a confirm card's countdown started or stopped, with the seconds left. The backend is its one
+  // clock; the overlay only draws it.
+  | { type: "countdown"; data: { request_id: string; left_s: number; running: boolean } }
   // ADR-014 §5: after an answer, one line naming a conversation left unfinished ("continue" picks it up).
   | { type: "resume.offer"; data: { thread_id: string; title: string } }
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
@@ -133,6 +137,7 @@ export type RunRow = {
   summary: string;
   // The request in the owner's words (longer than the title).
   words?: string;
+  origin?: Origin;
 };
 
 export type ErrorData = {
@@ -160,8 +165,10 @@ export type Outbound =
   | { type: "view"; data: { action: "show" | "hide" } }
   // A background request to the front: a row clicked, or the card in front gone while it runs.
   | { type: "focus"; data: { run_id: string } }
-  // A confirm card is drawn and visible, or hidden again: its countdown runs only while it is (ADR-015 §4.2).
-  | { type: "card.seen"; data: { request_id: string; visible: boolean } }
+  // What is drawn, as of the backend's frame n (review item 9): the stage, the card's request, the confirm
+  // card and question the owner can see ("": none). A confirm card counts down only while seen (ADR-015
+  // §4.2); a due card leaves the schedule once it is the card here (O-08).
+  | { type: "screen"; data: { n: number; stage: UiState; run_id: string; confirm: string; ask_id: string } }
   | { type: "ready"; data: { startup_ms: number; backend_ms: number | null } }
   // The waiting stack: open (bring back / resume), skip (back to the stack), end (gone).
   | { type: "stack.action"; data: { id: string; action: "open" | "skip" | "end" } }
@@ -178,19 +185,18 @@ export type Outbound =
   | { type: "run.stop"; data: { run_id: string; from?: "question" } }
   | { type: "live.app"; data: { run_id: string } }
   // ADR-016 §5.1: an option clicked on Swift's question. An answer, never an approval.
-  | { type: "ask.reply"; data: { ask_id: string; text: string } }
-  // A due card (timer, alarm, reminder) was drawn: only then does it leave the schedule (seams audit O-08).
-  | { type: "due.shown"; data: { run_id: string } };
+  | { type: "ask.reply"; data: { ask_id: string; text: string } };
 
 export function encode(msg: Outbound): string {
   return JSON.stringify({ v: PROTOCOL_VERSION, type: msg.type, ts: Date.now(), data: msg.data });
 }
 
-export function decode(raw: string): Inbound | null {
+/** n: the frame's place in the order the backend sent it (``screen`` acknowledges up to it). */
+export function decode(raw: string): (Inbound & { n?: number }) | null {
   try {
     const obj = JSON.parse(raw);
     if (obj?.v !== PROTOCOL_VERSION || typeof obj.type !== "string" || typeof obj.data !== "object") return null;
-    return { type: obj.type, data: obj.data } as Inbound;
+    return { type: obj.type, data: obj.data, ...(typeof obj.n === "number" ? { n: obj.n } : {}) } as Inbound & { n?: number };
   } catch {
     return null;
   }

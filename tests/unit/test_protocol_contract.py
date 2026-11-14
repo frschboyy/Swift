@@ -44,7 +44,7 @@ def test_the_examples_fit_themselves() -> None:
 @pytest.mark.parametrize(("msg_type", "data", "problem"), [
     ("level", {"rms": 0.1, "words": "hi"}, "level.words: not in any example"),
     ("level", {}, "level.rms: missing"),
-    ("confirm.hold", {"request_id": "r", "held": "yes", "timeout_s": 1}, "confirm.hold.held: a str"),
+    ("confirm.hold", {"request_id": "r", "held": "yes"}, "confirm.hold.held: a str"),
     ("runs", {"focus": None, "rows": [{"run_id": "a", "colour": "red"}], "waiting": 0}, "runs.rows[].colour"),
     ("nonsense", {}, "no example of this type"),
 ])

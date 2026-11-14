@@ -131,7 +131,6 @@ async def test_swift_card_times_out_without_sending() -> None:
     await start(session)
     await finish(session)
     assert mail.sent == [] and out.last("result")["status"] == "rejected"
-    assert out.last("confirm.request")["timeout_s"] == 0.05
 
 
 async def test_escape_on_the_send_card_sends_nothing() -> None:

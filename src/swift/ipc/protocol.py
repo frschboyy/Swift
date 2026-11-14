@@ -22,8 +22,10 @@ Several requests at once (ADR-013 phase B): ``runs`` names the request in front 
 its ``run_id``), the others as one-line ``rows``, and how many confirm cards wait behind the
 one on screen. It is sent only while there is more than one. Inbound ``focus`` brings a row
 to the front (a click on it, or the overlay's own card fading while others still run).
-Inbound ``card.seen`` says a confirm card is drawn and visible, or hidden: its countdown runs
-only while it is (ADR-015 §4.2).
+Inbound ``screen`` is the overlay's one acknowledgement (review item 9): what it has drawn, as of
+outbound frame ``n`` (every outbound frame is numbered in order). A confirm card counts down only
+while it is the ``confirm`` there (ADR-015 §4.2); a due card leaves the schedule once it is the card
+there, and goes back in line if the overlay drew something else (O-08).
 The waiting stack (ADR-015 §9): outbound ``stack`` lists what waits for the owner (cards in line or
 set aside, held cards, unfinished conversations); inbound ``stack.action`` opens, skips or ends
 one. Inbound ``text`` is a request typed into the overlay (source ``typed``): routed like speech,
@@ -40,6 +42,8 @@ The dialogue (ADR-016 §5.1): outbound ``ask`` is Swift's question during a requ
 open with its ``phase`` ("asking" while Swift says it, "listening" with ``seconds`` once the
 microphone is open for the answer, "again" after an answer it couldn't work out), or closed.
 Inbound ``ask.reply`` answers it from the card (an option clicked, or typed): never an approval.
+Outbound ``countdown`` is a confirm card's countdown starting or stopping, with the seconds it has
+left (T-08): the backend's ``Attention`` is its one clock, and the overlay only draws it.
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -56,6 +60,9 @@ MAX_FRAME_BYTES = 64 * 1024
 STATES = ("idle", "listening", "transcribing", "working", "confirm", "result", "error")
 SCENARIOS = ("happy", "confirm", "error", "long", "email", "research")
 RESULT_STATUSES = ("done", "cancelled", "error", "rejected")
+# Who started a run (ADR-019 N2), on results and rows: the owner ("asked"), or Swift on its own. Only
+# "asked" and the due cards' "reminder" and "away" are sent today; the rest come with watchers and schedules.
+ORIGINS = ("asked", "scheduled", "watching", "reminder", "noticed", "learned", "away")
 ARTIFACT_KINDS = ("email_draft", "recipient", "send_status", "calendar_event", "text", "list", "table")
 PHASES = ("resolving", "drafting", "confirming", "sending", "done", "failed")
 
@@ -76,8 +83,9 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "debug.say": {"text": (str, None)},
     # A background request to the front (ADR-013 §3.1).
     "focus": {"run_id": (str, None)},
-    # The overlay drew a confirm card and it is visible (or hid it): its countdown runs only then (ADR-015).
-    "card.seen": {"request_id": (str, None), "visible": (bool, None)},
+    # What the overlay has drawn, as of outbound frame ``n``: its stage, the card's request, and the
+    # confirm card and question the owner can see ("": none). The only acknowledgement (review item 9).
+    "screen": {"n": (int, None), "stage": (str, STATES), "run_id": (str, None), "confirm": (str, None), "ask_id": (str, None)},
     # The waiting stack (ADR-015 §9): open (bring back / resume), skip (back to the stack), end (gone).
     "stack.action": {"id": (str, None), "action": (str, ("open", "skip", "end"))},
     # A request typed into the overlay; optional ``thread_id``: the conversation on screen it follows.
@@ -98,15 +106,12 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "ask.reply": {"ask_id": (str, None), "text": (str, None)},
     # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
     "recordings": {"action": (str, ("clear", "improve"))},
-    # The overlay drew a due card (a timer, alarm or reminder): only then is it taken off the schedule
-    # (seams audit O-08: an overlay that drops it, behind a request in front, must not lose it).
-    "due.shown": {"run_id": (str, None)},
 }
 
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard", "speech", "live", "watch", "ask"}
+     "runs", "stack", "heard", "speech", "live", "watch", "ask", "countdown"}
 )
 
 
@@ -119,6 +124,8 @@ class Message:
     type: str
     data: dict[str, Any] = field(default_factory=dict)
     ts: int = 0
+    # Outbound only: its place in the order sent (``screen`` acknowledges up to it); 0: not numbered.
+    n: int = 0
 
 
 def now_ms() -> int:
@@ -162,7 +169,7 @@ def decode(raw: str | bytes) -> Message:
 
 def encode(msg: Message) -> str:
     return json.dumps(
-        {"v": PROTOCOL_VERSION, "type": msg.type, "ts": msg.ts or now_ms(), "data": msg.data},
+        {"v": PROTOCOL_VERSION, "type": msg.type, "ts": msg.ts or now_ms(), "n": msg.n, "data": msg.data},
         ensure_ascii=False,
         separators=(",", ":"),
     )
@@ -176,4 +183,6 @@ def outbound(msg_type: str, /, **data: Any) -> Message:
         raise ValueError(f"unknown state {data.get('state')!r}")
     if msg_type == "artifact" and (data.get("kind") not in ARTIFACT_KINDS or data.get("phase") not in PHASES):
         raise ValueError(f"bad artifact kind or phase: {data.get('kind')!r}, {data.get('phase')!r}")
+    if msg_type == "result" and data.get("origin", "asked") not in ORIGINS:
+        raise ValueError(f"unknown origin {data.get('origin')!r}")
     return Message(msg_type, data, now_ms())

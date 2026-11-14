@@ -42,6 +42,7 @@ from hypothesis import HealthCheck, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
 from protocol_contract import Dialogue
+from test_card_timing import seen
 from virtual_clock import VirtualLoop
 
 from swift.ipc.protocol import Message
@@ -109,8 +110,7 @@ class DialogueModel(RuleBasedStateMachine):
             # Like the overlay: a card it draws is reported seen, so its countdown runs (ADR-015 §4.2).
             shown = msg.type == "confirm.request" or (msg.type == "confirm.hold" and not msg.data.get("held"))
             if shown:
-                seen = Message("card.seen", {"request_id": msg.data["request_id"], "visible": True})
-                self.session._background(self.session.handle(seen))
+                self.session._background(self.session.handle(seen(msg.data["request_id"])))
 
         self.session._raw_send = stamped
 
@@ -175,7 +175,7 @@ class DialogueModel(RuleBasedStateMachine):
             return
         if decision == "approve":
             self.approvals_given += 1
-        self._run(self.session.handle(Message("card.seen", {"request_id": request_id, "visible": True})))
+        self._run(self.session.handle(seen(request_id)))
         self._run(self.session.handle(Message("confirm.reply", {"request_id": request_id, "decision": decision})))
         self._run(self._settle())
 

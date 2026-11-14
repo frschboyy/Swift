@@ -90,3 +90,16 @@ Taken from the orchestrator's recommendations, except B4 and B6, which are the o
 - **B5:** both: a card grows with its content up to a limit that never covers the owner's work, and can be expanded by hand beyond that.
 - **B6:** to study before building: whether the live view ("watch me") is a card of its own, and whether it feels technical (steps ticking by) or visual: the email being written or the deck being built, shown as it happens, as pen.dev does.
 - **B7:** transitions slow enough to see; the card growing out of the orb is tried in the harness before the owner chooses.
+
+## The owner's decisions of 2026-11-14
+
+All taken from the orchestrator's recommendations:
+
+- **B1:** the agent's own sentence leads, marked as the agent's; the command's first line always shows under it, and only the rest folds.
+- **Review item 9:** carries on, on its branch: with B1 in, the countdowns move to one side; it merges only if the total deletes code.
+- **B4:** the vetted set is approved: Swift's own code (text, tables, comparisons, simple charts), Mermaid's tiny build (diagrams), Windows' PDF renderer and a text excerpt (documents). A mind-map shape is prototyped now; a map that grows as the owner talks is a later item, on run records and memory.
+- **Halo Step B:** go, after item 9's countdown move (both change how cards are drawn).
+- **B6:** its own window restyled as a monitor; visual where there's something to see, technical otherwise; the LIVE mark in Halo's accent blue (red means failure); email shows the finished draft first, streaming later; the visual deck waits for a deck capability.
+- **Memory store:** plain files under `%LOCALAPPDATA%\Swift\memory`; "forget" doesn't ask, since every version is kept. Card and ID numbers are refused, like passwords and PINs.
+- **B2:** built now, on the `WorkerTask` grant; Swift, never the agent, decides what's irreversible.
+- **A10:** waits for owner check 254 before any fix (a signed install only if nothing else works).

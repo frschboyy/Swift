@@ -8,3 +8,4 @@ logging:
   interactions: "%TEMP%/swift-harness/interactions.jsonl"
   app_log_dir: "%TEMP%/swift-harness/logs"
   journal: "%TEMP%/swift-harness/journal.jsonl"
+  runs: "%TEMP%/swift-harness/runs"

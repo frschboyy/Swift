@@ -5,6 +5,9 @@ One JSON line per state change: ``PENDING`` before a side effect runs, then
 address (T8). An action still ``PENDING`` when Swift starts is reported and
 never resumed, so a crash can't send an email twice.
 
+``PENDING`` names the run it belongs to (``run``, ``runs.py``): the journal is the side-effect part of
+the run records. The gateway names it from the tool scope; anything else, from the request running.
+
 ``DONE`` carries the service's id (``receipt``) and whether it can be undone; an
 action that reverses another names it (``undoes``). ``receipts`` reads them back:
 e.g. the events Swift added, so "remove the event you just added" finds it.
@@ -19,6 +22,8 @@ from typing import Any, Literal
 
 from loguru import logger
 
+from swift import runs
+
 # UNKNOWN: the connection dropped before the service answered, and Swift couldn't tell whether it was done.
 # CANCELLED: the owner stopped it in its last seconds before it went (X-08): never done.
 State = Literal["PENDING", "DONE", "FAILED", "UNKNOWN", "CANCELLED"]
@@ -31,8 +36,10 @@ class Journal:
         self.entries: list[dict[str, Any]] = []
 
     def write(self, action_id: str, state: State, **fields: Any) -> None:
+        if state == "PENDING":
+            fields = {"run": runs.current.get()} | fields  # the gateway's own ``run`` wins: its tool calls run elsewhere
         entry = {"ts": datetime.now().astimezone().isoformat(timespec="milliseconds"), "action": action_id,
-                 "state": state, **fields}
+                 "state": state, **{k: v for k, v in fields.items() if not (k == "run" and v is None)}}
         self.entries.append(entry)
         if self.path is None:
             return

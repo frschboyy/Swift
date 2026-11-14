@@ -101,7 +101,9 @@ async def test_later_sets_the_card_on_screen_aside_and_open_brings_it_back() -> 
     assert attention._waits[f"{first}:1"].deadline is None
     await session.handle(Message("stack.action", {"id": f"card:{first}:1", "action": "open"}))
     assert session._open_confirm() == f"{first}:1"
-    assert out.last("confirm.hold") == {"request_id": f"{first}:1", "held": False, "timeout_s": 120.0}
+    assert out.last("confirm.hold") == {"request_id": f"{first}:1", "held": False}
+    await asyncio.sleep(0.01)
+    assert out.last("countdown") == {"request_id": f"{first}:1", "left_s": 120.0, "running": True}
     await session.handle(Message("confirm.reply", {"request_id": f"{first}:1", "decision": "reject"}))
     await until(lambda: agent.answers.get(f"{first}:1") is False)
     await finish_all(session, agent)

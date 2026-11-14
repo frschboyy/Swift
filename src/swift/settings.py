@@ -315,9 +315,11 @@ class LoggingSettings(_Section):
     app_log_dir: str = "%LOCALAPPDATA%/Swift/logs"
     # Every side effect (a sent email), before and after; metadata only (ADR-010 §4).
     journal: str = "%LOCALAPPDATA%/Swift/journal.jsonl"
+    # One file per request: what happened in it, content-free (``swift/runs.py``).
+    runs: str = "%LOCALAPPDATA%/Swift/runs"
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
-    @field_validator("interactions", "app_log_dir", "journal")
+    @field_validator("interactions", "app_log_dir", "journal", "runs")
     @classmethod
     def _expand(cls, v: str) -> str:
         return expand(v)
@@ -349,7 +351,15 @@ class Settings(_Section):
     # Your name as it ends the emails Swift drafts ("Regards, Francis Chianu"). Empty: the name on
     # your Google account.
     owner_name: str = ""
+    # What you asked Swift to remember, and Swift's own settings: one plain file each, with every
+    # version kept (swift/memory.py). Swift writes it only from your words; config.yaml still wins.
+    memory_dir: str = "%LOCALAPPDATA%/Swift/memory"
     debug: bool = False
+
+    @field_validator("memory_dir")
+    @classmethod
+    def _expand(cls, v: str) -> str:
+        return expand(v)
 
 
 class SettingsError(ValueError):

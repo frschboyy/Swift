@@ -103,11 +103,11 @@ def _stack(log: list[str], action: str) -> int:
     return sum("stack action |" in line and f"action='{action}'" in line for line in log)
 
 
-def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outcome, str]]:
-    return [(name, ok if isinstance(ok, Outcome) else seen(ok), note) for name, ok, note in _checks(rows, log)]
+def checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = None) -> list[tuple[str, Outcome, str]]:
+    return [(name, ok if isinstance(ok, Outcome) else seen(ok), note) for name, ok, note in _checks(rows, log, runs_dir)]
 
 
-def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
+def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = None) -> list[tuple[str, Outcome | bool, str]]:
     by_thread: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         if r.get("thread"):
@@ -219,6 +219,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
     resynced_card = [line for line in resynced if "card=True" in line]
     due_sent = [line for line in log if "| due sent |" in line]
     due_drawn = [line for line in log if "| due shown |" in line]
+    due_refused = [line for line in log if "| due card not drawn |" in line]
     lost_mid_run = [line for line in log if "| internet lost during a request |" in line]
     stalled = [line for line in log if "| claude run stalled |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
@@ -477,6 +478,11 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         ("147-148 a restart and two cards", LOOK, "check on screen: the timer card after the restart; one card at a time"),
         # Every card sent should be drawn: "kept for later" still means the overlay refused it (8 sent,
         # 1 drawn printed PASS while "Your timer is up" repeated, 2026-11-05).
+        ("270 each timer card sent was drawn, or waited in the stack", unless(
+            len(due_sent) > len(due_drawn) + len(due_refused), due_drawn),
+         f"{len(due_sent)} sent, {len(due_drawn)} drawn, {len(due_refused)} not drawn and back in the stack"),
+        ("271 an approval card counted down only while seen", LOOK,
+         "check on screen: stopped after two idle minutes, went on from there"),
         ("149 due cards drawn before leaving the schedule", unless(len(due_sent) > len(due_drawn), due_drawn),
          f"{len(due_sent)} sent, {len(due_drawn)} drawn"),
         # Nothing waits for ever (seams audit S4).
@@ -580,11 +586,45 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
          "acted while away: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in acted_away) or "none")),
         *_rigid(rows),
         *_grounded(rows),
+        *_memory(rows),
         *_health(log),
         _gmail(log),
         *_front_and_web(rows),
         *_command_cards(rows),
         *_step_cards(rows),
+        *_runs(rows, runs_dir),
+    ]
+
+
+def _runs(rows: list[dict[str, Any]], folder: Path | None) -> list[tuple[str, Outcome | bool, str]]:
+    """Check 280: every request since the start left its run record (``runs.py``), started and ended, with none of
+    the owner's words in it. 281: a timer's card still comes up as one (now known by its origin, ADR-019 N2)."""
+    look = ("281 a timer's card still came up as a timer", LOOK, "check on screen: the timer card, not an answer card")
+    if folder is None or not folder.is_dir():
+        return [("280 every request left a run record", NOT_SEEN, "no runs folder: restart Swift on this version"), look]
+    ids = [r for r in rows if r.get("id") and r.get("thread")]
+    missing, unended, worded = [], [], []
+    for r in ids:
+        path = folder / f"{r['id']}.jsonl"
+        if not path.is_file():
+            missing.append(r)
+            continue
+        text = path.read_text(encoding="utf-8")
+        events = [json.loads(line) for line in text.splitlines() if line.strip()]
+        if not events or events[0].get("event") != "started" or events[-1].get("event") != "ended":
+            unended.append(r)
+        said = str(r.get("transcript") or "").strip().lower()
+        if len(said) > 8 and said in text.lower():
+            worded.append(r)
+
+    def times(found: list[dict[str, Any]]) -> str:
+        return ", ".join(f"{r['_t']:%H:%M:%S}" for r in found) or "none"
+
+    return [
+        ("280 every request left a run record, started and ended, without your words",
+         unless(missing or unended or worded, ids),
+         f"{len(ids)} requests; no record: {times(missing)}; not ended: {times(unended)}; with words: {times(worded)}"),
+        look,
     ]
 
 
@@ -652,7 +692,7 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 
 def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3)."""
-    spoken = [r for r in rows if re.search(r"open.*\w+ dot (com|org|net|edu|ac|co|io)", r.get("transcript") or "", re.I)]
+    spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
     def opened(r: dict[str, Any]) -> bool:
         return any("desktop_open" in str(s.get("text")) for s in r.get("steps") or [])
@@ -725,6 +765,32 @@ def _grounded(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str
          "asked where: " + times(asked_back)),
         ("261 a distance between two places you named", LOOK,
          f"{len(between)} asked ({times(between)}); tell us whether it was about right"),
+    ]
+
+
+def _memory(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 290-293: the memory store (swift/memory.py, C7). Only the owner's words write it."""
+
+    def said(pattern: str) -> list[dict[str, Any]]:
+        return [r for r in rows if re.search(pattern, r.get("transcript") or "", re.I)]
+
+    def times(found: list[dict[str, Any]]) -> str:
+        return ", ".join(f"{r['_t']:%H:%M:%S}" for r in found) or "none"
+
+    kept = said(r"\bremember (that )?my manager is")
+    forgot = said(r"\bforget (that )?my manager")
+    errands = said(r"\bremember to\b")
+    return [
+        ("290 'remember that my manager is …' was Swift's own, not the agent",
+         unless([r for r in kept if r.get("action") != "remember"], kept), "went elsewhere: " + times(
+             [r for r in kept if r.get("action") != "remember"])),
+        ("291 'forget that my manager …' was Swift's own", unless([r for r in forgot if r.get("action") != "forget"], forgot),
+         "went elsewhere: " + times([r for r in forgot if r.get("action") != "forget"])),
+        ("292 nothing a page or a note said was remembered", LOOK,
+         "check on screen: 'what do you know about me' never lists Mallory"),
+        ("293 'remember to …' stayed a reminder, not a memory",
+         unless([r for r in errands if r.get("action") == "remember"], errands),
+         "kept as a memory: " + times([r for r in errands if r.get("action") == "remember"])),
     ]
 
 
@@ -874,7 +940,7 @@ def main() -> None:
     print(f"\n{len(rows)} requests since {since:%Y-%m-%d %H:%M}\n")
     show(rows)
     print("\nChecks (docs/testing/owner-checks.md)\n")
-    results = checks(rows, log)
+    results = checks(rows, log, args.interactions.parent / "runs")
     for name, ok, note in results:
         print(f"  {ok.value:8}  {name}" + (f"   ({note})" if note else ""))
     tally = Counter(ok for _, ok, _ in results)

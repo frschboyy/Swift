@@ -113,15 +113,18 @@ async def test_a_due_item_stays_in_the_file_until_it_is_shown(tmp_path) -> None:
 async def _due_session():  # type: ignore[no-untyped-def]
     from test_system_lane import _session
 
+    from swift.ipc.protocol import Message
+
     session, rec, _, _ = await _session()
     assert session.system is not None
     send = session._raw_send
 
     async def drawn(msg):  # type: ignore[no-untyped-def]
-        # Like the overlay: a due card it draws is acknowledged (``due.shown``, seams audit O-08).
+        # Like the overlay: a due card it draws is acknowledged (``screen``, seams audit O-08).
         await send(msg)
         if msg.type == "result" and str(msg.data.get("run_id", "")).startswith("due-"):
-            session._due_drawn(msg.data["run_id"])
+            data = {"n": session._drawn.n, "stage": "result", "run_id": msg.data["run_id"], "confirm": "", "ask_id": ""}
+            session._background(session.handle(Message("screen", data)))
 
     session._raw_send = drawn
     return session, rec, session.system.scheduler
@@ -196,3 +199,25 @@ async def test_a_due_item_while_away_stays_in_the_file_until_back() -> None:
     await session.hold_cards(False)
     await _settle()
     assert _results(rec)[0].startswith("While you were away: Your tea timer is up") and sched.items == []
+
+
+async def test_a_due_card_the_overlay_did_not_draw_waits_in_the_stack() -> None:
+    """Item 9: once the overlay says what it drew as of the due card's frame, and it isn't that card, the
+    timer is back in line and in the stack, not sent again into the same refusal, and still on the schedule."""
+    from swift.ipc.protocol import Message
+
+    session, rec, sched = await _due_session()
+    session._raw_send = session._drawn.send  # an overlay that acknowledges nothing by itself
+    tea = sched.add("timer", sched.clock(), "tea")
+    sched.items[-1].fired = True
+    await session.notify_due(tea, False)
+    (run_id, (n, _)), = session._drawn.due.items()
+    assert n > 0
+    sent = len(_results(rec))
+    await session.handle(Message("screen", {"n": n, "stage": "working", "run_id": "a-1", "confirm": "", "ask_id": ""}))
+    assert [entry[0].id for entry in session._due] == [tea.id] and session._drawn.due == {}
+    assert [i["kind"] for i in [m for m in rec.messages if m.type == "stack"][-1].data["items"]] == ["due"]
+    assert len(_results(rec)) == sent and sched.items
+    # The screen comes to rest: it is shown again, and this time drawn.
+    await session.handle(Message("screen", {"n": n + 1, "stage": "idle", "run_id": "", "confirm": "", "ask_id": ""}))
+    assert len(_results(rec)) == sent + 1 and run_id in session._drawn.due

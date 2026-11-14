@@ -65,8 +65,8 @@ areas:
     paths: [src/swift/presence.py, src/swift/lifecycle.py]
     checks: [12-14, 61, 66, 139, 220, 232, 241]
   screen:
-    paths: [overlay/src/presenter.ts, overlay/src/ipc.ts, overlay/src/protocol.ts, src/swift/ipc/*]
-    checks: [54, 146-149, 165, 171, 180, 181, 263, 300]
+    paths: [overlay/src/presenter.ts, overlay/src/ipc.ts, overlay/src/protocol.ts, src/swift/ipc/*, src/swift/drawn.py]
+    checks: [54, 146-149, 165, 171, 180, 181, 263, 270, 271, 300]
   capsule:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
     checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263]
@@ -93,6 +93,10 @@ areas:
     rule: memory only from the owner's words; Swift's own files are never read
     paths: [src/swift/executors/read_scope.py, src/swift/security/web_scope.py, src/swift/workflows/scope.py]
     checks: [52, 62, 213, 255]
+  memory:
+    rule: memory is written only from the owner's words or an approved card, never from what a worker read
+    paths: [src/swift/memory.py]
+    checks: [290-293]
   signin:
     paths: [src/swift/signin.py, src/swift/executors/signin.py, src/swift/connectors/google.py]
     checks: [120-122, 155]
@@ -103,11 +107,19 @@ areas:
   speech:
     paths: [src/swift/speech.py]
     checks: [59, 107, 136, 192]
+  runs:
+    rule: logs content-free, transcripts redacted
+    paths: [src/swift/runs.py, src/swift/security/journal.py, src/swift/ipc/protocol.py]
+    checks: [280, 281]
   lifetime:
     paths: [overlay/src-tauri/src/backend.rs, overlay/src-tauri/src/prefs.rs, src/swift/backend/*, src/swift/__main__.py, src/swift/settings.py, src/swift/config/*, src/swift/clock.py]
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [290-293]
+    why: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC
+  - checks: [270, 271]
+    why: review item 9 (2026-11-13); one acknowledgement of what is drawn replaced card.seen and due.shown, not seen on the real PC
   - checks: [262]
     why: the owner's 'Playing.' with nothing playing (2026-11-13); fixed, not seen on the real PC
   - checks: [256, 257]

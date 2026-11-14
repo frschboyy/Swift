@@ -11,9 +11,13 @@ import time
 from test_dialogue import asker, asks
 from test_runs import finish_all, say, started, until
 from test_system_lane import lane
+from virtual_clock import VIRTUAL, event_loop_policy, one_clock  # noqa: F401 (fixtures)
 
 from swift.ipc.protocol import Message
 from swift.parked import ParkedThreads
+
+# Windows of 0.3-1 s with 0.2 s margins: on wall-clock time a starved process ran them out (S02, 2026-11-14).
+pytestmark = VIRTUAL
 
 
 # Fixed by S3 (swift/answer_window.py, 2026-11-05); the docstring is the bug as found.

@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import selectors
+import time
 from typing import Any
+
+import pytest
 
 # With nothing scheduled, how long to wait for something real before calling the loop stuck.
 STALL_S = 5.0
@@ -50,3 +53,36 @@ class VirtualLoop(asyncio.SelectorEventLoop):
 
     def advance(self, seconds: float) -> None:
         self._virtual_now += max(0.0, seconds)
+
+
+# ---- a whole test module on virtual time (pytest-asyncio) ------------------------------------------
+# In a module: ``from virtual_clock import VIRTUAL, event_loop_policy, one_clock`` and ``pytestmark = VIRTUAL``.
+# A question's window (call_later) then can't run out while the test is starved or busy looking (2026-11-13:
+# seam tests and S02 failed under load, passed alone).
+
+# shortcut: pytest-asyncio deprecates this override; its hook would move every async test onto a loop factory.
+VIRTUAL = pytest.mark.filterwarnings('ignore:Overriding the "event_loop_policy" fixture:DeprecationWarning')
+
+
+class _VirtualPolicy(asyncio.DefaultEventLoopPolicy):
+    def new_event_loop(self) -> asyncio.AbstractEventLoop:
+        return VirtualLoop(time.monotonic())
+
+
+@pytest.fixture
+def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
+    return _VirtualPolicy()
+
+
+@pytest.fixture(autouse=True)
+def one_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Utterances and ``until`` stamp ``time.monotonic()``: the loop's virtual clock here, as in Swift."""
+    real = time.monotonic
+
+    def now() -> float:
+        try:
+            return asyncio.get_running_loop().time()
+        except RuntimeError:
+            return real()
+
+    monkeypatch.setattr(time, "monotonic", now)

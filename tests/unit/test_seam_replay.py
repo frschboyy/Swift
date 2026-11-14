@@ -24,7 +24,7 @@ from test_dialogue import asker, asks
 from test_runs import SHORT, finish_all, make, say, started, until
 from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
-from virtual_clock import VirtualLoop
+from virtual_clock import VIRTUAL, event_loop_policy, one_clock  # noqa: F401 (fixtures)
 
 from swift.executors.base import ExecEvent
 from swift.executors.claude_mapping import confirm_card
@@ -36,34 +36,9 @@ REPLAY = Path(__file__).resolve().parents[2] / "overlay" / "tests" / "seam" / "r
 NODE = shutil.which("node")
 
 
-class _Virtual(asyncio.DefaultEventLoopPolicy):
-    def new_event_loop(self) -> asyncio.AbstractEventLoop:
-        return VirtualLoop(time.monotonic())
-
-
-# shortcut: pytest-asyncio deprecates this override; its hook would move every async test onto a loop factory.
-pytestmark = pytest.mark.filterwarnings('ignore:Overriding the "event_loop_policy" fixture:DeprecationWarning')
-
-
-@pytest.fixture
-def event_loop_policy() -> _Virtual:
-    """Virtual time: the Node replay blocks the loop 0.7 s (5 s under load) and a question's window
-    used to run out while the test only looked (2026-11-13: three seam tests failed under load)."""
-    return _Virtual()
-
-
-@pytest.fixture(autouse=True)
-def _one_clock(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Utterances and ``until`` stamp ``time.monotonic()``: the loop's virtual clock here, as in Swift."""
-    real = time.monotonic
-
-    def now() -> float:
-        try:
-            return asyncio.get_running_loop().time()
-        except RuntimeError:
-            return real()
-
-    monkeypatch.setattr(time, "monotonic", now)
+# Virtual time: the Node replay blocks the loop 0.7 s (5 s under load), and a question's window used to
+# run out while the test only looked.
+pytestmark = VIRTUAL
 
 
 def _screen(out: Any) -> dict[str, Any]:

@@ -17,8 +17,8 @@ answered, and whether the owner is there. Swift decides reversibility and reach,
 origin, decides what an action may use.
 
 1. **Channel**, how the approval or request arrived:
-   - **gesture**: a click on Swift's own button, the same button pressed from the keyboard *(decision 2)*, or speech
-     with the hotkey held *(decision 3)*;
+   - **gesture**: a click on Swift's own button, the same button pressed from the keyboard *(foundation decision 2)*, or speech
+     with the hotkey held *(foundation decision 3)*;
    - **named voice**: the open microphone with Swift's name ("Swift, yes");
    - **plain voice**: the open microphone without the name;
    - **typed words**: text in the box, with or without the name. The name adds nothing for typing.
@@ -38,13 +38,13 @@ origin, decides what an action may use.
 | 0. Do it | a read; or reversible, on the owner's PC only, and the owner's words asked | acts; "undo that" works | nothing needed |
 | 1. Ask once | disruptive on the owner's PC only (Wi-Fi off); or the owner's words don't clearly ask (an address they gave earlier, writing into an app); or Swift's own question about the owner's request | one short question on screen | a gesture, Swift's name, or a plain spoken "yes" while it's on screen; saying the same request again, spoken |
 | 2. Card | what a worker chose to do on the owner's PC (commands, file edits, reads outside the read folders); moving a file to the Recycle Bin | a card saying what and why; one step or plan card may cover several | a gesture, or Swift's name |
-| 3. Its own card | irreversible (deleting permanently, sending, publishing, pushing, running code, typing into a terminal), reaching anyone else, or the owner's accounts | its own card, never covered by a step card, a plan, a learned trust or a setting | a gesture, or Swift's name; **paying: a gesture only** *(decision 9)* |
+| 3. Its own card | irreversible (deleting permanently, sending, publishing, pushing, running code, typing into a terminal), reaching anyone else, or the owner's accounts | its own card, never covered by a step card, a plan, a learned trust or a setting | a gesture, or Swift's name; **paying: a gesture only** *(foundation decision 9)* |
 
 ## 3. The rules across every level
 
-- **A gesture** is a click on Swift's own button, the same button pressed from the keyboard *(decision 2)*, or speech
-  with the hotkey held *(decision 3)*.
-- **Typed words never approve**, at any level, with or without Swift's name *(decision 1)*.
+- **A gesture** is a click on Swift's own button, the same button pressed from the keyboard *(foundation decision 2)*, or speech
+  with the hotkey held *(foundation decision 3)*.
+- **Typed words never approve**, at any level, with or without Swift's name *(foundation decision 1)*.
 - **Nothing approves unless the owner is present** (unlocked, not away, listening not paused) **and the thing is on
   screen and in front**, and nothing heard over Swift's own voice is a yes. A click needs no check: it was on the
   thing.
@@ -52,16 +52,16 @@ origin, decides what an action may use.
   never chooses a recipient, a web address, a path to delete, a memory or a trust. Shown on a card, marked as the
   worker's, and approved by the owner, it may be used.
   - Recipients come from contacts, `find_contact`, or an address in the owner's own words, marked on the send card
-    *(decision 5)*.
+    *(foundation decision 5)*.
   - A web address comes from the owner's words in this request, or Swift asks "Open (their earlier address)?"
-    *(decision 4)*.
+    *(foundation decision 4)*.
   - Memory is written only from the owner's words or an approved card.
 - **Deleting a file always asks.** A move to the Recycle Bin is level 2; a permanent delete, emptying the bin, or a
-  recycle Swift can't confirm is level 3 (ADR-019) *(decision 7)*.
+  recycle Swift can't confirm is level 3 (ADR-019) *(foundation decision 7)*.
 - **Learned trust** lowers one kind from level 1 to 0 (only kinds on its table, never level 3). **"Ask me about
   everything"** raises level 0 to 1, except reads in the read folders and volume.
 - **`intake.approves` is the one place approval is decided**, and its test checks it against the table above
-  *(decision 10)*. Change both together.
+  *(foundation decision 10)*. Change both together.
 - **An approval covers exactly what its card showed.** The gateway binds it to the action's digest and recomputes it
   before running: a changed recipient, path, command or payload voids it, and an approval is never reused for
   another action (ADR-010, threat model T3). Enforcement lives in the backend, never in the agent or the overlay.

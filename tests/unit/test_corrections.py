@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 
+from swift.executors.base import WorkerTask
 from swift.audio.recorder import SAMPLE_RATE
 from swift.connectors.fake import FakeCalendarConnector
 from swift.executors.base import ExecEvent, ExecResult
@@ -44,7 +45,8 @@ class CalendarAgent:
         self._ids = itertools.count(1)
         self._runs: dict[str, tuple[asyncio.Queue[Any], asyncio.Task[ExecResult]]] = {}
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
+        request = task.prompt
         run_id = f"agent-{next(self._ids)}"
         queue: asyncio.Queue[Any] = asyncio.Queue()
         self._runs[run_id] = (queue, asyncio.create_task(self._work(queue)))

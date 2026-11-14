@@ -219,8 +219,8 @@ async def test_s07_a_new_overlay_is_not_shown_the_card_the_backend_thinks_is_on_
     """The overlay reloads or reconnects (webview reload, Tauri window recreated) while a confirm card waits.
     ``ready`` resends the stack and due items only: not the run in front, its card, its question or the rows.
     The backend still counts the card as on screen (``_cards[0]``) and as seen: the old overlay's
-    ``card.seen`` is never cleared on disconnect, so it counts down unseen and expires into the stack."""
-    from test_card_timing import finish, make as make_card, start
+    ``screen`` (seen) is never cleared on disconnect, so it counts down unseen and expires into the stack."""
+    from test_card_timing import finish, make as make_card, seen, start
 
     from swift.attention import Attention
 
@@ -228,7 +228,7 @@ async def test_s07_a_new_overlay_is_not_shown_the_card_the_backend_thinks_is_on_
                                                             parked=ParkedThreads(None))
     await start(session, out, stt)
     card = out.last("confirm.request")
-    await session.handle(Message("card.seen", {"request_id": card["request_id"], "visible": True}))
+    await session.handle(seen(card["request_id"]))
     before = len(out.messages)
     await session.handle(Message("ready", {"startup_ms": 100}))
     resent = [m.type for m in out.messages[before:]]

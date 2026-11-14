@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 
+from test_card_timing import seen
 from test_runs import finish_all
 from test_seams_audit_ipc import _one_card
 from test_seams_audit_speech import _wake_session, _wifi_question
@@ -20,7 +21,7 @@ async def test_when_the_overlay_goes_the_card_stops_counting_down() -> None:
     session.overlay_gone()
     try:
         assert not attention._runs(request_id)
-        await session.handle(Message("card.seen", {"request_id": request_id, "visible": True}))  # the next draws it
+        await session.handle(seen(request_id))  # the next draws it
         assert attention._runs(request_id)
     finally:
         await finish_all(session, agent)
@@ -35,7 +36,9 @@ async def test_a_new_overlay_gets_the_card_with_the_time_it_has_left() -> None:
         types = [m.type for m in sent]
         assert "confirm.request" in types and "confirm.hold" in types
         hold = next(m.data for m in sent if m.type == "confirm.hold")
-        assert hold["request_id"] == request_id and hold["held"] is False and hold["timeout_s"] > 0
+        assert hold["request_id"] == request_id and hold["held"] is False
+        await asyncio.sleep(0.01)
+        assert out.last("countdown")["request_id"] == request_id and out.last("countdown")["left_s"] > 0
     finally:
         await finish_all(session, agent)
 
@@ -82,7 +85,7 @@ async def test_a_due_card_sent_as_the_overlay_goes_is_shown_to_the_next_one() ->
     await _settle()
     again = [m.data["run_id"] for m in rec.messages if m.type == "result" and m.data["run_id"].startswith("due-")]
     assert len(again) == 2
-    session._due_drawn(again[-1])
+    await session.handle(Message("screen", {"n": session._drawn.n, "stage": "result", "run_id": again[-1], "confirm": "", "ask_id": ""}))
     assert sched.items == []  # drawn: off the schedule, once
 
 

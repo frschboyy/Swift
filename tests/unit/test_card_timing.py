@@ -1,6 +1,6 @@
 """A card counts down only while the owner can answer it (ADR-015 §4.2).
 
-On screen (not waiting in line), drawn by the overlay (``card.seen``), and the owner around.
+On screen (not waiting in line), drawn by the overlay (``screen``), and the owner around.
 Owner checks 18 and 19 of 2026-10-27: a held card wasn't redrawn after "back", and cards
 waiting behind another ran out unseen.
 """
@@ -67,11 +67,21 @@ async def test_without_require_seen_it_is_as_before() -> None:
         await attention.wait("c1", asyncio.get_running_loop().create_future(), 0.05)
 
 
-def test_card_seen_is_a_valid_inbound_message() -> None:
-    msg = decode(encode(Message("card.seen", {"request_id": "swift:1", "visible": True})))
-    assert msg.type == "card.seen" and msg.data["visible"] is True
+def seen(request_id: str) -> Message:
+    """The overlay's ``screen`` acknowledgement with confirm card ``request_id`` drawn and visible."""
+    return Message("screen", {"n": 0, "stage": "confirm", "run_id": "", "confirm": request_id, "ask_id": ""})
+
+
+def test_screen_is_a_valid_inbound_message() -> None:
+    msg = decode(encode(seen("swift:1")))
+    assert msg.type == "screen" and msg.data["confirm"] == "swift:1"
     with pytest.raises(ProtocolError):
-        decode(encode(Message("card.seen", {"request_id": "swift:1", "visible": "yes"})))
+        decode(encode(Message("screen", {**seen("swift:1").data, "stage": "shown"})))
+    # One acknowledgement of what is drawn (review item 9): the two it replaced are gone, not kept beside it.
+    for old in ({"type": "card.seen", "data": {"request_id": "swift:1", "visible": True}},
+                {"type": "due.shown", "data": {"run_id": "due-timer-1"}}):
+        with pytest.raises(ProtocolError, match="unknown message type"):
+            decode(encode(Message(old["type"], old["data"])))
 
 
 # ---- the session --------------------------------------------------------------------------
@@ -85,7 +95,7 @@ async def test_a_card_never_drawn_does_not_run_out() -> None:
     await asyncio.sleep(0.3)
     assert session.state == "confirm" and records == []  # still waiting, not "no answer"
     card = out.last("confirm.request")
-    await session.handle(Message("card.seen", {"request_id": card["request_id"], "visible": True}))
+    await session.handle(seen(card["request_id"]))
     await asyncio.sleep(0.2)
     # Seen, it ran out: into the stack (ADR-017), still unanswered.
     assert records == [] and out.last("confirm.hold")["held"] is True
@@ -98,7 +108,7 @@ async def test_back_redraws_the_held_card_then_gives_its_time() -> None:
     session, out, records, calendar, agent, stt = make(attention=Attention(require_seen=True), parked=ParkedThreads(None))
     await start(session, out, stt)
     card = out.last("confirm.request")
-    await session.handle(Message("card.seen", {"request_id": card["request_id"], "visible": True}))
+    await session.handle(seen(card["request_id"]))
     await session.hold_cards(True)
     before = len(out.messages)
     await session.hold_cards(False)

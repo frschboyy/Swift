@@ -1,0 +1,1073 @@
+[
+ {
+  "flow": "1a",
+  "what": "result",
+  "frame": {
+   "run_id": "local-4",
+   "status": "done",
+   "summary": "It's 00:01.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "251bc21c9e19"
+  }
+ },
+ {
+  "flow": "1a",
+  "what": "shot",
+  "files": [
+   "1a-quick-answer-dark.png",
+   "1a-quick-answer-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“what time is it”\n\nIt's 00:01.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "1b",
+  "what": "shot",
+  "files": [
+   "1b-long-collapsed-dark.png",
+   "1b-long-collapsed-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“research the history of tea”\n\nTea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan, and legend credits the emperor Shennong with a first cup around 2737 BCE, when leaves blew into his boiling water.\n\nWhatever the truth of that story, by the Han dynasty tea was a medicine, and by the Tang it was a daily drink across China.\n\nPart 1\n\nSection 1 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 2\n\nSection 2 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 3\n\nSection 3 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 4\n\nSection 4 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 5\n\nSection 5 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 6\n\nSection 6 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 7\n\nSection 7 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 8\n\nSection 8 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nToday\n\nTHE-END-MARKER: tea is the second most drunk drink after water.\n\nRead more\n· 2 min read\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "1b",
+  "what": "read-more+150ms",
+  "clicked": true,
+  "stage": "result",
+  "openingCount": 1,
+  "ellipsis": false,
+  "endVisible": false,
+  "open": true,
+  "scroller": [
+   "answer answer--long answer--open 0/626"
+  ]
+ },
+ {
+  "flow": "1b",
+  "what": "read-more+400ms",
+  "clicked": true,
+  "stage": "result",
+  "openingCount": 1,
+  "ellipsis": false,
+  "endVisible": false,
+  "open": true,
+  "scroller": [
+   "answer answer--long answer--open 0/626"
+  ]
+ },
+ {
+  "flow": "1b",
+  "what": "shot",
+  "files": [
+   "1b-long-read-more-dark.png",
+   "1b-long-read-more-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“research the history of tea”\n\nTea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan, and legend credits the emperor Shennong with a first cup around 2737 BCE, when leaves blew into his boiling water.\n\nWhatever the truth of that story, by the Han dynasty tea was a medicine, and by the Tang it was a daily drink across China.\n\nPart 1\n\nSection 1 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 2\n\nSection 2 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 3\n\nSection 3 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 4\n\nSection 4 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 5\n\nSection 5 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 6\n\nSection 6 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 7\n\nSection 7 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 8\n\nSection 8 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nToday\n\nTHE-END-MARKER: tea is the second most drunk drink after water.\n\nRead less\nStays while open\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "1b",
+  "what": "read-more+800ms",
+  "clicked": true,
+  "stage": "result",
+  "openingCount": 1,
+  "ellipsis": false,
+  "endVisible": false,
+  "open": true,
+  "scroller": [
+   "answer answer--long answer--open 0/626"
+  ]
+ },
+ {
+  "flow": "1b",
+  "what": "scrolled-to-end",
+  "stage": "result",
+  "openingCount": 1,
+  "ellipsis": false,
+  "endVisible": true,
+  "open": true,
+  "scroller": [
+   "answer answer--long answer--open 626/626"
+  ]
+ },
+ {
+  "flow": "1b",
+  "what": "shot",
+  "files": [
+   "1b-long-read-to-end-dark.png",
+   "1b-long-read-to-end-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“research the history of tea”\n\nTea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan, and legend credits the emperor Shennong with a first cup around 2737 BCE, when leaves blew into his boiling water.\n\nWhatever the truth of that story, by the Han dynasty tea was a medicine, and by the Tang it was a daily drink across China.\n\nPart 1\n\nSection 1 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 2\n\nSection 2 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 3\n\nSection 3 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 4\n\nSection 4 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 5\n\nSection 5 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 6\n\nSection 6 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 7\n\nSection 7 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nPart 8\n\nSection 8 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\nToday\n\nTHE-END-MARKER: tea is the second most drunk drink after water.\n\nRead less\nStays while open\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "1b",
+  "what": "frames-after-read-more",
+  "frames": [],
+  "shim": [
+   "set_hit_regions",
+   "set_escape",
+   "set_hit_regions",
+   "set_hit_regions",
+   "pane_labels",
+   "pane_labels"
+  ]
+ },
+ {
+  "flow": "2a",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-bfd3a4dc",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "d45a88c4ec35",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-5",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2a",
+  "what": "shot",
+  "files": [
+   "2a-wifi-question-dark.png",
+   "2a-wifi-question-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nWaiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2a",
+  "what": "result",
+  "frame": {
+   "run_id": "local-5",
+   "status": "done",
+   "summary": "Wi-Fi off.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "d45a88c4ec35"
+  }
+ },
+ {
+  "flow": "2a",
+  "what": "shot",
+  "files": [
+   "2a-wifi-yes-dark.png",
+   "2a-wifi-yes-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“turn off Wi-Fi”\n\nWi-Fi off.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2a",
+  "what": "back-on",
+  "frame": {
+   "run_id": "local-6",
+   "status": "done",
+   "summary": "Wi-Fi on.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "269b9faf88d7"
+  }
+ },
+ {
+  "flow": "2b",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-1bba41fd",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "18936a9b131e",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-7",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2b",
+  "what": "frames",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"local-7\",\"agent\":null,\"thread_id\":\"18936a9b131e\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"local-7\",\"status\":\"done\",\"summary\":\"Okay, I've left it as it is.\",\"details\":null,\"agent\":null,\"note\":null,\"origin\":\"asked\",\"thread_id\":\"18936a9b131e\"}"
+   ],
+   [
+    "ask",
+    "{\"ask_id\":\"ask-1bba41fd\",\"run_id\":\"local-7\",\"open\":false}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“turn off Wi-Fi”\n\nOkay, I've left it as it is.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2b",
+  "what": "shot",
+  "files": [
+   "2b-wifi-no-dark.png",
+   "2b-wifi-no-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“turn off Wi-Fi”\n\nOkay, I've left it as it is.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2c",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-d98d84fc",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "b0866c94f66f",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-8",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2c",
+  "what": "result",
+  "frame": {
+   "run_id": "local-8",
+   "status": "done",
+   "summary": "Wi-Fi off.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "b0866c94f66f"
+  }
+ },
+ {
+  "flow": "2c",
+  "what": "shot",
+  "files": [
+   "2c-wifi-said-again-dark.png",
+   "2c-wifi-said-again-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“turn off Wi-Fi”\n\nWi-Fi off.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2c",
+  "what": "back-on",
+  "frame": {
+   "run_id": "local-9",
+   "status": "done",
+   "summary": "Wi-Fi on.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "342cf882d3b1"
+  }
+ },
+ {
+  "flow": "2d",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-4bbd193a",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "798b22fd71fb",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-10",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2d",
+  "what": "frames",
+  "frames": [
+   [
+    "ask",
+    "{\"ask_id\":\"ask-4bbd193a\",\"question\":\"Turn off Wi-Fi?\",\"kind\":\"yes_no\",\"options\":[],\"thread_id\":\"798b22fd71fb\",\"note\":\"Swift needs the internet for most requests: only quick commands until it's back.\",\"run_id\":\"local-10\","
+   ],
+   [
+    "run.voice",
+    "{\"run_id\":\"local-10\",\"phase\":\"idle\",\"text\":\"\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nTyping can't turn it off: click Yes, or say yes. Turn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nOnce more: waiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2d",
+  "what": "shot",
+  "files": [
+   "2d-wifi-typed-yes-dark.png",
+   "2d-wifi-typed-yes-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nTyping can't turn it off: click Yes, or say yes. Turn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nOnce more: waiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2e",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-429ef30a",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "a816c089ba78",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-11",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2e",
+  "what": "frames",
+  "frames": [
+   [
+    "ask",
+    "{\"ask_id\":\"ask-429ef30a\",\"question\":\"Turn off Wi-Fi?\",\"kind\":\"yes_no\",\"options\":[],\"thread_id\":\"a816c089ba78\",\"note\":\"Swift needs the internet for most requests: only quick commands until it's back.\",\"run_id\":\"local-11\","
+   ],
+   [
+    "run.voice",
+    "{\"run_id\":\"local-11\",\"phase\":\"idle\",\"text\":\"\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nSorry, was that a yes or a no? Turn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nOnce more: waiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2e",
+  "what": "shot",
+  "files": [
+   "2e-wifi-typed-again-dark.png",
+   "2e-wifi-typed-again-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nSorry, was that a yes or a no? Turn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nOnce more: waiting for your answer\n0:03\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "3a",
+  "what": "order",
+  "lead": 69,
+  "firstLine": 179
+ },
+ {
+  "flow": "3a",
+  "what": "shot",
+  "files": [
+   "3a-b1-command-dark.png",
+   "3a-b1-command-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n0:45\n\nRun a command on your PC\n\nWhat it says this does\nCreates a repository called notes on your GitHub, so it can be copied to this PC.\n\nWhat will run, first line\n\ngh repo create notes --private\n\nShow the rest of the command (2 more lines)\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "3b",
+  "what": "order",
+  "lead": 70,
+  "firstLine": 182
+ },
+ {
+  "flow": "3b",
+  "what": "shot",
+  "files": [
+   "3b-b2-step-dark.png",
+   "3b-b2-step-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n0:45\n\nRun 3 commands on your PC\n\nWhat it says this does\nMakes this folder a repository and saves the notes in it.\n\nThe commands this approves (what will actually run)\n\ngit init\ngit add notes.md\ngit commit -m \"First notes\"\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "3b",
+  "what": "step-said",
+  "said": "The user approved this step. These commands now run without another card, each once, exactly as written: git init; git add notes.md; git commit -m \"First notes\". Anything else asks on its own card, including 1 of the ones you listed."
+ },
+ {
+  "flow": "3c",
+  "what": "order",
+  "lead": 69,
+  "firstLine": 113
+ },
+ {
+  "flow": "3c",
+  "what": "shot",
+  "files": [
+   "3c-delete-own-card-dark.png",
+   "3c-delete-own-card-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n0:45\n\nRun a command on your PC\n\nWhat it says this does\nRemoves the old notes file.\n\nWhat will run\n\nrm old-notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "3d",
+  "what": "confirm",
+  "frame": {
+   "request_id": "mock-1:2",
+   "run_id": "mock-1",
+   "title": "Edit notes.md",
+   "detail": "Append a 'Next steps' section (4 lines) to notes.md",
+   "tool": "Edit",
+   "purpose": "",
+   "step": false,
+   "agent": {
+    "id": "mock",
+    "name": "Demo agent"
+   },
+   "thread_id": "90e88f1ba70b"
+  }
+ },
+ {
+  "flow": "3d",
+  "what": "shot",
+  "files": [
+   "3d-backend-confirm-dark.png",
+   "3d-backend-confirm-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "3d",
+  "what": "bare-yes",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"working\",\"run_id\":\"mock-1\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"90e88f1ba70b\"}"
+   ],
+   [
+    "live",
+    "{\"run_id\":\"mock-1\",\"kind\":\"doing\",\"text\":\"Editing notes.md\",\"activity\":\"editing\",\"app\":null}"
+   ],
+   [
+    "step",
+    "{\"run_id\":\"mock-1\",\"text\":\"Editing notes.md\",\"kind\":\"tool\",\"ts\":1794690125864,\"activity\":\"editing\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"subagent\":false,\"thread_id\":\"90e88f1ba70b\"}"
+   ],
+   [
+    "live",
+    "{\"run_id\":\"mock-1\",\"kind\":\"doing\",\"text\":\"Verifying the change\",\"activity\":\"reading\",\"app\":null}"
+   ],
+   [
+    "step",
+    "{\"run_id\":\"mock-1\",\"text\":\"Verifying the change\",\"kind\":\"tool\",\"ts\":1794690126563,\"activity\":\"reading\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"subagent\":false,\"thread_id\":\"90e88f1ba70b\"}"
+   ],
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"mock-1\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"90e88f1ba70b\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"mock-1\",\"status\":\"done\",\"summary\":\"Added a 'Next steps' section to notes.md.\",\"details\":null,\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"note\":null,\"origin\":\"asked\",\"thread_id\":\"90e88f1ba70b\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“Add a next steps section to my notes.”\n\nAdded a 'Next steps' section to notes.md.\n\nSwift · via Demo agent\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "3d",
+  "what": "click-approve",
+  "clicked": false
+ },
+ {
+  "flow": "3d",
+  "what": "after-approve",
+  "frame": null
+ },
+ {
+  "flow": "3d",
+  "what": "shot",
+  "files": [
+   "3d-after-approve-dark.png",
+   "3d-after-approve-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4a",
+  "what": "confirm",
+  "frame": {
+   "request_id": "swift:1",
+   "run_id": "mock-2",
+   "title": "Send this email to Dr Ada Lovelace",
+   "detail": "Subject: Missing Thursday's lecture",
+   "tool": "send_email",
+   "agent": null,
+   "artifact_id": "draft-1",
+   "thread_id": "368059bc2038"
+  }
+ },
+ {
+  "flow": "4a",
+  "what": "shot",
+  "files": [
+   "4a-email-draft-dark.png",
+   "4a-email-draft-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n0:44\n\nSend this email to Dr Ada Lovelace\n\nTo\nDr Ada Lovelace <ada.lovelace@example.edu>\nSubject\nMissing Thursday's lecture\nHello Dr Lovelace,\n\nI'm sorry, but I won't be able to attend Thursday's lecture. I'll catch up on the material from the slides and will come to office hours if I have questions.\n\nRegards,\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nSend",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4a",
+  "what": "bare-approve",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"working\",\"run_id\":\"mock-2\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"368059bc2038\"}"
+   ],
+   [
+    "artifact",
+    "{\"run_id\":\"mock-2\",\"id\":\"send-draft-1\",\"kind\":\"send_status\",\"phase\":\"sending\",\"version\":2,\"title\":\"Email to Dr Ada Lovelace\",\"data\":{\"state\":\"sending\",\"draft_id\":\"draft-1\",\"reason\":\"Sending in 5 seconds. Say “stop” to ke"
+   ]
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "“Send an email to my lecturer saying I'll miss Thursday's lecture.”\n\nWaiting\n0:08\nLooking up your lecturer\nDrafting the email\nReading the draft over\nAsking you before sending\nEsc\nstops\nShow\nWatch\nStop",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4a",
+  "what": "shot",
+  "files": [
+   "4a-after-bare-approve-dark.png",
+   "4a-after-bare-approve-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "“Send an email to my lecturer saying I'll miss Thursday's lecture.”\n\nWaiting\n0:09\nLooking up your lecturer\nDrafting the email\nReading the draft over\nAsking you before sending\nEsc\nstops\nShow\nWatch\nStop",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4b",
+  "what": "shot",
+  "files": [
+   "4b-which-sam-dark.png",
+   "4b-which-sam-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "timer",
+  "frame": {
+   "run_id": "local-12",
+   "status": "done",
+   "summary": "Timer set for 6 seconds.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "967d37388b3f"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "confirm",
+  "frame": {
+   "request_id": "mock-3:2",
+   "run_id": "mock-3",
+   "title": "Edit notes.md",
+   "detail": "Append a 'Next steps' section (4 lines) to notes.md",
+   "tool": "Edit",
+   "purpose": "",
+   "step": false,
+   "agent": {
+    "id": "mock",
+    "name": "Demo agent"
+   },
+   "thread_id": "1c922ca92583"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "due",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"listening\",\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps section\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps section to\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps section to my\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps section to my notes.\",\"final\":false}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps section to my notes.\",\"final\":false}"
+   ],
+   [
+    "state",
+    "{\"state\":\"transcribing\",\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "transcript",
+    "{\"text\":\"Add a next steps section to my notes.\",\"final\":true,\"typed\":false}"
+   ],
+   [
+    "runs",
+    "{\"focus\":\"mock-3\",\"rows\":[{\"run_id\":\"local-5\",\"thread_id\":\"d45a88c4ec35\",\"title\":\"turn off Wi-Fi\",\"state\":\"result\",\"activity\":null,\"app\":null,\"agent\":null,\"started_ms\":1794690089576,\"origin\":\"asked\",\"summary\":\"Wi-Fi off."
+   ],
+   [
+    "state",
+    "{\"state\":\"working\",\"run_id\":\"mock-3\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "live",
+    "{\"run_id\":\"mock-3\",\"kind\":\"doing\",\"text\":\"Reading notes.md\",\"activity\":\"reading\",\"app\":null}"
+   ],
+   [
+    "step",
+    "{\"run_id\":\"mock-3\",\"text\":\"Reading notes.md\",\"kind\":\"tool\",\"ts\":1794690160562,\"activity\":\"reading\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"subagent\":false,\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "stack",
+    "{\"items\":[{\"id\":\"due:1\",\"kind\":\"due\",\"title\":\"Your timer is up.\",\"reason\":\"due\",\"since_ms\":1794690160942,\"thread_id\":null,\"expires_ms\":null}]}"
+   ],
+   [
+    "state",
+    "{\"state\":\"confirm\",\"run_id\":\"mock-3\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "confirm.request",
+    "{\"request_id\":\"mock-3:2\",\"run_id\":\"mock-3\",\"title\":\"Edit notes.md\",\"detail\":\"Append a 'Next steps' section (4 lines) to notes.md\",\"tool\":\"Edit\",\"purpose\":\"\",\"step\":false,\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_"
+   ]
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "1\n1 thing needs you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "shot",
+  "files": [
+   "5a-timer-due-behind-card-dark.png",
+   "5a-timer-due-behind-card-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "1\n1 thing needs you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "reject",
+  "clicked": true
+ },
+ {
+  "flow": "5a",
+  "what": "after-reject",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"mock-3\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"mock-3\",\"status\":\"rejected\",\"summary\":\"Rejected: Edit notes.md. Nothing was changed.\",\"details\":null,\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"note\":null,\"origin\":\"asked\",\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "stack",
+    "{\"items\":[]}"
+   ],
+   [
+    "runs",
+    "{\"focus\":\"due-timer-1\",\"rows\":[{\"run_id\":\"local-5\",\"thread_id\":\"d45a88c4ec35\",\"title\":\"turn off Wi-Fi\",\"state\":\"result\",\"activity\":null,\"app\":null,\"agent\":null,\"started_ms\":1794690089576,\"origin\":\"asked\",\"summary\":\"Wi-Fi"
+   ],
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"due-timer-1\",\"agent\":null,\"thread_id\":\"1c922ca92583\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"due-timer-1\",\"status\":\"done\",\"summary\":\"Your timer is up.\",\"details\":null,\"agent\":null,\"note\":null,\"origin\":\"reminder\",\"thread_id\":\"1c922ca92583\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5b",
+  "what": "shot",
+  "files": [
+   "5b-after-card-dark.png",
+   "5b-after-card-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5c",
+  "what": "open-stack",
+  "opened": false
+ },
+ {
+  "flow": "5c",
+  "what": "shot",
+  "files": [
+   "5c-stack-open-dark.png",
+   "5c-stack-open-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5d",
+  "what": "Skip",
+  "clicked": false,
+  "frames": [],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5d",
+  "what": "shot",
+  "files": [
+   "5d-stack-skip-dark.png",
+   "5d-stack-skip-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "Open",
+  "clicked": false,
+  "frames": [],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "shot",
+  "files": [
+   "5e-stack-open-dark.png",
+   "5e-stack-open-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "End",
+  "clicked": false,
+  "frames": [],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "shot",
+  "files": [
+   "5f-stack-end-dark.png",
+   "5f-stack-end-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up.\n\nDone",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "6a",
+  "what": "result",
+  "frame": {
+   "run_id": "echo-1",
+   "status": "done",
+   "summary": "“open usiu dot ac dot ke\n\n[Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list]\n- calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved.\n- email-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone.\n- research-into-word: Research a topic on the web and write the findings into the open Word document, or a new one, paragraph by paragraph while the user watches. Use when the user asks to research something and put it in Word or a document.”",
+   "details": {
+    "kind": "text",
+    "text": "Transcribed on this PC. No agent is configured yet, so nothing was sent anywhere."
+   },
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "f0082cfb5138"
+  }
+ },
+ {
+  "flow": "6a",
+  "what": "shot",
+  "files": [
+   "6a-web-dark.png",
+   "6a-web-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“open usiu dot ac dot ke”\n\n“open usiu dot ac dot ke\n\n[Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list]\n\ncalendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved.\nemail-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone.\nresearch-into-word: Research a topic on the web and write the findings into the open Word document, or a new one, paragraph by paragraph while the user watches. Use when the user asks to research something and put it in Word or a document.”\n\nTranscribed on this PC. No agent is configured yet, so nothing was sent anywhere.\n\nRead more\n· 1 min read\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "6b",
+  "what": "result",
+  "frame": {
+   "run_id": "echo-2",
+   "status": "done",
+   "summary": "“[Context: the previous voice request, 1 s ago. Use it only if the current request refers to it.]\nPrevious request: open usiu dot ac dot ke\nPrevious answer: “open usiu dot ac dot ke [Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list] - calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved. - email-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone. - research-i…\n\n[Current request]\nopen that site again\n\n[Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list]\n- calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved.\n- email-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone.\n- research-into-word: Research a topic on the web and write the findings into the open Word document, or a new one, paragraph by paragraph while the user watches. Use when the user asks to research something and put it in Word or a document.”",
+   "details": {
+    "kind": "text",
+    "text": "Transcribed on this PC. No agent is configured yet, so nothing was sent anywhere."
+   },
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "130a2f708f18"
+  }
+ },
+ {
+  "flow": "6b",
+  "what": "shot",
+  "files": [
+   "6b-web-dark.png",
+   "6b-web-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“open that site again”\n\n“[Context: the previous voice request, 1 s ago. Use it only if the current request refers to it.]\n\nPrevious request: open usiu dot ac dot ke\n\nPrevious answer: “open usiu dot ac dot ke [Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list] - calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved. - email-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone. - research-i…\n\n[Current request]\n\nopen that site again\n\n[Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list]\n\ncalendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved.\nemail-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone.\nresearch-into-word: Research a topic on the web and write the findings into the open Word document, or a new one, paragraph by paragraph while the user watches. Use when the user asks to research something and put it in Word or a document.”\n\nTranscribed on this PC. No agent is configured yet, so nothing was sent anywhere.\n\nRead more\n· 2 min read\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "6c",
+  "what": "result",
+  "frame": {
+   "run_id": "echo-3",
+   "status": "done",
+   "summary": "“[Context: this voice conversation so far, oldest first. Use it only if the current request refers to it.]\nEarlier request (2 s ago): open usiu dot ac dot ke\nEarlier answer: “open usiu dot ac dot ke [Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list] - calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts…\n[The previous request, 1 s ago]\nPrevious request: open that site again\nPrevious answer: “[Context: the previous voice request, 1 s ago. Use it only if the current request refers to it.] Previous request: open usiu dot ac dot ke Previous answer: “open usiu dot ac dot ke [Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list] - calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved. - email-draft: Draft an email to one of the user's contacts and fill it in visibly…\n\n[Current request]\nopen my university's website\n\n[Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list]\n- calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved.\n- email-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone.\n- research-into-word: Research a topic on the web and write the findings into the open Word document, or a new one, paragraph by paragraph while the user watches. Use when the user asks to research something and put it in Word or a document.”",
+   "details": {
+    "kind": "text",
+    "text": "Transcribed on this PC. No agent is configured yet, so nothing was sent anywhere."
+   },
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "58d83054b95b"
+  }
+ },
+ {
+  "flow": "6c",
+  "what": "shot",
+  "files": [
+   "6c-web-dark.png",
+   "6c-web-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“open my university's website”\n\n“[Context: this voice conversation so far, oldest first. Use it only if the current request refers to it.]\n\nEarlier request (2 s ago): open usiu dot ac dot ke\n\nEarlier answer: “open usiu dot ac dot ke [Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list] - calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts…\n\n[The previous request, 1 s ago]\n\nPrevious request: open that site again\n\nPrevious answer: “[Context: the previous voice request, 1 s ago. Use it only if the current request refers to it.] Previous request: open usiu dot ac dot ke Previous answer: “open usiu dot ac dot ke [Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list] - calendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved. - email-draft: Draft an email to one of the user's contacts and fill it in visibly…\n\n[Current request]\n\nopen my university's website\n\n[Swift's workflows. If the request is one of these, call read_workflow with its name first and follow it; otherwise ignore this list]\n\ncalendar-event: The user's Google Calendar - what's on it, and adding, rescheduling or cancelling meetings and appointments (with contacts invited or a Google Meet link), each shown to the user on a card first. Use when the user asks what's on their calendar or about their next meeting, or asks to add, schedule, reschedule or cancel something in their calendar, or to undo one they just approved.\nemail-draft: Draft an email to one of the user's contacts and fill it in visibly in Gmail or Outlook, so the user reads it and presses Send themselves. Use when the user asks to email, write to, or draft an email to someone.\nresearch-into-word: Research a topic on the web and write the findings into the open Word document, or a new one, paragraph by paragraph while the user watches. Use when the user asks to research something and put it in Word or a document.”\n\nTranscribed on this PC. No agent is configured yet, so nothing was sent anywhere.\n\nRead more\n· 3 min read\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ }
+]

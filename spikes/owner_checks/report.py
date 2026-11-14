@@ -606,7 +606,30 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         # Check 305's failure (2026-11-14): a long answer's opening said twice, its "…" kept after Read more.
         ("340 a long answer says its opening once and reads to the end", LOOK,
          "tell us whether the opening showed twice, and whether Read more showed the end with no \"…\""),
+        *_real_pc(),
         *_runs(rows, runs_dir),
+    ]
+
+
+def _real_pc() -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 380-389: the end-to-end pass of 2026-11-14 on what the dev harness can't show (Chrome, Task Manager,
+    the wake word, 150%, pane windows). Only the owner's eyes settle these; 389's opening is judged by 255 and 330."""
+    return [
+        ("380 an email draft to a contact, filled in Chrome", LOOK,
+         "tell us the card's recipient, and whether Gmail's draft had To, subject and body, with nothing sent"),
+        ("381 'Which Sam?' listed every match and the draft went to the one you said", LOOK, "check on screen"),
+        ("382 a waiting card moved out from under Task Manager and stayed clickable", LOOK,
+         "tell us where the card showed, and whether Notepad kept the cursor"),
+        ("383 at 150%: Read more reached the end and the stack counted the timer", LOOK,
+         "tell us your scale and anything cut off or overlapping"),
+        ("384 the wake word answered without the hotkey", LOOK, "tell us how long the answer took, about"),
+        ("385 'approve' hands-free asked for Swift's name; 'Swift, approve' ran it", LOOK, "check on screen"),
+        ("386 a plain spoken yes, and the request said again, turned Wi-Fi off", LOOK, "check on screen and in the tray"),
+        ("387 a typed yes didn't turn Wi-Fi off; what did a typed 'Swift, yes' do?", LOOK,
+         "tell us what step 2 did: the code allows it, CLAUDE.md says typing never approves (your decision)"),
+        ("388 the timer waited behind the card; the stack reopened and ended Swift's question", LOOK, "check on screen"),
+        ("389 a web address said, said again, and remembered: see 255 and 330 above", LOOK,
+         "tell us whether step 2 asked for the address and offered none"),
     ]
 
 
@@ -787,6 +810,15 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("351 'until (a day)' listed that day's events too", LOOK, "check on screen"),
         ("352 'open this' on a .url, .jar or .py asked on a card first", LOOK, "check on screen: nothing opened after Reject"),
         ("353 a search aimed at .env files was refused with no card", LOOK, "check on screen: no contents shown"),
+        ("370 'show this week's timetable… again' and 'find my university's website and open it' didn't reopen it",
+         LOOK, "tell us whether either opened usiu.ac.ke, and whether Swift asked you to say the address"),
+        ("371 'open it in Edge' and 'go ahead and open that site again, please' reopened it", LOOK,
+         "tell us whether each opened usiu.ac.ke without a question"),
+        ("372 Gmail with your own empty draft open: every field went into Swift's compose", LOOK,
+         "tell us which compose window got the To, the subject and the body; nothing sent"),
+        ("373 a long bold opening showed no stars on the card or after Read more", LOOK, "check on screen"),
+        ("374 the two radios said again in the other order turned both off; only the Wi-Fi didn't approve both", LOOK,
+         "tell us what went off at step 2 and at step 3"),
     ]
 
 

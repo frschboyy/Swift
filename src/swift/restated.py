@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from swift import intake
 from swift.routing.rules import strip_wake
-from swift.same_request import same_request
+from swift.same_request import same_intents, same_request
 from swift.system import intents as system_intents
 
 Restated = Literal["same", "like"]
@@ -33,7 +33,7 @@ def restated_as(text: str, question: Any) -> Restated | None:
     said = strip_wake(text) or text
     found = system_intents.parse(said)
     if found is not None:
-        return "same" if list(found) == list(question.payload) else None
+        return "same" if same_intents(found, question.payload) else None  # in any order (QA-06)
     if question.request and same_request(said, question.request):
         return "like"
     return None

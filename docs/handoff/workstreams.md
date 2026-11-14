@@ -122,3 +122,14 @@ All taken from the orchestrator's recommendations:
   reads inside the read folders and volume up or down, and stays on until turned off; an offer comes after 3 approvals
   in 3 runs within 14 days with none rejected, once per kind. Built in the study's order after the queued B work,
   starting with "ask me about everything".
+- **The foundation review** (`docs/explorations/foundation-rules-review.md`, 2026-11-15): all 14 decisions accepted as
+  recommended. One approval model (levels 0–3 from reversibility, reach, channel, presence and origin) replaces the
+  rules' exceptions; typed words never approve anywhere (settles check 387 and HA-HEAR-01); Tab and Enter on the
+  card's own button is a click; a yes with the hotkey held is a gesture; web addresses not in this request's words are
+  asked about ("Open usiu.ac.ke?") instead of matched by regex; an address in the owner's own words can be a recipient,
+  marked on the send card; an unclear write into an app is asked about with a preview, and a terminal always gets its
+  own card; a Recycle Bin move is a card that a step card may cover, a permanent delete its own card; `swift.log` gains
+  reason codes (never content); paying by gesture only; `intake.approves` is the one decider, tested against
+  `CLAUDE.md`'s table; provisional check ids renumbered at merge; the generated run list in its own file
+  (`merge=ours`); moving between PCs by `git bundle` on request, still never push; `CLAUDE.md` lists this PC's working
+  commands. `CLAUDE.md`'s rules are rewritten to the model, with a note of what isn't built yet.

@@ -24,7 +24,7 @@ given_out: 339
 areas:
   hearing:
     paths: [src/swift/wake.py, src/swift/endpoint.py, src/swift/audio/*, src/swift/stt/transcriber.py, src/swift/stt/fixes.py]
-    checks: [1, 11, 13, 43-48, 65, 103, 114, 124, 125, 136, 160, 191, 192, 200, 228-231]
+    checks: [1, 11, 13, 43-48, 65, 103, 114, 124, 125, 136, 160, 191, 192, 200, 228-231, 384]
   wake-detector:
     paths: [src/swift/wake_acoustic.py, src/swift/wake.py]
     checks: [228-232]
@@ -37,21 +37,21 @@ areas:
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
     paths: [src/swift/security/*, src/swift/restated.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
-    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304]
+    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385]
   typing:
     rule: typing never approves
     paths: [overlay/src/entry.ts, src/swift/intake.py]
-    checks: [16b, 68, 108, 138, 304]
+    checks: [16b, 68, 108, 138, 304, 387]
   calendar:
     paths: [src/swift/workflows/calendar.py, src/swift/connectors/google_calendar.py, src/swift/workflows/library/calendar-event/*]
     checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195, 351]
   email:
     rule: recipients only from contacts or find_contact
     paths: [src/swift/connectors/gmail.py, src/swift/workflows/names.py, src/swift/workflows/tools.py, src/swift/workflows/library/email-draft/*]
-    checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240, 350]
+    checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240, 350, 380, 381]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
-    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304]
+    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304, 386, 374]
   stopping:
     paths: [src/swift/cleanup.py]
     checks: [242]
@@ -63,10 +63,10 @@ areas:
     checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 251, 256, 257]
   out-from-under:
     paths: [overlay/src-tauri/src/cover.rs, overlay/src-tauri/src/placement.rs, overlay/src-tauri/src/lib.rs]
-    checks: [203, 320, 345]
+    checks: [203, 320, 345, 382]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
-    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212]
+    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388]
   presence:
     rule: no hands-free listening while locked
     paths: [src/swift/presence.py, src/swift/lifecycle.py]
@@ -76,7 +76,7 @@ areas:
     checks: [54, 146-149, 165, 171, 180, 181, 263, 270, 271, 300]
   capsule:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/card.ts, overlay/src/blocks.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
-    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320, 345]
+    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320, 345, 383]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]
@@ -86,10 +86,10 @@ areas:
   apps:
     rule: Swift writes into apps only when the owner's own words asked
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
-    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340]
+    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340, 373]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
     checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239, 303]
@@ -99,7 +99,7 @@ areas:
   reads:
     rule: memory only from the owner's words; Swift's own files are never read
     paths: [src/swift/executors/read_scope.py, src/swift/security/web_scope.py, src/swift/workflows/scope.py]
-    checks: [52, 62, 213, 255, 330, 353]
+    checks: [52, 62, 213, 255, 330, 353, 370, 371]
   memory:
     rule: memory is written only from the owner's words or an approved card, never from what a worker read
     paths: [src/swift/memory.py]
@@ -123,6 +123,16 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [380-389]
+    why: the end-to-end QA pass of main (2026-11-14) drove these flows in the dev harness with fakes; Chrome, Task Manager, the wake word, 150% scaling and pane windows only show on the real PC
+  - checks: [370, 371]
+    why: QA-04 (2026-11-15), a recent address reopens only for a request that is all pointing words; product rule (web addresses), not seen on the real PC
+  - checks: [372]
+    why: QA-03, with two Gmail composes in one window the fields may come from different ones (proven with a fake UIA tree); the real tree order decides the fix
+  - checks: [374]
+    why: "QA-06 (2026-11-15), A+B, the same request said again in another order is its question's yes; product rule, not seen on the real PC"
+  - checks: [373]
+    why: QA-05 (2026-11-15), a long first sentence is no longer cut inside bold or a link; not seen on the real PC
   - checks: [340]
     why: check 305's failure of 2026-11-14 15:00 (a long answer's opening said twice, its "…" kept after Read more); fixed in split_answer (root), not seen on the real PC
   - checks: [305, 306]

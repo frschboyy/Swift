@@ -1,0 +1,198 @@
+[
+ {
+  "flow": "5g",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-1b0ae0a3",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "41d28a1cd871",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-28",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "5g",
+  "what": "parked",
+  "stack": {
+   "items": [
+    {
+     "id": "parked:41d28a1cd871",
+     "kind": "parked",
+     "title": "Turn off Wi-Fi",
+     "reason": "asked",
+     "since_ms": 1794690876522,
+     "thread_id": "41d28a1cd871",
+     "expires_ms": 1794691476522
+    }
+   ]
+  },
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“what time is it”\n\nIt's 00:14.\n\nSwift\nCopy",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5g",
+  "what": "shot",
+  "files": [
+   "5g-question-parked-dark.png",
+   "5g-question-parked-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5h",
+  "what": "open-stack",
+  "opened": true
+ },
+ {
+  "flow": "5h",
+  "what": "shot",
+  "files": [
+   "5h-stack-open-dark.png",
+   "5h-stack-open-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": "Needs you\n1\nTurn off Wi-Fi\nUnanswered question · just now\nOpen\nSkip\nEnd",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5h",
+  "what": "open",
+  "clicked": true
+ },
+ {
+  "flow": "5h",
+  "what": "reopened",
+  "ask": {
+   "ask_id": "ask-a6c8b665",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "41d28a1cd871",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-30",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  },
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nWaiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5h",
+  "what": "shot",
+  "files": [
+   "5h-question-reopened-dark.png",
+   "5h-question-reopened-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nWaiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5i",
+  "what": "parked",
+  "stack": {
+   "items": [
+    {
+     "id": "parked:41d28a1cd871",
+     "kind": "parked",
+     "title": "Turn off Wi-Fi",
+     "reason": "asked",
+     "since_ms": 1794690884222,
+     "thread_id": "41d28a1cd871",
+     "expires_ms": 1794691484222
+    }
+   ]
+  },
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“what time is it”\n\nIt's 00:14.\n\nSwift\nCopy",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5i",
+  "what": "skip",
+  "clicked": false
+ },
+ {
+  "flow": "5i",
+  "what": "after-skip",
+  "frames": [],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5j",
+  "what": "end",
+  "clicked": true
+ },
+ {
+  "flow": "5j",
+  "what": "after-end",
+  "frames": [
+   [
+    "stack",
+    "{\"items\":[]}"
+   ]
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5j",
+  "what": "shot",
+  "files": [
+   "5j-question-ended-dark.png",
+   "5j-question-ended-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": ""
+  }
+ }
+]

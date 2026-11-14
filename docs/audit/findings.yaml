@@ -1,5 +1,23 @@
 # Swift findings register. One entry per finding from every audit, rechecked against the code on 2026-11-12.
 # Format and rules: tests/unit/test_findings_register.py. Sorted: open first, then by severity.
+- id: QA-03
+  title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
+    different ones, or write into the owner's own draft that has no subject yet.
+  source: QA review of main e18af1b, 2026-11-14
+  module: src/swift/desktop/gmail_fill.py, src/swift/desktop/windows.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: suspected
+  evidence: windows.py _GmailScreen.fields finds each field by itself in the whole window (uia.find per key), and
+    subject_in_use reads only the subject; open_to opens the first collapsed To row
+  test: tests/unit/test_gmail_fill.py::test_two_composes_in_one_window_hand_the_fill_fields_from_one_compose
+  note: 'Proven at code level (qa1-pstack, 2026-11-15) with a fake UIA tree, a strict xfail: with the owner''s empty
+    draft first in the tree (To collapsed), the fill gets Swift''s To but the draft''s Subject and Body, and the
+    draft''s empty subject reads as free, so Swift would write into the owner''s draft (a product rule). Whether
+    Gmail''s real tree puts the older compose first is check 372. The fix (fields from one compose dialog) touches
+    a product rule: it waits for the orchestrator.'
 - id: B-10
   title: Result and failure texts name the provider ("Claude Code stopped there") instead of Swift.
   source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md X-06
@@ -3231,3 +3249,87 @@
   evidence: ClaudeCodeExecutor.__init__ moves non-read entries to confirm_tools, which options() puts in tools=
   test: null
   note: 'No such entry is set on the owner''s PC. Safe either way: the tool asks on a card or isn''t offered.'
+- id: QA-01
+  title: A long answer whose first sentence is over 300 characters showed that sentence cut with "…" on its card,
+    then whole again below it.
+  source: QA review of main e18af1b, 2026-11-14 (the edge check 305's fix left, fix-305 notes)
+  module: src/swift/executors/claude_mapping.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: claude_mapping.py split_answer and _lead_words; the summary is the sentence up to its last clause break or
+    word that fits, marked "…", and the body goes on from there
+  test: tests/unit/test_seam_replay.py::test_an_answer_whose_first_sentence_is_too_long_for_the_summary_says_it_once
+  note: Also test_claude_mapping.py::test_split_answer_says_one_long_first_sentence_once, which replaces the test that
+    pinned the repeat. The seam scenario fails with the fix undone. Check 340 covers the screen.
+- id: QA-02
+  title: 'A recent address opens for words that only contain "show this", "open it", "that ...''s" or "again" ("show
+    this week''s timetable on my university''s website" opened usiu.ac.ke said a moment ago).'
+  source: QA review of main e18af1b, 2026-11-14
+  module: src/swift/workflows/owner_address.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: partial
+  confidence: confirmed
+  evidence: owner_address.py _POINTS_BACK; "open/show/visit this|that|it" points only when the clause ends there or
+    goes on with again, up, back, please, now or a word for a site; "that site" not as "that site's"; "again" not
+    after "try" or "ask"
+  test: tests/unit/test_recent_address.py::test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address
+  note: The web-address rule (a recent address only when the owner points at it). Only the owner's own earlier
+    addresses could open, never the agent's. The session-level test fails with the fix undone. Built on the
+    orchestrator's go-ahead; second review by the orchestrator pending.
+  # 2026-11-15 (qa1-pstack): partial, not root. interrogate proved it still opened for "again" anywhere and for a
+  # pointing word followed by "one", "page" or "back", and refused "open it in Edge": see QA-04.
+- id: QA-04
+  title: 'After QA-02, a recent address still opened for words that point at something else ("show this week''s
+    timetable on my university''s website again", "open Spotify again", "find my university''s website and open
+    it"), and no longer opened for "open it in Edge" or "show that to me".'
+  source: pstack interrogate of d28e4bd (QA-02), 2026-11-15, three adversaries (opus xhigh, the session model, sonnet)
+  module: src/swift/workflows/owner_address.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: points_back read a few words after a pointing word, and "again" or "reopen" anywhere; 22 phrasings went
+    wrong through Session and desktop_open. Now every clause of the request, stripped of the wake word, fillers,
+    "again", "please" and "in Edge", must be one pointing phrase, and a bare "it"/"that" needs a verb.
+  test: tests/unit/test_recent_address.py::test_a_request_that_names_anything_else_doesnt_reopen_a_recent_address
+  note: Also test_a_request_that_is_only_pointing_words_reopens_the_recent_address and
+    test_an_answer_points_back_only_by_the_same_whole_clause_rule. 23 of the 39 tests fail with d28e4bd's rule, 19 on
+    main. The web-address rule; built on the orchestrator's go-ahead, second review by the orchestrator pending.
+- id: QA-05
+  title: A long first sentence over 300 characters was cut inside **bold**, `code` or a [link](…), so the card's
+    summary ended "**bold phrase…" and Read more began "straddles**".
+  source: pstack interrogate of 13405a5 (QA-01), 2026-11-15, the sonnet adversary
+  module: src/swift/executors/claude_mapping.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: _lead_words cut at the last clause break or space that fit, measured on _plain text but made in the raw
+    markdown; now a cut inside a bold, code or link span is never chosen while another break fits
+  test: tests/unit/test_seam_replay.py::test_a_long_first_sentence_is_never_cut_inside_bold_code_or_a_link
+  note: Came in with QA-01. Fails with the fix undone. Left as is, an opening that is one span longer than the
+    summary is still cut at a word inside it.
+- id: QA-06
+  title: A compound request said again in another order to Swift's own question ("turn off the bluetooth and turn
+    off the wifi" to the question for "turn off the wifi and turn off the bluetooth") did nothing, and the question
+    went to the stack.
+  source: thermos code-quality review of cc19d71..HEAD, 2026-11-15 (two owners of "the same request")
+  module: src/swift/restated.py, src/swift/same_request.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: restated_as compared list(found) == list(question.payload), in order, while same_request
+    (parked.drop_same) compared them sorted; now both ask same_request.same_intents, in any order
+  test: tests/unit/test_seam_replay.py::test_a_compound_request_said_again_in_another_order_is_its_yes
+  note: Fixed on the orchestrator's go-ahead (A+B, a product rule; his second review). Also
+    test_seam_replay.py::test_part_of_a_compound_request_said_to_its_question_never_approves_it (guard) and
+    test_same_request.py::test_restated_and_same_request_agree_on_every_system_request (one owner).

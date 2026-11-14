@@ -14,6 +14,8 @@ from __future__ import annotations
 from settling import settled
 
 import asyncio
+
+import pytest
 from typing import Any
 
 from test_routing import SpyExecutor
@@ -162,3 +164,86 @@ async def test_an_address_from_another_conversation_is_refused() -> None:
     await ask(session, agent, "Open that site again.", open="usiu.ac.ke")
     assert [r.ok for r in agent.opens] == [True, False, True, False] and records[-2]["action"] == "new_topic"
     assert desktop.opened == ["https://usiu.ac.ke", "https://usiu.ac.ke"]
+
+
+async def test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address() -> None:
+    """QA of 2026-11-14: "show this week's timetable on my university's website" isn't pointing at anything, yet
+    points_back matched "show this", so the address said a moment ago opened for a description (check 330's case)."""
+    session, agent, desktop, _ = make()
+    await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
+    await ask(session, agent, "Show this week's timetable on my university's website.", open="usiu.ac.ke")
+    assert not agent.opens[-1].ok and desktop.opened == ["https://usiu.ac.ke"]
+    for words in ("show this week's timetable on my university's website", "open this year's budget on the school site",
+                  "visit that store's homepage", "go to this month's newsletter page",
+                  "open my university's website, then try again if it fails",
+                  "look up the course list and ask again if you're unsure"):
+        assert not points_back(words), words
+    for words in ("open that site again", "open this site", "the same page", "the one I just opened", "open it",
+                  "open it again, please", "bring that up"):
+        assert points_back(words), words  # the owner's pointing words still point
+
+
+# QA-04 (2026-11-15): QA-02's fix still read a few words after a pointing word, and "again" anywhere. Each of these
+# opened usiu.ac.ke said a moment ago through Session and desktop_open (interrogate of d28e4bd); the first group
+# were already open before QA-02, the last five were refused only after it.
+NOT_POINTING = (
+    "Show this week's timetable on my university's website again.",
+    "Once again, show this week's timetable on my university's website.",
+    "Show this one week timetable on my university's website.",
+    "Show this page of results on my university's website.",
+    "Show this website’s timetable on my university's website.",
+    "Open that site's contact page.",
+    "Open that one drive folder.",
+    "Find my university's website and open it.",
+    "Open Spotify again.",
+    "Search again for the timetable.",
+    "Reopen my Word document.",
+    "Open that document again.",
+    "Open it up in Word.",
+    "Try that again.",
+    "Ask again.",
+    "Do that again.",
+    "That one.",
+    "Open the last one.",
+)
+POINTING = (
+    "Open it in Edge.", "Open that in Chrome.", "Open it in a new tab.", "Show that to me.", "Open it — please.",
+    "Open that site again.", "Open this site.", "The same page.", "The one I just opened.", "Open it.",
+    "Open it again, please.", "Bring that up.", "Pull that up.", "Open that uh site.",
+    "Go ahead and open that site again.", "Open the site I was on.", "Take me there.",
+    "Bring that site back up.", "Open that site again and again.",
+)
+
+
+@pytest.mark.parametrize("words", NOT_POINTING)
+async def test_a_request_that_names_anything_else_doesnt_reopen_a_recent_address(words: str) -> None:
+    session, agent, desktop, _ = make()
+    await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
+    await ask(session, agent, words, open="usiu.ac.ke")
+    assert not agent.opens[-1].ok and desktop.opened == ["https://usiu.ac.ke"], words
+
+
+@pytest.mark.parametrize("words", POINTING)
+async def test_a_request_that_is_only_pointing_words_reopens_the_recent_address(words: str) -> None:
+    session, agent, desktop, _ = make()
+    await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
+    await ask(session, agent, words, open="usiu.ac.ke")
+    assert agent.opens[-1].ok and desktop.opened == ["https://usiu.ac.ke"] * 2, words
+
+
+def test_an_answer_points_back_only_by_the_same_whole_clause_rule() -> None:
+    """points_back also reads the owner's answers to Swift's questions (desktop_tools._open_url)."""
+    for words in ("yes, again", "no, not again", "yes", "again please", "that one", "yes, that one"):
+        assert not points_back(words), words
+    for words in ("that one I just opened", "yes, that one I just opened", "yeah, open that site"):
+        assert points_back(words), words
+
+
+def test_a_long_answer_is_never_pointing_words_and_is_read_at_once() -> None:
+    """A typed answer of thousands of words isn't pointing words; checking it doesn't hold up the loop (interrogate
+    of QA-04: "open that site " + "again " * 8000 + "x" took 14 s in the trailing-words pattern)."""
+    import time
+
+    start = time.perf_counter()
+    assert not points_back("open that site " + "again " * 20000 + "x")
+    assert time.perf_counter() - start < 0.5

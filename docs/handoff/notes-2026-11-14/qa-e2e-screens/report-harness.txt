@@ -1,0 +1,294 @@
+
+46 requests since 2026-11-14 23:40
+
+time      thread  source      route / workflow        status     cards        request
+23:45:06  A       debug.ask   local                   done       -            what time is it
+23:50:14  B       debug.ask   local                   done       -            what time is it
+23:54:03  C       debug.ask   local                   done       -            what time is it
+00:01:19  D       debug.ask   local                   done       -            what time is it
+00:01:29  E       debug.ask   local                   done       -            turn off Wi-Fi
+00:01:31  F       debug.ask   local                   done       -            turn on Wi-Fi
+00:01:33  G       debug.ask   local                   done       -            turn off Wi-Fi
+00:01:38  H       debug.ask   local                   done       -            turn off Wi-Fi
+00:01:39  I       debug.ask   local                   done       -            turn on Wi-Fi
+00:01:41  J       debug.ask   local                   cancelled  -            turn off Wi-Fi
+00:01:46  K       debug.ask   local                   cancelled  -            turn off Wi-Fi
+00:01:59  L       debug.run   -                       done       approve      Add a next steps section to my notes.
+00:02:18  M       debug.run   -                       cancelled  approve      Send an email to my lecturer saying I'll miss Thursday's lec
+00:02:34  N       debug.ask   local                   done       -            set a timer for 6 seconds
+00:02:36  O       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:03:01  P       debug.ask   agent                   done       -            open usiu dot ac dot ke
+00:03:02  Q       debug.ask   agent                   done       -            open that site again
+00:03:03  R       debug.ask   agent                   done       -            open my university's website
+00:04:40  S       debug.ask   local                   done       -            turn off Wi-Fi
+00:04:44  T       debug.ask   local                   done       -            turn on Wi-Fi
+00:04:46  U       debug.ask   local                   done       -            turn off Wi-Fi
+00:04:50  V       debug.ask   local                   done       -            turn on Wi-Fi
+00:04:58  W       debug.ask   local                   done       -            set a timer for 6 seconds
+00:05:13  X       debug.ask   local                   done       -            set a timer for 6 seconds
+00:05:00  Y       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:06:36  Z       debug.ask   local                   done       -            set a timer for 6 seconds
+00:06:37  [       debug.run   -                       cancelled  cancelled    Add a next steps section to my notes.
+00:06:53  \       debug.ask   local                   done       -            set a timer for 6 seconds
+00:06:55  ]       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:07:49  ^       debug.ask   local                   done       -            set a timer for 6 seconds
+00:07:51  _       debug.run   -                       cancelled  cancelled    Add a next steps section to my notes.
+00:08:07  `       debug.ask   local                   done       -            set a timer for 6 seconds
+00:08:09  a       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:11:21  b       debug.ask   local                   done       -            turn off Wi-Fi
+00:11:59  c       debug.ask   local                   done       -            set a timer for 6 seconds
+00:12:00  d       debug.run   -                       cancelled  cancelled    Add a next steps section to my notes.
+00:12:17  e       debug.ask   local                   done       -            set a timer for 6 seconds
+00:12:18  f       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:12:56  g       debug.ask   local                   done       -            set a timer for 6 seconds
+00:12:58  h       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:13:19  i       debug.ask   local                   done       -            set a timer for 6 seconds
+00:13:20  j       debug.run   -                       rejected   reject       Add a next steps section to my notes.
+00:14:35  k       debug.ask   local                   done       -            turn off Wi-Fi
+00:14:36  l       debug.ask   local                   done       -            what time is it
+00:14:42  k       stack       local                   done       -            turn off Wi-Fi
+00:14:44  m       debug.ask   local                   done       -            what time is it
+
+Checks (docs/testing/owner-checks.md)
+
+  NOT SEEN  1  hands-free request (wake)   (0 unsure wake phrase(s) still taken)
+  NOT SEEN  2-3 a conversation in one thread   (longest thread: 2 requests)
+  NOT SEEN  4  calendar request ran directly (no offer)   (0 calendar runs)
+  NOT SEEN  5  a change on a card
+  PASS      7  a rejection
+  NOT SEEN  8  correction after a rejection, then approved
+  PASS      8  no card timed out unanswered   (none)
+  NOT SEEN  10 'show me' / 'stop' during a run   (mid-run: none; shown: nothing; 0 short clip(s) kept (0 as they sounded), 0 empty)
+  NOT SEEN  10 'show me' while writing brought the app forward
+  NOT SEEN  11 microphone reopened after a pause (if it had stopped)   (0 stop(s), 0 reopen(s) logged)
+  NOT SEEN  12 lock: away, microphone paused; unlock: back   (0 presence change(s))
+  NOT SEEN  13 listening again within 2 s of each unlock; first wake transcribed in under 3 s   (unlock to listening (slowest) None ms; no wake after an unlock)
+  NOT SEEN  13 no microphone pause after an unlock
+  NOT SEEN  13 the microphone reopened quickly on each return   (no reopen logged)
+  NOT SEEN  14 a card held while away, answered after   (0 held card(s))
+  NOT SEEN  15 stopped requests parked into the stack   (0 parked)
+  PASS      15 a card in the stack skipped, and one ended   (skip 3, end 7)
+  PASS      16 a conversation resumed from the stack   (opened from the stack: 3)
+  NOT SEEN  16 a card opened from the stack, then answered
+  NOT SEEN  16b a typed request, and typed 'approve' didn't approve   (0 typed; check on screen: 'Typing can't approve')
+  NOT SEEN  16b a typed follow-up continued the thread
+  NOT SEEN  17 two requests running at the same time   (0 overlap(s))
+  LOOK      18-20 the card, edges behind it, moved windows   (check on screen: nothing cut off; Read more opens in place; a dropped card stays put, with its edges)
+  NOT SEEN  21 a card waited behind another, then answered
+  PASS      21 no card timed out while out of sight   (none)
+  NOT SEEN  22 a held card came back by itself, then answered   (0 card(s) back)
+  LOOK      23 a quiet working card shrank to one line   (check on screen)
+  NOT SEEN  24 a request brought forward by name
+  NOT SEEN  24 a request stopped by name
+  NOT SEEN  25 a fourth request waited for a slot
+  NOT SEEN  26 a question listened for its answer (at least 20 s), then parked   (6 parked; question windows: none logged)
+  PASS      27 the question picked up later
+  NOT SEEN  28 unconfirmed model retried with the default (if it happened)   (0 retries)
+  NOT SEEN  29-30 a calendar question ran the workflow, no card
+  NOT SEEN  31-32 a calendar change approved
+  NOT SEEN  33 an event added
+  NOT SEEN  34-35 'undo that' / 'I didn't approve that' offered an undo card   (none)
+  NOT SEEN  36 a removal rejected, then approved
+  NOT SEEN  37 'undo that' after an email: told it can't be undone
+  NOT SEEN  38 a change of mind passed on   (none)
+  NOT SEEN  39 a hands-free change of mind (with the name)
+  NOT SEEN  40 after a sent email: told, correction offered
+  NOT SEEN  41 a draft written as the owner: greeting and signed with their name   (0 of 1 draft(s); check on screen: short subject, 'Regards, <your name>')
+  NOT SEEN  42 a contact found from Gmail correspondence (people you've emailed)   (0 lookup(s))
+  NOT SEEN  31-36 calendar changes ran the calendar workflow on the light model   (none)
+  NOT SEEN  49 an email's follow-ups stayed in the email workflow   (0 follow-up(s); Gmail subject put right 0 time(s); check on screen: the subject stays short)
+  NOT SEEN  43 'hey Swift' seen while still speaking (chime and pulse)   (0 early, 0 wake phrase(s))
+  NOT SEEN  45 the room not taken as a reply   (0 set aside as the room, 0 as long talk, 0 taken)
+  NOT SEEN  46 unsure speech: asked to say it again   (0 time(s))
+  NOT SEEN  47 a request recorded while the last one started (20, 21)   (0 request(s), 0 by voice)
+  LOOK      50 line breaks typed into a chat app didn't send it   (check on screen: one message, several lines)
+  LOOK      51 Swift refused to write into a terminal   (check on screen)
+  NOT SEEN  52 web pages fetched only from given addresses   (0 fetch(es) of a made-up address refused)
+  LOOK      53 'no, leave it' to 'Turn off Wi-Fi?' left it on   (check on screen; a plain yes does it since 2026-11-04 (128))
+  PASS      54 no Swift card vanished when another request ended   (none)
+  NOT SEEN  55 no request crashed while others ran   (none)
+  NOT SEEN  56 the same request said twice ran once   (0 kept running)
+  LOOK      57 a long command's card showed all of it   (check on screen)
+  NOT SEEN  59 spoken answers (Phase B)   (0 spoken)
+  PASS      60 no action left 'unknown' (if one was, look it up)   (0 unknown)
+  NOT SEEN  61 nothing heard acted on after a lock   (0 dropped as the screen locked; acted while away: none)
+  NOT SEEN  62 reads outside the read folders asked first; secrets refused   (0 read card(s), 0 secret path(s) refused)
+  NOT SEEN  68 a card that ran out went to the stack, not refused   (0 into the stack, 0 refused on time-out)
+  NOT SEEN  64 Stop on the capsule stopped only the voice   (0 time(s))
+  NOT SEEN  66 listening paused and resumed from the tray   (0 paused, 0 resumed)
+  NOT SEEN  69 Swift's question put off into the stack (Answer later)   (0 put off, 6 parked as unanswered in all)
+  PASS      71 a timer came due and showed its card   (11 timer(s))
+  LOOK      76 Swift wrote in your apps only when you asked   (0 write(s) refused as not asked; check on screen: nothing typed)
+  PASS      77-78 due items waited and were shown once, together   (11 came due (0 after a restart or as missed), 4 shown on 3 card(s))
+  NOT SEEN  77, 79-80 Swift restarted without quitting   (0 restart(s))
+  NOT SEEN  90 'show me' during a run opened its live view   (0 time(s))
+  NOT SEEN  91 sources and notes reached the live view   (0 source item(s), 0 note(s))
+  NOT SEEN  92 the text being written showed in the live view   (0 paragraph(s))
+  NOT SEEN  93 Watch on a card or chip opened a live view   (0 time(s))
+  NOT SEEN  94 Stop in a live view stopped that request   (0 time(s))
+  NOT SEEN  92 Show in Word from the live view   (0 time(s))
+  LOOK      95 a finished live view: Open the answer, ENDED after a stop   (check on screen: Open the answer showed the whole answer even after its card faded; a stopped view says ENDED)
+  NOT SEEN  100-101 a lane asked for what was missing   (0 question(s))
+  NOT SEEN  102 carried on from the last request   (0 time(s))
+  NOT SEEN  103 Swift waited for the end of a sentence   (0 held, 0 joined, 0 wait(s) while recording)
+  PASS      104 a request asked you something   (10 question(s), 0 answered by a click)
+  NOT SEEN  105 an answer it couldn't work out: asked once more, then set aside   (0 asked again, 0 set aside)
+  NOT SEEN  106 a question unanswered in time went to the stack   (0 time(s))
+  NOT SEEN  107 a confirm card was read aloud   (0 time(s))
+  PASS      108 a typed request's question was answered by typing   (4 time(s))
+  PASS      110 old recordings swept at start-up   (10 old, 0 unflagged deleted over 5 sweep(s))
+  NOT SEEN  111-113 clips flagged as useful   (none)
+  NOT SEEN  112-113 a repeat or correction gave a clip its words   (0 added to the test set)
+  NOT SEEN  114 a missed wake phrase was kept   (0 time(s))
+  NOT SEEN  115 the improvement pass ran   (0 pass(es), 0 word-fix card(s) answered)
+  NOT SEEN  116 saved recordings cleared   (0 time(s))
+  NOT SEEN  124 a short 'yes' or 'no' heard as a reply   (0 taken, 0 refused as unclear)
+  NOT SEEN  125 'hey Swift' said without a pause started requests   (0 hands-free request(s), 0 wake phrase(s) missed)
+  LOOK      126-127 the whole research answer; the live view inside the screen   (check on screen: Read more shows every line, no 'Blocked: WebFetch', the live view's buttons visible)
+  NOT SEEN  128 a plain yes did it   (0 time(s))
+  NOT SEEN  129 a click on Yes did it   (0 time(s))
+  PASS      130 'Swift, yes' reached the question, never the agent   (0 sent to the agent)
+  NOT SEEN  132 'turn it back on' done here   (0 time(s))
+  NOT SEEN  133 offline: answered at once, no agent   (0 time(s))
+  NOT SEEN  134 'what works offline' listed   (0 time(s))
+  LOOK      135 the whole name kept one contact   (check on screen: no 'Which Francis' after 'Francis Chianu')
+  NOT SEEN  136 a 'no' said while Swift talked   (0 time(s))
+  LOOK      137 a card taller than the window scrolled   (check on screen: a scrollbar, the buttons in sight)
+  LOOK      138 Change opened the text box beside the card   (check on screen)
+  NOT SEEN  120 sign-ins checked   (none)
+  NOT SEEN  121-122 a sign-in offered on a card   (0 card(s), 0 signed in again)
+  PASS      123 swift.log kept your words out   (0 line(s) with words)
+  NOT SEEN  139 a held 'Swift, approve and…' did nothing after a lock   (0 dropped as the screen locked; check on screen: the card still waiting)
+  NOT SEEN  141 a question set aside for another came back   (0 set aside; check on screen: it came back with a whole countdown)
+  LOOK      142-145 each question's countdown   (check on screen: an answer begun in time counts; the countdown starts after Swift speaks, 25 s)
+  PASS      146 the overlay was told what is on screen (a reload or restart)   (79 time(s), 4 with a card; check on screen: the same card, its countdown)
+  LOOK      147-148 a restart and two cards   (check on screen: the timer card after the restart; one card at a time)
+  PASS      270 each timer card sent was drawn, or waited in the stack   (3 sent, 3 drawn, 0 not drawn and back in the stack)
+  LOOK      271 an approval card counted down only while seen   (check on screen: stopped after two idle minutes, went on from there)
+  PASS      149 due cards drawn before leaving the schedule   (3 sent, 3 drawn)
+  LOOK      152 a quick command beside three requests   (check on screen: done at once, not 'That's waiting')
+  NOT SEEN  153 the internet went during a request   (0 time(s))
+  NOT SEEN  154 a silent request ended by itself (if one went silent)   (0 time(s))
+  LOOK      156 a wordy yes and 'hold on'   (check on screen: Wi-Fi off; 'Okay, take your time', the card stays)
+  NOT SEEN  160 a cough wasn't an answer   (0 with no words)
+  NOT SEEN  161 an unsure answer was asked again   (0 time(s))
+  LOOK      162 'stop' during a run stopped it, not a question   (check on screen: the research stopped)
+  LOOK      163-164 a question out of sight wasn't answered   (check on screen: Wi-Fi stayed on after 'yes'; 'Swift, yes' brought it back 0 time(s))
+  NOT SEEN  168 a second request landed behind the card   (0 overlap(s); check on screen: the card didn't move, 'Got it: …', no window opened)
+  LOOK      169 new requests on the far end, then +N   (check on screen: edges stay put; a dashed mark for one waiting)
+  LOOK      170 an edge clicked swapped with the card; Watch brought nothing forward   (check on screen; clicks that couldn't bring it forward: 0)
+  LOOK      171 an instant answer flashed no edge   (check on screen)
+  LOOK      172 a card due moved to the front   (check on screen: it moved rather than cross-faded)
+  LOOK      173 Read more folded the deck to one edge   (check on screen: '2 more running', and the answer isn't squeezed)
+  LOOK      174 the orb while a card is open   (check on screen: paused still says so over a card)
+  LOOK      175 the stack's amber only when an OK waits   (check on screen: neutral for a stopped request)
+  LOOK      176 the deck at all six positions   (check on screen: on the far side of the card, nothing cut off)
+  LOOK      177 edges move with the card; an old overlay.json still loads   (check on screen)
+  LOOK      178 the moves are smooth on the real screen   (check on screen: also with animation effects off)
+  NOT SEEN  179 'stop' asked which, with the one just said behind the card   (0 time(s); check on screen: nothing stopped)
+  LOOK      180 an answer finishing behind the card came forward   (check on screen)
+  LOOK      181 a hidden question ignored 'Swift, yes turn it off' and typing   (check on screen: Wi-Fi stayed on)
+  LOOK      182 a correction offer took a yes only on screen, typed only with the name   (check on screen: nothing started when refused)
+  LOOK      183 a file change's card showed all of it and scrolled to the end   (check on screen)
+  LOOK      184 a change too long for a card came in pieces, each on its own card   (check on screen)
+  LOOK      191 the first 'hey Swift' registered   (your count of 10 decides whether Swift needs a wake model)
+  LOOK      192 only 'Hello' said aloud, and not in your words   (check on screen)
+  LOOK      193 the weather needed no card   (check on screen: no command, no asking where)
+  LOOK      194 a bare 'hey Swift' during a run was heard   (check on screen: it landed behind the card)
+  LOOK      195 a new request on a card ran beside it; a change stayed a change   (check on screen: no 'Changing it' for the research)
+  LOOK      196 the same request three times was one   (check on screen: 'Still on it', no extra edge)
+  LOOK      197 asking again replaced the unfinished one in the stack   (check on screen)
+  LOOK      198 the stack kept its corner   (check on screen: all six positions, and no drag)
+  LOOK      199 a command's card said what it is   (check on screen)
+  LOOK      200 a yes to 'It sounded like …' went ahead with it   (check on screen: not with the word 'yes')
+  NOT SEEN  201 your answer to Swift's question counted as what you asked   (0 time(s))
+  LOOK      202 airplane mode said what it really did   (check on screen: 'Turn off Wi-Fi and Bluetooth instead?', then which radios are off)
+  LOOK      203 'Hey Swift' brought the overlay in front   (check on screen: in front of an always-on-top window)
+  PASS      204 a greeting before a command kept Swift's own question   (an agent's approval card for a radio is a FAIL)
+  PASS      303 a request begun again kept Swift's own question   (a system change done by the agent is a FAIL; tell us whether the question was 'Turn off Wi-Fi?')
+  LOOK      304 the request said again answered Swift's question   (1 answered by it, 2 asked again; tell us whether the typed one ever turned the Wi-Fi off)
+  LOOK      205 asked again in other words: one fresh card, one item in the stack   (check on screen: the old item left the stack when the new card came)
+  LOOK      206 waiting for your answer never said 'Working on it'   (check on screen: 'Waiting for your answer' on the edge or the pill)
+  LOOK      207 the stack opened and closed in its corner   (check on screen: three times, same corner)
+  NOT SEEN  208 a question out of sight kept its time   (0 time(s) paused out of sight)
+  LOOK      209 offline: one sentence, the list only when asked   (check on screen)
+  PASS      256 an answer that ended behind a card waited until it was seen   (4 time(s) kept; check on screen it went once read)
+  LOOK      257 a card from the stack carried on where it was   (check on screen: its last step, its timer from the start, an ended one shows its answer)
+  LOOK      210 a ring on each stack item showed its time left   (check on screen: shorter a few minutes later)
+  LOOK      212 a new request sent Swift's question to the stack; Wi-Fi stayed on   (check on screen)
+  NOT SEEN  213 Swift's interaction log was refused with no card   (and no card asked first)
+  LOOK      214 a surname the only match doesn't have was asked about, not drafted to   (check on screen)
+  PASS      215 a stop in the first 5 seconds kept the email   (and nothing arrived)
+  LOOK      211 'yes, but hold on' waited; a wordy reply stayed with the question   (check on screen: 'Okay, take your time', Wi-Fi still on, no new request)
+  LOOK      216 Halo's glass is readable over real apps and wallpapers   (check on screen: dark and light)
+  LOOK      217 Halo's tail points at the orb at all six positions   (check on screen: also at 150% scaling)
+  LOOK      218 Halo's amber and accent halos are never confused   (check on screen: side by side)
+  LOOK      219 Halo's edges are distinct from the card at a glance   (check on screen: dark and light)
+  LOOK      220 the sleeping orb reads as not listening   (check on screen: from normal viewing distance)
+  LOOK      221 a card grows from the orb and the tail settles last   (check on screen: also with animation effects off)
+  LOOK      250 'add lunch next week' after two requests showed its question, not 'Working on it'   (check on screen: 'Waiting for you' and the question)
+  LOOK      251 the spinner kept turning, also on the one-line card after 20 s   (check on screen: no jump back once a second; say whether animation effects were on)
+  NOT SEEN  228 the second way in woke Swift (calm voice, close and at 1.5 m)   (0 through the second way in, 0 wake phrases in all; tell us how many of each 10 didn't register)
+  LOOK      230 a request after a calm 'Hey Swift' kept its first word   (check on screen: no 'Swift' or piece of it in front)
+  LOOK      231 the detector fired, and what came of it   (0 checked, 0 woke Swift, 0 turned down; only you know whether any wake was by itself)
+  NOT SEEN  232 nothing woke through the second way in while locked   (acted while away: none)
+  NOT SEEN  233 a follow-up was given the answer before it   (without it: none)
+  NOT SEEN  234 the third answer remembered the first question   (it should name Claudia)
+  NOT SEEN  235 a command said another way stayed fast   (0 of 0 heard; slow lane: none)
+  NOT SEEN  236 a workflow's word in another request didn't start the workflow   (ran a workflow: none)
+  NOT SEEN  237 a request Swift can't do yet didn't stall   (stalled: none; tell us which were done and which Swift said it can't do)
+  LOOK      238 ten requests of your own   (tell us the ten and your tally)
+  NOT SEEN  239 a command Swift understood was done   (understood and not done: none)
+  LOOK      262 'play some music' with no music app said nothing played   (check on screen: 'Nothing started playing', never 'Playing.')
+  NOT SEEN  243 a misheard Wi-Fi got Swift's own question, not the agent   (0 heard; went to the agent: none)
+  NOT SEEN  259 no distance was given without a starting point   (0 asked; answered with a guessed place: none)
+  NOT SEEN  260 the weather was answered without asking where   (asked where: none)
+  LOOK      261 a distance between two places you named   (0 asked (none); tell us whether it was about right)
+  NOT SEEN  290 'remember that my manager is …' was Swift's own, not the agent   (went elsewhere: none)
+  NOT SEEN  291 'forget that my manager …' was Swift's own   (went elsewhere: none)
+  LOOK      292 nothing a page or a note said was remembered   (check on screen: 'what do you know about me' never lists Mallory)
+  NOT SEEN  293 'remember to …' stayed a reminder, not a memory   (kept as a memory: none)
+  NOT SEEN  240 of several matching contacts, the one you picked was used   (pick one when Swift asks which)
+  LOOK      241 no chime straight after a lock   (tell us whether Swift chimed or showed 'heard' while locked)
+  NOT SEEN  242 no card left working after its request ended   (0 stop(s); pressed on a request already over: 0)
+  NOT SEEN  252 Gmail filled in without the cursor already in the body   (0 filled, failed: none; cursor: first try; brought forward 0 time(s))
+  NOT SEEN  310 Gmail's To was filled in, also when it opened collapsed   (To row opened 0 time(s); gave up with Subject and Body but no To: 0 time(s))
+  NOT SEEN  311 Gmail's body took the cursor, or the log says what was in the way   (didn't take the cursor: none; paste the probe's lines (spikes/desktop/gmail_body_focus.py) if it stopped)
+  LOOK      253 Swift came in front of an ordinary always-on-top window   (tell us whether Swift was in front of the test window, and whether Notepad kept the cursor)
+  LOOK      254 Task Manager's band   (paste window_bands.py's last lines; was Swift in front of Task Manager?)
+  FAIL      255 a spoken web address was opened   (1 heard; not opened: 00:03:01)
+  LOOK      320 the card moved out from under Task Manager, and came back   (tell us where the card showed with Task Manager over the orb, then after closing it, and whether Notepad kept the cursor)
+  LOOK      345 at 125% or 150% the card moved out from under Task Manager, and the hotkey kept it there   (tell us your scale, where the card showed with Task Manager over the orb, after the hotkey, after closing it, and whether Notepad kept the cursor)
+  FAIL      330 'that site again' opened the address said a moment ago   (1 heard; asked or refused instead: 00:03:02)
+  PASS      330 'my university's website' opened only after you told Swift   (1 heard; opened without being told: none; told but not opened: none)
+  LOOK      330 without a remembered address Swift asked you to say it   (tell us whether Swift asked you to say the address, or offered one)
+  LOOK      350 an email to a contact saved as 'Last, First' went to that one person   (check on screen and in Sent; skip it if you have no such contact)
+  LOOK      351 'until (a day)' listed that day's events too   (check on screen)
+  LOOK      352 'open this' on a .url, .jar or .py asked on a card first   (check on screen: nothing opened after Reject)
+  LOOK      353 a search aimed at .env files was refused with no card   (check on screen: no contents shown)
+  NOT SEEN  263 every command card led with what it does   (0 command card(s); with no sentence (command shown open): none)
+  LOOK      264 a command card approves as before   (0 approved; tell us whether a bare 'yes' or typing ever approved one)
+  NOT SEEN  300 one step card, then its commands ran without more cards   (0 step card(s), 0 approved; 0 command(s) ran on a step's approval)
+  LOOK      301 a delete still asked on its own card   (0 command(s) asked again during an approved step; tell us whether the delete had its own card)
+  LOOK      302 a step card approves as before   (tell us whether a bare 'yes' or typing ever approved a step card)
+  LOOK      305 cards look and work as before   (tell us whether any card looked or behaved differently)
+  LOOK      306 Swift's question and Stop look as before   (tell us whether any card looked or behaved differently)
+  LOOK      340 a long answer says its opening once and reads to the end   (tell us whether the opening showed twice, and whether Read more showed the end with no "…")
+  PASS      280 every request left a run record, started and ended, without your words   (46 requests; no record: none; not ended: none; with words: none)
+  LOOK      281 a timer's card still came up as a timer   (check on screen: the timer card, not an answer card)
+
+  24 PASS, 2 FAIL, 112 NOT SEEN, 87 LOOK
+  Look at each FAIL first: the times in its note say where.
+
+Lanes: requests, median time to the answer
+
+  system      25   0.5 s
+  -           12   12.9 s
+  local        6   0.0 s
+  agent        3   -
+
+Agent runs Swift could answer itself now: 2 (ADR-016 §3.4: add the rest to the grammar)
+  now local      open usiu dot ac dot ke
+  now local      open my university's website
+
+Warnings and errors in swift.log: 0

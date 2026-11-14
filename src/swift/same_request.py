@@ -9,6 +9,8 @@ it on" and "turn it off" never match), words by what is left once the words that
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
+from typing import Any
 
 _WORD = re.compile(r"[a-z0-9']+")
 # Words that never change what a request asks for.
@@ -36,13 +38,21 @@ def words(text: str) -> list[str]:
     return [w for w in out if w not in FILLER]
 
 
-def _intents(text: str) -> str | None:
+def _intents(text: str) -> list[Any] | None:
     from swift.system import intents as it  # the grammar the lane uses, so "the same" means the same
 
-    found = it.parse(text) if text.strip() else None
-    if not found:
-        return None
-    return repr(sorted((i.name, sorted(i.slots.items())) for i in found))
+    return (it.parse(text) if text.strip() else None) or None
+
+
+def same_intents(a: Sequence[Any], b: Sequence[Any]) -> bool:
+    """Whether two parsed requests do the same: the same intents and slots, in any order ("turn off the Bluetooth
+    and the Wi-Fi" is "turn off the Wi-Fi and the Bluetooth"). The one comparison for "the same request" by what
+    it does: same_request and restated.restated_as (A+B) both ask it (QA-06, 2026-11-15)."""
+
+    def key(found: Sequence[Any]) -> list[tuple[str, list[tuple[str, Any]]]]:
+        return sorted((i.name, sorted(i.slots.items())) for i in found)
+
+    return key(a) == key(b)
 
 
 def same_request(new: str, old: str, *, cut_off: bool = False) -> bool:
@@ -51,7 +61,7 @@ def same_request(new: str, old: str, *, cut_off: bool = False) -> bool:
     cut short (the earlier one already has all of it, so nothing is lost by keeping only that one)."""
     a, b = _intents(new), _intents(old)
     if a is not None and b is not None:
-        return a == b  # what it does decides: "turn on" and "turn off" are two requests
+        return same_intents(a, b)  # what it does decides: "turn on" and "turn off" are two requests
     wn, wo = words(new), words(old)
     if not wn or not wo:
         return False
@@ -63,4 +73,4 @@ def same_request(new: str, old: str, *, cut_off: bool = False) -> bool:
     return cut_off and len(wn) >= CUT_MIN and 2 * len(wn) >= len(wo) and wo[: len(wn)] == wn
 
 
-__all__ = ["same_request", "words"]
+__all__ = ["same_intents", "same_request", "words"]

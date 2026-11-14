@@ -1,0 +1,27 @@
+{
+ "long": {
+  "summary": "Tea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan, and legend credits the emperor Shennong with a first cup around 2737 BCE, when leaves blew into his boiling water.",
+  "details": {
+   "kind": "text",
+   "text": "Whatever the truth of that story, by the **Han dynasty** tea was a medicine, and by the Tang it was a daily drink across China.\n\n## Part 1\nSection 1 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 2\nSection 2 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 3\nSection 3 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 4\nSection 4 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 5\nSection 5 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 6\nSection 6 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 7\nSection 7 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Part 8\nSection 8 of the history: traders, ships and gardens carried the leaf further, and each place made the drink its own way.\n\n## Today\nTHE-END-MARKER: tea is the second most drunk drink after water."
+  }
+ },
+ "b1": {
+  "title": "Run a command on your PC",
+  "detail": "gh repo create notes --private\ncd notes\ngit status",
+  "purpose": "Creates a repository called notes on your GitHub, so it can be copied to this PC."
+ },
+ "b2": {
+  "title": "Run 3 commands on your PC",
+  "detail": "git init\ngit add notes.md\ngit commit -m \"First notes\"",
+  "purpose": "Makes this folder a repository and saves the notes in it.",
+  "step": true,
+  "said": "The user approved this step. These commands now run without another card, each once, exactly as written: git init; git add notes.md; git commit -m \"First notes\". Anything else asks on its own card, including 1 of the ones you listed."
+ },
+ "delete": {
+  "title": "Run a command on your PC",
+  "detail": "rm old-notes.md",
+  "purpose": "Removes the old notes file.",
+  "step": false
+ }
+}

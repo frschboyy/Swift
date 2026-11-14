@@ -75,3 +75,28 @@ def test_asking_again_misheard_replaces_the_unfinished_one_in_the_stack(tmp_path
     assert store.drop_same("Research the History of T") is True
     store.park(Parked(thread="b", request="turn off the wifi", reason="stopped", at=time.time()))
     assert store.drop_same("turn on the wifi") is False
+
+
+def test_restated_and_same_request_agree_on_every_system_request() -> None:
+    """QA-06 (2026-11-15): one owner of "the same request" by what it does. restated_as (A+B) and same_request
+    (the stack) both ask same_intents; this fails if either compares parsed intents its own way again."""
+    from types import SimpleNamespace
+
+    from swift.restated import restated_as
+    from swift.system import intents as system_intents
+
+    requests = ("turn off the wifi", "turn on the wifi", "turn off the bluetooth", "mute",
+                "turn off the wifi and turn off the bluetooth", "turn off the bluetooth and turn off the wifi",
+                "turn on the bluetooth and turn off the wifi", "turn off the wifi and mute")
+    checked = 0
+    for asked in requests:
+        payload = system_intents.parse(asked)
+        if payload is None:
+            continue
+        question = SimpleNamespace(own=True, kind="yes_no", payload=payload, request=asked)
+        for said in requests:
+            if system_intents.parse(said) is None:
+                continue
+            checked += 1
+            assert (restated_as(said, question) == "same") == same_request(said, asked), (asked, said)
+    assert checked >= 16

@@ -35,7 +35,7 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 - [ ] A1. A misheard "turn off the Wi-Fi" gets Swift's own question (fixed; run it). <!-- checks: 201, 243 -->
 - [ ] A2. A question is shown as a question, never "Working on it". <!-- checks: 206, 211, 218 -->
 - [ ] A4. Cards you haven't seen don't run out; a question out of sight keeps its time. <!-- checks: 208, 219 -->
-- [ ] A5. Each card's lifetime fits its request. <!-- checks: 210 -->
+- [ ] A5. Each card's lifetime fits its request (decided: a command's card goes soon after it's done; an answer stays until seen; a question stays while it waits and pauses out of sight). <!-- checks: 210 -->
 - [ ] A6. A card opened from the stack carries on where it was, or says it ended.
 - [ ] A7. One ask is one request, however it's worded. <!-- checks: 197, 204, 205 -->
 - [ ] A8. Swift checks a thing happened before it says so ("Playing.", "Wi-Fi off"). <!-- checks: 235, 239 -->
@@ -46,12 +46,12 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 **B. Adaptive UI and UX, extending Halo**
 
 - [ ] B1. An approval card says in a plain sentence what it does and why; the command folds underneath. <!-- checks: 199 -->
-- [ ] B2. Fewer approvals: one grant for a coherent step of a task.
+- [ ] B2. Fewer approvals: one grant for a coherent step of a task (decided: one approval per step, its commands listed; anything irreversible keeps its own card; after the grant).
 - [ ] B3. Working, waiting for you, waiting for an OK, doing and failed each look different. <!-- checks: 206, 218 -->
-- [ ] B4. Results laid out to fit them: tables, cards, diagrams (Halo Step B first).
-- [ ] B5. Cards grow when the content needs it, and expand by hand.
-- [ ] B6. The watch and working views each have their own look.
-- [ ] B7. Motion you can see: the card grows from the orb. <!-- checks: 221 -->
+- [ ] B4. Results laid out to fit them (decided: Swift chooses how each result is shown, visually and in words, from what it is; free tools as needed; Halo Step B first).
+- [ ] B5. Cards grow when the content needs it, up to a limit that never covers your work, and expand by hand (decided: both).
+- [ ] B6. The watch and working views each have their own look (decided: study first: a separate card or not; a technical feel, or a visual one that shows the email or deck being built).
+- [ ] B7. Motion you can see (decided: slower transitions; the grow-from-the-orb version tried in the harness before you choose). <!-- checks: 221 -->
 - [ ] B8. Your pen.dev prompt that extends Halo.
 
 **C. Agent autonomy: working out how to reach a goal, inside the product rules**

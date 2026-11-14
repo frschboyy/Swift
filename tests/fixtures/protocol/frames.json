@@ -14,7 +14,7 @@
     {"type": "step", "data": {"run_id": "a-1", "text": "Reading README.md", "kind": "tool", "ts": 5, "activity": "reading", "agent": null, "subagent": true, "thread_id": "t-1", "app": null}},
     {"type": "confirm.request", "data": {"request_id": "a-1:1", "run_id": "a-1", "title": "Create or overwrite notes.md", "detail": "1 line into C:\\p\\notes.md", "tool": "Write"}},
     {"type": "confirm.request", "data": {"request_id": "swift:1", "run_id": "a-1", "title": "Send this email to Ada", "detail": "Subject: Thursday", "tool": "send_email", "agent": null, "timeout_s": 45.0, "artifact_id": "draft-1", "thread_id": "t-1"}},
-    {"type": "confirm.request", "data": {"request_id": "a-1:2", "run_id": "a-1", "title": "Run a command", "detail": "dir", "tool": "Bash", "agent": {"id": "claude_code", "name": "Claude Code"}, "timeout_s": null, "artifact_id": null, "thread_id": "t-1"}},
+    {"type": "confirm.request", "data": {"request_id": "a-1:2", "run_id": "a-1", "title": "Run a command", "detail": "dir", "tool": "Bash", "purpose": "Lists the files in this folder.", "agent": {"id": "claude_code", "name": "Claude Code"}, "timeout_s": null, "artifact_id": null, "thread_id": "t-1"}},
     {"type": "confirm.voice", "data": {"request_id": "a-1:1", "phase": "hint", "text": "Say \"Swift, approve\" to approve."}},
     {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "Wi-Fi off."}},
     {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "Three files.", "details": {"kind": "list", "items": ["a.md", "b.md", "c.md"]}, "agent": {"id": "claude_code", "name": "Claude Code"}, "note": "No, I'm Swift.", "thread_id": "t-1"}},

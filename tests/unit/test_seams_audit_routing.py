@@ -16,6 +16,7 @@ from test_routing import ask
 from test_runs import Agent, make, say, started, until
 from test_system_lane import _session, lane
 
+from swift.executors.base import Budget, WorkerTask
 from swift.executors.base import ExecEvent, ExecResult
 from swift.failures import classify
 from swift.network import OFFLINE_SAID
@@ -138,6 +139,6 @@ async def test_r06_a_silent_cli_ends_with_a_card_by_itself(tmp_path) -> None:  #
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", prewarm=False, client_factory=HangClient)
     assert hasattr(ex, "stall_timeout_s"), "no watchdog: a CLI that goes silent keeps the run 'working' forever"
     ex.stall_timeout_s = 0.2  # type: ignore[attr-defined]
-    run_id = await ex.start("Summarise the README", demand="light")
+    run_id = await ex.start(WorkerTask("Summarise the README", budget=Budget(demand="light")))
     result = await asyncio.wait_for(ex.result(run_id), 2)
     assert result.status == "error" and result.failure is not None and result.failure.code == "timeout"

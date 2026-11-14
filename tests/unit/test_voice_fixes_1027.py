@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
+from swift.executors.base import WorkerTask
 from swift.audio.recorder import SAMPLE_RATE
 from swift.desktop.base import WriteReceipt
 from swift.desktop.fake import FakeApp, FakeDesktop
@@ -407,9 +408,10 @@ class Spy(EchoExecutor):
         super().__init__()
         self.requests: list[str] = []
 
-    async def start(self, request: str, **kw: Any) -> str:
+    async def start(self, task: WorkerTask, **kw: Any) -> str:
+        request = task.prompt
         self.requests.append(request)
-        return await super().start(request, **kw)
+        return await super().start(task, **kw)
 
 
 def follow_session() -> tuple[Session, Outbox, list[dict[str, Any]], FakeTranscriber, Spy]:

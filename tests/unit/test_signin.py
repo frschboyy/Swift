@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from swift.executors.base import WorkerTask
 from swift.connectors import google
 from swift.connectors.base import ConnectorError
 from swift.executors.signin import SigninExecutor
@@ -110,7 +111,7 @@ def _executor(**kw: object) -> tuple[SigninExecutor, dict[str, list[object]]]:
 
 
 async def _drive(ex: SigninExecutor, answers: dict[str, bool | None]) -> tuple[list[str], str]:
-    run_id = await ex.start("Sign in again")
+    run_id = await ex.start(WorkerTask("Sign in again"))
     cards: list[str] = []
     async for event in ex.events(run_id):
         if event.type == "confirm":
@@ -178,7 +179,7 @@ async def test_google_flow_failing_ends_in_a_line() -> None:
 async def test_want_while_running_starts_nothing_new() -> None:
     ex, _ = _executor()
     assert ex.want({"google"})
-    await ex.start("Sign in again")
+    await ex.start(WorkerTask("Sign in again"))
     assert not ex.want({"google"})
 
 

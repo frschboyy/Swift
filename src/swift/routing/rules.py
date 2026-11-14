@@ -47,6 +47,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Literal
 
+from swift import memory
 from swift.executors.providers import AGENT_NAMES
 from swift.routing import fast, light
 from swift.routing.demand import estimate
@@ -120,7 +121,7 @@ class Route:
     text: str
     # control: stop | cancel | mute | approve | reject | repeat | help | new_topic;
     # local: time | date | identity | open | workflows | undo | resume | not_now | show_last | answer (fast lane)
-    # | system (the system lane);
+    # | system (the system lane) | remember | forget | recall (swift/memory.py);
     # agent: quick (the light lane) or None.
     action: str | None = None
     demand: Demand | None = None
@@ -228,6 +229,9 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
         if pattern.fullmatch(norm) or pattern.fullmatch(loose):
             called = _AGENT_WORD.search(norm) if action == "identity" else None
             return Route("local", text.strip(), action=action, addressed_as=_agent_key(called.group(1)) if called else None)
+    # "Remember that my manager is Ada", "forget …", "what do you know about me?" (swift/memory.py, C7).
+    if (kept := memory.parse(strip_wake(text))) is not None:
+        return Route("local", text.strip(), action=kept[0])
     if fast.answer(text) is not None:
         return Route("local", text.strip(), action="answer")
     # The system lane (ADR-016 §3): timers, reminders, volume, theme, lock, ... done by Swift.

@@ -65,13 +65,14 @@ from loguru import logger
 
 from swift import clock
 from swift.attention import Attention, wait_answer
-from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
+from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
     COMMAND_MAX,
     FILE_CHANGE_TOOLS,
     WRITE_MAX,
     LiveMapper,
     Outcome,
+    command_purpose,
     confirm_card,
     outcome_for,
     steps_for,
@@ -130,7 +131,10 @@ SYSTEM_PROMPT = (
     "recognition errors: read it for what was meant. Keep the final answer short; it is shown on a small card. "
     "The user isn't expected to know what a terminal is. To find something out, use the weather tool if you have "
     "one and web search or fetch, never the shell: every shell command stops and asks the user on a card. Use the "
-    "shell only when the request needs it. Don't mention commands or tools in your answer."
+    "shell only when the request needs it. Give every shell command a description the user can read on that "
+    "card: one plain sentence saying what it does, why the request needs it, and what will change, with no "
+    "jargon (e.g. \"Creates a repository called notes on your GitHub, so it can be copied to this PC\"). "
+    "Don't mention commands or tools in your answer."
     + LOCATION_PROMPT
 )
 ESCALATE_PROMPT = (
@@ -549,9 +553,15 @@ class ClaudeCodeExecutor:
 
     # ---- Executor interface ---------------------------------------------------
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
+        if task.privacy != "cloud":
+            raise ExecutorUnavailable(
+                "This request has to stay on this PC, and Claude Code runs in the cloud.",
+                "Nothing was sent. Swift has no local worker for it yet.",
+            )
         run_id = f"cc-{next(self._ids)}"
-        level = OVERRIDE_LEVEL.get(override or "") or (demand if demand in LEVELS else "standard")
+        request, budget = task.prompt, task.budget
+        level = OVERRIDE_LEVEL.get(budget.override or "") or (budget.demand if budget.demand in LEVELS else "standard")
         run = _Run(level=level)
         run.web.note_request(request)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
@@ -664,7 +674,7 @@ class ClaudeCodeExecutor:
         title, detail = confirm_card(name, args, cwd=self.cwd)
         if name in FILE_CHANGE_TOOLS and len(detail) > WRITE_MAX:
             return _too_long(run, name, LONG_CHANGE_MESSAGE.format(n=WRITE_MAX))
-        decision = await self._decide(run, run_id, title, detail, name)
+        decision = await self._decide(run, run_id, title, detail, name, command_purpose(name, args))
         if decision == "approve":
             _smaller_call_approved(run, name)
             return PermissionResultAllow(updated_input=args)
@@ -695,12 +705,12 @@ class ClaudeCodeExecutor:
     async def _confirm(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> bool:
         return await self._decide(run, run_id, title, detail, tool) == "approve"
 
-    async def _decide(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> Any:
+    async def _decide(self, run: _Run, run_id: str, title: str, detail: str, tool: str, purpose: str = "") -> Any:
         """Show a confirm card and wait: "approve", "reject", "no_answer", or ("change", the owner's words)."""
         request_id = f"{run_id}:{next(run.ids)}"
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         run.pending[request_id] = future
-        run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool))
+        run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose))
         run.held += 1  # the owner's turn: the watchdog waits (R-06)
         try:
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)

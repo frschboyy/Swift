@@ -41,3 +41,6 @@ spikes/**/gen/
 
 # The live roadmap, rewritten by spikes/owner_checks/roadmap.py
 /ROADMAP.md
+
+# B4 prototype: Mermaid copied in by hand for the dev page, never committed
+overlay/dev/b4/vendor/

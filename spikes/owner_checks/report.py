@@ -639,7 +639,7 @@ def _runs(rows: list[dict[str, Any]], folder: Path | None) -> list[tuple[str, Ou
 def _gmail(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
     """Check 252 (A9, 2026-11-13): Gmail filled in with the cursor elsewhere. The detail is the proof of the
     cause: which step put the cursor in each field, and the code of each fill that failed.
-    305 (2026-11-14): a To row Gmail showed collapsed ("Recipients") was opened, and the fill finished."""
+    310 (2026-11-14): a To row Gmail showed collapsed ("Recipients") was opened, and the fill finished."""
     fills = [line for line in log if "tool='fill_in_email'" in line]
     done = [line for line in fills if "| action done |" in line]
     failed = [m.group(1) for line in fills if "| action failed |" in line
@@ -654,7 +654,7 @@ def _gmail(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
         ("252 Gmail filled in without the cursor already in the body", unless(failed, done),
          f"{len(done)} filled, failed: {', '.join(failed) or 'none'}; cursor: {', '.join(hows) or 'first try'};"
          f" brought forward {forward} time(s)"),
-        ("305 Gmail's To was filled in, also when it opened collapsed", unless(no_to, done),
+        ("310 Gmail's To was filled in, also when it opened collapsed", unless(no_to, done),
          f"To row opened {opened} time(s); gave up with Subject and Body but no To: {no_to} time(s)"),
     ]
 

@@ -46,12 +46,30 @@ The next free check number after these blocks is **340**.
   - ADR-019 §8's six look items come as the next branch, after Step B merges;
   - Halo becomes the default (deleting the old look) only after the owner has seen it on the real PC (checks 216–221);
   - deck edges and stack rows stay out of the renderer until B5.
-- **Modes (a question, not decided):** the owner asked whether Swift should have modes like Claude's. The orchestrator's view:
-  - no bypass, because the product rules forbid it;
-  - instead, trust learned per kind of reversible action, offered on a card and undoable;
-  - a plan card for long tasks, using B2's step approval;
-  - one "ask me about everything" switch.
-  - Suggested as a design study after Halo Step B, beside the memory follow-ups.
+## Modes like Claude's (proposal, not yet decided)
+
+The owner asked whether Swift should have modes like Claude Code's (auto, manual, accept edits, plan, bypass permissions). The orchestrator's answer: not Claude's modes as they are.
+- **No bypass mode:** the product rules set a floor no setting can lower (deleting, sending, paying and pushing always ask; recipients only from contacts; typing never approves).
+- **No "accept edits":** it has no clear match, since Swift's actions vary far more than file edits.
+- **No global modes:** switching them makes the owner adapt to Swift, against "Swift adapts to the user, not the user to Swift".
+
+What to build instead:
+
+1. **Trust Swift learns, one kind of action at a time.**
+   - After the owner has approved the same reversible kind of action several times (turning Wi-Fi off, opening a website they said, filling in a draft), Swift offers once on a card: "Always do this without asking?"
+   - The yes is saved in the memory store, and the owner can undo it ("ask me again about Wi-Fi").
+   - Nothing irreversible is ever offered.
+   - This is the useful part of "auto" and "accept edits", earned per action rather than switched on all at once.
+2. **Show the plan first for longer tasks.**
+   - For a multi-step job (creating a GitHub repository, booking a trip), Swift shows its plan on one card before starting.
+   - Approving it covers those steps, using B2's step approval, which is already built.
+   - Deletes, sends and payments inside the plan still get their own card.
+   - This is Claude's "plan" mode, but automatic for big tasks rather than a mode the owner picks.
+3. **One "ask me about everything" switch** for when the owner wants to watch closely, such as when trying something new. This is "manual", and the only real mode worth having.
+
+How it fits today's code: Swift's workers run in Claude's default mode, and Swift's own approval layer makes every decision. Both features would build on B2's step approval and the memory store, which are on `main`.
+
+Suggested next step: a short design study, as B4 and B6 had, before any code, after Halo Step B and beside the memory follow-ups. **The owner hasn't decided yet.**
 
 ## Waiting on the owner
 

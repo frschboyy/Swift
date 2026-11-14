@@ -677,7 +677,7 @@ class Run:
         return {
             "run_id": self.ui_id or f"req-{(self.record or {}).get('id', '')[:8]}",
             "thread_id": self.thread, "title": self.title, "state": state, "activity": self.activity,
-            "app": self.app, "agent": self.agent, "started_ms": self.started_ms,
+            "app": self.app, "agent": self.agent, "started_ms": self.started_ms, "origin": "asked",
             "summary": "" if self.alive or stopped else self.summary, "words": self.words,
         }
 
@@ -3815,7 +3815,7 @@ class Session:
         if self.system is None or not self._due:
             return
         queued, self._due = self._due, []
-        if any(away for _, _, away in queued):
+        if away := any(a for _, _, a in queued):
             # Back: one card for what came due while the owner was away.
             if len(queued) == 1:
                 item = queued[0][0]
@@ -3831,7 +3831,7 @@ class Session:
         # first, it's shown to the next one (``overlay_gone``).
         self._due_sent[run_id] = queued
         await self._send_stack()
-        await self._send_result(run_id, ExecResult("done", text))
+        await self._send_result(run_id, ExecResult("done", text), origin="away" if away else "reminder")
         logger.info("due sent", items=len(queued))
         if not self.overlay_connected():
             self.overlay_gone()
@@ -5016,8 +5016,10 @@ class Session:
 
         self._launch(record, capture, self.executor, self.executor.start)
 
-    async def _send_result(self, run_id: str, result: ExecResult, agent: dict[str, str] | None = None) -> None:
-        """Swift presents the outcome; ``agent`` says who did the work (None: Swift itself)."""
+    async def _send_result(
+        self, run_id: str, result: ExecResult, agent: dict[str, str] | None = None, origin: str = "asked"
+    ) -> None:
+        """Swift presents the outcome; ``agent`` did the work (None: Swift itself); ``origin``: who started it."""
         if result.status == "error":
             provider = provider_of(self._active[0]) if self._active else SWIFT
             failure = result.failure or classify(
@@ -5034,7 +5036,7 @@ class Session:
         await self._send(
             outbound(
                 "result", run_id=run_id, status=result.status, summary=result.summary, details=result.details,
-                agent=agent, note=note,
+                agent=agent, note=note, origin=origin,
             )
         )
         if result.status in ("done", "rejected"):

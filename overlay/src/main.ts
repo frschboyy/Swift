@@ -1477,7 +1477,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
     renderRowCard("x", "Not done", data.summary, data.run_id, data.thread_id, `Not approved: ${clipLine(data.summary)}`);
     return;
   }
-  if (data.run_id.startsWith("due-")) {
+  if (data.origin === "reminder" || data.origin === "away") {
     renderDue(data);
     return;
   }
@@ -1646,7 +1646,7 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   if (!presentAnswer("result", null, data.run_id, data.thread_id, clipLine(data.summary))) return;
   // Drawn: only now does it leave the schedule; dropped, the backend shows it again later (O-08).
   client.send({ type: "due.shown", data: { run_id: data.run_id } });
-  const kind = data.run_id.split("-")[1];
+  const kind = data.origin === "away" ? "away" : data.run_id.split("-")[1];
   const label = { timer: "Timer", alarm: "Alarm", reminder: "Reminder", away: "While you were away" }[kind] ?? "Reminder";
   // The label says what it is; the title is the rest ("Reminder: call mum." → "Call mum.").
   const rest = data.summary.replace(/^(While you were away|Reminder): /, "");

@@ -28,10 +28,8 @@ from typing import Any, Literal
 
 from loguru import logger
 
+from swift.ipc.protocol import ORIGINS
 from swift.runlog import summary
-
-# Who started a run (ADR-019 N2). Only "asked" and the due cards' "reminder" and "away" exist today.
-ORIGINS = ("asked", "scheduled", "watching", "reminder", "noticed", "learned", "away")
 # An approval's fields that say what happened; ``heard`` (the owner's words) and ids stay out.
 _APPROVAL_FIELDS = ("tool", "decision", "source", "asked_ms", "answered_ms", "by", "explained")
 
@@ -94,6 +92,7 @@ class RunRecords:
     # The interaction record's lists are filled here only, so the record and the log can't disagree.
 
     def begin(self, record: dict[str, Any], origin: str = "asked") -> None:
+        assert origin in ORIGINS, origin
         record["steps"], record["approvals"] = [], []
         current.set(record["id"])
         self.event(record["id"], "started", origin=origin, source=record.get("source"), thread=record.get("thread"))

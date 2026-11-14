@@ -31,7 +31,7 @@ import * as Q from "./ask";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, commandFolded, hasMarkedLines } from "./cardtext";
+import { cardLines, commandFolded, commandParts, hasMarkedLines } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -1218,19 +1218,26 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     ? el("div", { class: "facts-text facts-text--mono" }, ...cardLines(data.detail).map((line) =>
       el("div", { class: line.agent ? "facts-line--agent" : "facts-line" }, line.text || " ")))
     : el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
-  const facts = el("div", { class: "facts" }, box, moreBelow(box));
-  if (!commandFolded(data.tool, data.purpose)) return facts;
-  // B1: the agent's words lead, under its bar (X-17); the command, what actually runs, is one click away.
-  const fold = el("details", { class: "command-fold", open: commandShown }, el("summary", {}, "Show the command (what will actually run)"), facts);
-  fold.addEventListener("toggle", () => {
+  if (!commandFolded(data.tool, data.purpose)) return el("div", { class: "facts" }, box, moreBelow(box));
+  // B1: the agent's words lead, under its bar (X-17); the command's first line always shows, the rest folds.
+  const { head, rest } = commandParts(data.detail);
+  const more = rest.split("\n").length;
+  const restBox = el("p", { class: "facts-text facts-text--mono" }, rest);
+  const fold = rest
+    ? el("details", { class: "command-fold", open: commandShown },
+      el("summary", {}, `Show the rest of the command (${more} more line${more === 1 ? "" : "s"})`),
+      el("div", { class: "facts" }, restBox, moreBelow(restBox)))
+    : null;
+  fold?.addEventListener("toggle", () => {
     commandShown = fold.open;
-    box.dispatchEvent(new Event("scroll"));  // "More below" measures the box only once it can be seen
+    restBox.dispatchEvent(new Event("scroll"));  // "More below" measures the box only once it can be seen
     scheduleRegions();
   });
   return el(
     "div",
     { class: "confirm-lead" },
     el("p", { class: "confirm-purpose facts-line--agent" }, el("span", { class: "confirm-purpose-by" }, "What it says this does"), data.purpose ?? ""),
+    el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, rest ? "What will run, first line" : "What will run"), el("p", {}, head)),
     fold,
   );
 }

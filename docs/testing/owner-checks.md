@@ -1722,8 +1722,9 @@ at the bottom right does it go to the bottom left, so it isn't on the card.
 <a id="check-199"></a>**Check 199**
 1. Say "Hey Swift, run the tests in my project". Click **Reject**.
 
-You should see: the card's title says **"Run a command on your PC"**. The whole command is under **Show the command
-(what will actually run)**, or open under the title when the agent didn't say what it does (check 263).
+You should see: the card's title says **"Run a command on your PC"**. The command's first line is always in view; any
+further lines are under **Show the rest of the command**. When the agent didn't say what it does, the whole command shows
+open under the title (check 263).
 
 <a id="check-200"></a>**Check 200**
 1. Mumble a request so Swift says "It sounded like …, but I wasn't sure of it".
@@ -2215,10 +2216,12 @@ B1. Reject every card.
 2. When the card **Run a command on your PC** comes, read it before anything else.
 
 You should see: under the title, with a bar at its left edge, **What it says this does** and one plain sentence (what the
-command does, why, and what will change), with no command in sight. Under it, **Show the command (what will actually run)**,
-closed. Click it: the whole command opens, and "More below" shows if it doesn't fit. Click **Reject**.
+command does, why, and what will change). Under it, always in view, **What will run** with the command's first line. A
+command of several lines says **What will run, first line**, and under it **Show the rest of the command (N more lines)**,
+closed: click it, the rest opens, and "More below" shows if it doesn't fit. A one-line command has nothing folded. Click
+**Reject**.
 
-The report checks: every command card had a sentence (one without shows the command open instead).
+The report checks: every command card had a sentence (one without shows the whole command open instead).
 
 <a id="check-264"></a>**Check 264. Approving a command card is as before**
 1. Make the same request again. When the card comes, say just "yes" (no "Swift"): nothing happens.

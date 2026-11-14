@@ -15,9 +15,16 @@ export function cardLines(detail: string): CardLine[] {
     line.startsWith(QUOTE) ? { text: line.slice(QUOTE.length), agent: true } : { text: line, agent: false });
 }
 
-// B1: a command card leads with what the agent says the command is for (its own words, marked as its), and
-// the command, what actually runs, is folded underneath. With no such words it stays open, as before.
+// B1: a command card leads with what the agent says the command is for (its own words, marked as its), then
+// the command's first line, always in view, so a harmless-sounding sentence never sits over a command nobody
+// sees (owner, 2026-11-14); only the rest is folded. With no such words the whole command shows, as before.
 const COMMANDS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
 
 export const commandFolded = (tool: string, purpose: string | undefined): boolean =>
   COMMANDS.has(tool) && !!purpose?.trim();
+
+/** The command's first line, always shown, and the rest, folded (empty for a one-line command). */
+export function commandParts(detail: string): { head: string; rest: string } {
+  const at = detail.indexOf("\n");
+  return at < 0 ? { head: detail, rest: "" } : { head: detail.slice(0, at), rest: detail.slice(at + 1) };
+}

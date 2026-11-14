@@ -4,7 +4,7 @@
 // stdout. No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
-import { commandFolded } from "../../src/cardtext.ts";
+import { commandFolded, commandParts } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
 import * as P from "../../src/presenter.ts";
 
@@ -71,6 +71,9 @@ for (const { type, data: d } of frames) {
   for (const v of P.violations(pres)) broken.add(`${v} (after ${type})`);
 }
 
+const led = P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm
+  && commandFolded(confirmData.tool, confirmData.purpose);
+
 // Well after the last frame: every request old enough to have its edge.
 const settled = D.deckView(deck, pres.rows, Number.MAX_SAFE_INTEGER);
 
@@ -84,8 +87,10 @@ process.stdout.write(JSON.stringify({
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
   confirm: P.confirmVisible(pres) ? pres.pendingConfirm : null,
   // B1: what a command card leads with (the agent's words), and whether its command is folded under it.
-  confirmLead: P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm && commandFolded(confirmData.tool, confirmData.purpose)
-    ? confirmData.purpose : null,
+  confirmLead: led ? confirmData!.purpose : null,
+  // The command's first line, always in view under the lead, and what is folded under it ("" for nothing).
+  commandHead: led ? commandParts(confirmData!.detail).head : null,
+  commandFolded: led ? commandParts(confirmData!.detail).rest : null,
   lost,
   broken: [...broken],
 }));

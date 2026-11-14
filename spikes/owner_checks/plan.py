@@ -5,6 +5,8 @@ Usage (from the repo root):
   uv run python spikes/owner_checks/plan.py --write          also write it to owner-checks-status.md
   uv run python spikes/owner_checks/plan.py --record FILE    add a pasted report.py output to the ledger
   uv run python spikes/owner_checks/plan.py --set 216=pass 217=fail --note "the tail had a gap at 150%"
+  uv run python spikes/owner_checks/plan.py --next-id        the id for a new check on this branch (`<branch>-<n>`)
+  uv run python spikes/owner_checks/plan.py --renumber       at merge: number the branch's provisional checks
 
 It reads docs/testing/owner-checks.md (the checks), docs/testing/owner-checks-ledger.yaml (what each
 check proves, and every result) and git (what changed since each result, and the open branches).
@@ -37,6 +39,16 @@ RECENT_DAYS = 14
 VERDICTS = ("PASS", "FAIL", "PARTIAL", "RETIRED", "BLOCKED")
 FINDING = re.compile(r"\b[A-Z]-\d{2}\b")
 ANCHOR = re.compile(r'<a id="check-([^"]+)"></a>')
+# A check written on a branch has a provisional id, `<branch>-<n>` ("friendly-mestorf-f4f7fb-1"), until
+# --renumber gives it the next free number at merge (foundation decision 11). It starts with a letter, so it
+# never reads as a number, a lettered id (19b) or a range (43-48).
+PROVISIONAL = re.compile(r"[a-z][a-z0-9-]*-\d+")
+ID = rf"(?:\d+[a-z]?|{PROVISIONAL.pattern})"  # a check id in running text
+AFTER_EVERY_NUMBER = 10**9  # where a provisional check sorts
+
+
+def provisional(cid: str) -> bool:
+    return bool(PROVISIONAL.fullmatch(cid))
 
 
 @dataclass
@@ -52,7 +64,8 @@ class Check:
 
     @property
     def num(self) -> int:
-        return int(re.match(r"\d+", self.id).group())  # type: ignore[union-attr]
+        m = re.match(r"\d+", self.id)
+        return int(m.group()) if m else AFTER_EVERY_NUMBER
 
     @property
     def first_step(self) -> str:
@@ -71,7 +84,7 @@ class Check:
     @property
     def needs(self) -> list[str]:
         """Checks its first step builds on ("After check 17", "With check 168's two running")."""
-        return [n for n in re.findall(r"\bchecks? (\d+[a-z]?)\b", self.first_step) if n != self.id]
+        return [n for n in re.findall(rf"\bchecks? ({ID})(?![\w-])", self.first_step) if n != self.id]
 
     @property
     def findings(self) -> set[str]:
@@ -165,7 +178,9 @@ def births() -> dict[str, str]:
 
 def named(c: Check, commit: Commit) -> bool:
     """The commit's message names the check, or a finding the check names."""
-    names = re.findall(r"\bchecks? ((?:\d+[a-z]?(?:[–-]\d+)?(?:, | and )?)+)", commit.message, re.I)
+    if provisional(c.id) and re.search(rf"\bchecks? {re.escape(c.id)}(?![\w-])", commit.message, re.I):
+        return True
+    names =re.findall(r"\bchecks? ((?:\d+[a-z]?(?:[–-]\d+)?(?:, | and )?)+)", commit.message, re.I)
     for group in names:
         for lo, hi in re.findall(r"(\d+[a-z]?)(?:[–-](\d+))?", group):
             if c.id == lo or (hi and lo.isdigit() and int(lo) <= c.num <= int(hi)):
@@ -313,7 +328,7 @@ def dangling(checks: dict[str, Check]) -> list[tuple[str, str]]:
     out = []
     for path in [ROOT / "CLAUDE.md", *sorted((ROOT / "docs" / "handoff").glob("*.md")),
                  *sorted((ROOT / "docs" / "decisions").glob("*.md"))]:
-        for n in re.findall(r"\b[Cc]hecks? (\d{1,3}[a-z]?)\b", path.read_text(encoding="utf-8")):
+        for n in re.findall(rf"\b[Cc]hecks? (\d{{1,3}}[a-z]?\b|{PROVISIONAL.pattern}(?![\w-]))", path.read_text(encoding="utf-8")):
             if n not in checks:
                 out.append((str(path.relative_to(ROOT)).replace("\\", "/"), n))
     return sorted(set(out))
@@ -327,6 +342,14 @@ def link(c: Check) -> str:
 def name(c: Check) -> str:
     step = c.first_step.rstrip(".")
     return c.title or (step if len(step) <= 100 else step[:100].rsplit(" ", 1)[0] + " …")
+
+
+def next_free(ids: list[str], branches, given_out: int = 0) -> int:
+    """One past the highest check number here, on any open branch, and handed out (the ledger's
+    ``given_out``: numbers given to sessions before provisional ids). Provisional ids hold no number."""
+    nums = [int(re.match(r"\d+", i).group()) for i in [*ids, *(i for _, new, _ in branches for i in new)]  # type: ignore[union-attr]
+            if not provisional(i)]
+    return 1 + max([*nums, given_out])
 
 
 def render(states: list[State], picked: list[State], branches, uncovered, missing, head: str, today: str, given_out: int = 0) -> tuple[str, str]:
@@ -366,9 +389,9 @@ def render(states: list[State], picked: list[State], branches, uncovered, missin
             if hit:
                 bits.append(f"changes code behind {len(hit)} check{'s' * (len(hit) != 1)} here ({', '.join(hit[:12])}{', …' if len(hit) > 12 else ''})")
             bottom.append(f"- `{b}`: {'; '.join(bits)}.")
-    # ``given_out`` (the ledger): numbers already handed to sessions that haven't written their checks yet.
-    free = 1 + max([s.check.num for s in states] + [int(re.match(r"\d+", i).group()) for _, new, _ in branches for i in new] + [given_out])
-    bottom += ["", f"**Next free check number: {free}** (counted across `main` and every open branch)."]
+    free = next_free([s.check.id for s in states], branches, given_out)
+    bottom += ["", f"**Next free check number: {free}** (counted across `main` and every open branch; "
+               "`plan.py --renumber` gives it to a branch's first provisional check when the branch merges)."]
     if uncovered:
         bottom += ["", f"**Code changed in the last {RECENT_DAYS} days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):", ""]
         bottom += [f"- `{f}`: {n} commit{'s' * (n != 1)}" for f, n in uncovered]
@@ -399,8 +422,9 @@ def main_commit_at(when: str) -> str:
 
 
 def report_ids(name: str, checks: dict[str, Check]) -> list[str]:
-    """'77, 79-80 Swift restarted…' -> ['77', '79', '80']."""
-    m = re.match(r"((?:\d+[a-z]?(?:-\d+)?)(?:,\s*\d+[a-z]?(?:-\d+)?)*)\s", name)
+    """'77, 79-80 Swift restarted…' -> ['77', '79', '80']; 'my-branch-1 …' -> ['my-branch-1']."""
+    one = rf"(?:\d+[a-z]?(?:-\d+)?|{PROVISIONAL.pattern})"
+    m = re.match(rf"({one}(?:,\s*{one})*)\s", name)
     return expand([p.strip() for p in m.group(1).split(",")], checks) if m else []
 
 
@@ -425,6 +449,62 @@ def parse_report(text: str, known_names: set[str], checks: dict[str, Check]) -> 
         if verdict:
             out.setdefault(verdict, []).append(cid)
     return m.group(1), out, skipped
+
+
+def branch_slug(branch: str) -> str:
+    """The `<branch>` of a provisional id: the branch's last part, lower case, starting with a letter."""
+    slug = re.sub(r"[^a-z0-9]+", "-", branch.rsplit("/", 1)[-1].lower()).strip("-")
+    return slug if slug[:1].isalpha() else f"b-{slug}".rstrip("-")
+
+
+def next_provisional(ids: list[str], branch: str) -> str:
+    """The id for a new check on `branch`: `<branch>-<n>`, one past the branch's highest n."""
+    slug = branch_slug(branch)
+    used = [int(i.rsplit("-", 1)[1]) for i in ids if provisional(i) and i.rsplit("-", 1)[0] == slug]
+    return f"{slug}-{1 + max(used, default=0)}"
+
+
+def numbering(checks: dict[str, Check], first: int) -> dict[str, str]:
+    """Each provisional id -> its number, from `first`, in the order the checks appear in owner-checks.md."""
+    return {cid: str(first + i) for i, cid in enumerate(c for c in checks if provisional(c))}
+
+
+def rewrite_ids(text: str, mapping: dict[str, str]) -> str:
+    """Every reference to a provisional id, rewritten: anchors and links (`check-<id>`), then the bare id.
+    An id is whole only between characters that can't be part of one, so `x-1` never touches `x-12`."""
+    for old, new in mapping.items():
+        text = re.sub(rf"(?<=check-){re.escape(old)}(?![\w-])", new, text)
+        text = re.sub(rf"(?<![\w-]){re.escape(old)}(?![\w-])", new, text)
+    return text
+
+
+RENUMBERED = (".md", ".py", ".yaml", ".yml", ".ts", ".rs", ".json", ".txt")
+
+
+def renumber(checks: dict[str, Check], first: int) -> tuple[dict[str, str], list[str]]:
+    """Give every provisional check its number in every tracked text file (owner-checks.md anchors, headings
+    and links; report.py's lines; the ledger; docs and tests that name it). Returns the mapping and the files."""
+    mapping = numbering(checks, first)
+    changed: list[str] = []
+    if not mapping:
+        return mapping, changed
+    for name in git("ls-files").splitlines():
+        path = ROOT / name
+        if not name.endswith(RENUMBERED) or not path.is_file():
+            continue
+        text = path.read_bytes().decode("utf-8", errors="surrogateescape")  # line endings kept as they are
+        new = rewrite_ids(text, mapping)
+        if new != text:
+            path.write_bytes(new.encode("utf-8", errors="surrogateescape"))
+            changed.append(name)
+    left = [c for c in parse_checks(CHECKS.read_text(encoding="utf-8")) if provisional(c)]
+    if left:
+        raise SystemExit(f"still provisional after renumbering: {left}")
+    return mapping, changed
+
+
+def current_branch() -> str:
+    return git("rev-parse", "--abbrev-ref", "HEAD").strip()
 
 
 def append_run(run: dict) -> None:
@@ -452,8 +532,29 @@ def main() -> None:
     ap.add_argument("--date", help="YYYY-MM-DD HH:MM of the run, for --set (default now)")
     ap.add_argument("--commit", help="the commit Swift ran, when known (default: main at the run's time)")
     ap.add_argument("--limit", type=int, default=15, help="how many checks to put in the run list")
+    ap.add_argument("--next-id", action="store_true", help="print the provisional id for a new check on this branch")
+    ap.add_argument("--renumber", action="store_true",
+                    help="at merge: give every provisional check the next free number, everywhere it is named")
     args = ap.parse_args()
     checks, led = load()
+
+    if args.next_id:
+        branch = current_branch()
+        if branch in ("main", "HEAD"):
+            raise SystemExit("New checks are written on a branch: check out a branch first.")
+        print(next_provisional(list(checks), branch))
+        return
+    if args.renumber:
+        first = next_free(list(checks), branch_view(checks), int(led.get("given_out") or 0))
+        mapping, changed = renumber(checks, first)
+        if not mapping:
+            print("No provisional checks to renumber.")
+        else:
+            print("Renumbered: " + ", ".join(f"{a} -> {b}" for a, b in mapping.items()))
+            print("Files changed: " + ", ".join(changed))
+        checks, led = load()
+        if not args.write:
+            return
 
     if args.record:
         sys.path.insert(0, str(Path(__file__).parent))

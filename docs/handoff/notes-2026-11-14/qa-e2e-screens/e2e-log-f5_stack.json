@@ -1,0 +1,332 @@
+[
+ {
+  "flow": "5a",
+  "what": "timer",
+  "frame": {
+   "run_id": "local-26",
+   "status": "done",
+   "summary": "Timer set for 6 seconds.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "42a61a428e83"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "confirm",
+  "frame": {
+   "request_id": "mock-11:2",
+   "run_id": "mock-11",
+   "title": "Edit notes.md",
+   "detail": "Append a 'Next steps' section (4 lines) to notes.md",
+   "tool": "Edit",
+   "purpose": "",
+   "step": false,
+   "agent": {
+    "id": "mock",
+    "name": "Demo agent"
+   },
+   "thread_id": "498fb7ed646f"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "stack",
+  "frame": {
+   "items": [
+    {
+     "id": "due:10",
+     "kind": "due",
+     "title": "Your timer is up.",
+     "reason": "due",
+     "since_ms": 1794690782451,
+     "thread_id": null,
+     "expires_ms": null
+    }
+   ]
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "shot",
+  "files": [
+   "5a-timer-due-behind-card-dark.png",
+   "5a-timer-due-behind-card-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "1\n1 thing needs you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5c",
+  "what": "open-stack",
+  "opened": true
+ },
+ {
+  "flow": "5c",
+  "what": "shot",
+  "files": [
+   "5c-stack-open-dark.png",
+   "5c-stack-open-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "Needs you\n1\nYour timer is up.\nCame due · just now\nDone\nSkip\nEnd",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5d",
+  "what": "Skip",
+  "clicked": true,
+  "frames": [],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "Needs you\n1\nYour timer is up.\nCame due · just now\nDone\nSkip\nEnd",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5d",
+  "what": "shot",
+  "files": [
+   "5d-stack-park-dark.png",
+   "5d-stack-park-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "Needs you\n1\nYour timer is up.\nCame due · just now\nDone\nSkip\nEnd",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "Open",
+  "clicked": true,
+  "frames": [
+   [
+    "stack",
+    "{\"items\":[]}"
+   ]
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "shot",
+  "files": [
+   "5e-stack-reopen-dark.png",
+   "5e-stack-reopen-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "after-open-2s",
+  "frames": [
+   [
+    "presence",
+    "{\"state\":\"here\",\"reason\":\"start\",\"listening\":false,\"wake\":false,\"paused\":false}"
+   ]
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "reject",
+  "clicked": true
+ },
+ {
+  "flow": "5e",
+  "what": "after-card",
+  "frames": [
+   [
+    "presence",
+    "{\"state\":\"here\",\"reason\":\"start\",\"listening\":false,\"wake\":false,\"paused\":false}"
+   ],
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"mock-11\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"498fb7ed646f\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"mock-11\",\"status\":\"rejected\",\"summary\":\"Rejected: Edit notes.md. Nothing was changed.\",\"details\":null,\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"note\":null,\"origin\":\"asked\",\"thread_id\":\"498fb7ed646f\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Not done\nRejected: Edit notes.md. Nothing was changed.",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "shot",
+  "files": [
+   "5e-after-card-dark.png",
+   "5e-after-card-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Not done\nRejected: Edit notes.md. Nothing was changed.",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "timer",
+  "frame": {
+   "run_id": "local-27",
+   "status": "done",
+   "summary": "Timer set for 6 seconds.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "52012d43e23c"
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "confirm",
+  "frame": {
+   "request_id": "mock-12:2",
+   "run_id": "mock-12",
+   "title": "Edit notes.md",
+   "detail": "Append a 'Next steps' section (4 lines) to notes.md",
+   "tool": "Edit",
+   "purpose": "",
+   "step": false,
+   "agent": {
+    "id": "mock",
+    "name": "Demo agent"
+   },
+   "thread_id": "7db61e3c3d02"
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "stack",
+  "frame": {
+   "items": [
+    {
+     "id": "due:11",
+     "kind": "due",
+     "title": "Your timer is up.",
+     "reason": "due",
+     "since_ms": 1794690805221,
+     "thread_id": null,
+     "expires_ms": null
+    }
+   ]
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "End",
+  "clicked": true,
+  "frames": [
+   [
+    "stack",
+    "{\"items\":[]}"
+   ]
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "shot",
+  "files": [
+   "5f-stack-end-dark.png",
+   "5f-stack-end-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "reject",
+  "clicked": true
+ },
+ {
+  "flow": "5f",
+  "what": "after-card",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"mock-12\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"7db61e3c3d02\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"mock-12\",\"status\":\"rejected\",\"summary\":\"Rejected: Edit notes.md. Nothing was changed.\",\"details\":null,\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"note\":null,\"origin\":\"asked\",\"thread_id\":\"7db61e3c3d02\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Not done\nRejected: Edit notes.md. Nothing was changed.",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "shot",
+  "files": [
+   "5f-after-card-nothing-back-dark.png",
+   "5f-after-card-nothing-back-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Not done\nRejected: Edit notes.md. Nothing was changed.",
+   "stack": null,
+   "capsule": ""
+  }
+ }
+]

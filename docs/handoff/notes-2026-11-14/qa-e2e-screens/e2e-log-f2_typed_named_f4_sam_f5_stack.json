@@ -1,0 +1,388 @@
+[
+ {
+  "flow": "2f",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-d99ce5cb",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "73bf32874381",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-13",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2f",
+  "what": "frames",
+  "typed": "Swift, yes",
+  "frames": [
+   [
+    "run.voice",
+    "{\"run_id\":\"local-13\",\"phase\":\"idle\",\"text\":\"\"}"
+   ],
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"local-13\",\"agent\":null,\"thread_id\":\"73bf32874381\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"local-13\",\"status\":\"done\",\"summary\":\"Wi-Fi off.\",\"details\":null,\"agent\":null,\"note\":null,\"origin\":\"asked\",\"thread_id\":\"73bf32874381\"}"
+   ],
+   [
+    "ask",
+    "{\"ask_id\":\"ask-d99ce5cb\",\"run_id\":\"local-13\",\"open\":false}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“turn off Wi-Fi”\n\nWi-Fi off.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2f",
+  "what": "shot",
+  "files": [
+   "2f-wifi-typed-named-dark.png",
+   "2f-wifi-typed-named-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "“turn off Wi-Fi”\n\nWi-Fi off.\n\nSwift\nCopy",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2g",
+  "what": "ask",
+  "frame": {
+   "ask_id": "ask-c7fd164b",
+   "question": "Turn off Wi-Fi?",
+   "kind": "yes_no",
+   "options": [],
+   "thread_id": "d8d7d0019ba9",
+   "note": "Swift needs the internet for most requests: only quick commands until it's back.",
+   "run_id": "local-15",
+   "open": true,
+   "seconds": 25,
+   "phase": "listening"
+  }
+ },
+ {
+  "flow": "2g",
+  "what": "frames",
+  "typed": "Swift, turn off Wi-Fi",
+  "frames": [
+   [
+    "ask",
+    "{\"ask_id\":\"ask-c7fd164b\",\"question\":\"Turn off Wi-Fi?\",\"kind\":\"yes_no\",\"options\":[],\"thread_id\":\"d8d7d0019ba9\",\"note\":\"Swift needs the internet for most requests: only quick commands until it's back.\",\"run_id\":\"local-15\","
+   ],
+   [
+    "run.voice",
+    "{\"run_id\":\"local-15\",\"phase\":\"idle\",\"text\":\"\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nSorry, was that a yes or a no? Turn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nOnce more: waiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "2g",
+  "what": "shot",
+  "files": [
+   "2g-wifi-typed-named-dark.png",
+   "2g-wifi-typed-named-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nSorry, was that a yes or a no? Turn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nOnce more: waiting for your answer\n0:25\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4b",
+  "what": "shot",
+  "files": [
+   "4b-which-sam-dark.png",
+   "4b-which-sam-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": "Waiting\nfor your answer"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "timer",
+  "frame": {
+   "run_id": "local-17",
+   "status": "done",
+   "summary": "Timer set for 6 seconds.",
+   "details": null,
+   "agent": null,
+   "note": null,
+   "origin": "asked",
+   "thread_id": "d9a634b80af4"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "confirm",
+  "frame": {
+   "request_id": "mock-4:2",
+   "run_id": "mock-4",
+   "title": "Edit notes.md",
+   "detail": "Append a 'Next steps' section (4 lines) to notes.md",
+   "tool": "Edit",
+   "purpose": "",
+   "step": false,
+   "agent": {
+    "id": "mock",
+    "name": "Demo agent"
+   },
+   "thread_id": "b9778d4443a4"
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "stack",
+  "frame": {
+   "items": [
+    {
+     "id": "due:2",
+     "kind": "due",
+     "title": "Your timer is up.",
+     "reason": "due",
+     "since_ms": 1794690304792,
+     "thread_id": null,
+     "expires_ms": null
+    },
+    {
+     "id": "parked:d8d7d0019ba9",
+     "kind": "parked",
+     "title": "Turn off Wi-Fi",
+     "reason": "asked",
+     "since_ms": 1794690290156,
+     "thread_id": "d8d7d0019ba9",
+     "expires_ms": 1794690890156
+    }
+   ]
+  }
+ },
+ {
+  "flow": "5a",
+  "what": "shot",
+  "files": [
+   "5a-timer-due-behind-card-dark.png",
+   "5a-timer-due-behind-card-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "2\n2 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5c",
+  "what": "open-stack",
+  "opened": true
+ },
+ {
+  "flow": "5c",
+  "what": "shot",
+  "files": [
+   "5c-stack-open-dark.png",
+   "5c-stack-open-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "2\n2 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5d",
+  "what": "Skip",
+  "clicked": false,
+  "frames": [],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "2\n2 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5d",
+  "what": "shot",
+  "files": [
+   "5d-stack-park-dark.png",
+   "5d-stack-park-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "2\n2 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "Open",
+  "clicked": false,
+  "frames": [],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "2\n2 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5e",
+  "what": "shot",
+  "files": [
+   "5e-stack-reopen-dark.png",
+   "5e-stack-reopen-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "2\n2 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "timer",
+  "frame": null
+ },
+ {
+  "flow": "5f",
+  "what": "confirm",
+  "frame": null
+ },
+ {
+  "flow": "5f",
+  "what": "stack",
+  "frame": null
+ },
+ {
+  "flow": "5f",
+  "what": "End",
+  "clicked": false,
+  "frames": [],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "3\n3 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "shot",
+  "files": [
+   "5f-stack-end-dark.png",
+   "5f-stack-end-light.png"
+  ],
+  "screen": {
+   "stage": "confirm",
+   "card": null,
+   "cardText": "Needs your OK\n\nEdit notes.md\n\nAppend a 'Next steps' section (4 lines) to notes.md\n\nOr hold\nCtrl+Shift+Space\nand say “approve”, “reject”, or what to change.\n\nReject\nChange\nApprove",
+   "stack": "3\n3 things need you\nNext: Your timer is up.",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "reject",
+  "clicked": true
+ },
+ {
+  "flow": "5f",
+  "what": "after-card",
+  "frames": [
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"mock-4\",\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"thread_id\":\"b9778d4443a4\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"mock-4\",\"status\":\"rejected\",\"summary\":\"Rejected: Edit notes.md. Nothing was changed.\",\"details\":null,\"agent\":{\"id\":\"mock\",\"name\":\"Demo agent\"},\"note\":null,\"origin\":\"asked\",\"thread_id\":\"b9778d4443a4\"}"
+   ],
+   [
+    "resume.offer",
+    "{\"thread_id\":\"d8d7d0019ba9\",\"title\":\"Turn off Wi-Fi\"}"
+   ],
+   [
+    "stack",
+    "{\"items\":[{\"id\":\"parked:d8d7d0019ba9\",\"kind\":\"parked\",\"title\":\"Turn off Wi-Fi\",\"reason\":\"asked\",\"since_ms\":1794690290156,\"thread_id\":\"d8d7d0019ba9\",\"expires_ms\":1794690890156}]}"
+   ],
+   [
+    "runs",
+    "{\"focus\":\"due-timer-3\",\"rows\":[{\"run_id\":\"local-5\",\"thread_id\":\"d45a88c4ec35\",\"title\":\"turn off Wi-Fi\",\"state\":\"result\",\"activity\":null,\"app\":null,\"agent\":null,\"started_ms\":1794690089576,\"origin\":\"asked\",\"summary\":\"Wi-Fi"
+   ],
+   [
+    "state",
+    "{\"state\":\"result\",\"run_id\":\"due-timer-3\",\"agent\":null,\"thread_id\":\"b9778d4443a4\"}"
+   ],
+   [
+    "result",
+    "{\"run_id\":\"due-timer-3\",\"status\":\"done\",\"summary\":\"Your timer is up. Your timer is up.\",\"details\":null,\"agent\":null,\"note\":null,\"origin\":\"reminder\",\"thread_id\":\"b9778d4443a4\"}"
+   ],
+   [
+    "resume.offer",
+    "{\"thread_id\":\"d8d7d0019ba9\",\"title\":\"Turn off Wi-Fi\"}"
+   ]
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up. Your timer is up.\n\nDone\n\nUnfinished: Turn off Wi-Fi. It's with what needs you.",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "5f",
+  "what": "shot",
+  "files": [
+   "5f-after-card-nothing-back-dark.png",
+   "5f-after-card-nothing-back-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Timer\n\nYour timer is up. Your timer is up.\n\nDone\n\nUnfinished: Turn off Wi-Fi. It's with what needs you.",
+   "stack": "1\n1 thing needs you\nNext: Turn off Wi-Fi",
+   "capsule": ""
+  }
+ }
+]

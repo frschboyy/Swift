@@ -50,7 +50,7 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-15 at `5f3342f`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-15 at `55a4886`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
@@ -2502,16 +2502,108 @@ You should see: no card asking to read them, and no contents. Swift says it can'
 
 The report checks: nothing to judge from the log; tell us what you saw in each.
 
+### What only your PC can show (end-to-end pass on `main`, 2026-11-14)
+
+About 20 minutes. The QA pass of 2026-11-14 (`docs/handoff/notes-2026-11-14/qa-e2e-proof.md`) drove these flows in the
+dev harness, with fakes. The harness has no Chrome, no Task Manager, no microphone and no pane windows, and runs at 100%.
+These checks are the same flows on your PC. Unless a step says otherwise, **reject** every card that would send or
+change something.
+
+<a id="check-380"></a>**Check 380. An email draft to a contact, filled in Chrome**
+1. Open Chrome with Gmail signed in. Say "Hey Swift, write an email to (a contact you have) saying I'll be late tomorrow".
+2. Look at the card, and at Gmail if a draft opens there.
+
+You should see: the card names that contact and shows their address from your contacts. If Gmail opens, its draft has
+the To, the subject and the body filled in, and the cursor isn't taken from the window you were in. Nothing is sent
+until you approve. Click **Reject**.
+
+<a id="check-381"></a>**Check 381. "Which Sam?" with several matches**
+1. Pick a first name that two or more of your contacts share. Say "Hey Swift, email (that first name) saying hello".
+2. When Swift asks which one, say the second person's full name. Don't click.
+
+You should see: a question card listing each match by full name, and after your answer a draft to that person only, at
+the address from your contacts. Click **Reject**.
+
+<a id="check-382"></a>**Check 382. Task Manager over the orb while a card waits for you**
+1. Open Task Manager with **Options > Always on top** ticked, and drag it over Swift's orb. Click in Notepad beside it.
+2. Say "Hey Swift, write an email to (a contact) saying test", and wait for the card that asks before sending.
+
+You should see: the card at another place on the screen, not behind Task Manager, with its buttons clickable. Typing a
+letter goes into Notepad. Click **Reject**, close Task Manager, and say "Hey Swift, what time is it": the card is back
+where you put Swift.
+
+<a id="check-383"></a>**Check 383. At 150%: a long answer, Read more and the stack**
+1. Set **Settings > System > Display > Scale** to 150% (put it back afterwards).
+2. Say "Hey Swift, research the history of tea". When the answer comes, click **Read more** and scroll to the end.
+3. Say "Hey Swift, set a timer for 20 seconds", then "Hey Swift, turn off Wi-Fi", and leave the question unanswered
+   until the timer comes due.
+
+You should see: in step 2 the opening once, no "…", the last line reachable, and nothing cut off at the card's edges.
+In step 3 the timer waits behind the question (the stack's count goes up), and nothing overlaps or is cut off. Say "no".
+
+<a id="check-384"></a>**Check 384. The wake word, for a quick answer**
+1. Without touching the keyboard, from across the desk, say "Hey Swift, what time is it".
+2. Say "Hey Swift" alone, wait a moment, then "what's the date".
+
+You should see: the time on a card within about a second of finishing, without the hotkey. In step 2, Swift shows it
+heard you, then answers the date.
+
+<a id="check-385"></a>**Check 385. Approving hands-free needs Swift's name**
+1. Say "Hey Swift, list the files in my Downloads folder". Wait for a card asking to run a command (it only lists files).
+2. Without the hotkey, say "approve".
+3. Then say "Swift, approve".
+
+You should see: in step 2 nothing runs, and the card says to say Swift's name; in step 3 the command runs and the
+answer lists your files. If it asks about anything other than listing files, click **Reject** instead.
+
+<a id="check-386"></a>**Check 386. "Turn off Wi-Fi?" hands-free, with a plain yes**
+1. Without the hotkey, say "Hey Swift, turn off Wi-Fi". While the question is on screen, say "yes".
+2. Say "Hey Swift, turn the Wi-Fi back on".
+3. Say "Hey Swift, turn off Wi-Fi" again, and this time say "Hey Swift, turn off Wi-Fi" once more as the answer.
+   Then turn it back on.
+
+You should see: Wi-Fi goes off after the plain "yes" (step 1) and after the request said again (step 3), and comes back
+in step 2. Swift's question never goes to the agent.
+
+<a id="check-387"></a>**Check 387. Typing to "Turn off Wi-Fi?"**
+1. Say "Hey Swift, turn off Wi-Fi". When the question shows, press the type hotkey and type `yes`, then Enter.
+2. Type `Swift, yes`, then Enter.
+
+You should see: step 1 doesn't turn it off; the card says typing can't. Tell us what step 2 did. In the harness a typed
+"Swift, yes" turned the fake Wi-Fi off: the code allows it on purpose (`intake.approves`), but CLAUDE.md says typing
+never approves. That needs your decision. Turn Wi-Fi back on if it went off.
+
+<a id="check-388"></a>**Check 388. A timer behind a card, and the stack: park, reopen, end**
+1. Say "Hey Swift, set a timer for 15 seconds", then "Hey Swift, write an email to (a contact) saying test". Leave
+   the card that asks before sending on screen until the timer comes due.
+2. Click **Reject**. Then say "Hey Swift, turn off Wi-Fi", and while it asks, say "Hey Swift, what time is it".
+3. Double-click the stack, and click **Open** on "Turn off Wi-Fi". Then set it aside again the same way, open the
+   stack, and click **End**.
+
+You should see: in step 1 the card stays and the stack counts the timer; after Reject the timer's card shows once.
+In step 3 the question comes back, and after End it is gone and doesn't come back.
+
+<a id="check-389"></a>**Check 389. A web address said, said again, and a remembered one**
+1. Say "Hey Swift, open usiu dot ac dot ke". Then say "Hey Swift, open that site again".
+2. Say "Hey Swift, new topic: open my university's website".
+3. Say "Hey Swift, remember my university is usiu dot ac dot ke", then "Hey Swift, open my university's website".
+
+You should see: the site opens in steps 1 and 3. In step 2 Swift asks for the address and offers none. (Check 330 asks
+the same; this run is on `main` after C3's merge.)
+
+The report checks: 389's steps through the run's tools (as 255 and 330); the rest is for your eyes. Tell us what you saw
+in each.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-15 at `5f3342f`. Each number links to its check.
+As of 2026-11-15 at `55a4886`. Each number links to its check.
 
 - **Changed since it failed: run it again** (19): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [203](#check-203), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [237](#check-237), [239](#check-239), [252](#check-252), [305](#check-305), [310](#check-310), [320](#check-320)
-- **Never run** (111): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [253](#check-253), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [264](#check-264), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [304](#check-304), [311](#check-311), [340](#check-340), [345](#check-345), [350](#check-350), [351](#check-351), [352](#check-352), [353](#check-353)
+- **Never run** (121): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [253](#check-253), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [264](#check-264), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [304](#check-304), [311](#check-311), [340](#check-340), [345](#check-345), [350](#check-350), [351](#check-351), [352](#check-352), [353](#check-353), [380](#check-380), [381](#check-381), [382](#check-382), [383](#check-383), [384](#check-384), [385](#check-385), [386](#check-386), [387](#check-387), [388](#check-388), [389](#check-389)
 - **Partly seen** (6): [8](#check-8), [15](#check-15), [16](#check-16), [21](#check-21), [24](#check-24), [77](#check-77)
 - **Passed, changed since** (80): [4](#check-4), [5](#check-5), [7](#check-7), [10](#check-10), [11](#check-11), [14](#check-14), [17](#check-17), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [41](#check-41), [42](#check-42), [47](#check-47), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [54](#check-54), [55](#check-55), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [62](#check-62), [68](#check-68), [69](#check-69), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [104](#check-104), [106](#check-106), [107](#check-107), [108](#check-108), [110](#check-110), [115](#check-115), [120](#check-120), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [134](#check-134), [139](#check-139), [153](#check-153), [168](#check-168), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [201](#check-201), [202](#check-202), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [213](#check-213), [214](#check-214), [216](#check-216), [217](#check-217), [219](#check-219), [220](#check-220), [233](#check-233), [234](#check-234), [236](#check-236), [240](#check-240), [254](#check-254), [255](#check-255), [263](#check-263)
 - **Passed, nothing changed since** (32): [1](#check-1), [2](#check-2), [2b](#check-2b), [3](#check-3), [12](#check-12), [16b](#check-16b), [43](#check-43), [45](#check-45), [46](#check-46), [71](#check-71), [91](#check-91), [93](#check-93), [103](#check-103), [105](#check-105), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [123](#check-123), [125](#check-125), [149](#check-149), [160](#check-160), [161](#check-161), [191](#check-191), [204](#check-204), [228](#check-228), [232](#check-232), [241](#check-241), [242](#check-242), [270](#check-270), [303](#check-303), [306](#check-306)
@@ -2525,12 +2617,11 @@ As of 2026-11-15 at `5f3342f`. Each number links to its check.
 
 **On branches not merged yet:**
 
-- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 108 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
-- `claude/audit-fixes-recipients`: changes code behind 16 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 112 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/audit-fixes-recipients`: changes code behind 18 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
 - `claude/c3-recent-address-83f24a`: changes code behind 6 checks here (52, 62, 213, 255, 330, 353).
-- `claude/qa-e2e-proof-a6650f`: adds checks 380, 381, 382, 383, 384, 385, 386, 387, 388, 389.
-- `claude/qa-review-fix-1707cc`: changes code behind 52 checks here (10, 19, 19b, 23, 24, 25, 28, 38, 39, 49, 50, 51, …).
-- `claude/qa1-pstack-161dc6`: adds checks 370, 371, 372, 373; changes code behind 52 checks here (10, 19, 19b, 23, 24, 25, 28, 38, 39, 49, 50, 51, …).
+- `claude/qa-review-fix-1707cc`: changes code behind 53 checks here (10, 19, 19b, 23, 24, 25, 28, 38, 39, 49, 50, 51, …).
+- `claude/qa1-pstack-161dc6`: adds checks 370, 371, 372, 373; changes code behind 98 checks here (4, 5, 6, 7, 8, 10, 14, 15, 16, 19, 19b, 21, …).
 
 **Next free check number: 390** (counted across `main` and every open branch).
 
@@ -2545,7 +2636,6 @@ As of 2026-11-15 at `5f3342f`. Each number links to its check.
 - `docs/handoff/README.md`: check 185
 - `docs/handoff/README.md`: check 222
 - `docs/handoff/roadmap.md`: check 222
-- `docs/handoff/workstreams.md`: check 387
 <!-- status:end -->
 
 ## After the checks: the report

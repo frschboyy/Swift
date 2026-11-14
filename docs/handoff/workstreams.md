@@ -113,3 +113,11 @@ All taken from the orchestrator's recommendations:
   both looks stay for now, and a small branch makes Halo the default and deletes the old look only after the owner
   has seen Halo on the real PC (checks 216–221); deck edges and stack rows stay out of the renderer, revisited with B5.
 - **C3, a web address the owner gave earlier** (product rule, from check 255): `desktop_open(url=…)` may open an address the owner said or typed themselves earlier in this conversation, in the last 10 minutes. The source is Swift's own record of the owner's words (each request's transcript and their answers to its questions, kept with the conversation's exchanges), never the agent's text or what a page or tool read. A yes to an address the agent made up still never counts. When no address the owner gave fits, the agent asks the owner to say it instead of offering one. Merged 2026-11-14 after a second review, check 330.
+- **Modes study's seven decisions** (`docs/explorations/modes-study.md`, 2026-11-14 evening): all seven taken as recommended.
+  Learned trust starts with Wi-Fi off, Bluetooth off and airplane mode on only; a spoken "always do X" may create a
+  trust for a kind on the table, a typed one may not; `config.yaml` can't set a trust; a read folder outside the read
+  folders is offered through the same card and added to `executor.read_dirs` (never-read places are never offered);
+  the plan card covers commands only at first, as B2; "ask me about everything" covers every action and command except
+  reads inside the read folders and volume up or down, and stays on until turned off; an offer comes after 3 approvals
+  in 3 runs within 14 days with none rejected, once per kind. Built in the study's order after the queued B work,
+  starting with "ask me about everything".

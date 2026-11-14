@@ -2388,15 +2388,10 @@ As of 2026-11-14 at `c9f3b2e`. Each number links to its check.
 
 **On branches not merged yet:**
 
-- `claude/a10-uncovered-anchor-9b3922`: adds checks 320; changes code behind 61 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, 58, …).
-- `claude/a9-gmail-252-e5d21c`: changes code behind 12 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255).
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 100 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 15 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
-- `claude/c3-recent-address-83f24a`: changes code behind 15 checks here (10, 38, 39, 49, 50, 51, 52, 62, 75, 76, 92, 95, …).
+- `claude/c3-recent-address-83f24a`: adds checks 330; changes code behind 15 checks here (10, 38, 39, 49, 50, 51, 52, 62, 75, 76, 92, 95, …).
 - `claude/halo-step-b-c7b584`: changes code behind 66 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, 58, …).
-- `savepoint/a10-front-and-web-9f8dcd`: changes code behind 12 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255).
-- `savepoint/a7-duplicates-54bd6a`: changes code behind 12 checks here (15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212).
-- `savepoint/c1-grounded-facts-556f60`: changes code behind 47 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
 
 **Next free check number: 340** (counted across `main` and every open branch).
 

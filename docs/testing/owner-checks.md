@@ -2525,12 +2525,12 @@ As of 2026-11-14 at `c623ca8`. Each number links to its check.
 
 **On branches not merged yet:**
 
-- `claude/a9-body-focus`: changes code behind 15 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 310, …).
-- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 107 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/a9-body-focus`: changes code behind 16 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 310, …).
+- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 108 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 16 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
 - `claude/c3-recent-address-83f24a`: changes code behind 6 checks here (52, 62, 213, 255, 330, 353).
-- `claude/combine-check`: changes code behind 104 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
-- `claude/merge-audit-branches-b460f7`: changes code behind 104 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/combine-check`: changes code behind 105 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
+- `claude/merge-audit-branches-b460f7`: changes code behind 105 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/split-session-py-8947e9`: changes code behind 16 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
 
 **Next free check number: 354** (counted across `main` and every open branch).
@@ -2538,7 +2538,6 @@ As of 2026-11-14 at `c623ca8`. Each number links to its check.
 **Code changed in the last 14 days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):
 
 - `src/swift/executors/web_scope.py`: 2 commits
-- `src/swift/workflows/owner_address.py`: 1 commit
 - `src/swift/exchange.py`: 1 commit
 - `src/swift/seen.py`: 1 commit
 

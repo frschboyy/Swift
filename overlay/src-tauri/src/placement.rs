@@ -417,7 +417,7 @@ mod tests {
     /// so no anchor was wholly uncovered and the cards stayed behind it. They go where least is covered.
     #[test]
     fn at_125_and_150_percent_the_cards_move_where_task_manager_covers_least() {
-        for scale in [1.25, 1.5] {
+        for (scale, at_most) in [(1.25, 0.2), (1.5, 0.55)] {
             let area = Area { x: 0, y: 0, w: 1920, h: 1032 };
             let (w, h) = ((830.0 * scale) as i32, (620.0 * scale) as i32);
             let over_orb = (960 - w / 2, 1032 - h, w, h);
@@ -425,8 +425,11 @@ mod tests {
             let (anchor, rect, moved) = settle(area, scale, BC, home_rect, &[over_orb]);
             assert!(moved, "at {scale}: the cards stayed behind Task Manager");
             assert_eq!(rect, overlay_rect(area, scale, anchor));
-            let left = covered(card_zone(area, scale, anchor), &[over_orb]);
-            assert!(left < covered(card_zone(area, scale, BC), &[over_orb]) / 4, "at {scale}: {anchor:?} is hardly better");
+            // The least covered: 14% of the card zone at 125%, 49% at 150% (top left; a large card's
+            // far corner can still be under it there, and a small card at the screen's corner isn't).
+            let hidden = |a: Anchor| covered(card_zone(area, scale, a), &[over_orb]);
+            assert!(Anchor::ALL.into_iter().all(|a| hidden(anchor) <= hidden(a)), "at {scale}: {anchor:?} isn't the least covered");
+            assert!((hidden(anchor) as f64) < at_most * hidden(BC) as f64, "at {scale}: hardly better than home");
         }
     }
 

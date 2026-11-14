@@ -2420,8 +2420,9 @@ clear of it. Now it goes where Task Manager covers least.
 1. In **Settings > System > Display**, note your **Scale** (125% or 150% is the case this checks; at 100%, say so).
 2. Open Task Manager at its usual size with **Options > Always on top** ticked, and drag it over where Swift's orb sits.
    Click in Notepad beside it.
-3. Say "Hey Swift, what time is it". You should see the card at another place on the screen, mostly or wholly clear of
-   Task Manager, not behind it. Type a letter: it goes into Notepad.
+3. Say "Hey Swift, what time is it". You should see the card at another place on the screen (a top corner), not behind
+   Task Manager. At 150% a long card's far corner can still reach under it: say whether the card was readable.
+   Type a letter: it goes into Notepad.
 4. Press Swift's hotkey with Task Manager still there: the card stays where it moved to, not back under Task Manager.
 5. Close Task Manager and say "Hey Swift, what time is it": the card is back where you put Swift.
 

@@ -22,6 +22,8 @@ from swift.desktop.base import DesktopError
 FIELDS = ("to", "body", "subject")
 # How long a field Swift put the cursor in has to take it, before a paste.
 FOCUS_WAIT_S = 1.0
+# How long a To row Swift opened has to show its To box (it took 0.2 s on this PC, 2026-11-14).
+TO_OPEN_WAIT_S = 0.6
 # Where the keyboard was when a field wouldn't take it: the only words about it the log gets.
 FOCUS_PLACES = ("to", "body", "subject", "page", "other_window", "none")
 
@@ -71,8 +73,16 @@ class Clock:
     sleep: Callable[[float], None] = time.sleep
 
 
-def find_compose(screen: ComposeScreen) -> tuple[int, dict[str, Any]] | Waiting:
-    """The compose window to fill: the one in front, or one found behind and brought forward."""
+def find_compose(screen: ComposeScreen, opened: set[int] | None = None,
+                 clock: Clock | None = None) -> tuple[int, dict[str, Any]] | Waiting:
+    """The compose window to fill: the one in front, or one found behind and brought forward.
+
+    ``opened``: the windows whose To row this fill already opened, kept by the caller across its polls,
+    so a row is opened once per fill (opening another window's row takes the keyboard from the first,
+    which collapses its row again: the two opened in turn on every poll).
+    """
+    opened = set() if opened is None else opened
+    clock = clock or Clock()
     front = screen.front()
     label = screen.front_label(front)
     waiting: Waiting
@@ -80,7 +90,7 @@ def find_compose(screen: ComposeScreen) -> tuple[int, dict[str, Any]] | Waiting:
         if screen.private(front):
             raise DesktopError("Gmail opened in a private window.", "Open a normal window and try again.",
                                code="gmail_private")
-        fields = _fields(screen, front)
+        fields = _fields(screen, front, opened, clock)
         if len(fields) == len(FIELDS):
             if not screen.subject_in_use(fields):
                 return front, fields
@@ -94,7 +104,7 @@ def find_compose(screen: ComposeScreen) -> tuple[int, dict[str, Any]] | Waiting:
     for hwnd in screen.browser_windows():
         if hwnd == front or screen.private(hwnd):
             continue
-        fields = _fields(screen, hwnd)
+        fields = _fields(screen, hwnd, opened, clock)
         if len(fields) < len(FIELDS) or screen.subject_in_use(fields):
             continue
         if screen.bring_forward(hwnd):
@@ -104,17 +114,22 @@ def find_compose(screen: ComposeScreen) -> tuple[int, dict[str, Any]] | Waiting:
     return waiting
 
 
-def _fields(screen: ComposeScreen, hwnd: int) -> dict[str, Any]:
+def _fields(screen: ComposeScreen, hwnd: int, opened: set[int], clock: Clock) -> dict[str, Any]:
     """The compose fields in ``hwnd``, after opening a To row Gmail shows collapsed.
 
     A compose window that opens without the cursor in it shows To as a "Recipients" row with no To box
     (UIA tree read on this PC, 2026-11-14: the 12:30 run of check 252 found Subject and Body, no To).
     Putting the keyboard on that row opens the box. Only in an empty compose window: never a reply or a draft.
+    Once per window in a fill, waiting here for the box: the read straight after it missed it.
     """
     fields = screen.fields(hwnd)
-    if set(fields) != {"subject", "body"} or screen.subject_in_use(fields) or not screen.open_to(hwnd):
+    if (set(fields) != {"subject", "body"} or hwnd in opened or screen.subject_in_use(fields)
+            or not screen.open_to(hwnd)):
         return fields
-    fields = screen.fields(hwnd)
+    opened.add(hwnd)
+    deadline = clock.now() + TO_OPEN_WAIT_S
+    while "to" not in (fields := screen.fields(hwnd)) and clock.now() < deadline:
+        clock.sleep(0.05)
     logger.info("gmail to row opened", found=sorted(fields))
     return fields
 

@@ -359,3 +359,46 @@ def test_a_reply_s_collapsed_recipients_are_never_opened() -> None:
 def test_a_page_with_no_to_row_at_all_still_waits_as_not_loaded() -> None:
     screen = FakeScreen({COMPOSE: Window(fields=("body", "subject"))})
     assert gmail_fill.find_compose(screen) == gmail_fill.Waiting("not_loaded", "Chrome", ("body", "subject"))
+
+
+@dataclass
+class SlowToScreen(FakeScreen):
+    """Gmail's To box as on this PC (2026-11-14): it shows 0.2 s after its row gets the keyboard, and the
+    row collapses again when the keyboard goes to another window."""
+
+    t: float = 0.0
+    keyboard: int | None = None
+    opened_at: dict[int, float] = field(default_factory=dict)
+
+    def fields(self, hwnd: int) -> dict[str, Any]:
+        window = self.windows[hwnd]
+        shown = self.keyboard == hwnd and self.t - self.opened_at.get(hwnd, -1.0) >= 0.2
+        return {key: (hwnd, key) for key in window.fields if key != "to" or shown or not window.to_closed}
+
+    def open_to(self, hwnd: int) -> bool:
+        self.keyboard, self.opened_at[hwnd] = hwnd, self.t
+        self.steps.append(f"open to {hwnd}")
+        return True
+
+    def clock(self) -> gmail_fill.Clock:
+        return gmail_fill.Clock(now=lambda: self.t, sleep=lambda s: setattr(self, "t", self.t + s))
+
+
+def test_a_to_row_is_opened_once_per_fill_even_with_another_empty_compose_open() -> None:
+    """Follow-up to A9: each poll opened the row again, and a second empty compose took the keyboard from
+    the first, so the two rows were opened in turn, logged every time, and the email never filled."""
+    screen = SlowToScreen({COMPOSE: Window(to_closed=True), OTHER_BROWSER: Window(to_closed=True)})
+    opened: set[int] = set()
+    sink = _captured()
+    try:
+        for _ in range(10):
+            screen.t += 0.5
+            found = gmail_fill.find_compose(screen, opened, screen.clock())
+            if not isinstance(found, gmail_fill.Waiting):
+                break
+    finally:
+        logger.remove()
+    assert found == (COMPOSE, gmail_fill.find_compose(screen, opened, screen.clock())[1])
+    assert screen.steps == [f"open to {COMPOSE}"]
+    assert sink.getvalue().count("gmail to row opened") == 1
+    assert "found=['body', 'subject', 'to']" in sink.getvalue()

@@ -876,20 +876,21 @@ class WindowsDesktop:
         await asyncio.to_thread(os.startfile, GMAIL_COMPOSE_URL)  # type: ignore[attr-defined]
         started = time.monotonic()
         waiting: gmail_fill.Waiting | None = None
+        opened: set[int] = set()  # To rows this fill opened: each once (gmail_fill.find_compose)
         while time.monotonic() - started < GMAIL_WAIT_S:
             await asyncio.sleep(0.5)
-            found = await self._run(self._fill_gmail, to, subject, body)
+            found = await self._run(self._fill_gmail, to, subject, body, opened)
             if isinstance(found, str):
                 return found
             waiting = found
         raise gmail_fill.gave_up(waiting, time.monotonic() - started)
 
-    def _fill_gmail(self, to: list[str], subject: str, body: str) -> str | gmail_fill.Waiting:
+    def _fill_gmail(self, to: list[str], subject: str, body: str, opened: set[int]) -> str | gmail_fill.Waiting:
         """Fill the compose window once its fields exist; ``Waiting`` (why not yet) while they don't."""
         uia = self._uia()
         assert uia is not None
         screen = _GmailScreen(uia, self.never_read)
-        found = gmail_fill.find_compose(screen)
+        found = gmail_fill.find_compose(screen, opened)
         if isinstance(found, gmail_fill.Waiting):
             return found
         gmail_fill.fill(screen, *found, to, subject, body)

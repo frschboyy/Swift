@@ -903,9 +903,8 @@ async def test_the_request_typed_again_never_approves_its_question() -> None:
     await finish_all(session, agent)
 
 
-@pytest.mark.xfail(strict=True, reason="QA-06: open finding; remove this marker with the fix")
 async def test_a_compound_request_said_again_in_another_order_is_its_yes() -> None:
-    # QA-06 (thermos review of 2026-11-15): restated_as compares the intents in order, same_request sorted. Said
+    # QA-06 (thermos review of 2026-11-15): restated_as compared the intents in order, same_request sorted. Said
     # in another order, the same two requests weren't the question's yes: the question went to the stack and
     # nothing was turned off, though the owner had said what he wanted twice.
     session, out, agent, stt, control, _sched = _lane(30.0)
@@ -915,6 +914,20 @@ async def test_a_compound_request_said_again_in_another_order_is_its_yes() -> No
     await say(session, stt, "turn off the bluetooth and turn off the wifi")
     await until(lambda: control.radio_state.get("wifi") is False, timeout=1.0)
     assert control.radio_state["bluetooth"] is False and agent.requests == []
+    await finish_all(session, agent)
+
+
+async def test_part_of_a_compound_request_said_to_its_question_never_approves_it() -> None:
+    # QA-06's guard: "turn off the wifi" alone, to the question about the Wi-Fi and the Bluetooth, is another set
+    # of intents, not the request said again: nothing is turned off by it as the question's yes.
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    control.radio_state["bluetooth"] = True
+    await say(session, stt, "Hey Swift, turn off the wifi and turn off the bluetooth")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    await say(session, stt, "turn off the wifi")
+    await asyncio.sleep(0.5)
+    assert control.radio_state["bluetooth"] is True, "a part of the request approved the whole question"
+    assert control.radio_state["wifi"] is True, "a part of the request approved without its own question"
     await finish_all(session, agent)
 
 

@@ -3325,10 +3325,11 @@
   area: actions
   severity: medium
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: restated_as compares list(found) == list(question.payload), in order; same_request (parked.drop_same)
-    compares the intents sorted; so the restatement is "elsewhere" to the question but "the same" to the stack
+  evidence: restated_as compared list(found) == list(question.payload), in order, while same_request
+    (parked.drop_same) compared them sorted; now both ask same_request.same_intents, in any order
   test: tests/unit/test_seam_replay.py::test_a_compound_request_said_again_in_another_order_is_its_yes
-  note: A strict xfail; it passes with restated_as comparing the intents sorted, and the other A+B scenarios still
-    pass (tried, not committed). The fix touches the A+B rule (restated.py) and waits for the orchestrator.
+  note: Fixed on the orchestrator's go-ahead (A+B, a product rule; his second review). Also
+    test_seam_replay.py::test_part_of_a_compound_request_said_to_its_question_never_approves_it (guard) and
+    test_same_request.py::test_restated_and_same_request_agree_on_every_system_request (one owner).

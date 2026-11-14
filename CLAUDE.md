@@ -9,8 +9,10 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
 ## Rules
 
 - **Git:**
-  - Work on a branch in a worktree; commit there only.
-  - **Never push.** Merge into `main` only when the owner says so.
+  - Work on a branch in a worktree; commit there only. If git has no identity on this PC, commit with
+    `git -c user.name="Francis Chianu" -c user.email=<the email on main's recent commits>` *(foundation decision 14)*.
+  - **Never push.** To move work to another PC, make a `git bundle` of the named branches when the owner asks
+    *(foundation decision 13)*. Merge into `main` only when the owner says so.
   - End commit messages with a `Co-Authored-By:` line.
 - **Never enter credentials or sign in for the owner.** Google sign-in is owner-run:
   ```bash
@@ -18,33 +20,86 @@ Owner's principle: **"Swift adapts to the user, not the user to Swift."**
   ```
 - **No real-world actions to test** (emails, calendar, Wi-Fi, locking, deleting). Use the fakes, debug mode and the dev harness.
 - **Port 1420 is the owner's running Swift.** Never start a dev server on it; the harness uses 1431.
-- **Product rules** (a path that breaks one is a critical bug):
-  - recipients only from contacts or `find_contact`;
-  - approving hands-free needs Swift's name, and a bare "yes" never approves; the one exception is
-    Swift's own question about a reversible change the owner just asked for ("Turn off Wi-Fi?"),
-    where a plain spoken "yes" or a click on Yes does it while the question is open and on screen;
-  - typing never approves;
-  - no hands-free listening while locked;
-  - logs content-free (transcripts redacted), except the owner's local interaction log;
-  - status labels generic (never "Claude Code is…");
-  - audio never leaves the PC;
-  - Swift writes into apps only when the owner's own words asked;
-  - memory is written only from the owner's words or an approved card, never from what a worker read;
-  - deleting a file always asks on a card, whatever a setting or a run's permission says (ADR-019; whether
-    a move to the Recycle Bin counts as reversible is decided when the W2 file tools are designed).
-- **Code:**
-  - `session.py` is large: add small modules with narrow interfaces.
-  - No new dependencies without a clear need.
-- **Owner checks:** new behaviour gets checks in `docs/testing/owner-checks.md`, plus report lines in `spikes/owner_checks/report.py`,
-  plus the code each check proves in `docs/testing/owner-checks-ledger.yaml` (`test_owner_plan.py` fails without it).
-  `spikes/owner_checks/plan.py` keeps the file's run list and status current:
-  - take a new check's number from its "Next free check number";
-  - when the owner pastes a report, save it to a file and record it with `--record FILE`; what they tell you they saw goes in with `--set 216=pass 217=fail --note "…"`;
-  - after recording, and when merging to `main`, run it with `--write`. Don't edit between its markers.
-- **The live roadmap:** the owner's plan for the coming weeks is `docs/handoff/roadmap.md`; `spikes/owner_checks/roadmap.py` writes it,
-  with each step's status, the log problems and failed checks, to `ROADMAP.md` (not in git). Run it after recording a report or a
-  verdict, after a fix or a merge, and when the owner reports a problem, from a session with
-  `--swift-dir //localhost/c$/Users/frchi/AppData/Local/Swift`. Tick a hand-done step (`- [x]`) or change the plan in `roadmap.md`.
+
+### Product rules
+
+A path that breaks one is a critical bug, and a fix to one is reviewed by someone other than its author.
+
+**What an action needs** follows from four things Swift knows: how reversible it is, who it reaches, how the owner
+answered, and whether the owner is there. Swift decides reversibility and reach, never the agent.
+
+| Level | When | What Swift does | What approves |
+|---|---|---|---|
+| 0. Do it | a read; or reversible, on the owner's PC only, and the owner's words asked | acts; "undo that" works | nothing needed |
+| 1. Ask once | disruptive on the owner's PC only (Wi-Fi off); or the owner's words don't clearly ask (an address they gave earlier, writing into an app); or Swift's own question about the owner's request | one short question on screen | a gesture, Swift's name, or a plain spoken "yes" while it's on screen; saying the same request again, spoken |
+| 2. Card | what a worker chose to do on the owner's PC (commands, file edits, reads outside the read folders); moving a file to the Recycle Bin | a card saying what and why; one step or plan card may cover several | a gesture, or Swift's name |
+| 3. Its own card | irreversible (deleting permanently, sending, publishing, pushing, running code, typing into a terminal), reaching anyone else, or the owner's accounts | its own card, never covered by a step card, a plan, a learned trust or a setting | a gesture, or Swift's name; **paying: a gesture only** *(foundation decision 9)* |
+
+- **A gesture** is a click on Swift's own button, the same button pressed from the keyboard *(foundation decision 2)*, or speech
+  with the hotkey held *(foundation decision 3)*.
+- **Typed words never approve**, at any level, with or without Swift's name *(foundation decision 1)*.
+- **Nothing approves unless the owner is present** (unlocked, not away, listening not paused) **and the thing is on
+  screen and in front**, and nothing heard over Swift's own voice is a yes. A click needs no check: it was on the thing.
+- **What a worker read never acts by itself.** The agent's text, a page, a tool's output or an option the agent wrote
+  never chooses a recipient, a web address, a path to delete, a memory or a trust. Shown on a card, marked as the
+  worker's, and approved by the owner, it may be used.
+  - Recipients come from contacts, `find_contact`, or an address in the owner's own words, marked on the send card
+    *(foundation decision 5)*.
+  - A web address comes from the owner's words in this request, or Swift asks "Open (their earlier address)?"
+    *(foundation decision 4)*.
+  - Memory is written only from the owner's words or an approved card.
+- **Deleting a file always asks.** A move to the Recycle Bin is level 2; a permanent delete, emptying the bin, or a
+  recycle Swift can't confirm is level 3 (ADR-019) *(foundation decision 7)*.
+- **Learned trust** lowers one kind from level 1 to 0 (only kinds on its table, never level 3). **"Ask me about
+  everything"** raises level 0 to 1, except reads in the read folders and volume.
+- **`intake.approves` is the one place approval is decided**, and its test checks it against the table above
+  *(foundation decision 10)*. Change both together.
+- **No hands-free listening while locked, away or paused.**
+- **Logs:** `swift.log` holds no content (the owner's words, names, addresses, file contents) but does hold
+  structure (reason codes, error classes, field roles, timings). The owner's local interaction log keeps their words
+  and answers *(foundation decision 8)*.
+- **Swift speaks as itself.** Status, cards and speech never name the provider ("Claude Code is…"); setup errors and
+  the settings that choose one may.
+- **Audio never leaves the PC.** A request's words go to the model that answers it; recordings don't.
+
+### Code
+
+- `session.py` is large: add small modules with narrow interfaces.
+- No new dependencies without a clear need.
+
+### Owner checks
+
+New behaviour gets checks in `docs/testing/owner-checks.md`, report lines in `spikes/owner_checks/report.py`, and the
+code each check proves in `docs/testing/owner-checks-ledger.yaml` (`test_owner_plan.py` fails without it).
+`spikes/owner_checks/plan.py` keeps the run list and status in `owner-checks-status.md`:
+
+- on a branch, give a new check a provisional id, `<branch>-<n>`; `plan.py --renumber` numbers it when it merges into
+  `main` *(foundation decision 11)*;
+- when the owner pastes a report, save it to a file and record it with `--record FILE`; what they tell you they saw
+  goes in with `--set 216=pass 217=fail --note "…"`;
+- after recording, and after every merge, run it with `--write`. The status file is generated and never merged by
+  hand (`merge=ours`) *(foundation decision 12)*.
+
+### The live roadmap
+
+Unchanged: `docs/handoff/roadmap.md`, written to `ROADMAP.md` by `spikes/owner_checks/roadmap.py`.
+
+### While the foundation decisions are being built (2026-11-15)
+
+The owner accepted all 14 decisions in `docs/explorations/foundation-rules-review.md` §7 on 2026-11-15. The rules
+above are the target; until each decision's code is merged, the code may differ. A change must move the code toward
+these rules, never away. Not built yet:
+
+- **1, 3, 10:** `intake.approves` still lets a typed "Swift, yes" answer Swift's reversible question (HA-HEAR-01's
+  strict xfail), and three places still decide approval outside it (`_fix_refused`, `restated.py`, the hands-free fix
+  offer).
+- **2:** no keyboard Tab and Enter on the card's own button yet.
+- **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and
+  `find_contact`; an unclear write into an app is still refused, not asked about.
+- **8:** `swift.log` has no reason codes for connector failures yet.
+- **11, 12:** check numbers are still whole numbers taken from "Next free check number", and the run list is still
+  generated between markers in `docs/testing/owner-checks.md` (by `plan.py --write`).
+- **7, 9:** apply when the W2 file tools and paying (C2) are built.
 
 ## Fixing things
 
@@ -61,7 +116,7 @@ Rules from the reliability audit and its review (`docs/audit/2026-11-reliability
 
 ## Commands (Windows; from a worktree)
 
-- **Python tests:**
+- **Python tests** (in a worktree on this PC `uv run` hangs; use `PYTHONPATH=src /c/Users/frchi/Documents/Swift/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider`, and the same interpreter for parity and the speech gate):
   ```bash
   /c/Users/frchi/AppData/Local/Microsoft/WinGet/Links/uv.exe run --frozen pytest -q -p no:cacheprovider
   ```

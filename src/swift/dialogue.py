@@ -41,8 +41,6 @@ from swift.system import intents as it
 # What ``ask_owner`` takes; the lanes also ask for a length of time, a clock time or a number.
 ASK_KINDS = ("yes_no", "choice", "free")
 KINDS = (*ASK_KINDS, "duration", "time", "number")
-MAX_OPTIONS = 8
-MAX_QUESTION = 300
 # How long the last answer or change is kept for "and tomorrow?" / "make it louder" (§5.1: ~60 s).
 CARRY_S = 60.0
 # How long a radio switched by Swift (Wi-Fi, Bluetooth, airplane mode) can still be "turned back on".

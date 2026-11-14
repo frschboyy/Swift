@@ -179,7 +179,6 @@ class LeadRecorder:
     def __init__(self, seconds: float = 2.0) -> None:
         self.seconds = seconds
         self.recording = False
-        self.capped = False
         self.lead: float | None = None
         self.on_level: Callable[[float], None] | None = None
 

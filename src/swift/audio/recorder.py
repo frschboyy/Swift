@@ -114,9 +114,6 @@ class Recorder(Protocol):
 
     def stop(self) -> np.ndarray: ...
 
-    @property
-    def capped(self) -> bool: ...
-
 
 T = TypeVar("T")
 
@@ -179,7 +176,6 @@ class MicRecorder:
         self._stream = None
         self._last_level = 0.0
         self._on_level: Callable[[float], None] | None = None
-        self.capped = False
         # Key-down to first audio block: speech before this is lost. With pre-roll the stream
         # is already running, so this is just the wait for the next block (under one block).
         self.first_audio_ms: int | None = None
@@ -258,7 +254,6 @@ class MicRecorder:
                 logger.warning("closing the microphone stream failed", error=str(exc))
 
     def _start(self, on_level: Callable[[float], None], lead_s: float | None = None) -> None:
-        self.capped = False
         self.first_audio_ms = None
         self.preroll_ms = 0
         self._on_level = on_level
@@ -403,7 +398,6 @@ class MicRecorder:
             if self.first_audio_ms is None:
                 self.first_audio_ms = int((time.perf_counter() - self._t_start) * 1000)
             if len(self._blocks) >= self._max_blocks:
-                self.capped = True
                 return
             self._blocks.append(indata.copy())
         now = time.monotonic()

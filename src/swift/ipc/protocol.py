@@ -59,7 +59,6 @@ MAX_FRAME_BYTES = 64 * 1024
 
 STATES = ("idle", "listening", "transcribing", "working", "confirm", "result", "error")
 SCENARIOS = ("happy", "confirm", "error", "long", "email", "research")
-RESULT_STATUSES = ("done", "cancelled", "error", "rejected")
 # Who started a run (ADR-019 N2), on results and rows: the owner ("asked"), or Swift on its own. Only
 # "asked" and the due cards' "reminder" and "away" are sent today; the rest come with watchers and schedules.
 ORIGINS = ("asked", "scheduled", "watching", "reminder", "noticed", "learned", "away")

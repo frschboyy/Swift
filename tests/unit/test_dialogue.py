@@ -254,7 +254,6 @@ class SnapRecorder:
 
     def __init__(self) -> None:
         self.on_level: Any = None
-        self.capped = False
 
     def start(self, on_level: Any, lead_s: float | None = None) -> None:
         self.on_level = on_level

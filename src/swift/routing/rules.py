@@ -341,9 +341,3 @@ def route_target(text: str) -> tuple[str, str] | None:
         return None
     verb = "stop" if m.group("verb") in ("stop", "cancel") else "show"
     return verb, what
-
-
-def route_for_eval(text: str) -> tuple[str, str | None]:
-    """Adapter for spikes/routing/eval_routes.py."""
-    r = route(text)
-    return r.route, r.demand

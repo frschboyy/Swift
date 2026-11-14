@@ -96,7 +96,6 @@ DEFAULT_MODELS = {"light": "claude-haiku-5-5", "standard": "claude-sonnet-5-5", 
 OVERRIDE_LEVEL = {"haiku": "light", "sonnet": "standard", "opus": "strong"}
 # Steps (assistant messages that use a tool) on one model before Swift moves the run up.
 DEFAULT_TURN_LIMITS = {"light": 8, "standard": 25}
-ESCALATE_TOOL = "mcp__swift__request_stronger_model"
 WORKFLOW_PROMPT = (
     " Swift has its own tools for the user's accounts and apps (mcp__swift__*). For email, use only them: "
     "find_contact to get an address (never type one yourself), draft_email to write it, then send_email; "

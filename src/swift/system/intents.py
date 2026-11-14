@@ -483,7 +483,6 @@ _SEARCH = re.compile(
     rf"|(?:google|bing) (?:for |up |about )?(?P<q2>[a-z0-9' .&+-]{{2,100}})"
 )
 _SEARCH_WORDS = re.compile(r"\b(?:and|then|also|into|in word|save|email|send|write|summari[sz]e|compare|file|document|folder|calendar)\b")
-_SEARCH_START = re.compile(r"^(?:search|google|bing|look)\b")
 
 
 def _amount(m: re.Match[str], default: int = 10) -> int:

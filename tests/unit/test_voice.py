@@ -35,7 +35,6 @@ class FakeRecorder:
         self.seconds = seconds
         self.fail = fail
         self.recording = False
-        self.capped = False
         self.on_level: Callable[[float], None] | None = None
 
     def start(self, on_level: Callable[[float], None]) -> None:

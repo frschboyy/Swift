@@ -17,7 +17,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Swift {__version__}")
         return 0
 
-    # The agent runtime arrives in Phase 1.
+    # The backend itself is ``python -m swift.backend``.
     parser.print_usage(sys.stderr)
     return 2
 

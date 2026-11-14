@@ -22,8 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-# Kinds and what each action does with them (session.py ``_stack_action``).
-CARD_KINDS = frozenset({"waiting", "later", "held"})
+# Kinds (waiting, later, held) and what each action does with them (session.py ``_stack_action``).
 ACTIONS = ("open", "skip", "end")
 # Parked conversations shown at most (swift/parked.py keeps 10).
 MAX_PARKED = 10

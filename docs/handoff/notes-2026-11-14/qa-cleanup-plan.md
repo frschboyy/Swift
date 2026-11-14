@@ -203,48 +203,58 @@ The change:
 **Proves it:** `test_settings*.py` (defaults expand, an unset `%VAR%` is a `SettingsError`, a bare
 environment falls back), `test_health_CFG.py`, then the full suite.
 
-### Step 7 (new, deslop "patterns inconsistent with the codebase"): `try/except X: pass` becomes `contextlib.suppress(X)` (≈ −23)
+### Step 7 (new, deslop "patterns inconsistent with the codebase"): `try/except X: pass` becomes `contextlib.suppress(X)` (≈ −16)
 
 `contextlib.suppress` is already the house idiom (37 uses in `claude_code.py`, `quick.py`, `session.py`,
 `speech.py`, `control.py` and `scheduler.py`). Sixteen sites still spell it as a 4-line `try/except/pass`.
-Each becomes a 2-line `with`, and each reason comment moves to the `with` line:
 
-| File | Sites | Δ |
-|---|---|---|
-| `desktop/windows.py` | 439, 600, 723, 735, 778, 805 (`Exception`, COM/UIA boundaries) | −12 +1 import |
-| `ipc/server.py` | 74, 112 (`ConnectionClosed`) | −4 +1 |
-| `session.py` | 1703 (`CancelledError`, already imports `contextlib`) | −2 |
-| `backend/__main__.py:592`, `executors/claude_mapping.py:159`, `executors/mock.py:229`, `executors/signin.py:136`, `lifecycle.py:189`, `system/lane.py:165`, `workflows/tools.py:770` | one each | −2 +1 each |
+**The orchestrator's rule (2026-11-15):** a site changes only where `suppress` names exactly the types the
+old `except` caught *and* it is provably the same. One commit.
 
-**Why it's safe:**
+**The one real difference, found while checking:** on Python 3.12 (this project's version), `suppress(X)`
+also swallows an `ExceptionGroup` whose members are all `X`, and `except X:` doesn't.
 
-- `suppress(X)` catches exactly what `except X:` caught.
+- For `X = Exception` the two are identical, because an `ExceptionGroup` is itself an `Exception`. So the
+  `except Exception` sites are provably the same and stay in.
+- For a narrow `X`, a site stays in only if its body can't raise an exception group. That means its body
+  awaits no task, `TaskGroup`, handler or callback.
+
+Kept (11 sites). Each becomes a 2-line `with`, and each reason comment moves to the `with` line:
+
+| File | Sites | Why provably the same | Δ |
+|---|---|---|---|
+| `desktop/windows.py` | 439, 600, 723, 735, 778, 805 | `except Exception` → `suppress(Exception)`: identical | −12 +1 import |
+| `ipc/server.py` | 74 | the body is one `client.send` | −2 +1 |
+| `executors/claude_mapping.py:159` | 1 | the body is `PureWindowsPath.relative_to` (`ValueError`) | −2 +1 |
+| `executors/signin.py:136` | 1 | the body is two `asyncio.to_thread` calls on a subprocess (`TimeoutExpired`) | −2 +1 |
+| `lifecycle.py:189` | 1 | the body is sleeps and a flag poll (`TimeoutError`) | −2 +1 |
+| `workflows/tools.py:770` | 1 | the body is `get_running_loop().create_task(...)` (`RuntimeError`) | −2 +1 |
+
+Left as they are (an exception group can't be ruled out, or the area is excluded):
+
+- `ipc/server.py:112`: its body awaits `self._handler(msg)`, which runs the session.
+- `session.py:1703` and `executors/mock.py:229`: they `await` a task, which re-raises whatever the task raised.
+- `backend/__main__.py:592`: its body is `asyncio.run(_serve(...))`, the whole backend.
+- `system/lane.py:165`: it awaits arbitrary undo steps.
+- `security/gateway.py:238`: the security pipeline's late-stop wait (product-rule area).
+- Any site whose `except` body is more than `pass`.
+
+**Also safe:**
+
 - A `return` inside the block behaves the same.
 - No site has an `else` or a `finally`.
 
-**Left out:**
-
-- `security/gateway.py:238`: the security pipeline's late-stop wait (product-rule area, not worth −2).
-- Any site whose `except` body is more than `pass`.
-
-**For the second review:**
-
-- `lifecycle.py:189` is in the presence loop: it waits for speech before freeing the spare. Mechanical.
-- `system/lane.py:165` runs the undo steps after a failed system change. Mechanical.
-
+**For the second review:** `lifecycle.py:189` is in the presence loop: it waits for speech before freeing
+the spare. Mechanical.
 **Proves it:** the full suite, in particular `test_desktop.py`, `test_ipc*.py`, `test_presence.py`,
-`test_held_cards.py`, `test_system*.py` and `test_signin.py`. This is the most stylistic step in the plan:
-if the orchestrator prefers the explicit `try`, drop it whole.
+`test_held_cards.py`, `test_signin.py`, `test_workflows.py` and `test_claude_mapping*.py`.
 
-### Step 8 (new): dead `AppPaths` fields `db_path`, `audit_path` (≈ −4)
+### Step 8 (new): dead `AppPaths` fields `db_path`, `audit_path` (≈ −4), approved by the orchestrator on 2026-11-15
 
 `config/paths.py`: `db_path` (`swift.db`) and `audit_path` (`audit.jsonl`) are Phase 0 fields that nothing
 reads, not even the loader. The only reader is `test_paths.py:20-21`. The live journal and audit paths come
-from `settings.py`.
-
-**Separate from step 9 on purpose:** the owner's approval names "the `AppPaths` members only the loader
-uses", and these two aren't used by the loader either. **Orchestrator: say if this is covered too**, otherwise
-it waits.
+from `settings.py`. Dead fields are ordinary cleanup (orchestrator, 2026-11-15), so this is its own commit,
+before step 9.
 **Proves it:** `test_paths.py` (two asserts go), `test_redaction.py`, `test_health_CFG.py`, then the full suite.
 
 ### Step 9: the unwired Phase 0 config scaffold (≈ −698), approved by the owner on 2026-11-15
@@ -286,12 +296,13 @@ Kept: `config/paths.py` itself with `app_paths`, `config_dir`, `data_dir`, `logs
 - `backend/__main__.py` imports only `config.paths.app_paths`;
 - `test_owner_plan.py`: the ledger doesn't cite `config/loader.py`, which was checked.
 
-### Step 10 (new, optional, docs only): stale status-label sentence in `architecture.md`
+### Step 10 (new, docs only): stale status-label sentence in `architecture.md`, approved by the orchestrator on 2026-11-15
 
 `docs/architecture.md`, "Swift and its providers", says the overlay renders "Claude Code is reading" and
 "Swift · via Claude Code". `overlay/src/agents.ts` doesn't: it says "Reading" and "Working on it", per the
 owner's decision of 2026-10-26 (product rule: status labels generic). The code is right and the doc is stale.
-This is a 1-line doc fix, done only if the orchestrator wants docs in this branch. Otherwise it's a follow-up.
+The fix rewords that sentence to say the working card's labels are generic ("Reading", "Working on it")
+and that only the result's byline names the provider. It's done on this branch.
 
 ## Thermo-nuclear findings not planned (and why)
 
@@ -341,8 +352,8 @@ because the fix either moves code (and fails "Structural steps delete code") or 
 
 - Step 3 (`_question_timer`, beside the question window): mechanical.
 - Step 4 (`reply` of the improve and sign-in executors): mechanical.
-- Step 7 (`lifecycle.py:189` presence loop, `system/lane.py:165` undo): mechanical; `security/gateway.py`
-  is excluded on purpose.
+- Step 7 (`lifecycle.py:189` presence loop): mechanical. `system/lane.py` and `security/gateway.py` are left
+  as they are.
 - Step 9's `docs/threat_model.md` T4 wording.
 - No step touches `intake.approves`, `_on_screen`, `restated.py`, `owner_address.py`, `step_grant.py`, read
   scope or recipients.
@@ -357,11 +368,11 @@ because the fix either moves code (and fails "Structural steps delete code") or 
 | 4 | Local executors | ≈ −15 |
 | 5 | Rust `to_fraction` | ≈ −8 |
 | 6 | `settings.py` `Expanded` path type | ≈ −26 |
-| 7 | `contextlib.suppress` | ≈ −23 |
-| 8 | Dead `AppPaths` fields (if the orchestrator agrees) | ≈ −4 |
+| 7 | `contextlib.suppress` (11 sites) | ≈ −16 |
+| 8 | Dead `AppPaths` fields | ≈ −4 |
 | 9 | Config scaffold (owner approved) | ≈ −698 |
-| 10 | `architecture.md` status labels (docs, optional) | 0 |
-| **All** | | **≈ −810** |
+| 10 | `architecture.md` status labels (docs) | 0 |
+| **All** | | **≈ −803** |
 
 Phase 2 ends with pstack's `blast-radius` applied by hand on the finished branch, with its result recorded
 here before reporting.

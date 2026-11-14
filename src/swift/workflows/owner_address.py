@@ -35,25 +35,35 @@ _TRAIL = re.compile(
     r"(?:in|on|with) (?:edge|chrome|firefox|brave|opera|the browser|my browser|a new tab|new tab|another tab|"
     r"a new window|new window|the same tab))\b)+$"
 )
-_THING = r"(?:web ?site|site|web ?page|page|home ?page|link|address|url|one|tab)"
-# A noun phrase can point by itself ("that site again"); a bare "it", "that" or "the same" needs a verb before it, or
-# an answer "that" to "Which one?" would point at the address too.
+_SITE = r"(?:web ?site|site|web ?page|page|home ?page|link|address|url|tab)"
+_EARLIER = (
+    r"(?:i|we) (?:just |already )?(?:opened|said|mentioned|gave|named|asked for|typed|had open|was on|were on|"
+    r"told you about|talked about)(?: earlier| before| a moment ago| just now)?"
+)
+# A phrase that names a site, or the one the owner gave, points by itself ("that site again", "the one I just
+# opened"). "It", "that" or "that one" need a verb before them: an answer "that one" to "Which one?" would point
+# at the address too. "The last one" never points: it may be the last email.
 _NAMED = (
-    rf"(?:(?:that|this|the same|same|the last|that last|the previous) {_THING}|the last one"
-    rf"|(?:the|that) {_THING} (?:i|we|you) (?:just |already )?"
-    r"(?:opened|said|mentioned|gave|named|asked for|had open|were on)(?: earlier| before| a moment ago| just now)?)"
+    rf"(?:(?:that|this|the same|same|the last|that last|the previous) {_SITE}(?: from (?:earlier|before))?"
+    rf"|(?:the|that) (?:{_SITE}|one) {_EARLIER})"
 )
 _POINTING_CLAUSE = re.compile(
     r"(?:(?:re)?open|show(?: me)?|visit|load|go(?: back)? to|take me(?: back)? to|bring up|pull up)\s+"
-    rf"(?:it|that|this|the same|{_NAMED})|(?:bring|pull) (?:it|that) (?:back )?up|reopen|{_NAMED}"
+    rf"(?:it|that|this|the same(?: one)?|that one|this one|{_NAMED})"
+    rf"|(?:bring|pull|open) (?:it|that|(?:that|this|the same) {_SITE}) (?:back )?up|(?:go|take me)(?: back)? there"
+    r"|reopen|" + _NAMED
 )
+POINTING_MAX = 300  # longer is never only pointing words; and _TRAIL backtracks on a long run of "again again …"
 
 
 def _bare_clauses(words: str) -> list[str]:
     """The request's clauses, lower case, each without the words that don't change which thing it means."""
     text = " ".join(_HESITATION.sub(" ", words.lower()).replace("’", "'").replace("‘", "'").split())
+    text = re.sub(r"\bgo ahead and\b", "", text)  # before "and" splits it in two
     clauses = (_TRAIL.sub("", _LEAD.sub("", f"{part} ").rstrip()).strip() for part in _CLAUSES.split(text))
-    return [clause for clause in clauses if clause and not re.fullmatch(_FILLER, clause)]
+    # A clause of only filler, or "again" ("open that site again and again"), says nothing; a request of only
+    # those ("yes, again") has no pointing clause left, so it doesn't point.
+    return [clause for clause in clauses if clause and not re.fullmatch(rf"{_FILLER}|again", clause)]
 
 
 # Words that say what kind of thing it is, not which one: "my university's website" is about "university".
@@ -69,6 +79,8 @@ def _words(text: str) -> set[str]:
 def points_back(words: str) -> bool:
     """The owner's words point at an address already given, and at nothing else ("open that site again", "the one
     I just opened"); "find my university's website and open it" doesn't."""
+    if len(words) > POINTING_MAX:
+        return False
     clauses = _bare_clauses(words)
     return bool(clauses) and all(_POINTING_CLAUSE.fullmatch(clause) for clause in clauses)
 

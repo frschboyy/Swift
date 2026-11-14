@@ -203,11 +203,15 @@ NOT_POINTING = (
     "Try that again.",
     "Ask again.",
     "Do that again.",
+    "That one.",
+    "Open the last one.",
 )
 POINTING = (
     "Open it in Edge.", "Open that in Chrome.", "Open it in a new tab.", "Show that to me.", "Open it — please.",
     "Open that site again.", "Open this site.", "The same page.", "The one I just opened.", "Open it.",
     "Open it again, please.", "Bring that up.", "Pull that up.", "Open that uh site.",
+    "Go ahead and open that site again.", "Open the site I was on.", "Take me there.",
+    "Bring that site back up.", "Open that site again and again.",
 )
 
 
@@ -229,7 +233,17 @@ async def test_a_request_that_is_only_pointing_words_reopens_the_recent_address(
 
 def test_an_answer_points_back_only_by_the_same_whole_clause_rule() -> None:
     """points_back also reads the owner's answers to Swift's questions (desktop_tools._open_url)."""
-    for words in ("yes, again", "no, not again", "yes", "again please"):
+    for words in ("yes, again", "no, not again", "yes", "again please", "that one", "yes, that one"):
         assert not points_back(words), words
     for words in ("that one I just opened", "yes, that one I just opened", "yeah, open that site"):
         assert points_back(words), words
+
+
+def test_a_long_answer_is_never_pointing_words_and_is_read_at_once() -> None:
+    """A typed answer of thousands of words isn't pointing words; checking it doesn't hold up the loop (interrogate
+    of QA-04: "open that site " + "again " * 8000 + "x" took 14 s in the trailing-words pattern)."""
+    import time
+
+    start = time.perf_counter()
+    assert not points_back("open that site " + "again " * 20000 + "x")
+    assert time.perf_counter() - start < 0.5

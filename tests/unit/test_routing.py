@@ -205,3 +205,28 @@ def test_a_greeting_ended_by_a_comma_leaves_the_command_to_swift(text: str) -> N
     r = route(text)
     assert (r.route, r.action) == ("local", "system")
     assert route("How are you, Swift?").route == "agent"  # small talk alone stays as it was
+
+
+@pytest.mark.parametrize("text", ["Hey Swift, how are you? Can you set can you turn off the Wi-Fi?",
+                                  "Can you set, can you turn off the Wi-Fi?",
+                                  "Could you turn on could you turn off the bluetooth"])
+def test_a_request_begun_again_is_swifts_own(text: str) -> None:
+    # Check 204's real attempt (2026-11-13 14:35): a false start ("can you set") sent the Wi-Fi to the agent.
+    from swift.routing.rules import route
+    from swift.system import intents as system_intents
+
+    r = route(text)
+    assert (r.route, r.action) == ("local", "system")
+    found = system_intents.parse(r.text)  # what the system lane does with it
+    assert found is not None and len(found) == 1 and found[0].name == "radio" and found[0]["on"] is False
+
+
+@pytest.mark.parametrize("text", ["how can you turn off the wifi",  # a question, not a request begun again
+                                  "Can you set a timer, can you turn off the Wi-Fi?",  # two asks: unchanged
+                                  "Can you set a timer for 5 minutes, can you turn off the Wi-Fi?",
+                                  "set a timer and turn off the Wi-Fi",
+                                  "can you research can you turn off the wifi and tell me"])
+def test_only_a_dropped_fragment_counts_as_begun_again(text: str) -> None:
+    from swift.routing.rules import route
+
+    assert route(text).route == "agent"

@@ -2174,6 +2174,23 @@ Nothing is sent: close each email.
 The report checks: every fill-in finished, how many times the To line was opened, and that none gave up with Subject
 and Body but no To.
 
+### Gmail's body and the cursor, on the PC where it fails (2026-11-14)
+
+About 5 minutes, on the PC where check 310 failed. From your run of 2026-11-14 at 16:00: Gmail came forward, but
+the body wouldn't take the cursor, so nothing was written. On the other PC the body is filled without the cursor,
+so the cause can only be seen on this one. Nothing is sent: close and discard each email.
+
+<a id="check-311"></a>**Check 311. Gmail's body takes the cursor, or Swift says what was in the way**
+1. Say "Hey Swift, email Test Me that the Gmail test worked", with Chrome in front, and don't touch anything until
+   Swift says it's ready. If To, the subject and the body are all filled in, close the email: that's a pass.
+2. If it stops: open a new Gmail compose window yourself, leave it empty, and in a terminal in the Swift folder run
+   `uv run python spikes/desktop/gmail_body_focus.py`. It writes `probe@example.com` into To, asks the body for the
+   cursor as Swift does, and prints what had the keyboard. It never clicks or sends. Paste its lines into the
+   report, then close the compose window and discard the draft.
+
+The report checks: every fill-in finished, and for one that stopped, where the keyboard was, what the click would
+have hit (for example Gmail's address suggestions), and whether the body could be set directly.
+
 ### Swift in front, and a website by voice (2026-11-13)
 
 About 5 minutes. From your run of 2026-11-13 (203: Swift behind Task Manager; 15:07: Blackboard didn't open).

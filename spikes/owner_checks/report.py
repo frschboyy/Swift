@@ -642,7 +642,8 @@ def _runs(rows: list[dict[str, Any]], folder: Path | None) -> list[tuple[str, Ou
 def _gmail(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
     """Check 252 (A9, 2026-11-13): Gmail filled in with the cursor elsewhere. The detail is the proof of the
     cause: which step put the cursor in each field, and the code of each fill that failed.
-    310 (2026-11-14): a To row Gmail showed collapsed ("Recipients") was opened, and the fill finished."""
+    310 (2026-11-14): a To row Gmail showed collapsed ("Recipients") was opened, and the fill finished.
+    311 (2026-11-14 16:00): a field that wouldn't take the cursor names what its click would have hit."""
     fills = [line for line in log if "tool='fill_in_email'" in line]
     done = [line for line in fills if "| action done |" in line]
     failed = [m.group(1) for line in fills if "| action failed |" in line
@@ -651,6 +652,9 @@ def _gmail(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
             if "| gmail field focused |" in line]
     forward = sum("| gmail compose brought forward |" in line for line in log)
     opened = sum("| gmail to row opened |" in line for line in log)
+    stuck = [re.sub(r".*field='(\w+)' focus='(\w+)'(?: click='([\w ]+)' settable=(\w+))?.*",
+                    r"\1 (keyboard in \2, click hit \3, settable \4)", line)
+             for line in log if "| gmail field didn't take the cursor |" in line]
     no_to = sum("| gmail compose not filled |" in line and "'subject', 'body'" in line and "'to'" not in line
                 for line in log)
     return [
@@ -659,6 +663,9 @@ def _gmail(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
          f" brought forward {forward} time(s)"),
         ("310 Gmail's To was filled in, also when it opened collapsed", unless(no_to, done),
          f"To row opened {opened} time(s); gave up with Subject and Body but no To: {no_to} time(s)"),
+        ("311 Gmail's body took the cursor, or the log says what was in the way", unless(stuck, done),
+         "didn't take the cursor: " + (", ".join(stuck) or "none")
+         + "; paste the probe's lines (spikes/desktop/gmail_body_focus.py) if it stopped"),
     ]
 
 

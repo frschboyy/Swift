@@ -913,6 +913,24 @@ async def test_the_opposite_request_said_to_the_question_never_approves_it() -> 
     await finish_all(session, agent)
 
 
+@pytest.mark.parametrize("reopened", [False, True])
+async def test_a_system_command_said_while_swifts_question_is_open_goes_through_the_system_lane(reopened: bool) -> None:
+    # A7 follow-up (2026-11-14): suspected that a request said while a question is open (turn "elsewhere")
+    # always started on the agent, since _start_beside passes self.executor. Unproven, and wrong on main:
+    # _interaction routes it like any fresh request, so a system command gets the system lane and no agent.
+    # (14:44:20 reached the agent because its misheard words parse to no system intent: A+B, 355bc7e.)
+    session, out, agent, stt, control, _sched = _lane(0.2 if reopened else 30.0)
+    if reopened:
+        await _reopened(session, out, stt)
+    else:
+        await _wifi(session, out, stt)
+    control.radio_state["bluetooth"] = False
+    await say(session, stt, "turn on the Bluetooth")
+    await until(lambda: control.radio_state.get("bluetooth") is True)
+    assert agent.requests == [] and control.radio_state["wifi"] is True
+    await finish_all(session, agent)
+
+
 async def test_an_answer_that_ends_behind_a_card_waits_there_until_it_is_seen(monkeypatch: Any) -> None:
     """A4 (owner's run of 2026-11-13): the research ended behind the email's card and its edge went
     20 s later, before the owner had seen it. A card never presented doesn't run out because another

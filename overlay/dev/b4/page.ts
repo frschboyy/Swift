@@ -50,6 +50,26 @@ const SAMPLES: Record<string, Sample> = {
       ],
     },
   },
+  mindmap: {
+    asked: "Help me brainstorm a birthday weekend for Ada",
+    say: "Four directions: a trip, food, people and a surprise. The coast trip and a small dinner fit best together.",
+    raw: {
+      shape: "mindmap",
+      root: "Ada's birthday weekend",
+      children: [
+        { label: "A trip", children: [
+          { label: "Coast: Diani or Watamu", children: [{ label: "Train there on Friday" }, { label: "Book by the 20th" }] },
+          { label: "Naivasha, one night" },
+        ] },
+        { label: "Food", children: [
+          { label: "Dinner at her favourite place" },
+          { label: "Cook together", children: [{ label: "Her mum's pilau recipe" }] },
+        ] },
+        { label: "People", children: [{ label: "Small: six close friends" }, { label: "Call her sister first" }] },
+        { label: "Surprise", children: [{ label: "Photo book of the year" }, { label: "A letter from everyone" }] },
+      ],
+    },
+  },
   // A malformed shape (an edge to a node that doesn't exist): the card falls back to words.
   bad: {
     asked: "Draw my week as a diagram",

@@ -376,3 +376,101 @@ because the fix either moves code (and fails "Structural steps delete code") or 
 
 Phase 2 ends with pstack's `blast-radius` applied by hand on the finished branch, with its result recorded
 here before reporting.
+
+## Phase 2 results (2026-11-15)
+
+`main` was merged in at `b7a85ef`, then again at `f2dc210` when it moved on (both merges were clean). All ten
+steps were kept: each deletes more than it adds. Deltas are src + tests + spikes + overlay, from each commit's numstat.
+
+| Step | Commit | Δ | Checks run |
+|---|---|---|---|
+| 1 Dead definitions | `0d0952a` | +2 −23 = −21 | suite 2206 passed; parity 413/423, 0 harmful |
+| 2 Unused imports | `8338209` | +5 −19 = −14 | suite 2206; the three spikes compile |
+| 3 `_question_timer` | `5d0b063` | +3 −7 = −4 (`session.py` 4989 → 4985, ratchet lowered) | suite 2206 |
+| 4 `LocalRuns` | `b890bfe` | +43 −56 = −13 | suite 2206 |
+| 5 Rust `to_fraction` | `af5cc32` | +2 −10 = −8 | `cargo test` 38 passed |
+| 6 `Expanded` path type | `2522a98` | +18 −44 = −26 | suite 2206; old and new `Settings` compared: same defaults, same error text, same JSON schema |
+| 7 `contextlib.suppress` | `6ea43f1` | +13 −27 = −14 | suite 2206 |
+| 8 `AppPaths.db_path`/`audit_path` | `1ac5cd2` | −6 | suite 2206 |
+| 9 Config scaffold | `40f59b2` | −699 | suite 2184 (minus test_config.py's cases and test_ensure_dirs); the backend imports |
+| 10 Status labels (docs) | `b7d79ac` | 0 | n/a |
+| (follows 9) Ownership map | `d147843` | 0 | n/a |
+| **All** | | **+86 −891 = −805** | final: suite 2184 passed, 1 skipped, 35 xfailed; parity 413/423, 0 harmful |
+
+Where the work differs from the plan:
+
+- **Step 3:** the S-01 docstring in `test_seams_audit_state.py` still names `_question_timer`. It's the finding's
+  history, so it's left as written.
+- **Step 7:** 9 sites, not 11. `signin.py:130` and `lifecycle.py:180` each have a second `except` clause, so one
+  `suppress` can't express them.
+- **Step 9:** `docs/architecture/ownership.md` arrived with `main` at `f2dc210` and cited the loader as a live second
+  owner, so it was updated in `d147843`. `SWIFT_BUILD_PROMPT.md` (the original build brief) is left as written.
+- **Overlay `tsc` and `npm test`** weren't run, because `overlay/src` isn't touched.
+
+### QA 1's three notes: findings, not cleanup
+
+All three would change behaviour, so none is in this branch:
+
+1. **The reader pane renders text details as one plain paragraph** (`overlay/src/pane.ts` `details()`), so `**`
+   and `- item` show raw. Fixing it changes what's on screen, which needs a seam scenario in `test_seam_replay.py`.
+2. **`ToolHost.last_write` is one slot.** After request B writes, request A's "show me" or "undo" acts on B's app.
+   That's a bug in which app an undo touches, near the rule that Swift writes into apps only when the owner's words
+   asked. It needs its own fix and a second review.
+3. **`stt/recordings.py` `same_request` (line 81, used at 226) judges a repeat by word overlap**, so "turn on the
+   wifi" then "turn off the wifi" counts as said again.
+   - It answers a different question from `same_request.same_intents`: "is this a re-say of the same audio, for
+     learning word fixes", not "does it do the same thing". A single changed word is exactly the mishearing it
+     looks for.
+   - Switching it would change which clips the test set keeps. Under the CLAUDE.md rule "respect the owners",
+     the owner of "same request" should decide whether these are one responsibility or two. Not changed.
+
+### Blast radius (pstack `blast-radius`, applied by hand)
+
+**What it does.** It deletes names nothing reads (steps 1, 2, 3, 8, 9), moves identical code into one place
+(steps 4, 5), and rewrites two patterns into equivalents (steps 6, 7).
+
+**The one fact the branch is safe because of:** no part of the running app ever reached a deleted name. That's
+everything the overlay starts (`python -m swift.backend`) and every module under `swift`.
+
+**Proved by running it (blast-radius level 4):** a script (`br_modules.py`, kept outside the repo) imports
+`swift.backend.__main__`, then every module under `swift` via `pkgutil.walk_packages`, on a `git archive` of `main`
+and on this branch:
+
+```
+backend modules main: 89 branch: 89
+config scaffold loaded by the backend on main: []
+only on main: [] only on branch: []
+import failures main: {} import failures branch: {}
+```
+
+**Risks:** none confirmed.
+
+**Cleared:**
+
+- **Non-Python consumers** (`overlay/src`, `overlay/src-tauri/src`, `overlay/dev`, `eval`, `spikes`, `.ps1`,
+  `.toml`, `.json`): a search for every removed name found nothing live.
+  - `request_stronger_model` stays: it's the tool's own name in `claude_code.py:522`, and the removed
+    `ESCALATE_TOOL` constant was never read.
+  - `spikes/routing/grammar_proto.py`'s "stand-in for profiles.toml" is only a comment.
+- **Step 6:** level 4. The old and new modules give equal `model_dump()` defaults, equal `ValidationError` text
+  for unset `%VAR%`s, and equal JSON schemas.
+- **Step 7:** level 3. `suppress(Exception)` is identical to `except Exception`. For the three narrow sites, the
+  only difference on Python 3.12 is exception groups, and no body there awaits a task, `TaskGroup` or handler.
+- **Step 4:** level 3. `LocalRuns.__init__` runs inside each executor's `__init__`, and nothing reads `_ids`,
+  `_results` or `_answers` before it. `test_recordings.py`, `test_signin.py` and `test_worker_task.py` exercise
+  start, reply, cancel and result.
+- **Step 5:** level 2. The two `to_fraction` bodies were textually identical (`panes.rs:141`, `placement.rs:160`),
+  and `cargo test` passes.
+- **Files on the owner's PC:** the loader's `write_defaults` never ran, because nothing called it. So no
+  `config.toml` or `permissions.toml` was ever written, and none is orphaned.
+
+**Before merging:** run the full suite and `cargo test`. Nothing here is visible on screen, so there's no owner check.
+
+### Commits for the orchestrator's second review (product-rule areas, all mechanical)
+
+- `5d0b063` (step 3): the question window. A wrapper with no production caller is removed.
+- `b890bfe` (step 4): `reply` for the improve and sign-in cards moves into `LocalRuns` unchanged.
+- `6ea43f1` (step 7): touches no product-rule file. `lifecycle.py` and `system/lane.py` were left as they are.
+- `40f59b2` (step 9): the threat model T4 and T12 wording.
+- No commit touches `intake.approves`, `_on_screen`, `restated.py`, `owner_address.py`, `step_grant.py`, read
+  scope or recipients.

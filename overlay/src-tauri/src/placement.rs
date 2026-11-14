@@ -430,6 +430,19 @@ mod tests {
         }
     }
 
+    /// A hotkey places the overlay from the owner's anchor again (`lib.rs`, `Place::Smart` while
+    /// uncovered): judged from there, it gets the same uncovered anchor as long as the cover stays,
+    /// never home under it (orchestrator's follow-up, 2026-11-14: not reproduced; this pins it).
+    #[test]
+    fn a_hotkey_while_still_covered_keeps_the_uncovered_anchor() {
+        let over_orb = task_manager_at(560, 400);
+        let home_rect = overlay_rect(FHD, 1.0, BC);
+        let raised = settle(FHD, 1.0, BC, home_rect, &[over_orb]);
+        assert!(raised.2 && raised.0 != BC);
+        assert_eq!(settle(FHD, 1.0, BC, home_rect, &[over_orb]), raised, "the hotkey moved it");
+        assert_eq!(settle(FHD, 1.0, BC, home_rect, &[]), (BC, home_rect, false));
+    }
+
     #[test]
     fn nowhere_uncovered_stays_home() {
         // A maximised Task Manager covers every anchor: moving wouldn't help.

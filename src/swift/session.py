@@ -259,8 +259,6 @@ FOLLOWUP_S = 300.0
 # Errors where nothing was heard well enough to act on: the conversation goes on past them.
 NOT_HEARD = ("unclear_speech", "no_speech", "fragment")
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
-# On Swift's own cards (an email, an event) anything else said is a change to make.
-CHANGE_HINT = "Say “approve”, “reject”, or what to change."
 # A voice approval in a noisy room needs a second one (docs/stt-noise.md). The room
 # between words measured -72 to -45 dBFS quiet and -49 to -31 with a TV talking. Word
 # confidence doesn't help here: a clean "Stop." scored 0.46, a misheard "Sure." 0.71.
@@ -509,7 +507,6 @@ class Run:
     # Its tool scope, kept after it closed: "Show in Word" from the live view after the run ended.
     last_scope: RunScope | None = None
     thread: str | None = None
-    thread_before: str | None = None
     confirm_ids: set[str] = field(default_factory=set)
     # Confirm card titles by request id, and the ones approved in this run.
     confirm_titles: dict[str, str] = field(default_factory=dict)
@@ -697,7 +694,6 @@ class Session:
     _context = _per_run("context", "Where the owner was when it started (desktop).")
     _note = _per_run("note", "Swift's aside above its answer.")
     _correction = _per_run("correction", "A change for a card the provider couldn't take: the next request.")
-    _thread_before = _per_run("thread_before", "The thread before this request's.")
     _artifacts = _per_run("artifacts", "Its artifacts, kept after it ended.")
     _artifacts_run = _per_run("artifacts_run", "The run id its artifacts belong to.")
 
@@ -1101,12 +1097,7 @@ class Session:
         """"Show in Word" in a request's live view: the app it writes (or wrote) in, to the front."""
         run, tools = self._run_by_ui(run_id), self.tools
         scope = (run.scope or run.last_scope) if run is not None else None
-        receipt = None
-        if tools is not None and scope is not None:
-            live = tools.live_write
-            receipt = live[1] if live is not None and live[0] is scope else None
-            if receipt is None and tools.last_write_scope is scope:
-                receipt = tools.last_write
+        receipt = tools.written_by(scope) if tools is not None and scope is not None else None
         if receipt is None or self.desktop is None:
             said = "It hasn't written in an app."
         else:
@@ -2015,9 +2006,7 @@ class Session:
             if held[3] is not None:
                 held[3].cancel()
             self.wake_stats["paused_drop"] += 1
-        task, self._answer_task = self._answer_task, None
-        if task is not None and not task.done() and task is not asyncio.current_task():
-            task.cancel()
+        self._stop_capture()
 
     def _awaiting_answer(self) -> bool:
         """A confirm card or a question waits for the owner's answer."""
@@ -2713,7 +2702,6 @@ class Session:
         # Typed text continues the conversation on screen when the overlay names it (ADR-015 §10).
         continuing = record.get("source") in CONTINUES_THREAD or (record.get("source") == "typed" and continues is not None)
         self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]
-        self._thread_before = previous
         record["thread"] = self._thread
         self.runs.begin(record)
         if run is self._focus:
@@ -2804,7 +2792,7 @@ class Session:
                         if answer == "":
                             return
                         answer = NO_TARGET_HINT
-                    await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+                    await self._answer_here(answer)
                     return
                 answered = self._answer_fix(decision, fix, record, run, transcript)
                 if answered is not None:
@@ -3045,16 +3033,14 @@ class Session:
                     record,
                 )
                 return
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", f"Opened {target.name.title()}."))
+            await self._answer_here(f"Opened {target.name.title()}.", record=record)
             return
         if action == "cancel" and (shown := self._offer_shown()) is not None and self.parked is not None:
             # "Forget that" just after "Unfinished: …": let go of that conversation.
             self._offered = None
             dropped = self.parked.drop(shown)
-            record["status"] = "done"
             answer = f"Okay, I've let go of “{dropped.title}”." if dropped else "Okay."
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action in ("stop", "cancel", "mute"):
             record["status"] = "cancelled"
@@ -3064,14 +3050,12 @@ class Session:
             if (shown := self._offer_shown()) is not None and self.parked is not None:
                 self.parked.dismiss(shown)
                 self._offered = None
-            record["status"] = "done"
             answer = "Okay. Say “continue” whenever you want to pick it up."
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action == "workflows" or action in memory.ACTIONS:  # memory: only the owner's own words write it
             summary, details = self._workflows_answer() if action == "workflows" else memory.answer(self.memories, decision.text, record.get("source", ""), record["id"])
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", summary, details))
+            await self._answer_here(summary, details, record=record)
             return
         if action == "undo" and self.tools is not None and self.tools.last_write is not None and self.desktop:
             try:
@@ -3082,8 +3066,7 @@ class Session:
                 await self._send_failure(Failure("undo_failed", "Couldn't undo that", str(exc), exc.hint), record)
                 return
             self.tools.last_write = None
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action == "new_topic":
             self._last_exchange = None
@@ -3098,8 +3081,7 @@ class Session:
                 if decision.addressed_as else identity.introduction(self.providers.agents())
             )
             self._note = None
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action == "show_last":
             await self._show_last(decision, record)
@@ -3108,17 +3090,15 @@ class Session:
             await self._system_lane(decision, record)
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
-            record["status"] = "done"
             found = fast.reply(decision.text, previous=self._thread_moment())
             said = found[0] if found is not None else "Sorry, I couldn't work that out."
             self._local_answer(record, decision.text, said, found[1] if found is not None else None)
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+            await self._answer_here(said, record=record)
             return
         if action in ("offline", "offline_help"):
-            record["status"] = "done"
             said = OFFLINE_SAID if action == "offline" else OFFLINE_HELP
             details = {"kind": "list", "items": [*OFFLINE_ITEMS, OFFLINE_NOT]} if action == "offline_help" else None
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
+            await self._answer_here(said, details, record=record)
             return
         now = datetime.now()
         answers = {
@@ -3133,11 +3113,16 @@ class Session:
             "not_now": "Okay.",
             "fix_declined": "Okay, I'll leave it as it is.",
         }
-        record["status"] = "done"
         said = decision.text if action == "fix_refused" else answers.get(action or "", "Done.")
         if action in ("time", "date"):
             self._local_answer(record, decision.text, said, fast.Moment(now.astimezone(), action == "time"))
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+        await self._answer_here(said, record=record)
+
+    async def _answer_here(self, said: str, details: dict[str, Any] | None = None, *, record: dict[str, Any] | None = None) -> None:
+        """An answer Swift worked out itself, on its own card (``record``: the request, now done)."""
+        if record is not None:
+            record["status"] = "done"
+        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
 
     async def _system_lane(self, decision: Route, record: dict[str, Any]) -> None:
         """The system lane (ADR-016 §3): carry the request out, ask what it needs, say what was done.
@@ -4391,15 +4376,15 @@ class Session:
             reason = "stopped"  # it went silent, or the internet went: kept to pick up (seams audit R-04, R-06)
         else:
             return
-        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
-        self.parked.park(
-            Parked(
-                thread=record["thread"], request=self._request, reason=reason, at=time.time(),
-                progress=progress, proposed=_proposal(self._store()), said=self._said or "",
-                keep_s=QUESTION_KEEP_S if reason == "asked" and record.get("route") == "local" else 0.0,
-            )
-        )
+        self.parked.park(self._parked(record, reason, QUESTION_KEEP_S if reason == "asked" and record.get("route") == "local" else 0.0))
         record["parked"] = reason
+
+    def _parked(self, record: dict[str, Any], reason: str, keep_s: float = 0.0) -> Parked:
+        """The request in front, kept to pick up later: its words, its last steps, what it last showed."""
+        assert self._request is not None
+        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
+        return Parked(thread=record["thread"], request=self._request, reason=reason, at=time.time(), progress=progress,
+                      proposed=_proposal(self._store()), said=self._said or "", keep_s=keep_s)
 
     def _asked_parked(self, thread: str | None) -> bool:
         if thread is None or self.parked is None:
@@ -4413,11 +4398,7 @@ class Session:
         self._drop_question()
         if self.parked is None or self._request is None or self.wake_question_s <= 0:
             return
-        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
-        parked = Parked(
-            thread=record["thread"], request=self._request, reason="asked", at=time.time(),
-            progress=progress, proposed=_proposal(self._store()), said=self._said or "",
-        )
+        parked = self._parked(record, "asked")
         timer = asyncio.get_running_loop().call_later(self.wake_question_s, self._park_question, parked)
         self._question = (parked, timer)
 
@@ -4493,10 +4474,7 @@ class Session:
         tools, scope = self.tools, self._scope
         if tools is None or self.desktop is None or scope is None:
             return False
-        live = tools.live_write
-        receipt = live[1] if live is not None and live[0] is scope else None
-        if receipt is None and tools.last_write_scope is scope:
-            receipt = tools.last_write
+        receipt = tools.written_by(scope)
         if receipt is None:
             return False
         try:
@@ -4533,9 +4511,9 @@ class Session:
                 said = await self.desktop.show(wrote)
             except ConnectorError as exc:
                 said = f"{exc} {exc.hint}".strip()
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+            await self._answer_here(said)
             return
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", "There's nothing to show yet."))
+        await self._answer_here("There's nothing to show yet.")
 
     async def _quick_answer(self, decision: Route, record: dict[str, Any]) -> bool:
         """The light lane (ADR-007 §10): one tool-free model call. False: no answer, the agent takes it."""

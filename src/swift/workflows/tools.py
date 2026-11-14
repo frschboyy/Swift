@@ -755,6 +755,12 @@ class ToolHost:
         self._titles_at = 0.0
         self._titles_task: asyncio.Task[None] | None = None
 
+    def written_by(self, scope: RunScope) -> WriteReceipt | None:
+        """What ``scope``'s request is writing in an app now, else what it wrote last: "show me" brings that app forward."""
+        live = self.live_write
+        receipt = live[1] if live is not None and live[0] is scope else None
+        return self.last_write if receipt is None and self.last_write_scope is scope else receipt
+
     def known_titles(self) -> tuple[str, ...]:
         """The calendar titles Swift knows; asks the calendar again in the background when they're old."""
         stale = time.monotonic() - self._titles_at > TITLES_TTL_S or not self._titles_at

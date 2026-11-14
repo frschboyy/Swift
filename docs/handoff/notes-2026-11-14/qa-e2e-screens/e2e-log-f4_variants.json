@@ -1,0 +1,186 @@
+[
+ {
+  "flow": "4v",
+  "what": "a_no_notice",
+  "before": "",
+  "seen": [
+   [
+    300,
+    "idle",
+    "",
+    ""
+   ],
+   [
+    1500,
+    "idle",
+    "",
+    ""
+   ],
+   [
+    3500,
+    "idle",
+    "",
+    ""
+   ],
+   [
+    6000,
+    "idle",
+    "",
+    ""
+   ]
+  ]
+ },
+ {
+  "flow": "4v",
+  "what": "shot",
+  "files": [
+   "4v-a_no_notice-dark.png",
+   "4v-a_no_notice-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4v",
+  "what": "b_working_only",
+  "before": "Swift is ready\n\nHold",
+  "seen": [
+   [
+    300,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space an",
+    ""
+   ],
+   [
+    1500,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space an",
+    ""
+   ],
+   [
+    3500,
+    "idle",
+    "",
+    ""
+   ],
+   [
+    6000,
+    "idle",
+    "",
+    ""
+   ]
+  ]
+ },
+ {
+  "flow": "4v",
+  "what": "shot",
+  "files": [
+   "4v-b_working_only-dark.png",
+   "4v-b_working_only-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4v",
+  "what": "c_ask_only",
+  "before": "Swift is ready\n\nHold",
+  "seen": [
+   [
+    300,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space an",
+    ""
+   ],
+   [
+    1500,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space an",
+    ""
+   ],
+   [
+    3500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    6000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ]
+  ]
+ },
+ {
+  "flow": "4v",
+  "what": "shot",
+  "files": [
+   "4v-c_ask_only-dark.png",
+   "4v-c_ask_only-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": "Waiting\nfor your answer"
+  }
+ },
+ {
+  "flow": "4v",
+  "what": "d_own_question",
+  "before": "Swift is ready\n\nHold",
+  "seen": [
+   [
+    300,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space an",
+    ""
+   ],
+   [
+    1500,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space an",
+    ""
+   ],
+   [
+    3500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    6000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ]
+  ]
+ },
+ {
+  "flow": "4v",
+  "what": "shot",
+  "files": [
+   "4v-d_own_question-dark.png",
+   "4v-d_own_question-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": "Waiting\nfor your answer"
+  }
+ }
+]

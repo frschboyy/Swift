@@ -1,0 +1,54 @@
+[
+ {
+  "flow": "4r",
+  "what": "timeline",
+  "before": "Swift is ready\n\nHold",
+  "seen": [
+   [
+    300,
+    "working",
+    "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift ",
+    ""
+   ],
+   [
+    1500,
+    "working",
+    "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift ",
+    ""
+   ],
+   [
+    3500,
+    "working",
+    "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift ",
+    ""
+   ],
+   [
+    6000,
+    "working",
+    "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift ",
+    ""
+   ]
+  ],
+  "frames": [
+   "transcript {\"text\":\"turn off Wi-Fi\",\"final\":true,\"typed\":false}",
+   "runs {\"focus\":\"local-23\",\"rows\":[{\"run_id\":\"local-5\",\"thread_id\":\"d45a88c4ec35\",\"title\":\"turn o",
+   "state {\"state\":\"working\",\"run_id\":\"local-23\",\"thread_id\":\"2f513df5a66c\"}",
+   "ask {\"ask_id\":\"ask-207022a2\",\"question\":\"Turn off Wi-Fi?\",\"kind\":\"yes_no\",\"options\":[],\"thread"
+  ]
+ },
+ {
+  "flow": "4r",
+  "what": "shot",
+  "files": [
+   "4r-own-question-over-ready-dark.png",
+   "4r-own-question-over-ready-light.png"
+  ],
+  "screen": {
+   "stage": "working",
+   "card": null,
+   "cardText": "Waiting for you\n\nTurn off Wi-Fi?\n\nSwift needs the internet for most requests: only quick commands until it's back.\n\nWaiting for your answer\n0:06\nYes\nNo",
+   "stack": null,
+   "capsule": ""
+  }
+ }
+]

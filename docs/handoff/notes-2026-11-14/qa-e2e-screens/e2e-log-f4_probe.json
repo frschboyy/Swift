@@ -1,0 +1,170 @@
+[
+ {
+  "flow": "4p",
+  "what": "shot",
+  "files": [
+   "4p-ask-over-ready-1s-dark.png",
+   "4p-ask-over-ready-1s-light.png"
+  ],
+  "screen": {
+   "stage": "result",
+   "card": null,
+   "cardText": "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+   "stack": null,
+   "capsule": ""
+  }
+ },
+ {
+  "flow": "4p",
+  "what": "timeline",
+  "before": "Swift is ready\n\nHold Ctrl+Shift+Space an",
+  "seen": [
+   [
+    0,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+    ""
+   ],
+   [
+    500,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+    ""
+   ],
+   [
+    1000,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+    ""
+   ],
+   [
+    1500,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+    ""
+   ],
+   [
+    2000,
+    "result",
+    "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+    ""
+   ],
+   [
+    2500,
+    "idle",
+    "Swift is ready\n\nHold Ctrl+Shift+Space and speak.",
+    "Waiting for your answer"
+   ],
+   [
+    3000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    3500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    4000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    4500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    5000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    5500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    6000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    6500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    7000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    7500,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ],
+   [
+    8000,
+    "idle",
+    "",
+    "Waiting for your answer"
+   ]
+  ],
+  "frames": [
+   [
+    "transcript",
+    "{\"text\":\"Email Sam about Friday\",\"final\":true}"
+   ],
+   [
+    "state",
+    "{\"state\":\"working\",\"run_id\":\"x1\",\"agent\":{\"id\":\"claude_code\",\"name\":\"Claude\"},\"thread_id\":\"tx1\"}"
+   ],
+   [
+    "ask",
+    "{\"ask_id\":\"a1\",\"run_id\":\"x1\",\"open\":true,\"question\":\"Which Sam: Sam Lee or Sam Okoro?\",\"kind\":\"choice\",\"options\":[\"Sam Lee\",\"Sam Okoro\"],\"phase\":\"listening\",\"seconds\":20,\"thread_id\":\"tx1\"}"
+   ]
+  ],
+  "console": [],
+  "shim": [
+   "register_hotkeys",
+   "set_status",
+   "overlay_ready",
+   "set_status",
+   "set_hit_regions",
+   "set_hit_regions",
+   "raise",
+   "pane_labels",
+   "set_hit_regions",
+   "set_hit_regions",
+   "pane_labels",
+   "pane_labels"
+  ]
+ },
+ {
+  "flow": "4p",
+  "what": "shot",
+  "files": [
+   "4p-ask-over-ready-8s-dark.png",
+   "4p-ask-over-ready-8s-light.png"
+  ],
+  "screen": {
+   "stage": "idle",
+   "card": null,
+   "cardText": "",
+   "stack": null,
+   "capsule": "Waiting\nfor your answer"
+  }
+ }
+]

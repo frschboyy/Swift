@@ -903,6 +903,21 @@ async def test_the_request_typed_again_never_approves_its_question() -> None:
     await finish_all(session, agent)
 
 
+@pytest.mark.xfail(strict=True, reason="QA-06: open finding; remove this marker with the fix")
+async def test_a_compound_request_said_again_in_another_order_is_its_yes() -> None:
+    # QA-06 (thermos review of 2026-11-15): restated_as compares the intents in order, same_request sorted. Said
+    # in another order, the same two requests weren't the question's yes: the question went to the stack and
+    # nothing was turned off, though the owner had said what he wanted twice.
+    session, out, agent, stt, control, _sched = _lane(30.0)
+    control.radio_state["bluetooth"] = True
+    await say(session, stt, "Hey Swift, turn off the wifi and turn off the bluetooth")
+    await until(lambda: asks(out) and asks(out)[-1].get("open"))
+    await say(session, stt, "turn off the bluetooth and turn off the wifi")
+    await until(lambda: control.radio_state.get("wifi") is False, timeout=1.0)
+    assert control.radio_state["bluetooth"] is False and agent.requests == []
+    await finish_all(session, agent)
+
+
 async def test_the_opposite_request_said_to_the_question_never_approves_it() -> None:
     # "Turn on the Wi-Fi" is another intent, not the request said again: it never answers "Turn off Wi-Fi?" yes.
     session, out, agent, stt, control, _sched = _lane(0.2)

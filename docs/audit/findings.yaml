@@ -3316,3 +3316,19 @@
   test: tests/unit/test_seam_replay.py::test_a_long_first_sentence_is_never_cut_inside_bold_code_or_a_link
   note: Came in with QA-01. Fails with the fix undone. Left as is, an opening that is one span longer than the
     summary is still cut at a word inside it.
+- id: QA-06
+  title: A compound request said again in another order to Swift's own question ("turn off the bluetooth and turn
+    off the wifi" to the question for "turn off the wifi and turn off the bluetooth") did nothing, and the question
+    went to the stack.
+  source: thermos code-quality review of cc19d71..HEAD, 2026-11-15 (two owners of "the same request")
+  module: src/swift/restated.py, src/swift/same_request.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: restated_as compares list(found) == list(question.payload), in order; same_request (parked.drop_same)
+    compares the intents sorted; so the restatement is "elsewhere" to the question but "the same" to the stack
+  test: tests/unit/test_seam_replay.py::test_a_compound_request_said_again_in_another_order_is_its_yes
+  note: A strict xfail; it passes with restated_as comparing the intents sorted, and the other A+B scenarios still
+    pass (tried, not committed). The fix touches the A+B rule (restated.py) and waits for the orchestrator.

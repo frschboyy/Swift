@@ -1175,3 +1175,22 @@ async def test_a_typed_swift_yes_on_swifts_question_shows_the_typing_hint_and_ch
     assert control.radio_state["wifi"] is True, "typed words approved Swift's question"
     assert screen["question"] == "Typing can't approve: click Yes, or say yes. Turn off Wi-Fi?", screen
     await finish_all(session, agent)
+
+
+async def test_a_typed_swift_yes_on_a_correction_offer_shows_the_typing_hint_on_its_card() -> None:
+    """Foundation decision 1 (OWN-01): "Say yes and I'll send a correction" took a typed "Swift, yes" by its own
+    rule in ``_fix_refused``. Now ``intake.approves`` refuses it, and the hint is the answer on the offer's card."""
+    from test_front_rules import _correction_offered
+
+    session, out, agent, _stt, _other = await _correction_offered()
+    agent.runs["a-1"]["go"].set()
+    await until(lambda: out.last("result").get("run_id") == "a-1")
+    await asyncio.sleep(0.05)
+    before = len(agent.requests)
+    await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    await until(lambda: out.last("result").get("summary", "").startswith("Typing can't approve"))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert len(agent.requests) == before, "typed words took the correction offer"
+    assert screen["stage"] == "result" and session._fix_offer is not None
+    await finish_all(session, agent)

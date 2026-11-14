@@ -6,6 +6,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import pytest
+
 from test_dialogue import asker, asks
 from test_runs import Agent, SameSession, finish_all, make, runs, say, sent_for, started, until
 from test_seam_replay import _beside, _lane, agree
@@ -749,28 +751,33 @@ async def test_a_correction_offer_takes_a_yes_only_while_its_card_is_on_screen()
     await finish_all(session, agent)
 
 
-async def test_a_typed_yes_needs_swift_s_name_to_take_a_correction_offer() -> None:
-    session, out, agent, _stt, _other = await _correction_offered()
+@pytest.mark.parametrize("typed", ["yes", "Swift, yes"])
+async def test_typed_words_never_take_a_correction_offer(typed: str) -> None:
+    # Foundation decision 1 (OWN-01): with or without Swift's name; said, it takes it.
+    session, out, agent, stt, _other = await _correction_offered()
     before = len(agent.requests)
-    await session.handle(Message("text", {"text": "yes", "thread_id": None}))
-    await until(lambda: "type “Swift, yes”" in out.last("run.voice")["text"])
+    await session.handle(Message("text", {"text": typed, "thread_id": None}))
+    await until(lambda: "Typing can't approve" in out.last("run.voice")["text"])
+    await asyncio.sleep(0.05)
     assert len(agent.requests) == before
-    await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    await say(session, stt, "Swift, yes")
     await until(lambda: len(agent.requests) == before + 1)
     await finish_all(session, agent)
 
 
-async def test_on_its_answer_card_a_typed_yes_needs_the_name_and_says_so() -> None:
-    session, out, agent, _stt, _other = await _correction_offered()
+@pytest.mark.parametrize("typed", ["yes", "Swift, yes"])
+async def test_on_its_answer_card_a_typed_yes_never_takes_the_offer_and_says_so(typed: str) -> None:
+    session, out, agent, stt, _other = await _correction_offered()
     agent.runs["a-1"]["go"].set()
     await until(lambda: out.last("result").get("run_id") == "a-1")
     await asyncio.sleep(0.05)
     assert session._fix_offer is not None
     before = len(agent.requests)
-    await session.handle(Message("text", {"text": "yes", "thread_id": None}))
-    await until(lambda: "type “Swift, yes”" in out.last("result")["summary"])
+    await session.handle(Message("text", {"text": typed, "thread_id": None}))
+    await until(lambda: "Typing can't approve" in out.last("result")["summary"])
+    await asyncio.sleep(0.05)
     assert len(agent.requests) == before and session._fix_offer is not None
-    await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    await say(session, stt, "Hey Swift, yes")  # at rest it takes the wake phrase
     await until(lambda: len(agent.requests) == before + 1)
     assert "Friday" in agent.requests[-1]
     await finish_all(session, agent)

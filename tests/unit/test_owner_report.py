@@ -45,6 +45,8 @@ def test_the_deck_s_checks_say_look_except_the_one_the_log_can_tell() -> None:
     results = _results([], [])
     for number in (*range(169, 179), 180, 181, 182, 183, 184, *range(191, 201), *range(216, 222)):
         assert _find(results, f"{number} ")[0] is report.LOOK
+    for number in range(350, 354):  # the audit fixes of 2026-11-11: on screen only
+        assert _find(results, f"{number} ")[0] is report.LOOK
     assert _find(results, "168 ")[0] is report.NOT_SEEN
     assert _find(results, "179 ")[0] is report.NOT_SEEN
     assert _find(_results([], ["mid-run words could mean either request"]), "179 ")[0] is report.PASS

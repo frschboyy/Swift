@@ -1599,6 +1599,11 @@ class Session:
             case "debug.run":
                 await self._start_demo(msg.data["scenario"])
             case "debug.ask":
+                if self.debug_executor is None:
+                    # It counts as the hotkey, so outside debug mode it would be a way round "a typed
+                    # yes needs Swift's name": refused before it can answer a question.
+                    logger.warning("debug.ask ignored: debug mode is off")
+                    return
                 asked = self.dialogue.pending
                 text = msg.data["text"]
                 if asked is not None and self._on_screen(asked) and self._for_question(asked, text):
@@ -1748,10 +1753,8 @@ class Session:
         self._launch(record, capture, self.debug_executor, start)
 
     async def _start_text(self, text: str) -> None:
-        """Debug mode only: run the configured executor on typed text (beside a running one, too)."""
-        if self.debug_executor is None:
-            logger.warning("debug.ask ignored: debug mode is off")
-            return
+        """Debug mode only (``handle`` refuses ``debug.ask`` outside it): run the configured executor on
+        typed text (beside a running one, too)."""
         if self._capturing() or not text.strip():
             return
         if self._front_busy():

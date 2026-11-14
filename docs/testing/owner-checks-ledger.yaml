@@ -44,11 +44,11 @@ areas:
     checks: [16b, 68, 108, 138, 304]
   calendar:
     paths: [src/swift/workflows/calendar.py, src/swift/connectors/google_calendar.py, src/swift/workflows/library/calendar-event/*]
-    checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195]
+    checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195, 351]
   email:
     rule: recipients only from contacts or find_contact
     paths: [src/swift/connectors/gmail.py, src/swift/workflows/names.py, src/swift/workflows/tools.py, src/swift/workflows/library/email-draft/*]
-    checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240]
+    checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240, 350]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
     checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304]
@@ -87,6 +87,8 @@ areas:
     rule: Swift writes into apps only when the owner's own words asked
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
     checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 330]
+    paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/library/research-into-word/*]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 330, 352]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340]
@@ -99,7 +101,7 @@ areas:
   reads:
     rule: memory only from the owner's words; Swift's own files are never read
     paths: [src/swift/executors/read_scope.py, src/swift/security/web_scope.py, src/swift/workflows/scope.py]
-    checks: [52, 62, 213, 255, 330]
+    checks: [52, 62, 213, 255, 330, 353]
   memory:
     rule: memory is written only from the owner's words or an approved card, never from what a worker read
     paths: [src/swift/memory.py]

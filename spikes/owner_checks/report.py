@@ -775,6 +775,11 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
          + (", ".join(f"{r['_t']:%H:%M:%S}" for r in not_opened) or "none")),
         ("330 without a remembered address Swift asked you to say it", LOOK,
          "tell us whether Swift asked you to say the address, or offered one"),
+        ("350 an email to a contact saved as 'Last, First' went to that one person", LOOK,
+         "check on screen and in Sent; skip it if you have no such contact"),
+        ("351 'until (a day)' listed that day's events too", LOOK, "check on screen"),
+        ("352 'open this' on a .url, .jar or .py asked on a card first", LOOK, "check on screen: nothing opened after Reject"),
+        ("353 a search aimed at .env files was refused with no card", LOOK, "check on screen: no contents shown"),
     ]
 
 

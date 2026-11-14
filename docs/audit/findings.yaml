@@ -810,13 +810,13 @@
   area: actions
   severity: medium
   product_rule: false
-  status: open
+  status: fixed
   confidence: suspected
   evidence: local.py:103-108 refuses only paths ending in desktop/base.py:42 PROGRAMS; session.py:4182-4185 calls
     it for "open this", then launch() uses os.startfile. Test shows a .py file resolves to an OpenTarget. Whether
     it runs depends on the file association (none for .py system-wide on this PC; per-user not checked).
   test: tests/unit/test_health_CFG.py::test_open_selected_script_is_refused
-  note: local.py's docstring promises a program or script is never opened this way. An allow-list of document types
+  note: Fixed (partial) by f1825e4, from audit-fixes-google-calendar 3e20958, which adds these types to PROGRAMS so they need a card. local.py's docstring promises a program or script is never opened this way. An allow-list of document types
     would be safer than a deny-list.
 - id: HA-FAKE-04
   title: When Gmail fills in part-way (To set, then "couldn't put the cursor in the body"), the owner and the provider

@@ -9,14 +9,13 @@ a password. Rejected or unanswered: nothing happens, and the next check asks aga
 from __future__ import annotations
 
 import asyncio
-import itertools
 import subprocess
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from loguru import logger
 
 from swift.connectors.base import ConnectorError
-from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun, WorkerTask
+from swift.executors.base import SWIFT, ExecEvent, ExecResult, LocalRuns, WorkerTask
 from swift.signin import Service, Status
 
 REQUEST = "Sign in again"
@@ -42,7 +41,7 @@ CARDS: dict[Service, tuple[str, str]] = {
 NAMES: dict[Service, str] = {"google": "Google", "claude": "Claude"}
 
 
-class SigninExecutor:
+class SigninExecutor(LocalRuns):
     name = "signin"
     provider = SWIFT
 
@@ -64,9 +63,7 @@ class SigninExecutor:
         self.on_claude_back = on_claude_back
         self.answer_s = answer_s
         self.signin_s = signin_s
-        self._ids = itertools.count(1)
-        self._results: dict[str, ExecResult | None] = {}
-        self._answers: dict[str, asyncio.Future[bool]] = {}
+        super().__init__()
         self._wanted: set[Service] = set()
 
     @property
@@ -141,28 +138,3 @@ class SigninExecutor:
         if ok and self.on_claude_back is not None:
             await self.on_claude_back()
         return ok
-
-    async def cancel(self, run_id: str) -> None:
-        self._get(run_id)
-        for request_id, future in list(self._answers.items()):
-            if request_id.startswith(f"{run_id}:") and not future.done():
-                future.cancel()
-        if self._results[run_id] is None:
-            self._results[run_id] = ExecResult("cancelled", "Stopped.")
-
-    async def result(self, run_id: str) -> ExecResult:
-        result = self._get(run_id)
-        if result is None:
-            return ExecResult("cancelled", "Stopped.")
-        return result
-
-    async def reply(self, request_id: str, approve: bool) -> None:
-        future = self._answers.get(request_id)
-        if future is not None and not future.done():
-            future.set_result(approve)
-
-    def _get(self, run_id: str) -> ExecResult | None:
-        try:
-            return self._results[run_id]
-        except KeyError:
-            raise UnknownRun(run_id) from None

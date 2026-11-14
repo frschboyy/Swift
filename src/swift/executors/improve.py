@@ -10,13 +10,12 @@ PC: no network, no model training.
 from __future__ import annotations
 
 import asyncio
-import itertools
 from collections.abc import AsyncIterator, Mapping
 from pathlib import Path
 
 from loguru import logger
 
-from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun, WorkerTask
+from swift.executors.base import SWIFT, ExecEvent, ExecResult, LocalRuns, WorkerTask
 from swift.stt.fixes import WordFixes
 from swift.stt.improve import Proposal, Report, decide, run_pass
 from swift.stt.recordings import Recordings
@@ -37,7 +36,7 @@ def describe(proposals: list[Proposal]) -> str:
     return "\n".join(lines) + "\n\nLearned from clips you said again. Reject: never suggested again."
 
 
-class ImproveExecutor:
+class ImproveExecutor(LocalRuns):
     name = "improve"
     provider = SWIFT
 
@@ -54,9 +53,7 @@ class ImproveExecutor:
         self.fixes_file = fixes_file
         self.configured_fixes = dict(configured_fixes or {})
         self.answer_s = answer_s
-        self._ids = itertools.count(1)
-        self._results: dict[str, ExecResult | None] = {}
-        self._answers: dict[str, asyncio.Future[bool]] = {}
+        super().__init__()
         self.last: Report | None = None
 
     async def start(self, task: WorkerTask) -> str:
@@ -103,28 +100,9 @@ class ImproveExecutor:
                 self._answers.pop(request_id, None)
         self._results[run_id] = ExecResult("done", text, meta={"improve": report.counts()})
 
-    async def cancel(self, run_id: str) -> None:
-        self._get(run_id)
-        for request_id, future in list(self._answers.items()):
-            if request_id.startswith(f"{run_id}:") and not future.done():
-                future.cancel()
-        if self._results[run_id] is None:
-            self._results[run_id] = ExecResult("cancelled", "Stopped.")
-
     async def result(self, run_id: str) -> ExecResult:
         result = self._get(run_id)
         if result is None:
             logger.warning("improvement pass ended without a result")
             return ExecResult("cancelled", "Stopped.")
         return result
-
-    async def reply(self, request_id: str, approve: bool) -> None:
-        future = self._answers.get(request_id)
-        if future is not None and not future.done():
-            future.set_result(approve)
-
-    def _get(self, run_id: str) -> ExecResult | None:
-        try:
-            return self._results[run_id]
-        except KeyError:
-            raise UnknownRun(run_id) from None

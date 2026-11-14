@@ -19,6 +19,8 @@ vocabulary), so the session and the overlay never need provider-specific code.
 
 from __future__ import annotations
 
+import asyncio
+import itertools
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, get_args
@@ -161,6 +163,41 @@ class WorkerTask:
 
 class UnknownRun(KeyError):
     pass
+
+
+class LocalRuns:
+    """Run bookkeeping for Swift's own small executors (improve, sign-in): a result per run (``None``
+    while it works) and the futures their own cards answer, keyed ``run_id:n``."""
+
+    def __init__(self) -> None:
+        self._ids = itertools.count(1)
+        self._results: dict[str, ExecResult | None] = {}
+        self._answers: dict[str, asyncio.Future[bool]] = {}
+
+    async def cancel(self, run_id: str) -> None:
+        self._get(run_id)
+        for request_id, future in list(self._answers.items()):
+            if request_id.startswith(f"{run_id}:") and not future.done():
+                future.cancel()
+        if self._results[run_id] is None:
+            self._results[run_id] = ExecResult("cancelled", "Stopped.")
+
+    async def result(self, run_id: str) -> ExecResult:
+        result = self._get(run_id)
+        if result is None:
+            return ExecResult("cancelled", "Stopped.")
+        return result
+
+    async def reply(self, request_id: str, approve: bool) -> None:
+        future = self._answers.get(request_id)
+        if future is not None and not future.done():
+            future.set_result(approve)
+
+    def _get(self, run_id: str) -> ExecResult | None:
+        try:
+            return self._results[run_id]
+        except KeyError:
+            raise UnknownRun(run_id) from None
 
 
 class ExecutorUnavailable(RuntimeError):

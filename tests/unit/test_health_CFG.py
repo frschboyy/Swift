@@ -43,7 +43,6 @@ def test_partial_models_setting_keeps_light() -> None:
     models["light"]  # backend/__main__.py: QuickModel(settings.executor.models["light"], ...)
 
 
-@pytest.mark.xfail(strict=True, reason="HA-CFG-04: 'open this' on a selected .py script resolves to os.startfile")
 def test_open_selected_script_is_refused(tmp_path: Path) -> None:
     script = tmp_path / "tool.py"
     script.write_text("print(1)\n")

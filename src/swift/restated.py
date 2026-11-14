@@ -47,7 +47,7 @@ def restated(text: str, question: Any, source: str, named: bool, record: dict[st
     how = restated_as(text, question)
     if how is None:
         return None
-    yes = how == "same" and intake.approves(source, named=named, target="reversible").allowed  # never typed
+    yes = how == "same" and intake.approves(source, named=named, level=1).allowed  # never typed
     if record is not None and record.get("asks") and record["asks"][-1].get("turns"):
         record["asks"][-1]["turns"][-1] = "restated" if yes else "restated_unsure"
     return "yes" if yes else "again"

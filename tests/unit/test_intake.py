@@ -6,6 +6,8 @@ from __future__ import annotations
 from settling import settled
 
 import asyncio
+import re
+from pathlib import Path
 
 import pytest
 
@@ -15,7 +17,7 @@ from swift.ipc.protocol import Message
 
 @pytest.mark.parametrize(("source", "named", "card", "reversible"), [
     ("click", False, True, True),
-    ("voice", False, True, True),
+    ("voice", False, True, True),  # the hotkey held: a gesture, like a click (foundation decision 3)
     ("debug.ask", False, True, True),  # stands for the hotkey
     ("wake", False, False, True),
     ("wake", True, True, True),
@@ -27,8 +29,62 @@ from swift.ipc.protocol import Message
     ("something new", True, False, False),  # a door the table doesn't know: the strict rule
 ])
 def test_who_may_approve_what(source: str, named: bool, card: bool, reversible: bool) -> None:
-    assert intake.approves(source, named=named, target="card").allowed is card
-    assert intake.approves(source, named=named, target="reversible").allowed is reversible
+    assert intake.approves(source, named=named, level=intake.CARD).allowed is card
+    assert intake.approves(source, named=named, level=3).allowed is card
+    assert intake.approves(source, named=named, level=1).allowed is reversible
+
+
+# Each channel of the model through the doors that carry it: (source, named).
+DOORS = {
+    "gesture": [("click", False), ("voice", False), ("voice", True), ("debug.ask", False), ("retry", False)],
+    "named_voice": [("wake", True), ("answer", True), ("followup", True), ("beside", True)],
+    "plain_voice": [("wake", False), ("answer", False), ("followup", False), ("beside", False)],
+    "typed": [("typed", False), ("typed", True)],
+}
+
+
+def _table(path: Path) -> tuple[dict[int, set[str]], set[str]]:
+    """The "What approves" column of ``path``'s level table, read as channels, and the paying cell's."""
+    text = path.read_text(encoding="utf-8")
+    header = next(line for line in text.splitlines() if line.startswith("| Level |") and "What approves" in line)
+    column = [c.strip() for c in header.strip("|").split("|")].index("What approves")
+
+    def read(cell: str) -> set[str]:
+        if "nothing needed" in cell:
+            return set(DOORS)
+        return {way for way, words in (("gesture", "a gesture"), ("named_voice", "Swift's name"),
+                                       ("plain_voice", "plain spoken"), ("typed", "typed")) if words in cell}
+
+    cells: dict[int, set[str]] = {}
+    paying: set[str] = set()
+    for line in text.splitlines():
+        if (m := re.match(r"\| ([0-3])\. ", line)) is not None:
+            cell = [c.strip() for c in line.strip().strip("|").split("|")][column]
+            cells[int(m.group(1))] = read(cell.split("paying:")[0])
+            if "paying:" in cell:
+                paying = read(cell.split("paying:")[1])
+    assert set(cells) == {0, 1, 2, 3} and paying, f"{path.name}: the level table wasn't found"
+    return cells, paying
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize("doc", ["CLAUDE.md", "docs/product/action-authority.md"])
+def test_approves_is_the_table_cell_by_cell(doc: str) -> None:
+    """Foundation decision 10: the table the owner reads and the one decider agree on every channel x level,
+    through every door that carries each channel. Change one and this fails until the other matches."""
+    cells, paying = _table(ROOT / doc)
+    assert "**Typed words never approve**" in (ROOT / doc).read_text(encoding="utf-8")
+    for level, ways in cells.items():
+        for way, doors in DOORS.items():
+            for source, named in doors:
+                assert intake.approves(source, named=named, level=level).allowed is (way in ways), (doc, level, source, named)
+                if level == 3:
+                    assert intake.approves(source, named=named, level=3, paying=True).allowed is (way in paying), (
+                        doc, "paying", source, named)
+    for level in cells:  # nothing heard over Swift's own voice is a yes, at any level
+        assert not intake.approves("over_speech", named=True, level=level).allowed
 
 
 def test_a_restatement_is_a_yes_exactly_when_approves_says_so(monkeypatch: pytest.MonkeyPatch) -> None:

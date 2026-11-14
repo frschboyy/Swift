@@ -37,45 +37,62 @@ HANDS_FREE: frozenset[str] = frozenset({"wake", "followup", "answer", "beside", 
 # spoken request, and a change said on a card that runs as the next request.
 SPOKEN_LIKE: dict[str, str] = {"debug.ask": "voice", "debug.say": "voice", "retry": "voice", "correction": "voice"}
 
-# What is approved: a confirm card (something Swift or an agent will do), or a yes to Swift's own
-# question about a reversible change the owner just asked for ("Turn off Wi-Fi?").
-Target = Literal["card", "reversible"]
+# How an approval arrived (docs/product/action-authority.md §1): a gesture (a click on Swift's own button, or
+# speech with the hotkey held: foundation decision 3), the open microphone with Swift's name, without it, or
+# typed words (the name adds nothing for typing).
+Channel = Literal["gesture", "named_voice", "plain_voice", "typed"]
+# The level of what is approved (CLAUDE.md's table): 0 do it, 1 ask once (Swift's own question or offer),
+# 2 a card, 3 its own card.
+Level = Literal[0, 1, 2, 3]
+# A confirm card. Levels 2 and 3 take the same channels except paying, which isn't built (decision 9);
+# a paying card passes ``paying=True``.
+CARD: Level = 2
+
+# CLAUDE.md's "What approves" column, cell by cell (test_intake.py reads the table and checks this against it).
+APPROVES: dict[int, frozenset[str]] = {
+    0: frozenset({"gesture", "named_voice", "plain_voice", "typed"}),  # nothing needed
+    1: frozenset({"gesture", "named_voice", "plain_voice"}),
+    2: frozenset({"gesture", "named_voice"}),
+    3: frozenset({"gesture", "named_voice"}),
+}
+PAYING: frozenset[str] = frozenset({"gesture"})  # level 3, paying: a gesture only (decision 9)
 
 
 @dataclass(frozen=True)
 class Verdict:
     allowed: bool
     # Why not, when not: "typed" (typing never approves), "name" (hands-free needs Swift's name),
-    # "over_speech" (nothing said over Swift's voice is a yes).
+    # "gesture" (only a gesture pays), "over_speech" (nothing said over Swift's voice is a yes),
+    # "source" (a door this table doesn't know: the strict rule).
     reason: str | None = None
 
 
 ALLOWED = Verdict(True)
 
 
-def approves(source: str, *, named: bool, target: Target) -> Verdict:
-    """Whether a yes or "approve" from ``source`` counts (CLAUDE.md, the product rules):
-
-    | source             | a card           | Swift's reversible question |
-    |--------------------|------------------|-----------------------------|
-    | click              | yes              | yes                         |
-    | voice (hotkey)     | yes              | yes                         |
-    | hands-free         | only with name   | yes                         |
-    | typed              | never            | never                       |
-    | over Swift's voice | never            | never                       |
-    """
+def channel(source: str, *, named: bool) -> Channel | None:
+    """The channel an input from ``source`` arrived by; None for over Swift's voice or a door not known."""
     source = SPOKEN_LIKE.get(source, source)
-    if source == "over_speech":
-        return Verdict(False, "over_speech")
-    if source == "click" or source == "voice":
-        return ALLOWED
+    if source in ("click", "voice"):
+        return "gesture"
     if source == "typed":
-        return Verdict(False, "typed")  # with or without Swift's name (foundation decision 1)
+        return "typed"
     if source in HANDS_FREE:
-        if target == "reversible" or named:
-            return ALLOWED
-        return Verdict(False, "name")
-    return Verdict(False, "name")  # a source this table doesn't know: the strict rule
+        return "named_voice" if named else "plain_voice"
+    return None
+
+
+def approves(source: str, *, named: bool, level: Level, paying: bool = False) -> Verdict:
+    """Whether a yes or "approve" from ``source`` approves something at ``level``: the one place approval is
+    decided (foundation decision 10). Every door calls it; ``APPROVES`` is CLAUDE.md's table."""
+    if SPOKEN_LIKE.get(source, source) == "over_speech":
+        return Verdict(False, "over_speech")
+    way = channel(source, named=named)
+    if way is None:
+        return Verdict(False, "source")
+    if way in (PAYING if paying else APPROVES[level]):
+        return ALLOWED
+    return Verdict(False, "typed" if way == "typed" else "name" if way == "plain_voice" else "gesture")
 
 
 def has_words(text: str | None) -> bool:

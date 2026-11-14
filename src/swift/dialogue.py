@@ -64,10 +64,9 @@ class Question:
     # The slot a lane asked for ("seconds", "when") and what to finish with it (the intents).
     slot: str | None = None
     payload: Any = None
-    # A yes to this one goes ahead with a change the owner just asked for ("Turn off Wi-Fi?"). Said or
-    # clicked, a plain yes does it (owner, 2026-11-04: reversible changes need no name); typed, it
-    # never does, since typing never approves (ADR-015 §10).
-    yes_needs_name: bool = False
+    # A yes to this one approves a change the owner just asked for ("Turn off Wi-Fi?"): level 1, so said
+    # or clicked a plain yes does it, typed never (``intake.approves``; foundation decisions 1 and 10).
+    approval: bool = False
     # Who asked: the session's request object, so only that request's end drops it (audit A-08).
     owner: Any = None
     id: str = field(default_factory=lambda: f"ask-{uuid.uuid4().hex[:8]}")

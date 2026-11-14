@@ -1546,7 +1546,7 @@ class Session:
                 phase = self._confirm_phase(open_request)
                 decision = (self.router or default_router)(text)
                 verdict = intake.approves("typed", named=match_address(text, self.wake_greetings) is not None,
-                                          target="card")
+                                          level=intake.CARD)
                 if decision.route == "control" and decision.action == "approve" and not verdict.allowed:
                     await phase("hint", TYPED_APPROVE_HINT)
                     return
@@ -2460,7 +2460,7 @@ class Session:
             if entry is None or decision.action not in HANDS_FREE_CONFIRM:
                 return
             phase = self._confirm_phase(open_request)
-            if decision.action == "approve" and not intake.approves("wake", named=match is not None, target="card").allowed:
+            if decision.action == "approve" and not intake.approves("wake", named=match is not None, level=intake.CARD).allowed:
                 await phase("hint", HANDS_FREE_APPROVE_HINT)
                 return
             entry["hands_free"] = True
@@ -3256,7 +3256,7 @@ class Session:
         q = Question(_clip(text, 300), kind, options, source="run", thread=run.thread, owner=run,
                      future=asyncio.get_running_loop().create_future(),
                      request=self._said or str((record or {}).get("transcript") or ""),
-                     note=note, yes_needs_name=own and kind == "yes_no", own=own, slot=slot, payload=payload)
+                     note=note, approval=own and kind == "yes_no", own=own, slot=slot, payload=payload)
         entry: dict[str, Any] = {"kind": kind, "options": len(options)}
         if record is not None:
             record.setdefault("asks", []).append(entry)
@@ -3520,8 +3520,8 @@ class Session:
             record["asks"][-1].setdefault("turns", []).append(turn.action)
         match turn.action:
             case "answered" | "cancelled":
-                if q.yes_needs_name and turn.action == "answered" and turn.answer.kind == "yes" and not intake.approves(
-                    source, named=named or turn.answer.named, target="reversible",
+                if q.approval and turn.action == "answered" and turn.answer.kind == "yes" and not intake.approves(
+                    source, named=named or turn.answer.named, level=1,
                 ).allowed:
                     await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
                     return True
@@ -3913,7 +3913,7 @@ class Session:
         if offered != on_card:
             return FIX_HIDDEN_HINT
         named = match_address(said, self.wake_greetings) is not None
-        return None if intake.approves(source, named=named, target="reversible").allowed else TYPED_YES_HINT
+        return None if intake.approves(source, named=named, level=1).allowed else TYPED_YES_HINT
 
     def _answer_fix(
         self, decision: Route, fix: tuple[str, str | None, float] | None, record: dict[str, Any], run: Run, said: str,

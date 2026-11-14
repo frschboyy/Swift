@@ -233,15 +233,59 @@ def test_a_never_read_path_spelled_another_way_is_still_never_read(tmp_path: Pat
     assert scope.verdict(r"\\fileserver\c$\notes.txt") == "ask"  # another PC's share is not this one's drive
 
 
+def _device_of(drive: str) -> str:
+    r"""This PC's device name for a drive (``\Device\HarddiskVolume4``): the number differs from PC to PC."""
+    import ctypes
+
+    buf = ctypes.create_unicode_buffer(1024)
+    assert ctypes.windll.kernel32.QueryDosDeviceW(f"{drive}:", buf, len(buf)), drive  # type: ignore[attr-defined]
+    return buf.value
+
+
 def test_a_whole_drive_or_volume_spelled_another_way_is_never_a_blanket_read() -> None:
     from swift.executors.read_scope import ReadScope
 
     here = Path.cwd()
     scope = ReadScope([str(here)])  # the current folder is a read folder
     drive = here.drive[0]
+    # The drive's own device name, looked up: "HarddiskVolume3" was C: on one PC and an unformatted volume on another.
     for spelled in (rf"\\localhost\{drive}$", rf"\\localhost\{drive}$" + "\\", "\\\\?\\Volume{0a1b2c3d-0000-0000-0000-000000000000}\\Users",
-                    r"\\?\GLOBALROOT\Device\HarddiskVolume3\Users"):
+                    rf"\\?\GLOBALROOT{_device_of(drive)}\Users"):
         assert scope.verdict(spelled) == "ask", spelled
+
+
+def test_a_volume_spelling_that_cannot_be_resolved_is_refused_not_raised() -> None:
+    # realpath raises on these (WinError 6 for a device that isn't there, 1005 for a volume with no file
+    # system). Raising sent the CLI an error instead of an answer: no card, no "read refused" line, and
+    # whether the read happened was left to the CLI. Where such a path leads can't be known, so: never.
+    from swift.executors.read_scope import ReadScope
+
+    scope = ReadScope([str(Path.cwd())])
+    spelled = r"\\?\GLOBALROOT\Device\HarddiskVolume999\Users"
+    assert scope.verdict(spelled) == "never"
+    assert scope.in_command(f"type {spelled}\\notes.txt", None) is not None  # a command naming it is refused too
+
+
+def test_a_never_read_folder_spelled_by_its_volume_is_still_never_read(tmp_path: Path) -> None:
+    # realpath resolves C:'s volume GUID or device name to "\\?\C:\…", keeping the prefix; compared with
+    # "C:\…" it looked like somewhere else, and Swift's own logs got a card instead of a refusal.
+    import ctypes
+
+    from swift.executors.read_scope import ReadScope
+
+    drive = tmp_path.drive[0]
+    buf = ctypes.create_unicode_buffer(260)
+    assert ctypes.windll.kernel32.GetVolumeNameForVolumeMountPointW(f"{drive}:\\", buf, len(buf))  # type: ignore[attr-defined]
+    guid = buf.value  # \\?\Volume{…}\
+    secret = tmp_path / "secrets"
+    secret.mkdir()
+    (secret / "log.txt").write_text("x")
+    scope = ReadScope([str(tmp_path)], never=[str(secret)])
+    tail = str(secret / "log.txt")[3:]  # without "C:\"
+    for spelled in (guid + tail, rf"\\?\GLOBALROOT{_device_of(drive)}" + "\\" + tail, guid + tail[: -len("\\log.txt")]):
+        assert scope.verdict(spelled) == "never", spelled
+        assert scope.in_command(f'type "{spelled}"', None) is not None, spelled
+    assert scope.verdict(guid + str(tmp_path / "notes.txt")[3:]) == "read"  # the read folder, spelled the same way
 
 
 def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

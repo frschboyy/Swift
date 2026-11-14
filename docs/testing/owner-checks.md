@@ -2376,6 +2376,7 @@ As of 2026-11-14 at `c9f3b2e`. Each number links to its check.
 
 **On branches not merged yet:**
 
+- `claude/a10-uncovered-anchor-9b3922`: changes code behind 60 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, 58, …).
 - `claude/a9-gmail-252-e5d21c`: changes code behind 12 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255).
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 100 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 15 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).

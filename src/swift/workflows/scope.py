@@ -91,6 +91,8 @@ class RunScope:
     answers: list[str] = field(default_factory=list)
     # How a tool asks the owner something mid-run (``ask_owner``, ``find_contact``); None: it can't.
     ask_fn: Asker | None = None
+    # The run record of the request it works for (``runs.py``): its journal entries name it.
+    run: str = ""
 
     def allows(self, tool: str) -> bool:
         # Asking the owner is never outside what a workflow may do: it does nothing by itself.

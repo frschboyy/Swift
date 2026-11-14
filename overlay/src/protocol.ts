@@ -17,6 +17,8 @@ export const SCENARIOS: Scenario[] = ["happy", "confirm", "error", "long", "emai
 
 // Who is doing the work (ADR-008): a provider working for Swift. Absent or null: Swift itself.
 export type Agent = { id: string; name: string };
+// Who started a run (ADR-019 N2): the owner ("asked"), or Swift on its own.
+export type Origin = "asked" | "scheduled" | "watching" | "reminder" | "noticed" | "learned" | "away";
 // Normalized by the backend from each provider's own events (executors/base.py Activity).
 export type Activity =
   | "starting" | "reading" | "searching" | "editing" | "running" | "browsing"
@@ -62,7 +64,7 @@ export type Inbound =
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
-  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string } }
+  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.
   // retry: "Try again" re-runs the request. severity "info": a nudge, not a failure.
   | { type: "error"; data: ErrorData }
@@ -135,6 +137,7 @@ export type RunRow = {
   summary: string;
   // The request in the owner's words (longer than the title).
   words?: string;
+  origin?: Origin;
 };
 
 export type ErrorData = {

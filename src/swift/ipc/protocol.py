@@ -60,6 +60,9 @@ MAX_FRAME_BYTES = 64 * 1024
 STATES = ("idle", "listening", "transcribing", "working", "confirm", "result", "error")
 SCENARIOS = ("happy", "confirm", "error", "long", "email", "research")
 RESULT_STATUSES = ("done", "cancelled", "error", "rejected")
+# Who started a run (ADR-019 N2), on results and rows: the owner ("asked"), or Swift on its own. Only
+# "asked" and the due cards' "reminder" and "away" are sent today; the rest come with watchers and schedules.
+ORIGINS = ("asked", "scheduled", "watching", "reminder", "noticed", "learned", "away")
 ARTIFACT_KINDS = ("email_draft", "recipient", "send_status", "calendar_event", "text", "list", "table")
 PHASES = ("resolving", "drafting", "confirming", "sending", "done", "failed")
 
@@ -180,4 +183,6 @@ def outbound(msg_type: str, /, **data: Any) -> Message:
         raise ValueError(f"unknown state {data.get('state')!r}")
     if msg_type == "artifact" and (data.get("kind") not in ARTIFACT_KINDS or data.get("phase") not in PHASES):
         raise ValueError(f"bad artifact kind or phase: {data.get('kind')!r}, {data.get('phase')!r}")
+    if msg_type == "result" and data.get("origin", "asked") not in ORIGINS:
+        raise ValueError(f"unknown origin {data.get('origin')!r}")
     return Message(msg_type, data, now_ms())

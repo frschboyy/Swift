@@ -198,8 +198,8 @@ class ActionGateway:
         action_id = uuid.uuid4().hex[:12]
         domains = sorted({t.email.rsplit("@", 1)[-1].lower() for t in action.targets})
         extra = {"undoes": action.undoes} if action.undoes else {}
-        self.journal.write(action_id, "PENDING", tool=action.tool, digest=approved_digest[:16], domains=domains,
-                           **extra)
+        self.journal.write(action_id, "PENDING", run=scope.run or None, tool=action.tool, digest=approved_digest[:16],
+                           domains=domains, **extra)
         # 6. execute
         if action.digest() != approved_digest:
             self.journal.write(action_id, "FAILED", reason="changed_after_approval")

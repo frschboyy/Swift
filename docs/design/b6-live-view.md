@@ -10,10 +10,13 @@ working cards, and asked two questions:
 This is a study. It changes no product code. The prototype is a dev page with fake data
 (`overlay/dev/live-b6.html`), and the screenshots are in `docs/design/b6/`.
 
+**Decided on 2026-11-14:** the owner took the recommendation below, with one change: the LIVE mark is Halo's accent
+blue, not red. See [Decisions](#decisions-owner-2026-11-14).
+
 ## Recommendation in short
 
 - **Form: a window of its own, as it is today, but restyled as a monitor** so it can't be mistaken for a working card. The
-  working card stays glass. The live view gets a solid, dark frame in both themes, a title bar with a pulsing **LIVE**
+  working card stays glass. The live view gets a solid, dark frame in both themes, a title bar with a pulsing blue **LIVE**
   mark and a running clock, and monospace for the technical parts.
 - **Feel: a mix.** When Swift is making something you can see (an email, a Word document, a deck), the view shows that
   thing being built on a white "paper" surface. Under it, one console line always shows the step Swift is on. When there
@@ -55,7 +58,7 @@ The monitor frame as prototyped:
 | | Working card | Live view |
 |---|---|---|
 | Surface | glass, `--panel`, blur | solid near-black (`#0d1018`) in **both** themes, no blur |
-| Header | the owner's words | a title bar: **● LIVE** (red, pulsing) · title · `00:06.2` clock · × |
+| Header | the owner's words | a title bar: **● LIVE** (Halo accent blue, pulsing) · title · `00:06.2` clock · × |
 | Type | Segoe UI | Segoe UI for titles; Cascadia Mono for steps, clock and results |
 | Content | state and actions | what's being made (on paper), or the console |
 | Footer | the request's actions | Show in *app*, Stop |
@@ -64,11 +67,11 @@ The monitor frame as prototyped:
 
 **Both, chosen by what there is to see.** What the prototype shows:
 
-- **Technical** (`email-technical.jpg`, `deck-technical.jpg`): a console listing each step with its time, the tool and a
+- **Technical** (`email-technical.png`, `deck-technical.png`): a console listing each step with its time, the tool and a
   short result (`→ 1 match`, `→ 5 paragraphs`). It's honest and readable, and it's the right view for research and
   commands. For an email or a deck, though, it shows only that work is happening, never the work itself. "Slide 4 of 5"
   doesn't let you watch a deck being made.
-- **Visual** (`email-visual-writing.jpg`, `email-visual-filling.jpg`, `deck-visual.jpg`, `deck-visual-done.jpg`): the
+- **Visual** (`email-visual-writing.png`, `email-visual-filling.png`, `deck-visual.png`, `deck-visual-done.png`): the
   email appears on a compose sheet with a caret, word by word. Then, while Gmail is filled in, the field being filled
   lights up (To, then the message, then the subject). The deck shows the current slide large, with its title and then its
   bullets appearing, and a strip of all five slides underneath: built ones filled in, the current one outlined, the rest
@@ -115,18 +118,17 @@ A visual view needs the content as it's made, not only step names. Per kind:
 Each step would get owner checks when it's built (from the next free number in `docs/testing/owner-checks.md`). This study
 changes no behaviour, so it adds none.
 
-## Decisions for the owner
+## Decisions (owner, 2026-11-14)
 
-1. **Form:** its own window, restyled as a monitor (recommended), or a mode of the working card?
-2. **Feel:** the mix (recommended): visual when there's something being made, the console otherwise, with one console
-   line always under the visual. Or technical only, or visual only?
-3. **The LIVE mark's colour:** red, as in the prototype (the usual "recording" sign), or Halo's accent blue? Halo uses red
-   for failures, so red could read as an error. The recommendation is red, because the mark pulses and sits only in the
-   live view's title bar.
-4. **The email's writing:** stream it as it's written (partial messages, medium cost), or show the sheet once the draft is
-   done (small cost)? Recommended: the small one first, the stream afterwards.
-5. **Decks:** agree that the visual deck waits for a deck-making capability, and that the preview is a schematic slide,
-   not a picture of the real one?
+1. **Form:** the live view stays its own window, restyled as a monitor. It is not a mode of the working card.
+2. **Feel:** the mix: visual where there's something being made, technical (the console) otherwise, with one console
+   line always under the visual.
+3. **The LIVE mark's colour:** Halo's accent blue, not red, because red already means failure in Halo. The monitor is
+   dark in both themes, so the mark uses the accent's dark-theme value (`#8ab4ff`) in both. The light theme's accent
+   (`#2357c9`) would be too dark to see on the monitor.
+4. **The email's writing:** show the finished draft first (the sheet once the draft is done, with the Gmail fields
+   lighting up as they're filled). Streaming the writing as it happens comes later.
+5. **Decks:** the visual deck waits until Swift can make decks.
 
 ## The prototype
 
@@ -143,6 +145,10 @@ page draws today's working card on the left for comparison. It shares no code wi
 
 | | Email | Deck |
 |---|---|---|
-| Technical | `b6/email-technical.jpg` | `b6/deck-technical.jpg` |
-| Visual, while it works | `b6/email-visual-writing.jpg`, `b6/email-visual-filling.jpg` | `b6/deck-visual.jpg` |
-| Visual, done | — | `b6/deck-visual-done.jpg` |
+| Technical | `b6/email-technical.png` | `b6/deck-technical.png` |
+| Visual, while it works | `b6/email-visual-writing.png`, `b6/email-visual-filling.png` | `b6/deck-visual.png` |
+| Visual, done | — | `b6/deck-visual-done.png` |
+
+Each one also has a light-theme version, with `-light` before `.png`. Only the working card changes with the theme: the
+monitor is dark in both. The screenshots were retaken on 2026-11-14 with the blue LIVE mark, using headless Edge on the
+same page.

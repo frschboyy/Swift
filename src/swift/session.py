@@ -2006,9 +2006,7 @@ class Session:
             if held[3] is not None:
                 held[3].cancel()
             self.wake_stats["paused_drop"] += 1
-        task, self._answer_task = self._answer_task, None
-        if task is not None and not task.done() and task is not asyncio.current_task():
-            task.cancel()
+        self._stop_capture()
 
     def _awaiting_answer(self) -> bool:
         """A confirm card or a question waits for the owner's answer."""

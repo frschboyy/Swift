@@ -172,7 +172,7 @@ async def test_a_typed_yes_doesnt_turn_the_wifi_off() -> None:
     await session._start_typed("yes")
     await _settle(session)
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
-    assert rec.last("ask")["text"].startswith("Typing can't turn it off")
+    assert rec.last("ask")["text"].startswith("Typing can't approve")
 
 
 async def test_a_no_heard_in_the_reply_window_still_leaves_it() -> None:

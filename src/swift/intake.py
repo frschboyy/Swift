@@ -61,7 +61,7 @@ def approves(source: str, *, named: bool, target: Target) -> Verdict:
     | click              | yes              | yes                         |
     | voice (hotkey)     | yes              | yes                         |
     | hands-free         | only with name   | yes                         |
-    | typed              | never            | only with name              |
+    | typed              | never            | never                       |
     | over Swift's voice | never            | never                       |
     """
     source = SPOKEN_LIKE.get(source, source)
@@ -70,9 +70,7 @@ def approves(source: str, *, named: bool, target: Target) -> Verdict:
     if source == "click" or source == "voice":
         return ALLOWED
     if source == "typed":
-        if target == "card":
-            return Verdict(False, "typed")
-        return ALLOWED if named else Verdict(False, "name")
+        return Verdict(False, "typed")  # with or without Swift's name (foundation decision 1)
     if source in HANDS_FREE:
         if target == "reversible" or named:
             return ALLOWED

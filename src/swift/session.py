@@ -284,9 +284,9 @@ SHORT_SYSTEM = frozenset({"volume.step", "volume.set", "mute", "media"})
 
 # Requests spoken to Swift: their answers are spoken back when speech replies are "auto".
 SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", "beside", "answer"})
-# A yes to "Turn off Wi-Fi?" typed doesn't do it without the name; said or clicked, it does: who may
-# approve what, from where, is one table (``intake.approves``; ADR-015 §10, owner 2026-11-04).
-SYSTEM_YES_NAME_HINT = "Typing can't turn it off: click Yes, or say yes."
+# A yes to Swift's own question ("Turn off Wi-Fi?") or offer, typed: never an approval, with or without
+# the name (foundation decision 1); said or clicked, it is. Who may approve what is ``intake.approves``.
+TYPED_YES_HINT = "Typing can't approve: click Yes, or say yes."
 # The lane's question closed without an answer.
 LANE_NO_ANSWER = "No answer, so I've left it as it is."
 FRAGMENT_HINT = "Say the whole request, like “Hey Swift, what's on tomorrow?”"
@@ -3524,7 +3524,7 @@ class Session:
                 if q.yes_needs_name and turn.action == "answered" and turn.answer.kind == "yes" and not intake.approves(
                     source, named=named or turn.answer.named, target="reversible",
                 ).allowed:
-                    await self._reask(q, f"{SYSTEM_YES_NAME_HINT} {q.text}")  # typing: it needs the name
+                    await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
                     return True
                 answer = turn.answer
                 if source != "click" and answer.kind not in ("yes", "no", "cancel"):

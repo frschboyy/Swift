@@ -1160,3 +1160,18 @@ async def test_a_long_first_sentence_is_never_cut_inside_bold_code_or_a_link() -
     body = shown["details"]["text"]
     assert body.count("**") % 2 == 0 and "**the bold phrase that straddles the summary's end**" in body, body
     await finish_all(session, agent)
+
+# ---- foundation decisions 1 and 10: typed words never approve -------------------------------------------
+
+
+async def test_a_typed_swift_yes_on_swifts_question_shows_the_typing_hint_and_changes_nothing() -> None:
+    """Foundation decision 1 (HA-HEAR-01): a typed "Swift, yes" on "Turn off Wi-Fi?" was a yes, though the hint
+    on the same card said typing can't. Now the question is asked again on screen with the one typing hint."""
+    session, out, agent, stt, control, _sched = _lane()
+    await _wifi(session, out, stt)
+    await session.handle(Message("text", {"text": "Swift, yes"}))
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    assert control.radio_state["wifi"] is True, "typed words approved Swift's question"
+    assert screen["question"] == "Typing can't approve: click Yes, or say yes. Turn off Wi-Fi?", screen
+    await finish_all(session, agent)

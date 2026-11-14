@@ -22,7 +22,7 @@ from swift.ipc.protocol import Message
     ("answer", False, False, True),
     ("followup", True, True, True),
     ("typed", False, False, False),
-    ("typed", True, False, True),  # typing never approves a card, even with the name
+    ("typed", True, False, False),  # typing never approves, even with the name (foundation decision 1)
     ("over_speech", True, False, False),
     ("something new", True, False, False),  # a door the table doesn't know: the strict rule
 ])

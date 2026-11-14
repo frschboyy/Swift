@@ -1,6 +1,6 @@
 """Health audit 2026-11-12, group HEAR: repros for its findings (module-HEAR.yaml).
 
-Each is a strict xfail: it passes once the finding is fixed. Fakes only: no microphone, no Wi-Fi.
+Each open one is a strict xfail: it passes once the finding is fixed (HA-HEAR-01 is, below). Fakes only: no microphone, no Wi-Fi.
 """
 
 from __future__ import annotations
@@ -23,13 +23,13 @@ from swift.wake import match_wake_window
 from swift.wake_acoustic import AcousticWake
 
 
-@pytest.mark.xfail(strict=True, reason="HA-HEAR-01: typed 'Swift, yes' answers Swift's reversible question")
 async def test_a_typed_swift_yes_doesnt_turn_the_wifi_off() -> None:
-    # CLAUDE.md: typing never approves; the reversible exception is a spoken yes or a click.
+    # HA-HEAR-01, fixed by foundation decision 1: typed words never approve, with or without Swift's name.
     session, rec, _records = await _wifi_asked()
     await session._start_typed("Swift, yes")
     await _settle(session)
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
+    assert rec.last("ask")["text"].startswith("Typing can't approve")
 
 
 async def test_a_wake_phrase_said_just_after_the_lock_isnt_chimed_by_the_peek() -> None:

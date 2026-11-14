@@ -96,8 +96,6 @@ async def test_a_lane_question_put_into_the_stack_ends_its_own_card() -> None:
     """Two unsure answers to "Turn off Wi-Fi?" put it in the stack. Before, its card stayed "working"
     in the overlay for ever, so it was both on screen and in the stack, and a timer's card behind it
     was refused again and again (2026-11-05)."""
-    from swift.stt.transcriber import Transcription
-
     session, out, _records, _stt, _control = _wake_session()
     card = await _wifi_question(session, out)
     q = session.dialogue.pending

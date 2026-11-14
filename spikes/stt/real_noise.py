@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _util import machine_info, models_dir  # noqa: E402
 from bench import normalize, wer  # noqa: E402
-from corpus import SAMPLE_RATE, SWIFT_DIR, read_wav  # noqa: E402
+from corpus import SWIFT_DIR, read_wav  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 RESULTS = Path(__file__).resolve().parent / "results"

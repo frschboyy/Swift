@@ -31,7 +31,6 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))

@@ -12,7 +12,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import pytest
 from test_session import Recorder as Outbox
 
 from swift.executors.base import WorkerTask

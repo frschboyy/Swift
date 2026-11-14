@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from settling import settled
 
-import asyncio
 import json
 from pathlib import Path
 from typing import Any

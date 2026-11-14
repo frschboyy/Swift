@@ -243,7 +243,6 @@ async def test_s08_an_utterance_held_mid_thought_does_not_start_a_request_after_
     """Fixed (T-07): "Hey Swift, remind me to call Sam and" (held: more is coming), then Win+L. The lock
     drops the held utterance, and ``_flush_held`` / ``_hear_transcribed`` check ``_deaf()`` where heard
     speech acts, so no request starts while locked (threat model T7)."""
-    from test_dialogue import until as until_d
     from test_wake import make as make_wake
 
     from swift.endpoint import EndOfTurn

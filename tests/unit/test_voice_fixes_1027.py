@@ -23,7 +23,6 @@ from loguru import logger
 
 from swift.executors.base import WorkerTask
 from swift.audio.recorder import SAMPLE_RATE
-from swift.desktop.base import WriteReceipt
 from swift.desktop.fake import FakeApp, FakeDesktop
 from swift.executors.base import ExecResult
 from swift.executors.echo import EchoExecutor
@@ -42,7 +41,7 @@ from test_recorder_preroll import FakeStream, fake_sd  # noqa: F401 - the fake s
 from test_runs import Agent, make as make_runs, started, until
 from test_session import Recorder as Outbox
 from test_voice import FakeTranscriber
-from test_wake import LOUD, QUIET, LeadRecorder, feed
+from test_wake import LeadRecorder, feed
 
 SHORT = np.zeros(SAMPLE_RATE // 10, dtype=np.int16)
 

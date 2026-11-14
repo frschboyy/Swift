@@ -155,7 +155,7 @@ from swift.audio.recorder import MAX_SECONDS, SAMPLE_RATE, MicError, Recorder, s
 from swift.connectors.base import ConnectorError
 from swift.desktop.base import Desktop, DesktopContext
 from swift import intake
-from swift.dialogue import REASKS, Answer, Dialogue, Question, Turn, elide, reask_text
+from swift.dialogue import Answer, Dialogue, Question, Turn, elide, reask_text
 from swift.dialogue import resolve as resolve_answer
 from swift.drawn import Drawn
 from swift.endpoint import EndOfTurn
@@ -197,7 +197,7 @@ from swift.stt.transcriber import (
     assess,
 )
 from swift.wake import (
-    CLOSE, NAME, PRIMED_CLOSE, NoiseGate, WakeMatch, after_near_wake, close_control, match_address, match_wake, near_wake,
+    NAME, PRIMED_CLOSE, NoiseGate, WakeMatch, after_near_wake, close_control, match_address, match_wake, near_wake,
 )
 from swift.wake_acoustic import second_way_in
 from swift.speech import Speaker, card_speech, spoken

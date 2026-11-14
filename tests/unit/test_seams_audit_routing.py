@@ -6,7 +6,6 @@ today by design; a fix makes them pass.
 
 from __future__ import annotations
 
-import pytest
 
 import asyncio
 from typing import Any

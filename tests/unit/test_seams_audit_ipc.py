@@ -6,7 +6,6 @@ not the card on screen; and the card keeps counting down as "seen" although noth
 
 from __future__ import annotations
 
-import pytest
 
 from test_card_timing import seen
 from test_runs import Agent, finish_all, make, sent_for, started, until

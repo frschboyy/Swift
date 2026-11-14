@@ -145,8 +145,6 @@ async def test_a_plain_yes_heard_in_the_reply_window_turns_it_off() -> None:
 
     # Owner, 2026-11-04: a reversible change the owner just asked for needs no name. The reply
     # window's own checks (loud, near, sure enough) still decide whether it was the owner.
-    from swift.stt.transcriber import Transcription
-
     session, rec, records = await _wifi_asked()
     await session._take_answer("Yeah, go ahead.", source="answer")
     await _settle(session)
@@ -178,8 +176,6 @@ async def test_a_typed_yes_doesnt_turn_the_wifi_off() -> None:
 
 
 async def test_a_no_heard_in_the_reply_window_still_leaves_it() -> None:
-    from swift.stt.transcriber import Transcription
-
     session, rec, _ = await _wifi_asked()
     await session._take_answer("No, leave it.", source="answer")
     await _settle(session)

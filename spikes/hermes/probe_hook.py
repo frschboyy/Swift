@@ -3,7 +3,7 @@
 Creates a throwaway HERMES_HOME, installs a plugin that blocks write_file/patch, then
 calls Hermes' own tool dispatcher (model_tools.handle_function_call) directly.
 """
-import json, os, sys, tempfile, pathlib
+import os, tempfile, pathlib
 
 home = pathlib.Path(tempfile.mkdtemp(prefix="hermes_probe_"))
 os.environ["HERMES_HOME"] = str(home)

@@ -60,7 +60,7 @@ export type Inbound =
   | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").

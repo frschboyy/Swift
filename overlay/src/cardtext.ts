@@ -28,3 +28,8 @@ export function commandParts(detail: string): { head: string; rest: string } {
   const at = detail.indexOf("\n");
   return at < 0 ? { head: detail, rest: "" } : { head: detail.slice(0, at), rest: detail.slice(at + 1) };
 }
+
+// B2: a step card is a command card whose detail lists the step's commands, one a line. Approving covers
+// each of them, so the list starts open: the owner sees what they approve without a click.
+export const stepCommands = (tool: string, purpose: string | undefined, step: boolean | undefined, detail: string): string[] | null =>
+  step && commandFolded(tool, purpose) ? detail.split("\n") : null;

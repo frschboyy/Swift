@@ -65,7 +65,7 @@ from loguru import logger
 
 from swift import clock
 from swift.attention import Attention, wait_answer
-from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun, WorkerTask
+from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
     COMMAND_MAX,
     FILE_CHANGE_TOOLS,
@@ -79,6 +79,7 @@ from swift.executors.claude_mapping import (
 )
 from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, target_path
+from swift.executors.step_grant import reversible
 from swift.failures import classify, clean_detail, exception_words, failure_text
 from swift.security.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.security.web_scope import WebScope, result_text
@@ -137,6 +138,22 @@ SYSTEM_PROMPT = (
     "Don't mention commands or tools in your answer."
     + LOCATION_PROMPT
 )
+COMMAND_TOOLS = ("Bash", "PowerShell")
+# B2 (owner, 2026-11-13): one approval covers one coherent step, with its commands listed on the card.
+STEP_PROMPT = (
+    " When one step of the request needs several shell commands, first call propose_step with a plain "
+    "sentence for the step (like a command's description) and its commands, each one simple command on one "
+    "line (no &&, pipes or redirects; forward slashes in paths; git -C for another folder), then run them exactly as listed. The user approves the step once; a "
+    "command that isn't listed, or that deletes, sends, publishes or pays, still asks on its own card."
+)
+STEP_APPROVED_MESSAGE = (
+    "The user approved this step. These commands now run without another card, each once, exactly as "
+    "written: {covered}. Anything else asks on its own card{others}."
+)
+STEP_NOTHING_AHEAD_MESSAGE = (
+    "Swift can't approve any of these ahead: each asks on its own card when you run it. Go on one at a time."
+)
+STEP_REJECTED_MESSAGE = "The user didn't approve this step. Stop here; don't run its commands or try a workaround."
 ESCALATE_PROMPT = (
     " If the request needs more capability than you have (multi-step changes, debugging, design or "
     "judgment calls), call request_stronger_model before attempting it, with a reason of a few words."
@@ -251,6 +268,10 @@ class _Run:
     held: int = 0
     # When the CLI last said something, or the owner last answered (``clock.now()``).
     heard_at: float = field(default_factory=clock.now)
+    # B2: the step the owner approved, holding the commands not yet run; and counts for the log, never
+    # the commands themselves.
+    grant: Grant = field(default_factory=Grant)
+    grant_counts: dict[str, int] = field(default_factory=lambda: {"steps": 0, "covered": 0, "asked_again": 0})
 
 
 @contextlib.asynccontextmanager
@@ -510,6 +531,23 @@ class ClaudeCodeExecutor:
 
             sdk_tools.append(request_stronger_model)
             system_prompt += ESCALATE_PROMPT
+        if any(t in self.confirm_tools for t in COMMAND_TOOLS):
+
+            @tool(
+                "propose_step",
+                "Ask the user once for one step of the request and the shell commands it needs. step: one plain "
+                "sentence; commands: the exact commands, one simple command each.",
+                {"type": "object", "properties": {"step": {"type": "string"},
+                                                  "commands": {"type": "array", "items": {"type": "string"}}},
+                 "required": ["step", "commands"]},
+            )
+            async def propose_step(args: dict[str, Any]) -> dict[str, Any]:
+                run, run_id = current()
+                text = await self._propose_step(run, run_id, args)
+                return {"content": [{"type": "text", "text": text}]}
+
+            sdk_tools.append(propose_step)
+            system_prompt += STEP_PROMPT
         if self.tools is not None:
             sdk_tools += [self._sdk_tool(tool, spec, current) for spec in self.tools.tools.values()]
             system_prompt += WORKFLOW_PROMPT
@@ -562,7 +600,7 @@ class ClaudeCodeExecutor:
         run_id = f"cc-{next(self._ids)}"
         request, budget = task.prompt, task.budget
         level = OVERRIDE_LEVEL.get(budget.override or "") or (budget.demand if budget.demand in LEVELS else "standard")
-        run = _Run(level=level)
+        run = _Run(level=level, grant=task.grant)
         run.web.note_request(request)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
         spare = await self._take_spare()
@@ -625,6 +663,7 @@ class ClaudeCodeExecutor:
         if run is None or run.finished.is_set() or run.cancelled:
             return False
         run.web.note_request(text)
+        run.grant = Grant()  # the owner changed their mind: the step they approved may no longer be the plan
         waiting = [f for f in run.pending.values() if not f.done()]
         if waiting:  # a card is open: the change answers it, and the turn goes on
             waiting[-1].set_result(text)
@@ -671,6 +710,16 @@ class ClaudeCodeExecutor:
             # No card: an approval must not be able to read what Read is always refused (owner check 213).
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
             return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
+        if name in COMMAND_TOOLS and run.grant.commands:
+            command = str(args.get("command", ""))
+            # Swift's classification, never the agent's: a delete, a send or anything unknown asks (B2, ADR-019).
+            if run.grant.covers(command, irreversible=not reversible(command)):
+                left = list(run.grant.commands)
+                left.remove(command)  # each listed command once: the step ends when its list is used up
+                run.grant = replace(run.grant, commands=tuple(left))
+                run.grant_counts["covered"] += 1
+                return PermissionResultAllow(updated_input=args)
+            run.grant_counts["asked_again"] += 1
         title, detail = confirm_card(name, args, cwd=self.cwd)
         if name in FILE_CHANGE_TOOLS and len(detail) > WRITE_MAX:
             return _too_long(run, name, LONG_CHANGE_MESSAGE.format(n=WRITE_MAX))
@@ -702,15 +751,48 @@ class ClaudeCodeExecutor:
             return PermissionResultAllow(updated_input=args)
         return PermissionResultDeny(message=READ_DECLINED_MESSAGE.format(path=path), interrupt=False)
 
+    async def _propose_step(self, run: _Run, run_id: str, args: dict[str, Any]) -> str:
+        """B2: one card for a step's commands. Only those Swift classes as reversible go on it and into the
+        grant; the rest ask on their own cards. A no stops the run, as a rejected command card does."""
+        if self.tools is not None and self.tools.in_workflow_for(run_id):
+            return NOT_IN_WORKFLOW_MESSAGE.format(tool="propose_step")
+        said = command_purpose("Bash", {"description": args.get("step")})
+        listed = args.get("commands")
+        commands = list(dict.fromkeys(c for c in listed if isinstance(c, str))) if isinstance(listed, list) else []
+        ahead = [c for c in commands if reversible(c) and len(c) <= COMMAND_MAX and not self.reads.in_command(c, self.cwd)]
+        if not said or not ahead:
+            return STEP_NOTHING_AHEAD_MESSAGE
+        n = len(ahead)
+        title = f"Run {n} command{'s' if n != 1 else ''} on your PC"
+        decision = await self._decide(run, run_id, title, "\n".join(ahead), "Bash", said, step=True)
+        if decision == "approve":
+            run.grant = Grant(said, tuple(ahead))  # replaces the last step's: a grant lasts one step
+            run.grant_counts["steps"] += 1
+            others = len(commands) - n
+            return STEP_APPROVED_MESSAGE.format(
+                covered="; ".join(ahead), others=f", including {others} of the ones you listed" if others else "")
+        if isinstance(decision, tuple):
+            return CHANGE_MESSAGE.format(text=decision[1])
+        if run.stopped_by is None and not run.cancelled:
+            run.stopped_by = (decision, title)
+        interrupt = getattr(run.client, "interrupt", None)
+        if interrupt is not None:
+            with contextlib.suppress(Exception):
+                await interrupt()
+        return STEP_REJECTED_MESSAGE
+
     async def _confirm(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> bool:
         return await self._decide(run, run_id, title, detail, tool) == "approve"
 
-    async def _decide(self, run: _Run, run_id: str, title: str, detail: str, tool: str, purpose: str = "") -> Any:
+    async def _decide(
+        self, run: _Run, run_id: str, title: str, detail: str, tool: str, purpose: str = "", step: bool = False,
+    ) -> Any:
         """Show a confirm card and wait: "approve", "reject", "no_answer", or ("change", the owner's words)."""
         request_id = f"{run_id}:{next(run.ids)}"
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         run.pending[request_id] = future
-        run.queue.put_nowait(ExecEvent("confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose))
+        run.queue.put_nowait(ExecEvent(
+            "confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose, step=step))
         run.held += 1  # the owner's turn: the watchdog waits (R-06)
         try:
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
@@ -890,6 +972,8 @@ class ClaudeCodeExecutor:
             meta |= {"start_model": run.models[0], "models": list(run.models)}
         if run.escalations:
             meta["escalations"] = list(run.escalations)
+        if any(getattr(run, "grant_counts", {}).values()):  # tests stand a bare namespace in for a run
+            meta["step_grant"] = dict(run.grant_counts)  # B2: counts only, never the commands
         if run.cancelled:
             return ExecResult("cancelled", "Cancelled.", meta=meta)
         if run.stopped_by is not None:

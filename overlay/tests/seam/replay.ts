@@ -4,7 +4,7 @@
 // stdout, with the acknowledgements main.ts would send back (``P.drawn``). No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
-import { commandFolded, commandParts } from "../../src/cardtext.ts";
+import { commandFolded, commandParts, stepCommands } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
 import * as P from "../../src/presenter.ts";
 
@@ -101,8 +101,10 @@ process.stdout.write(JSON.stringify({
   // B1: what a command card leads with (the agent's words), and whether its command is folded under it.
   confirmLead: led ? confirmData!.purpose : null,
   // The command's first line, always in view under the lead, and what is folded under it ("" for nothing).
-  commandHead: led ? commandParts(confirmData!.detail).head : null,
-  commandFolded: led ? commandParts(confirmData!.detail).rest : null,
+  commandHead: led && !confirmData!.step ? commandParts(confirmData!.detail).head : null,
+  commandFolded: led && !confirmData!.step ? commandParts(confirmData!.detail).rest : null,
+  // B2: the commands a step card approves, all listed in view, none folded; null on any other card.
+  confirmStep: led ? stepCommands(confirmData!.tool, confirmData!.purpose, confirmData!.step, confirmData!.detail) : null,
   lost,
   broken: [...broken],
   acks,

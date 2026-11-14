@@ -108,8 +108,9 @@ class RunRecords:
         self.event(record["id"], "step", t_ms=t_ms, activity=activity, by=by)
 
     def asked(self, record: dict[str, Any], tool: str | None, request_id: str, t_ms: int, by: str | None = None,
-              explained: bool | None = None) -> None:
+              explained: bool | None = None, step: bool = False) -> None:
         extra = ({"by": by} if by else {}) | ({"explained": explained} if explained is not None else {})
+        extra |= {"step": True} if step else {}  # B2: a step card
         record["approvals"].append({"tool": tool, "request_id": request_id, "asked_ms": t_ms} | extra)
         self.event(record["id"], "asked", t_ms=t_ms, tool=tool, **extra)
 

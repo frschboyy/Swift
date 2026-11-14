@@ -51,10 +51,21 @@ def test_every_run_is_well_formed() -> None:
         assert set(run["checks"]) <= set(plan.VERDICTS), run
 
 
-def test_owner_checks_has_both_generated_blocks() -> None:
+def test_the_generated_status_is_its_own_file_and_merges_as_ours() -> None:
+    """Foundation decision 12: nothing generated in owner-checks.md, so two branches' checks never conflict there."""
     text = plan.CHECKS.read_text(encoding="utf-8")
-    for tag in ("roadmap", "status"):
-        assert f"<!-- {tag}:start -->" in text and f"<!-- {tag}:end -->" in text
+    assert ":start -->" not in text and ":end -->" not in text
+    assert plan.STATUS.exists()
+    rule = subprocess.run(["git", "check-attr", "merge", "--", "docs/testing/owner-checks-status.md"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout
+    assert rule.strip().endswith("merge: ours"), rule
+
+
+def test_the_status_file_links_each_check_in_the_checks_file() -> None:
+    top, bottom = plan.render([], [], [], [], [], "abc1234", "2026-11-15")
+    assert plan.link(CHECKS["1"]) == "[1](owner-checks.md#check-1)"
+    page = plan.status_file(top, bottom)
+    assert "## Run these first" in page and "## Where every check stands" in page
 
 
 # --- reading a pasted report --------------------------------------------------------------------

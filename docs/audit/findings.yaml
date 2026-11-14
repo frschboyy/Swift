@@ -1,5 +1,34 @@
 # Swift findings register. One entry per finding from every audit, rechecked against the code on 2026-11-12.
 # Format and rules: tests/unit/test_findings_register.py. Sorted: open first, then by severity.
+- id: QA-02
+  title: 'A recent address opens for words that only contain "show this", "open it", "that ...''s" or "again" ("show
+    this week''s timetable on my university''s website" opened usiu.ac.ke said a moment ago).'
+  source: QA review of main e18af1b, 2026-11-14
+  module: src/swift/workflows/owner_address.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: owner_address.py _POINTS_BACK matches a pointing word followed by any noun or possessive, and "again"
+    anywhere; desktop_tools.py _open_url then allows every address from the last 10 minutes
+  test: tests/unit/test_recent_address.py::test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address
+  note: The web-address rule (a recent address only when the owner points at it). Only the owner's own earlier
+    addresses can open, never the agent's. Fix waits for the orchestrator's go-ahead and a second review.
+- id: QA-03
+  title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
+    different ones, or write into the owner's own draft that has no subject yet.
+  source: QA review of main e18af1b, 2026-11-14
+  module: src/swift/desktop/gmail_fill.py, src/swift/desktop/windows.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: unproven
+  confidence: suspected
+  evidence: windows.py _GmailScreen.fields finds each field by itself in the whole window (uia.find per key), and
+    subject_in_use reads only the subject; open_to opens the first collapsed To row
+  test: null
+  note: 'untested: needs the UIA tree of two compose windows open in Chrome at once; the fake has one compose per window.'
 - id: B-10
   title: Result and failure texts name the provider ("Claude Code stopped there") instead of Swift.
   source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md X-06

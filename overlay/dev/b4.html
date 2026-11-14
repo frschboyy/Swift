@@ -27,6 +27,27 @@
       .b4-edge { fill: none; stroke: var(--muted); stroke-width: 1.4; }
       .b4-edge--back { stroke-dasharray: 4 3; }
       .b4-arrowhead { fill: var(--muted); }
+      /* Mind map: root, then branches to its right; each branch's ideas beside it, deeper ones indented below. */
+      .b4-mind { display: flex; align-items: center; gap: 0; font-size: 13px; line-height: 18px; margin-top: 4px; }
+      .b4-mind ul { list-style: none; margin: 0; padding: 0 0 0 16px; position: relative; }
+      .b4-mind li { position: relative; padding: 3px 0; }
+      .b4-mind li::before { content: ""; position: absolute; left: -10px; top: 0; bottom: 0; border-left: 1.4px solid var(--accent-edge); }
+      .b4-mind li:first-child::before { top: 13px; }
+      .b4-mind li:last-child::before { bottom: auto; height: 13px; }
+      .b4-mind li:only-child::before { display: none; }
+      .b4-mind li::after { content: ""; position: absolute; left: -10px; top: 13px; width: 10px; border-top: 1.4px solid var(--accent-edge); }
+      .b4-mind > ul::before, .b4-mind-l1 > li > ul::before { content: ""; position: absolute; left: 0; top: 50%; width: 6px; border-top: 1.4px solid var(--accent-edge); }
+      .b4-mind-l1 > li { display: flex; align-items: center; }
+      /* A branch sits at the middle of its ideas, so its lines meet it there, not at the top. */
+      .b4-mind-l1 > li::after { top: 50%; }
+      .b4-mind-l1 > li:first-child::before { top: 50%; }
+      .b4-mind-l1 > li:last-child::before { height: 50%; }
+      .b4-mind-node { display: inline-block; padding: 1px 8px; border-radius: 8px; color: var(--text); }
+      .b4-mind-root { flex: 0 0 auto; max-width: 104px; padding: 8px 10px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-weight: 700; text-align: center; }
+      .b4-mind-l1 > li > .b4-mind-node { flex: 0 0 auto; max-width: 96px; background: var(--accent-soft); border: 1px solid var(--accent-edge); font-weight: 600; padding: 4px 8px; }
+      .b4-mind-l2 > li > .b4-mind-node { background: var(--raise); }
+      .b4-mind-l3 { padding-left: 14px; }
+      .b4-mind-l3 .b4-mind-node { color: var(--muted); padding: 0 6px; }
       .b4-mermaid { display: block; max-width: 100%; height: auto; max-height: 420px; margin: 4px auto 0; }
       .b4-edge-label { fill: var(--faint); font: 12px system-ui, sans-serif; }
     </style>

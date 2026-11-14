@@ -1,10 +1,10 @@
 # B4: results shaped to fit them (proposal, 2026-11-13)
 
-Status: **the owner adopted these recommendations (2026-11-13), and both pre-approval checks are done (§9).** The
-checks changed one item: Windows Shell thumbnails are out (2 of 24 real files gave one), and Windows' built-in PDF
-renderer plus a standard-library text excerpt replace them; the owner accepted that change on 2026-11-14.
-Nothing here is built into Swift yet. A dev-only
-prototype draws the shapes (`overlay/dev/b4.html`, §6).
+Status: **the owner approved the vetted set on 2026-11-14** (§4): Swift's own code for text, tables, comparisons,
+simple charts and mind maps; Mermaid's tiny build for diagrams; and Windows' PDF renderer plus a text excerpt for
+documents. The checks before approval (§9) replaced Windows Shell thumbnails, which gave a thumbnail for only 2 of
+24 real files. The owner also asked for a mind-map shape (§6) and, later, a brainstorm map that grows by voice
+(§10). Nothing here is built into Swift yet. A dev-only prototype draws the shapes (`overlay/dev/b4.html`, §6).
 
 **The owner's decision (2026-11-13):** results aren't a fixed list of layouts. For each result, Swift works out
 how best to show it, visually and in words: a table, a side-by-side comparison, project cards, a real diagram, a
@@ -90,12 +90,13 @@ from it, and none of them adds a feature to Step B itself:
 **Step B's own rule changes in one place.** `SPEC.md` §5 says "add a block only when two capabilities need it". With
 the owner's decision it reads: **add a shape when Swift's own code can draw it from typed data and check that
 data.** The worker can't add a shape while Swift runs; a new shape is a code change, reviewed like any other.
-New blocks: **Compare, Diagram, Chart, Cards, Preview,** and Table gains headings.
+New blocks: **Compare, Diagram, Mind map, Chart, Cards, Preview,** and Table gains headings.
 
 **Order:** Step B first, with no protocol change, as its brief says. Then B4 adds one shape at a time, each with its
 seam scenario (`tests/unit/test_seam_replay.py`) and owner checks:
 1. **Compare** and headed tables. No dependency. The most common case in the owner's run (238).
-2. **Diagram** through Mermaid. The one new dependency, after the owner's OK.
+2. **Diagram** through Mermaid, the one new dependency (approved 2026-11-14), and **Mind map**, drawn by Swift's own
+   code (§6).
 3. **Preview**: Windows' own PDF renderer and a text excerpt (§9). No new dependency.
 4. **Chart** and **Cards**, drawn by Swift's own code.
 
@@ -147,12 +148,12 @@ comes with every version bump (`uv`/`npm` lockfiles already pin).
 A vetted set of free tools ships with Swift, and the owner approves that list once. Anything outside the set is
 installed only when needed, and Swift asks on a card every time (C4).
 
-### The vetted set (adopted by the owner 2026-11-13, changed by the checks in §9)
+### The vetted set (approved by the owner on 2026-11-14)
 
 | # | Tool | Covers | Licence | Size | Offline | New dependency |
 |---|---|---|---|---|---|---|
-| 1 | **Swift's own blocks** (overlay TypeScript) | Text, list, headed table, comparison, project cards, simple bar and line charts (≤4 series, SVG) | Swift's | ~70 lines per shape (prototype) | yes | no |
-| 2 | **Mermaid**, `@mermaid-js/tiny` 12.3.0, pinned | Diagrams: flow, sequence, state, class, ER, timeline, gantt, quadrant, journey. *Not* mind maps or architecture diagrams (tiny leaves them out) | MIT | 2.85 MB minified, one file, 0.76 MB gzipped (measured) | yes: no network calls in the file, and only localhost requests when rendering (§9) | **yes**, the only one |
+| 1 | **Swift's own blocks** (overlay TypeScript) | Text, list, headed table, comparison, mind map (≤3 levels, ≤30 ideas), project cards, simple bar and line charts (≤4 series, SVG) | Swift's | ~70 lines per shape (prototype) | yes | no |
+| 2 | **Mermaid**, `@mermaid-js/tiny` 12.3.0, pinned | Diagrams: flow, sequence, state, class, ER, timeline, gantt, quadrant, journey. Mind maps are drawn by row 1; tiny leaves out mind maps and architecture diagrams | MIT | 2.85 MB minified, one file, 0.76 MB gzipped (measured) | yes: no network calls in the file, and only localhost requests when rendering (§9) | **yes**, the only one |
 | 3 | **`Windows.Data.Pdf`**, Windows' own PDF renderer | A PDF's first page as a PNG on a Preview block, plus its page count | Windows | 0 | yes | no |
 | 4 | **A text excerpt from Office files**, Python standard library (`zipfile` + the file's XML) | The opening words of a Word document, the first slide of a PowerPoint, an Excel file's text | Python's | ~30 lines (spike) | yes | no |
 | + | Windows Shell thumbnails, opportunistically | A PowerPoint's own embedded preview picture, *when the file has one*; never asked for a PDF | Windows; `comtypes` MIT | 0 | yes | no. Optional: 2 of 6 PowerPoints had one, and a failure can take seconds, so only with a short timeout |
@@ -243,7 +244,11 @@ shapes, including markup, fall back to text, and layers stop on a cycle.
 |---|---|---|
 | ![](b4/mermaid-flow-dark.jpg) | ![](b4/mermaid-sequence-light.jpg) | ![](b4/mermaid-markup-dark.jpg) |
 
-The Mermaid cases are `?shape=mermaid|mermaid-seq|mermaid-evil`. They need `mermaid.tiny.js` copied into
+| Mind map, dark | Mind map, light |
+|---|---|
+| ![](b4/mindmap-dark.jpg) | ![](b4/mindmap-light.jpg) |
+
+The mind map is `?shape=mindmap`. The Mermaid cases are `?shape=mermaid|mermaid-seq|mermaid-evil`. They need `mermaid.tiny.js` copied into
 `overlay/dev/b4/vendor/`, which git ignores (the steps are in `overlay/dev/b4/mermaid.ts`).
 
 **What it showed:**
@@ -256,6 +261,15 @@ The Mermaid cases are `?shape=mermaid|mermaid-seq|mermaid-evil`. They need `merm
 - **Mermaid lays the same seven nodes out with no crossing,** in Halo's colours, dark and light.
 - The "Best fit" tag in Swift's accent reads like Swift's own advice. Rename it "Claude's pick" (§2).
 - A sequence diagram of six messages is taller than a card: it belongs in the expanded card (`fits()`, §3).
+- **The mind map needs no layout library.** A mind map is a tree, so nothing crosses. Swift draws it as nested
+  lists (`drawMindMap` in `shapes.ts`, about 15 lines, plus CSS for the lines): the root on the left, the branches
+  beside it, each branch's ideas beside that, and a third level indented below. Text wraps, so labels aren't cut.
+  Screen readers get nested lists, and `mindMapText()` gives the same map as indented lines for Copy.
+- **The mind map's limits:** up to 3 levels under the root and 30 ideas, each label up to 60 characters. Past
+  either limit, or with an unnamed idea, the whole map falls back to words (tested). Four branches with 12 ideas
+  fill a card (the screenshot). A bigger map opens the expanded card.
+- **No state colours on the map:** branches use the accent only. Amber means an OK is waiting and red means failed,
+  so neither can colour a branch. The lines use `--accent-edge`, because `--rim-hi` vanished in light mode.
 
 Not checked: the real overlay (`main.ts` isn't touched, to keep clear of B1 and the screen-snapshot work), 150%
 scaling, forced colours and reduced motion.
@@ -267,18 +281,18 @@ scaling, forced colours and reduced motion.
    guesses wrong on prose.
 2. **Ship or install:** **decided by the owner (2026-11-13).** A vetted set ships and is approved once. Anything
    outside it is installed when needed, with a card every time (§4).
-3. **The vetted set:** **adopted by the owner (2026-11-13).** Swift's own blocks; Mermaid (`@mermaid-js/tiny`
+3. **The vetted set:** **approved by the owner on 2026-11-14.** Swift's own blocks; Mermaid (`@mermaid-js/tiny`
    12.3.0, MIT), the one new dependency; Windows' PDF renderer; and a standard-library excerpt for Office files
-   (§4). The checks replaced Windows thumbnails with the last two (§9). The owner accepted that change
-   on 2026-11-14. *Still the owner's:* whether mind maps (which tiny leaves out) matter enough to need anything
-   more.
+   (§4). The checks replaced Windows thumbnails with the last two (§9).
+   - **3a. Mind maps:** **the owner said yes (2026-11-14).** They're drawn by Swift's own code, with no new
+     dependency (§6). The brainstorm map that grows by voice is a separate, later item (§10).
    - **3b.** An installed tool outside the set is reused without asking again, and a new version asks again.
      *Recommended.* The other reading is to ask before every use, which means a card on every chart from that tool.
    - **3c.** Outside tools run on the worker's side and reach the card as data or a PNG, never as code in the
      overlay. *Recommended*; it follows from the product rules.
 4. **The worker's judgment is labelled as the worker's** ("Claude's pick"), never in Swift's voice. *Recommended.*
 5. **Order:** Halo Step B first, built as a table of typed blocks with no protocol change. Then the shapes one at a
-   time: compare, diagram, preview, chart and cards. *Recommended.* B4 can't land before Step B without drawing
+   time: compare, diagram and mind map, preview, chart and cards. *Recommended.* B4 can't land before Step B without drawing
    everything twice.
 6. **Shapes only on Done results and the reader,** never on Needs your OK or Waiting for you. *Recommended*; it
    follows from the product rules.
@@ -348,3 +362,28 @@ Only counts and timings were kept from the owner's files. No file names, text or
 - *Python's `winrt` packages* (MIT) are a new dependency.
 
 Start with the PowerShell helper (`shortcut:` with its cost), and move to Rust if 1–2 s shows on the card.
+
+## 10. Later, not B4: a brainstorm map that grows by voice
+
+The owner wants this (2026-11-14). It's a separate item because it isn't a way to *show* a result: it's a thing
+Swift keeps and changes over several turns. B4's mind map draws a map once, from one answer. A brainstorm map:
+
+- **Lives across turns:** "add pricing under Marketing", "move that under Risks", "drop the Naivasha idea", "what
+  have we got so far?" Each turn changes the same map, and the card redraws it with the change marked for a
+  moment.
+- **Needs run records** (the groundwork session `gw-run-records`): the map belongs to one conversation's record.
+  Each change is a step in it, so "undo that" and "show me the map from this morning" work, and a restart doesn't
+  lose it.
+- **Needs the memory store** (`gw-memory-store`) only to keep a map past its conversation ("keep this brainstorm").
+  The product rule holds: the map is written from the owner's own words, or from ideas they accepted on a card,
+  never from what a worker read. A worker's suggested ideas are drawn as suggestions (marked as the worker's, as in
+  §2) until the owner keeps them.
+- **Edits are Swift's own, not the worker's:** add, move, rename and remove an idea are small typed operations on
+  the map that Swift applies and checks against the same limits, past which the map moves to the expanded card. The
+  worker proposes ideas; it never rewrites the map.
+- **Removing an idea isn't deleting a file,** and it can be undone, so it needs no card. Saving the map *into an
+  app* (a Word document, an email) needs the owner's own words asking for it, as every write into an app does.
+- **The same shape draws it:** the mind-map block from B4, with "new" and "suggested" marks added.
+
+Order: after run records land, and after B4's mind map. It needs the owner's design calls first: how a change is
+shown, how many suggestions at once, and whether the map can be opened in the Swift window to edit by hand.

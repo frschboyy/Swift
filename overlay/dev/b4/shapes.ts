@@ -7,8 +7,13 @@ import { el } from "../../src/dom.ts";
 
 export type Compare = { shape: "compare"; title?: string; items: string[]; rows: { label: string; values: string[] }[]; pick?: number };
 export type Diagram = { shape: "diagram"; title?: string; nodes: { id: string; label: string }[]; edges: { from: string; to: string; label?: string }[] };
-export type Shape = { shape: "text"; text: string } | Compare | Diagram;
+export type Idea = { label: string; children: Idea[] };
+export type MindMap = { shape: "mindmap"; title?: string; root: string; children: Idea[] };
+export type Shape = { shape: "text"; text: string } | Compare | Diagram | MindMap;
 
+// A mind map is a tree: up to three levels of ideas under the root, thirty ideas in all.
+const MAX_DEPTH = 3;
+const MAX_IDEAS = 30;
 const MAX_ITEMS = 4;
 const MAX_ROWS = 12;
 const MAX_NODES = 16;
@@ -45,7 +50,43 @@ export function parseShape(raw: unknown, fallback: string): Shape {
     if (edges.some((e) => !ids.has(e.from) || !ids.has(e.to) || e.from === e.to)) return text;
     return { shape: "diagram", title, nodes, edges };
   }
+  if (r.shape === "mindmap" && str(r.root, 60) && Array.isArray(r.children)) {
+    let count = 0;
+    // null: too deep, too many, or an idea without words; the whole map then falls back to text.
+    const ideas = (list: unknown[], depth: number): Idea[] | null => {
+      if (depth > MAX_DEPTH && list.length) return null;
+      const out: Idea[] = [];
+      for (const item of list) {
+        const o = (item ?? {}) as Record<string, unknown>;
+        const label = str(o.label, 60);
+        const kids = ideas(Array.isArray(o.children) ? o.children : [], depth + 1);
+        if (!label || !kids || ++count > MAX_IDEAS) return null;
+        out.push({ label, children: kids });
+      }
+      return out;
+    };
+    const children = ideas(r.children, 1);
+    if (!children?.length) return text;
+    return { shape: "mindmap", title, root: str(r.root, 60)!, children };
+  }
   return text;
+}
+
+/** A mind map as nested lists: the root, its branches to the right, each branch's ideas beside it. */
+export function drawMindMap(m: MindMap): HTMLElement {
+  const list = (ideas: Idea[], depth: number): HTMLElement =>
+    el("ul", { class: `b4-mind-l${depth}` }, ...ideas.map((i) => el("li", {},
+      el("span", { class: "b4-mind-node" }, i.label),
+      i.children.length ? list(i.children, depth + 1) : null)));
+  return el("div", { class: "b4-mind" }, el("span", { class: "b4-mind-root" }, m.root), list(m.children, 1));
+}
+
+/** The map as words, for Copy and screen readers: one idea per line, indented by level. */
+export function mindMapText(m: MindMap): string {
+  const lines = [m.root];
+  const walk = (ideas: Idea[], depth: number): void => ideas.forEach((i) => { lines.push(`${"  ".repeat(depth)}- ${i.label}`); walk(i.children, depth + 1); });
+  walk(m.children, 1);
+  return lines.join("\n");
 }
 
 /** Each node's layer: the longest path to it from a node nothing points at. A cycle's back edge is ignored. */
@@ -122,5 +163,6 @@ export function drawDiagram(d: Diagram, width = 468): SVGElement {
 export function drawShape(s: Shape): Node {
   if (s.shape === "compare") return drawCompare(s);
   if (s.shape === "diagram") return drawDiagram(s);
+  if (s.shape === "mindmap") return drawMindMap(s);
   return el("p", {}, s.text);
 }

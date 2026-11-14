@@ -21,8 +21,6 @@ class AppPaths:
     data_dir: Path
     logs_dir: Path
     models_dir: Path
-    db_path: Path
-    audit_path: Path
 
     @property
     def config_file(self) -> Path:
@@ -68,6 +66,4 @@ def app_paths(env: Mapping[str, str] = os.environ) -> AppPaths:
         data_dir=data_dir,
         logs_dir=data_dir / "logs",
         models_dir=data_dir / "models",
-        db_path=data_dir / "swift.db",
-        audit_path=data_dir / "audit.jsonl",
     )

@@ -17,8 +17,6 @@ def test_default_locations() -> None:
     assert p.data_dir == Path(WIN_ENV["LOCALAPPDATA"]) / "Swift"
     assert p.logs_dir == p.data_dir / "logs"
     assert p.models_dir == p.data_dir / "models"
-    assert p.db_path == p.data_dir / "swift.db"
-    assert p.audit_path == p.data_dir / "audit.jsonl"
     assert p.permissions_file == p.config_dir / "permissions.toml"
 
 

@@ -282,3 +282,15 @@ runs:
     FAIL: ['201', '203', '204', '205', '206', '208', '218', '235', '239']
     PASS: ['202', '207', '209', '210', '213', '216', '217', '219', '220', '236', '242']
     BLOCKED: ['211']
+- date: 2026-11-14 12:24
+  commit: 0c382c2
+  source: owner
+  note: '252: both runs left Gmail empty; card said the compose window didn''t open/appear. Log: gmail_not_loaded (front Chrome, found none; then found subject+body, no To) and gmail_behind (found all three, compose behind another window). 255: step 1 opened usiu.ac.ke; step 2 the agent offered the site opened a moment ago, the owner said yes, and the open was refused (not the owner''s address in this request).'
+  checks:
+    FAIL: ['252', '255']
+- date: 2026-11-14 12:33
+  commit: dc549f9
+  source: owner
+  note: '254: window_bands.py: taskmgr.exe band 16 (system tools), always on top; swift-overlay.exe band 1. Task Manager is in a higher band than Swift. With Task Manager over the orb, Swift did not show in front of it.'
+  checks:
+    PASS: ['254']

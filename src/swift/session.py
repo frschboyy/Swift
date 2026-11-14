@@ -167,6 +167,7 @@ from swift.executors.quick import QuickModel
 from swift.failures import Failure, Severity, classify, failure_text
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.logging_setup import redact
+from swift.exchange import EARLIER_MAX, Exchange, owner_said
 from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads, _clip
 from swift.routing import Route, fast
 from swift.routing import route as default_router
@@ -255,7 +256,6 @@ TAIL_S = 0.3
 # A request this soon after the previous Claude answer carries that exchange as context.
 FOLLOWUP_S = 300.0
 # Exchanges before the previous one that a follow-up still gets (owner checks 233-234).
-EARLIER_MAX = 4
 # Errors where nothing was heard well enough to act on: the conversation goes on past them.
 NOT_HEARD = ("unclear_speech", "no_speech", "fragment")
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
@@ -440,58 +440,6 @@ class AutoEnd:
     free_text: bool = False
 
 
-@dataclass(frozen=True)
-class Exchange:
-    """The previous request to the executor, kept for one follow-up (ADR-007 §9)."""
-
-    id: str
-    request: str
-    answer: str
-    approved: tuple[str, ...]
-    at: float
-    # The last email or event Swift showed on a card ("To Ada, Subject …"), and whether it went ahead.
-    proposed: str = ""
-    proposed_done: bool = False
-    thread: str | None = None
-    # The exchanges before this one in the same conversation, oldest first (none of them nested).
-    earlier: tuple[Exchange, ...] = ()
-
-    def then(self, before: Exchange | None, now: float, window_s: float) -> Exchange:
-        """This exchange, with ``before`` and its earlier ones if the conversation went on (``window_s``)."""
-        if before is None or now - before.at > window_s:
-            return self
-        chain = (*before.earlier, replace(before, earlier=()))[-EARLIER_MAX:]
-        return replace(self, earlier=chain)
-
-    def as_context(self, now: float) -> str:
-        lines = [
-            f"[Context: the previous voice request, {int(now - self.at)} s ago. "
-            "Use it only if the current request refers to it.]",
-        ]
-        if self.earlier:
-            lines = [
-                "[Context: this voice conversation so far, oldest first. Use it only if the current request "
-                "refers to it.]",
-            ]
-            for e in self.earlier:
-                lines += [f"Earlier request ({int(now - e.at)} s ago): {_clip(e.request, 200)}",
-                          f"Earlier answer: {_clip(e.answer, 300)}"]
-            lines.append(f"[The previous request, {int(now - self.at)} s ago]")
-        lines += [
-            f"Previous request: {_clip(self.request, 300)}",
-            f"Previous answer: {_clip(self.answer, 800)}",
-        ]
-        if self.approved:
-            lines.append("Actions the user approved: " + "; ".join(_clip(a, 120) for a in self.approved[-5:]))
-        if self.proposed:
-            state = "it went ahead" if self.proposed_done else "the user did NOT approve it"
-            lines.append(
-                f"What Swift last showed the user ({state}): {_clip(self.proposed, 400)}. If the current request "
-                "corrects it, use the correction and keep the rest; the corrected values win over the previous request."
-            )
-        return "\n".join(lines) + "\n\n[Current request]\n"
-
-
 def _proposal(store: ArtifactStore | None) -> str:
     """The last email or event shown on a card, in one line, for the follow-up context."""
     if store is None:
@@ -567,6 +515,7 @@ class Run:
     confirm_titles: dict[str, str] = field(default_factory=dict)
     approved: list[str] = field(default_factory=list)
     run_started: float | None = None
+    heard_at: float | None = None
     # Title of a Swift confirm card the owner rejected (or left) in this run.
     swift_declined: str | None = None
     # The request as sent on (for parking it), and the task given to the provider (for starting again).
@@ -741,6 +690,7 @@ class Session:
     _confirm_titles = _per_run("confirm_titles", "Confirm card titles by request id.")
     _approved = _per_run("approved", "Titles of the cards approved in it.")
     _run_started = _per_run("run_started", "When the provider started (clock.now()).")
+    _heard_at = _per_run("heard_at", "When the request began, before the owner spoke (clock.now()).")
     _swift_declined = _per_run("swift_declined", "Title of a Swift card the owner rejected or left.")
     _request = _per_run("request", "The request as sent on, for parking it.")
     _said = _per_run("said", "The request in the owner's words, for parking it.")
@@ -2769,7 +2719,7 @@ class Session:
         if run is self._focus:
             await self._close_followup()
         self._drop_question()
-        started = clock.now()
+        started = self._heard_at = clock.now()
         fix, self._fix_offer = self._fix_offer, None
         if self.desktop is not None and record.get("source") in ("voice", "debug.ask", "retry", "wake", "beside", "typed"):
             # Where the owner is when they start speaking, read while they talk.
@@ -4908,6 +4858,8 @@ class Session:
             self._thread = record["thread"] = last.thread
             record["answered_later"] = True
         record["context"] = {"previous": last.id, "age_s": int(now - last.at)}
+        if self._scope is not None:  # the conversation it goes on from: the owner's words there, for a web address
+            self._scope.earlier = last.owner_words()
         return last.as_context(now)
 
     @property
@@ -4945,7 +4897,8 @@ class Session:
         """Keep a local answer for the next request in its thread: its moment, and as context."""
         thread = record.get("thread")
         self.dialogue.remember(thread, moment=moment,
-                               exchange=Exchange(record["id"], request, said, (), clock.now(), thread=thread))
+                               exchange=Exchange(record["id"], request, said, (), clock.now(), thread=thread,
+                                                 **owner_said(record, self._scope, self._heard_at)))
 
     def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
         if result.status in ("done", "rejected"):
@@ -4954,6 +4907,7 @@ class Session:
                 record["id"], request, result.summary, tuple(self._approved), clock.now(), thread=record.get("thread"),
                 # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".
                 proposed=proposed, proposed_done=bool(proposed) and record.get("status") == "done",
+                **owner_said(record, self._scope, self._heard_at),
             ).then(self._last_exchange, clock.now(), self.followup_s)
         else:
             self._last_exchange = None

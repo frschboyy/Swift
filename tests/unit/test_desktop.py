@@ -257,6 +257,24 @@ async def test_a_web_address_the_owner_said_opens_in_their_browser_and_no_other(
     assert (await host.call("desktop_open", {"url": "https://usiu.ac.ke"})).ok
 
 
+async def test_an_address_the_owner_gave_earlier_opens_for_ten_minutes_and_a_yes_to_the_agents_never() -> None:
+    """C3, owner's decision 2026-11-14 (check 255): the owner's own words earlier in the conversation count
+    for ten minutes (``RunScope.earlier``, which the session fills from its record of the conversation)."""
+    from swift import clock
+    from swift.workflows.desktop_tools import RECENT_ADDRESS_S
+
+    host, desktop, _, _ = make(said="Open my university's website.")
+    assert host.scope is not None
+    host.scope.answers.append("yes")  # to the agent's "Should I open usiu.ac.ke?": not the owner's address
+    refused = await host.call("desktop_open", {"url": "usiu.ac.ke"})
+    assert not refused.ok and "a yes to an address you suggest doesn't count" in refused.text
+    host.scope.earlier = ((clock.now() - RECENT_ADDRESS_S - 1, "open usiu dot ac dot ke"),)
+    assert not (await host.call("desktop_open", {"url": "usiu.ac.ke"})).ok  # said over ten minutes ago
+    host.scope.earlier = ((clock.now() - RECENT_ADDRESS_S + 30, "open usiu dot ac dot ke"),)
+    assert (await host.call("desktop_open", {"url": "usiu.ac.ke"})).ok
+    assert desktop.opened == ["https://usiu.ac.ke"]
+
+
 async def test_fill_in_email_never_sends_and_only_to_contacts() -> None:
     host, desktop, owner, journal = make(said="email my lecturer that I'll miss Thursday")
     found = await host.call("find_contact", {"query": "lecturer"})

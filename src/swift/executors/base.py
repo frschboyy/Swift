@@ -76,6 +76,8 @@ class ExecEvent:
     tool: str | None = None
     # A command card only: what the agent says it's for, in its own words (B1, X-17).
     purpose: str | None = None
+    # A step card (B2): ``detail`` lists the step's commands, one a line, and approving covers them.
+    step: bool = False
     activity: Activity = "working"
     # True when a sub-agent the provider started did this step ("Claude Code's helper is reading").
     subagent: bool = False
@@ -128,8 +130,9 @@ class Grant:
     One approval covers one coherent ``step`` of a task, with its ``commands`` listed inside it as the
     owner saw them on the card. A command outside the list asks again, and anything irreversible
     (deleting, paying, sending) always gets its own card, so a grant never covers it. Empty, the
-    default, covers nothing: every side effect asks, as today. No executor honours a grant yet; B2
-    builds the card that makes one and the check that uses it.
+    default, covers nothing: every side effect asks, as today. Claude Code makes one from a step card
+    and checks it before each command (``ClaudeCodeExecutor._ask``); ``step_grant.reversible`` says what
+    is irreversible, never the agent.
     """
 
     step: str = ""

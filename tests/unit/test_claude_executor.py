@@ -96,14 +96,17 @@ def test_confirm_card(name: str, args: dict, title: str, detail_part: str) -> No
 def test_options_split_auto_and_confirm_tools_and_ignore_settings(tmp_path: Path) -> None:
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), confirm_tools=("Edit", "Write", "Bash", "Read"), claude="claude.exe")
     opts = ex.options(_Run(), "cc-1")
-    escalate = "mcp__swift__request_stronger_model"
-    assert opts.tools == ["Read", "Glob", "Grep", "Edit", "Write", "Bash", escalate]  # Read not duplicated
-    assert opts.allowed_tools == [escalate]  # reads are decided per path in _ask (audit B-01)
+    escalate, step = "mcp__swift__request_stronger_model", "mcp__swift__propose_step"
+    assert opts.tools == ["Read", "Glob", "Grep", "Edit", "Write", "Bash", escalate, step]  # Read not duplicated
+    assert opts.allowed_tools == [escalate, step]  # reads are decided per path in _ask (audit B-01)
     assert opts.permission_mode == "default" and opts.can_use_tool is not None
     assert opts.setting_sources == [] and opts.strict_mcp_config is True
     assert list(opts.mcp_servers) == ["swift"] and "request_stronger_model" in opts.system_prompt
     plain = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", escalation=False).options(_Run(), "cc-1")
-    assert escalate not in plain.tools and plain.mcp_servers == {} and "transcribed" in plain.system_prompt
+    assert escalate not in plain.tools and "transcribed" in plain.system_prompt
+    # B2: no shell, no step card
+    bare = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", escalation=False, confirm_tools=("Edit",))
+    assert bare.options(_Run(), "cc-1").mcp_servers == {}
     assert opts.extra_args == {"no-session-persistence": None}
     assert opts.max_budget_usd == 1.0 and opts.cwd == str(tmp_path)
 

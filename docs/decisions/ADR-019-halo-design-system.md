@@ -84,3 +84,11 @@ A look spike behind a dev-only switch (`overlay/src/look/`), on `main` since 202
 - At a right anchor, the orb moves when the capsule grows into a pill (the pill stays at the edge), so the tail moves with it.
 - If a compact confirm still doesn't fit, it scrolls as today: folding the deck (`SPEC.md` §10) needs the presenter, so it waits for Step B. It didn't happen in the tightest case drawn: a compact confirm of 316 px with three edges.
 - The panes (typing box, stack, live view, tray) take the tokens and buttons only.
+
+## 9. Step B: one card renderer (2026-11-14, branch `claude/halo-step-b-c7b584`, not merged)
+
+Every card in the main window is now put together by one renderer, `overlay/src/card.ts`, from its state (`CardState`: SPEC §4's seven, plus Swift's own notices) and its slots in SPEC §3's order: lead, origin, earlier turns, body, footer. `main.ts` fills the slots; `blocks.ts` holds the body's blocks, shared with the reader pane. No feature was added and nothing changes on screen: the default look matches `main` pixel for pixel in the harness, and Halo draws as before (the measurement is in the branch's hand-over note). The Halo dress (`look/dress.ts`) now reads the card's state from `data-card` instead of guessing it from class names.
+
+**Where the next steps plug in** (named, nothing behind them yet): B3's state looks style `data-card`; B4's result shapes are new shapes in `answer.ts` and new blocks in `blocks.ts`; B5's growth is `CardSpec.size` (only `"fit"` today); B7's motion is `showCard` and `hideCard` in `main.ts`, a card's only way in and out.
+
+**Not done here, each waiting for a decision:** the §8 items (folding the deck when a compact confirm doesn't fit, the confirm and question's origin line, "just now" times, Failed not fading, the orb moving at a right anchor); deleting the look switch and making Halo the default; edges and stack rows, which are a run's other sizes (SPEC §7) and stay in `views.ts`.

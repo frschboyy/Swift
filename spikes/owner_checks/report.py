@@ -592,6 +592,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         *_front_and_web(rows),
         *_command_cards(rows),
         *_step_cards(rows),
+        # Halo Step B: one renderer for every card; nothing should look or behave differently.
+        ("303 cards look and work as before", LOOK, "tell us whether any card looked or behaved differently"),
+        ("304 Swift's question and Stop look as before", LOOK, "tell us whether any card looked or behaved differently"),
         *_runs(rows, runs_dir),
     ]
 

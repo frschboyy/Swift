@@ -50,42 +50,48 @@ Each check is a short list of steps: what to say, what to click, and what you sh
 ## Run these first
 
 <!-- roadmap:start -->
-Worked out by `spikes/owner_checks/plan.py` on 2026-11-14 at `ca28895`, from the ledger of past results
+Worked out by `spikes/owner_checks/plan.py` on 2026-11-14 at `c9f3b2e`, from the ledger of past results
 and what changed in the code since. Most urgent first, a section at a time (each section's setup is
 at its heading); a check that builds on another comes after it.
 
+**Swift in front, and a website by voice (2026-11-13)**
+
+1. [255](#check-255): A website you name opens. *Why: failed on 2026-11-14; 2 changes since (such as `a98e1f1` Read scope: a never-read folder spelled by its volume GUID or device name is still never read); product rule: Swift writes into apps only when the owner's own words asked; asked for: A10 and C3 of 2026-11-13; which band Task Manager is in decides the A10 fix, and a spoken address now opens.*
+
 **Where Swift is rigid: requests in your own words (2026-11-12)**
 
-1. [235](#check-235): One command, said six ways. *Why: failed on 2026-11-13; 7 changes since (such as `41a1773` "Play some music" checks that sound started before it says "Playing."); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
-2. [237](#check-237): Things Swift may not be able to do yet. *Why: failed on 2026-11-13; 7 changes since (such as `2897e94` B2: a step can't install hooks that a later approved commit would run (safeguard)); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+2. [235](#check-235): One command, said six ways. *Why: failed on 2026-11-13; 8 changes since (such as `41a1773` "Play some music" checks that sound started before it says "Playing."); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
+3. [237](#check-237): Things Swift may not be able to do yet. *Why: failed on 2026-11-13; 7 changes since (such as `2897e94` B2: a step can't install hooks that a later approved commit would run (safeguard)); asked for: the owner asked where Swift is rigid (2026-11-12); some are expected to fail, and that is the finding.*
 
 **Fixes from your checks of 2026-11-09**
 
-3. [204](#check-204): A greeting before a command doesn't change how Swift asks. *Why: failed on 2026-11-13; 9 changes since (such as `fbdaed2` A greeting ended by a comma leaves a system command to Swift (A7, check 204, partial; cause unproven)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-4. [203](#check-203): Swift comes to the front when you call it. *Why: failed on 2026-11-13; 8 changes since (such as `f64f4a2` B2: the step card lists the commands it approves, open, on B1's command card (root)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-5. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: failed on 2026-11-13; 7 changes since (such as `5f5aaff` The question's window, not session.py, says an utterance begun before it was asked isn't its answer (A7, structure)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
-6. [206](#check-206): Waiting for your answer looks different from working. *Why: failed on 2026-11-13; 7 changes since (such as `1429e81` The agent's "did you mean" example no longer names Wi-Fi and Bluetooth); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+4. [204](#check-204): A greeting before a command doesn't change how Swift asks. *Why: failed on 2026-11-13; 12 changes since (such as `dc549f9` The restatement's verdict lives in restated.py, not session.py (A7, check 204, safeguard)); asked for: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC.*
+5. [203](#check-203): Swift comes to the front when you call it. *Why: failed on 2026-11-13; 8 changes since (such as `f64f4a2` B2: the step card lists the commands it approves, open, on B1's command card (root)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+6. [205](#check-205): Asking again in other words gives one fresh card, not two in the stack. *Why: failed on 2026-11-13; 8 changes since (such as `b4768b3` A request begun again is Swift's own (A7, check 204, root)); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
+7. [206](#check-206): Waiting for your answer looks different from working. *Why: failed on 2026-11-13; 8 changes since (such as `1429e81` The agent's "did you mean" example no longer names Wi-Fi and Bluetooth); asked for: ADR-020 §6.5, the fixes from the checks of 2026-11-09 are kept once these pass.*
 
 **The Halo look, before anything is built (ADR-019 Step A, `SPEC.md` §15, 2026-11-07)**
 
-7. [218](#check-218): A question and an approval are never confused. *Why: failed on 2026-11-13; 7 changes since (such as `f64f4a2` B2: the step card lists the commands it approves, open, on B1's command card (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+8. [218](#check-218): A question and an approval are never confused. *Why: failed on 2026-11-13; 9 changes since (such as `dc549f9` The restatement's verdict lives in restated.py, not session.py (A7, check 204, safeguard)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
 
 **Your calendar: look, change, cancel, Meet links, undo**
 
-8. [33](#check-33): Hold the hotkey, say "set up a meeting with Test Me on Thursday at three with a Meet link", and let …. *Why: failed on 2026-11-13; 1 change since (such as `ce92b76` "Add" heard as "had" or "Ad" opens the calendar workflow, only as the request's first word).*
-9. [34](#check-34): Right after check 33, say "Hey Swift, undo that". *Why: failed on 2026-11-13; 6 changes since (such as `f64f4a2` B2: the step card lists the commands it approves, open, on B1's command card (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-10. [35](#check-35): Hold the hotkey, say "change Swift check to 3 pm", and let go. Click **Approve**. *Why: failed on 2026-11-13; 6 changes since (such as `f64f4a2` B2: the step card lists the commands it approves, open, on B1's command card (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
-11. [36](#check-36): Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**. *Why: failed on 2026-11-13; 6 changes since (such as `f64f4a2` B2: the step card lists the commands it approves, open, on B1's command card (root)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+9. [33](#check-33): Hold the hotkey, say "set up a meeting with Test Me on Thursday at three with a Meet link", and let …. *Why: failed on 2026-11-13; 1 change since (such as `ce92b76` "Add" heard as "had" or "Ad" opens the calendar workflow, only as the request's first word).*
+10. [34](#check-34): Right after check 33, say "Hey Swift, undo that". *Why: failed on 2026-11-13; 8 changes since (such as `dc549f9` The restatement's verdict lives in restated.py, not session.py (A7, check 204, safeguard)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+11. [35](#check-35): Hold the hotkey, say "change Swift check to 3 pm", and let go. Click **Approve**. *Why: failed on 2026-11-13; 8 changes since (such as `dc549f9` The restatement's verdict lives in restated.py, not session.py (A7, check 204, safeguard)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
+12. [36](#check-36): Hold the hotkey, say "cancel Swift check", and let go. Click **Reject**. *Why: failed on 2026-11-13; 8 changes since (such as `dc549f9` The restatement's verdict lives in restated.py, not session.py (A7, check 204, safeguard)); product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen.*
 
 **Emails written as you, and people you've emailed**
 
-12. [49](#check-49): Say "Hey Swift, email Test Me that I'm running late". *Why: failed on 2026-11-13; 6 changes since (such as `1840cb6` Gmail click: the click events carry the checked point, and the pointer goes back in the same batch); product rule: recipients only from contacts or find_contact.*
+13. [49](#check-49): Say "Hey Swift, email Test Me that I'm running late". *Why: failed on 2026-11-13; 6 changes since (such as `1840cb6` Gmail click: the click events carry the checked point, and the pointer goes back in the same batch); product rule: recipients only from contacts or find_contact.*
+
+**One approval for a step (2026-11-14)**
+
+14. [304](#check-304): Saying the request again to Swift's question answers it. *Why: new on 2026-11-14, never run; product rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen; asked for: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC.*
 
 **What Swift remembers about you (2026-11-13)**
 
-13. [290](#check-290): "Remember that my manager is Ada". *Why: new on 2026-11-14, never run; product rule: memory is written only from the owner's words or an approved card, never from what a worker read; asked for: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC.*
-14. [291](#check-291): A new value replaces the old, and "forget" forgets it. *Why: new on 2026-11-14, never run; product rule: memory is written only from the owner's words or an approved card, never from what a worker read; asked for: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC.*
-15. [292](#check-292): Words that aren't yours are never remembered. *Why: new on 2026-11-14, never run; product rule: memory is written only from the owner's words or an approved card, never from what a worker read; asked for: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC.*
+15. [290](#check-290): "Remember that my manager is Ada". *Why: new on 2026-11-14, never run; product rule: memory is written only from the owner's words or an approved card, never from what a worker read; asked for: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC.*
 
 Then run the report ("After the checks", at the end) and paste what it prints.
 <!-- roadmap:end -->
@@ -2308,13 +2314,33 @@ You should see: the card closes only on step 3, and nothing in B2-test2 was made
 
 The report checks: nothing to judge from the log; tell us whether a bare "yes" or typing ever approved one.
 
+<a id="check-303"></a>**Check 303. Starting a request again keeps Swift's own question**
+1. Say "Hey Swift, how are you? Can you set, can you turn off the Wi-Fi?" (start the request, stop, and start again).
+2. You should see Swift's own question "Turn off Wi-Fi?" with Yes and No, **not** "Wi-Fi or Bluetooth?" and **not** an
+   amber approval card.
+3. Say "no".
+
+The report checks: no system change was done by the agent; tell us what the question said.
+
+<a id="check-304"></a>**Check 304. Saying the request again to Swift's question answers it**
+1. Say "Hey Swift, turn off the Wi-Fi". Don't answer: wait until it says "No answer, so I've left it as it is".
+2. Double-click the stack and click **Open** on the Wi-Fi item. "Turn off Wi-Fi?" is asked again.
+3. Without "Swift", say "Turn off the Wi-Fi".
+4. You should see the Wi-Fi go off, with no second card and no amber approval card. Turn the Wi-Fi back on yourself.
+5. Repeat steps 1 and 2. This time type "turn off the Wi-Fi" in the box and press Enter: the question is asked again, and
+   the Wi-Fi stays **on**. Then say "no".
+6. Repeat steps 1 and 2 once more and say "Turn **on** the Wi-Fi": the Wi-Fi is never turned off.
+
+The report checks: how many times a restatement answered Swift's question and how many times it asked again; tell us whether
+the typed one ever turned the Wi-Fi off.
+
 ### One way to draw every card (Halo Step B, 2026-11-14)
 
 About 6 minutes. Every card (answers, approvals, Swift's questions, timers, stopped, failed) is now drawn by one piece
 of code instead of one each, so later work (results laid out to fit, cards that grow, motion) changes one place. You
 should see no difference: these checks are that nothing changed.
 
-<a id="check-303"></a>**Check 303. Cards look and work as before**
+<a id="check-305"></a>**Check 305. Cards look and work as before**
 1. Say "Hey Swift, what time is it?": a one-line answer. Click it: it goes.
 2. Say "Hey Swift, give me a short history of tea": a long answer. Click **Read more**, then **Read less**, then **Copy**.
 3. Say "Hey Swift, add lunch with Test Me tomorrow at noon to my calendar": the amber approval card, its countdown
@@ -2327,7 +2353,7 @@ You should see: every card as before, with its buttons where they were; nothing 
 
 The report checks: nothing to judge from the log; tell us whether any card looked or behaved differently.
 
-<a id="check-304"></a>**Check 304. Swift's question and Stop look as before**
+<a id="check-306"></a>**Check 306. Swift's question and Stop look as before**
 1. Say "Hey Swift, turn off the Wi-Fi": the **Waiting for you** card, "Turn off Wi-Fi?", Yes and No. Click **No**.
 2. Say "Hey Swift, research the history of coffee": the working card, its steps and **Stop**. Click its **×**: it
    shrinks to one line. Press **Esc**: a "Stopped" line.
@@ -2342,33 +2368,35 @@ Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (e
 since). Don't edit between the markers: run `plan.py --write` instead.
 
 <!-- status:start -->
-As of 2026-11-14 at `ca28895`. Each number links to its check.
+As of 2026-11-14 at `c9f3b2e`. Each number links to its check.
 
-- **Changed since it failed: run it again** (16): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [237](#check-237), [239](#check-239)
-- **Never run** (110): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [252](#check-252), [253](#check-253), [254](#check-254), [255](#check-255), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [263](#check-263), [264](#check-264), [270](#check-270), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [303](#check-303), [304](#check-304)
+- **Changed since it failed: run it again** (17): [31](#check-31), [32](#check-32), [33](#check-33), [34](#check-34), [35](#check-35), [36](#check-36), [49](#check-49), [197](#check-197), [203](#check-203), [204](#check-204), [205](#check-205), [206](#check-206), [218](#check-218), [235](#check-235), [237](#check-237), [239](#check-239), [255](#check-255)
+- **Never run** (109): [6](#check-6), [9](#check-9), [18](#check-18), [19](#check-19), [19b](#check-19b), [20](#check-20), [25](#check-25), [37](#check-37), [38](#check-38), [39](#check-39), [40](#check-40), [44](#check-44), [48](#check-48), [58](#check-58), [63](#check-63), [64](#check-64), [65](#check-65), [66](#check-66), [67](#check-67), [70](#check-70), [72](#check-72), [73](#check-73), [74](#check-74), [75](#check-75), [79](#check-79), [80](#check-80), [90](#check-90), [95](#check-95), [96](#check-96), [116](#check-116), [131](#check-131), [135](#check-135), [136](#check-136), [137](#check-137), [138](#check-138), [140](#check-140), [141](#check-141), [142](#check-142), [143](#check-143), [144](#check-144), [145](#check-145), [147](#check-147), [148](#check-148), [150](#check-150), [151](#check-151), [152](#check-152), [156](#check-156), [157](#check-157), [158](#check-158), [159](#check-159), [162](#check-162), [163](#check-163), [164](#check-164), [165](#check-165), [166](#check-166), [167](#check-167), [169](#check-169), [170](#check-170), [171](#check-171), [172](#check-172), [173](#check-173), [174](#check-174), [175](#check-175), [176](#check-176), [177](#check-177), [178](#check-178), [179](#check-179), [180](#check-180), [181](#check-181), [182](#check-182), [183](#check-183), [184](#check-184), [192](#check-192), [198](#check-198), [199](#check-199), [200](#check-200), [212](#check-212), [221](#check-221), [229](#check-229), [230](#check-230), [231](#check-231), [238](#check-238), [243](#check-243), [250](#check-250), [251](#check-251), [253](#check-253), [256](#check-256), [257](#check-257), [259](#check-259), [260](#check-260), [261](#check-261), [262](#check-262), [263](#check-263), [264](#check-264), [270](#check-270), [271](#check-271), [280](#check-280), [281](#check-281), [290](#check-290), [291](#check-291), [292](#check-292), [293](#check-293), [300](#check-300), [301](#check-301), [302](#check-302), [303](#check-303), [304](#check-304), [305](#check-305), [306](#check-306)
 - **Partly seen** (4): [8](#check-8), [21](#check-21), [24](#check-24), [77](#check-77)
 - **Passed, changed since** (89): [2](#check-2), [2b](#check-2b), [3](#check-3), [4](#check-4), [5](#check-5), [7](#check-7), [10](#check-10), [11](#check-11), [14](#check-14), [15](#check-15), [16](#check-16), [17](#check-17), [22](#check-22), [23](#check-23), [26](#check-26), [27](#check-27), [29](#check-29), [30](#check-30), [41](#check-41), [42](#check-42), [47](#check-47), [50](#check-50), [51](#check-51), [52](#check-52), [53](#check-53), [54](#check-54), [55](#check-55), [56](#check-56), [57](#check-57), [59](#check-59), [61](#check-61), [62](#check-62), [68](#check-68), [69](#check-69), [71](#check-71), [76](#check-76), [78](#check-78), [92](#check-92), [94](#check-94), [100](#check-100), [101](#check-101), [102](#check-102), [103](#check-103), [104](#check-104), [105](#check-105), [106](#check-106), [107](#check-107), [108](#check-108), [110](#check-110), [111](#check-111), [112](#check-112), [113](#check-113), [114](#check-114), [115](#check-115), [120](#check-120), [121](#check-121), [122](#check-122), [124](#check-124), [126](#check-126), [127](#check-127), [128](#check-128), [129](#check-129), [130](#check-130), [132](#check-132), [133](#check-133), [134](#check-134), [139](#check-139), [149](#check-149), [153](#check-153), [160](#check-160), [161](#check-161), [168](#check-168), [193](#check-193), [194](#check-194), [195](#check-195), [196](#check-196), [201](#check-201), [202](#check-202), [207](#check-207), [208](#check-208), [209](#check-209), [210](#check-210), [213](#check-213), [214](#check-214), [219](#check-219), [233](#check-233), [234](#check-234), [236](#check-236), [240](#check-240)
-- **Passed, nothing changed since** (18): [1](#check-1), [12](#check-12), [16b](#check-16b), [43](#check-43), [45](#check-45), [46](#check-46), [91](#check-91), [93](#check-93), [123](#check-123), [125](#check-125), [191](#check-191), [216](#check-216), [217](#check-217), [220](#check-220), [228](#check-228), [232](#check-232), [241](#check-241), [242](#check-242)
-- **Failed, waiting for a fix** (1): [13](#check-13)
+- **Passed, nothing changed since** (19): [1](#check-1), [12](#check-12), [16b](#check-16b), [43](#check-43), [45](#check-45), [46](#check-46), [91](#check-91), [93](#check-93), [123](#check-123), [125](#check-125), [191](#check-191), [216](#check-216), [217](#check-217), [220](#check-220), [228](#check-228), [232](#check-232), [241](#check-241), [242](#check-242), [254](#check-254)
+- **Failed, waiting for a fix** (2): [13](#check-13), [252](#check-252)
 - **Only when it happens: the report watches for it** (5): [28](#check-28), [60](#check-60), [146](#check-146), [154](#check-154), [155](#check-155)
 - **Blocked** (2): [211](#check-211), [215](#check-215)
 
 **Waiting for a fix** (a session fixes these; they come back to the list once their code changes):
 
 - [13](#check-13) Right after unlocking, without the hotkey, say "Hey Swift, what time is it": Failed, waiting for a fix; product rule: no hands-free listening while locked.
+- [252](#check-252) Gmail is filled in wherever your cursor is: Failed, waiting for a fix; product rule: Swift writes into apps only when the owner's own words asked; asked for: A9, the owner's run of 2026-11-13; Gmail written only with the cursor in the body, cause unproven until this runs.
 
 **On branches not merged yet:**
 
-- `claude/a7-check-204-df2c13`: changes code behind 40 checks here (53, 61, 71, 77, 78, 100, 101, 102, 105, 106, 124, 128, …).
+- `claude/a10-uncovered-anchor-9b3922`: adds checks 320; changes code behind 61 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, 58, …).
+- `claude/a9-gmail-252-e5d21c`: changes code behind 12 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255).
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 100 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 15 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
+- `claude/c3-recent-address-83f24a`: changes code behind 15 checks here (10, 38, 39, 49, 50, 51, 52, 62, 75, 76, 92, 95, …).
 - `claude/halo-step-b-c7b584`: changes code behind 66 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, 58, …).
-- `claude/strange-cori-8f1753`: changes code behind 4 checks here (52, 62, 213, 255).
 - `savepoint/a10-front-and-web-9f8dcd`: changes code behind 12 checks here (10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255).
 - `savepoint/a7-duplicates-54bd6a`: changes code behind 12 checks here (15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212).
 - `savepoint/c1-grounded-facts-556f60`: changes code behind 47 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
 
-**Next free check number: 305** (counted across `main` and every open branch).
+**Next free check number: 340** (counted across `main` and every open branch).
 
 **Code changed in the last 14 days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):
 

@@ -324,7 +324,7 @@ def name(c: Check) -> str:
     return c.title or (step if len(step) <= 100 else step[:100].rsplit(" ", 1)[0] + " …")
 
 
-def render(states: list[State], picked: list[State], branches, uncovered, missing, head: str, today: str) -> tuple[str, str]:
+def render(states: list[State], picked: list[State], branches, uncovered, missing, head: str, today: str, given_out: int = 0) -> tuple[str, str]:
     top = [f"Worked out by `spikes/owner_checks/plan.py` on {today} at `{head}`, from the ledger of past results",
            "and what changed in the code since. Most urgent first, a section at a time (each section's setup is",
            "at its heading); a check that builds on another comes after it.",
@@ -361,7 +361,8 @@ def render(states: list[State], picked: list[State], branches, uncovered, missin
             if hit:
                 bits.append(f"changes code behind {len(hit)} check{'s' * (len(hit) != 1)} here ({', '.join(hit[:12])}{', …' if len(hit) > 12 else ''})")
             bottom.append(f"- `{b}`: {'; '.join(bits)}.")
-    free = 1 + max([s.check.num for s in states] + [int(re.match(r"\d+", i).group()) for _, new, _ in branches for i in new])
+    # ``given_out`` (the ledger): numbers already handed to sessions that haven't written their checks yet.
+    free = 1 + max([s.check.num for s in states] + [int(re.match(r"\d+", i).group()) for _, new, _ in branches for i in new] + [given_out])
     bottom += ["", f"**Next free check number: {free}** (counted across `main` and every open branch)."]
     if uncovered:
         bottom += ["", f"**Code changed in the last {RECENT_DAYS} days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):", ""]
@@ -469,7 +470,7 @@ def main() -> None:
         return
 
     states, picked, branches, recent, head, today = compute(checks, led, args.limit)
-    top, bottom = render(states, picked, branches, gaps(led, recent), dangling(checks), head, f"{today:%Y-%m-%d}")
+    top, bottom = render(states, picked, branches, gaps(led, recent), dangling(checks), head, f"{today:%Y-%m-%d}", int(led.get("given_out") or 0))
     print("Run these first\n\n" + top + "\n\nWhere every check stands\n\n" + bottom)
     if args.write:
         text = CHECKS.read_text(encoding="utf-8")

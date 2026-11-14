@@ -666,6 +666,26 @@ def parse_one(text: str) -> Intent | None:
     return _schedule(t) or _sound(t) or _display(t) or _radios(t) or _device(t)
 
 
+# "Can you set, can you turn off the Wi-Fi?" (check 204, 2026-11-13): the owner began asking, dropped the first
+# words and began again. Only a short fragment that is no request by itself counts as dropped, so "set a timer,
+# can you turn off the Wi-Fi" (two asks) and "how can you turn off the Wi-Fi" (a question) are left alone.
+_RESTART = re.compile(r"\b(?:can|could|would|will) you (?:please )?")
+
+
+def _begun_again(text: str) -> str | None:
+    """The request after the owner began it again, or None when ``text`` isn't one begun again."""
+    if _POLITE.match(fast.normalize(text)) is None:
+        return None
+    t = normalize(text)
+    starts = list(_RESTART.finditer(t))
+    if not starts:
+        return None
+    dropped = t[:starts[-1].start()].strip()
+    if not 1 <= len(dropped.split()) <= 3 or parse_one(dropped) is not None:
+        return None
+    return t[starts[-1].end():].strip() or None
+
+
 _SPLIT = re.compile(r"\s+(?:and then|and also|and|then|also|,)\s+|\s*,\s*(?:and |then )?")
 
 
@@ -673,6 +693,8 @@ def parse(text: str) -> list[Intent] | None:
     """The intents in ``text``: one, or several when every part of a compound is one; else None."""
     if (one := parse_one(text)) is not None:
         return [one]
+    if (again := _begun_again(text)) is not None:
+        return parse(again)
     cleaned = normalize(text)
     parts = [p for p in _SPLIT.split(cleaned) if p.strip()]
     if not 2 <= len(parts) <= 3:

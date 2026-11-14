@@ -2413,6 +2413,22 @@ hidden behind it (203). Your decision: Swift moves out from under it instead.
 The report checks: nothing to judge from the log; tell us where the card showed in steps 3 and 4, and whether Notepad
 kept the cursor.
 
+### A long answer, read to the end (2026-11-14)
+
+About 2 minutes. In check 305 the tea answer showed its opening paragraph cut off with "…", then the whole paragraph
+again, and **Read more** kept both. Fixed: the card starts with the opening's first sentences and goes on from there.
+
+<a id="check-340"></a>**Check 340. A long answer says its opening once and reads to the end**
+1. Say "Hey Swift, research the history of tea". Wait for the answer.
+2. Read the first lines on the card: no sentence ends in "…" there.
+3. Click **Read more**. Scroll to the end of the answer.
+
+You should see: the opening paragraph once (its first sentence or two, then the rest of it just below), no "…"
+anywhere, and the answer's last line at the bottom. Then **Read less** and **Copy** work as before.
+
+The report checks: nothing to judge from the log; tell us whether the opening showed twice, and whether Read more
+showed the end with no "…".
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

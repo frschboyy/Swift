@@ -89,7 +89,7 @@ areas:
     checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 330]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
-    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302]
+    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
     checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239, 303]
@@ -123,6 +123,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [340]
+    why: check 305's failure of 2026-11-14 15:00 (a long answer's opening said twice, its "…" kept after Read more); fixed in split_answer (root), not seen on the real PC
   - checks: [305, 306]
     why: Halo Step B (2026-11-14), one card renderer; the default look should be unchanged except the working card's time bar, not seen on the real PC
   - checks: [320]

@@ -603,6 +603,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         # Halo Step B: one renderer for every card; nothing should look or behave differently.
         ("305 cards look and work as before", LOOK, "tell us whether any card looked or behaved differently"),
         ("306 Swift's question and Stop look as before", LOOK, "tell us whether any card looked or behaved differently"),
+        # Check 305's failure (2026-11-14): a long answer's opening said twice, its "…" kept after Read more.
+        ("340 a long answer says its opening once and reads to the end", LOOK,
+         "tell us whether the opening showed twice, and whether Read more showed the end with no \"…\""),
         *_runs(rows, runs_dir),
     ]
 

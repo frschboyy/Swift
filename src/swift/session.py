@@ -181,6 +181,7 @@ from swift.routing.rules import (
     route_target,
     strip_wake,
 )
+from swift.restated import restated
 from swift.runs import RunRecords
 from swift.same_request import same_request
 from swift.security.gateway import UNDO_WINDOW_S, Approved
@@ -3603,6 +3604,16 @@ class Session:
                 await self._reask(q)
             case "wait":
                 await self._reask(q, f"Okay, take your time. {q.text}")  # the question stays (D-02)
+            case "elsewhere" if not turn.answer.dropped and (again := restated(text, q)) is not None:
+                # The request said again while Swift's own question is open (A7, check 204; owner, 2026-11-14).
+                said_yes = again == "same" and source != "typed" and intake.approves(
+                    source, named=named, target="reversible").allowed
+                if record is not None and record.get("asks"):
+                    record["asks"][-1]["turns"][-1] = "restated" if said_yes else "restated_unsure"
+                if said_yes:
+                    self._settle(q, Answer("yes", named=named))
+                else:
+                    await self._reask(q)  # it sounds like the request, or was typed: it approves nothing
             case "elsewhere":
                 if turn.answer.dropped:
                     self._settle(q, Answer("cancel"))  # "never mind, what time is it": the question goes

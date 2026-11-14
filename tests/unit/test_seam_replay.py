@@ -201,14 +201,14 @@ async def test_f_a_question_said_over_a_card_waits_for_the_card() -> None:
     assert control.radio_state["wifi"] is True, "a yes for a question nobody could see"
     await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"], "decision": "approve"}))
     await asyncio.sleep(0.15)
-    assert agree(session, out)["question"] == "Turn off Wi-Fi?"
+    assert agree(session, out)["question"].endswith("Turn off Wi-Fi?")  # asked once more, on screen
     await finish_all(session, agent)
 
 
 async def test_g_a_request_brought_forward_hides_the_question() -> None:
     session, out, agent, stt, control, _sched = _lane()
     await _beside(session, out, agent, stt)
-    assert agree(session, out)["question"] == "Turn off Wi-Fi?"
+    assert agree(session, out)["question"].endswith("Turn off Wi-Fi?")  # asked once more, on screen
     await session._bring(next(r for r in session._runs if r.alive))
     assert agree(session, out)["question"] is None
     await say(session, stt, "yes")
@@ -845,12 +845,9 @@ async def test_the_request_said_again_before_swift_asked_is_not_a_second_request
     await finish_all(session, agent)
 
 
-async def test_the_request_said_again_to_its_question_reopened_from_the_stack_is_not_a_second_request() -> None:
-    # A7, check 204, the owner's run of 2026-11-13, 14:42-14:44: "Turn off the Wi Fi." asked "Turn off Wi-Fi?",
-    # went unanswered and was parked; opened from the stack, it was asked again; one unclear answer was asked
-    # again, then the owner said the request again ("He has turn off Wi Fi.", misheard). That was taken as no
-    # answer and started a second request beside it, to the agent, which put an approval card up for the radio.
-    session, out, agent, stt, control, _sched = _lane(0.2)
+async def _reopened(session: Any, out: Any, stt: Any) -> Any:
+    """A7, check 204, the owner's run of 2026-11-13, 14:42-14:44: "Turn off Wi-Fi?" unanswered and parked,
+    opened from the stack and asked again; one unclear answer asked again. The question, open and on screen."""
     await _wifi(session, out, stt)
     await until(lambda: [i["kind"] for i in out.last("stack")["items"]] == ["parked"])
     session.wake_question_s = 30.0
@@ -861,10 +858,58 @@ async def test_the_request_said_again_to_its_question_reopened_from_the_stack_is
     assert q is not None and q.text == "Turn off Wi-Fi?"
     await _unsure(session, stt)  # 14:44:14, counted as "reask"
     await until(lambda: session._listening_for() is not None)
-    await say(session, stt, "He has turn off Wi Fi.")  # 14:44:20
-    await asyncio.sleep(0.5)
-    assert agent.requests == [], "the request said again went to the agent"
-    assert len(session._live()) <= 1, "a second request"
+    return q
+
+
+async def test_the_request_said_again_to_its_question_reopened_from_the_stack_is_its_yes() -> None:
+    # The owner's decision of 2026-11-14 (A): said, the same request (same intent and slots) answers Swift's own
+    # open question about it. In the owner's run it started a second request, to the agent, behind an approval
+    # card; on main before this fix, the question went back to the stack and the Wi-Fi stayed on.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    await _reopened(session, out, stt)
+    await say(session, stt, "Turn off the wifi")
+    await until(lambda: control.radio_state.get("wifi") is False)
+    assert agent.requests == [] and out.last("stack")["items"] == []
+    await finish_all(session, agent)
+
+
+async def test_what_only_sounds_like_the_request_asks_again_and_approves_nothing() -> None:
+    # 14:44:20: "He has turn off Wi Fi." (very likely "yes, turn off Wi-Fi", misheard). The owner's decision of
+    # 2026-11-14 (B): it approves nothing; the question stays open and is asked once more, nothing to the stack,
+    # no second request, no agent.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    q = await _reopened(session, out, stt)
+    n = len(asks(out))
+    await say(session, stt, "He has turn off Wi Fi.")
+    await until(lambda: any(a.get("phase") == "again" for a in asks(out)[n:]))
+    await asyncio.sleep(0.2)
+    assert control.radio_state["wifi"] is True, "a misheard restatement approved"
+    assert session.dialogue.pending is q and session._listening_for() is q, "the question went"
+    assert agent.requests == [] and len(session._live()) == 1 and out.last("stack")["items"] == []
+    assert agree(session, out)["question"].endswith("Turn off Wi-Fi?")  # asked once more, on screen
+    await say(session, stt, "yes")  # still Swift's own question: a plain spoken yes does it
+    await until(lambda: control.radio_state.get("wifi") is False)
+    await finish_all(session, agent)
+
+
+async def test_the_request_typed_again_never_approves_its_question() -> None:
+    # Typing never approves (CLAUDE.md): the same request typed while the question is open asks again.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    q = await _reopened(session, out, stt)
+    await session.handle(Message("text", {"text": "turn off the wifi"}))
+    await asyncio.sleep(0.3)
+    assert control.radio_state["wifi"] is True, "typing approved"
+    assert session.dialogue.pending is q and agent.requests == []
+    await finish_all(session, agent)
+
+
+async def test_the_opposite_request_said_to_the_question_never_approves_it() -> None:
+    # "Turn on the Wi-Fi" is another intent, not the request said again: it never answers "Turn off Wi-Fi?" yes.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    await _reopened(session, out, stt)
+    await say(session, stt, "Turn on the wifi")
+    await asyncio.sleep(0.3)
+    assert control.radio_state["wifi"] is not False, "the opposite request turned the Wi-Fi off"
     await finish_all(session, agent)
 
 

@@ -1097,12 +1097,7 @@ class Session:
         """"Show in Word" in a request's live view: the app it writes (or wrote) in, to the front."""
         run, tools = self._run_by_ui(run_id), self.tools
         scope = (run.scope or run.last_scope) if run is not None else None
-        receipt = None
-        if tools is not None and scope is not None:
-            live = tools.live_write
-            receipt = live[1] if live is not None and live[0] is scope else None
-            if receipt is None and tools.last_write_scope is scope:
-                receipt = tools.last_write
+        receipt = tools.written_by(scope) if tools is not None and scope is not None else None
         if receipt is None or self.desktop is None:
             said = "It hasn't written in an app."
         else:
@@ -4485,10 +4480,7 @@ class Session:
         tools, scope = self.tools, self._scope
         if tools is None or self.desktop is None or scope is None:
             return False
-        live = tools.live_write
-        receipt = live[1] if live is not None and live[0] is scope else None
-        if receipt is None and tools.last_write_scope is scope:
-            receipt = tools.last_write
+        receipt = tools.written_by(scope)
         if receipt is None:
             return False
         try:

@@ -19,11 +19,16 @@ from __future__ import annotations
 import re
 from typing import Any
 
-# The request points back at something already opened or said.
+# The request points back at something already opened or said. "Open this" points only when nothing names
+# another thing after it: "show this week's timetable on my university's website" names a week, not the address
+# said a moment ago (QA-02, 2026-11-14). "Again" points, but not in "try again" or "ask again".
+_THING = r"(?:web ?site|site|page|link|address|url|one)"
 _POINTS_BACK = re.compile(
-    r"\bagain\b|\breopen\b"
-    r"|\b(?:open|bring up|show|go to|visit|load)\s+(?:it|that|this)\b(?!\s+(?:is|was)\b)|\bbring (?:it|that) up\b"
-    r"|\b(?:that|the same|same|this)\s+(?:web ?site|site|page|link|address|url|one)\b"
+    r"(?<!\btry )(?<!\bask )\bagain\b|\breopen\b"
+    r"|\b(?:open|bring up|show|go to|visit|load)\s+(?:it|that|this)"
+    rf"(?=\s*(?:$|[.,!?;]|(?:again|up|back|please|now|for me|{_THING})\b))"
+    r"|\bbring (?:it|that) up\b"
+    rf"|\b(?:that|the same|same|this)\s+{_THING}\b(?!'s)"
     r"|\bthe (?:one|site|page|website|address|link) (?:i|we) (?:just |already )?"
     r"(?:opened|said|mentioned|gave|named|asked for|had open)\b",
     re.IGNORECASE,

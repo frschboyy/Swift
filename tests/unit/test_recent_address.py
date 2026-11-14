@@ -11,7 +11,6 @@ On a virtual clock, so "ten minutes later" takes no time.
 
 from __future__ import annotations
 
-import pytest
 from settling import settled
 
 import asyncio
@@ -165,7 +164,6 @@ async def test_an_address_from_another_conversation_is_refused() -> None:
     assert desktop.opened == ["https://usiu.ac.ke", "https://usiu.ac.ke"]
 
 
-@pytest.mark.xfail(strict=True, reason="QA-02: open finding; remove this marker with the fix")
 async def test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address() -> None:
     """QA of 2026-11-14: "show this week's timetable on my university's website" isn't pointing at anything, yet
     points_back matched "show this", so the address said a moment ago opened for a description (check 330's case)."""
@@ -173,6 +171,11 @@ async def test_words_that_only_contain_open_this_dont_point_back_at_a_recent_add
     await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
     await ask(session, agent, "Show this week's timetable on my university's website.", open="usiu.ac.ke")
     assert not agent.opens[-1].ok and desktop.opened == ["https://usiu.ac.ke"]
-    for words in ("open this year's budget on the school site", "visit that store's homepage",
-                  "go to this month's newsletter page", "open my university's website, then try again if it fails"):
+    for words in ("show this week's timetable on my university's website", "open this year's budget on the school site",
+                  "visit that store's homepage", "go to this month's newsletter page",
+                  "open my university's website, then try again if it fails",
+                  "look up the course list and ask again if you're unsure"):
         assert not points_back(words), words
+    for words in ("open that site again", "open this site", "the same page", "the one I just opened", "open it",
+                  "open it again, please", "bring that up"):
+        assert points_back(words), words  # the owner's pointing words still point

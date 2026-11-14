@@ -1,20 +1,5 @@
 # Swift findings register. One entry per finding from every audit, rechecked against the code on 2026-11-12.
 # Format and rules: tests/unit/test_findings_register.py. Sorted: open first, then by severity.
-- id: QA-02
-  title: 'A recent address opens for words that only contain "show this", "open it", "that ...''s" or "again" ("show
-    this week''s timetable on my university''s website" opened usiu.ac.ke said a moment ago).'
-  source: QA review of main e18af1b, 2026-11-14
-  module: src/swift/workflows/owner_address.py
-  area: actions
-  severity: high
-  product_rule: true
-  status: open
-  confidence: confirmed
-  evidence: owner_address.py _POINTS_BACK matches a pointing word followed by any noun or possessive, and "again"
-    anywhere; desktop_tools.py _open_url then allows every address from the last 10 minutes
-  test: tests/unit/test_recent_address.py::test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address
-  note: The web-address rule (a recent address only when the owner points at it). Only the owner's own earlier
-    addresses can open, never the agent's. Fix waits for the orchestrator's go-ahead and a second review.
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.
@@ -3275,3 +3260,20 @@
   test: tests/unit/test_seam_replay.py::test_an_answer_whose_first_sentence_is_too_long_for_the_summary_says_it_once
   note: Also test_claude_mapping.py::test_split_answer_says_one_long_first_sentence_once, which replaces the test that
     pinned the repeat. The seam scenario fails with the fix undone. Check 340 covers the screen.
+- id: QA-02
+  title: 'A recent address opens for words that only contain "show this", "open it", "that ...''s" or "again" ("show
+    this week''s timetable on my university''s website" opened usiu.ac.ke said a moment ago).'
+  source: QA review of main e18af1b, 2026-11-14
+  module: src/swift/workflows/owner_address.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: owner_address.py _POINTS_BACK; "open/show/visit this|that|it" points only when the clause ends there or
+    goes on with again, up, back, please, now or a word for a site; "that site" not as "that site's"; "again" not
+    after "try" or "ask"
+  test: tests/unit/test_recent_address.py::test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address
+  note: The web-address rule (a recent address only when the owner points at it). Only the owner's own earlier
+    addresses could open, never the agent's. The session-level test fails with the fix undone. Built on the
+    orchestrator's go-ahead; second review by the orchestrator pending.

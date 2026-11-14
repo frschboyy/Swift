@@ -103,11 +103,11 @@ def _stack(log: list[str], action: str) -> int:
     return sum("stack action |" in line and f"action='{action}'" in line for line in log)
 
 
-def checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outcome, str]]:
-    return [(name, ok if isinstance(ok, Outcome) else seen(ok), note) for name, ok, note in _checks(rows, log)]
+def checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = None) -> list[tuple[str, Outcome, str]]:
+    return [(name, ok if isinstance(ok, Outcome) else seen(ok), note) for name, ok, note in _checks(rows, log, runs_dir)]
 
 
-def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
+def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = None) -> list[tuple[str, Outcome | bool, str]]:
     by_thread: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         if r.get("thread"):
@@ -585,6 +585,39 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         _gmail(log),
         *_front_and_web(rows),
         *_command_cards(rows),
+        *_runs(rows, runs_dir),
+    ]
+
+
+def _runs(rows: list[dict[str, Any]], folder: Path | None) -> list[tuple[str, Outcome | bool, str]]:
+    """Check 280: every request since the start left its run record (``runs.py``), started and ended, with none of
+    the owner's words in it. 281: a timer's card still comes up as one (now known by its origin, ADR-019 N2)."""
+    look = ("281 a timer's card still came up as a timer", LOOK, "check on screen: the timer card, not an answer card")
+    if folder is None or not folder.is_dir():
+        return [("280 every request left a run record", NOT_SEEN, "no runs folder: restart Swift on this version"), look]
+    ids = [r for r in rows if r.get("id") and r.get("thread")]
+    missing, unended, worded = [], [], []
+    for r in ids:
+        path = folder / f"{r['id']}.jsonl"
+        if not path.is_file():
+            missing.append(r)
+            continue
+        text = path.read_text(encoding="utf-8")
+        events = [json.loads(line) for line in text.splitlines() if line.strip()]
+        if not events or events[0].get("event") != "started" or events[-1].get("event") != "ended":
+            unended.append(r)
+        said = str(r.get("transcript") or "").strip().lower()
+        if len(said) > 8 and said in text.lower():
+            worded.append(r)
+
+    def times(found: list[dict[str, Any]]) -> str:
+        return ", ".join(f"{r['_t']:%H:%M:%S}" for r in found) or "none"
+
+    return [
+        ("280 every request left a run record, started and ended, without your words",
+         unless(missing or unended or worded, ids),
+         f"{len(ids)} requests; no record: {times(missing)}; not ended: {times(unended)}; with words: {times(worded)}"),
+        look,
     ]
 
 
@@ -884,7 +917,7 @@ def main() -> None:
     print(f"\n{len(rows)} requests since {since:%Y-%m-%d %H:%M}\n")
     show(rows)
     print("\nChecks (docs/testing/owner-checks.md)\n")
-    results = checks(rows, log)
+    results = checks(rows, log, args.interactions.parent / "runs")
     for name, ok, note in results:
         print(f"  {ok.value:8}  {name}" + (f"   ({note})" if note else ""))
     tally = Counter(ok for _, ok, _ in results)

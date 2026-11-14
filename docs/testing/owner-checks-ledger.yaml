@@ -107,6 +107,10 @@ areas:
   speech:
     paths: [src/swift/speech.py]
     checks: [59, 107, 136, 192]
+  runs:
+    rule: logs content-free, transcripts redacted
+    paths: [src/swift/runs.py, src/swift/security/journal.py, src/swift/ipc/protocol.py]
+    checks: [280, 281]
   lifetime:
     paths: [overlay/src-tauri/src/backend.rs, overlay/src-tauri/src/prefs.rs, src/swift/backend/*, src/swift/__main__.py, src/swift/settings.py, src/swift/config/*, src/swift/clock.py]
     checks: [77-80, 110, 120, 147]

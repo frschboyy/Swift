@@ -2229,6 +2229,27 @@ You should see: the card closes only on step 3, and the folded command never cha
 
 The report checks: nothing to judge from the log; tell us whether a bare "yes" or typing ever approved one.
 
+### Run records and where a card came from (2026-11-13)
+
+About 3 minutes. Groundwork: every request now leaves a record of what happened in it (no words), and a timer's card
+is recognised by where it came from, not by its name. You should notice no change.
+
+<a id="check-280"></a>**Check 280. Requests work as before, and each leaves a record without your words**
+1. Say "Hey Swift, what time is it".
+2. Say "Hey Swift, research the history of tea" and let it finish.
+3. Say "Hey Swift, add lunch with Ada tomorrow at one" and press **Reject** on the card.
+4. Each should look and behave exactly as before: the answer, the research's steps, the approval card.
+
+The report checks: every request since you started has its record in `runs`, started and ended, with none of your
+words in it.
+
+<a id="check-281"></a>**Check 281. A timer's card still comes up as a timer**
+1. Say "Hey Swift, set a timer for one minute".
+2. When it goes off, you should see the timer card with its bell or timer icon, as before, never an ordinary answer
+   card.
+
+The report checks: nothing to look up in the logs; tell Claude what you saw.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

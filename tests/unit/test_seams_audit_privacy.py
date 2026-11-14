@@ -266,6 +266,28 @@ def test_a_volume_spelling_that_cannot_be_resolved_is_refused_not_raised() -> No
     assert scope.in_command(f"type {spelled}\\notes.txt", None) is not None  # a command naming it is refused too
 
 
+def test_a_never_read_folder_spelled_by_its_volume_is_still_never_read(tmp_path: Path) -> None:
+    # realpath resolves C:'s volume GUID or device name to "\\?\C:\…", keeping the prefix; compared with
+    # "C:\…" it looked like somewhere else, and Swift's own logs got a card instead of a refusal.
+    import ctypes
+
+    from swift.executors.read_scope import ReadScope
+
+    drive = tmp_path.drive[0]
+    buf = ctypes.create_unicode_buffer(260)
+    assert ctypes.windll.kernel32.GetVolumeNameForVolumeMountPointW(f"{drive}:\\", buf, len(buf))  # type: ignore[attr-defined]
+    guid = buf.value  # \\?\Volume{…}\
+    secret = tmp_path / "secrets"
+    secret.mkdir()
+    (secret / "log.txt").write_text("x")
+    scope = ReadScope([str(tmp_path)], never=[str(secret)])
+    tail = str(secret / "log.txt")[3:]  # without "C:\"
+    for spelled in (guid + tail, rf"\\?\GLOBALROOT{_device_of(drive)}" + "\\" + tail, guid + tail[: -len("\\log.txt")]):
+        assert scope.verdict(spelled) == "never", spelled
+        assert scope.in_command(f'type "{spelled}"', None) is not None, spelled
+    assert scope.verdict(guid + str(tmp_path / "notes.txt")[3:]) == "read"  # the read folder, spelled the same way
+
+
 def test_swift_s_data_is_never_read_wherever_the_settings_put_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from swift.backend.__main__ import _make_executor
     from swift.settings import Settings

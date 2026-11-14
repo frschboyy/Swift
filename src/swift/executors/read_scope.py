@@ -59,7 +59,8 @@ def _local(path: str) -> str:
 
 
 def _norm(path: str) -> str:
-    return os.path.normcase(os.path.realpath(_local(os.path.expanduser(path))))
+    # Again after resolving: a volume spelling (\\?\Volume{…}\…, \\?\GLOBALROOT\Device\…) resolves to "\\?\C:\…".
+    return os.path.normcase(_local(os.path.realpath(_local(os.path.expanduser(path)))))
 
 
 def _inside(path: str, root: str) -> bool:

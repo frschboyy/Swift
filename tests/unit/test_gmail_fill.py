@@ -424,3 +424,36 @@ def test_a_body_that_won_t_take_the_cursor_says_what_the_click_would_have_hit() 
             logger.remove()
         assert f"click='{word}'" in sink.getvalue(), sink.getvalue()
         assert "suggestion" not in sink.getvalue()
+
+
+@pytest.mark.xfail(strict=True, reason="QA-03: open finding; each Gmail field is found in the whole window")
+def test_two_composes_in_one_window_hand_the_fill_fields_from_one_compose() -> None:
+    """QA-03 (2026-11-15): _GmailScreen.fields finds To, Subject and Body each by itself in the whole browser window.
+    With the owner's own empty draft first in the tree (its To collapsed into "Recipients") and the compose Swift
+    opened after it, the fill gets Swift's To but the draft's Subject and Body, and the draft's empty subject says
+    it's free: Swift would write into the owner's draft. Fake UIA tree; Gmail's real tree order is check 372."""
+    from types import SimpleNamespace
+
+    from swift.desktop.windows import _GmailScreen
+
+    def node(name: str, owner: str, *kids: Any) -> Any:
+        return SimpleNamespace(name=name, owner=owner, kids=list(kids), value="")
+
+    draft = node("compose", "draft", node("Recipients", "draft"), node("Subject", "draft"), node("Message Body", "draft"))
+    swift = node("compose", "swift", node("To recipients", "swift"), node("Subject", "swift"), node("Message Body", "swift"))
+    window = node("window", "-", draft, swift)
+
+    def walk(n: Any) -> Any:
+        for kid in n.kids:
+            yield kid
+            yield from walk(kid)
+
+    class Uia:
+        automation = SimpleNamespace(ElementFromHandle=lambda hwnd: window)
+
+        def find(self, root: Any, names: tuple[str, ...]) -> Any:
+            return next((n for name in names for n in walk(root) if n.name == name), None)
+
+    screen = _GmailScreen(Uia(), never_read=None)  # type: ignore[arg-type]
+    fields = screen.fields(1)
+    assert {key: e.owner for key, e in fields.items()} == {"to": "swift", "subject": "swift", "body": "swift"}

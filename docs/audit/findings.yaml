@@ -8,12 +8,16 @@
   area: actions
   severity: medium
   product_rule: true
-  status: unproven
+  status: open
   confidence: suspected
   evidence: windows.py _GmailScreen.fields finds each field by itself in the whole window (uia.find per key), and
     subject_in_use reads only the subject; open_to opens the first collapsed To row
-  test: null
-  note: 'untested: needs the UIA tree of two compose windows open in Chrome at once; the fake has one compose per window.'
+  test: tests/unit/test_gmail_fill.py::test_two_composes_in_one_window_hand_the_fill_fields_from_one_compose
+  note: 'Proven at code level (qa1-pstack, 2026-11-15) with a fake UIA tree, a strict xfail: with the owner''s empty
+    draft first in the tree (To collapsed), the fill gets Swift''s To but the draft''s Subject and Body, and the
+    draft''s empty subject reads as free, so Swift would write into the owner''s draft (a product rule). Whether
+    Gmail''s real tree puts the older compose first is check 372. The fix (fields from one compose dialog) touches
+    a product rule: it waits for the orchestrator.'
 - id: B-10
   title: Result and failure texts name the provider ("Claude Code stopped there") instead of Swift.
   source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md X-06

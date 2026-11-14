@@ -166,8 +166,12 @@ pub fn to_fraction(area: Area, (x, y): (i32, i32)) -> (f64, f64) {
 
 /// The part of the overlay where cards paint, in physical pixels: a band at the anchored edge.
 pub fn card_zone(area: Area, scale: f64, anchor: Anchor) -> Rect {
+    card_zone_in(overlay_rect(area, scale, anchor), scale, anchor)
+}
+
+/// The same for an overlay at `rect` (where the owner dropped it, say), drawing at `anchor`'s edge.
+pub fn card_zone_in((x, y, w, h): Rect, scale: f64, anchor: Anchor) -> Rect {
     let scale = sane(scale);
-    let (x, y, w, h) = overlay_rect(area, scale, anchor);
     let zw = ((CARD_ZONE_W * scale).round() as i32).min(w);
     let zh = ((CARD_ZONE_H * scale).round() as i32).min(h);
     let zx = match anchor.column() {
@@ -187,6 +191,48 @@ pub fn choose_anchor(area: Area, scale: f64, preferred: Anchor, avoid: &[(i32, i
         preferred.flipped()
     } else {
         preferred
+    }
+}
+
+fn overlaps((ax, ay, aw, ah): Rect, (bx, by, bw, bh): Rect) -> bool {
+    ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah && aw > 0 && ah > 0 && bw > 0 && bh > 0
+}
+
+fn centre((x, y, w, h): Rect) -> (f64, f64) {
+    (x as f64 + w as f64 / 2.0, y as f64 + h as f64 / 2.0)
+}
+
+/// A10 (owner checks 203, 254): a window in a higher z-order band than Swift's (Task Manager with
+/// "Always on top" is in band 16; every ordinary app, Swift included, is in band 1) stays in front
+/// of Swift whatever Swift does. When one of `covers` lies over where the cards paint at the
+/// owner's spot (`home_zone`: their anchor's, or where they dropped it), this is the anchor nearest to it whose card zone none
+/// covers. `None` means stay home: nothing covers it, or every anchor is covered (nowhere better).
+pub fn uncovered_anchor(area: Area, scale: f64, home_zone: Rect, covers: &[Rect]) -> Option<Anchor> {
+    let covered = |zone: Rect| covers.iter().any(|c| overlaps(zone, *c));
+    if !covered(home_zone) {
+        return None;
+    }
+    let (hx, hy) = centre(home_zone);
+    Anchor::ALL
+        .into_iter()
+        .map(|a| (a, card_zone(area, scale, a)))
+        .filter(|(_, zone)| !covered(*zone))
+        .map(|(a, zone)| {
+            let (x, y) = centre(zone);
+            (a, (x - hx).powi(2) + (y - hy).powi(2))
+        })
+        .min_by(|l, r| l.1.total_cmp(&r.1)) // first in `ALL` on a tie
+        .map(|(a, _)| a)
+}
+
+/// Where the overlay goes given the windows Swift can't come in front of (A10): its home (the
+/// owner's anchor `home` at `home_rect`, which is where they dropped it if they did) unless one of
+/// `covers` lies over the cards there; then the nearest uncovered anchor. Always judged from home,
+/// so once nothing covers it Swift is back where the owner put it. The bool: moved off home.
+pub fn settle(area: Area, scale: f64, home: Anchor, home_rect: Rect, covers: &[Rect]) -> (Anchor, Rect, bool) {
+    match uncovered_anchor(area, scale, card_zone_in(home_rect, scale, home), covers) {
+        Some(anchor) => (anchor, overlay_rect(area, scale, anchor), true),
+        None => (home, home_rect, false),
     }
 }
 
@@ -313,6 +359,70 @@ mod tests {
         // Secondary monitor with a negative origin.
         let left = Area { x: -2560, y: -200, w: 2560, h: 1400 };
         assert_eq!(nearest_anchor(left, (-2500, -150)), Anchor::TopLeft);
+    }
+
+    /// Task Manager's default size, about 830 x 620 at 100%, wherever the owner left it.
+    fn task_manager_at(x: i32, y: i32) -> Rect {
+        (x, y, 830, 620)
+    }
+
+    #[test]
+    fn a_window_swift_cannot_come_in_front_of_moves_the_cards_to_the_nearest_uncovered_anchor() {
+        // Check 254: Task Manager over the orb at bottom centre.
+        let over_orb = task_manager_at(560, 400);
+        let home = card_zone(FHD, 1.0, BC);
+        let moved = uncovered_anchor(FHD, 1.0, home, &[over_orb]).expect("the cards must move");
+        assert!(!overlaps(card_zone(FHD, 1.0, moved), over_orb), "{moved:?} is still covered");
+        assert_eq!(moved, Anchor::TopCenter, "the nearest uncovered anchor to bottom centre");
+        // Task Manager in the bottom-right corner, over a bottom-right Swift: top right is nearer
+        // than bottom left, and free.
+        let corner = task_manager_at(1920 - 830, 1040 - 620);
+        let home = card_zone(FHD, 1.0, Anchor::BottomRight);
+        assert_eq!(uncovered_anchor(FHD, 1.0, home, &[corner]), Some(Anchor::TopRight));
+    }
+
+    #[test]
+    fn the_owners_anchor_is_kept_when_nothing_covers_it() {
+        let home = card_zone(FHD, 1.0, BC);
+        assert_eq!(uncovered_anchor(FHD, 1.0, home, &[]), None);
+        // Task Manager elsewhere on the screen: Swift stays (and returns) home.
+        assert_eq!(uncovered_anchor(FHD, 1.0, home, &[task_manager_at(0, 0)]), None);
+        // Touching the card zone's edge isn't covering it.
+        let (zx, zy, _, _) = home;
+        assert_eq!(uncovered_anchor(FHD, 1.0, home, &[(zx - 100, zy - 100, 100, 100)]), None);
+    }
+
+    #[test]
+    fn nowhere_uncovered_stays_home() {
+        // A maximised Task Manager covers every anchor: moving wouldn't help.
+        let home = card_zone(FHD, 1.0, BC);
+        assert_eq!(uncovered_anchor(FHD, 1.0, home, &[(0, 0, 1920, 1040)]), None);
+    }
+
+    #[test]
+    fn a_dropped_overlay_is_judged_where_it_was_dropped() {
+        // The owner dropped it in the middle; a window over it reaches up into top centre's zone
+        // too, so the nearest uncovered anchor is bottom centre's.
+        let dropped = (700, 300, 512, 340);
+        let over = (650, 250, 300, 200);
+        assert_eq!(uncovered_anchor(FHD, 1.0, dropped, &[over]), Some(Anchor::BottomCenter));
+        // Not covered where it was dropped, though bottom centre's zone would be: it stays.
+        let low = (700, 800, 300, 200);
+        assert_eq!(uncovered_anchor(FHD, 1.0, dropped, &[low]), None);
+    }
+
+    #[test]
+    fn swift_goes_back_to_the_owners_spot_once_nothing_covers_it() {
+        // The owner dropped the overlay low in the middle; Task Manager then came over it.
+        let home_rect = dropped_rect(FHD, 1.0, BC, (0.3, 0.45));
+        let over = task_manager_at(500, 400);
+        let (anchor, rect, moved) = settle(FHD, 1.0, BC, home_rect, &[over]);
+        assert!(moved);
+        assert_eq!(rect, overlay_rect(FHD, 1.0, anchor));
+        assert!(!overlaps(card_zone(FHD, 1.0, anchor), over));
+        // Task Manager closed, or moved away: back to exactly where the owner dropped it.
+        assert_eq!(settle(FHD, 1.0, BC, home_rect, &[]), (BC, home_rect, false));
+        assert_eq!(settle(FHD, 1.0, BC, home_rect, &[task_manager_at(1090, 0)]), (BC, home_rect, false));
     }
 
     #[test]

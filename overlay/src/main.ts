@@ -28,6 +28,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as Q from "./ask";
+import { copyButton, detailsText, renderBlocks, renderDetails } from "./blocks";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
@@ -41,7 +42,7 @@ import * as Panes from "./panes";
 import * as H from "./heard";
 import * as L from "./live";
 import * as P from "./presenter";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type ResultDetails, type Scenario, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Scenario, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { followTheme } from "./theme";
@@ -1392,73 +1393,6 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
 }
 
 // ---- answers ---------------------------------------------------------------------------------
-
-function detailsText(details: ResultDetails | null | undefined): string {
-  if (!details) return "";
-  switch (details.kind) {
-    case "text":
-      return details.text;
-    case "list":
-      return details.items.map((i) => `- ${i}`).join("\n");
-    case "table":
-      return [details.columns, ...details.rows].map((r) => r.join("\t")).join("\n");
-  }
-}
-
-/** Paragraphs and lists with their marks, as elements (text only, never HTML). */
-function renderBlocks(text: string): HTMLElement[] {
-  const runs = (rs: A.Run[]): Node[] =>
-    rs.map((r) => (r.marks.includes("b") ? el("strong", {}, r.text) : r.marks.includes("i") ? el("em", {}, r.text) : r.marks.includes("code") ? el("code", {}, r.text) : document.createTextNode(r.text)));
-  return A.blocks(text).map((b) => (b.kind === "p" ? el("p", {}, ...runs(b.runs)) : el("ul", {}, ...b.items.map((i) => el("li", {}, ...runs(i))))));
-}
-
-/** ``full``: every row, for an answer opened with "Read more" (otherwise the first six). */
-function renderDetails(details: ResultDetails | null | undefined, full = false): HTMLElement | null {
-  if (!details) return null;
-  const shown = full ? Infinity : 6;
-  switch (details.kind) {
-    case "text":
-      return el("div", {}, ...renderBlocks(details.text));
-    case "list": {
-      const more = details.items.length - shown;
-      return el(
-        "div",
-        {},
-        el("ul", {}, ...details.items.slice(0, shown).map((item) => el("li", {}, item))),
-        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more (Read more shows them)`) : null,
-      );
-    }
-    case "table": {
-      const more = details.rows.length - shown;
-      return el(
-        "div",
-        {},
-        el(
-          "table",
-          { class: "answer-table" },
-          el("thead", {}, el("tr", {}, ...details.columns.map((c) => el("th", { scope: "col" }, c)))),
-          el("tbody", {}, ...details.rows.slice(0, shown).map((row) => el("tr", {}, ...row.map((c) => el("td", {}, c))))),
-        ),
-        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more rows (Read more shows them)`) : null,
-      );
-    }
-  }
-}
-
-function copyButton(text: string): HTMLElement {
-  const button = el("button", { class: "btn btn--ghost", title: "Copy the answer" }, icon("copy"), "Copy");
-  button.addEventListener("click", async (ev) => {
-    ev.stopPropagation();
-    try {
-      await invoke("copy_text", { text });
-      button.replaceChildren(icon("check"), "Copied");
-    } catch {
-      button.replaceChildren("Couldn't copy");
-    }
-    window.setTimeout(() => button.replaceChildren(icon("copy"), "Copy"), 1600);
-  });
-  return button;
-}
 
 /** Stopped / Not done: one row, then gone. */
 function renderRowCard(glyph: string, word: string, desc: string, runId?: string, threadId?: string, summary?: string): void {

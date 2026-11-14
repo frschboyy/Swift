@@ -22,6 +22,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { answerTable, copyButton, detailsText } from "./blocks";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
@@ -68,21 +69,11 @@ function details(d: ResultDetails | null): HTMLElement | null {
     case "list":
       return el("ul", { class: "result-list" }, ...d.items.map((i) => el("li", {}, i)));
     case "table":
-      return el(
-        "table",
-        { class: "answer-table" },
-        el("thead", {}, el("tr", {}, ...d.columns.map((c) => el("th", { scope: "col" }, c)))),
-        el("tbody", {}, ...d.rows.map((r) => el("tr", {}, ...r.map((c) => el("td", {}, c))))),
-      );
+      return answerTable(d.columns, d.rows);
   }
 }
 
-function plain(v: Extract<PaneView, { kind: "reader" }>): string {
-  const d = v.details;
-  const extra = !d ? "" : d.kind === "text" ? d.text : d.kind === "list" ? d.items.map((i) => `- ${i}`).join("\n")
-    : [d.columns, ...d.rows].map((r) => r.join("\t")).join("\n");
-  return [v.summary, extra].filter(Boolean).join("\n\n");
-}
+const plain = (v: Extract<PaneView, { kind: "reader" }>): string => [v.summary, detailsText(v.details)].filter(Boolean).join("\n\n");
 
 /** A press anywhere outside the expanded stack or the tray menu folds it away (the owner's design). */
 function watchOutside(): void {
@@ -250,16 +241,6 @@ function draw(): void {
         );
       } else {
         const v = view;
-        const copy = el("button", { class: "btn btn--ghost", title: "Copy the answer" }, icon("copy"), "Copy");
-        copy.addEventListener("click", async () => {
-          try {
-            await invoke("copy_text", { text: plain(v) });
-            copy.replaceChildren(icon("check"), "Copied");
-          } catch {
-            copy.replaceChildren("Couldn't copy");
-          }
-          window.setTimeout(() => copy.replaceChildren(icon("copy"), "Copy"), 1600);
-        });
         const body = el("div", { class: "reader-body answer", tabindex: "0" }, el("p", {}, v.summary), details(v.details));
         body.addEventListener("scroll", touch, { passive: true });
         root.replaceChildren(
@@ -270,7 +251,7 @@ function draw(): void {
               el("p", { class: "words" }, v.title),
               el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => act("close") }, icon("x"))),
             body,
-            el("footer", { class: "card-foot" }, el("span", { class: "foot-gap" }), copy),
+            el("footer", { class: "card-foot" }, el("span", { class: "foot-gap" }), copyButton(plain(v))),
           ),
         );
       }

@@ -3197,10 +3197,6 @@ class Session:
         """The owner is saying something now, or it's being transcribed: a window waits for it (T-02)."""
         return self.in_speech() or self._hearing or self._held_utterance is not None or self._capturing()
 
-    def _question_timer(self, q: Question, seconds: float) -> None:
-        """``q``'s window listens for ``seconds`` from now."""
-        self._window(q).listen(seconds)
-
     def _stop_capture(self) -> None:
         """Stop recording an answer (no open microphone): its question isn't the one on screen any more."""
         task, self._answer_task = self._answer_task, None

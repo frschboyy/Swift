@@ -8,7 +8,7 @@ SRC = Path(__file__).resolve().parents[2] / "src"
 
 # Two-way package imports that exist today (HA-INT-01). Remove a pair once it's broken.
 KNOWN_CYCLES = {("swift.executors", "swift.routing"), ("swift.routing", "swift.system"), ("swift.security", "swift.workflows")}
-SESSION_MAX_LINES = 4989  # session.py after the first split steps (claude/split-session-py); the split should only lower this.
+SESSION_MAX_LINES = 4985  # session.py after QA 2's cleanup (claude/qa2-pstack); the split should only lower this.
 
 
 def _package(module: str) -> str:

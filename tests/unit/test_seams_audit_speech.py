@@ -276,14 +276,14 @@ async def test_s14_a_question_behind_doesnt_cancel_the_timer_of_the_one_on_scree
     on_screen = Question("Which Sam: Sam Lee or Sam Okoro?", "choice", ("Sam Lee", "Sam Okoro"), source="run",
                          future=asyncio.get_running_loop().create_future())
     assert session.dialogue.ask(on_screen)
-    session._question_timer(on_screen, 0.1)
+    session._window(on_screen).listen(0.1)
     # "hey Swift, set a timer" meanwhile: "For how long?" is asked now, the run's question waits behind it.
     lane_q = Question("For how long?", "duration", source="run", own=True, future=asyncio.get_running_loop().create_future())
     session._window(on_screen).pause()
     session.dialogue.ask_first(lane_q)
     assert session.dialogue.pending is lane_q and session.dialogue.waiting == [on_screen]
     assert on_screen.window.timer is None  # stopped while it waits: one deadline at a time
-    session._question_timer(lane_q, 0.1)
+    session._window(lane_q).listen(0.1)
     await asyncio.sleep(0.4)
     assert lane_q.window.state == "closed"
     # ...then the run's question was on screen again with its own window, and ran out by itself.

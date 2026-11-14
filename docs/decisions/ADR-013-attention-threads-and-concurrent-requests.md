@@ -1,6 +1,6 @@
 # ADR-013: Attention, conversation threads, and requests running side by side
 
-- **Status:** Accepted (owner, 2026-10-26: approved as proposed, with the proposed answers in §9). Phase A first.
+- **Status:** Accepted (owner, 2026-10-26: approved as proposed, with the proposed answers in §9). Phases A (§10) and B (§11) are built.
 - **Decided by:** Owner
 - **Date:** 2026-10-26
 - **Builds on:** ADR-006 (the backend owns the state), ADR-009 (overlay UX), ADR-010 ("show me", confirm cards), ADR-012 (foreground mode)

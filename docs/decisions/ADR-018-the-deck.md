@@ -1,6 +1,6 @@
 # ADR-018: The Deck: how requests share the screen
 
-- **Status:** Direction accepted by the owner (2026-11-06). Step 1 is built on a branch (2026-11-07), not merged and not yet run on the real PC. Building it needed one backend change, which the owner approved: see §4.1.
+- **Status:** Direction accepted by the owner (2026-11-06). Step 1 is on `main` (merged 2026-11-07; `overlay/src/deck.ts`) and was not run on the real PC when last recorded. Step 2 and the one-window spike are not started: Step 2 needs review item 9's versioned snapshot, which is half built. Building it needed one backend change, which the owner approved: see §4.1.
 - **Decided by:** Owner
 - **Date:** 2026-11-06
 - **Amends:** ADR-013 §3.1 and its "commands go to the request in front" (§4.1 below), ADR-015 §3 (request windows go, and the main window draws other requests), ADR-015 §11 bug 4 (the "Got it" pill goes), ADR-013 §11 and `FINISHED_ROW_S` (in Step 2), ADR-017 §2.1 (what the capsule shows while a card is open)

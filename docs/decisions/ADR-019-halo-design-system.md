@@ -1,6 +1,6 @@
 # ADR-019: Halo, and a design system that grows with Swift
 
-- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Only Step A's look spike is built (§8), on `main` behind a dev-only switch.
+- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Step A's look spike (§8) and Step B's one card renderer (§9) are built and on `main`, Halo still behind a dev-only switch; §8's six items are not built, nor are the proposals of §5 step 5. N2 (`origin`) is built (`ORIGINS` in `ipc/protocol.py`).
 - **Decided by:** Owner
 - **Date:** 2026-11-07
 - **Amends:** ADR-017 (the Capsule's look: Halo replaces it, keeping the capsule as Swift's body and cards growing out of it). ADR-018 (the Deck) is kept as the attention model; this ADR only changes how its parts are drawn and adds origins.
@@ -85,7 +85,7 @@ A look spike behind a dev-only switch (`overlay/src/look/`), on `main` since 202
 - If a compact confirm still doesn't fit, it scrolls as today: folding the deck (`SPEC.md` §10) needs the presenter, so it waits for Step B. It didn't happen in the tightest case drawn: a compact confirm of 316 px with three edges.
 - The panes (typing box, stack, live view, tray) take the tokens and buttons only.
 
-## 9. Step B: one card renderer (2026-11-14, branch `claude/halo-step-b-c7b584`, not merged)
+## 9. Step B: one card renderer (2026-11-14, branch `claude/halo-step-b-c7b584`, merged into `main` the same day)
 
 Every card in the main window is now put together by one renderer, `overlay/src/card.ts`, from its state (`CardState`: SPEC §4's seven, plus Swift's own notices) and its slots in SPEC §3's order: lead, origin, earlier turns, body, footer. `main.ts` fills the slots; `blocks.ts` holds the body's blocks, shared with the reader pane. No feature was added and nothing changes on screen: the default look matches `main` pixel for pixel in the harness, and Halo draws as before (the measurement is in the branch's hand-over note). The Halo dress (`look/dress.ts`) now reads the card's state from `data-card` instead of guessing it from class names.
 

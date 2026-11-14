@@ -7,6 +7,11 @@ its own card. Deleting always asks (ADR-019) because no delete is on the list.
 
 shortcut: a short allowlist, so most commands still ask; widen it only with the owner's say-so, one
 command shape at a time, each with a test that its destructive forms stay out.
+
+Not stopped, on purpose: an allowed ``git commit`` (or ``git add``) still runs the hooks and filters the
+owner's own repository already has (husky and the like). The owner saw that exact command on the card.
+What is stopped is a step installing new ones: ``git init --template`` would let a later commit in the
+same step run code with no card.
 """
 
 from __future__ import annotations
@@ -25,8 +30,18 @@ REVERSIBLE: frozenset[tuple[str, ...]] = frozenset({
 })
 # Shell syntax that could chain, redirect, expand or hide another command, in Bash or PowerShell.
 _SYNTAX = re.compile(r"""[;&|<>`$(){}\[\]!%^\\*?]""")
-# Forms of the listed commands that discard or overwrite: never approved ahead.
-_DESTRUCTIVE = re.compile(r"^(--force.*|-f|--hard|--delete|-d|--output.*|--separate-git-dir.*)$", re.I)
+# Long options that discard, overwrite, or install hooks (--template): never approved ahead. Git takes any
+# unique prefix of a long option ("--templ=x"), so a prefix of one of these is refused too.
+_DESTRUCTIVE_LONG = ("force", "hard", "delete", "output", "separate-git-dir", "template")
+_SHORT = re.compile(r"^-[A-Za-z]+$")
+
+
+def _destructive(word: str) -> bool:
+    word = word.strip("\"'").lower()
+    if word.startswith("--"):
+        name = word[2:].split("=", 1)[0]
+        return any(d.startswith(name) or name.startswith(d) for d in _DESTRUCTIVE_LONG)
+    return bool(_SHORT.match(word)) and any(c in word[1:] for c in "fd")  # -f, -d, -D, and in a group (-fd)
 
 
 def reversible(command: str) -> bool:
@@ -40,7 +55,7 @@ def reversible(command: str) -> bool:
     words = [w.lower().removesuffix(".exe") if i == 0 else w for i, w in enumerate(words)]
     if words[:1] == ["git"] and len(words) > 3 and words[1] == "-C":  # in another folder; "-c" sets config: never
         words = [words[0], *words[3:]]
-    if any(_DESTRUCTIVE.match(w.strip("\"'")) for w in words[1:]):
+    if any(_destructive(w) for w in words[1:]):
         return False
     lead = tuple(w.lower() for w in words)
     return any(lead[: len(shape)] == shape for shape in REVERSIBLE)

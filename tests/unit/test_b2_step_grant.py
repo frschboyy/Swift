@@ -36,6 +36,9 @@ def test_plain_commands_swift_knows_can_be_undone_are_reversible(command: str) -
     # chained, redirected, expanded or hidden
     "git add . && rm notes.md", "git status; rm x", "git status | sh", "git log > notes.md", "git add $(rm x)",
     "git add `rm x`", "git status\nrm x", " git status", "git status ", "git add notes.md‮",
+    # hooks a later commit in the same step would run (review of B2), and git's long-option prefixes
+    "git init --template=x", "git init --template x", "git init --templ=x", "git init --separate-git=x",
+    "git diff --out=notes.md", "git commit --forc", "git add -fA notes.md", "git add -Af notes.md",
     # config that can run code, a folder flag with nothing after it
     "git -c core.sshCommand=evil status", "git -C", "git -C notes",
     # unknown

@@ -544,7 +544,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("303 a request begun again kept Swift's own question",
          unless([r for r in rows if r.get("route") == "agent" and any(
              "system_action" in (s.get("text") or "") for s in r.get("steps") or [])]),
-         "a system change done by the agent is a FAIL; check on screen: 'Turn off Wi-Fi?' with Yes and No"),
+         "a system change done by the agent is a FAIL; tell us whether the question was 'Turn off Wi-Fi?'"),
         ("205 asked again in other words: one fresh card, one item in the stack", LOOK,
          "check on screen: the old item left the stack when the new card came"),
         ("206 waiting for your answer never said 'Working on it'", LOOK,

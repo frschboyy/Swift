@@ -313,3 +313,19 @@ runs:
   note: 'Read more on the tea answer didn''t show the full answer: the ellipsis stayed and it was still cut off. The answer repeated its opening paragraph. The information still feels visually plain and hard to scan.'
   checks:
     FAIL: ['305']
+- date: 2026-11-14 15:00
+  commit: a8f12ce
+  source: report
+  note: 'The owner''s run of 2026-11-14 15:00 on the other PC. 252 FAIL: gmail_focus_body twice (16:00:04 body focus=''page'', 16:02:05 focus=''to''). 330''s automatic FAIL is a report mismatch: the 16:05:33 request after ''new topic'' was meant to ask, and did; the owner''s verdict on 330 is recorded separately.'
+  checks:
+    PASS: ['2', 2b, '3', '26', '27', '41', '43', '45', '46', '54', '60', '71', '78', '91', '93', '103', '104', '105', '106', '110', '111', '112', '113', '114', '125', '120', '123', '270', '149', '160', '161', '204', '303', '228', '242', '255', '263']
+    PARTIAL: ['15', '16', '21', '77']
+    FAIL: ['252', '330']
+- date: 2026-11-14 16:06
+  commit: a8f12ce
+  source: owner
+  note: '306: correct. 310: the draft never opened in Gmail, in Chrome or Notepad (body focus failed, see 252). 320: Swift''s overlay stayed behind Task Manager; it didn''t move to an uncovered anchor. 330: step 1 opened usiu.ac.ke again for ''my university''s website'', as written, but the owner objects: he never said that site was his university (a product-rule question, waiting on his decision); step 2 after ''new topic'' asked which university, as the check expects. 305 notes beyond Read more: Watch feels disconnected (the main overlay goes soon after Watch opens; ''closes by itself'' shows while it stays open); wants progress or animation, Watch in a corner or sidebar, Open answer leading back to the answer; file lists as a tree; a discreet running-timer indicator, perhaps in the stack.'
+  checks:
+    PASS: ['306']
+    FAIL: ['310', '320']
+    BLOCKED: ['330']

@@ -2273,11 +2273,13 @@ As of 2026-11-14 at `52919a1`. Each number links to its check.
 
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 97 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 15 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
+- `claude/blissful-williams-3f266e`: adds checks 300, 301, 302; changes code behind 97 checks here (4, 5, 6, 7, 8, 14, 18, 19, 19b, 21, 22, 23, …).
 - `claude/determined-gould-640401`: changes code behind 67 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 54, 55, …).
-- `claude/gracious-jones-e3211c`: changes code behind 49 checks here (4, 5, 6, 7, 8, 14, 21, 22, 34, 35, 36, 37, …).
+- `claude/gracious-jones-e3211c`: adds checks 280, 281; changes code behind 83 checks here (4, 5, 6, 7, 8, 14, 18, 21, 22, 34, 35, 36, …).
+- `claude/integration-2026-11-14b`: adds checks 280, 281; changes code behind 107 checks here (4, 5, 6, 7, 8, 14, 17, 18, 19, 19b, 20, 21, …).
 - `claude/jolly-babbage-741c26`: changes code behind 63 checks here (4, 5, 6, 7, 8, 14, 18, 21, 22, 34, 35, 36, …).
 
-**Next free check number: 294** (counted across `main` and every open branch).
+**Next free check number: 303** (counted across `main` and every open branch).
 
 **Code changed in the last 14 days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):
 

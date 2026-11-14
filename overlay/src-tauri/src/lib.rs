@@ -609,7 +609,7 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     }
     let state = app.state::<Placement>();
     let mut p = state.0.lock().unwrap();
-    let place = Some(panes::to_fraction(area, (cx, cy)));
+    let place = Some(placement::to_fraction(area, (cx, cy)));
     let places = &mut p.prefs.panes;
     match kind {
         PaneKind::Reader => places.reader = place,

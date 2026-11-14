@@ -137,14 +137,6 @@ pub fn remembered_origin(area: Area, scale: f64, (rx, ry): (f64, f64), index: u3
     clamp(area, (x, y), size)
 }
 
-/// Where a pane was dropped, as fractions of the work area (what is remembered).
-pub fn to_fraction(area: Area, (x, y): (i32, i32)) -> (f64, f64) {
-    (
-        ((x - area.x) as f64 / area.w.max(1) as f64).clamp(0.0, 1.0),
-        ((y - area.y) as f64 / area.h.max(1) as f64).clamp(0.0, 1.0),
-    )
-}
-
 /// A live view's source, fit to hand to the browser (ADR-017 §7): http(s) only, a host, no spaces,
 /// quotes or control characters (nothing a shell or `url.dll` could read as more than an address).
 pub fn web_link(url: &str) -> Option<&str> {
@@ -175,7 +167,7 @@ pub fn max_height(area: Area) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::placement::card_zone;
+    use crate::placement::{card_zone, to_fraction};
 
     const FHD: Area = Area { x: 0, y: 0, w: 1920, h: 1040 };
 

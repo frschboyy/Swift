@@ -307,3 +307,9 @@ runs:
   note: '254: window_bands.py: taskmgr.exe band 16 (system tools), always on top; swift-overlay.exe band 1. Task Manager is in a higher band than Swift. With Task Manager over the orb, Swift did not show in front of it.'
   checks:
     PASS: ['254']
+- date: 2026-11-14 15:00
+  commit: 68519ae
+  source: owner
+  note: 'Read more on the tea answer didn''t show the full answer: the ellipsis stayed and it was still cut off. The answer repeated its opening paragraph. The information still feels visually plain and hard to scan.'
+  checks:
+    FAIL: ['305']

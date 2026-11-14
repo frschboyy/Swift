@@ -826,6 +826,14 @@ function drawCard(spec: Card.CardSpec): void {
   if (spec.ownTime) card.querySelector<HTMLElement>(":scope > .timebar")!.hidden = true;
 }
 
+/** A line said on the card about what's going on now (the reply window, a hint), just above its footer. */
+function lineAboveFoot(line: HTMLElement): void {
+  const foot = card.querySelector(".card-foot");
+  if (foot) foot.before(line);
+  else (card.firstElementChild ?? card).append(line);
+  scheduleRegions();
+}
+
 /** Where a card goes as it leaves: towards the stack if it has just joined it (a handoff between
  * windows, ADR-018 §3), otherwise back into the capsule it grew out of. */
 function leavingFor(): DOMRect {
@@ -1113,10 +1121,7 @@ function drawFollowup(left: number): void {
   }
   if (!line) {
     line = el("p", { class: "voice-hint followup", "data-phase": "listening", "aria-live": "off" });
-    const foot = card.querySelector(".card-foot");
-    if (foot) foot.before(line);
-    else (card.firstElementChild ?? card).append(line);
-    scheduleRegions();
+    lineAboveFoot(line);
   }
   line.replaceChildren(icon("mic"), `Listening for a reply · ${left} s`);
 }
@@ -1134,11 +1139,8 @@ function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
 function hintOnAnswer(text: string): void {
   card.querySelector(".answer-hint")?.remove();
   const line = el("p", { class: "voice-hint answer-hint", "data-phase": "hint", "aria-live": "polite" }, text);
-  const foot = card.querySelector(".card-foot");
-  if (foot) foot.before(line);
-  else (card.firstElementChild ?? card).append(line);
+  lineAboveFoot(line);
   window.setTimeout(() => { line.remove(); scheduleRegions(); }, 4000);
-  scheduleRegions();
 }
 
 function cancelRun(): void {
@@ -1315,11 +1317,7 @@ function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"])
 function onResumeOffer(data: Extract<Inbound, { type: "resume.offer" }>["data"]): void {
   if (stageNow() !== "result" && stageNow() !== "error") return;
   card.querySelector(".resume")?.remove();
-  const line = el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("pause"), `Unfinished: ${data.title}. It's with what needs you.`);
-  const foot = card.querySelector(".card-foot");
-  if (foot) foot.before(line);
-  else (card.firstElementChild ?? card).append(line);
-  scheduleRegions();
+  lineAboveFoot(el("p", { class: "voice-hint resume", "data-phase": "hint" }, icon("pause"), `Unfinished: ${data.title}. It's with what needs you.`));
 }
 
 /** The voice line on a confirm card: approving by voice takes push-to-talk (or Swift's name). */

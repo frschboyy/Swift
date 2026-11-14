@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from loguru import logger
 
 from swift.connectors.base import ConnectorError
-from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun
+from swift.executors.base import SWIFT, ExecEvent, ExecResult, UnknownRun, WorkerTask
 from swift.signin import Service, Status
 
 REQUEST = "Sign in again"
@@ -79,7 +79,7 @@ class SigninExecutor:
         self._wanted |= services
         return bool(new) and not self.running
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
         run_id = f"signin-{next(self._ids)}"
         self._results[run_id] = None
         return run_id

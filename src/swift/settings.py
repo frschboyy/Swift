@@ -349,7 +349,15 @@ class Settings(_Section):
     # Your name as it ends the emails Swift drafts ("Regards, Francis Chianu"). Empty: the name on
     # your Google account.
     owner_name: str = ""
+    # What you asked Swift to remember, and Swift's own settings: one plain file each, with every
+    # version kept (swift/memory.py). Swift writes it only from your words; config.yaml still wins.
+    memory_dir: str = "%LOCALAPPDATA%/Swift/memory"
     debug: bool = False
+
+    @field_validator("memory_dir")
+    @classmethod
+    def _expand(cls, v: str) -> str:
+        return expand(v)
 
 
 class SettingsError(ValueError):

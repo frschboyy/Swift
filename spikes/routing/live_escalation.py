@@ -19,6 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
+from swift.executors.base import Budget, WorkerTask  # noqa: E402
 from swift.executors.claude_code import ClaudeCodeExecutor  # noqa: E402
 from swift.routing import route  # noqa: E402
 
@@ -37,7 +38,7 @@ async def main() -> None:
         r = route(text)
         demand = force or r.demand
         t0 = time.perf_counter()
-        run_id = await ex.start(r.text, demand=demand, override=r.override)
+        run_id = await ex.start(WorkerTask(r.text, budget=Budget(demand, r.override)))
         steps = []
         async for e in ex.events(run_id):
             if e.type == "confirm":

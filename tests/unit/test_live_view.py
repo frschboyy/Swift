@@ -15,6 +15,7 @@ from typing import Any
 from loguru import logger
 from test_runs import Agent, finish_all, make, runs, say, sent_for, started, until
 
+from swift.executors.base import WorkerTask
 from swift.desktop.fake import FakeApp, FakeDesktop
 from swift.executors.base import ExecEvent, ExecResult
 from swift.executors.claude_code import as_event
@@ -340,7 +341,7 @@ async def test_the_research_demo_sends_live_items_for_the_dev_harness() -> None:
     from swift.executors.mock import MockExecutor
 
     mock = MockExecutor(speed=0)
-    run_id = await mock.start("research the history of tea", "research")
+    run_id = await mock.start(WorkerTask("research the history of tea"), "research")
     kinds = [e.data["kind"] for e in [e async for e in mock.events(run_id)] if e.type == "live" and e.data]
     assert kinds.count("source") == 6 and kinds.count("note") == 2
     assert (await mock.result(run_id)).status == "done"

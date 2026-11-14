@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from test_session import Recorder, make, run_demo
 
+from swift.executors.base import Budget, WorkerTask
 from swift.executors.base import ExecResult
 from swift.executors.claude_code import ClaudeCodeExecutor
 from swift.executors.claude_mapping import outcome_for, steps_for
@@ -111,9 +112,10 @@ class FailsOnce(EchoExecutor):
         super().__init__()
         self.calls: list[str] = []
 
-    async def start(self, request: str, **kw: Any) -> str:
+    async def start(self, task: WorkerTask, **kw: Any) -> str:
+        request = task.prompt
         self.calls.append(request)
-        return await super().start(request, **kw)
+        return await super().start(task, **kw)
 
     async def result(self, run_id: str) -> ExecResult:
         if len(self.calls) == 1:
@@ -196,7 +198,7 @@ async def test_an_unconfirmed_model_is_retried_once_with_the_default(tmp_path, f
 
     ModelClient.made, ModelClient.default_works, ModelClient.fail_on = [], True, fail_on
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", prewarm=False, client_factory=ModelClient)
-    run_id = await ex.start("Summarise the README", demand="light")
+    run_id = await ex.start(WorkerTask("Summarise the README", budget=Budget(demand="light")))
     result = await asyncio.wait_for(ex.result(run_id), 5)
     client = ModelClient.made[0]
     assert result.status == "done"
@@ -209,7 +211,7 @@ async def test_when_the_default_fails_too_the_card_says_so_plainly(tmp_path) -> 
 
     ModelClient.made, ModelClient.default_works, ModelClient.fail_on = [], False, "set_model"
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", prewarm=False, client_factory=ModelClient)
-    run_id = await ex.start("Summarise the README", demand="light")
+    run_id = await ex.start(WorkerTask("Summarise the README", budget=Budget(demand="light")))
     result = await asyncio.wait_for(ex.result(run_id), 5)
     assert result.status == "error" and result.failure is not None
     assert result.failure.code == "models"

@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from test_session import Recorder
 
+from swift.executors.base import Budget, WorkerTask
 from swift.executors.base import ExecEvent, ExecResult
 from swift.ipc.protocol import Message
 from swift.routing import route
@@ -116,10 +117,10 @@ class SpyExecutor:
     name = "spy"
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.calls: list[tuple[str, Budget]] = []
 
-    async def start(self, request: str, **kw: Any) -> str:
-        self.calls.append((request, kw))
+    async def start(self, task: WorkerTask) -> str:
+        self.calls.append((task.prompt, task.budget))
         return f"spy-{len(self.calls)}"
 
     async def events(self, run_id: str):
@@ -150,9 +151,9 @@ async def ask(text: str, session: Session | None = None) -> tuple[Session, Recor
 async def test_claude_requests_carry_their_demand_and_override() -> None:
     session, _, spy, records = await ask("Fix the failing test.")
     await ask("Use haiku to list the docs folder.", session)
-    assert spy.calls[0] == ("Fix the failing test.", {"demand": "standard", "override": None})
+    assert spy.calls[0] == ("Fix the failing test.", Budget("standard", None))
     # The second request also carries the first as follow-up context (test_followup.py).
-    assert spy.calls[1][0].endswith("\nList the docs folder.") and spy.calls[1][1] == {"demand": "light", "override": "haiku"}
+    assert spy.calls[1][0].endswith("\nList the docs folder.") and spy.calls[1][1] == Budget("light", "haiku")
     assert records[0]["route"] == "agent" and records[0]["demand"] == "standard"
     assert records[1]["override"] == "haiku" and records[1]["start_model"] == "m"
 

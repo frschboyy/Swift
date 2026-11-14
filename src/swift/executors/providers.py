@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from swift.executors.base import SWIFT, Executor, ExecutorUnavailable, ProviderInfo
+from swift.executors.base import SWIFT, Executor, ExecutorUnavailable, ProviderInfo, WorkerTask
 
 CLAUDE_CODE = ProviderInfo(
     "claude_code",
@@ -88,16 +88,14 @@ class Providers:
         """The real agents behind Swift, in order (Swift's own stand-ins left out)."""
         return [p for p in map(provider_of, self.executors) if not p.is_swift]
 
-    async def start(
-        self, request: str, *, demand: str | None = None, override: str | None = None, prefer: str | None = None
-    ) -> Started:
+    async def start(self, task: WorkerTask, *, prefer: str | None = None) -> Started:
         """Start on the first available executor (``prefer``, a provider id, first if it is one of them).
         Raises the first ``ExecutorUnavailable`` if none is."""
         skipped: list[tuple[ProviderInfo, ExecutorUnavailable]] = []
         order = sorted(self.executors, key=lambda e: provider_of(e).id != prefer) if prefer else self.executors
         for executor in order:
             try:
-                run_id = await executor.start(request, demand=demand, override=override)
+                run_id = await executor.start(task)
             except ExecutorUnavailable as exc:
                 skipped.append((provider_of(executor), exc))
                 continue

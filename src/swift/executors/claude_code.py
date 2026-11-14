@@ -65,7 +65,7 @@ from loguru import logger
 
 from swift import clock
 from swift.attention import Attention, wait_answer
-from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun
+from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
     COMMAND_MAX,
     FILE_CHANGE_TOOLS,
@@ -553,9 +553,15 @@ class ClaudeCodeExecutor:
 
     # ---- Executor interface ---------------------------------------------------
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
+    async def start(self, task: WorkerTask) -> str:
+        if task.privacy != "cloud":
+            raise ExecutorUnavailable(
+                "This request has to stay on this PC, and Claude Code runs in the cloud.",
+                "Nothing was sent. Swift has no local worker for it yet.",
+            )
         run_id = f"cc-{next(self._ids)}"
-        level = OVERRIDE_LEVEL.get(override or "") or (demand if demand in LEVELS else "standard")
+        request, budget = task.prompt, task.budget
+        level = OVERRIDE_LEVEL.get(budget.override or "") or (budget.demand if budget.demand in LEVELS else "standard")
         run = _Run(level=level)
         run.web.note_request(request)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts

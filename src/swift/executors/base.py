@@ -2,7 +2,7 @@
 
 A run is driven as::
 
-    run_id = await executor.start(request)
+    run_id = await executor.start(WorkerTask(request))
     async for event in executor.events(run_id):
         if event.type == "confirm":
             await executor.reply(event.request_id, approve)
@@ -96,6 +96,66 @@ class ExecResult:
     failure: Failure | None = None
 
 
+# "local": data that must stay on this PC (a file the owner marked); cloud workers refuse it
+# (product-direction §4.4, rule 1). Nothing sets it yet.
+Privacy = Literal["cloud", "local"]
+
+
+@dataclass(frozen=True)
+class ContextPack:
+    """What Swift adds around the request (product-direction §4.4). ``thread`` goes before it: the
+    previous exchange, or the parked task being resumed. ``notes`` go after it, in order: where the
+    owner is, words speech recognition was unsure of, the workflow catalogue, a change of mind."""
+
+    thread: str = ""
+    notes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class Budget:
+    """How much model to spend (ADR-007): the router's ``demand`` ("light"/"standard") and the owner's
+    ``override`` ("opus"/"sonnet"/"haiku"). Executors with a single model ignore it. The money cap per
+    run stays the executor's own setting (``max_budget_usd``)."""
+
+    demand: str | None = None
+    override: str | None = None
+
+
+@dataclass(frozen=True)
+class Grant:
+    """What the owner approved ahead for this task: the base for B2 (owner, 2026-11-13).
+
+    One approval covers one coherent ``step`` of a task, with its ``commands`` listed inside it as the
+    owner saw them on the card. A command outside the list asks again, and anything irreversible
+    (deleting, paying, sending) always gets its own card, so a grant never covers it. Empty, the
+    default, covers nothing: every side effect asks, as today. No executor honours a grant yet; B2
+    builds the card that makes one and the check that uses it.
+    """
+
+    step: str = ""
+    commands: tuple[str, ...] = ()
+
+    def covers(self, command: str, *, irreversible: bool) -> bool:
+        return not irreversible and command.strip() in self.commands
+
+
+@dataclass(frozen=True)
+class WorkerTask:
+    """Everything an executor gets for one run: the request, the context pack Swift built, the grant,
+    the budget and the privacy class."""
+
+    request: str
+    context: ContextPack = ContextPack()
+    grant: Grant = Grant()
+    budget: Budget = Budget()
+    privacy: Privacy = "cloud"
+
+    @property
+    def prompt(self) -> str:
+        """The text a model-backed worker is sent: the request inside its context pack."""
+        return self.context.thread + self.request + "".join(f"\n\n{note}" for note in self.context.notes)
+
+
 class UnknownRun(KeyError):
     pass
 
@@ -112,9 +172,8 @@ class Executor(Protocol):
     name: str
     provider: ProviderInfo
 
-    async def start(self, request: str, *, demand: str | None = None, override: str | None = None) -> str:
-        """``demand`` ("light"/"standard") and ``override`` ("opus"/"sonnet"/"haiku") come from the
-        router (ADR-007); executors with a single model ignore them."""
+    async def start(self, task: WorkerTask) -> str:
+        """Raises ``ExecutorUnavailable`` if it can't run at all, or can't take the task's privacy class."""
         ...
 
     def events(self, run_id: str) -> AsyncIterator[ExecEvent]: ...

@@ -787,6 +787,13 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("351 'until (a day)' listed that day's events too", LOOK, "check on screen"),
         ("352 'open this' on a .url, .jar or .py asked on a card first", LOOK, "check on screen: nothing opened after Reject"),
         ("353 a search aimed at .env files was refused with no card", LOOK, "check on screen: no contents shown"),
+        ("370 'show this week's timetable… again' and 'find my university's website and open it' didn't reopen it",
+         LOOK, "tell us whether either opened usiu.ac.ke, and whether Swift asked you to say the address"),
+        ("371 'open it in Edge' and 'go ahead and open that site again, please' reopened it", LOOK,
+         "tell us whether each opened usiu.ac.ke without a question"),
+        ("372 Gmail with your own empty draft open: every field went into Swift's compose", LOOK,
+         "tell us which compose window got the To, the subject and the body; nothing sent"),
+        ("373 a long bold opening showed no stars on the card or after Read more", LOOK, "check on screen"),
     ]
 
 

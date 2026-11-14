@@ -710,7 +710,8 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 
 
 def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
-    """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3)."""
+    """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3).
+    320: out from under Task Manager, which no ordinary app can come in front of (A10)."""
     spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
     def opened(r: dict[str, Any]) -> bool:
@@ -723,6 +724,8 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("254 Task Manager's band", LOOK, "paste window_bands.py's last lines; was Swift in front of Task Manager?"),
         ("255 a spoken web address was opened", unless(missed, spoken),
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
+        ("320 the card moved out from under Task Manager, and came back", LOOK,
+         "tell us where the card showed with Task Manager over the orb, then after closing it, and whether Notepad kept the cursor"),
     ]
 
 

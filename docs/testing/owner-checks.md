@@ -2380,6 +2380,24 @@ step 2 has no draining bar along its bottom edge either (that's new, and intende
 
 The report checks: nothing to judge from the log; tell us whether any card looked or behaved differently.
 
+### Out from under Task Manager (2026-11-14)
+
+About 3 minutes. Check 254 showed Task Manager on top sits in a band no ordinary app can go above, so Swift's card stayed
+hidden behind it (203). Your decision: Swift moves out from under it instead.
+
+<a id="check-320"></a>**Check 320. Swift's card moves out from under Task Manager, and comes back**
+1. Open Task Manager with **Options > Always on top** ticked, and drag it over where Swift's orb sits. Open Notepad
+   beside it and click in Notepad.
+2. Say "Hey Swift, what time is it".
+3. You should see the card at **another place on the screen** (the nearest corner or edge Task Manager doesn't cover),
+   in full, not behind Task Manager. Type a letter: it goes into Notepad (Swift never takes the cursor).
+4. Close Task Manager and say "Hey Swift, what time is it" again. The card is back where you put Swift.
+5. Repeat steps 1 and 2 with Task Manager **maximised**. Nowhere is uncovered, so Swift stays where you put it (behind
+   Task Manager, as before): say whether that's acceptable.
+
+The report checks: nothing to judge from the log; tell us where the card showed in steps 3 and 4, and whether Notepad
+kept the cursor.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

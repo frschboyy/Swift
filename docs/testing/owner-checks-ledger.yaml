@@ -61,6 +61,9 @@ areas:
   deck:
     paths: [src/swift/attention.py, overlay/src/deck.ts, overlay/src/deckdraw.ts, overlay/src/shuffle.ts, overlay/src/panes.ts, overlay/src/pane.ts, overlay/src/raise.ts, overlay/src-tauri/src/panes.rs, overlay/src-tauri/src/placement.rs]
     checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 251, 256, 257]
+  out-from-under:
+    paths: [overlay/src-tauri/src/cover.rs, overlay/src-tauri/src/placement.rs, overlay/src-tauri/src/lib.rs]
+    checks: [203, 320]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
     checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212]
@@ -73,7 +76,7 @@ areas:
     checks: [54, 146-149, 165, 171, 180, 181, 263, 270, 271, 300]
   capsule:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/card.ts, overlay/src/blocks.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
-    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306]
+    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]
@@ -120,6 +123,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [320]
+    why: A10, the owner's decision of 2026-11-14 after check 254 (Task Manager on top is in band 16); Swift's card now moves to the nearest uncovered anchor, not seen on the real PC
   - checks: [204, 303, 304]
     why: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC
   - checks: [290-293]

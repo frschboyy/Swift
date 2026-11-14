@@ -14,6 +14,7 @@
 //! to Swift, Settings (config.yaml in its default app) and Quit.
 
 mod backend;
+mod cover;
 mod hit;
 mod panes;
 mod placement;
@@ -72,8 +73,12 @@ struct HotkeyEvent {
 #[derive(Default)]
 struct PlacementState {
     prefs: Prefs,
-    /// Where it is now: `prefs.anchor`, or its flip when smart placement moved it.
+    /// Where it is now: `prefs.anchor`, its flip when smart placement moved it, or another anchor
+    /// while a window Swift can't come in front of covers its home (A10).
     current: Anchor,
+    /// `current` was chosen to get out from under such a window: the next raise looks again and
+    /// goes home if nothing covers it any more.
+    uncovered: bool,
     /// An interaction is running (Esc is grabbed): don't flip under the owner's eyes.
     busy: bool,
     dragging: bool,
@@ -100,11 +105,19 @@ enum Place {
     Smart,
     /// Exactly here (the owner just chose it).
     Exact(Anchor),
+    /// A card is about to show: on the monitor it's on, home again or out from under a window in a
+    /// higher z-order band (A10). Moves only if one of those changed.
+    Raise,
 }
 
 fn place_on_cursor_monitor(app: &AppHandle, window: &WebviewWindow, hwnd: isize, hit: &SharedHit, how: Place) {
-    let Some((cx, cy)) = win::cursor_pos() else {
-        eprintln!("[overlay] place: GetCursorPos failed");
+    // A raise stays on the monitor the overlay is on; the rest follow the cursor.
+    let point = match how {
+        Place::Raise => win::window_rect(hwnd).map(|(x, y, w, h)| (x + w / 2, y + h / 2)),
+        _ => win::cursor_pos(),
+    };
+    let Some((cx, cy)) = point else {
+        eprintln!("[overlay] place: no cursor or window position");
         return;
     };
     let monitor = window
@@ -113,33 +126,58 @@ fn place_on_cursor_monitor(app: &AppHandle, window: &WebviewWindow, hwnd: isize,
         .flatten()
         .or_else(|| window.primary_monitor().ok().flatten());
     let Some(monitor) = monitor else {
-        eprintln!("[overlay] place: no monitor for cursor ({cx}, {cy})");
+        eprintln!("[overlay] place: no monitor for ({cx}, {cy})");
         return;
     };
 
     let scale = monitor.scale_factor();
     let wa = monitor.work_area();
     let area = placement::Area { x: wa.position.x, y: wa.position.y, w: wa.size.width, h: wa.size.height };
-    let (anchor, flipped, dropped) = {
+    // The owner chose this spot: it goes there even if something covers it. Otherwise, look.
+    let covers = match how {
+        Place::Exact(_) => Vec::new(),
+        _ => cover::above(hwnd),
+    };
+    let rects: Vec<placement::Rect> = covers.iter().map(|c| c.rect).collect();
+    let decided = {
         let state = app.state::<Placement>();
         let mut p = state.0.lock().unwrap();
-        let anchor = match how {
+        let home = match how {
             Place::Exact(anchor) => anchor,
+            Place::Smart | Place::Raise if p.uncovered => p.prefs.anchor,
             Place::Smart if p.busy => p.current,
             Place::Smart if p.prefs.smart => {
                 let caret: Vec<(i32, i32)> = win::caret_pos().into_iter().collect();
                 placement::choose_anchor(area, scale, p.prefs.anchor, &caret)
             }
             Place::Smart => p.prefs.anchor,
+            Place::Raise => p.current,
         };
-        p.current = anchor;
-        (anchor, anchor != p.prefs.anchor, p.prefs.dropped)
+        // Where the owner dropped it, unless smart placement moved it off the text caret.
+        let home_rect = match p.prefs.dropped {
+            Some(f) if home == p.prefs.anchor => placement::dropped_rect(area, scale, home, f),
+            _ => placement::overlay_rect(area, scale, home),
+        };
+        let (anchor, rect, uncovered) = placement::settle(area, scale, home, home_rect, &rects);
+        let unchanged = anchor == p.current && uncovered == p.uncovered;
+        // A raise moves only to get out from under a window, or home again when nothing interacts:
+        // never under the owner's eyes for anything else.
+        let stay = matches!(how, Place::Raise) && (unchanged || p.dragging || (!uncovered && p.busy));
+        if stay {
+            None
+        } else {
+            p.current = anchor;
+            p.uncovered = uncovered;
+            Some((anchor, rect, anchor != p.prefs.anchor, uncovered))
+        }
     };
-    // Where the owner dropped it, unless smart placement moved it off the text caret.
-    let (x, y, w, h) = match dropped {
-        Some(f) if !flipped => placement::dropped_rect(area, scale, anchor, f),
-        _ => placement::overlay_rect(area, scale, anchor),
+    let Some((anchor, (x, y, w, h), flipped, uncovered)) = decided else {
+        return;
     };
+    if uncovered {
+        let by: Vec<String> = covers.iter().map(|c| format!("{} (band {})", c.exe, c.band)).collect();
+        eprintln!("[overlay] covered by {}: cards moved to {}", by.join(", "), anchor.id());
+    }
 
     // Twice: crossing into a monitor with a different DPI makes Windows resize
     // the window during the first call (WM_DPICHANGED); the second restores our rect.
@@ -386,8 +424,9 @@ async fn reveal(app: AppHandle) -> Result<(), String> {
 }
 
 /// Swift heard its name, or a card or question came: the overlay and its panes go on top again
-/// where they are, without moving or taking focus. A hotkey raises it by placing it; "Hey Swift"
-/// had nothing, so another topmost window could cover it (owner checks, 2026-11-09).
+/// where they are, without taking focus. A hotkey raises it by placing it; "Hey Swift" had
+/// nothing, so another topmost window could cover it (owner checks, 2026-11-09). A window in a
+/// higher z-order band can't be come in front of: the overlay moves out from under it (A10).
 #[tauri::command]
 async fn raise(app: AppHandle) -> Result<(), String> {
     let main = app.get_webview_window("overlay").ok_or("no overlay window")?;
@@ -395,6 +434,9 @@ async fn raise(app: AppHandle) -> Result<(), String> {
     for (hwnd, _) in app.state::<Panes>().0.lock().unwrap().values() {
         win::reshow(*hwnd);
     }
+    // A window in a higher band (Task Manager on top) can still cover it: move out from under it,
+    // or home again once it's gone (A10, check 320).
+    place_on_main(&app, Place::Raise);
     Ok(())
 }
 

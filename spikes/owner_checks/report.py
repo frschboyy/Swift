@@ -596,7 +596,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         *_grounded(rows),
         *_memory(rows),
         *_health(log),
-        _gmail(log),
+        *_gmail(log),
         *_front_and_web(rows),
         *_command_cards(rows),
         *_step_cards(rows),
@@ -636,9 +636,10 @@ def _runs(rows: list[dict[str, Any]], folder: Path | None) -> list[tuple[str, Ou
     ]
 
 
-def _gmail(log: list[str]) -> tuple[str, Outcome | bool, str]:
+def _gmail(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
     """Check 252 (A9, 2026-11-13): Gmail filled in with the cursor elsewhere. The detail is the proof of the
-    cause: which step put the cursor in each field, and the code of each fill that failed."""
+    cause: which step put the cursor in each field, and the code of each fill that failed.
+    305 (2026-11-14): a To row Gmail showed collapsed ("Recipients") was opened, and the fill finished."""
     fills = [line for line in log if "tool='fill_in_email'" in line]
     done = [line for line in fills if "| action done |" in line]
     failed = [m.group(1) for line in fills if "| action failed |" in line
@@ -646,9 +647,16 @@ def _gmail(log: list[str]) -> tuple[str, Outcome | bool, str]:
     hows = [re.sub(r".*field='(\w+)' how='(\w+)'.*", r"\1 by \2", line) for line in log
             if "| gmail field focused |" in line]
     forward = sum("| gmail compose brought forward |" in line for line in log)
-    return ("252 Gmail filled in without the cursor already in the body", unless(failed, done),
-            f"{len(done)} filled, failed: {', '.join(failed) or 'none'}; cursor: {', '.join(hows) or 'first try'};"
-            f" brought forward {forward} time(s)")
+    opened = sum("| gmail to row opened |" in line for line in log)
+    no_to = sum("| gmail compose not filled |" in line and "'subject', 'body'" in line and "'to'" not in line
+                for line in log)
+    return [
+        ("252 Gmail filled in without the cursor already in the body", unless(failed, done),
+         f"{len(done)} filled, failed: {', '.join(failed) or 'none'}; cursor: {', '.join(hows) or 'first try'};"
+         f" brought forward {forward} time(s)"),
+        ("305 Gmail's To was filled in, also when it opened collapsed", unless(no_to, done),
+         f"To row opened {opened} time(s); gave up with Subject and Body but no To: {no_to} time(s)"),
+    ]
 
 
 def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:

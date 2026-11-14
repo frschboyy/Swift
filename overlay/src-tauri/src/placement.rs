@@ -194,35 +194,55 @@ pub fn choose_anchor(area: Area, scale: f64, preferred: Anchor, avoid: &[(i32, i
     }
 }
 
+#[cfg(test)]
 fn overlaps((ax, ay, aw, ah): Rect, (bx, by, bw, bh): Rect) -> bool {
     ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah && aw > 0 && ah > 0 && bw > 0 && bh > 0
+}
+
+/// How much of `zone` the `covers` hide, in square pixels (overlaps between covers counted once each,
+/// so at most the zone's area).
+fn covered(zone: Rect, covers: &[Rect]) -> i64 {
+    let (zx, zy, zw, zh) = zone;
+    let hidden: i64 = covers
+        .iter()
+        .map(|&(cx, cy, cw, ch)| {
+            let w = (zx + zw).min(cx + cw) - zx.max(cx);
+            let h = (zy + zh).min(cy + ch) - zy.max(cy);
+            if w > 0 && h > 0 { w as i64 * h as i64 } else { 0 }
+        })
+        .sum();
+    hidden.min(zw.max(0) as i64 * zh.max(0) as i64)
 }
 
 fn centre((x, y, w, h): Rect) -> (f64, f64) {
     (x as f64 + w as f64 / 2.0, y as f64 + h as f64 / 2.0)
 }
 
-/// A10 (owner checks 203, 254): a window in a higher z-order band than Swift's (Task Manager with
+/// A10 (owner checks 203, 254, 320): a window in a higher z-order band than Swift's (Task Manager with
 /// "Always on top" is in band 16; every ordinary app, Swift included, is in band 1) stays in front
 /// of Swift whatever Swift does. When one of `covers` lies over where the cards paint at the
-/// owner's spot (`home_zone`: their anchor's, or where they dropped it), this is the anchor nearest to it whose card zone none
-/// covers. `None` means stay home: nothing covers it, or every anchor is covered (nowhere better).
+/// owner's spot (`home_zone`: their anchor's, or where they dropped it), this is the anchor whose card
+/// zone is least covered, the nearest to home among equals: one none covers if there is one. Not one
+/// wholly uncovered only: at 125% or 150% a Task Manager of its usual size over the orb reaches a
+/// corner of every zone (check 320 failed so). `None` means stay home: nothing covers it, or no anchor
+/// is less covered (a maximised Task Manager: nowhere better).
 pub fn uncovered_anchor(area: Area, scale: f64, home_zone: Rect, covers: &[Rect]) -> Option<Anchor> {
-    let covered = |zone: Rect| covers.iter().any(|c| overlaps(zone, *c));
-    if !covered(home_zone) {
+    let at_home = covered(home_zone, covers);
+    if at_home == 0 {
         return None;
     }
     let (hx, hy) = centre(home_zone);
     Anchor::ALL
         .into_iter()
         .map(|a| (a, card_zone(area, scale, a)))
-        .filter(|(_, zone)| !covered(*zone))
-        .map(|(a, zone)| {
+        .map(|(a, zone)| (a, covered(zone, covers), zone))
+        .filter(|(_, hidden, _)| *hidden < at_home)
+        .map(|(a, hidden, zone)| {
             let (x, y) = centre(zone);
-            (a, (x - hx).powi(2) + (y - hy).powi(2))
+            (a, hidden, (x - hx).powi(2) + (y - hy).powi(2))
         })
-        .min_by(|l, r| l.1.total_cmp(&r.1)) // first in `ALL` on a tie
-        .map(|(a, _)| a)
+        .min_by(|l, r| l.1.cmp(&r.1).then(l.2.total_cmp(&r.2))) // first in `ALL` on a tie
+        .map(|(a, _, _)| a)
 }
 
 /// Where the overlay goes given the windows Swift can't come in front of (A10): its home (the
@@ -390,6 +410,24 @@ mod tests {
         // Touching the card zone's edge isn't covering it.
         let (zx, zy, _, _) = home;
         assert_eq!(uncovered_anchor(FHD, 1.0, home, &[(zx - 100, zy - 100, 100, 100)]), None);
+    }
+
+    /// Check 320 failed (owner's run of 2026-11-14 15:00, the other PC): with Windows scaling at 125% or
+    /// 150%, a Task Manager of its usual size over the orb overlaps a corner of every anchor's card zone,
+    /// so no anchor was wholly uncovered and the cards stayed behind it. They go where least is covered.
+    #[test]
+    fn at_125_and_150_percent_the_cards_move_where_task_manager_covers_least() {
+        for scale in [1.25, 1.5] {
+            let area = Area { x: 0, y: 0, w: 1920, h: 1032 };
+            let (w, h) = ((830.0 * scale) as i32, (620.0 * scale) as i32);
+            let over_orb = (960 - w / 2, 1032 - h, w, h);
+            let home_rect = overlay_rect(area, scale, BC);
+            let (anchor, rect, moved) = settle(area, scale, BC, home_rect, &[over_orb]);
+            assert!(moved, "at {scale}: the cards stayed behind Task Manager");
+            assert_eq!(rect, overlay_rect(area, scale, anchor));
+            let left = covered(card_zone(area, scale, anchor), &[over_orb]);
+            assert!(left < covered(card_zone(area, scale, BC), &[over_orb]) / 4, "at {scale}: {anchor:?} is hardly better");
+        }
     }
 
     #[test]

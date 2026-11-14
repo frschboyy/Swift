@@ -63,7 +63,7 @@ areas:
     checks: [17-25, 55, 152, 168-182, 194, 196, 203, 206, 208, 219, 251, 256, 257]
   out-from-under:
     paths: [overlay/src-tauri/src/cover.rs, overlay/src-tauri/src/placement.rs, overlay/src-tauri/src/lib.rs]
-    checks: [203, 320]
+    checks: [203, 320, 345]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
     checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212]
@@ -76,7 +76,7 @@ areas:
     checks: [54, 146-149, 165, 171, 180, 181, 263, 270, 271, 300]
   capsule:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/card.ts, overlay/src/blocks.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
-    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320]
+    checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320, 345]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]
@@ -127,6 +127,8 @@ focus:
     why: Halo Step B (2026-11-14), one card renderer; the default look should be unchanged except the working card's time bar, not seen on the real PC
   - checks: [320]
     why: A10, the owner's decision of 2026-11-14 after check 254 (Task Manager on top is in band 16); Swift's card now moves to the nearest uncovered anchor, not seen on the real PC
+  - checks: [345]
+    why: A10, check 320 failed on the other PC (2026-11-14 15:00); at 125% or 150% no anchor was wholly uncovered, so the card now goes where it is least covered; not seen on the real PC
   - checks: [330]
     why: C3, the owner's decision of 2026-11-14 from check 255 (an address said earlier in the conversation, in the last 10 minutes, opens); product rule, not seen on the real PC
   - checks: [204, 303, 304]

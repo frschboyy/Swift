@@ -712,6 +712,7 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3).
     320: out from under Task Manager, which no ordinary app can come in front of (A10).
+    345: the same at 125% or 150% scaling, where Task Manager reaches every anchor; and the hotkey keeps it out (A10).
     330: "open my university's website" opens the address said in the last 10 minutes (C3, 2026-11-14)."""
     spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
@@ -737,6 +738,9 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
         ("320 the card moved out from under Task Manager, and came back", LOOK,
          "tell us where the card showed with Task Manager over the orb, then after closing it, and whether Notepad kept the cursor"),
+        ("345 at 125% or 150% the card moved out from under Task Manager, and the hotkey kept it there", LOOK,
+         "tell us your scale, where the card showed with Task Manager over the orb, after the hotkey, after closing it,"
+         " and whether Notepad kept the cursor"),
         ("330 the address said a moment ago opened from 'my university's website'", unless(again, bare),
          f"{len(bare)} heard; asked or refused instead: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in again) or "none")),
         ("330 after 'new topic' Swift asked for the address", LOOK,

@@ -2413,6 +2413,21 @@ hidden behind it (203). Your decision: Swift moves out from under it instead.
 The report checks: nothing to judge from the log; tell us where the card showed in steps 3 and 4, and whether Notepad
 kept the cursor.
 
+<a id="check-345"></a>**Check 345. With Windows scaling at 125% or 150%, the card still moves out from under Task Manager**
+Check 320 failed on the other PC (run of 2026-11-14 15:00): the card stayed behind Task Manager. At 125% or 150% a
+Task Manager of its usual size reaches a corner of every place Swift can go, and Swift moved only to a place wholly
+clear of it. Now it goes where Task Manager covers least.
+1. In **Settings > System > Display**, note your **Scale** (125% or 150% is the case this checks; at 100%, say so).
+2. Open Task Manager at its usual size with **Options > Always on top** ticked, and drag it over where Swift's orb sits.
+   Click in Notepad beside it.
+3. Say "Hey Swift, what time is it". You should see the card at another place on the screen, mostly or wholly clear of
+   Task Manager, not behind it. Type a letter: it goes into Notepad.
+4. Press Swift's hotkey with Task Manager still there: the card stays where it moved to, not back under Task Manager.
+5. Close Task Manager and say "Hey Swift, what time is it": the card is back where you put Swift.
+
+The report checks: nothing to judge from the log; tell us your scale, where the card showed in steps 3 to 5, and whether
+Notepad kept the cursor.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

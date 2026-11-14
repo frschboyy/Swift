@@ -4376,15 +4376,15 @@ class Session:
             reason = "stopped"  # it went silent, or the internet went: kept to pick up (seams audit R-04, R-06)
         else:
             return
-        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
-        self.parked.park(
-            Parked(
-                thread=record["thread"], request=self._request, reason=reason, at=time.time(),
-                progress=progress, proposed=_proposal(self._store()), said=self._said or "",
-                keep_s=QUESTION_KEEP_S if reason == "asked" and record.get("route") == "local" else 0.0,
-            )
-        )
+        self.parked.park(self._parked(record, reason, QUESTION_KEEP_S if reason == "asked" and record.get("route") == "local" else 0.0))
         record["parked"] = reason
+
+    def _parked(self, record: dict[str, Any], reason: str, keep_s: float = 0.0) -> Parked:
+        """The request in front, kept to pick up later: its words, its last steps, what it last showed."""
+        assert self._request is not None
+        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
+        return Parked(thread=record["thread"], request=self._request, reason=reason, at=time.time(), progress=progress,
+                      proposed=_proposal(self._store()), said=self._said or "", keep_s=keep_s)
 
     def _asked_parked(self, thread: str | None) -> bool:
         if thread is None or self.parked is None:
@@ -4398,11 +4398,7 @@ class Session:
         self._drop_question()
         if self.parked is None or self._request is None or self.wake_question_s <= 0:
             return
-        progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
-        parked = Parked(
-            thread=record["thread"], request=self._request, reason="asked", at=time.time(),
-            progress=progress, proposed=_proposal(self._store()), said=self._said or "",
-        )
+        parked = self._parked(record, "asked")
         timer = asyncio.get_running_loop().call_later(self.wake_question_s, self._park_question, parked)
         self._question = (parked, timer)
 

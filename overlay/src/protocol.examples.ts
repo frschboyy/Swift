@@ -16,8 +16,8 @@ export const TO_OVERLAY = [
   {"type": "step", "data": {"run_id": "a-1", "text": "Writing in Word", "kind": "swift", "ts": 1793867652629, "activity": "writing", "agent": {"id": "swift", "name": "Swift"}, "subagent": false, "thread_id": "t-1", "app": "Word"}},
   {"type": "step", "data": {"run_id": "a-1", "text": "Reading README.md", "kind": "tool", "ts": 5, "activity": "reading", "agent": null, "subagent": true, "thread_id": "t-1", "app": null}},
   {"type": "confirm.request", "data": {"request_id": "a-1:1", "run_id": "a-1", "title": "Create or overwrite notes.md", "detail": "1 line into C:\\p\\notes.md", "tool": "Write"}},
-  {"type": "confirm.request", "data": {"request_id": "swift:1", "run_id": "a-1", "title": "Send this email to Ada", "detail": "Subject: Thursday", "tool": "send_email", "agent": null, "timeout_s": 45.0, "artifact_id": "draft-1", "thread_id": "t-1"}},
-  {"type": "confirm.request", "data": {"request_id": "a-1:2", "run_id": "a-1", "title": "Run a command", "detail": "dir", "tool": "Bash", "purpose": "Lists the files in this folder.", "agent": {"id": "claude_code", "name": "Claude Code"}, "timeout_s": null, "artifact_id": null, "thread_id": "t-1"}},
+  {"type": "confirm.request", "data": {"request_id": "swift:1", "run_id": "a-1", "title": "Send this email to Ada", "detail": "Subject: Thursday", "tool": "send_email", "agent": null, "artifact_id": "draft-1", "thread_id": "t-1"}},
+  {"type": "confirm.request", "data": {"request_id": "a-1:2", "run_id": "a-1", "title": "Run a command", "detail": "dir", "tool": "Bash", "purpose": "Lists the files in this folder.", "agent": {"id": "claude_code", "name": "Claude Code"}, "artifact_id": null, "thread_id": "t-1"}},
   {"type": "confirm.voice", "data": {"request_id": "a-1:1", "phase": "hint", "text": "Say \"Swift, approve\" to approve."}},
   {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "Wi-Fi off."}},
   {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "Three files.", "details": {"kind": "list", "items": ["a.md", "b.md", "c.md"]}, "agent": {"id": "claude_code", "name": "Claude Code"}, "note": "No, I'm Swift.", "thread_id": "t-1", "origin": "asked"}},
@@ -35,7 +35,8 @@ export const TO_OVERLAY = [
   {"type": "followup", "data": {"open": true, "seconds": 8.0, "question": true}},
   {"type": "presence", "data": {"state": "here", "reason": "start", "listening": true, "wake": true}},
   {"type": "presence", "data": {"state": "away", "reason": "locked", "listening": false, "wake": true, "paused": false}},
-  {"type": "confirm.hold", "data": {"request_id": "a-1:1", "held": true, "timeout_s": 40.5}},
+  {"type": "confirm.hold", "data": {"request_id": "a-1:1", "held": true}},
+  {"type": "countdown", "data": {"request_id": "a-1:1", "left_s": 40.5, "running": false}},
   {"type": "resume.offer", "data": {"thread_id": "t-1", "title": "Plan the trip"}},
   {"type": "runs", "data": {"focus": null, "rows": [], "waiting": 0}},
   {"type": "runs", "data": {"focus": "a-1", "rows": [{"run_id": "a-2", "thread_id": null, "title": "rename the notes file", "state": "working", "activity": "editing", "app": "Word", "agent": {"id": "claude_code", "name": "Claude Code"}, "started_ms": 1793867652488, "summary": "", "words": "rename the notes file", "origin": "asked"}, {"run_id": "a-3", "thread_id": "t-3", "title": "research tea", "state": "idle", "activity": null, "app": null, "agent": null, "started_ms": 1793867652488, "summary": "Done."}], "waiting": 1}},
@@ -68,7 +69,7 @@ export const TO_BACKEND = [
   {"type": "debug.say", "data": {"text": "show me"}},
   {"type": "view", "data": {"action": "show"}},
   {"type": "focus", "data": {"run_id": "a-2"}},
-  {"type": "card.seen", "data": {"request_id": "a-1:1", "visible": true}},
+  {"type": "screen", "data": {"n": 12, "stage": "confirm", "run_id": "a-1", "confirm": "a-1:1", "ask_id": ""}},
   {"type": "ready", "data": {"startup_ms": 120, "backend_ms": null}},
   {"type": "ready", "data": {"startup_ms": 120, "backend_ms": 900}},
   {"type": "stack.action", "data": {"id": "card:swift:2", "action": "open"}},
@@ -82,7 +83,6 @@ export const TO_BACKEND = [
   {"type": "run.stop", "data": {"run_id": "a-1", "from": "question"}},
   {"type": "live.app", "data": {"run_id": "a-1"}},
   {"type": "ask.reply", "data": {"ask_id": "ask-2", "text": "Paris"}},
-  {"type": "due.shown", "data": {"run_id": "due-timer-4"}},
 ] satisfies Outbound[];
 
 type Missing<All extends { type: string }, Given extends { type: string }> = Exclude<All["type"], Given["type"]>;

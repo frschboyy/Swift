@@ -219,6 +219,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
     resynced_card = [line for line in resynced if "card=True" in line]
     due_sent = [line for line in log if "| due sent |" in line]
     due_drawn = [line for line in log if "| due shown |" in line]
+    due_refused = [line for line in log if "| due card not drawn |" in line]
     lost_mid_run = [line for line in log if "| internet lost during a request |" in line]
     stalled = [line for line in log if "| claude run stalled |" in line]
     cleared = [line for line in log if "| recordings cleared |" in line]
@@ -477,6 +478,11 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("147-148 a restart and two cards", LOOK, "check on screen: the timer card after the restart; one card at a time"),
         # Every card sent should be drawn: "kept for later" still means the overlay refused it (8 sent,
         # 1 drawn printed PASS while "Your timer is up" repeated, 2026-11-05).
+        ("270 each timer card sent was drawn, or waited in the stack", unless(
+            len(due_sent) > len(due_drawn) + len(due_refused), due_drawn),
+         f"{len(due_sent)} sent, {len(due_drawn)} drawn, {len(due_refused)} not drawn and back in the stack"),
+        ("271 an approval card counted down only while seen", LOOK,
+         "check on screen: stopped after two idle minutes, went on from there"),
         ("149 due cards drawn before leaving the schedule", unless(len(due_sent) > len(due_drawn), due_drawn),
          f"{len(due_sent)} sent, {len(due_drawn)} drawn"),
         # Nothing waits for ever (seams audit S4).

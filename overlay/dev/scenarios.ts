@@ -25,7 +25,8 @@ async function correctionAfterReject(s: Shim): Promise<void> {
   s.inject("step", { run_id: "r2", text: "Thinking it over", kind: "tool", ts: Date.now(), activity: "thinking", agent: AGENT, subagent: false, thread_id: "t1" });
   await sleep(1500);
   s.inject("state", { state: "confirm", run_id: "r2", agent: AGENT, thread_id: "t1" });
-  s.inject("confirm.request", { request_id: "swift:2", run_id: "r2", title: "Add to your calendar: Meeting with Mr. Akande", detail: "Wed 28 Oct 2026, 20:00–21:00", tool: "create_calendar_event", agent: null, timeout_s: 120, artifact_id: null, thread_id: "t1" });
+  s.inject("confirm.request", { request_id: "swift:2", run_id: "r2", title: "Add to your calendar: Meeting with Mr. Akande", detail: "Wed 28 Oct 2026, 20:00–21:00", tool: "create_calendar_event", agent: null, artifact_id: null, thread_id: "t1" });
+  s.inject("countdown", { request_id: "swift:2", left_s: 120, running: true });
 }
 
 async function threeTurnThread(s: Shim): Promise<void> {
@@ -99,9 +100,10 @@ async function confirm(s: Shim, title: string, artifact: Record<string, unknown>
   if (artifact) s.inject("artifact", { run_id: id, thread_id: `t-${id}`, id: `a-${id}`, phase: "confirming", version: 1, title, agent: null, ...artifact });
   s.inject("state", { state: "confirm", run_id: id, agent: AGENT, thread_id: `t-${id}` });
   s.inject("confirm.request", {
-    request_id: `swift:${id}`, run_id: id, title, detail, tool: "create_calendar_event", agent: null, timeout_s: 45,
+    request_id: `swift:${id}`, run_id: id, title, detail, tool: "create_calendar_event", agent: null,
     artifact_id: artifact ? `a-${id}` : null, thread_id: `t-${id}`,
   });
+  s.inject("countdown", { request_id: `swift:${id}`, left_s: 45, running: true });
   await sleep(1300);  // a few seconds into the countdown: "0:43"
 }
 

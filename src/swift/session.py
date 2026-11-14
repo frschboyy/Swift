@@ -259,8 +259,6 @@ FOLLOWUP_S = 300.0
 # Errors where nothing was heard well enough to act on: the conversation goes on past them.
 NOT_HEARD = ("unclear_speech", "no_speech", "fragment")
 CONFIRM_VOICE_HINT = "Say “approve” or “reject”, or click."
-# On Swift's own cards (an email, an event) anything else said is a change to make.
-CHANGE_HINT = "Say “approve”, “reject”, or what to change."
 # A voice approval in a noisy room needs a second one (docs/stt-noise.md). The room
 # between words measured -72 to -45 dBFS quiet and -49 to -31 with a TV talking. Word
 # confidence doesn't help here: a clean "Stop." scored 0.46, a misheard "Sure." 0.71.
@@ -509,7 +507,6 @@ class Run:
     # Its tool scope, kept after it closed: "Show in Word" from the live view after the run ended.
     last_scope: RunScope | None = None
     thread: str | None = None
-    thread_before: str | None = None
     confirm_ids: set[str] = field(default_factory=set)
     # Confirm card titles by request id, and the ones approved in this run.
     confirm_titles: dict[str, str] = field(default_factory=dict)
@@ -697,7 +694,6 @@ class Session:
     _context = _per_run("context", "Where the owner was when it started (desktop).")
     _note = _per_run("note", "Swift's aside above its answer.")
     _correction = _per_run("correction", "A change for a card the provider couldn't take: the next request.")
-    _thread_before = _per_run("thread_before", "The thread before this request's.")
     _artifacts = _per_run("artifacts", "Its artifacts, kept after it ended.")
     _artifacts_run = _per_run("artifacts_run", "The run id its artifacts belong to.")
 
@@ -2713,7 +2709,6 @@ class Session:
         # Typed text continues the conversation on screen when the overlay names it (ADR-015 §10).
         continuing = record.get("source") in CONTINUES_THREAD or (record.get("source") == "typed" and continues is not None)
         self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]
-        self._thread_before = previous
         record["thread"] = self._thread
         self.runs.begin(record)
         if run is self._focus:

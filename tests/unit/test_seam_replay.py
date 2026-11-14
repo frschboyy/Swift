@@ -845,6 +845,29 @@ async def test_the_request_said_again_before_swift_asked_is_not_a_second_request
     await finish_all(session, agent)
 
 
+async def test_the_request_said_again_to_its_question_reopened_from_the_stack_is_not_a_second_request() -> None:
+    # A7, check 204, the owner's run of 2026-11-13, 14:42-14:44: "Turn off the Wi Fi." asked "Turn off Wi-Fi?",
+    # went unanswered and was parked; opened from the stack, it was asked again; one unclear answer was asked
+    # again, then the owner said the request again ("He has turn off Wi Fi.", misheard). That was taken as no
+    # answer and started a second request beside it, to the agent, which put an approval card up for the radio.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    await _wifi(session, out, stt)
+    await until(lambda: [i["kind"] for i in out.last("stack")["items"]] == ["parked"])
+    session.wake_question_s = 30.0
+    parked = out.last("stack")["items"][0]["id"]
+    await session.handle(Message("stack.action", {"id": parked, "action": "open"}))
+    await until(lambda: session._listening_for() is not None)
+    q = session.dialogue.pending
+    assert q is not None and q.text == "Turn off Wi-Fi?"
+    await _unsure(session, stt)  # 14:44:14, counted as "reask"
+    await until(lambda: session._listening_for() is not None)
+    await say(session, stt, "He has turn off Wi Fi.")  # 14:44:20
+    await asyncio.sleep(0.5)
+    assert agent.requests == [], "the request said again went to the agent"
+    assert len(session._live()) <= 1, "a second request"
+    await finish_all(session, agent)
+
+
 async def test_an_answer_that_ends_behind_a_card_waits_there_until_it_is_seen(monkeypatch: Any) -> None:
     """A4 (owner's run of 2026-11-13): the research ended behind the email's card and its edge went
     20 s later, before the owner had seen it. A card never presented doesn't run out because another

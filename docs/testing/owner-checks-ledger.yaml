@@ -93,6 +93,10 @@ areas:
     rule: memory only from the owner's words; Swift's own files are never read
     paths: [src/swift/executors/read_scope.py, src/swift/security/web_scope.py, src/swift/workflows/scope.py]
     checks: [52, 62, 213, 255]
+  memory:
+    rule: memory is written only from the owner's words or an approved card, never from what a worker read
+    paths: [src/swift/memory.py]
+    checks: [290-293]
   signin:
     paths: [src/swift/signin.py, src/swift/executors/signin.py, src/swift/connectors/google.py]
     checks: [120-122, 155]
@@ -108,6 +112,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [290-293]
+    why: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC
   - checks: [262]
     why: the owner's 'Playing.' with nothing playing (2026-11-13); fixed, not seen on the real PC
   - checks: [256, 257]

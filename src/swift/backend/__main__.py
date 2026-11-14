@@ -14,6 +14,7 @@ import functools
 import os
 import shutil
 import sys
+import tempfile
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -37,6 +38,7 @@ from swift.executors.quick import QuickModel
 from swift.ipc.server import OverlayServer
 from swift.attention import Attention
 from swift.lifecycle import Lifecycle
+from swift.memory import Store
 from swift.parked import ParkedThreads
 from swift.presence import PresenceMonitor, WindowsProbe
 from swift.logging_setup import setup_logging
@@ -537,6 +539,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     _make_speaker(settings, session, loop)
     if (signins := _watch_signins(settings, session)) is not None:
         signin_task = asyncio.create_task(signins.run())  # noqa: F841 - lives as long as the backend
+    # What the owner asked Swift to remember (swift/memory.py); debug mode never touches the owner's.
+    session.memories = Store(Path(tempfile.mkdtemp(prefix="swift-memory-")) if settings.debug else Path(settings.memory_dir))
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)

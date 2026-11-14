@@ -24,6 +24,7 @@ from test_dialogue import asker, asks
 from test_runs import SHORT, finish_all, make, say, started, until
 from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
+from virtual_clock import VIRTUAL, event_loop_policy, one_clock  # noqa: F401 (fixtures)
 
 from swift.executors.base import ExecEvent
 from swift.executors.claude_mapping import command_purpose, confirm_card
@@ -35,6 +36,11 @@ REPLAY = Path(__file__).resolve().parents[2] / "overlay" / "tests" / "seam" / "r
 NODE = shutil.which("node")
 
 
+# Virtual time: the Node replay blocks the loop 0.7 s (5 s under load), and a question's window used to
+# run out while the test only looked.
+pytestmark = VIRTUAL
+
+
 def _screen(out: Any) -> dict[str, Any]:
     assert NODE, "the seam test needs Node (the overlay's own tests do too)"
     frames = [{"type": m.type, "data": m.data, "n": m.n} for m in out.messages if m.type != "level"]
@@ -42,6 +48,15 @@ def _screen(out: Any) -> dict[str, Any]:
                           text=True, encoding="utf-8", timeout=30, check=False)
     assert done.returncode == 0, done.stderr
     return json.loads(done.stdout)
+
+
+async def _shows(out: Any, check: Any, timeout: float = 4.0) -> None:
+    """Wait for the screen to show something. Each look replays every frame in real time, so look every 0.1 s."""
+    for _ in range(int(timeout / 0.1)):
+        if check(_screen(out)):
+            return
+        await asyncio.sleep(0.1)
+    raise AssertionError("timed out")
 
 
 def agree(session: Any, out: Any, *, may_lose: tuple[str, ...] = ()) -> dict[str, Any]:
@@ -186,14 +201,14 @@ async def test_f_a_question_said_over_a_card_waits_for_the_card() -> None:
     assert control.radio_state["wifi"] is True, "a yes for a question nobody could see"
     await session.handle(Message("confirm.reply", {"request_id": out.last("confirm.request")["request_id"], "decision": "approve"}))
     await asyncio.sleep(0.15)
-    assert agree(session, out)["question"] == "Turn off Wi-Fi?"
+    assert agree(session, out)["question"].endswith("Turn off Wi-Fi?")  # asked once more, on screen
     await finish_all(session, agent)
 
 
 async def test_g_a_request_brought_forward_hides_the_question() -> None:
     session, out, agent, stt, control, _sched = _lane()
     await _beside(session, out, agent, stt)
-    assert agree(session, out)["question"] == "Turn off Wi-Fi?"
+    assert agree(session, out)["question"].endswith("Turn off Wi-Fi?")  # asked once more, on screen
     await session._bring(next(r for r in session._runs if r.alive))
     assert agree(session, out)["question"] is None
     await say(session, stt, "yes")
@@ -428,7 +443,7 @@ async def test_a_timer_waits_for_a_question_on_screen() -> None:
     await asyncio.sleep(0.1)
     assert agree(session, out)["question"] == "Turn off Wi-Fi?", "the timer was sent over the question and refused"
     await say(session, stt, "no")
-    await until(lambda: _screen(out)["cardRun"].startswith("due-"), timeout=4.0)
+    await _shows(out, lambda s: (s["cardRun"] or "").startswith("due-"))
     agree(session, out)
     await finish_all(session, agent)
 
@@ -488,7 +503,7 @@ async def test_a_timer_during_a_run_waits_in_the_stack_and_is_never_refused() ->
     assert [i["kind"] for i in out.last("stack")["items"]] == ["due"]
     agent.runs[rid]["go"].set()
     await finish_all(session, agent)
-    await until(lambda: _screen(out)["cardRun"].startswith("due-"), timeout=4.0)
+    await _shows(out, lambda s: (s["cardRun"] or "").startswith("due-"))
     agree(session, out)
     assert out.last("stack")["items"] == []
 
@@ -827,6 +842,92 @@ async def test_the_request_said_again_before_swift_asked_is_not_a_second_request
     assert screen["question"] == "Turn off Wi-Fi?", screen
     await say(session, stt, "yes")  # the question still takes its answer
     await until(lambda: control.radio_state.get("wifi") is False)
+    await finish_all(session, agent)
+
+
+async def _reopened(session: Any, out: Any, stt: Any) -> Any:
+    """A7, check 204, the owner's run of 2026-11-13, 14:42-14:44: "Turn off Wi-Fi?" unanswered and parked,
+    opened from the stack and asked again; one unclear answer asked again. The question, open and on screen."""
+    await _wifi(session, out, stt)
+    await until(lambda: [i["kind"] for i in out.last("stack")["items"]] == ["parked"])
+    session.wake_question_s = 30.0
+    parked = out.last("stack")["items"][0]["id"]
+    await session.handle(Message("stack.action", {"id": parked, "action": "open"}))
+    await until(lambda: session._listening_for() is not None)
+    q = session.dialogue.pending
+    assert q is not None and q.text == "Turn off Wi-Fi?"
+    await _unsure(session, stt)  # 14:44:14, counted as "reask"
+    await until(lambda: session._listening_for() is not None)
+    return q
+
+
+async def test_the_request_said_again_to_its_question_reopened_from_the_stack_is_its_yes() -> None:
+    # The owner's decision of 2026-11-14 (A): said, the same request (same intent and slots) answers Swift's own
+    # open question about it. In the owner's run it started a second request, to the agent, behind an approval
+    # card; on main before this fix, the question went back to the stack and the Wi-Fi stayed on.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    await _reopened(session, out, stt)
+    await say(session, stt, "Turn off the wifi")
+    await until(lambda: control.radio_state.get("wifi") is False)
+    assert agent.requests == [] and out.last("stack")["items"] == []
+    await finish_all(session, agent)
+
+
+async def test_what_only_sounds_like_the_request_asks_again_and_approves_nothing() -> None:
+    # 14:44:20: "He has turn off Wi Fi." (very likely "yes, turn off Wi-Fi", misheard). The owner's decision of
+    # 2026-11-14 (B): it approves nothing; the question stays open and is asked once more, nothing to the stack,
+    # no second request, no agent.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    q = await _reopened(session, out, stt)
+    n = len(asks(out))
+    await say(session, stt, "He has turn off Wi Fi.")
+    await until(lambda: any(a.get("phase") == "again" for a in asks(out)[n:]))
+    await asyncio.sleep(0.2)
+    assert control.radio_state["wifi"] is True, "a misheard restatement approved"
+    assert session.dialogue.pending is q and session._listening_for() is q, "the question went"
+    assert agent.requests == [] and len(session._live()) == 1 and out.last("stack")["items"] == []
+    assert agree(session, out)["question"].endswith("Turn off Wi-Fi?")  # asked once more, on screen
+    await say(session, stt, "yes")  # still Swift's own question: a plain spoken yes does it
+    await until(lambda: control.radio_state.get("wifi") is False)
+    await finish_all(session, agent)
+
+
+async def test_the_request_typed_again_never_approves_its_question() -> None:
+    # Typing never approves (CLAUDE.md): the same request typed while the question is open asks again.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    q = await _reopened(session, out, stt)
+    await session.handle(Message("text", {"text": "turn off the wifi"}))
+    await asyncio.sleep(0.3)
+    assert control.radio_state["wifi"] is True, "typing approved"
+    assert session.dialogue.pending is q and agent.requests == []
+    await finish_all(session, agent)
+
+
+async def test_the_opposite_request_said_to_the_question_never_approves_it() -> None:
+    # "Turn on the Wi-Fi" is another intent, not the request said again: it never answers "Turn off Wi-Fi?" yes.
+    session, out, agent, stt, control, _sched = _lane(0.2)
+    await _reopened(session, out, stt)
+    await say(session, stt, "Turn on the wifi")
+    await asyncio.sleep(0.3)
+    assert control.radio_state["wifi"] is not False, "the opposite request turned the Wi-Fi off"
+    await finish_all(session, agent)
+
+
+@pytest.mark.parametrize("reopened", [False, True])
+async def test_a_system_command_said_while_swifts_question_is_open_goes_through_the_system_lane(reopened: bool) -> None:
+    # A7 follow-up (2026-11-14): suspected that a request said while a question is open (turn "elsewhere")
+    # always started on the agent, since _start_beside passes self.executor. Unproven, and wrong on main:
+    # _interaction routes it like any fresh request, so a system command gets the system lane and no agent.
+    # (14:44:20 reached the agent because its misheard words parse to no system intent: A+B, 355bc7e.)
+    session, out, agent, stt, control, _sched = _lane(0.2 if reopened else 30.0)
+    if reopened:
+        await _reopened(session, out, stt)
+    else:
+        await _wifi(session, out, stt)
+    control.radio_state["bluetooth"] = False
+    await say(session, stt, "turn on the Bluetooth")
+    await until(lambda: control.radio_state.get("bluetooth") is True)
+    assert agent.requests == [] and control.radio_state["wifi"] is True
     await finish_all(session, agent)
 
 

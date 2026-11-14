@@ -16,6 +16,11 @@ from swift.ipc.protocol import Message, ProtocolError, decode, encode
 from swift.parked import ParkedThreads
 
 from test_corrections import finish, make, start
+from virtual_clock import VIRTUAL, event_loop_policy, one_clock  # noqa: F401 (fixtures)
+
+# Countdowns of 0.05 s against sleeps of 0.2 s: on wall-clock time a stalled process let the test look before
+# the expiry's few loop steps had run (2026-11-14).
+pytestmark = VIRTUAL
 
 # ---- the wait --------------------------------------------------------------------------------
 

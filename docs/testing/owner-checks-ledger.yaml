@@ -32,12 +32,12 @@ areas:
     checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250]
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
-    paths: [src/swift/security/*, overlay/src/answer.ts, overlay/src/cardtext.ts]
-    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302]
+    paths: [src/swift/security/*, src/swift/restated.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
+    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304]
   typing:
     rule: typing never approves
     paths: [overlay/src/entry.ts, src/swift/intake.py]
-    checks: [16b, 68, 108, 138]
+    checks: [16b, 68, 108, 138, 304]
   calendar:
     paths: [src/swift/workflows/calendar.py, src/swift/connectors/google_calendar.py, src/swift/workflows/library/calendar-event/*]
     checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195]
@@ -47,7 +47,7 @@ areas:
     checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
-    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262]
+    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304]
   stopping:
     paths: [src/swift/cleanup.py]
     checks: [242]
@@ -85,7 +85,7 @@ areas:
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
-    checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239]
+    checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239, 303]
   weather:
     paths: [src/swift/workflows/tools.py]
     checks: [193, 259, 260]
@@ -116,6 +116,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [204, 303, 304]
+    why: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC
   - checks: [290-293]
     why: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC
   - checks: [270, 271]
@@ -280,3 +282,15 @@ runs:
     FAIL: ['201', '203', '204', '205', '206', '208', '218', '235', '239']
     PASS: ['202', '207', '209', '210', '213', '216', '217', '219', '220', '236', '242']
     BLOCKED: ['211']
+- date: 2026-11-14 12:24
+  commit: 0c382c2
+  source: owner
+  note: '252: both runs left Gmail empty; card said the compose window didn''t open/appear. Log: gmail_not_loaded (front Chrome, found none; then found subject+body, no To) and gmail_behind (found all three, compose behind another window). 255: step 1 opened usiu.ac.ke; step 2 the agent offered the site opened a moment ago, the owner said yes, and the open was refused (not the owner''s address in this request).'
+  checks:
+    FAIL: ['252', '255']
+- date: 2026-11-14 12:33
+  commit: dc549f9
+  source: owner
+  note: '254: window_bands.py: taskmgr.exe band 16 (system tools), always on top; swift-overlay.exe band 1. Task Manager is in a higher band than Swift. With Task Manager over the orb, Swift did not show in front of it.'
+  checks:
+    PASS: ['254']

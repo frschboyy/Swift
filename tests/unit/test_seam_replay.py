@@ -1038,3 +1038,35 @@ async def test_a_card_counts_down_on_the_backend_s_clock_seen_away_and_back() ->
     screen = agree(session, out)
     assert screen["countdown"]["paused"] is False and screen["countdown"]["ms"] >= 60_000
     await finish_all(session, agent)
+
+
+async def test_a_long_research_answer_reaches_the_card_without_its_opening_twice() -> None:
+    """Check 305 (owner's run of 2026-11-14 15:00): the tea answer's card showed its opening paragraph
+    cut with "…", and the whole opening again under it; "Read more" kept both. The answer goes through
+    Claude Code's real result mapping to the card the replay shows: what the card draws (the summary,
+    then the details) says each sentence once and has no "…"."""
+    from swift.executors.base import ExecResult
+    from swift.executors.claude_mapping import outcome_for
+    from test_claude_mapping import TEA_OPENING
+    from test_runs import Agent
+
+    answer = TEA_OPENING + "\n\n## Europe\nDutch traders brought tea to Europe in 1610.\n\n## Today\nTea is everywhere."
+
+    class Researcher(Agent):
+        async def result(self, run_id: str) -> ExecResult:
+            await super().result(run_id)
+            o = outcome_for({"type": "result", "subtype": "success", "result": answer})
+            assert o is not None
+            return ExecResult("done", o.summary, o.details, o.meta)
+
+    session, out, _records, agent, stt = make(Researcher)
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[rid]["go"].set()
+    await until(lambda: out.last("result").get("details") is not None)
+    assert agree(session, out)["stage"] == "result"
+    shown = out.last("result")
+    drawn = shown["summary"] + "\n\n" + shown["details"]["text"]
+    assert "…" not in drawn, drawn
+    for sentence in ("Tea began in southwest China", "Whatever the truth of that story"):
+        assert drawn.count(sentence) == 1, drawn
+    await finish_all(session, agent)

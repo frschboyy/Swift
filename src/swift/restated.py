@@ -40,13 +40,14 @@ def restated_as(text: str, question: Any) -> Restated | None:
 
 
 def restated(text: str, question: Any, source: str, named: bool, record: dict[str, Any] | None) -> str | None:
-    """What a restatement does to the open question: "yes" (said, the same request: the product rule's
-    reversible yes), "again" (it only sounds like it, or was typed: asked once more), or None (not one).
+    """What a restatement does to the open question: "yes" (the same request, from a source ``intake.approves``
+    takes for Swift's question), "again" (it only sounds like it, or ``approves`` refuses its source, typed
+    for one: asked once more), or None (not one). ``approves`` alone decides who may say it (OWN-02).
     Its turn is recorded as ``restated`` or ``restated_unsure`` in place of ``elsewhere``."""
     how = restated_as(text, question)
     if how is None:
         return None
-    yes = how == "same" and source != "typed" and intake.approves(source, named=named, target="reversible").allowed
+    yes = how == "same" and intake.approves(source, named=named, target="reversible").allowed  # never typed
     if record is not None and record.get("asks") and record["asks"][-1].get("turns"):
         record["asks"][-1]["turns"][-1] = "restated" if yes else "restated_unsure"
     return "yes" if yes else "again"

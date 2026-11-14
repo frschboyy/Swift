@@ -31,6 +31,21 @@ def test_who_may_approve_what(source: str, named: bool, card: bool, reversible: 
     assert intake.approves(source, named=named, target="reversible").allowed is reversible
 
 
+def test_a_restatement_is_a_yes_exactly_when_approves_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """OWN-02: ``restated`` asks ``intake.approves`` and adds no rule of its own (it used to add "not typed").
+    With ``approves`` patched both ways, every source follows it; a second rule in ``restated`` fails this."""
+    from types import SimpleNamespace
+
+    from swift.restated import restated
+    from swift.system import intents
+
+    q = SimpleNamespace(own=True, kind="yes_no", payload=intents.parse("turn off the wifi"), request="turn off the wifi")
+    for allowed in (True, False):
+        monkeypatch.setattr(intake, "approves", lambda *_a, allowed=allowed, **_k: intake.Verdict(allowed, "test"))
+        for source in ("typed", "answer", "voice", "click"):
+            assert restated("Swift, turn off the wifi", q, source, True, None) == ("yes" if allowed else "again"), source
+
+
 def test_no_words_is_nothing_and_a_mid_run_control_is_never_an_answer_during_a_run() -> None:
     assert not intake.has_words("") and not intake.has_words(" ... ") and intake.has_words("no")
     assert not intake.for_question("stop", run_working=True)

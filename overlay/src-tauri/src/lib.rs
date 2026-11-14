@@ -435,7 +435,7 @@ async fn raise(app: AppHandle) -> Result<(), String> {
         win::reshow(*hwnd);
     }
     // A window in a higher band (Task Manager on top) can still cover it: move out from under it,
-    // or home again once it's gone (A10, check 305).
+    // or home again once it's gone (A10, check 320).
     place_on_main(&app, Place::Raise);
     Ok(())
 }

@@ -1,6 +1,6 @@
 # ADR-014: Swift adapts to how people actually use it: presence, idle time, interruptions, resuming
 
-- **Status:** Accepted (owner, 2026-10-27: approved as proposed, with the proposed answers in §9). L1 first.
+- **Status:** Accepted (owner, 2026-10-27: approved as proposed, with the proposed answers in §9). L1, L2 and the mid-task redirects are built (§10–§12); L3 (quiet modes, call detection) is not started.
 - **Decided by:** Owner
 - **Date:** 2026-10-27
 - **Builds on:** ADR-007 (follow-up context), ADR-009 (overlay UX), ADR-010 (confirm cards), ADR-012 (desktop), ADR-013 (presenter, threads, several requests); threat model T7 (no action while locked)

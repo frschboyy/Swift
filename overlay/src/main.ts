@@ -30,6 +30,7 @@ import * as A from "./answer";
 import * as Q from "./ask";
 import { copyButton, detailsText, renderBlocks, renderDetails } from "./blocks";
 import * as C from "./capsule";
+import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
 import { cardLines, commandFolded, commandParts, hasMarkedLines, stepCommands } from "./cardtext";
@@ -193,12 +194,6 @@ function writePref(key: string, value: string): void {
   }
 }
 
-function ico(name: string, cls: string): SVGSVGElement {
-  const node = icon(name);
-  node.classList.add(cls);
-  return node;
-}
-
 // ---- the capsule (capsule.ts) ------------------------------------------------------------
 
 /** Long live words: the end of them, which is what is being said now. */
@@ -208,7 +203,7 @@ function drawCapsule(): void {
   const paused = C.pausedBy(presence);
   const cardOpen = card.classList.contains("card--in") && !card.classList.contains("card--held");
   const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused, cardOpen, asking: asked !== null });
-  const elapsed = stageNow() === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "";
+  const elapsed = stageNow() === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? V.elapsed(runStarted) : "";
   const v = C.view(p, transcriptText, elapsed, paused);
   const was = capsuleEl.dataset.p;
   capsuleEl.dataset.p = p;
@@ -823,6 +818,14 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   scheduleRegions();
 }
 
+/** Every card is drawn here (card.ts, ADR-019 Step B): its inside from its spec, then shown, its time bar
+ * following the presenter's deadline. */
+function drawCard(spec: Card.CardSpec): void {
+  showCard(Card.cardInside(spec), spec.look, spec.role);
+  showDeadline();
+  if (spec.ownTime) card.querySelector<HTMLElement>(":scope > .timebar")!.hidden = true;
+}
+
 /** Where a card goes as it leaves: towards the stack if it has just joined it (a handoff between
  * windows, ADR-018 §3), otherwise back into the capsule it grew out of. */
 function leavingFor(): DOMRect {
@@ -857,18 +860,9 @@ function dismiss(): void {
 
 /** Head row: how it was asked (mic or keyboard) · the owner's words · close. The whole card drags. */
 function headRow(close: (() => void) | null = dismiss, label = "Close"): HTMLElement {
-  return el(
-    "header",
-    { class: "card-head" },
-    ico(typed ? "keyboard" : "mic", "head-icon"),
-    el("p", { class: "words", title: request }, request ? `“${request}”` : ""),
-    close ? el("button", { class: "icon-btn", "aria-label": label, title: label, onclick: (ev: Event) => { ev.stopPropagation(); close(); } }, icon("x")) : null,
-  );
-}
-
-function elapsedText(): string {
-  const s = Math.floor((Date.now() - runStarted) / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const how = icon(typed ? "keyboard" : "mic");
+  how.classList.add("head-icon");
+  return el("header", { class: "card-head" }, how, el("p", { class: "words", title: request }, request ? `“${request}”` : ""), close && Card.iconButton("x", label, close));
 }
 
 /** The working card shrinks to one line (its × , or no news for a while); the pointer opens it again. */
@@ -886,27 +880,24 @@ function renderWorking(): void {
   // A new step re-renders the card: keep the reader's place in an open draft.
   const scrolled = card.querySelector<HTMLElement>(".draft-body")?.scrollTop ?? 0;
   const title = current ? activityLabel(current.agent, current.activity, current.subagent, current.app) : handoffLabel(agent);
-  const elapsed = el("span", { class: "elapsed", "aria-hidden": "true" }, runStarted && busyAt - runStarted > ELAPSED_AFTER_MS ? elapsedText() : "");
+  const elapsed = el("span", { class: "elapsed", "aria-hidden": "true" }, runStarted && busyAt - runStarted > ELAPSED_AFTER_MS ? V.elapsed(runStarted) : "");
   // "Show me" on the steps (viewing null) opens them even in compact mode.
   const shown = viewing ? artifacts.get(viewing) : undefined;
   const small = (compact || quiet) && viewing === undefined;
   if (small) {
-    showCard(
-      el("div", { class: "card-in row-line" },
-        el("span", { class: "spinner", "aria-hidden": "true" }),
-        el("span", { class: "row-word", "aria-live": "polite" }, title),
-        el("span", { class: "row-desc" }, request ? `“${request}”` : ""),
-        elapsed,
-        el("button", { class: "icon-btn", "aria-label": "Show the steps", title: "Show the steps", onclick: (ev: Event) => {
-          ev.stopPropagation();
-          quiet = false;
-          compact = false;
-          writePref("swift.compact", "0");
-          lastLookAt = Date.now();
-          renderWorking();
-        } }, icon("expand"))),
-      "working card--row",
-    );
+    drawCard({ state: "working", look: "working card--row", inner: "row-line", body: [
+      el("span", { class: "spinner", "aria-hidden": "true" }),
+      el("span", { class: "row-word", "aria-live": "polite" }, title),
+      el("span", { class: "row-desc" }, request ? `“${request}”` : ""),
+      elapsed,
+      Card.iconButton("expand", "Show the steps", () => {
+        quiet = false;
+        compact = false;
+        writePref("swift.compact", "0");
+        lastLookAt = Date.now();
+        renderWorking();
+      }),
+    ] });
     return;
   }
   const stalled = isStalled(busyAt);
@@ -919,29 +910,25 @@ function renderWorking(): void {
     ? el("button", { class: "btn btn--ghost", title: "Show what Swift is working on", onclick: () => askView("show") }, icon("external"), "Show")
     : null;
   const backButton = shown ? el("button", { class: "btn btn--ghost", onclick: () => askView("hide") }, "Back to steps") : null;
-  showCard(
-    el(
-      "div",
-      { class: "card-in" },
-      headRow(shrinkWorking, "Shrink to one line"),
-      threadLines(),
+  drawCard({
+    state: "working", look: "working",
+    origin: headRow(shrinkWorking, "Shrink to one line"),
+    thread: threadLines(),
+    body: [
       el("div", { class: "status" }, el("span", { class: "spinner", "aria-hidden": "true" }), el("span", { class: "status-verb", "aria-live": "polite" }, title), elapsed),
       shown ? artifactView(shown) : steps.length ? list : null,
       stalled ? el("p", { class: "note" }, "Still working. Bigger requests can take a few minutes.") : null,
       runVoice ? runVoiceLine(runVoice) : null,
-      el(
-        "footer",
-        { class: "card-foot" },
-        el("span", { class: "hint foot-gap" }, el("kbd", {}, "Esc"), "stops"),
-        backButton ?? showButton,
-        pres.runId && !L.find(live, pres.runId)?.open
-          ? el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
-          : null,
-        el("button", { class: "btn btn--ghost", onclick: () => cancelRun() }, icon("stop"), "Stop"),
-      ),
-    ),
-    "working",
-  );
+    ],
+    foot: [
+      el("span", { class: "hint foot-gap" }, el("kbd", {}, "Esc"), "stops"),
+      backButton ?? showButton,
+      pres.runId && !L.find(live, pres.runId)?.open
+        ? el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
+        : null,
+      el("button", { class: "btn btn--ghost", onclick: () => cancelRun() }, icon("stop"), "Stop"),
+    ],
+  });
   const body = card.querySelector<HTMLElement>(".draft-body");
   if (body && scrolled) body.scrollTop = scrolled;
 }
@@ -1051,11 +1038,7 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
 /** After the run: "show me" (or Show) on a result opens the artifact as its own card. */
 function renderArtifactCard(a: Artifact): void {
   if (!presentAnswer("result", A.readingMs(a.kind === "email_draft" ? a.data.body : a.title), a.run_id, pres.threadId ?? undefined)) return;
-  showCard(
-    el("div", { class: "card-in", onclick: dismissUnlessControl }, headRow(), el("p", { class: "answer-note" }, a.title), artifactView(a, 0, false)),
-    "result",
-  );
-  showDeadline();
+  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), body: [el("p", { class: "answer-note" }, a.title), artifactView(a, 0, false)] });
 }
 
 function onArtifact(a: Artifact): void {
@@ -1279,39 +1262,31 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
   const email = shown?.kind === "email_draft";
   const approve = el("button", { class: "btn btn--warn btn--big", onclick: reply("approve") }, icon("check"), email ? "Send" : "Approve");
-  showCard(
-    el(
-      "div",
-      { class: "card-in" },
-      el("div", { class: "band", role: "heading", "aria-level": "2" },
-        icon("shield"), "Needs your OK", el("span", { class: "band-time", "aria-live": "off" })),
-      threadLines(),
+  drawCard({
+    state: "ok", look: `confirm${pres.away ? " card--away" : ""}`, role: "alert",
+    lead: el("div", { class: "band", role: "heading", "aria-level": "2" }, icon("shield"), "Needs your OK", el("span", { class: "band-time", "aria-live": "off" })),
+    thread: threadLines(),
+    body: [
       el("p", { class: "confirm-title" }, data.title),
       since !== null ? el("p", { class: "confirm-since" }, `Held while you were away, since ${clock(since)}`) : null,
       confirmFacts(data, shown),
-      el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint(data)),
+      el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint()),
       el(
         "div",
         { class: "confirm-actions" },
         el("button", { class: "btn btn--ghost btn--big", onclick: reply("reject") }, icon("x"), "Reject"),
-        el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => changeByTyping() }, icon("edit"), "Change"),
+        // "Change" opens the text box, where Enter sends a change; typing never approves.
+        el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
         el("span", { class: "foot-gap" }),
         approve,
       ),
-    ),
-    `confirm${pres.away ? " card--away" : ""}`,
-    "alert",
-  );
+    ],
+  });
   const box = card.querySelector<HTMLElement>(".facts-text");
   if (box && place) box.scrollTop = place;
   // Redrawn while the owner is away (a new draft version): it stays put aside.
   if (pres.held === data.request_id) card.classList.add("card--held");
   tickConfirm();
-}
-
-/** "Change" on a confirm card: the text box, where Enter sends a change; it never approves. */
-function changeByTyping(): void {
-  if (!typing) toggleTyping();
 }
 
 const clock = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -1348,9 +1323,7 @@ function onResumeOffer(data: Extract<Inbound, { type: "resume.offer" }>["data"])
 }
 
 /** The voice line on a confirm card: approving by voice takes push-to-talk (or Swift's name). */
-function voiceHint(_data: unknown): (Node | string)[] {
-  return [icon("mic"), "Or hold ", pttKeys(), " and say “approve”, “reject”, or what to change."];
-}
+const voiceHint = (): (Node | string)[] => [icon("mic"), "Or hold ", pttKeys(), " and say “approve”, “reject”, or what to change."];
 
 /** The band's countdown and the bar: running, or stopped while the owner is away. */
 function tickConfirm(): void {
@@ -1389,7 +1362,7 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
   else if (data.phase === "hint") hint.textContent = data.text;
   // A voice approval Swift held back (noise, or not sure what it heard): it needs one more.
   else if (data.phase === "again") hint.replaceChildren(icon("alert"), data.text);
-  else hint.replaceChildren(...voiceHint(lastConfirm));
+  else hint.replaceChildren(...voiceHint());
 }
 
 // ---- answers ---------------------------------------------------------------------------------
@@ -1397,15 +1370,9 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
 /** Stopped / Not done: one row, then gone. */
 function renderRowCard(glyph: string, word: string, desc: string, runId?: string, threadId?: string, summary?: string): void {
   if (!presentAnswer("result", ROW_FADE_MS, runId, threadId, summary)) return;
-  showCard(
-    el("div", { class: "card-in row-line", onclick: dismissUnlessControl },
-      icon(glyph),
-      el("span", { class: "row-word" }, word),
-      el("span", { class: "row-desc", title: desc }, desc),
-      el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, icon("x"))),
-    "result card--row",
-  );
-  showDeadline();
+  drawCard({ state: "stopped", look: "result card--row", inner: "row-line", onclick: dismissUnlessControl, body: [
+    icon(glyph), el("span", { class: "row-word" }, word), el("span", { class: "row-desc", title: desc }, desc), Card.iconButton("x", "Close", dismiss),
+  ] });
 }
 
 // The result on screen, for the question card it may become.
@@ -1477,19 +1444,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   };
   drawBody();
   drawFoot();
-  showCard(
-    el(
-      "div",
-      { class: "card-in", onclick: dismissUnlessControl },
-      headRow(),
-      threadLines(),
-      data.note ? el("p", { class: "answer-note" }, data.note) : null,
-      body,
-      foot,
-    ),
-    "result",
-  );
-  showDeadline();
+  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, foot] });
 }
 
 /** Swift's question (ADR-017): asking while it speaks, then waiting for the answer for the
@@ -1499,86 +1454,39 @@ function renderQuestion(): void {
   const q = question;
   const thread = q.data.thread_id ?? pres.threadId;
   const left = pres.followupUntil ? Math.max(0, pres.followupUntil - Date.now()) : 0;
-  const asking = speaking;
-  const later = (): void => {
-    if (thread) stackAction(`parked:${thread}`, "skip");
+  const leave = (action: "skip" | "end") => (): void => {
+    if (thread) stackAction(`parked:${thread}`, action);
     question = null;
     dismiss();
   };
-  const cancel = (): void => {
-    if (thread) stackAction(`parked:${thread}`, "end");
-    question = null;
-    dismiss();
-  };
-  const pill = asking
-    ? el("div", { class: "q-pill q-pill--speaking" }, el("span", { class: "wave", "aria-hidden": "true" }, ...Array.from({ length: 6 }, () => el("i", {}))),
-        el("span", { class: "q-pill-text" }, "Speaking… I'll listen when I'm done"))
-    : el("div", { class: "q-pill" }, el("span", { class: "orb", "aria-hidden": "true" }),
-        el("span", { class: "q-pill-text" }, "Listening for your answer"),
-        el("span", { class: "elapsed" }, `0:${String(Math.ceil(left / 1000)).padStart(2, "0")}`),
-        left ? el("span", { class: "timebar", style: `--fade-ms:${left}ms` }) : null);
-  const about = q.words ? `about “${clipLine(q.words, 48)}”` : "";
-  showCard(
-    el(
-      "div",
-      { class: "card-in" },
-      el("div", { class: "q-tags" },
-        el("span", { class: asking ? "tag" : "tag tag--fill" }, asking ? "Swift is asking" : "Waiting for you"),
-        el("span", { class: "q-about" }, about)),
-      el("p", { class: "q-title" }, A.plainText(q.data.summary)),
-      pill,
-      el("footer", { class: "card-foot" },
-        typeSpec ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
-        el("button", { class: "btn btn--ghost", onclick: later }, "Answer later"),
-        el("button", { class: "btn btn--ghost", onclick: cancel }, "Cancel request")),
-    ),
-    `result card--question${asking ? "" : " card--waiting"}`,
-  );
-  showDeadline();
-  card.querySelector<HTMLElement>(":scope > .timebar")!.hidden = true;  // the pill has the time
+  drawCard({ state: speaking ? "asking" : "waiting", look: `result card--question${speaking ? "" : " card--waiting"}`, ...Card.questionParts({
+    asking: speaking, about: q.words ? `about “${clipLine(q.words, 48)}”` : "", title: A.plainText(q.data.summary),
+    pill: speaking ? "Speaking… I'll listen when I'm done" : "Listening for your answer", secs: Math.ceil(left / 1000), barMs: left,
+    foot: [typeHint(true), el("button", { class: "btn btn--ghost", onclick: leave("skip") }, "Answer later"), el("button", { class: "btn btn--ghost", onclick: leave("end") }, "Cancel request")],
+  }) });
 }
+
+/** "Or type Ctrl+…" at a question's footer: it can be answered in the text box too. */
+const typeHint = (offered: boolean): HTMLElement =>
+  offered && typeSpec ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" });
 
 /** Swift's question while a request runs (ADR-016 §5.1): said, then waiting for the answer, said,
  * typed or clicked. The backend closes it; unanswered, it goes to the stack with its conversation. */
 function renderAsk(a: Q.Ask): void {
   const asking = speaking || a.phase === "asking";
   const left = Q.askLeft(a, Date.now());
-  const reply = (text: string) => (ev: Event): void => {
+  const own = Q.ownQuestion(a);
+  const send = (ev: Event, msg: Parameters<typeof client.send>[0]): void => {
     ev.stopPropagation();
-    client.send({ type: "ask.reply", data: { ask_id: a.id, text } });
+    client.send(msg);
   };
-  const pill = asking
-    ? el("div", { class: "q-pill q-pill--speaking" }, el("span", { class: "wave", "aria-hidden": "true" }, ...Array.from({ length: 6 }, () => el("i", {}))),
-        el("span", { class: "q-pill-text" }, Q.askPill(a, speaking)))
-    : el("div", { class: "q-pill" }, el("span", { class: "orb", "aria-hidden": "true" }),
-        el("span", { class: "q-pill-text", "aria-live": "polite" }, Q.askPill(a, speaking)),
-        left ? el("span", { class: "elapsed" }, `0:${String(left).padStart(2, "0")}`) : null,
-        left ? el("span", { class: "timebar", style: `--fade-ms:${left * 1000}ms` }) : null);
-  // Swift's own question says what it's about; ``request`` may be another request's words.
-  const about = request && !Q.ownQuestion(a) ? `about “${clipLine(request, 48)}”` : "";
-  const buttons = Q.askButtons(a).map((o) => el("button", { class: "btn", onclick: reply(o) }, o));
-  showCard(
-    el(
-      "div",
-      { class: "card-in" },
-      el("div", { class: "q-tags" },
-        el("span", { class: asking ? "tag" : "tag tag--fill" }, asking ? "Swift is asking" : "Waiting for you"),
-        el("span", { class: "q-about" }, about)),
-      el("p", { class: "q-title" }, a.question),
-      a.note ? el("p", { class: "q-note" }, a.note) : null,
-      pill,
-      buttons.length ? el("div", { class: "q-options" }, ...buttons) : null,
-      el("footer", { class: "card-foot" },
-        typeSpec && !Q.ownQuestion(a) ? el("span", { class: "hint foot-gap" }, "Or type", keys(typeSpec)) : el("span", { class: "foot-gap" }),
-        Q.ownQuestion(a) ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => {
-          ev.stopPropagation();
-          client.send({ type: "run.stop", data: { run_id: a.runId, from: "question" } });
-        } }, "Stop request")),
-    ),
-    `working card--question${asking ? "" : " card--waiting"}`,
-  );
-  const bar = card.querySelector<HTMLElement>(":scope > .timebar");
-  if (bar) bar.hidden = true;  // the pill has the time
+  drawCard({ state: asking ? "asking" : "waiting", look: `working card--question${asking ? "" : " card--waiting"}`, ...Card.questionParts({
+    // Swift's own question says what it's about; ``request`` may be another request's words.
+    asking, about: request && !own ? `about “${clipLine(request, 48)}”` : "", title: a.question, note: a.note,
+    pill: Q.askPill(a, speaking), live: true, secs: left || null, barMs: left * 1000,
+    options: Q.askButtons(a).map((o) => el("button", { class: "btn", onclick: (ev: Event) => send(ev, { type: "ask.reply", data: { ask_id: a.id, text: o } }) }, o)),
+    foot: [typeHint(!own), own ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => send(ev, { type: "run.stop", data: { run_id: a.runId, from: "question" } }) }, "Stop request")],
+  }) });
 }
 
 function onAskMessage(data: Q.AskData): void {
@@ -1594,15 +1502,11 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   // The label says what it is; the title is the rest ("Reminder: call mum." → "Call mum.").
   const rest = data.summary.replace(/^(While you were away|Reminder): /, "");
   const title = rest.charAt(0).toUpperCase() + rest.slice(1);
-  showCard(
-    el("div", { class: "card-in due" },
-      el("span", { class: "due-icon" }, icon(kind === "timer" ? "timer" : "bell")),
-      el("span", { class: "due-text" }, el("p", { class: "due-label" }, label), el("p", { class: "due-title" }, title)),
-      el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done")),
-    "result card--due",
-    "alert",
-  );
-  showDeadline();
+  drawCard({ state: "due", look: "result card--due", role: "alert", inner: "due", body: [
+    el("span", { class: "due-icon" }, icon(kind === "timer" ? "timer" : "bell")),
+    el("span", { class: "due-text" }, el("p", { class: "due-label" }, label), el("p", { class: "due-title" }, title)),
+    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done"),
+  ] });
 }
 
 /** Tables, lists and text the run finished showing (the calendar's "Your calendar: …"). */
@@ -1629,24 +1533,17 @@ function dismissUnlessControl(ev: Event): void {
 // Shown when Swift is launched again while already running (single-instance plugin).
 function renderAlreadyRunning(): void {
   if (!presentAnswer("notice", READY_FADE_MS + 1500)) return; // never over a request
-  renderNotice("ok", "Swift is already running", el("span", {}, "Hold ", pttKeys(), " and speak. Its icon is in the system tray."));
+  renderNotice("Swift is already running", el("span", {}, "Hold ", pttKeys(), " and speak. Its icon is in the system tray."));
 }
 
 function renderReady(): void {
   if (card.classList.contains("card--in") || !presentAnswer("notice", READY_FADE_MS)) return;
-  renderNotice("ok", "Swift is ready", el("span", {}, "Hold ", pttKeys(), " and speak."));
+  renderNotice("Swift is ready", el("span", {}, "Hold ", pttKeys(), " and speak."));
 }
 
 /** One of Swift's own notices (ready, already running): a check, a title, a line. */
-function renderNotice(_kind: "ok", title: string, line: HTMLElement): void {
-  showCard(
-    el("div", { class: "card-in", onclick: dismissUnlessControl },
-      el("div", { class: "fail" }, el("span", { class: "ok-dot" }, icon("check")),
-        el("div", {}, el("p", { class: "fail-title" }, title), el("p", { class: "fail-why" }, line))),
-    ),
-    "result",
-  );
-  showDeadline();
+function renderNotice(title: string, line: HTMLElement): void {
+  drawCard({ state: "notice", look: "result", onclick: dismissUnlessControl, body: [Card.failBlock(el("span", { class: "ok-dot" }, icon("check")), title, line)] });
 }
 
 type Problem = {
@@ -1701,35 +1598,16 @@ function renderProblem(p: Problem): void {
   const bang = p.glyph === "spin"
     ? el("span", { class: "spinner", "aria-hidden": "true" })
     : el("span", { class: info ? "bang bang--info" : "bang", "aria-hidden": "true" }, info ? "i" : "!");
-  showCard(
-    el(
-      "div",
-      { class: "card-in", onclick: dismissUnlessControl },
-      p.runId || p.threadId ? headRow() : null,
-      el("div", { class: "fail" }, bang,
-        el("div", {},
-          el("p", { class: "fail-title" }, p.title),
-          el("p", { class: "fail-why" }, withKeys(p.message, pttSpec)),
-          p.hint ? el("p", { class: "fail-why" }, withKeys(p.hint, pttSpec)) : null)),
-      detail,
-      toggle || actions.length || p.agent
-        ? el(
-            "footer",
-            { class: "card-foot" },
-            toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null),
-            el("span", { class: "foot-gap" }),
-            ...actions,
-          )
-        : null,
-    ),
-    info ? "error card--info" : "error",
-    info ? "status" : "alert",
-  );
-  if (!(p.runId || p.threadId)) {
+  const ofRequest = !!(p.runId || p.threadId);
+  drawCard({
+    // Failed names a request's failure; a problem with no request is Swift's own notice.
+    state: ofRequest && !info ? "failed" : "notice", look: info ? "error card--info" : "error", role: info ? "status" : "alert", onclick: dismissUnlessControl,
     // No request to name: the close button sits in the corner.
-    card.firstElementChild?.prepend(el("button", { class: "icon-btn", style: "position:absolute;top:8px;right:8px", "aria-label": "Close", title: "Close", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, icon("x")));
-  }
-  showDeadline();
+    lead: !ofRequest && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
+    origin: ofRequest && headRow(),
+    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), detail],
+    foot: toggle || actions.length || p.agent ? [toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null), el("span", { class: "foot-gap" }), ...actions] : undefined,
+  });
 }
 
 function renderError(data: ErrorData): void {
@@ -1902,7 +1780,7 @@ let sweepTick = 0;
 window.setInterval(() => {
   if (stageNow() === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
-    if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = elapsedText();
+    if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = V.elapsed(runStarted);
     if (isStalled(Date.now()) !== !!card.querySelector(".note")) renderWorking();
     // No news and nobody looking: shrink to the one line (ADR-015 §3.3, ADR-017: 12 s).
     if (!quiet && Panes.workingQuiet(Math.max(lastStepAt, runStarted, lastLookAt), Date.now(), hovering)) {

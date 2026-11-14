@@ -12,6 +12,7 @@ tool calls. Addresses, titles and notes go to the overlay only, never to the log
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import unicodedata
@@ -154,10 +155,8 @@ def describe_tool(name: str, args: dict[str, Any]) -> str:
 def _shown_path(path: str, cwd: str | None) -> str:
     """Relative to the working folder when inside it (shorter on the card), else in full."""
     if cwd and path:
-        try:
+        with contextlib.suppress(ValueError):
             return str(PureWindowsPath(path).relative_to(PureWindowsPath(cwd)))
-        except ValueError:
-            pass
     return path
 
 

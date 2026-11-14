@@ -28,6 +28,7 @@ Nothing read here is logged; titles are used only to check the never-read list.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import ctypes
 import itertools
 import os
@@ -434,10 +435,8 @@ class _GmailScreen:
             return None
 
     def set_focus(self, element: Any) -> None:
-        try:
+        with contextlib.suppress(Exception):  # has_focus decides: a refusal is a field that didn't take it
             element.SetFocus()
-        except Exception:  # noqa: BLE001 - has_focus decides: a refusal is a field that didn't take it
-            pass
 
     def _inside(self, node: Any, element: Any) -> bool:
         walker = self.uia.automation.RawViewWalker
@@ -595,10 +594,8 @@ class _WordWriter(_Writer):
 
     def _finish(self) -> Any:
         if self.recording:
-            try:
+            with contextlib.suppress(Exception):
                 self.word.UndoRecord.EndCustomRecord()
-            except Exception:  # noqa: BLE001
-                pass
         steps = 1 if self.recording else self.steps
         return ("word", self.name, self.doc.Content.End, steps)
 
@@ -717,23 +714,19 @@ class WindowsDesktop:
     def _focused(self, exe: str, hwnd: int, focus: int) -> tuple[str, bool, int]:
         """(control type, password field, selection length) of the focused control."""
         if exe == "winword.exe":
-            try:
+            with contextlib.suppress(Exception):
                 selection = _word(create=False).Selection
                 return "document", False, max(0, selection.End - selection.Start)
-            except Exception:  # noqa: BLE001
-                pass
         if exe == "explorer.exe":
             return "list item", False, len(self._explorer_selection(hwnd))
         uia = self._uia()
         if uia is not None:
-            try:
+            with contextlib.suppress(Exception):  # fall back to Win32
                 element = uia.focused()
                 password = bool(element.CurrentIsPassword)
                 control = CONTROL_TYPES.get(element.CurrentControlType, "other")
                 selected = 0 if password else len(uia.selection(element, MAX_SELECTION_READ) or "")
                 return control, password, selected
-            except Exception:  # noqa: BLE001 - fall back to Win32
-                pass
         cls = _class(focus)
         password = cls == "Edit" and bool(user32.GetWindowLongW(focus, GWL_STYLE) & ES_PASSWORD)
         control = WINDOW_CLASSES.get(cls, "edit" if cls.startswith("RichEdit") else "unknown")
@@ -770,13 +763,11 @@ class WindowsDesktop:
     def _explorer_selection(self, hwnd: int) -> list[str]:
         import win32com.client
 
-        try:
+        with contextlib.suppress(Exception):  # not a folder window, or Explorer busy
             for window in win32com.client.Dispatch("Shell.Application").Windows():
                 if int(window.HWND) == hwnd:
                     items = window.Document.SelectedItems()
                     return [str(items.Item(i).Path) for i in range(items.Count)]
-        except Exception:  # noqa: BLE001 - not a folder window, or Explorer busy
-            pass
         return []
 
     # ---- writing ----
@@ -797,13 +788,11 @@ class WindowsDesktop:
             return _WordWriter(self, mode, False)
         uia = self._uia()
         if uia is not None and not (mode == "replace" and context.selection):
-            try:
+            with contextlib.suppress(Exception):  # next rung
                 element = uia.focused()
                 value = uia.value(element)
                 if value is not None and not value.CurrentIsReadOnly and not str(value.CurrentValue).strip():
                     return _ValueWriter(self, context.app, element, value)
-            except Exception:  # noqa: BLE001 - next rung
-                pass
         tid, _, _ = _process(context.hwnd)
         saved = _saved_clipboard()
         collapse = mode == "insert" and context.selection > 0

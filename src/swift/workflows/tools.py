@@ -39,6 +39,7 @@ apps at a time (``writing``): another one waits, and says what for.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import json
 import re
@@ -765,10 +766,8 @@ class ToolHost:
         """The calendar titles Swift knows; asks the calendar again in the background when they're old."""
         stale = time.monotonic() - self._titles_at > TITLES_TTL_S or not self._titles_at
         if self.calendar is not None and stale and (self._titles_task is None or self._titles_task.done()):
-            try:
+            with contextlib.suppress(RuntimeError):  # no loop: what is known will do
                 self._titles_task = asyncio.get_running_loop().create_task(self.refresh_titles())
-            except RuntimeError:
-                pass  # no loop: what is known will do
         return tuple(self.event_titles)
 
     async def refresh_titles(self) -> None:

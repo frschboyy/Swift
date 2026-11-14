@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hmac
 from collections.abc import Callable
 from typing import Any
@@ -69,10 +70,8 @@ class OverlayServer:
         client = self._client
         if client is None:
             return
-        try:
+        with contextlib.suppress(ConnectionClosed):
             await client.send(encode(msg))
-        except ConnectionClosed:
-            pass
 
     async def _authenticate(self, ws: ServerConnection) -> bool:
         try:

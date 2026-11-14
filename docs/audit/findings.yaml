@@ -83,6 +83,100 @@
   test: tests/unit/test_health_HEAR.py::test_a_typed_swift_yes_doesnt_turn_the_wifi_off
   note: The intake table documents it on purpose, so the table and the rule disagree; the owner decides. The typed
     "Swift, yes" for a correction offer (test_front_rules.py:748) is a separate path and may be meant.
+- id: OWN-01
+  title: The correction offer decides its own approval in session._fix_refused, outside intake.approves.
+  source: docs/architecture/ownership.md §1; foundation-rules-review.md D3
+  module: src/swift/session.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: session.py:3916 _fix_refused checks "typed needs Swift's name" itself and never calls intake.approves;
+    called from session.py:3937 and :4613
+  test: null
+  note: Foundation decisions 1 and 10 make approves the only decider. A second decider is where D1-like drift starts.
+- id: OWN-02
+  title: restated.restated adds its own "not typed" condition on top of intake.approves.
+  source: docs/architecture/ownership.md §1; foundation-rules-review.md D1b
+  module: src/swift/restated.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: restated.py:49 yes = how == "same" and source != "typed" and intake.approves(...)
+  test: null
+  note: Typed "Swift, turn off the Wi-Fi" isn't a yes while typed "Swift, yes" is (D1b). Decision 10.
+- id: OWN-03
+  title: The hands-free fix offer takes "Swift, yes" by its own condition in session, without intake.approves.
+  source: docs/architecture/ownership.md §1; foundation-rules-review.md D3
+  module: src/swift/session.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: session.py:2471-2472 decision.action == "approve" and match is not None and self._fix_offer is not None
+  test: null
+  note: Decision 10.
+- id: OWN-04
+  title: Whether a question is on screen is decided from the backend's own state, while confirm cards use the
+    overlay's screen acknowledgement.
+  source: docs/architecture/ownership.md §3
+  module: src/swift/session.py, src/swift/drawn.py
+  area: screen
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: session.py:3387 _on_screen returns not self._cards and q.owner is self._focus; drawn.Drawn.ack feeds
+    attention.set_seen only (session.py:3778)
+  test: null
+  note: Two owners of "on screen". They can differ while a frame is in flight or refused. No wrong answer seen from
+    it; unproven.
+- id: OWN-05
+  title: The agent's own tool cards are approved in the executor, not the gateway, with no digest recomputed and no
+    journal line.
+  source: docs/architecture/ownership.md §1
+  module: src/swift/executors/claude_code.py, src/swift/executors/step_grant.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: claude_code.py can_use_tool -> _ask/_ask_read -> _decide returns PermissionResultAllow(updated_input=args);
+    the step grant (base.Grant.covers, step_grant.reversible) approves ahead there too
+  test: null
+  note: The arguments allowed are the ones the card was made from, so no swap is visible in this code. CLAUDE.md
+    says the gateway binds every approval to a digest; for worker tools it doesn't. Whether the SDK can change
+    arguments after can_use_tool is unproven.
+- id: OWN-06
+  title: Where a web address may come from is decided twice, with different rules, for fetching and for opening.
+  source: docs/architecture/ownership.md §6
+  module: src/swift/executors/claude_code.py, src/swift/workflows/desktop_tools.py
+  area: privacy
+  severity: low
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: claude_code.py:604-697, 851 notes request and tool-result addresses into run.web; desktop_tools._open_url
+    builds its own WebScope from the owner's words, points_back and remembered
+  test: null
+  note: Fetching a tool-result address is accepted (OCT-03). The finding is that a change to one rule doesn't reach
+    the other. Decision 4 changes the opening side.
+- id: OWN-07
+  title: memory.Store keeps "Swift's own settings" beside config.yaml, with no caller reading them.
+  source: docs/architecture/ownership.md §14
+  module: src/swift/memory.py
+  area: config
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: memory.py Store.setting and memory/settings/; no call to .setting( in src/swift
+  test: tests/unit/test_memory.py::test_config_yaml_wins_over_a_kept_setting
+  note: A second settings store waiting for a first user. Decide its owner before one is added.
 - id: HA-HEAR-02
   title: A wake phrase said just after the screen locks still gets the chime and the "heard" signal from the peek,
     before the 2 s poll catches up.

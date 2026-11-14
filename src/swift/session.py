@@ -2804,7 +2804,7 @@ class Session:
                         if answer == "":
                             return
                         answer = NO_TARGET_HINT
-                    await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+                    await self._answer_here(answer)
                     return
                 answered = self._answer_fix(decision, fix, record, run, transcript)
                 if answered is not None:
@@ -3045,16 +3045,14 @@ class Session:
                     record,
                 )
                 return
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", f"Opened {target.name.title()}."))
+            await self._answer_here(f"Opened {target.name.title()}.", record=record)
             return
         if action == "cancel" and (shown := self._offer_shown()) is not None and self.parked is not None:
             # "Forget that" just after "Unfinished: …": let go of that conversation.
             self._offered = None
             dropped = self.parked.drop(shown)
-            record["status"] = "done"
             answer = f"Okay, I've let go of “{dropped.title}”." if dropped else "Okay."
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action in ("stop", "cancel", "mute"):
             record["status"] = "cancelled"
@@ -3064,14 +3062,12 @@ class Session:
             if (shown := self._offer_shown()) is not None and self.parked is not None:
                 self.parked.dismiss(shown)
                 self._offered = None
-            record["status"] = "done"
             answer = "Okay. Say “continue” whenever you want to pick it up."
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action == "workflows" or action in memory.ACTIONS:  # memory: only the owner's own words write it
             summary, details = self._workflows_answer() if action == "workflows" else memory.answer(self.memories, decision.text, record.get("source", ""), record["id"])
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", summary, details))
+            await self._answer_here(summary, details, record=record)
             return
         if action == "undo" and self.tools is not None and self.tools.last_write is not None and self.desktop:
             try:
@@ -3082,8 +3078,7 @@ class Session:
                 await self._send_failure(Failure("undo_failed", "Couldn't undo that", str(exc), exc.hint), record)
                 return
             self.tools.last_write = None
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action == "new_topic":
             self._last_exchange = None
@@ -3098,8 +3093,7 @@ class Session:
                 if decision.addressed_as else identity.introduction(self.providers.agents())
             )
             self._note = None
-            record["status"] = "done"
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", answer))
+            await self._answer_here(answer, record=record)
             return
         if action == "show_last":
             await self._show_last(decision, record)
@@ -3108,17 +3102,15 @@ class Session:
             await self._system_lane(decision, record)
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
-            record["status"] = "done"
             found = fast.reply(decision.text, previous=self._thread_moment())
             said = found[0] if found is not None else "Sorry, I couldn't work that out."
             self._local_answer(record, decision.text, said, found[1] if found is not None else None)
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+            await self._answer_here(said, record=record)
             return
         if action in ("offline", "offline_help"):
-            record["status"] = "done"
             said = OFFLINE_SAID if action == "offline" else OFFLINE_HELP
             details = {"kind": "list", "items": [*OFFLINE_ITEMS, OFFLINE_NOT]} if action == "offline_help" else None
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
+            await self._answer_here(said, details, record=record)
             return
         now = datetime.now()
         answers = {
@@ -3133,11 +3125,16 @@ class Session:
             "not_now": "Okay.",
             "fix_declined": "Okay, I'll leave it as it is.",
         }
-        record["status"] = "done"
         said = decision.text if action == "fix_refused" else answers.get(action or "", "Done.")
         if action in ("time", "date"):
             self._local_answer(record, decision.text, said, fast.Moment(now.astimezone(), action == "time"))
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+        await self._answer_here(said, record=record)
+
+    async def _answer_here(self, said: str, details: dict[str, Any] | None = None, *, record: dict[str, Any] | None = None) -> None:
+        """An answer Swift worked out itself, on its own card (``record``: the request, now done)."""
+        if record is not None:
+            record["status"] = "done"
+        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
 
     async def _system_lane(self, decision: Route, record: dict[str, Any]) -> None:
         """The system lane (ADR-016 §3): carry the request out, ask what it needs, say what was done.
@@ -4533,9 +4530,9 @@ class Session:
                 said = await self.desktop.show(wrote)
             except ConnectorError as exc:
                 said = f"{exc} {exc.hint}".strip()
-            await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said))
+            await self._answer_here(said)
             return
-        await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", "There's nothing to show yet."))
+        await self._answer_here("There's nothing to show yet.")
 
     async def _quick_answer(self, decision: Route, record: dict[str, Any]) -> bool:
         """The light lane (ADR-007 §10): one tool-free model call. False: no answer, the agent takes it."""

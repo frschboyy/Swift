@@ -105,7 +105,7 @@ Statuses: **done**, **partly**, **not started**, **superseded**, **waiting** (on
 
 ## Next, in order
 
-1. **The 305 fix** (Read more cut off; repeated paragraph): session `fix-305`, branch `claude/fervent-tereshkova-435195`. Merge with the owner's OK. B4 waits on it.
+1. **The 305 fix** (Read more cut off; repeated paragraph): **merged** into `main` on 2026-11-14 (`59fa830`, check 340). B4 is unblocked.
 2. **B4**: results laid out to fit, in the plan's four steps, one at a time. Needs the vetted set (approved) and checks 340–351.
 3. **ADR-019 §8 items with B3**: six items, one commit each, each with a seam scenario and owner checks. They share `card.ts` and `main.ts` with B4, so one at a time.
 4. **B5 with B7**: growing cards and visible motion, together, since both change `showCard`/`hideCard`.

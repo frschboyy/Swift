@@ -2316,6 +2316,18 @@ The report checks: nothing to judge from the log; tell us whether a bare "yes" o
 
 The report checks: no system change was done by the agent; tell us what the question said.
 
+<a id="check-304"></a>**Check 304. Saying the request again to Swift's question answers it**
+1. Say "Hey Swift, turn off the Wi-Fi". Don't answer: wait until it says "No answer, so I've left it as it is".
+2. Double-click the stack and click **Open** on the Wi-Fi item. "Turn off Wi-Fi?" is asked again.
+3. Without "Swift", say "Turn off the Wi-Fi".
+4. You should see the Wi-Fi go off, with no second card and no amber approval card. Turn the Wi-Fi back on yourself.
+5. Repeat steps 1 and 2. This time type "turn off the Wi-Fi" in the box and press Enter: the question is asked again, and
+   the Wi-Fi stays **on**. Then say "no".
+6. Repeat steps 1 and 2 once more and say "Turn **on** the Wi-Fi": the Wi-Fi is never turned off.
+
+The report checks: how many times a restatement answered Swift's question and how many times it asked again; tell us whether
+the typed one ever turned the Wi-Fi off.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
@@ -2345,7 +2357,7 @@ As of 2026-11-14 at `84df075`. Each number links to its check.
 - `savepoint/a7-duplicates-54bd6a`: changes code behind 12 checks here (15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212).
 - `savepoint/c1-grounded-facts-556f60`: changes code behind 47 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
 
-**Next free check number: 304** (counted across `main` and every open branch).
+**Next free check number: 305** (counted across `main` and every open branch).
 
 **Code changed in the last 14 days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):
 

@@ -48,6 +48,7 @@ class FakeScreen:
     front_hwnd: int = COMPOSE
     focus_after: int = 1
     click_lands: bool = True
+    over: str = "list item"  # what a click that doesn't land would hit (Gmail's address suggestions)
     forward: bool = True
     focused: str | None = "to"  # Gmail puts the cursor in To when a compose window opens
     focus_calls: int = 0
@@ -112,6 +113,11 @@ class FakeScreen:
     def focus_place(self, fields: dict[str, Any], hwnd: int) -> str:
         return self.focused or "none"
 
+    def click_spot(self, element: Any, hwnd: int) -> str:
+        if self.front_hwnd != hwnd:
+            return "not_front"
+        return "field" if self.click_lands else self.over
+
     def click(self, element: Any, hwnd: int) -> bool:
         if self.front_hwnd != hwnd or not self.click_lands:
             return False
@@ -174,6 +180,7 @@ def test_a_body_that_won_t_take_the_cursor_says_so_in_the_log_without_the_email(
     log = sink.getvalue()
     assert failed.value.code == "gmail_focus_body"
     assert "gmail field didn't take the cursor" in log and "field='body'" in log and "focus='to'" in log, log
+    assert "click='list item'" in log and "settable=False" in log, log
     assert "body" not in screen.text  # nothing was pasted anywhere
     _content_free(log)
 
@@ -402,3 +409,18 @@ def test_a_to_row_is_opened_once_per_fill_even_with_another_empty_compose_open()
     assert screen.steps == [f"open to {COMPOSE}"]
     assert sink.getvalue().count("gmail to row opened") == 1
     assert "found=['body', 'subject', 'to']" in sink.getvalue()
+
+
+def test_a_body_that_won_t_take_the_cursor_says_what_the_click_would_have_hit() -> None:
+    """Run of 2026-11-14 16:00 (other PC): gmail_focus_body twice, focus 'page' then 'to', no reason why the
+    click didn't help. The log now names what was under the click point, in words from a fixed list."""
+    for over, word in (("list item", "list item"), ("<a suggestion's name>", "other")):
+        screen = FakeScreen({COMPOSE: Window()}, focus_after=0, click_lands=False, over=over)
+        sink = _captured()
+        try:
+            with pytest.raises(DesktopError):
+                _fill(screen)
+        finally:
+            logger.remove()
+        assert f"click='{word}'" in sink.getvalue(), sink.getvalue()
+        assert "suggestion" not in sink.getvalue()

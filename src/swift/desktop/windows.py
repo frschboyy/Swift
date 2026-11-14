@@ -52,6 +52,10 @@ GMAIL_COMPOSE_URL = "https://mail.google.com/mail/?view=cm&fs=1"
 GMAIL_WAIT_S = 20.0
 # Gmail's compose fields as UI Automation names them (its aria-labels).
 GMAIL_FIELDS = {"to": ("To recipients", "To"), "subject": ("Subject",), "body": ("Message Body", "Message body")}
+# The collapsed To row's text, when the compose window opened without the cursor in it; its row is a
+# keyboard-focusable group two levels up (UIA tree read on this PC, 2026-11-14).
+GMAIL_TO_ROW = ("Recipients",)
+GMAIL_TO_ROW_DEPTH = 4
 # A paste is read by the app after Ctrl+V is processed: wait before the clipboard changes again.
 PASTE_SETTLE_S = 0.12
 MAX_SELECTION_READ = 100_000
@@ -377,6 +381,22 @@ class _GmailScreen:
             return {}
         found = {key: self.uia.find(root, names) for key, names in GMAIL_FIELDS.items()}
         return {key: element for key, element in found.items() if element}
+
+    def open_to(self, hwnd: int) -> bool:
+        """Put the keyboard on Gmail's collapsed To row, which opens the To box; False if there is none."""
+        try:
+            node = self.uia.find(self.uia.automation.ElementFromHandle(hwnd), GMAIL_TO_ROW)
+            walker = self.uia.automation.RawViewWalker
+            for _ in range(GMAIL_TO_ROW_DEPTH):
+                if node is None:
+                    return False
+                if node.CurrentIsKeyboardFocusable:
+                    node.SetFocus()
+                    return True
+                node = walker.GetParentElement(node)
+        except Exception:  # noqa: BLE001 - the page changed while being read: the next poll asks again
+            return False
+        return False
 
     def subject_in_use(self, fields: dict[str, Any]) -> bool:
         """A compose window Swift opened has an empty subject; a reply or the owner's own draft doesn't."""

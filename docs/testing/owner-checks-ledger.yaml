@@ -83,7 +83,7 @@ areas:
   apps:
     rule: Swift writes into apps only when the owner's own words asked
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302]
@@ -130,8 +130,8 @@ focus:
     why: the owner's 'Playing.' with nothing playing (2026-11-13); fixed, not seen on the real PC
   - checks: [256, 257]
     why: the owner's run of 2026-11-13 (A4, A6); an unseen answer now waits behind the card, not seen on the real PC
-  - checks: [252]
-    why: A9, the owner's run of 2026-11-13; Gmail written only with the cursor in the body, cause unproven until this runs
+  - checks: [252, 310]
+    why: A9, the owner's runs of 2026-11-13 and 2026-11-14; one cause proven and fixed (Gmail's To row shown collapsed), two still unproven (nothing found with Chrome in front; Windows wouldn't bring it forward)
   - checks: [253-255]
     why: A10 and C3 of 2026-11-13; which band Task Manager is in decides the A10 fix, and a spoken address now opens
   - checks: [259-261]

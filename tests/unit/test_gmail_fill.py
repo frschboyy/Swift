@@ -32,6 +32,7 @@ class Window:
     subject: str = ""
     private: bool = False
     label: str = "Chrome"
+    to_closed: bool = False  # Gmail's To row collapsed to "Recipients": no To box until it has the keyboard
 
 
 @dataclass
@@ -70,7 +71,16 @@ class FakeScreen:
         return [h for h, w in self.windows.items() if w.browser]
 
     def fields(self, hwnd: int) -> dict[str, Any]:
-        return {key: (hwnd, key) for key in self.windows[hwnd].fields}
+        window = self.windows[hwnd]
+        return {key: (hwnd, key) for key in window.fields if not (key == "to" and window.to_closed)}
+
+    def open_to(self, hwnd: int) -> bool:
+        window = self.windows[hwnd]
+        if not window.to_closed or "to" not in window.fields:
+            return False
+        window.to_closed = False
+        self.steps.append(f"open to {hwnd}")
+        return True
 
     def subject_in_use(self, fields: dict[str, Any]) -> bool:
         return bool(self.windows[fields["subject"][0]].subject)
@@ -313,3 +323,39 @@ def test_the_click_carries_its_own_position_so_it_cannot_land_where_the_pointer_
     assert (down.u.mi.dx, down.u.mi.dy) == (up.u.mi.dx, up.u.mi.dy) == (2020 * 65535 // 3839, 540 * 65535 // 1079)
     assert (back.u.mi.dx, back.u.mi.dy) == (1420 * 65535 // 3839, 20 * 65535 // 1079)
     assert not back.u.mi.dwFlags & (windows.MOUSEEVENTF_LEFTDOWN | windows.MOUSEEVENTF_LEFTUP)
+
+
+# ---- the To row Gmail shows collapsed (check 252, run of 2026-11-14) -----------------------------------
+
+
+def test_a_collapsed_to_row_is_opened_and_the_email_filled() -> None:
+    """12:30: Subject and Body found, no To, for 20 s. Gmail had To collapsed to "Recipients"."""
+    screen = FakeScreen({COMPOSE: Window(to_closed=True)}, focused="body")
+    sink = _captured()
+    try:
+        _fill(screen)
+    finally:
+        logger.remove()
+    assert screen.steps[0] == f"open to {COMPOSE}"
+    assert screen.text == {"to": TO[0], "body": BODY, "subject": SUBJECT}
+    assert "gmail to row opened" in sink.getvalue()
+    _content_free(sink.getvalue())
+
+
+def test_a_collapsed_to_row_behind_is_opened_then_brought_forward() -> None:
+    screen = FakeScreen({WORD: Window(browser=False, label="Word"), COMPOSE: Window(to_closed=True)},
+                        front_hwnd=WORD)
+    _fill(screen)
+    assert screen.front_hwnd == COMPOSE and screen.text["to"] == TO[0]
+
+
+def test_a_reply_s_collapsed_recipients_are_never_opened() -> None:
+    """A reply or the owner's draft has a subject: its To row is left as it is, and nothing is filled."""
+    screen = FakeScreen({COMPOSE: Window(to_closed=True, subject="Re: their thread")})
+    assert gmail_fill.find_compose(screen) == gmail_fill.Waiting("not_loaded", "Chrome", ("body", "subject"))
+    assert screen.steps == [] and screen.windows[COMPOSE].to_closed
+
+
+def test_a_page_with_no_to_row_at_all_still_waits_as_not_loaded() -> None:
+    screen = FakeScreen({COMPOSE: Window(fields=("body", "subject"))})
+    assert gmail_fill.find_compose(screen) == gmail_fill.Waiting("not_loaded", "Chrome", ("body", "subject"))

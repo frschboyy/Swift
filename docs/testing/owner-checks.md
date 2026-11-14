@@ -2158,6 +2158,22 @@ the email's body. Nothing is sent: close each email.
 
 The report checks: every fill-in finished, and which step put the cursor in each field (the cause of the old failure).
 
+### Gmail's To box when the compose window opens without the cursor (2026-11-14)
+
+About 3 minutes. From your run of 2026-11-14, 12:30: Subject and Body were found, but no To, because Gmail shows To as
+a grey "Recipients" line when the compose window opens without the cursor in it. Swift now opens that line first.
+Nothing is sent: close each email.
+
+<a id="check-310"></a>**Check 310. Gmail's To is filled in, also when it opens as "Recipients"**
+1. With Chrome in front, on a tab that isn't Gmail, say "Hey Swift, email Test Me that the Gmail test worked". Don't
+   touch the mouse or keyboard until Swift says it's ready.
+2. You should see: Gmail's compose window with To, the subject and the body all filled in. Close it without sending.
+3. Do it once more with Notepad in front.
+4. If it stops, tell us what the card said.
+
+The report checks: every fill-in finished, how many times the To line was opened, and that none gave up with Subject
+and Body but no To.
+
 ### Swift in front, and a website by voice (2026-11-13)
 
 About 5 minutes. From your run of 2026-11-13 (203: Swift behind Task Manager; 15:07: Blackboard didn't open).

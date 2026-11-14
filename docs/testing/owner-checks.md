@@ -2308,6 +2308,14 @@ You should see: the card closes only on step 3, and nothing in B2-test2 was made
 
 The report checks: nothing to judge from the log; tell us whether a bare "yes" or typing ever approved one.
 
+<a id="check-303"></a>**Check 303. Starting a request again keeps Swift's own question**
+1. Say "Hey Swift, how are you? Can you set, can you turn off the Wi-Fi?" (start the request, stop, and start again).
+2. You should see Swift's own question "Turn off Wi-Fi?" with Yes and No, **not** "Wi-Fi or Bluetooth?" and **not** an
+   amber approval card.
+3. Say "no".
+
+The report checks: no system change was done by the agent; tell us what the question said.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed
@@ -2337,7 +2345,7 @@ As of 2026-11-14 at `84df075`. Each number links to its check.
 - `savepoint/a7-duplicates-54bd6a`: changes code behind 12 checks here (15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212).
 - `savepoint/c1-grounded-facts-556f60`: changes code behind 47 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
 
-**Next free check number: 303** (counted across `main` and every open branch).
+**Next free check number: 304** (counted across `main` and every open branch).
 
 **Code changed in the last 14 days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):
 

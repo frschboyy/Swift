@@ -47,7 +47,7 @@ areas:
     checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
-    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262]
+    checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303]
   stopping:
     paths: [src/swift/cleanup.py]
     checks: [242]
@@ -85,7 +85,7 @@ areas:
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
-    checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239]
+    checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239, 303]
   weather:
     paths: [src/swift/workflows/tools.py]
     checks: [193, 259, 260]
@@ -116,6 +116,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [204, 303]
+    why: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent); fixed, not seen on the real PC
   - checks: [290-293]
     why: the memory store (groundwork, C7); new, and a product rule, not seen on the real PC
   - checks: [270, 271]

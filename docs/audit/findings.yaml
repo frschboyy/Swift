@@ -3231,3 +3231,18 @@
   evidence: ClaudeCodeExecutor.__init__ moves non-read entries to confirm_tools, which options() puts in tools=
   test: null
   note: 'No such entry is set on the owner''s PC. Safe either way: the tool asks on a card or isn''t offered.'
+- id: QA-01
+  title: A long answer whose first sentence is over 300 characters showed that sentence cut with "…" on its card,
+    then whole again below it.
+  source: QA review of main e18af1b, 2026-11-14 (the edge check 305's fix left, fix-305 notes)
+  module: src/swift/executors/claude_mapping.py
+  area: screen
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: claude_mapping.py split_answer and _lead_words; the summary is the sentence up to its last clause break or
+    word that fits, marked "…", and the body goes on from there
+  test: tests/unit/test_seam_replay.py::test_an_answer_whose_first_sentence_is_too_long_for_the_summary_says_it_once
+  note: Also test_claude_mapping.py::test_split_answer_says_one_long_first_sentence_once, which replaces the test that
+    pinned the repeat. The seam scenario fails with the fix undone. Check 340 covers the screen.

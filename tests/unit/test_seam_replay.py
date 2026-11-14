@@ -1070,3 +1070,35 @@ async def test_a_long_research_answer_reaches_the_card_without_its_opening_twice
     for sentence in ("Tea began in southwest China", "Whatever the truth of that story"):
         assert drawn.count(sentence) == 1, drawn
     await finish_all(session, agent)
+
+
+async def test_an_answer_whose_first_sentence_is_too_long_for_the_summary_says_it_once() -> None:
+    """The edge check 305's fix left (QA of 2026-11-14): one first sentence over the summary's 300 characters
+    was cut with "…" on the card and drawn whole again under it. Through the real result mapping to the
+    card: the sentence's opening is drawn once, and the card goes on from the cut."""
+    from swift.executors.base import ExecResult
+    from swift.executors.claude_mapping import outcome_for
+    from test_runs import Agent
+
+    first = ("Tea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan and legend "
+             "credits the emperor Shennong with a first cup around 2737 BCE when leaves blew into his boiling water "
+             "and a drink was born that would travel by caravan and ship to every corner of the world in the "
+             "centuries that followed and change trade and empire along the way.")
+    answer = first + "\n\n## Europe\nDutch traders brought tea to Europe in 1610."
+
+    class Researcher(Agent):
+        async def result(self, run_id: str) -> ExecResult:
+            await super().result(run_id)
+            o = outcome_for({"type": "result", "subtype": "success", "result": answer})
+            assert o is not None
+            return ExecResult("done", o.summary, o.details, o.meta)
+
+    session, out, _records, agent, stt = make(Researcher)
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[rid]["go"].set()
+    await until(lambda: out.last("result").get("details") is not None)
+    shown = out.last("result")
+    drawn = shown["summary"] + "\n\n" + shown["details"]["text"]
+    assert drawn.count("Tea began in southwest China") == 1, drawn
+    assert drawn.count("Shennong") == 1 and drawn.count("change trade and empire") == 1, drawn
+    await finish_all(session, agent)

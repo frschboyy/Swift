@@ -122,10 +122,18 @@ def test_split_answer_keeps_the_whole_answer() -> None:
     }
 
 
-def test_split_answer_keeps_a_long_opening_below_the_summary() -> None:
-    opening = "word " * 100  # one sentence longer than the summary
+def test_split_answer_says_one_long_first_sentence_once() -> None:
+    # One first sentence longer than the summary was cut with "…" and kept whole below it, so the card
+    # said its first 300 characters twice (the edge check 305's fix left; QA of 2026-11-14).
+    opening = "word " * 100 + "end."
     summary, details = split_answer(opening)
-    assert summary.endswith("…") and details is not None and details["text"].strip() == opening.strip()
+    assert summary.endswith("…") and len(summary) <= 300 and details is not None
+    assert summary[:-1] + " " + details["text"] == opening.strip()  # nothing lost, nothing said twice
+    clauses = "Tea, " + "which grew wild in the hills of Yunnan for a very long time, " * 6 + "became a drink. Then more."
+    summary, details = split_answer(clauses)
+    assert summary.endswith("time,…") and details is not None
+    assert details["text"].startswith("which grew wild") and details["text"].endswith("became a drink. Then more.")
+    assert summary[:-1] + " " + details["text"] == clauses
 
 
 TEA_OPENING = (

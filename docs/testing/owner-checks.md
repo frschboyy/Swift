@@ -2338,7 +2338,8 @@ the typed one ever turned the Wi-Fi off.
 
 About 6 minutes. Every card (answers, approvals, Swift's questions, timers, stopped, failed) is now drawn by one piece
 of code instead of one each, so later work (results laid out to fit, cards that grow, motion) changes one place. You
-should see no difference: these checks are that nothing changed.
+should see one difference only: the working card no longer has a draining bar along its bottom edge (it never
+fades, so the bar said something untrue; the owner's decision, 2026-11-14). These checks are that nothing else changed.
 
 <a id="check-305"></a>**Check 305. Cards look and work as before**
 1. Say "Hey Swift, what time is it?": a one-line answer. Click it: it goes.
@@ -2358,7 +2359,8 @@ The report checks: nothing to judge from the log; tell us whether any card looke
 2. Say "Hey Swift, research the history of coffee": the working card, its steps and **Stop**. Click its **×**: it
    shrinks to one line. Press **Esc**: a "Stopped" line.
 
-You should see: each card as before, the question's time on its pill and no bar under the card.
+You should see: each card as before, the question's time on its pill and no bar under the card. The working card in
+step 2 has no draining bar along its bottom edge either (that's new, and intended).
 
 The report checks: nothing to judge from the log; tell us whether any card looked or behaved differently.
 

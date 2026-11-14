@@ -37,7 +37,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 | Presence (locked, away, paused) | `presence` + `intake` step 1 | about four checks in `session` (existing RV-15) |
 | Logging (`swift.log`) | `logging_setup` (redaction on every record) | none found |
 | Interaction log | `runlog.InteractionLog` | none found |
-| Settings | `settings` (`config.yaml`) | `memory.Store.setting` with no callers (OWN-07); `config/loader` TOML unused (existing HA-CFG-06); `overlay.json` (split by design) |
+| Settings | `settings` (`config.yaml`) | `memory.Store.setting` with no callers (OWN-07); `overlay.json` (split by design). The unused `config/loader` TOML was removed on 2026-11-15 (HA-CFG-06) |
 | The agent executor | `executors/claude_code.ClaudeCodeExecutor` behind `executors/base.Executor`; chosen by `executors/providers` | none found |
 
 ## 1. Action approval
@@ -231,7 +231,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
   - **OWN-07** `memory.Store.setting` and `memory/settings/`: "Swift's own settings", with `config.yaml` winning
     (`test_config_yaml_wins_over_a_kept_setting`). No caller in `src/swift` reads it today. A second settings
     store waiting for a first user.
-  - **HA-CFG-06** (existing): `config/loader.py` and the TOML files are loaded by nothing live.
+  - **HA-CFG-06** (fixed 2026-11-15): `config/loader.py` and the TOML files, loaded by nothing live, were deleted.
 
 ## 15. The agent executor
 

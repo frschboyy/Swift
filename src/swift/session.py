@@ -180,6 +180,7 @@ from swift.routing.rules import (
     route_target,
     strip_wake,
 )
+from swift.runs import RunRecords
 from swift.same_request import same_request
 from swift.security.gateway import UNDO_WINDOW_S, Approved
 from swift.stack import MAX_PARKED, StackItem, card_id, due_id, parked_id, split_id
@@ -763,6 +764,7 @@ class Session:
         tail_s: float = TAIL_S,
         audio_dir: Path | None = None,
         on_finish: OnFinish | None = None,
+        runs: RunRecords | None = None,
         router: Callable[[str], Route] | None = default_router,
         opener: LocalOpener | None = None,
         followup_s: float = FOLLOWUP_S,
@@ -835,7 +837,7 @@ class Session:
         # Each recording is saved here as <interaction id>.wav; swift/stt/recordings.py decides
         # which are kept (audit B-06). None: nothing is saved.
         self.audio_dir = audio_dir
-        self.on_finish = on_finish
+        self.on_finish, self.runs = on_finish, runs or RunRecords(None)  # runs: the run records (runs.py)
         # None sends every transcript to the executor unchanged (tests, demos).
         self.router = router
         # Resolves and starts "open ..." requests; None sends them to the executor.
@@ -2761,8 +2763,6 @@ class Session:
             "ts": datetime.now().astimezone().isoformat(timespec="milliseconds"),
             "id": uuid.uuid4().hex,
             **record,
-            "steps": [],
-            "approvals": [],
         }
         self._record = record
         continues = record.pop("continues", None)
@@ -2772,6 +2772,7 @@ class Session:
         self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]
         self._thread_before = previous
         record["thread"] = self._thread
+        self.runs.begin(record)
         if run is self._focus:
             await self._close_followup()
         self._drop_question()
@@ -3076,6 +3077,7 @@ class Session:
             await self._ended(run)
             if self.on_finish is not None:
                 self.on_finish(record)
+            self.runs.end(record)  # after on_finish, which adds the clip's flags
             if run.correction is not None:
                 # After this task is done (busy is still true inside it).
                 asyncio.get_running_loop().call_soon(self._start_correction, run)
@@ -3910,9 +3912,7 @@ class Session:
             self.tools.bind(run.scope, run_id)  # its tool calls name this run (ADR-013 §5.4)
         provider = started.provider
         agent = self._agent()
-        record["provider"] = provider.id
-        if started.skipped:
-            record["skipped"] = [p.id for p, _ in started.skipped]
+        self.runs.worker(record, provider.id, run_id, [p.id for p, _ in started.skipped])
         await self._set_state("working", run_id=run_id, agent=agent)
         for skipped, _ in started.skipped:
             # Swift's own step: who couldn't take the request and who did.
@@ -3936,7 +3936,7 @@ class Session:
                         "offline", "You're offline", OFFLINE_SAID,
                         "It's in your list: pick it up once the internet is back.", retry=True))
             if event.type == "step":
-                record["steps"].append({"t_ms": t_ms, "text": event.text, "activity": event.activity})
+                self.runs.step(record, t_ms, event.text, event.activity)
                 if event.activity == "starting":
                     continue  # no "Starting <provider>" line, whichever provider (owner, 2026-10-26)
                 await self._send(
@@ -3950,8 +3950,8 @@ class Session:
             elif event.type == "confirm" and event.request_id is not None:
                 self._confirm_ids.add(event.request_id)
                 self._confirm_titles[event.request_id] = event.text
-                record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms,
-                                            "explained": bool(event.purpose)})  # B1: never the words themselves
+                # B1: whether the card explained itself, never the words themselves.
+                self.runs.asked(record, event.tool, event.request_id, t_ms, explained=bool(event.purpose))
                 # Behind another card, it waits (its countdown not started) and stays off screen.
                 on_screen = await self._ask_card(run, event.request_id)
                 await self._set_state("confirm", run_id=run_id, agent=agent)
@@ -4218,7 +4218,7 @@ class Session:
         """Swift's own step on the working card: "Swift is writing in Word" (ADR-012 §6)."""
         if self._record is not None:
             t_ms = int((clock.now() - self._run_started) * 1000) if self._run_started else 0
-            self._record["steps"].append({"t_ms": t_ms, "text": text, "activity": activity, "by": "swift"})
+            self.runs.step(self._record, t_ms, text, activity, "swift")
         await self._send(
             outbound(
                 "step", run_id=self._run_id(), text=text, kind="swift", ts=now_ms(), activity=activity,
@@ -4248,7 +4248,7 @@ class Session:
         )
         run.last_scope = self._scope
         # Only a follow-up, a correction or a resumed conversation shares a thread with what came before.
-        self._scope.said = str(record.get("transcript") or "")
+        self._scope.said, self._scope.run = str(record.get("transcript") or ""), record.get("id", "")
         if (before := self._left.get(record.get("thread") or "")) is not None:
             self._scope.carry_from(before)
         CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it
@@ -4292,9 +4292,7 @@ class Session:
 
     async def _publish(self, record: dict[str, Any], artifact: Artifact) -> None:
         """An artifact from Swift's tools: to the overlay, and (kind, version, phase only) to the log."""
-        record.setdefault("artifacts", []).append(
-            {"id": artifact.id, "kind": artifact.kind, "version": artifact.version, "phase": artifact.phase}
-        )
+        self.runs.artifact(record, artifact.id, artifact.kind, artifact.version, artifact.phase)
         self._artifacts_run = self._run_id()
         await self._send(outbound("artifact", **artifact.as_message(self._artifacts_run)))
 
@@ -4308,7 +4306,7 @@ class Session:
         run_id = self._run_id()
         if self._record is not None:
             asked = int((clock.now() - self._run_started) * 1000) if self._run_started else 0
-            self._record["approvals"].append({"tool": tool, "request_id": request_id, "asked_ms": asked, "by": "swift"})
+            self.runs.asked(self._record, tool, request_id, asked, "swift")
         run = self._current()
         on_screen = await self._ask_card(run, request_id)
         await self._set_state("confirm", run_id=run_id, agent=self._agent())

@@ -89,6 +89,7 @@ logging:
   interactions: "%LOCALAPPDATA%/Swift/interactions.jsonl"
   app_log_dir: "%LOCALAPPDATA%/Swift/logs"
   journal: "%LOCALAPPDATA%/Swift/journal.jsonl"   # every sent email, before and after (metadata only)
+  runs: "%LOCALAPPDATA%/Swift/runs"   # one file per request: what happened in it, never its words
   level: "INFO"
 
 connectors:                        # Swift's own workflow tools (ADR-010)

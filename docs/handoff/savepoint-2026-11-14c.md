@@ -1,10 +1,9 @@
 # Save point, 2026-11-14 (evening): moving to the other computer
 
 Read `docs/handoff/README.md`, `docs/handoff/workstreams.md`, `docs/handoff/roadmap.md` and `CLAUDE.md` first. This
-replaces `savepoint-2026-11-14b.md`. Each paused session left its own note in `docs/handoff/notes-2026-11-14/` on its
-branch (table below).
+replaces `savepoint-2026-11-14b.md`.
 
-## `main` now (`a8f12ce`, 28 commits ahead of `origin/main` until the owner pushes)
+## `main` now (`a8f12ce`, pushed to `origin/main` after the owner's approval)
 
 Merged today with the owner's OK:
 
@@ -19,10 +18,12 @@ Merged today with the owner's OK:
   repeated its opening paragraph; results feel plain and hard to scan). The owner's report said 2 FAIL; the second
   wasn't pasted. Ask for it.
 
-## Sessions paused for the move
+## Sessions preparing to pause for the move
 
-Each was asked to stop at a clean point, commit (WIP is fine) with a note in `docs/handoff/notes-2026-11-14/`, and not
-push. None merges `main`; the orchestrator does, with the owner's OK.
+Each working session was asked to stop at a clean point, commit (WIP is fine) with a note in
+`docs/handoff/notes-2026-11-14/`, and not push. At the cutoff, their replies were still pending; do not assume their
+notes or commits exist until checked. B4 and the modes study were already idle. None merges `main`; the orchestrator
+does, with the owner's OK.
 
 | Session | Branch | What | Next |
 |---|---|---|---|
@@ -32,11 +33,13 @@ push. None merges `main`; the orchestrator does, with the owner's OK.
 | Split `session.py` | `claude/serene-sanderson-27dd51` | Groundwork: seams out of `session.py` (5,008 lines), kept only if it removes code | Finish step by step; it touches product rules, so a second review |
 | B4 build | `claude/objective-ptolemy-8c94e4` | Plan only so far (`b4-build-plan.md` in its notes): four steps, checks 340–351 | Start building in a new `claude/b4-build` worktree once the 305 fix is on `main` |
 
-Session branches with no commits yet only exist here; their notes and WIP commits reach the other PC only once pushed.
+Session branches with no commits yet only exist here. Check each branch and note before assuming its work is available
+on the other PC.
 
 ## Waiting on the owner
 
-- **Push** `main` and the session branches so the other PC has them (sessions never push).
+- `main` and this savepoint branch were pushed after the owner's approval. The session branches had not yet reported
+  their final state; verify which notes and commits exist before resuming them.
 - **Real-PC checks:** 255 and 252 first, then 306, 310, 320, 330; Halo's 216–221 with `VITE_SWIFT_LOOK=halo`. 305
   waits for its fix.
 - **The modes study's seven decisions** (`docs/explorations/modes-study.md`, "Decisions for the owner").
@@ -54,6 +57,27 @@ Session branches with no commits yet only exist here; their notes and WIP commit
   - B3, B4, B5, B6 and B7 are decided but not built; Halo's ADR-019 §8 items aren't built;
   - the suggested B order is the 305 fix, B4, §8 with B3, B5 with B7, then B6 (they share the card files, so one at a
     time).
+
+## Orchestrator-session context
+
+- **Branch cleanup:** removed 27 local branches and 21 worktrees; archived 19 completed sessions. Kept the three
+  unmerged branches (`claude/audit-fixes-google-calendar`, `claude/audit-fixes-recipients`, and
+  `backup/wake-porcupine-trial-pre-rebase`), 17 idle chats in the main checkout, and a detached `mainwt`. No remote
+  stale branches were deleted.
+- **Halo Step B review:** the dev harness proved that the branch hides the working card's 3 px draining bar, which
+  appeared on `main` and restarted on each step. The shared renderer applied a fade deadline to a card that does not
+  fade; the pixel check missed this because reduced motion hides the bar. The recommendation was to keep it hidden,
+  since it implied a false timeout. Overlay TypeScript and tests passed (132 pass, 2 todo); Python tests, routing
+  parity, and the 200-capture pixel comparison were not rerun in that review.
+- **Roadmap and full-document review:** the orchestrator identified planned work beyond B4, started a separate
+  `session.py` split session, and requested a full read of every ADR and exploration against the code. The three
+  read-only agents were stopped before reporting to conserve credits; that review remains unfinished.
+- **Modes study:** after the owner's approval, `docs/explorations/modes-study.md` was merged to `main` and the run
+  list and roadmap were regenerated. It proposes an “ask me about everything” switch, limited learned trust, then a
+  plan card, and leaves seven owner decisions.
+- **Cross-computer handoff:** the orchestrator committed this savepoint and pushed `main` and the savepoint branch
+  after the owner's approval. The working sessions had only been asked to pause; their final notes and commits were
+  not confirmed before credits ran out.
 
 ## This PC's quirks (Francis-PC)
 

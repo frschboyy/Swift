@@ -89,6 +89,10 @@ class RunScope:
     # The owner's own answers to this run's questions (``Answer.said``): their words too, so "I meant
     # Wi-Fi" after "turn off the wafer" asks for Wi-Fi. Nothing a worker read or wrote gets in here.
     answers: list[str] = field(default_factory=list)
+    # The owner's own words earlier in this conversation (the exchanges this request goes on from, as
+    # Swift heard them), each with when (clock.now()): a web address they gave there may be opened if
+    # it's recent (C3, 2026-11-14). Never what the agent wrote or a tool read.
+    earlier: tuple[tuple[float, str], ...] = ()
     # How a tool asks the owner something mid-run (``ask_owner``, ``find_contact``); None: it can't.
     ask_fn: Asker | None = None
     # The run record of the request it works for (``runs.py``): its journal entries name it.

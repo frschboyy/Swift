@@ -29,6 +29,11 @@ default browser only when the address, or its site, is in the owner's own words 
 (``RunScope.said`` and their answers), written or spoken ("usiu dot ac dot ke"). The same rule as a
 fetch (audit 2026-10, A-03; check 52): an address the model put together, or one a page gave, could
 carry what it read to someone else, so it isn't opened; the model asks the owner for the address.
+An address the owner said or typed earlier in the same conversation, in the last ``RECENT_ADDRESS_S``,
+counts too (owner's decision 2026-11-14, check 255: "open usiu dot ac dot ke", then "open my
+university's website"). Those words come from Swift's own record of the conversation
+(``RunScope.earlier``, from the exchanges the request goes on from), never from the agent's context;
+a yes to an address the agent offered is still not the owner's address.
 """
 
 from __future__ import annotations
@@ -45,6 +50,7 @@ from urllib.parse import urlsplit
 
 from loguru import logger
 
+from swift import clock
 from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
@@ -216,9 +222,12 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                       {"written": written, "route": outcome.receipt.split(":", 1)[0]})
 
 
+# How long an address the owner gave earlier in the conversation may still be opened (C3, 2026-11-14).
+RECENT_ADDRESS_S = 600.0
 NOT_NAMED_URL = (
-    "Not opened: Swift opens only a web address the owner said or wrote in this request (or its site). "
-    "If you aren't sure of the address, ask the owner for it with ask_owner; don't guess one."
+    "Not opened: Swift opens only a web address the owner said or wrote in this request, or earlier in this "
+    "conversation in the last 10 minutes (or its site). When no address the owner gave fits, ask the owner to "
+    "say it with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest doesn't count."
 )
 
 
@@ -230,7 +239,9 @@ async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
     if "://" not in url:  # "usiu.ac.ke" or "usiu.ac.ke:443"; "javascript:…" then fails the scope check
         url = "https://" + url
     allowed = WebScope()
-    for words in (scope.said, *scope.answers):
+    now = clock.now()
+    recent = (words for heard, words in scope.earlier if now - heard <= RECENT_ADDRESS_S)
+    for words in (scope.said, *scope.answers, *recent):
         allowed.note_request(words)
     if not url.lower().startswith(("https://", "http://")) or not allowed.allows(url):
         logger.info("web address not opened: not the owner's")  # never the address
@@ -392,8 +403,10 @@ DESKTOP_TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec(
         "desktop_open",
         "Open what the owner selected in File Explorer (what: 'selection'), an app, folder or project Swift "
-        "knows by name (name), or a web address in the owner's browser (url: one the owner said or wrote, "
-        "'dot' read as '.', e.g. 'usiu dot ac dot ke' is usiu.ac.ke). Never a path or address you made up.",
+        "knows by name (name), or a web address in the owner's browser (url: one the owner said or wrote, in this "
+        "request or earlier in this conversation, 'dot' read as '.', e.g. 'usiu dot ac dot ke' is usiu.ac.ke). "
+        "Never a path or address you made up; when no address the owner gave fits, ask them to say it with "
+        "ask_owner rather than offering one.",
         _obj([], what={"type": "string", "enum": ["selection"]}, name={"type": "string"}, url={"type": "string"}),
         "reversible", desktop_open,
     ),

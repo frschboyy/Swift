@@ -2195,9 +2195,24 @@ Nothing to judge here: the lines say whether Task Manager sits in a band above e
 
 <a id="check-255"></a>**Check 255. A website you name opens**
 1. Say "Hey Swift, open usiu dot ac dot ke". The site opens in your browser, with no approval card.
-2. Say "Hey Swift, open my university's website" (no address). Swift asks you for the address instead of guessing one.
+2. Say "Hey Swift, open my university's website" (no address). Since your decision of 2026-11-14 this opens the site
+   you named in step 1: [check 330](#check-330) checks that. Without a recent address, Swift asks you for it instead
+   of guessing one.
 
 The report checks: every spoken "… dot …" address was opened.
+
+<a id="check-330"></a>**Check 330. A website you named a moment ago opens again from "my university's website"**
+
+About 2 minutes. Your decision of 2026-11-14 (from check 255): an address you said or typed yourself earlier in the
+conversation, in the last 10 minutes, may be opened; one the agent offered never counts, even with your yes.
+1. Say "Hey Swift, open usiu dot ac dot ke". The site opens in your browser, with no card.
+2. Within a minute, say "Hey Swift, open my university's website". You should see the same site open again, with no
+   card and **no question**.
+3. Say "Hey Swift, new topic", then "Hey Swift, open my university's website". Swift should **ask you to say the
+   address**, and not offer one ("Should I open usiu.ac.ke?" is wrong). Say "never mind".
+
+The report checks: each "open … website" with no address said, within 10 minutes of one you said, opened it without a
+question; tell us what Swift asked in step 3.
 ### Where you are (2026-11-13)
 
 About 3 minutes. From your run of 2026-11-13, 15:02: asked how far the CBD was "from my current location", Swift said

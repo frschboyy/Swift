@@ -711,13 +711,24 @@ def _rigid(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
 
 def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
     """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3).
-    320: out from under Task Manager, which no ordinary app can come in front of (A10)."""
+    320: out from under Task Manager, which no ordinary app can come in front of (A10).
+    330: "open my university's website" opens the address said in the last 10 minutes (C3, 2026-11-14)."""
     spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
     def opened(r: dict[str, Any]) -> bool:
         return any("desktop_open" in str(s.get("text")) for s in r.get("steps") or [])
 
     missed = [r for r in spoken if not opened(r)]
+    # 330: "open … website/site" with no address said, within 10 minutes after a spoken one.
+    bare = [r for r in rows if re.search(r"\bopen\b.*\b(website|site)\b", r.get("transcript") or "", re.I)
+            and r not in spoken and any(0 <= (r["_t"] - s["_t"]).total_seconds() <= 600 for s in spoken)]
+
+    def asked_or_refused(r: dict[str, Any]) -> bool:
+        texts = [str(s.get("text")) for s in r.get("steps") or []]
+        return bool(r.get("asks")) or sum("desktop_open" in t for t in texts) != 1 or any(
+            re.search(r"\b(couldn't|can't|could not|cannot) open\b", t, re.I) for t in texts)
+
+    again = [r for r in bare if asked_or_refused(r)]
     return [
         ("253 Swift came in front of an ordinary always-on-top window", LOOK,
          "tell us whether Swift was in front of the test window, and whether Notepad kept the cursor"),
@@ -726,6 +737,10 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
          f"{len(spoken)} heard; not opened: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in missed) or "none")),
         ("320 the card moved out from under Task Manager, and came back", LOOK,
          "tell us where the card showed with Task Manager over the orb, then after closing it, and whether Notepad kept the cursor"),
+        ("330 the address said a moment ago opened from 'my university's website'", unless(again, bare),
+         f"{len(bare)} heard; asked or refused instead: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in again) or "none")),
+        ("330 after 'new topic' Swift asked for the address", LOOK,
+         "tell us whether Swift asked you to say it, or offered an address"),
     ]
 
 

@@ -20,10 +20,17 @@ What was merged today on this PC, all with the owner's OK:
 
 | Branch | What | State | Next |
 |---|---|---|---|
-| `claude/halo-step-b-c7b584` | Halo Step B: one card renderer, net −35 lines, default look pixel-identical | Built; `main` merged in (`3fb77ee`), checks now 305–306; it was still finishing when this was saved | If not already done, it must merge `main` and renumber its checks 303–304 to **305–306** (A7 took 303–304), then re-run overlay `tsc`/`npm test` and the full suite. Then the orchestrator reviews it and asks the owner to merge. Hand-over note: `docs/handoff/halo-step-b.md` on the branch, if it was copied before the switch |
+| `claude/halo-step-b-c7b584` | Halo Step B: one card renderer, net −35 lines, default look pixel-identical | `main` c9f3b2e merged (`3fb77ee`); checks 305–306, next free 340. Validated 2026-11-14: `tsc` clean; overlay 132 passed, 2 todo, 0 failed; Python 2,133 passed, 1 skipped, 35 xfailed, 0 failed, 6 warnings | Orchestrator review, then ask the owner to merge. Owner checks 305–306 still need the real-PC run. See `docs/handoff/notes-2026-11-14/halo-step-b.md` on the branch |
+
 | `claude/a10-uncovered-anchor-9b3922` | A10: when a higher-band window (Task Manager, band 16) covers the orb, the card shows at the nearest uncovered anchor | Stopped at `7175640`, clean, with `main` (`c9f3b2e`) merged in. Fix in `8e42954` (root). `cargo test` 36 pass. Check renumbered to **320** | Orchestrator review, then merge with the owner's OK. The owner runs check 320 (Task Manager on top over the orb: the card shows at another anchor) |
 | `claude/c3-recent-address-83f24a` | C3: an address the owner said or typed in the last 10 minutes of the conversation may open | Stopped at `b6830ea` (WIP), with `main` (`c9f3b2e`) merged in. Fix and tests in `27bcdbe`, docs in `52a5df9`. Check renumbered to **330**. 38 targeted tests pass | Run the full suite and routing parity on the branch, then the orchestrator's second review (product rule). Review notes: `notes-2026-11-14/c3-recent-address-review.md` |
 | `claude/a9-gmail-252-e5d21c` | A9: Gmail compose not filled | Stopped at `a18e1fe`, clean, with `main` (`c9f3b2e`) merged in. Full suite 2137 passed, 0 failed. **Proven and fixed** (`f060c8b`, root): a compose that opens without the cursor in it shows To as a "Recipients" line with no To box. Swift now focuses that line (only when the subject is empty), which opens the To box; confirmed against the live window. Read-only probe: `spikes/desktop/gmail_fields.py`. Check **310** written | Orchestrator review, then merge with the owner's OK. Restart Swift and the owner runs check 310. **Not proven:** 12:24 (nothing found with Chrome in front) and 12:26 (behind; `SetForegroundWindow` failed). If 310 fails, run `uv run python spikes/desktop/gmail_fields.py` while the compose is open and paste it with the `gmail compose not filled` log line. For `gmail_behind`, try UIA `SetFocus` as a fallback in `bring_forward` |
+
+Halo validation details: the six Python warnings were `PytestUnhandledThreadExceptionWarning` from
+`tests/unit/test_memory.py::test_two_writers_at_once_never_share_a_version` (concurrent writes to the same temporary
+file); the suite still exited 0. The overlay's two todo tests are the existing HA-UI-05 and O-03 findings. The earlier
+intermittent seam-replay failure was not reproduced in the four reported reruns (53 passed each); its test name was
+not captured. The full suite on the merged branch also passed.
 
 The next free check number after these blocks is **340**.
 

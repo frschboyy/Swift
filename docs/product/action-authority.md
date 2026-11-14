@@ -1,8 +1,6 @@
 # Action authority: what an action needs before Swift does it
 
-**Status: draft, proposed in [`docs/explorations/claude-md-split.md`](../explorations/claude-md-split.md).** Until
-the owner accepts the split, `CLAUDE.md` is the authority and this file repeats it. Where they differ, `CLAUDE.md`
-wins.
+**Status:** adopted 2026-11-15 (the owner accepted the split); `CLAUDE.md` links here.
 
 The model the owner accepted on 2026-11-15 ([`foundation-rules-review.md`](../explorations/foundation-rules-review.md)
 §4 and §7, decisions 1 to 14). This file is the full statement; `CLAUDE.md` keeps the table and the hard lines.
@@ -62,7 +60,7 @@ origin, decides what an action may use.
   everything"** raises level 0 to 1, except reads in the read folders and volume.
 - **`intake.approves` is the one place approval is decided**, and its test checks it against the table above
   *(foundation decision 10)*. Change both together.
-- **An approval covers exactly what its card showed.** The gateway binds it to the action's digest and recomputes it
+- **An approval covers exactly what its card showed.** For Swift's own actions the gateway binds it to the action's digest and recomputes it
   before running: a changed recipient, path, command or payload voids it, and an approval is never reused for
   another action (ADR-010, threat model T3). Enforcement lives in the backend, never in the agent or the overlay.
 - **No hands-free listening while locked, away or paused.**

@@ -1,7 +1,6 @@
 # Testing strategy: the layers, and which a change needs
 
-**Status: draft, proposed in [`docs/explorations/claude-md-split.md`](../explorations/claude-md-split.md).** Until
-the owner accepts the split, `CLAUDE.md` is the authority and this file repeats its commands and owner-check rules.
+**Status:** adopted 2026-11-15 (the owner accepted the split); `CLAUDE.md` links here.
 
 Green tests have coexisted with bad days on the real PC (handoff §1, "Limit of these tests"). Each layer below
 proves something the one before can't; none proves the next.

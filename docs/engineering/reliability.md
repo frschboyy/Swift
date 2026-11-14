@@ -1,7 +1,6 @@
 # Reliability: how to change and fix Swift
 
-**Status: draft, proposed in [`docs/explorations/claude-md-split.md`](../explorations/claude-md-split.md).** Until
-the owner accepts the split, `CLAUDE.md` is the authority and this file repeats it.
+**Status:** adopted 2026-11-15 (the owner accepted the split); `CLAUDE.md` links here.
 
 Sources: the reliability audit and its review ([`2026-11-reliability-audit.md`](../audit/2026-11-reliability-audit.md),
 [`2026-11-reliability-audit-review.md`](../audit/2026-11-reliability-audit-review.md)) and the foundation review §6.

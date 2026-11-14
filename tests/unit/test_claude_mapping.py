@@ -123,9 +123,27 @@ def test_split_answer_keeps_the_whole_answer() -> None:
 
 
 def test_split_answer_keeps_a_long_opening_below_the_summary() -> None:
-    opening = "word " * 100
+    opening = "word " * 100  # one sentence longer than the summary
     summary, details = split_answer(opening)
     assert summary.endswith("…") and details is not None and details["text"].strip() == opening.strip()
+
+
+TEA_OPENING = (
+    "Tea began in southwest China, where wild Camellia sinensis grew in the hills of Yunnan, and legend credits "
+    "the emperor Shennong with a first cup around 2737 BCE, when leaves blew into his boiling water. Whatever the "
+    "truth of that story, by the **Han dynasty** tea was a medicine, and by the Tang it was a daily drink across China."
+)
+
+
+def test_split_answer_never_says_a_long_opening_twice() -> None:
+    # Owner check 305 (2026-11-14): the card showed the opening cut with "…", then the whole opening again.
+    summary, details = split_answer(TEA_OPENING + "\n\n## Europe\nDutch traders brought tea to Europe in 1610.")
+    assert summary == TEA_OPENING.split(" Whatever")[0] and "…" not in summary
+    assert details == {
+        "kind": "text",
+        "text": "Whatever the truth of that story, by the **Han dynasty** tea was a medicine, and by the Tang it was a "
+                "daily drink across China.\n\n## Europe\nDutch traders brought tea to Europe in 1610.",
+    }
 
 
 def test_made_up_address_refusal_isnt_added_to_the_answer() -> None:

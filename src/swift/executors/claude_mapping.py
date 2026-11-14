@@ -303,6 +303,17 @@ def outcome_for(event: dict[str, Any], worked_around: Iterable[str] = ()) -> Out
 
 
 _BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+_SENTENCE_END = re.compile(r"(?<=[.!?])[\"'”’)\]]*\s+")
+
+
+def _lead_sentences(text: str) -> tuple[str, str]:
+    """The first whole sentences of ``text`` that fit in the summary, and what follows them."""
+    cut = 0
+    for m in _SENTENCE_END.finditer(text):
+        if len(_plain(text[: m.end()].rstrip())) > SUMMARY_MAX:
+            break
+        cut = m.end()
+    return text[:cut].strip(), text[cut:].strip()
 
 
 def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
@@ -319,7 +330,14 @@ def split_answer(text: str) -> tuple[str, dict[str, Any] | None]:
     first = _plain("\n".join(head))
     summary = _short(first, SUMMARY_MAX)
     if summary != " ".join(first.split()):
-        lines = [*head, "", *lines]  # too long for the summary: kept whole below it
+        # Too long for the summary. Owner check 305 (2026-11-14): the card drew the clipped summary
+        # ("…") and then the whole opening again. The summary is the opening's first whole sentences
+        # that fit; the card's body goes on from the next one, nothing said twice.
+        lead, rest = _lead_sentences(" ".join(" ".join(head).split()))
+        if lead:
+            summary, lines = _plain(lead), [rest, *(lines if lines and not lines[0].strip() else ["", *lines])]
+        else:
+            lines = [*head, "", *lines]  # one sentence longer than the summary: kept whole below it
     body = [line for line in lines if line.strip()]
     if not body:
         return summary, None

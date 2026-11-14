@@ -85,11 +85,11 @@ areas:
     checks: [10, 90-95, 126, 127]
   apps:
     rule: Swift writes into apps only when the owner's own words asked
-    paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/library/research-into-word/*]
+    paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
     checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 330]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
-    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302]
+    checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340]
   routing:
     paths: [src/swift/routing/*, src/swift/workflows/library.py, src/swift/workflows/toolset.py]
     checks: [4, 19, 29, 30, 59, 124, 193, 195, 204, 235, 236, 239, 303]
@@ -103,7 +103,7 @@ areas:
   memory:
     rule: memory is written only from the owner's words or an approved card, never from what a worker read
     paths: [src/swift/memory.py]
-    checks: [290-293]
+    checks: [290-293, 330]
   signin:
     paths: [src/swift/signin.py, src/swift/executors/signin.py, src/swift/connectors/google.py]
     checks: [120-122, 155]
@@ -123,6 +123,8 @@ areas:
     checks: [77-80, 110, 120, 147]
 
 focus:
+  - checks: [340]
+    why: check 305's failure of 2026-11-14 15:00 (a long answer's opening said twice, its "…" kept after Read more); fixed in split_answer (root), not seen on the real PC
   - checks: [305, 306]
     why: Halo Step B (2026-11-14), one card renderer; the default look should be unchanged except the working card's time bar, not seen on the real PC
   - checks: [320]
@@ -130,7 +132,7 @@ focus:
   - checks: [345]
     why: A10, check 320 failed on the other PC (2026-11-14 15:00); at 125% or 150% no anchor was wholly uncovered, so the card now goes where it is least covered; not seen on the real PC
   - checks: [330]
-    why: C3, the owner's decision of 2026-11-14 from check 255 (an address said earlier in the conversation, in the last 10 minutes, opens); product rule, not seen on the real PC
+    why: C3, the owner's second decision of 2026-11-14 after check 330's run (a recent address only when pointed at; a description only from a memory he taught); re-worded, product rule, not seen on the real PC
   - checks: [204, 303, 304]
     why: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC
   - checks: [290-293]
@@ -315,3 +317,19 @@ runs:
   note: 'Read more on the tea answer didn''t show the full answer: the ellipsis stayed and it was still cut off. The answer repeated its opening paragraph. The information still feels visually plain and hard to scan.'
   checks:
     FAIL: ['305']
+- date: 2026-11-14 15:00
+  commit: a8f12ce
+  source: report
+  note: 'The owner''s run of 2026-11-14 15:00 on the other PC. 252 FAIL: gmail_focus_body twice (16:00:04 body focus=''page'', 16:02:05 focus=''to''). 330''s automatic FAIL is a report mismatch: the 16:05:33 request after ''new topic'' was meant to ask, and did; the owner''s verdict on 330 is recorded separately.'
+  checks:
+    PASS: ['2', 2b, '3', '26', '27', '41', '43', '45', '46', '54', '60', '71', '78', '91', '93', '103', '104', '105', '106', '110', '111', '112', '113', '114', '125', '120', '123', '270', '149', '160', '161', '204', '303', '228', '242', '255', '263']
+    PARTIAL: ['15', '16', '21', '77']
+    FAIL: ['252', '330']
+- date: 2026-11-14 16:06
+  commit: a8f12ce
+  source: owner
+  note: '306: correct. 310: the draft never opened in Gmail, in Chrome or Notepad (body focus failed, see 252). 320: Swift''s overlay stayed behind Task Manager; it didn''t move to an uncovered anchor. 330: step 1 opened usiu.ac.ke again for ''my university''s website'', as written, but the owner objects: he never said that site was his university (a product-rule question, waiting on his decision); step 2 after ''new topic'' asked which university, as the check expects. 305 notes beyond Read more: Watch feels disconnected (the main overlay goes soon after Watch opens; ''closes by itself'' shows while it stays open); wants progress or animation, Watch in a corner or sidebar, Open answer leading back to the answer; file lists as a tree; a discreet running-timer indicator, perhaps in the stack.'
+  checks:
+    PASS: ['306']
+    FAIL: ['310', '320']
+    BLOCKED: ['330']

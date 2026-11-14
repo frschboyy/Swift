@@ -204,6 +204,9 @@ action (decision 6).
 
 ## Decisions for the owner
 
+**Decided 2026-11-14 (evening): all seven as recommended** (recorded in `docs/handoff/workstreams.md`).
+
+
 1. **Start with which kinds?** Recommended: only Wi-Fi off, Bluetooth off and airplane mode on. They're the only
    reversible things the owner asked for that ask today. More kinds only when the owner names one.
 2. **Can the owner make a trust by saying it, without waiting for the offer?** ("Always turn Wi-Fi off without

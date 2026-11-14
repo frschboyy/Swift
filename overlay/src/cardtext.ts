@@ -21,3 +21,8 @@ const COMMANDS: ReadonlySet<string> = new Set(["Bash", "PowerShell"]);
 
 export const commandFolded = (tool: string, purpose: string | undefined): boolean =>
   COMMANDS.has(tool) && !!purpose?.trim();
+
+// B2: a step card is a command card whose detail lists the step's commands, one a line. Approving covers
+// each of them, so the list starts open: the owner sees what they approve without a click.
+export const stepCommands = (tool: string, purpose: string | undefined, step: boolean | undefined, detail: string): string[] | null =>
+  step && commandFolded(tool, purpose) ? detail.split("\n") : null;

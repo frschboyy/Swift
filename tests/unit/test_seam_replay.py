@@ -313,6 +313,31 @@ async def test_a_command_card_leads_with_what_the_agent_says_it_does() -> None:
     await finish_all(session, agent)
 
 
+async def test_a_step_card_lists_the_commands_it_approves() -> None:
+    """B2: a step card is B1's command card, led by the agent's sentence, with every command it approves
+    listed open on it; a plain command card's command stays folded (owner checks 300-301)."""
+    session, out, agent, stt, _control, _sched = _lane()
+    run = await started(session, out, agent, stt, "Hey Swift, make a repository for my notes")
+    said = "Makes this folder a repository and saves the notes in it."
+    commands = ["git init", "git add notes.md", 'git commit -m "First notes"']
+    agent.runs[run]["queue"].put_nowait(ExecEvent(
+        "confirm", "Run 3 commands on your PC", request_id=f"{run}:9", detail="\n".join(commands), tool="Bash",
+        purpose=said, step=True))
+    await until(lambda: out.last("confirm.request"))
+    screen = agree(session, out)
+    assert screen["confirm"] == f"{run}:9" and screen["confirmLead"] == said
+    assert screen["confirmStep"] == commands
+    await finish_all(session, agent)
+
+    session, out, agent, stt, _control, _sched = _lane()
+    run = await started(session, out, agent, stt, "Hey Swift, make a repository for my notes")
+    agent.runs[run]["queue"].put_nowait(ExecEvent(
+        "confirm", "Run a command on your PC", request_id=f"{run}:9", detail="git init", tool="Bash", purpose=said))
+    await until(lambda: out.last("confirm.request"))
+    assert agree(session, out)["confirmStep"] is None  # one command's card: no list, folded as B1 made it
+    await finish_all(session, agent)
+
+
 # ---- what must keep working ---------------------------------------------------------------------
 
 

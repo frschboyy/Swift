@@ -3950,7 +3950,7 @@ class Session:
                 self._confirm_ids.add(event.request_id)
                 self._confirm_titles[event.request_id] = event.text
                 record["approvals"].append({"tool": event.tool, "request_id": event.request_id, "asked_ms": t_ms,
-                                            "explained": bool(event.purpose)})  # B1: never the words themselves
+                                            "explained": bool(event.purpose), "step": event.step})  # B1: never the words
                 # Behind another card, it waits (its countdown not started) and stays off screen.
                 on_screen = await self._ask_card(run, event.request_id)
                 await self._set_state("confirm", run_id=run_id, agent=agent)
@@ -3959,6 +3959,7 @@ class Session:
                         "confirm.request", request_id=event.request_id, run_id=run_id, title=event.text,
                         detail=event.detail or "", tool=event.tool or "",
                         purpose=event.purpose or "",  # the agent's words on what a command is for (B1)
+                        step=event.step,  # B2: the detail lists a step's commands, shown open
                         agent=agent,
                         # How long the card waits before the run stops ("No answer in time").
                         timeout_s=getattr(executor, "confirm_timeout_s", None),

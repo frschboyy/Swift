@@ -31,7 +31,7 @@ import * as Q from "./ask";
 import * as C from "./capsule";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, commandFolded, hasMarkedLines } from "./cardtext";
+import { cardLines, commandFolded, hasMarkedLines, stepCommands } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -1221,7 +1221,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
   const facts = el("div", { class: "facts" }, box, moreBelow(box));
   if (!commandFolded(data.tool, data.purpose)) return facts;
   // B1: the agent's words lead, under its bar (X-17); the command, what actually runs, is one click away.
-  const fold = el("details", { class: "command-fold", open: commandShown }, el("summary", {}, "Show the command (what will actually run)"), facts);
+  const fold = el("details", { class: "command-fold", open: commandShown }, el("summary", {}, stepCommands(data.tool, data.purpose, data.step, data.detail) ? "The commands this approves (what will actually run)" : "Show the command (what will actually run)"), facts);
   fold.addEventListener("toggle", () => {
     commandShown = fold.open;
     box.dispatchEvent(new Event("scroll"));  // "More below" measures the box only once it can be seen
@@ -1256,7 +1256,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   const again = lastConfirm?.request_id === data.request_id;
   if (!again) {
     fullDraft = false;
-    commandShown = false;
+    commandShown = stepCommands(data.tool, data.purpose, data.step, data.detail) !== null;
   }
   lastConfirm = data;
   // Redrawn while it's being read (presence, the countdown coming back): keep the reader's place.

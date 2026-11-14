@@ -4,7 +4,7 @@
 // stdout. No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
-import { commandFolded } from "../../src/cardtext.ts";
+import { commandFolded, stepCommands } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
 import * as P from "../../src/presenter.ts";
 
@@ -86,6 +86,9 @@ process.stdout.write(JSON.stringify({
   // B1: what a command card leads with (the agent's words), and whether its command is folded under it.
   confirmLead: P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm && commandFolded(confirmData.tool, confirmData.purpose)
     ? confirmData.purpose : null,
+  // B2: the commands a step card approves, listed open on it; null on any other card.
+  confirmStep: P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm
+    ? stepCommands(confirmData.tool, confirmData.purpose, confirmData.step, confirmData.detail) : null,
   lost,
   broken: [...broken],
 }));

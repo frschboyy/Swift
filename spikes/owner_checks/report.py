@@ -584,6 +584,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str]) -> list[tuple[str, Outco
         _gmail(log),
         *_front_and_web(rows),
         *_command_cards(rows),
+        *_step_cards(rows),
     ]
 
 
@@ -677,6 +678,22 @@ def _command_cards(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
          + (", ".join(f"{r['_t']:%H:%M:%S}" for r in bare) or "none")),
         ("264 a command card approves as before", LOOK,
          f"{len(approved)} approved; tell us whether a bare 'yes' or typing ever approved one"),
+    ]
+
+
+def _step_cards(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool, str]]:
+    """Checks 300-302 (B2): one card approves a step's commands; a delete, a send or anything unlisted asks again."""
+    steps = [(r, a) for r in rows for a in r.get("approvals", []) if a.get("step")]
+    granted = [r for r in rows if (r.get("step_grant") or {}).get("steps")]
+    covered = sum((r.get("step_grant") or {}).get("covered", 0) for r in rows)
+    again = sum((r.get("step_grant") or {}).get("asked_again", 0) for r in rows)
+    return [
+        ("300 one step card, then its commands ran without more cards", seen(granted and covered),
+         f"{len(steps)} step card(s), {len(granted)} approved; {covered} command(s) ran on a step's approval"),
+        ("301 a delete still asked on its own card", LOOK,
+         f"{again} command(s) asked again during an approved step; tell us whether the delete had its own card"),
+        ("302 a step card approves as before", LOOK,
+         "tell us whether a bare 'yes' or typing ever approved a step card"),
     ]
 
 

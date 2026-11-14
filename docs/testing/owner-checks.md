@@ -2196,6 +2196,42 @@ You should see: the card closes only on step 3, and the folded command never cha
 
 The report checks: nothing to judge from the log; tell us whether a bare "yes" or typing ever approved one.
 
+### One approval for a step (2026-11-14)
+
+About 5 minutes. Workstream B2 (your decision of 2026-11-13: one approval covers one step, its commands listed on
+the card). Only plain commands Swift knows can be undone are approved ahead; a delete, a send, a publish or anything
+Swift doesn't recognise still asks on its own card.
+
+<a id="check-300"></a>**Check 300. One card for a step, then its commands run**
+1. Say "Hey Swift, using the terminal, make a folder called B2-test in my Documents and make it a git repository".
+2. When the card **Run 2 commands on your PC** (or 3) comes, read it.
+3. Say "Swift, approve".
+
+You should see: under the title, with a bar at its left edge, **What it says this does** and one plain sentence for
+the whole step. Under it, **The commands this approves (what will actually run)**, already open, one command a line.
+After step 3, no more cards for those commands; the answer says the folder is a repository. (If the agent ran a
+command one at a time instead, each asks on its own card as before: tell us.)
+
+The report checks: a step card was approved, and commands then ran on it without another card.
+
+<a id="check-301"></a>**Check 301. A delete still asks on its own card**
+1. Say "Hey Swift, using the terminal, delete the B2-test folder in my Documents".
+2. A card comes: it is an ordinary **Run a command on your PC** card, never a step card. Click **Reject**.
+
+You should see: the delete is never on a step card, and the folder is still there afterwards. Delete it yourself.
+
+The report checks: how many commands asked again during an approved step; tell us whether the delete had its own card.
+
+<a id="check-302"></a>**Check 302. Approving a step card is as before**
+1. Make check 300's request again (a different folder name, B2-test2). When the step card comes, say just "yes" (no
+   "Swift"): nothing happens.
+2. Click **Change**, type "approve", and press Enter: the card stays, and the box says "Typing can't approve".
+3. Click **Reject**.
+
+You should see: the card closes only on step 3, and nothing in B2-test2 was made.
+
+The report checks: nothing to judge from the log; tell us whether a bare "yes" or typing ever approved one.
+
 ## Where every check stands
 
 Kept current by `spikes/owner_checks/plan.py` from `owner-checks-ledger.yaml` (every result so far) and git (what changed

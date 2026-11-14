@@ -73,8 +73,9 @@ answered, and whether the owner is there. Swift decides reversibility and reach,
 **While the foundation decisions are being built (2026-11-15):** The owner accepted all 14 decisions in
 `docs/explorations/foundation-rules-review.md` §7 on 2026-11-15. The rules above are the target; until each
 decision's code is merged, the code may differ. A change must move the code toward these rules, never away. What
-isn't built yet: [`docs/product/action-authority.md`](docs/product/action-authority.md) §5 (decisions 1-10) and
-[`docs/testing/strategy.md`](docs/testing/strategy.md) §4 (decisions 11-12).
+isn't built yet: [`docs/product/action-authority.md`](docs/product/action-authority.md) §5 (decisions 1-10).
+Owner checks (decisions 11-12, built): a new check on a branch gets `plan.py --next-id`'s `<branch>-<n>` id;
+at merge, `plan.py --renumber` then `--write` ([`docs/testing/strategy.md`](docs/testing/strategy.md) §4).
 
 ## How to work
 

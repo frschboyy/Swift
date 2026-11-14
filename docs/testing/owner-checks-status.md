@@ -68,12 +68,9 @@ As of 2026-11-15 at `1d6b02b`. Each number links to its check.
 
 **On branches not merged yet:**
 
-- `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 116 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
-- `claude/audit-fixes-recipients`: changes code behind 18 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
-- `claude/c3-recent-address-83f24a`: changes code behind 8 checks here (52, 62, 213, 255, 330, 353, 370, 371).
-- `claude/silly-blackburn-367ced`: changes code behind 39 checks here (2, 2b, 3, 8, 16b, 26, 27, 68, 69, 100, 101, 102, …).
+- `claude/silly-blackburn-367ced`: changes code behind 76 checks here (2, 2b, 3, 4, 5, 6, 7, 8, 14, 16b, 21, 22, …).
 
-**Next free check number: 390** (counted across `main` and every open branch).
+**Next free check number: 390** (counted across `main` and every open branch; `plan.py --renumber` gives it to a branch's first provisional check when the branch merges).
 
 **Code changed in the last 14 days that no check covers** (add a check, or add the file to an area or to `ignore` in the ledger):
 

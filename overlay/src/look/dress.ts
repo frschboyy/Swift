@@ -1,7 +1,7 @@
-// Dev only (ADR-019 Step A): today's cards in Halo's anatomy, without touching how they behave. main.ts
-// draws a card as always; this then moves its parts into a state line and an origin line. The buttons
-// and the live time are the same elements, so their handlers and the once-a-second tick keep working.
-// Words go through textContent only (dom.ts ``el``). Step B replaces this with one card renderer.
+// Dev only (ADR-019 Step A): today's cards in Halo's anatomy, without touching how they behave. The card
+// renderer (card.ts) draws a card as always, marked with its state; this then moves its parts into a state
+// line and an origin line. The buttons and the live time are the same elements, so their handlers and the
+// once-a-second tick keep working. Words go through textContent only (dom.ts ``el``).
 
 import { el, icon } from "../dom";
 import { needsCompact, tailX } from "./geometry";
@@ -19,25 +19,24 @@ function stateLine(state: string, mark: Node, word: string, time: Node | string 
     close);
 }
 
-/** The state line goes first; what's left of the head row is the origin line, the owner's words. */
-function dress(inner: HTMLElement, card: HTMLElement): void {
-  const is = (kind: string): boolean => card.classList.contains(`card--${kind}`);
+/** The state line goes first (a one-line card, the amber band and a question's tags already are one); what's
+ * left of the head row is the origin line, the owner's words. */
+function dress(inner: HTMLElement): void {
+  const state = inner.dataset.card;
   const head = inner.querySelector<HTMLElement>(":scope > .card-head");
   const close = head?.querySelector(":scope > .icon-btn") ?? null;
   head?.classList.add("halo-origin");
-  if (is("row") || is("confirm") || is("question")) return;  // their own first line is already the state's
   const bang = inner.querySelector(":scope > .fail > .bang");
-  if (is("due")) {
+  if (state === "due") {
     inner.prepend(stateLine("due", icon("bell"), "Due", "now", null));
-  } else if (is("working") && head) {
+  } else if (state === "working" && head) {
     const spinner = inner.querySelector(":scope > .status > .spinner");
     const time = inner.querySelector<HTMLElement>(":scope > .status > .elapsed");
     time?.classList.add("halo-time");
     if (spinner) inner.prepend(stateLine("working", spinner, "Working", time, close));
-  } else if (is("error") && !is("info") && head && bang) {
-    // Failed names a request's failure: a problem with no request keeps today's plain card.
+  } else if (state === "failed" && bang) {
     inner.prepend(stateLine("failed", bang, "Failed", clock(), close));
-  } else if (is("result") && head && inner.querySelector(":scope > .answer")) {
+  } else if (state === "done" && head && inner.querySelector(":scope > .answer")) {
     inner.prepend(stateLine("done", icon("check"), "Done", clock(), close));
   }
 }
@@ -89,7 +88,7 @@ export function dressCards(stage: HTMLElement): void {
     const inner = card.querySelector<HTMLElement>(":scope > .card-in");
     if (inner && inner.dataset.dressed === undefined) {
       inner.dataset.dressed = "";
-      dress(inner, card);
+      dress(inner);
     }
     fit();
   }).observe(card, { childList: true, attributes: true, attributeFilter: ["class"] });

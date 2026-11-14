@@ -1467,9 +1467,11 @@
   area: config
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: 'git grep: load_all, SwiftConfig, PermissionsConfig, high_risk_mode are used only in tests/unit/test_config.py;
+  evidence: 'Fixed 2026-11-15 (QA 2 cleanup, plan step 9): models.py, loader.py, defaults.py and test_config.py deleted,
+    with the AppPaths members only the loader used; docs/architecture.md and threat model T4/T12 updated. Found by:
+    git grep: load_all, SwiftConfig, PermissionsConfig, high_risk_mode are used only in tests/unit/test_config.py;
     production reads config.yaml through settings.py (backend/__main__.py:569). Only config/paths.py is live. models.py:145
     and defaults.py:310 describe voice_yes ("a plain spoken yes"), against the rule that a bare yes never approves.
     defaults.py refers to docs/configuration.md and docs/permissions.md, which do not exist. docs/threat_model.md:36

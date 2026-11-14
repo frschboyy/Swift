@@ -91,12 +91,9 @@ Built so far: `connectors/fake.py` (tests, debug mode) and `connectors/gmail.py`
 ## Configuration and logging (Phase 0)
 
 - `config/paths.py` places config in `%APPDATA%\Swift`, and data, logs, and models in `%LOCALAPPDATA%\Swift`.
-- `config/loader.py`:
-  - writes commented defaults on first run;
-  - falls back per section for `config.toml`;
-  - **fails closed** for `permissions.toml`;
-  - drops invalid projects from `profiles.toml`;
-  - reports every problem as a `ConfigIssue`.
+- `settings.py` reads the owner's `config.yaml`: typed sections, unknown keys refused, `%VAR%` paths expanded. Phase 0's
+  TOML loader (`config.toml`, `permissions.toml`, `profiles.toml`, `aliases.toml`) was never wired in and was removed
+  on 2026-11-15 (HA-CFG-06).
 - `logging_setup.py` runs every record through a redaction patcher before any sink sees it. Tracebacks are formatted and redacted by the patcher, and loguru's `diagnose`/`backtrace` are off, so local variables are never rendered.
 - Importing `swift` forces `HF_HUB_OFFLINE=1` and the related offline/telemetry switches.
 

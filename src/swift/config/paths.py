@@ -22,26 +22,6 @@ class AppPaths:
     logs_dir: Path
     models_dir: Path
 
-    @property
-    def config_file(self) -> Path:
-        return self.config_dir / "config.toml"
-
-    @property
-    def permissions_file(self) -> Path:
-        return self.config_dir / "permissions.toml"
-
-    @property
-    def profiles_file(self) -> Path:
-        return self.config_dir / "profiles.toml"
-
-    @property
-    def aliases_file(self) -> Path:
-        return self.config_dir / "aliases.toml"
-
-    def ensure_dirs(self) -> None:
-        for d in (self.config_dir, self.data_dir, self.logs_dir, self.models_dir):
-            d.mkdir(parents=True, exist_ok=True)
-
 
 def _required(env: Mapping[str, str], name: str) -> Path:
     value = env.get(name)

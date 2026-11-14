@@ -53,11 +53,17 @@ for (const { type, data: d, n } of frames) {
       asked = Q.onAsk(asked, d as Q.AskData, now);
       break;
     case "confirm.request":
-      pres = P.onConfirm(pres, d.request_id, d.run_id, d.timeout_s ?? 0, now);
+      pres = P.onConfirm(pres, d.request_id, d.run_id, now);
       confirmData = d;
       break;
     case "confirm.hold":
-      pres = P.onConfirmHold(pres, d.request_id, d.held, d.timeout_s, now);
+      pres = P.onConfirmHold(pres, d.request_id, d.held, now);
+      break;
+    case "countdown":
+      pres = P.onCountdown(pres, d.request_id, d.left_s, d.running, now);
+      break;
+    case "presence":
+      pres = P.onPresent(pres, d.state === "here");
       break;
     case "followup":
       pres = P.onFollowup(pres, d.open, d.seconds, now);
@@ -87,6 +93,8 @@ process.stdout.write(JSON.stringify({
   cardWords: words,
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
   confirm: P.confirmVisible(pres) ? pres.pendingConfirm : null,
+  // The countdown the card draws (T-08): what the backend's clock last said.
+  countdown: P.confirmLeftMs(pres, now),
   // B1: what a command card leads with (the agent's words), and whether its command is folded under it.
   confirmLead: P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm && commandFolded(confirmData.tool, confirmData.purpose)
     ? confirmData.purpose : null,

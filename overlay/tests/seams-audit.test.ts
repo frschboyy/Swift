@@ -37,7 +37,7 @@ test("O-05: a protocol error with no run id does not wipe the confirm card the b
   // (ipc/server.py). The presenter treats it as the answer: the confirm card and its countdown go,
   // while the backend still holds the card open (and counts it down as seen).
   let p = onState(initial, "confirm", "r1", "t1").p;
-  p = onConfirm(p, "swift:1", "r1", 45, 0);
+  p = onConfirm(p, "swift:1", "r1", 0);
   p = onAnswer(p, { kind: "error", ms: 12000 }, 10).p;
   assert.equal(p.pendingConfirm, "swift:1", "the card waiting for an answer is gone from the screen");
 });

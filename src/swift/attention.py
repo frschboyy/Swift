@@ -22,6 +22,9 @@ Seen (ADR-015 §4.2): with ``require_seen``, a card counts down only once the ov
 has drawn it (``set_seen``, from the overlay's ``screen`` acknowledgement), and stops again when the overlay
 hides it. A card the overlay never draws waits like a held card instead of running out unseen.
 
+The one clock (T-08): ``on_change`` hears each time a card's countdown starts or stops, with the
+time it has left, and the session tells the overlay, which only draws it.
+
 Expiry (ADR-017, the Capsule redesign): with ``on_expire`` set, a countdown that runs out doesn't
 end the wait. ``on_expire(key)`` puts the card aside (the session moves it to the waiting stack)
 and returns True; the card then waits like a held one, with its whole countdown again for when it
@@ -57,6 +60,8 @@ class _Wait:
     full: float = 0.0
     # Set aside into the stack (expired, or "Later"): it waits ``aside_s`` there, not ``hold_s``.
     aside: bool = False
+    # What ``on_change`` was last told: (deadline, left).
+    told: tuple[float | None, float] | None = None
 
 
 class Attention:
@@ -83,6 +88,8 @@ class Attention:
         self._changed = asyncio.Event()
         # ADR-017: a countdown that ran out; True when the card was set aside instead of timing out.
         self.on_expire: Callable[[str], bool] | None = None
+        # A card's countdown started or stopped: (key, seconds left, running).
+        self.on_change: Callable[[str, float, bool], None] | None = None
 
     def set_held(self, held: bool) -> list[str]:
         """The owner left (True) or came back (False). Returns the cards this changed."""
@@ -164,6 +171,10 @@ class Attention:
         """Wake the waits so they look at the clock again (a state change, or a slow tick)."""
         self._changed.set()
         self._changed = asyncio.Event()
+        for key, w in self._waits.items() if self.on_change is not None else ():
+            if (state := (w.deadline, w.left)) != w.told:
+                w.told = state
+                self.on_change(key, self.left(key) or 0.0, w.deadline is not None)  # type: ignore[misc]
 
     async def wait(self, key: str, future: asyncio.Future[Any], timeout_s: float) -> Any:
         """``future``'s result. TimeoutError when the countdown runs out, or the card was held too long."""
@@ -171,6 +182,7 @@ class Attention:
         frozen = not self._runs(key)
         w = _Wait(timeout_s, None, now, timeout_s) if frozen else _Wait(timeout_s, now + timeout_s, None, timeout_s)
         self._waits[key] = w
+        self.check()
         try:
             while True:
                 now = self.clock()
@@ -180,6 +192,7 @@ class Attention:
                     if w.deadline is not None and self.on_expire is not None and self.on_expire(key):
                         # Set aside, not ended: it waits in the stack, its whole time back for when it's opened.
                         w.left, w.deadline, w.held_at, w.aside = w.full, None, now, True
+                        self.check()
                         continue
                     raise TimeoutError
                 changed = asyncio.ensure_future(self._changed.wait())

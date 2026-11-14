@@ -42,6 +42,8 @@ The dialogue (ADR-016 §5.1): outbound ``ask`` is Swift's question during a requ
 open with its ``phase`` ("asking" while Swift says it, "listening" with ``seconds`` once the
 microphone is open for the answer, "again" after an answer it couldn't work out), or closed.
 Inbound ``ask.reply`` answers it from the card (an option clicked, or typed): never an approval.
+Outbound ``countdown`` is a confirm card's countdown starting or stopping, with the seconds it has
+left (T-08): the backend's ``Attention`` is its one clock, and the overlay only draws it.
 Mirrored in overlay/src/protocol.ts.
 """
 
@@ -106,7 +108,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard", "speech", "live", "watch", "ask"}
+     "runs", "stack", "heard", "speech", "live", "watch", "ask", "countdown"}
 )
 
 

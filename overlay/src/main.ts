@@ -1095,7 +1095,7 @@ function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
   void invoke("set_status", { text }).catch(() => {});
   // A confirm countdown runs only while the owner is here.
   const before = pres.away;
-  pres = P.onPresent(pres, p.state === "here", Date.now());
+  pres = P.onPresent(pres, p.state === "here");
   checkPresenter();
   if (before !== pres.away && stageNow() === "confirm" && lastConfirm) renderConfirm(lastConfirm);
   drawCapsule();
@@ -1306,7 +1306,7 @@ const clock = (ms: number): string => new Date(ms).toLocaleTimeString([], { hour
 
 /** The owner left: put the card aside (hidden, no countdown). Back: show it again, saying it waited. */
 function onConfirmHold(data: Extract<Inbound, { type: "confirm.hold" }>["data"]): void {
-  pres = P.onConfirmHold(pres, data.request_id, data.held, data.timeout_s, Date.now());
+  pres = P.onConfirmHold(pres, data.request_id, data.held, Date.now());
   checkPresenter();
   // Back: the backend has just drawn the card again (ADR-015 §4.1), so a card this overlay had
   // forgotten while it was hidden is already on screen (owner check 18, 2026-10-27).
@@ -1351,14 +1351,13 @@ function tickConfirm(): void {
     if (bar) bar.hidden = true;
     return;
   }
-  node.textContent = left.paused ? "Paused · you're away" : countdownText(left.ms);
+  node.textContent = left.paused && pres.away ? "Paused · you're away" : countdownText(left.ms);
   card.classList.toggle("card--away", left.paused);
   if (bar) {
     bar.hidden = false;
-    if (!bar.dataset.started || left.paused !== (bar.dataset.paused === "1")) {
-      // (Re)start the drain from what is left; stopped, it holds.
-      bar.dataset.started = "1";
-      bar.dataset.paused = left.paused ? "1" : "0";
+    if (bar.dataset.at !== String(pres.countdown?.at)) {
+      // (Re)start the drain from what the backend says is left; stopped, it holds.
+      bar.dataset.at = String(pres.countdown?.at);
       bar.style.animation = "none";
       void bar.offsetWidth;
       bar.style.animation = "";
@@ -2063,7 +2062,7 @@ function onMessage(msg: Inbound): void {
       if (stageNow() === "working") renderWorking();
       break;
     case "confirm.request":
-      pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id, msg.data.timeout_s ?? 0, Date.now());
+      pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id, Date.now());
       checkPresenter();
       renderConfirm(msg.data);
       break;
@@ -2108,6 +2107,10 @@ function onMessage(msg: Inbound): void {
       break;
     case "confirm.hold":
       onConfirmHold(msg.data);
+      break;
+    case "countdown":
+      pres = P.onCountdown(pres, msg.data.request_id, msg.data.left_s, msg.data.running, Date.now());
+      tickConfirm();
       break;
     case "resume.offer":
       onResumeOffer(msg.data);

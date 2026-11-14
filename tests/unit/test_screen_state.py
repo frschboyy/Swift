@@ -36,7 +36,9 @@ async def test_a_new_overlay_gets_the_card_with_the_time_it_has_left() -> None:
         types = [m.type for m in sent]
         assert "confirm.request" in types and "confirm.hold" in types
         hold = next(m.data for m in sent if m.type == "confirm.hold")
-        assert hold["request_id"] == request_id and hold["held"] is False and hold["timeout_s"] > 0
+        assert hold["request_id"] == request_id and hold["held"] is False
+        await asyncio.sleep(0.01)
+        assert out.last("countdown")["request_id"] == request_id and out.last("countdown")["left_s"] > 0
     finally:
         await finish_all(session, agent)
 

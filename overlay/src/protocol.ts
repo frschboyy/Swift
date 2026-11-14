@@ -57,9 +57,8 @@ export type Inbound =
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
   | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
-  // timeout_s: how long the card waits before the run stops without an answer.
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; agent?: Agent | null; timeout_s?: number | null; artifact_id?: string | null; thread_id?: string } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
@@ -79,8 +78,11 @@ export type Inbound =
   // paused: the owner paused listening from the tray (ADR-017): "Not listening · Mic off".
   | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
-  // held false: they're back, and the card has timeout_s left.
-  | { type: "confirm.hold"; data: { request_id: string; held: boolean; timeout_s: number } }
+  // held false: they're back, and the card shows again.
+  | { type: "confirm.hold"; data: { request_id: string; held: boolean } }
+  // T-08: a confirm card's countdown started or stopped, with the seconds left. The backend is its one
+  // clock; the overlay only draws it.
+  | { type: "countdown"; data: { request_id: string; left_s: number; running: boolean } }
   // ADR-014 §5: after an answer, one line naming a conversation left unfinished ("continue" picks it up).
   | { type: "resume.offer"; data: { thread_id: string; title: string } }
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.

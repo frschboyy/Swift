@@ -125,9 +125,13 @@ async def test_a_card_left_while_away_waits_and_comes_back() -> None:
     card = out.last("confirm.request")
     await session.hold_cards(True)
     hold = out.last("confirm.hold")
-    assert hold == {"request_id": card["request_id"], "held": True, "timeout_s": pytest.approx(45, abs=1)}
+    assert hold == {"request_id": card["request_id"], "held": True}
+    await asyncio.sleep(0.01)  # the countdown is Attention's, and it says where it stopped (T-08)
+    assert out.last("countdown") == {"request_id": card["request_id"], "left_s": pytest.approx(45, abs=1), "running": False}
     await session.hold_cards(False)
-    assert out.last("confirm.hold")["held"] is False and out.last("confirm.hold")["timeout_s"] >= 60
+    await asyncio.sleep(0.01)
+    assert out.last("confirm.hold")["held"] is False
+    assert out.last("countdown")["left_s"] >= 60 and out.last("countdown")["running"] is True
     await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "approve"}))
     await finish(session)
     assert len(calendar.created) == 1 and out.last("result")["status"] == "done"
@@ -163,7 +167,8 @@ async def test_a_countdown_that_runs_out_sets_the_card_aside_in_the_stack() -> N
     await session.handle(seen(card["request_id"]))
     await asyncio.sleep(0.4)
     assert session.state == "confirm" and records == [] and calendar.created == []
-    assert out.last("confirm.hold") == {"request_id": card["request_id"], "held": True, "timeout_s": pytest.approx(0.2, abs=0.01)}
+    assert out.last("confirm.hold") == {"request_id": card["request_id"], "held": True}
+    assert out.last("countdown") == {"request_id": card["request_id"], "left_s": pytest.approx(0.2, abs=0.01), "running": False}
     item = out.last("stack")["items"][0]
     assert item["id"] == f"card:{card['request_id']}" and item["reason"] == "expired"
     await session.handle(Message("stack.action", {"id": item["id"], "action": "open"}))

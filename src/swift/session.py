@@ -897,6 +897,8 @@ class Session:
             # ADR-017: a countdown that runs out sets the card aside in the stack ("held"); it is
             # never approved or rejected for the owner.
             attention.on_expire = self._expire_card
+            attention.on_change = lambda key, left, running: self._background(self._raw_send(outbound(
+                "countdown", request_id=key, left_s=round(left, 1), running=running)))  # its one clock (T-08)
         # Conversations left unfinished (ADR-014 §5); None: nothing is parked.
         self.parked = parked
         # The light lane's tool-free model call (ADR-007 §10); None: those requests go to the agent.
@@ -1508,13 +1510,11 @@ class Session:
             return
         run, _ = self._cards.pop(0)
         self._aside.append((run, request_id))
-        left = self.confirm_timeout_s
         if self.attention is not None:
             self.attention.set_queued(request_id, True)
             self.attention.set_seen(request_id, False)
             self.attention.put_aside(request_id)  # in the stack for ``ASIDE_S`` at most, then parked
-            left = self.attention.left(request_id) or left
-        await self._raw_send(outbound("confirm.hold", request_id=request_id, held=True, timeout_s=round(left, 1)))
+        await self._raw_send(outbound("confirm.hold", request_id=request_id, held=True))
         if self._cards:
             await self._show_next_card()
         elif others := self._live(besides=run):
@@ -1542,10 +1542,7 @@ class Session:
             self.attention.set_seen(before, False)
         self._cards.insert(0, entry)
         await self._show_next_card()
-        left = self.attention.left(request_id) if self.attention is not None else None
-        await self._raw_send(outbound(
-            "confirm.hold", request_id=request_id, held=False, timeout_s=round(left or self.confirm_timeout_s, 1)
-        ))
+        await self._raw_send(outbound("confirm.hold", request_id=request_id, held=False))
 
     async def _end_run(self, run: Run) -> None:
         """Ended from the stack: the request stops and isn't kept as unfinished."""
@@ -3963,8 +3960,6 @@ class Session:
                         detail=event.detail or "", tool=event.tool or "",
                         purpose=event.purpose or "",  # the agent's words on what a command is for (B1)
                         agent=agent,
-                        # How long the card waits before the run stops ("No answer in time").
-                        timeout_s=getattr(executor, "confirm_timeout_s", None),
                     )
                 )
                 if on_screen:
@@ -4318,7 +4313,7 @@ class Session:
             outbound(
                 "confirm.request", request_id=request_id, run_id=run_id, title=title, detail=detail, tool=tool,
                 # Swift is asking, not the provider.
-                agent=None, timeout_s=self.confirm_timeout_s, artifact_id=artifact_id,
+                agent=None, artifact_id=artifact_id,
             )
         )
         if on_screen:
@@ -4381,9 +4376,7 @@ class Session:
             for msg in self._replay(focus):
                 await self._raw_send(msg)
             if shown is not None and self._cards[0][0] is focus and self.attention is not None:
-                left = self.attention.left(shown)
-                await self._raw_send(outbound("confirm.hold", request_id=shown, held=self.attention.held,
-                                              timeout_s=round(left or 0.0, 1)))
+                await self._raw_send(outbound("confirm.hold", request_id=shown, held=self.attention.held))
         q = self.dialogue.pending
         if self._followup is not None and (left := self._followup[1] - clock.now()) > 0:
             await self._raw_send(outbound("followup", open=True, seconds=round(left, 1),
@@ -4416,7 +4409,6 @@ class Session:
             if held:
                 # Hidden: back, it counts down again only once the overlay says it drew it.
                 self.attention.set_seen(request_id, False)
-            left = self.attention.left(request_id)
             if (entry := self._approval(request_id)) is not None and held:
                 entry["held_away"] = entry.get("held_away", 0) + 1
             logger.info("confirm card held while away" if held else "confirm card back")
@@ -4425,9 +4417,7 @@ class Session:
                 # (owner check 18, 2026-10-27: back was logged, nothing was redrawn).
                 for msg in self._replay(run):
                     await self._raw_send(msg)
-            await self._send(
-                outbound("confirm.hold", request_id=request_id, held=held, timeout_s=round(left or 0.0, 1))
-            )
+            await self._send(outbound("confirm.hold", request_id=request_id, held=held))
 
     def _park(self, record: dict[str, Any]) -> None:
         """A run stopped, or with a card nobody answered: keep it to pick up later (swift/parked.py)."""

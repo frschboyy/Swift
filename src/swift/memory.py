@@ -1,11 +1,10 @@
-"""What Swift knows about its owner, and Swift's own settings (product direction §5.5, §6.1; workstream C7).
+"""What Swift knows about its owner (product direction §5.5, §6.1; workstream C7).
 
-A store owned by Swift, separate from ``config.yaml``, which still wins (``setting``). Plain files the owner
+A store owned by Swift. Settings are not here: ``config.yaml`` (``settings.py``) owns them. Plain files the owner
 can read, one per record, under ``%LOCALAPPDATA%\\Swift\\memory``::
 
     memory/<key>.md                  what Swift knows now: a header (description, source, when, run, version), then the text
     memory/versions/<key>/<n>.md     every version, the forgotten ones too, so any change can be rolled back
-    memory/settings/...              the same, for Swift's own settings
 
 Product rules (``CLAUDE.md``; a path that breaks one is a critical bug):
 
@@ -30,7 +29,7 @@ from typing import Any, Literal
 
 from loguru import logger
 
-Kind = Literal["memory", "setting"]
+Kind = Literal["memory"]
 Source = Literal["said", "approved", "inferred"]
 ACTIONS = ("remember", "forget", "recall")
 # Record sources whose transcript is the owner's own words, said or typed. Not "click": a button's words may be a worker's.
@@ -81,19 +80,16 @@ class Store:
     def __init__(self, root: Path) -> None:
         self.root = root
 
-    def _dir(self, kind: Kind) -> Path:
-        return self.root if kind == "memory" else self.root / "settings"
-
     def get(self, kind: Kind, key: str) -> Record | None:
-        path = self._dir(kind) / f"{key}.md"
+        path = self.root / f"{key}.md"
         return _load(key, path) if path.is_file() else None
 
     def all(self, kind: Kind) -> list[Record]:
-        folder = self._dir(kind)
+        folder = self.root
         return sorted((_load(p.stem, p) for p in folder.glob("*.md")), key=lambda r: r.when) if folder.is_dir() else []
 
     def versions(self, kind: Kind, key: str) -> list[Record]:
-        folder = self._dir(kind) / "versions" / key
+        folder = self.root / "versions" / key
         return sorted((_load(key, p) for p in folder.glob("*.md")), key=lambda r: r.version) if folder.is_dir() else []
 
     def write(self, kind: Kind, text: str, *, source: Source, run: str, words: str | None = None,
@@ -102,7 +98,7 @@ class Store:
         text = text.strip()
         if not text or len(text) > MAX_TEXT:
             raise ValueError("empty or too long")
-        if source == "said" and (words is None or (kind == "memory" and _norm(text) not in _norm(words))):
+        if source == "said" and (words is None or _norm(text) not in _norm(words)):
             raise NotOwnerWords("said, but not in the owner's words")
         if source == "approved" and not card:
             raise NotOwnerWords("approved, but no card")
@@ -118,15 +114,8 @@ class Store:
         self._commit(kind, Record(key, current.text, current.source, _now(), run, 0, forgotten=True))
         return current
 
-    def setting(self, section: Any, name: str) -> Any:
-        """A setting's value: config.yaml when the owner set it there (it wins), else this store, else the default."""
-        if name in section.model_fields_set:
-            return getattr(section, name)
-        kept = self.get("setting", f"{type(section).__name__}.{name}")
-        return kept.text if kept is not None else getattr(section, name)
-
     def _commit(self, kind: Kind, record: Record) -> Record:
-        folder = self._dir(kind) / "versions" / record.key
+        folder = self.root / "versions" / record.key
         folder.mkdir(parents=True, exist_ok=True)
         while True:  # compare-and-set on the version number: a version file is created once, by one writer
             n = max((int(p.stem) for p in folder.glob("*.md")), default=0) + 1
@@ -137,7 +126,7 @@ class Store:
                 break
             except FileExistsError:
                 continue
-        current = self._dir(kind) / f"{record.key}.md"
+        current = self.root / f"{record.key}.md"
         if record.forgotten:
             current.unlink(missing_ok=True)
         else:

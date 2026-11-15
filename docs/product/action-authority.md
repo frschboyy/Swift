@@ -73,10 +73,10 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 |---|---|---|
 | Who approves, from where | `intake.approves` (`APPROVES` is the table in §2; `test_intake.py` and `test_one_decider.py`) | none (OWN-01 to OWN-03 fixed); the hotkey can't answer Swift's question (FD-01) |
 | On screen and in front | `drawn.Drawn` (what the overlay drew): `seen` for confirm cards (`attention.set_seen`), `ask` for Swift's question (`session._on_screen`) | none (OWN-04 fixed) |
-| An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`) | worker tool cards in `executors/claude_code` (OWN-05) |
+| An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`); the agent's tool cards and step cards through `ActionGateway.bind` / `allow` (`changed_after_approval`, `approval_reused`, journalled) | none (OWN-05 fixed, review pending) |
 | Reversibility of commands | `executors/step_grant.reversible`, `base.Grant.covers` | — |
 | Recipients | `workflows/tools.find_contact`, and `draft_email` for an address in the owner's words → `RunScope.resolved`; the gateway checks it | — |
-| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too (OWN-06, partial) |
+| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too, accepted: a fetch only reads (OWN-06) |
 | Reads | `executors/read_scope.ReadScope` | — |
 | Memory | `memory.Store.write` (`said` text must be in the owner's words; `approved` needs a card) | — |
 | Presence | `presence`, `intake` step 1 | about four checks in `session` (RV-15) |
@@ -116,7 +116,8 @@ code toward these rules, never away.
   keeps `answers` (local only). Owner check not run. Not covered: a desktop write stopped mid-way (`_changed`) and
   the A9 UIA state.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
-- Found by the ownership map, not in the decisions: worker tool cards aren't bound to a digest (OWN-05).
+- Found by the ownership map, not in the decisions: worker tool cards weren't bound to a digest (OWN-05, fixed; a
+  review by another author is pending).
 
 ## 6. Where the model is stricter and looser than before
 

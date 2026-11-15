@@ -124,8 +124,10 @@ async def test_a_delete_and_a_send_listed_in_a_step_still_ask_on_their_own_card(
 
 async def test_a_grant_from_the_task_never_covers_a_delete_or_a_send(tmp_path: Any) -> None:
     """Whatever puts commands in a grant, Swift's own classification decides what it covers."""
+    from swift.executors.claude_code import _set_grant
+
     ex, run = _executor(tmp_path)
-    run.grant = Grant(STEP, ("rm notes.md", "git push", "git init"))
+    _set_grant(run, ex.gateway, Grant(STEP, ("rm notes.md", "git push", "git init")))
     assert await _asks(ex, run, "rm notes.md")
     assert await _asks(ex, run, "git push")
     assert not await _asks(ex, run, "git init")

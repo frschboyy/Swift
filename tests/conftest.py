@@ -64,3 +64,37 @@ def _interaction_fields_are_classified(monkeypatch: pytest.MonkeyPatch) -> Itera
     monkeypatch.setattr(session_module.Session, "__init__", checked)
     yield
     assert not found, f"interaction fields nobody has classified (swift/runlog.py): {sorted(found)}"
+
+
+@pytest.fixture(autouse=True)
+def _an_overlay_draws_the_question(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """OWN-04: Swift's question is on screen only once the overlay says it drew it (``screen``'s ``ask_id``).
+    No test's fake overlay answers, so this one does, as an overlay that draws each frame as it comes would:
+    the question drawn while it is the request in front with no card over it. The seam replay's ``agree``
+    checks that against the real presenter. ``@pytest.mark.drawn_by_test``: the test answers for the overlay."""
+    if request.node.get_closest_marker("drawn_by_test"):
+        yield
+        return
+    from swift import session as session_module
+
+    init = session_module.Session.__init__
+
+    def drawing(self: Any, *args: Any, **kwargs: Any) -> None:
+        init(self, *args, **kwargs)
+        send = self._drawn._out
+
+        def draw() -> None:
+            q = self.dialogue.pending
+            ask = q.id if q is not None and not self._cards and q.owner is self._focus else None
+            if ask != self._drawn.ask:
+                self._drawn.ask = ask
+                self._sync_answer_capture()
+
+        async def drawn(msg: Any) -> Any:
+            await send(msg)
+            draw()
+
+        self._drawn._out = drawn
+
+    monkeypatch.setattr(session_module.Session, "__init__", drawing)
+    yield

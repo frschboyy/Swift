@@ -20,7 +20,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 | Who may approve what, from where | `intake.approves` | none since foundation decision 10 (OWN-01, OWN-02, OWN-03 fixed) |
 | An approved Swift action runs as shown | `security/gateway.ActionGateway.execute`; worker tool cards through `ActionGateway.bind` / `allow` | none (OWN-05 fixed) |
 | Conversation and question state | `session` (questions), `dialogue.Dialogue` (parsing an answer), `answer_window.AnswerWindow` (its clock) | none found; split by design |
-| What's on screen | overlay `presenter.ts`; backend view in `drawn.Drawn` | `session._on_screen` decides from backend state, not the overlay's `screen` ack (OWN-04) |
+| What's on screen | overlay `presenter.ts`; backend view in `drawn.Drawn` | none (OWN-04 fixed: questions use the `screen` ack too) |
 | Card countdowns | `attention.Attention` (confirm cards), `answer_window` (questions) | none: the overlay only draws (`presenter.ts` header, T-08) |
 | Run records | `runs.RunRecords` | interaction log, journal, `parked`, `exchange` each keep a part (by design, see below) |
 | Contacts and recipients | `workflows/tools.find_contact` writes `RunScope.resolved`; the gateway checks it | none found |
@@ -103,8 +103,12 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 - **What the overlay shows:** `overlay/src/presenter.ts` (pure; deadlines in state, no `setTimeout` for card
   lifetimes). `main.ts` draws what it says. Tests: `tests/unit/test_overlay_presenter.py`, overlay `npm test`.
 - **What the overlay drew:** `src/swift/drawn.py` `Drawn`. Every frame goes out through `Drawn.send`, numbered;
-  the overlay's `screen` acknowledgement comes back through `Drawn.ack` (review item 9). `session.py:3778` feeds
-  it to `attention.set_seen`. Tests: `tests/unit/test_screen_state.py`, `test_seam_replay.py`.
+  the overlay's `screen` acknowledgement comes back through `Drawn.ack` (review item 9). `Session._screen` feeds
+  the confirm card it drew to `attention.set_seen`; the question it drew in front (`ask_id`) is `Drawn.ask`, which
+  `session._on_screen(q)` reads (OWN-04). Tests: `tests/unit/test_screen_state.py`, `test_seam_replay.py`,
+  `test_question_drawn.py`. Unit tests get a fake overlay that draws each frame as it comes
+  (`tests/conftest.py`, `_an_overlay_draws_the_question`); the seam replay's `agree` checks it against the real
+  presenter.
 - **Countdowns, backend only:**
   - confirm cards: `src/swift/attention.py` `Attention.wait`, `set_seen`, `set_queued`, `on_change`, `on_expire`
     (held while away, counts only once drawn). Tests: `test_attention.py`, `test_card_timing.py`,
@@ -112,10 +116,9 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
   - questions: `answer_window.AnswerWindow` (above).
   - The overlay only draws the countdown it's sent (`presenter.ts` header: "the backend is its one clock").
 - **The waiting stack:** `src/swift/stack.py`; whether an answer was seen: `src/swift/seen.py`.
-- **Second owner, OWN-04:** `session._on_screen(q)` (`session.py:3387`) decides whether a question is on screen
-  from the backend's own state (`not self._cards and q.owner is self._focus`), not from what the overlay said it
-  drew. Confirm cards count down from the `screen` ack; questions listen from the backend's belief. The two can
-  differ while a frame is in flight or refused. Whether that has caused a wrong answer is unproven.
+- **Second owners:** none. OWN-04 (fixed, 2026-11-15): `session._on_screen(q)` decided from the backend's own
+  state (`not self._cards and q.owner is self._focus`), so a spoken "yes" answered a question whose frame was in
+  flight, refused, or never drawn because the overlay was gone. It now reads `Drawn.ask`.
 
 ## 4. Run records
 

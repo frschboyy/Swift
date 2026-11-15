@@ -72,7 +72,7 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 | Rule | Owner in code | Second owners (findings) |
 |---|---|---|
 | Who approves, from where | `intake.approves` (`APPROVES` is the table in §2; `test_intake.py` and `test_one_decider.py`) | none (OWN-01 to OWN-03 fixed); the hotkey can't answer Swift's question (FD-01) |
-| On screen and in front | `drawn.Drawn` (what the overlay drew), `attention.set_seen` | `session._on_screen` for questions (OWN-04) |
+| On screen and in front | `drawn.Drawn` (what the overlay drew): `seen` for confirm cards (`attention.set_seen`), `ask` for Swift's question (`session._on_screen`) | none (OWN-04 fixed) |
 | An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`); the agent's tool cards and step cards through `ActionGateway.bind` / `allow` (`changed_after_approval`, `approval_reused`, journalled) | none (OWN-05 fixed, review pending) |
 | Reversibility of commands | `executors/step_grant.reversible`, `base.Grant.covers` | — |
 | Recipients | `workflows/tools.find_contact`, and `draft_email` for an address in the owner's words → `RunScope.resolved`; the gateway checks it | — |

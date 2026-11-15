@@ -140,13 +140,16 @@
   area: screen
   severity: medium
   product_rule: true
-  status: open
-  confidence: design-concern
-  evidence: session.py:3387 _on_screen returns not self._cards and q.owner is self._focus; drawn.Drawn.ack feeds
-    attention.set_seen only (session.py:3778)
-  test: null
-  note: Two owners of "on screen". They can differ while a frame is in flight or refused. No wrong answer seen from
-    it; unproven.
+  status: fixed
+  confidence: confirmed
+  evidence: 'Root fix. Proven before the fix: a spoken "yes" turned Wi-Fi off for "Turn off Wi-Fi?" with the frame
+    still in flight, with the overlay''s ack saying no question drawn, and after the overlay went. Now Drawn.ack
+    keeps the ask_id the overlay drew in front (Drawn.ask, cleared by gone()); session._on_screen reads only that,
+    and _screen and overlay_gone resync the answer capture.'
+  test: tests/unit/test_question_drawn.py
+  note: 'Unit tests get a fake overlay (tests/conftest.py _an_overlay_draws_the_question) that draws with the old
+    backend rule; test_seam_replay.py''s agree() checks it against the real presenter. Not verified on the real
+    PC: a spoken answer now waits for the overlay''s ack, a few ms. Product-rule fix: needs another reviewer.'
 - id: OWN-05
   title: The agent's own tool cards are approved in the executor, not the gateway, with no digest recomputed and no
     journal line.

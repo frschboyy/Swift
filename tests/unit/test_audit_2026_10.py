@@ -141,7 +141,7 @@ async def test_several_lines_are_never_typed_into_a_terminal(exe: str) -> None:
 
 
 @pytest.mark.parametrize("exe", ["cmd.exe", "WindowsTerminal.exe", "Code.exe"])
-@pytest.mark.parametrize("hidden", ["\r", "\t", "\x03", "\x1b", "\x7f"])
+@pytest.mark.parametrize("hidden", ["\r", "\t", "\x03", "\x1b", "\x7f", "‮", "​"])
 async def test_a_control_character_the_card_cant_show_is_refused_before_any_card(exe: str, hidden: str) -> None:
     """A bare carriage return is Enter in a console, a tab completes, Ctrl+C interrupts; none shows on the card."""
     host, desktop, owner, _ = make(FakeApp(exe, "edit", route="keys"))

@@ -90,9 +90,10 @@ def app_name(exe: str) -> str:
 
 
 def hidden_controls(text: str) -> bool:
-    """Control characters other than line breaks: invisible on a card, and a terminal may act on them
-    (a bare carriage return is Enter, a tab completes, Ctrl+C interrupts)."""
-    return any(unicodedata.category(c) == "Cc" and c != "\n" for c in text.replace("\r\n", "\n"))
+    """Control and format characters other than line breaks: invisible on a card, and a terminal may act on them
+    (a bare carriage return is Enter, a tab completes, Ctrl+C interrupts), or they change what the card displays
+    (a right-to-left override reorders it; a zero-width character hides)."""
+    return any(unicodedata.category(c) in ("Cc", "Cf") and c != "\n" for c in text.replace("\r\n", "\n"))
 
 
 HIDDEN_CONTROLS = "That command has characters Swift can't show on its card, so nothing was typed."

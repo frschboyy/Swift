@@ -42,12 +42,15 @@
   area: actions
   severity: critical
   product_rule: true
-  status: open
+  status: fixed
   confidence: design-concern
-  evidence: desktop/base.py:47-50 TERMINALS lacks code.exe; line breaks are Shift+Enter (A-01), and B-02 gate needs
-    the owner's words to write
-  test: null
-  note: 'Owner decides. Checking that VS Code''s focused element is its terminal needs UI Automation verified on
+  evidence: 'Safeguard (the cause, telling VS Code''s terminal from its editor, is unproven and untouched):
+    desktop_tools.INTEGRATED_TERMINALS (code.exe, code - insiders.exe) counts every VS Code write as a terminal''s, so
+    it gets its own card with every character (foundation decision 6), and the terminal must still be in front when
+    it runs.'
+  test: tests/unit/test_audit_2026_10.py::test_writing_into_a_terminal_is_its_own_card_showing_every_character
+  note: 'Since decision 6, writing into VS Code''s editor needs a card too (a feature cost, the owner''s call).
+    Was: Owner decides. Checking that VS Code''s focused element is its terminal needs UI Automation verified on
     a real VS Code, which this session can''t do; the alternative, never typing into VS Code, removes a feature.
     Line breaks are typed as Shift+Enter (A-01) and writing needs the owner''s words (B-02). untested: needs a real
     VS Code.'
@@ -2375,9 +2378,14 @@
   product_rule: true
   status: fixed
   confidence: confirmed
-  evidence: desktop/base.py:47 TERMINALS; desktop_tools.py:143 and windows.py:594 refuse them; commit 88560b6
-  test: tests/unit/test_audit_2026_10.py::test_writing_into_a_terminal_is_refused
-  note: VS Code's integrated terminal (code.exe) is still writable; see OCT-01.
+  evidence: desktop/base.py:47 TERMINALS; windows.py:594 refuses them; commit 88560b6. Since foundation decision 6,
+    desktop_write sends a terminal write to its own card (desktop_write_terminal, POLICY confirm) showing every
+    character, instead of refusing
+  test: tests/unit/test_audit_2026_10.py::test_writing_into_a_terminal_is_its_own_card_showing_every_character
+  note: 'VS Code too since decision 6 (OCT-01). Kept on purpose: WindowsDesktop._writer (windows.py:785) still
+    refuses TERMINALS, so on the real PC an approved card for Windows Terminal, PowerShell or cmd types nothing
+    ("Swift doesn''t write in … there"). Stricter than decision 6; removing it is the owner''s call and untested on
+    a real terminal. VS Code (not in TERMINALS) does type after its card.'
 - id: A-03
   title: A run could fetch any web address without a card, so a page it read could make it send the owner's data
     out.

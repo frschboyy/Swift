@@ -1,5 +1,6 @@
 """Foundation decision 6 (2026-11-15): when the owner's words don't clearly ask for writing into an app, Swift asks
-with a preview ("Write this in Notepad? “…”"), a level 1 question, instead of refusing (audit B-02's refusal)."""
+with a preview ("Write this in Notepad? “…”"), a level 1 question, instead of refusing (audit B-02's refusal). A
+terminal always gets its own card (test_audit_2026_10.py, A-02)."""
 
 from __future__ import annotations
 
@@ -66,6 +67,14 @@ async def test_the_app_in_front_changing_while_swift_asks_writes_nothing() -> No
     _answering(host, "yes", then=lambda: setattr(desktop, "front", FakeApp("slack.exe", "edit", route="keys")))
     result = await host.call("desktop_write", {"text": PAGE_SAYS})
     assert not result.ok and "changed" in result.text and desktop.writes == []
+
+
+async def test_an_unclear_terminal_write_asks_and_then_still_has_its_own_card() -> None:
+    host, desktop, owner, _ = make(FakeApp("cmd.exe", "edit", route="keys"), said="summarise this page", decision="reject")
+    questions = _answering(host, "yes")
+    result = await host.call("desktop_write", {"text": "dir"})
+    assert len(questions) == 1 and [tool for _, _, tool, _ in owner.asked] == ["desktop_write_terminal"]
+    assert not result.ok and desktop.writes == []
 
 
 async def test_filling_in_an_email_the_words_didnt_ask_for_is_asked_about() -> None:

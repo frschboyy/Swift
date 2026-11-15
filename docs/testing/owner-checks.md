@@ -2657,6 +2657,14 @@ You should see: the question shows the start of what it would write; the typed y
 approve"); the spoken yes writes it into Notepad, and "Hey Swift, undo that" takes it out. If Swift answers in its
 card instead of writing, tell us: the agent chose not to write, which is fine.
 
+<a id="check-elegant-shtern-2e16f9-3"></a>**Check elegant-shtern-2e16f9-3. Typing into a terminal has its own card**
+1. Open Windows Terminal and click into it. Say "Hey Swift, type echo hello here".
+2. Read the card, then click **Reject**.
+3. Open VS Code, click into its terminal panel, and say the same. Click **Reject** again.
+
+You should see: each time a card "Type this into …? A line typed there runs as a command." showing exactly
+`echo hello`, and after Reject nothing is typed. (Before, Swift refused terminals and typed into VS Code freely.)
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

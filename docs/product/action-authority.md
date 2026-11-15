@@ -101,7 +101,10 @@ code toward these rules, never away.
 - **6:** built on the same branch, not merged: a write into an app (or filling in an email) the owner's words
   didn't clearly ask for is asked about with a preview, level 1 (FD-04). Still a pattern: `owner_asked_to_write`
   decides between level 0 and 1, so its false matches write with no question (D4). Owner check
-  elegant-shtern-2e16f9-2; not run.
+  elegant-shtern-2e16f9-2; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
+  can't be told from its editor), has its own card showing every character (level 3) instead of being refused.
+  Where the code is stricter than the rule: the real Windows writer still refuses true terminals after the card
+  (A-02's backstop, `windows.py:785`), so only VS Code types after one. Owner check elegant-shtern-2e16f9-3; not run.
 - **8:** `swift.log` has no reason codes for connector failures yet.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
 - Found by the ownership map, not in the decisions: worker tool cards aren't bound to a digest (OWN-05).

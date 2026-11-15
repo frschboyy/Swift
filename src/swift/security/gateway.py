@@ -57,6 +57,7 @@ POLICY: dict[str, Literal["confirm", "reversible"]] = {
     "desktop_open_program": "confirm",
     "fill_in_email": "reversible",
     "desktop_write": "reversible",
+    "desktop_write_terminal": "confirm",  # a line typed into a terminal runs: its own card (foundation decision 6)
     "desktop_open": "reversible",
     # ADR-016 §3: a system action the owner asked for, done by the agent. Turning a radio off asks.
     "system_action": "reversible",

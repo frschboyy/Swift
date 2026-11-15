@@ -24,7 +24,8 @@ workflow, ``desktop_write`` and ``fill_in_email`` go ahead when the owner's own 
 email. Otherwise Swift asks first, with a preview ("Write this in Notepad? “Dear Ada…”"), a level 1
 question (``intake.approves``: typing never answers it), so a web page, a document or a tool result
 can't make Swift type into the app in front by itself. A workflow's manifest already decides whether
-it writes. A terminal is never written into (audit A-02): a line typed there runs.
+it writes. A terminal (or VS Code, whose terminal Swift can't tell from its editor: OCT-01) always
+gets its own card showing every character it would type (level 3): a line typed there runs.
 
 **A web address** (owner checks 2026-11-13, C3): ``desktop_open(url=…)`` opens it in the owner's
 default browser only when the address, or its site, is in the owner's own words for this request
@@ -81,6 +82,8 @@ _WRITE_WORDS = re.compile(
 _EMAIL_WORDS = re.compile(r"\b(?:e-?mail|mail|gmail|outlook|draft|fill (?:it|this|that) in)\b", re.IGNORECASE)
 NOT_ASKED = ("The owner didn't ask for writing in their apps in this request, so Swift didn't write anything. "
              "Only text the owner asked to be written can be; tell them what you would write instead.")
+# Apps whose integrated terminal Swift can't tell from their editor (OCT-01): every write there is a terminal's.
+INTEGRATED_TERMINALS = frozenset({"code.exe", "code - insiders.exe"})
 PREVIEW = 100  # characters of the text in the question
 
 
@@ -121,6 +124,10 @@ async def _ask_to_write(scope: RunScope, tool: str, question: str) -> ToolResult
 def _window(context: Any) -> tuple[int, str]:
     return context.hwnd, context.exe.lower()
 
+
+def is_terminal(exe: str) -> bool:
+    """A line typed into this app may run as a command."""
+    return exe.lower() in TERMINALS or exe.lower() in INTEGRATED_TERMINALS
 
 
 def _unavailable() -> ToolResult:
@@ -181,6 +188,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         asked_in = _window(before) if where == "focus" else None
         if (refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}? “{_preview(text)}”")):
             return refused
+    terminal, front, window = False, "", (0, "")
     if where == "focus":
         context = await desktop.context()
         if not context.hwnd:
@@ -189,10 +197,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             return ToolResult(False, f"{context.app} is on the never-read list, so Swift doesn't write there.")
         if context.password:
             return ToolResult(False, "That's a password field: Swift never types there.")
-        if context.exe.lower() in TERMINALS:
-            return ToolResult(False, f"{context.app} is a terminal: a line typed there runs as a command, so "
-                              "Swift doesn't write there. Nothing was written.")
-        if asked_in is not None and asked_in != _window(context):
+        terminal, front, window = is_terminal(context.exe), context.app, _window(context)
+        if asked_in is not None and asked_in != window:
             return ToolResult(False, "The app in front changed after Swift asked. Nothing was written.")
     chunks = paragraphs(text)
     n = next(scope.ids)
@@ -205,6 +211,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return tick != since[0] and cursor == since[1] and time.monotonic() > scope.talking_until
 
     async def perform() -> str:
+        if terminal and _window(await desktop.context()) != window:
+            raise DesktopError("The terminal Swift asked about isn't in front any more. Nothing was written.", "")
         async with _one_writer(host, scope, "Word" if where == "word" else "the app in front"):
             writer = await desktop.writer(where, mode, bool(args.get("new_document")))  # type: ignore[arg-type]
             report["app"] = host.writing_app = writer.app
@@ -238,10 +246,12 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             return f"{writer.route}:{report['written']}"
 
     action = Action(
-        tool="desktop_write",
+        # A terminal: its own card with every character it types (level 3, foundation decision 6).
+        tool="desktop_write_terminal" if terminal else "desktop_write",
         targets=(),
-        title=f"Write into {'Word' if where == 'word' else 'the app in front'}",
-        detail=f"{len(chunks)} paragraphs",
+        title=f"Type this into {front}? A line typed there runs as a command." if terminal
+        else f"Write into {'Word' if where == 'word' else 'the app in front'}",
+        detail=text if terminal else f"{len(chunks)} paragraphs",
         artifact_id=None,
         digest=lambda: digest,
         perform=perform,

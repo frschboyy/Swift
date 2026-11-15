@@ -92,7 +92,7 @@ new package cycles; the split is planned (handoff §4 step 3) and in progress on
 
 | Document says | Code shows | |
 |---|---|---|
-| Brief: "pstack is installed" | Not on this PC; its files are on disk at `~/.claude/plugins/marketplaces/cursor-plugins/` | Brief is about Francis-PC |
+| Brief: "pstack is installed" | Installed on this PC too (the owner, relayed by the orchestrator, 2026-11-15); its skills start only when the owner types them, so this audit followed their `SKILL.md` files by hand | Matches |
 | Handoff §1: latest measured Python run 1,637 passed | 2,184 passed today | Stale, harmless |
 | Handoff §2: "`session.py` is 4,824 lines" | 4,985 (the ratchet's ceiling) | Stale |
 | Handoff header "(2026-11-10)" | Content goes to 2026-11-14 | Stale title |
@@ -115,7 +115,7 @@ with no repository code read. Each needs its source read before any install.
 | Candidate | Source, maintainer | What it actually does | Kind | Fit for Swift | Security and cost | Verdict |
 |---|---|---|---|---|---|---|
 | **Ponytail** 5.3.3 | DietrichGebert (`ponytail` marketplace) | Smallest-change rules; `ponytail-audit`, `ponytail-review`, `ponytail-debt` one-shot reports | both | Active here. Covers minimal diffs and deletion; its audit is a generic sweep | Hooks write a per-task CSV to `~/.config/ponytail/band/` (on by default) | **Keep.** No addition |
-| **pstack** (poteto, `cursor/plugins`) | Cursor plugin marketplace | Principles (fix root causes, test behaviour, idempotency, separate shared state) and playbooks: `interrogate`, `blast-radius`, `verify-this`, `correct`, `tdd`, `architect`, `how`, `why` | both | Matches `reliability.md` closely. Swift already uses `blast-radius` and the QA passes | Text skills. `statechart` downloads Java and TLC through mise | **Keep.** Use by hand, as now |
+| **pstack** (poteto, `cursor/plugins`) | Cursor plugin marketplace | Principles (fix root causes, test behaviour, idempotency, separate shared state) and playbooks: `interrogate`, `blast-radius`, `verify-this`, `correct`, `tdd`, `architect`, `how`, `why` | both | **Installed** on this PC (owner-typed only). Matches `reliability.md` closely. Swift already uses `blast-radius` and the QA passes | Text skills. `statechart` downloads Java and TLC through mise | **Keep.** Use by hand, as now |
 | pstack `statechart` | same | Model a state machine in TLA+, check it with TLC, draw it in Mermaid, and give the shortest path to each broken rule | audit | **High.** Card lifetimes, question windows, stop and park, and the approval flow are state machines whose defects recur (T-, O-, RA- findings) | Network download of Java and TLC on first run; run in a scratch folder | **Adopt for a trial** (roadmap A3) |
 | pstack `create-verification-skill` | same | Makes a project skill that drives the app as a user does | implementation | Medium. The dev harness (port 1431) is a natural target; it can't reach the real PC | Writes a project skill | **Investigate** after the harness config lands (`friendly-mestorf`) |
 | pstack `create-formal-verification-skill` | same | A project skill that formally checks the costliest code | audit | Overlaps `statechart` | Tool installs | **Reject for now** |
@@ -207,7 +207,7 @@ owner's yes.
 | Essential | **A local pre-commit hook plus ruff** (`ASYNC`, `S`, `RUF`, `B` rules the code already cites) and the register, ratchet and owner-plan tests | QA15-01 | Neither runs any check by itself | none | ruff into the dev group; a hook in `.git/hooks` per worktree (or `core.hooksPath`) | One dev dependency; hooks are per PC, so decision 13's bundles don't carry them |
 | Essential | **`claude-security`**, one whole-repo scan | Security, at the boundaries where a miss costs most (executor, read scope, IPC, Tauri commands, desktop typing) | Neither does security review | `security-guidance` (rejected) | Plugin install from `claude-plugins-official`; read its hooks and scripts first | Cost of a deep tier; findings need triage into the register |
 | Recommended | **pip-audit, `cargo audit`, `npm audit`**, monthly | Dependency vulnerabilities | — | none | pip-audit as a dev dependency; `cargo-audit` binary | Advisory reads need network |
-| Recommended | **pstack `statechart`**, trial on one lifecycle | The recurring screen and timing defects | Turns "a card stayed" into a checked model with the shortest failing path | `create-formal-verification-skill` | Already on disk; first run downloads Java and TLC | A model is only as good as its match to the code; keep it beside the seam tests |
+| Recommended | **pstack `statechart`**, trial on one lifecycle | The recurring screen and timing defects | Turns "a card stayed" into a checked model with the shortest failing path | `create-formal-verification-skill` | Installed with pstack; first run downloads Java and TLC | A model is only as good as its match to the code; keep it beside the seam tests |
 | Optional | **Impeccable `audit`** (no hook) | Accessibility and responsiveness of the overlay | Neither audits UI | Hallmark, frontend-design (rejected) | Plugin from `pbakaus/impeccable` | Context heavy; taste rules may contradict Halo |
 | Optional | pyright, py-spy, axe-core | Types; explaining a slow number; DOM accessibility | | | each a dev install | first type-check run is noisy |
 

@@ -130,6 +130,8 @@ export function needsReader(summary: string, details: ResultDetails | null | und
       return details.items.length > READ_ALL_ROWS;
     case "table":
       return details.rows.length > READ_ALL_ROWS;
+    case "compare":
+      return details.size === "expanded";  // Swift sized it (swift/shapes.py)
   }
 }
 

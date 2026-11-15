@@ -31,6 +31,7 @@ from swift.executors.claude_mapping import command_purpose, confirm_card
 from swift.ipc.protocol import Message
 from swift.parked import ParkedThreads
 from swift.wake_acoustic import AcousticWake
+from swift import shapes
 
 REPLAY = Path(__file__).resolve().parents[2] / "overlay" / "tests" / "seam" / "replay.ts"
 NODE = shutil.which("node")
@@ -367,6 +368,26 @@ async def test_a_step_card_lists_the_commands_it_approves() -> None:
     await until(lambda: out.last("confirm.request"))
     assert agree(session, out)["confirmStep"] is None  # one command's card: no list, folded as B1 made it
     await finish_all(session, agent)
+
+
+async def test_a_comparison_reaches_the_done_card_as_one() -> None:
+    """B4, compare: the shape Swift checked (swift/shapes.py) goes through the real session to the answer card
+    the presenter holds, drawn as the comparison with the worker's pick marked as the worker's; seven rows open
+    in full (owner check b4-compare-dacc2b-1)."""
+    rows = [{"label": f"Measure {i}", "values": [f"{i} a", f"{i} b"]} for i in range(7)]
+    for shown, long in [(rows[:2], False), (rows, True)]:
+        session, out, agent, stt, _control, _sched = _lane()
+        shape, problems = shapes.check({"shape": "compare", "items": ["Zenbook 14", "XPS 13"], "rows": shown, "pick": 0})
+        assert not problems
+        agent.details = shapes.details(shape, "Prices vary.")
+        run = await started(session, out, agent, stt, "Hey Swift, research laptops for travel")
+        agent.runs[run]["go"].set()
+        await until(lambda: out.last("result"))
+        screen = agree(session, out)
+        assert screen["stage"] == "result" and screen["answerKind"] == "compare" and screen["answerLong"] is long
+        assert screen["answerText"].startswith("\tZenbook 14\tXPS 13\nMeasure 0\t0 a\t0 b")
+        assert screen["answerText"].endswith("Worker's pick: Zenbook 14\nPrices vary.")
+        await finish_all(session, agent)
 
 
 # ---- what must keep working ---------------------------------------------------------------------

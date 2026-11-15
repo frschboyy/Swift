@@ -49,6 +49,8 @@ class Agent:
         self.requests: list[str] = []
         self.cancelled: list[str] = []
         self.answers: dict[str, bool] = {}
+        # What a Done answer carries besides its words (B4: a checked shape).
+        self.details: dict[str, Any] | None = None
         # Like Claude Code: its cards' countdown pauses while they wait (set by the test).
         self.attention: Attention | None = None
         self._ids = itertools.count(1)
@@ -83,7 +85,7 @@ class Agent:
                 queue.put_nowait(ExecEvent("confirm", f"Edit for {run_id}", request_id=request_id, detail="", tool="Edit"))
                 self.answers[request_id] = await wait_answer(self.attention, request_id, future, 120.0)
             await run["go"].wait()
-            return ExecResult("done", f"Done {run_id}.")
+            return ExecResult("done", f"Done {run_id}.", self.details)
         finally:
             queue.put_nowait(None)
 

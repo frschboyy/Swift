@@ -21,6 +21,7 @@ export const TO_OVERLAY = [
   {"type": "confirm.voice", "data": {"request_id": "a-1:1", "phase": "hint", "text": "Say \"Swift, approve\" to approve."}},
   {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "Wi-Fi off."}},
   {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "Three files.", "details": {"kind": "list", "items": ["a.md", "b.md", "c.md"]}, "agent": {"id": "claude_code", "name": "Claude Code"}, "note": "No, I'm Swift.", "thread_id": "t-1", "origin": "asked"}},
+  {"type": "result", "data": {"run_id": "a-1", "status": "done", "summary": "The Zenbook fits travel best.", "details": {"kind": "compare", "title": "Laptops", "items": ["Zenbook 14", "XPS 13"], "rows": [{"label": "Weight", "values": ["1.2 kg", "1.3 kg"]}], "pick": 0, "by": "worker", "size": "card", "text": "Prices vary."}, "agent": {"id": "claude_code", "name": "Claude Code"}, "note": null, "thread_id": "t-1", "origin": "asked"}},
   {"type": "result", "data": {"run_id": "due-timer-4", "status": "done", "summary": "Your 5 minute timer is done.", "details": null, "agent": null, "note": null, "origin": "reminder"}},
   {"type": "result", "data": {"run_id": "a-1", "status": "cancelled", "summary": "", "details": null, "agent": null, "note": null, "thread_id": "t-1"}},
   {"type": "error", "data": {"code": "bad_message", "message": "unknown message type 'exec'", "hint": ""}},

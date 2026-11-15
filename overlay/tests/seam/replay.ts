@@ -4,8 +4,10 @@
 // stdout, with the acknowledgements main.ts would send back (``P.drawn``). No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
+import { detailsText } from "../../src/answer.ts";
 import { commandFolded, commandParts, quoteLines, stepCommands } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
+import { needsReader } from "../../src/panes.ts";
 import * as P from "../../src/presenter.ts";
 
 type Frame = { type: string; data: Record<string, any>; n?: number };
@@ -19,6 +21,8 @@ let deck = D.initialDeck;
 let confirmData: Record<string, any> | null = null;
 // The words on the card, as main.ts keeps them.
 let words = "";
+// The last answer's frame, as main.ts keeps it (lastResult).
+let resultData: Record<string, any> | null = null;
 const lost: string[] = [];
 const broken = new Set<string>();
 // What main.ts tells the backend it drew (``screen``), for the test to hand back to the session.
@@ -70,6 +74,7 @@ for (const { type, data: d, n } of frames) {
       break;
     case "result":
       if (asked?.runId === d.run_id) asked = null;
+      resultData = d;
       answer("result", d, null);
       break;
     case "error":
@@ -107,6 +112,11 @@ process.stdout.write(JSON.stringify({
   commandFolded: led && !confirmData!.step ? commandParts(confirmData!.detail).rest : null,
   // B2: the commands a step card approves, all listed in view, none folded; null on any other card.
   confirmStep: led ? stepCommands(confirmData!.tool, confirmData!.purpose, confirmData!.step, confirmData!.detail) : null,
+  // B4: the answer card on screen, as its blocks give it in words (answer.ts detailsText), the kind of block,
+  // and whether it opens in full (Read more): what renderResult draws from the same frame.
+  answerKind: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.details?.kind ?? null : null,
+  answerText: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? detailsText(resultData!.details) : null,
+  answerLong: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? needsReader(resultData!.summary, resultData!.details) : null,
   lost,
   broken: [...broken],
   acks,

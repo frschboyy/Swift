@@ -22,7 +22,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { answerTable, copyButton, detailsText } from "./blocks";
+import { answerTable, compareBlock, copyButton, detailsText } from "./blocks";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
@@ -70,6 +70,8 @@ function details(d: ResultDetails | null): HTMLElement | null {
       return el("ul", { class: "result-list" }, ...d.items.map((i) => el("li", {}, i)));
     case "table":
       return answerTable(d.columns, d.rows);
+    case "compare":
+      return compareBlock(d, true);
   }
 }
 

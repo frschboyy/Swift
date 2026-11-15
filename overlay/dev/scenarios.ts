@@ -88,6 +88,13 @@ const LONG = [
 
 const CALENDAR = { kind: "table", columns: ["Time", "What", "Where"], rows: [["9:00", "Design review", "Teams"], ["12:30", "Lunch with Sam Okafor", "Café Nord"], ["14:00", "Dentist", "Kirkgate 4"]] };
 
+// B4: a comparison as swift/shapes.py hands it on (checked, sized, marked as the worker's).
+const LAPTOPS = {
+  kind: "compare", title: "Laptops for travel", items: ["Zenbook 14", "XPS 13", "Swift Go 14"], pick: 0, by: "worker", size: "card",
+  rows: [{ label: "Weight", values: ["1.2 kg", "1.2 kg", "1.3 kg"] }, { label: "Battery", values: ["15 h", "12 h", "10 h"] },
+    { label: "Screen", values: ['14" OLED', '13.4" IPS', '14" OLED'] }, { label: "Price", values: ["$1,099", "$1,299", "$899"] }],
+};
+
 const EVENT = {
   title: "Meeting with Sam Okafor", when: "Fri 30 Oct, 16:00–17:00", location: "", all_day: false, start: "2026-10-30T16:00", end: "2026-10-30T17:00",
   attendees: "sam.okafor@northwind.com", meet: true, state: "waiting_approval",
@@ -192,6 +199,11 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerLine: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); },
   answerText: async (s) => { await answer(s, "Is it going to rain this afternoon?", "Probably not. There's a 20% chance of a light shower around 4 pm, then it clears. 14 °C at the warmest."); },
   answerTable: async (s) => { await answer(s, "What's on my calendar tomorrow?", "Three things on Thursday, 29 October. Free after 3 pm.", CALENDAR); },
+  answerCompare: async (s) => { await answer(s, "Compare laptops for travel", "The Zenbook fits travel best: lightest, longest battery, mid-priced.", LAPTOPS); },
+  answerCompareLong: async (s) => { await answer(s, "Compare laptops for travel in detail", "The Zenbook fits travel best.", {
+    ...LAPTOPS, size: "expanded", text: "Prices are from the makers' own stores this week.",
+    rows: [...LAPTOPS.rows, ...["Ports", "Weight of charger", "Keyboard"].map((label) => ({ label, values: ["good", "fair", "good"] }))],
+  }); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   answerLongOpen: async (s) => {

@@ -4,19 +4,28 @@
 import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
-import type { ResultDetails } from "./protocol";
+import type { Compare, ResultDetails } from "./protocol";
 
-/** An answer's details as plain text: Copy, and the reader's Copy. */
-export function detailsText(details: ResultDetails | null | undefined): string {
-  if (!details) return "";
-  switch (details.kind) {
-    case "text":
-      return details.text;
-    case "list":
-      return details.items.map((i) => `- ${i}`).join("\n");
-    case "table":
-      return [details.columns, ...details.rows].map((r) => r.join("\t")).join("\n");
-  }
+export { detailsText } from "./answer";
+
+// Decision 4 (2026-11-15): the worker's choice is labelled as the worker's, never in Swift's voice and never
+// naming the provider; the whole comparison sits under the worker's bar, as on the approval cards.
+const COMPARE_BY = "Compared by the worker, not checked by Swift";
+
+/** Options side by side: a heading per option, a row per measure, the worker's pick marked as its own. */
+export function compareBlock(c: Compare, full: boolean): HTMLElement {
+  const shown = full ? c.rows : c.rows.slice(0, 6);
+  const mark = (i: number): string => (i === c.pick ? "compare-pick" : "");
+  return el("div", { class: "compare facts-line--agent" },
+    el("span", { class: "confirm-purpose-by" }, COMPARE_BY),
+    c.title ? el("p", { class: "compare-title" }, c.title) : null,
+    el("table", { class: "compare-table" },
+      el("thead", {}, el("tr", {}, el("td", {}), ...c.items.map((item, i) =>
+        el("th", { scope: "col", class: mark(i) }, item, i === c.pick ? el("span", { class: "compare-tag" }, A.PICK) : null)))),
+      el("tbody", {}, ...shown.map((r) => el("tr", {}, el("th", { scope: "row" }, r.label),
+        ...r.values.map((v, i) => el("td", { class: mark(i) }, v)))))),
+    shown.length < c.rows.length ? el("p", { class: "answer-more" }, `and ${c.rows.length - shown.length} more rows (Read more shows them)`) : null,
+    ...(c.text ? renderBlocks(c.text) : []));
 }
 
 /** Paragraphs and lists with their marks, as elements (text only, never HTML). */
@@ -60,6 +69,8 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
         more > 0 ? el("p", { class: "answer-more" }, `and ${more} more rows (Read more shows them)`) : null,
       );
     }
+    case "compare":
+      return compareBlock(details, full);
   }
 }
 

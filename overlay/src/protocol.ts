@@ -29,7 +29,16 @@ export type Activity =
 export type ResultDetails =
   | { kind: "text"; text: string }
   | { kind: "list"; items: string[] }
-  | { kind: "table"; columns: string[]; rows: string[][] };
+  | { kind: "table"; columns: string[]; rows: string[][] }
+  | Compare;
+
+// B4: options side by side, as the worker proposed them and Swift checked them (swift/shapes.py). by and size are
+// Swift's: who made it (always the worker's here, marked on the card) and whether it fits a card. text: the
+// answer's words after its summary.
+export type Compare = {
+  kind: "compare"; title?: string; items: string[]; rows: { label: string; values: string[] }[]; pick?: number;
+  by: "worker"; size: "card" | "expanded"; text?: string;
+};
 
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).
 export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done" | "failed";

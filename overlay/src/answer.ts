@@ -77,6 +77,25 @@ export function inline(text: string): Run[] {
   return out;
 }
 
+/** How a comparison's highlighted option is labelled: the worker's choice, never Swift's (B4 decision 4). */
+export const PICK = "Worker's pick";
+
+/** An answer's details as plain text: Copy, the reader's Copy, and screen readers' words for a shape. */
+export function detailsText(details: ResultDetails | null | undefined): string {
+  if (!details) return "";
+  switch (details.kind) {
+    case "text":
+      return details.text;
+    case "list":
+      return details.items.map((i) => `- ${i}`).join("\n");
+    case "table":
+      return [details.columns, ...details.rows].map((r) => r.join("\t")).join("\n");
+    case "compare":
+      return [details.title, ["", ...details.items].join("\t"), ...details.rows.map((r) => [r.label, ...r.values].join("\t")),
+        details.pick === undefined ? "" : `${PICK}: ${details.items[details.pick]}`, details.text].filter(Boolean).join("\n");
+  }
+}
+
 /** The text again, without marks (Copy, and the history line). */
 export function plainText(text: string): string {
   return blocks(text)

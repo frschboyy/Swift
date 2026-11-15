@@ -2634,6 +2634,19 @@ should answer the question on screen. Then click **No** if the question is still
 
 The report checks: nothing to judge from the log; tell us what you saw in each.
 
+<a id="check-sharp-heisenberg-e41ff2-1"></a>**Check sharp-heisenberg-e41ff2-1. swift.log says why a desktop action failed; your answers stay in your own log**
+1. Say "Hey Swift, write hello in a new Word document". When it's written, press Ctrl+W in Word and choose
+   **Don't Save** (Word itself stays open). Then say "Hey Swift, undo that".
+2. Say "Hey Swift, ask me which colour I like, then tell me what I said". Answer with a colour.
+3. Open the logs folder (tray icon → **Open logs folder**). In `swift.log`, find the newest "interaction finished"
+   lines; in `interactions.jsonl` (the folder above it), the newest two lines.
+
+You should see: step 1 says the Word document isn't open any more, and its `swift.log` line has
+`"error": "undo_failed"` and `"reason": "document_closed"`, with no "hello" anywhere. Step 2's `swift.log` line
+has `asks` but not your colour; its `interactions.jsonl` line has `answers` with the question and your colour.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -109,8 +109,8 @@ areas:
     checks: [120-122, 155]
   logs:
     rule: logs content-free, transcripts redacted
-    paths: [src/swift/logging_setup.py]
-    checks: [123, 140]
+    paths: [src/swift/logging_setup.py, src/swift/runlog.py]
+    checks: [123, 140, sharp-heisenberg-e41ff2-1]
   speech:
     paths: [src/swift/speech.py]
     checks: [59, 107, 136, 192]

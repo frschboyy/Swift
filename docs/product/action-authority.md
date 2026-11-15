@@ -93,7 +93,11 @@ code toward these rules, never away.
 - **2:** no keyboard Tab and Enter on the card's own button yet.
 - **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and
   `find_contact`; an unclear write into an app is still refused, not asked about.
-- **8:** `swift.log` has no reason codes for connector failures yet.
+- **8:** built on its branch (not merged): `ConnectorError.reason` (a content-free code: `http_503`, `clipboard_busy`,
+  an error class) at every raise that fell back to `connector_failed`; the gateway's "action failed" line and the
+  calendar and contacts read failures log it; `error_class` joins the swift.log summary; the interaction record
+  keeps `answers` (local only). Owner check not run. Not covered: a desktop write stopped mid-way (`_changed`) and
+  the A9 UIA state.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
 - Found by the ownership map, not in the decisions: worker tool cards aren't bound to a digest (OWN-05).
 

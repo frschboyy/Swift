@@ -63,7 +63,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift import clock
+from swift import clock, shapes
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
@@ -187,6 +187,11 @@ NEVER_READ_MESSAGE = (
 CHANGED_MESSAGE = "That call changed after the user approved it, so it wasn't run. Ask again if it's still needed."
 # What a step card's approval is bound to: the command as listed, whichever shell runs it.
 STEP_TOOL = "command"
+SHAPE_SHOWN_MESSAGE = (
+    "Swift will show this on the card with your answer. Now give the final answer: the conclusion in one or "
+    "two sentences, without repeating the data."
+)
+SHAPE_REFUSED_MESSAGE = "Swift can't show that shape ({problems}). Answer in words instead."
 READ_DECLINED_MESSAGE = "The user didn't allow reading {path}. Go on without it; don't try another way."
 NO_QUESTIONS_MESSAGE = (
     "The user can't answer questions in this mode. Make a reasonable assumption, "
@@ -276,6 +281,8 @@ class _Run:
     # the commands themselves.
     grant: Grant = field(default_factory=Grant)
     grant_counts: dict[str, int] = field(default_factory=lambda: {"steps": 0, "covered": 0, "asked_again": 0})
+    # B4: the result's shape as Swift checked it (show_result), drawn only on a Done answer.
+    shape: dict[str, Any] | None = None
     # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
     step_bound: dict[str, Bound] = field(default_factory=dict)
 
@@ -562,6 +569,13 @@ class ClaudeCodeExecutor:
 
             sdk_tools.append(propose_step)
             system_prompt += STEP_PROMPT
+
+        @tool("show_result", shapes.DESCRIPTION, shapes.SCHEMA)
+        async def show_result(args: dict[str, Any]) -> dict[str, Any]:
+            run, _run_id = current()
+            return {"content": [{"type": "text", "text": _show_result(run, args)}]}
+
+        sdk_tools.append(show_result)
         if self.tools is not None:
             sdk_tools += [self._sdk_tool(tool, spec, current) for spec in self.tools.tools.values()]
             system_prompt += WORKFLOW_PROMPT
@@ -1008,6 +1022,8 @@ class ClaudeCodeExecutor:
             why = "No answer in time" if decision == "no_answer" else "Rejected"
             return ExecResult("rejected", f"{why}: {title}. Swift stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
+            if outcome.status == "done" and getattr(run, "shape", None) is not None:  # B4: shapes on Done answers only (§7.6)
+                return ExecResult("done", outcome.summary, shapes.details(run.shape, _words(outcome.details)), meta)
             status = "done" if outcome.status == "done" else "error"
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
@@ -1020,6 +1036,24 @@ class ClaudeCodeExecutor:
         if failure.code == "executor_failed":  # no known cause: the CLI went away
             failure = replace(classify(summary, CLAUDE_CODE.name, **hints), detail=clean_detail(raw))
         return ExecResult("error", summary, meta=meta, failure=failure)
+
+
+def _show_result(run: _Run, args: Any) -> str:
+    """B4: the worker's proposed shape, checked by Swift (swift/shapes.py). Refused, the answer stays words."""
+    shape, problems = shapes.check(args)
+    if shape is None:
+        logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
+        return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))
+    run.shape = shape
+    logger.info("result shape", shape=shape["shape"], items=len(shape["items"]), rows=len(shape["rows"]))
+    return SHAPE_SHOWN_MESSAGE
+
+
+def _words(details: dict[str, Any] | None) -> str:
+    """The answer's words after its summary (split_answer's details), to keep under a shape."""
+    if not details:
+        return ""
+    return details["text"] if details.get("kind") == "text" else "\n".join(f"- {i}" for i in details.get("items", []))
 
 
 _MODEL_UNCONFIRMED = re.compile(r"couldn.?t confirm model|could not confirm model", re.I)

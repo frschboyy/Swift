@@ -51,10 +51,21 @@ def test_every_run_is_well_formed() -> None:
         assert set(run["checks"]) <= set(plan.VERDICTS), run
 
 
-def test_owner_checks_has_both_generated_blocks() -> None:
+def test_the_generated_status_is_its_own_file_and_merges_as_ours() -> None:
+    """Foundation decision 12: nothing generated in owner-checks.md, so two branches' checks never conflict there."""
     text = plan.CHECKS.read_text(encoding="utf-8")
-    for tag in ("roadmap", "status"):
-        assert f"<!-- {tag}:start -->" in text and f"<!-- {tag}:end -->" in text
+    assert ":start -->" not in text and ":end -->" not in text
+    assert plan.STATUS.exists()
+    rule = subprocess.run(["git", "check-attr", "merge", "--", "docs/testing/owner-checks-status.md"], cwd=ROOT,
+                          capture_output=True, text=True, check=True).stdout
+    assert rule.strip().endswith("merge: ours"), rule
+
+
+def test_the_status_file_links_each_check_in_the_checks_file() -> None:
+    top, bottom = plan.render([], [], [], [], [], "abc1234", "2026-11-15")
+    assert plan.link(CHECKS["1"]) == "[1](owner-checks.md#check-1)"
+    page = plan.status_file(top, bottom)
+    assert "## Run these first" in page and "## Where every check stands" in page
 
 
 # --- reading a pasted report --------------------------------------------------------------------
@@ -81,6 +92,91 @@ def test_a_pasted_report_becomes_verdicts() -> None:
 
 def test_a_range_takes_lettered_checks() -> None:
     assert plan.expand(["18-20"], CHECKS) == ["18", "19", "19b", "20"]
+
+
+# --- provisional ids on a branch, numbered at merge (foundation decision 11) --------------------
+
+_BRANCH_CHECKS = """### A section
+
+<a id="check-12"></a>**Check 12**
+1. Say it.
+
+<a id="check-fix-wake-1"></a>**Check fix-wake-1**
+1. Say "Hey Swift".
+
+<a id="check-fix-wake-2"></a>**Check fix-wake-2**
+1. Right after check fix-wake-1, say it again. See [fix-wake-1](#check-fix-wake-1).
+"""
+
+
+def test_provisional_ids_are_accepted_on_a_branch() -> None:
+    checks = plan.parse_checks(_BRANCH_CHECKS)
+    assert list(checks) == ["12", "fix-wake-1", "fix-wake-2"]
+    assert plan.provisional("fix-wake-1") and not plan.provisional("19b") and not plan.provisional("43-48")
+    assert checks["fix-wake-2"].needs == ["fix-wake-1"]
+    assert checks["fix-wake-1"].num > checks["12"].num  # sorts after every numbered check
+    assert plan.expand(["10-20", "fix-wake-2"], checks) == ["12", "fix-wake-2"]  # a range never takes one
+    assert plan.report_ids("fix-wake-1, fix-wake-2 the wake heard twice", checks) == ["fix-wake-1", "fix-wake-2"]
+    assert plan.report_ids("77, 79-80 Swift restarted", CHECKS) == ["77", "79", "80"]
+    assert plan.next_free(list(checks), [("claude/x", ["40", "x-1"], [])], given_out=30) == 41
+    assert plan.named(checks["fix-wake-1"], _commit("bbb", [], "Wake fix (root)\n\nOwner check fix-wake-1."))
+    assert not plan.named(checks["fix-wake-1"], _commit("bbb", [], "Owner check fix-wake-12."))
+
+
+def test_main_holds_no_provisional_ids() -> None:
+    """Provisional ids live on branches only: --renumber numbers them before a branch reaches main."""
+    left = [c for c in CHECKS if plan.provisional(c)]
+    if plan.current_branch() == "main":
+        assert not left, f"run plan.py --renumber before merging: {left}"
+
+
+def test_the_next_provisional_id_is_the_branch_s_own() -> None:
+    assert plan.next_provisional(["12"], "claude/friendly-mestorf-f4f7fb") == "friendly-mestorf-f4f7fb-1"
+    assert plan.next_provisional(["fix-wake-1", "fix-wake-2", "other-9"], "claude/Fix_Wake") == "fix-wake-3"
+    assert plan.branch_slug("claude/305-fix") == "b-305-fix"
+
+
+def test_renumbering_rewrites_every_reference_and_nothing_else() -> None:
+    text = "\n".join([
+        '<a id="check-fix-wake-1"></a>**Check fix-wake-1**, see [fix-wake-1](owner-checks.md#check-fix-wake-1).',
+        "    checks: [1, fix-wake-1, fix-wake-12]",
+        '        ("fix-wake-1 the wake heard", ok, ""),',
+        "Check fix-wake-1's note; not prefix-fix-wake-1 or fix-wake-1b.",
+    ])
+    got = plan.rewrite_ids(text, {"fix-wake-1": "391", "fix-wake-12": "392"})
+    assert got.splitlines() == [
+        '<a id="check-391"></a>**Check 391**, see [391](owner-checks.md#check-391).',
+        "    checks: [1, 391, 392]",
+        '        ("391 the wake heard", ok, ""),',
+        "Check 391's note; not prefix-fix-wake-1 or fix-wake-1b.",
+    ]
+
+
+def test_renumber_numbers_a_branch_s_checks_in_every_file(tmp_path: Path, monkeypatch) -> None:
+    files = {
+        "docs/testing/owner-checks.md": _BRANCH_CHECKS,
+        "docs/testing/owner-checks-ledger.yaml": "areas:\n  wake:\n    checks: [12, fix-wake-1, fix-wake-2]\n",
+        "spikes/owner_checks/report.py": 'LINES = [("fix-wake-1 heard", True), ("fix-wake-2 heard again", True)]\r\n',
+        "notes.bin": "fix-wake-1",  # not a text file it rewrites
+    }
+    for name, body in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_bytes(body.encode())
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=tmp_path, check=True)
+    monkeypatch.setattr(plan, "ROOT", tmp_path)
+    monkeypatch.setattr(plan, "CHECKS", tmp_path / "docs/testing/owner-checks.md")
+
+    mapping, changed = plan.renumber(plan.parse_checks(_BRANCH_CHECKS), 391)
+
+    assert mapping == {"fix-wake-1": "391", "fix-wake-2": "392"}
+    assert sorted(changed) == sorted(n for n in files if n != "notes.bin")
+    checks = plan.parse_checks(plan.CHECKS.read_text(encoding="utf-8"))
+    assert list(checks) == ["12", "391", "392"] and checks["392"].needs == ["391"]
+    assert "[391](#check-391)" in checks["392"].text
+    assert "checks: [12, 391, 392]" in (tmp_path / "docs/testing/owner-checks-ledger.yaml").read_text(encoding="utf-8")
+    assert (tmp_path / "spikes/owner_checks/report.py").read_bytes().endswith(b'("392 heard again", True)]\r\n')
+    assert (tmp_path / "notes.bin").read_text() == "fix-wake-1"
 
 
 # --- what goes stale, and the order -------------------------------------------------------------

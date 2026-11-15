@@ -194,7 +194,7 @@ The owner tests on the real PC with [`docs/testing/owner-checks.md`](../testing/
    ```bash
    npm run tauri dev
    ```
-2. Note the time, and run the **"Run these first"** list at the top of `owner-checks.md`. `spikes/owner_checks/plan.py` works it out from every result so far and what changed in the code since: checks that failed and have changed come first, then new checks for product rules. Its "Where every check stands" section says what is verified, stale, failing, or never run, and what the open branches will change.
+2. Note the time, and run the **"Run these first"** list at the top of `owner-checks-status.md`. `spikes/owner_checks/plan.py` works it out from every result so far and what changed in the code since: checks that failed and have changed come first, then new checks for product rules. Its "Where every check stands" section says what is verified, stale, failing, or never run, and what the open branches will change.
 3. Paste the report:
    ```bash
    uv run python spikes/owner_checks/report.py --since HH:MM

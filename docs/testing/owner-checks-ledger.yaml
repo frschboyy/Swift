@@ -1,7 +1,7 @@
 # Owner checks ledger: what each check proves, and every result it has had.
 #
 # Read by spikes/owner_checks/plan.py, which works out from this file and git what to run next and
-# writes it into owner-checks.md. tests/unit/test_owner_plan.py keeps it honest: every check in
+# writes it into owner-checks-status.md. tests/unit/test_owner_plan.py keeps it honest: every check in
 # owner-checks.md is in an area, every path matches a file, every result names a real check.
 #
 # areas:  code a group of checks proves. When a commit touches a path here (or names the check, or a

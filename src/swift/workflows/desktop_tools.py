@@ -59,7 +59,7 @@ from urllib.parse import urlsplit
 from loguru import logger
 
 from swift import clock
-from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
+from swift.desktop.base import HIDDEN_CONTROLS, PROGRAMS, TERMINALS, DesktopError, hidden_controls
 from swift.routing.rules import Route
 from swift.security.gateway import Action
 from swift.security.web_scope import WebScope
@@ -201,6 +201,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         runs = context.exe.lower() in TERMINALS  # a real terminal: Swift types the line and presses Enter
         if asked_in is not None and asked_in != window:
             return ToolResult(False, "The app in front changed after Swift asked. Nothing was written.")
+    if terminal and hidden_controls(text):  # the card must show every character it types (VS Code too)
+        return ToolResult(False, HIDDEN_CONTROLS)
     chunks = paragraphs(text)
     if runs and len(chunks) > 1:  # each line would run: the card runs one command
         return ToolResult(False, f"Swift runs one command at a time in {front}, so nothing was typed. Ask the owner "

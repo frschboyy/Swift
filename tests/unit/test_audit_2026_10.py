@@ -140,6 +140,28 @@ async def test_several_lines_are_never_typed_into_a_terminal(exe: str) -> None:
     assert not result.ok and "one command at a time" in result.text and desktop.writes == [] and owner.asked == []
 
 
+@pytest.mark.parametrize("exe", ["cmd.exe", "WindowsTerminal.exe", "Code.exe"])
+@pytest.mark.parametrize("hidden", ["\r", "\t", "\x03", "\x1b", "\x7f"])
+async def test_a_control_character_the_card_cant_show_is_refused_before_any_card(exe: str, hidden: str) -> None:
+    """A bare carriage return is Enter in a console, a tab completes, Ctrl+C interrupts; none shows on the card."""
+    host, desktop, owner, _ = make(FakeApp(exe, "edit", route="keys"))
+    result = await host.call("desktop_write", {"text": f"dir{hidden}del x"})
+    assert not result.ok and "can't show on its card" in result.text
+    assert owner.asked == [] and desktop.writes == [] and desktop.ran == []
+    assert (await host.call("desktop_write", {"text": "one\r\ntwo" if exe == "Code.exe" else "dir"})).ok  # \r\n is a line break
+
+
+async def test_the_fake_writer_refuses_a_control_character_after_a_terminal_card() -> None:
+    from swift.desktop.base import DesktopError
+    from swift.desktop.fake import FakeDesktop
+
+    desktop = FakeDesktop(FakeApp("Code.exe", "edit", route="keys"))
+    writer = await desktop.writer("focus", "insert", terminal=True)
+    with pytest.raises(DesktopError, match="can't show on its card"):
+        await writer.write("dir\r", last=True)
+    assert desktop.writes == []
+
+
 async def test_several_lines_into_vs_code_say_each_line_may_run() -> None:
     """VS Code's editor takes several lines (its terminal can't be told apart yet: OCT-01): the card says so."""
     host, desktop, owner, _ = make(FakeApp("Code.exe", "edit", route="keys"))

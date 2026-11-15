@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from swift.desktop.base import (
-    TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name, unrun_message,
+    HIDDEN_CONTROLS, TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name, hidden_controls, unrun_message,
 )
 
 
@@ -29,6 +29,7 @@ class FakeWriter:
         self.app = app_name(app.exe)
         self.chunks = self.chars = 0
         self.terminal = app.exe.lower() in TERMINALS  # only reached for a terminal's own approved card
+        self.card_shows_all = False
         self.before = app.text
         if mode == "replace" and app.selected:
             app.text = app.text.replace(app.selected, "", 1)
@@ -37,6 +38,8 @@ class FakeWriter:
     async def write(self, text: str, last: bool) -> None:
         if self.terminal and ("\n" in text or not last):  # windows.py's rule: one command, no line break
             raise DesktopError("Swift runs one command at a time in a terminal.", "", reason="terminal_line_break")
+        if self.card_shows_all and hidden_controls(text):  # windows.py's rule
+            raise DesktopError(HIDDEN_CONTROLS, "", reason="terminal_control_character")
         self.desktop.writes.append((self.app, text))
         self.target.text += text + ("" if last else "\n")
         self.chunks += 1
@@ -115,7 +118,9 @@ class FakeDesktop:
             raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.", reason="no_app_in_front")
         if self._private(app) or app.password or (app.exe.lower() in TERMINALS and not terminal):  # windows.py's rule
             raise DesktopError(f"Swift doesn't write in {app_name(app.exe)} there.", "", reason="not_writable_there")
-        return FakeWriter(self, app, app.route, mode)
+        writer = FakeWriter(self, app, app.route, mode)
+        writer.card_shows_all = terminal  # a terminal's card (or VS Code's) showed every character
+        return writer
 
     async def owner_input(self) -> tuple[int, tuple[int, int]]:
         return self.tick, self.cursor

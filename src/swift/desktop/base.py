@@ -20,6 +20,7 @@ the context says only that the app is private, and nothing is read or written.
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import asdict, dataclass
 from typing import Any, Literal, Protocol
 
@@ -86,6 +87,15 @@ class NeverRead:
 
 def app_name(exe: str) -> str:
     return APP_NAMES.get(exe.lower(), exe.rsplit(".", 1)[0].title() if exe else "")
+
+
+def hidden_controls(text: str) -> bool:
+    """Control characters other than line breaks: invisible on a card, and a terminal may act on them
+    (a bare carriage return is Enter, a tab completes, Ctrl+C interrupts)."""
+    return any(unicodedata.category(c) == "Cc" and c != "\n" for c in text.replace("\r\n", "\n"))
+
+
+HIDDEN_CONTROLS = "That command has characters Swift can't show on its card, so nothing was typed."
 
 
 def unrun_message(app: str, why: str) -> str:

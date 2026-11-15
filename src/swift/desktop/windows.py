@@ -44,7 +44,7 @@ from loguru import logger
 from swift.desktop import gmail_fill
 from swift.desktop.base import (
     APP_NAMES, BROWSERS, TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt,
-    app_name, unrun_message,
+    HIDDEN_CONTROLS, app_name, hidden_controls, unrun_message,
 )
 
 T = TypeVar("T")
@@ -516,12 +516,15 @@ class _GmailScreen:
 class _Writer:
     route: Route
     app: str
+    card_shows_all = False  # a terminal's card (or VS Code's): every character it types was on it
 
     def __init__(self, desktop: WindowsDesktop) -> None:
         self.desktop = desktop
         self.chunks = self.chars = 0
 
     async def write(self, text: str, last: bool) -> None:
+        if self.card_shows_all and hidden_controls(text):
+            raise DesktopError(HIDDEN_CONTROLS, "", reason="terminal_control_character")
         await self.desktop._run(self._write, text, last)
         self.chunks += 1
         self.chars += len(text)
@@ -785,7 +788,9 @@ class WindowsDesktop:
     # ---- writing ----
 
     async def writer(self, where: Where, mode: Mode, new_document: bool = False, terminal: bool = False) -> _Writer:
-        return await self._run(self._writer, where, mode, new_document, terminal)
+        writer = await self._run(self._writer, where, mode, new_document, terminal)
+        writer.card_shows_all = terminal
+        return writer
 
     def _writer(self, where: Where, mode: Mode, new_document: bool, terminal: bool) -> _Writer:
         if where == "word":

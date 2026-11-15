@@ -15,5 +15,8 @@ if [ -n "$files" ]; then
     echo "$files" | tr '\n' '\0' | xargs -0 "$py" -m ruff check --quiet
 fi
 
+# Git runs hooks with GIT_DIR, GIT_INDEX_FILE and the like set. Tests that make a scratch repository would
+# inherit them and act on this one (a `git init` there once set core.bare=true on the real repository).
+unset $(git rev-parse --local-env-vars)
 PYTHONPATH=src "$py" -m pytest -q -p no:cacheprovider --no-header \
     tests/unit/test_findings_register.py tests/unit/test_structure_ratchet.py tests/unit/test_owner_plan.py

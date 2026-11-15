@@ -3670,3 +3670,20 @@
   test: null
   note: Fix by refusing or dropping base.hidden_controls in every desktop_write and fill_in_email, or showing them on
     the preview; prove first what Slack, Teams and a browser field do with a typed "\r".
+- id: FD-12
+  title: With smart placement on, a raise while cards are out from under a covering window judges from the owner's
+    anchor, not the smart placement's choice, so once the window closes the cards can stay over the text caret.
+  source: uncommitted work of the A9/A10 follow-ups session (claude/festive-colden-b068a2), 2026-11-14
+  module: overlay/src-tauri/src/lib.rs
+  area: screen
+  severity: low
+  product_rule: false
+  status: unproven
+  confidence: suspected
+  evidence: 'lib.rs:147 `Place::Smart | Place::Raise if p.uncovered => p.prefs.anchor`: a raise starts from the
+    owner''s anchor even when smart placement had flipped it off the caret. Described by a test in the saved WIP
+    (a_raise_judges_from_the_home_smart_placement_chose_not_the_owners_anchor), never run on main. Not reproduced on
+    the real PC.'
+  test: null
+  note: The WIP and the refactor it builds on are in .claude/stale-wip/2026-11-15/ (festive-colden-b068a2.patch on
+    top of festive-colden-b068a2-base-8fe61d5.patch). Main's own A10 work kept only a safeguard test (6c53326).

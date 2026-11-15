@@ -366,12 +366,23 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 ## 6. Branches, sessions and folders
 
-**Checked 2026-11-14.** Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
+**Checked 2026-11-15.** Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
 
 | Branch | What | State |
 |---|---|---|
-| `claude/audit-fixes-google-calendar` | Audit fixes for Google Calendar, owner checks 222–227 (worktree `C:\Users\frchi\Documents\Swift-audit-fixes`) | 20 commits not in `main`, not merged; on origin |
-| `claude/audit-fixes-recipients` | Audit fixes for recipients | 3 commits not in `main`, not merged; on origin |
+| `claude/b4-compare-dacc2b` | B4 step 1: the `show_result` contract and the compare shape | In progress; its session stopped at the usage limit |
+| `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
+
+**Cleaned up on 2026-11-15 (owner's OK):** every other local branch and worktree.
+- `claude/audit-fixes-google-calendar` and `claude/audit-fixes-recipients` (the second is inside the first) were
+  checked fix by fix: every one is on `main` already, brought over on 2026-11-14 (owner checks 350-353), or
+  replaced by a stricter fix (recipients by X-02, "not found" by `http_status`, HA-FAKE-01). Deleted locally; their
+  copies on origin are untouched.
+- Uncommitted work from five 2026-11-14 worktrees is saved as patches in `.claude/stale-wip/2026-11-15/` (not in
+  git). Nothing in them needed bringing over. Two are worth knowing about: `serene-sanderson-27dd51.patch` (the next
+  `session.py` split step: `Run` into `run.py`, written against an older `session.py`) and
+  `sharp-mirzakhani-696281.patch` (an early learned-trust module that keeps trusts in the memory store's settings,
+  which OWN-07 removed: the modes build must first decide where trust settings live). The A10 WIP is FD-12.
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (240 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.
 

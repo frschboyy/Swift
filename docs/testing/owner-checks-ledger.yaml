@@ -84,9 +84,9 @@ areas:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
     checks: [10, 90-95, 126, 127]
   apps:
-    rule: Swift writes into apps only when the owner's own words asked
+    rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372, elegant-shtern-2e16f9-2]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340, 373]
@@ -141,6 +141,8 @@ focus:
     why: A10, the owner's decision of 2026-11-14 after check 254 (Task Manager on top is in band 16); Swift's card now moves to the nearest uncovered anchor, not seen on the real PC
   - checks: [345]
     why: A10, check 320 failed on the other PC (2026-11-14 15:00); at 125% or 150% no anchor was wholly uncovered, so the card now goes where it is least covered; not seen on the real PC
+  - checks: [elegant-shtern-2e16f9-2]
+    why: foundation decision 6 (2026-11-15), a write the owner's words didn't clearly ask for is asked about with a preview instead of refused; product rule, not seen on the real PC
   - checks: [elegant-shtern-2e16f9-1]
     why: foundation decision 5 (2026-11-15), an address in the owner's own words can be a recipient, marked on the send card; product rule, not seen on the real PC
   - checks: [330, 370, 371]

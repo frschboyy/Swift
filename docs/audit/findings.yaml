@@ -2830,7 +2830,8 @@
   confidence: confirmed
   evidence: workflows/desktop_tools.py:21 owner-words gate; commit 3a393ff
   test: tests/unit/test_hardening_2026_10.py::test_a_page_cant_make_swift_write_in_a_request_that_didnt_ask
-  note: A request that does ask for writing still writes what the model chose (may echo a page).
+  note: A request that does ask for writing still writes what the model chose (may echo a page). Since foundation
+    decision 6 (FD-04) a request that didn't ask is asked about with a preview instead of refused.
 - id: B-03
   title: A due timer or reminder was removed from schedule.json before it was shown, so a restart lost it.
   source: docs/audit/2026-10-audit.md §2; 2026-11-seams-audit.md §3.8 (O-08)
@@ -3543,3 +3544,23 @@
     the decision''s "offers to save it" as a contact (Swift has no contact writer); calendar invites still take only
     resolved contacts. The seam replay doesn''t draw the DOM, so the mark is covered by the overlay test, not a seam
     scenario. Product rule, needs review by someone other than the author.'
+- id: FD-04
+  title: A write into an app the owner's words didn't clearly ask for was refused (NOT_ASKED), a refusal the owner
+    couldn't predict (review D4, "reply to Ada saying thanks"), instead of asked about.
+  source: foundation decision 6 (foundation-rules-review.md §7), 2026-11-15
+  module: src/swift/workflows/desktop_tools.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: 'Root fix. desktop_write and fill_in_email ask "Write this in Notepad? “…”" / "Fill in an email to … in
+    Gmail? “subject”" (_ask_to_write: RunScope.ask(approval=True), level 1, so typing never answers it) when
+    owner_asked_to_write / owner_asked_for_email don''t match; a yes writes, anything else writes nothing; the app in
+    front changing while Swift asks writes nothing. With no way to ask, still NOT_ASKED.'
+  test: tests/unit/test_unclear_writes.py::test_through_the_session_a_typed_yes_never_writes_and_a_spoken_one_does
+  note: 'Also the rest of test_unclear_writes.py and the seam scenario
+    test_seam_replay.py::test_swift_s_question_before_an_unclear_write_is_on_screen_and_a_typed_yes_doesn_t_answer_it.
+    Still open from D4: the owner_asked_to_write pattern decides between level 0 and 1, so its false matches ("what''s
+    here on my screen?") still write with no question. The preview is the first 100 characters; the full text is
+    not shown before a reversible write. Product rule, needs review by someone other than the author.'

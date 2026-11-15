@@ -57,6 +57,8 @@ class Agent(SpyExecutor):
             await self.tools.call("desktop_context", {}, run=run_id)
         if url := step.get("open"):
             self.opens.append(await self.tools.call("desktop_open", {"url": url}, run=run_id))
+        if text := step.get("write"):  # decision 6's tests (test_unclear_writes.py) share this agent
+            self.opens.append(await self.tools.call("desktop_write", {"text": text}, run=run_id))
         return ExecResult("done", step.get("say", "Done."), meta={"start_model": "m"})
 
 

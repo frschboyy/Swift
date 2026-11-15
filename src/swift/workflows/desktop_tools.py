@@ -18,11 +18,13 @@ Text read from the screen is untrusted (ADR-012 §7): it is handed over marked a
 and nothing on the screen can choose a target: a path comes from the owner's selection
 or a configured name, and recipients only from ``find_contact``.
 
-**Only when the owner asked** (audit 2026-10, B-02). Outside a workflow, ``desktop_write`` and
-``fill_in_email`` run only if the owner's own words for this request (``RunScope.said``) ask for
-writing ("write … here", "put this in Word", "rewrite this") or for an email. So a web page, a
-document or a tool result can't make Swift type into the app in front, as ``system_action``
-can't lock the PC. A workflow's manifest already decides whether it writes.
+**When the owner asked, or after asking them** (audit 2026-10, B-02; foundation decision 6). Outside a
+workflow, ``desktop_write`` and ``fill_in_email`` go ahead when the owner's own words for this request
+(``RunScope.said``) ask for writing ("write … here", "put this in Word", "rewrite this") or for an
+email. Otherwise Swift asks first, with a preview ("Write this in Notepad? “Dear Ada…”"), a level 1
+question (``intake.approves``: typing never answers it), so a web page, a document or a tool result
+can't make Swift type into the app in front by itself. A workflow's manifest already decides whether
+it writes. A terminal is never written into (audit A-02): a line typed there runs.
 
 **A web address** (owner checks 2026-11-13, C3): ``desktop_open(url=…)`` opens it in the owner's
 default browser only when the address, or its site, is in the owner's own words for this request
@@ -79,6 +81,7 @@ _WRITE_WORDS = re.compile(
 _EMAIL_WORDS = re.compile(r"\b(?:e-?mail|mail|gmail|outlook|draft|fill (?:it|this|that) in)\b", re.IGNORECASE)
 NOT_ASKED = ("The owner didn't ask for writing in their apps in this request, so Swift didn't write anything. "
              "Only text the owner asked to be written can be; tell them what you would write instead.")
+PREVIEW = 100  # characters of the text in the question
 
 
 def owner_asked_to_write(said: str) -> bool:
@@ -94,6 +97,30 @@ def owner_asked_for_email(said: str) -> bool:
 def _not_asked(tool: str) -> ToolResult:
     logger.info("desktop write refused: not asked", tool=tool)  # the tool only, never the words
     return ToolResult(False, NOT_ASKED, expected=True)
+
+
+def _preview(text: str) -> str:
+    flat = " ".join(text.split())
+    return flat if len(flat) <= PREVIEW else flat[:PREVIEW].rstrip() + "…"
+
+
+async def _ask_to_write(scope: RunScope, tool: str, question: str) -> ToolResult | None:
+    """Foundation decision 6: the owner's words didn't ask for this write, so Swift asks (level 1) instead of
+    refusing. None: the owner said yes; otherwise why nothing was written."""
+    if scope.ask_fn is None:
+        return _not_asked(tool)
+    answer = await scope.ask(question, "yes_no", approval=True)
+    logger.info("desktop write asked", tool=tool, yes=answer is not None and answer.kind == "yes")  # never the text
+    if answer is not None and answer.kind == "yes":
+        return None
+    told = "didn't answer" if answer is None else "said not to"
+    return ToolResult(False, f"Nothing was written: Swift asked the owner, and they {told}. Don't try another way; "
+                      "say so.", expected=True)
+
+
+def _window(context: Any) -> tuple[int, str]:
+    return context.hwnd, context.exe.lower()
+
 
 
 def _unavailable() -> ToolResult:
@@ -138,8 +165,6 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     desktop = host.desktop
     if desktop is None:
         return _unavailable()
-    if scope.grant is None and not owner_asked_to_write(scope.said):
-        return _not_asked("desktop_write")
     text = str(args.get("text", ""))
     where = args.get("where", "focus")
     mode = args.get("mode", "insert")
@@ -149,6 +174,13 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return ToolResult(False, f"That's too long to write at once (over {MAX_WRITE} characters).")
     if where not in ("focus", "word") or mode not in ("insert", "replace"):
         return ToolResult(False, "where is 'focus' or 'word'; mode is 'insert' or 'replace'.")
+    asked_in: tuple[int, str] | None = None  # the window Swift asked about: (hwnd, exe)
+    if scope.grant is None and not owner_asked_to_write(scope.said):
+        before = await desktop.context()
+        app = "Word" if where == "word" else before.app or "the app in front"
+        asked_in = _window(before) if where == "focus" else None
+        if (refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}? “{_preview(text)}”")):
+            return refused
     if where == "focus":
         context = await desktop.context()
         if not context.hwnd:
@@ -160,6 +192,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         if context.exe.lower() in TERMINALS:
             return ToolResult(False, f"{context.app} is a terminal: a line typed there runs as a command, so "
                               "Swift doesn't write there. Nothing was written.")
+        if asked_in is not None and asked_in != _window(context):
+            return ToolResult(False, "The app in front changed after Swift asked. Nothing was written.")
     chunks = paragraphs(text)
     n = next(scope.ids)
     digest = hashlib.sha256(f"{n}\n{where}\n{text}".encode()).hexdigest()
@@ -387,8 +421,6 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     desktop = host.desktop
     if desktop is None:
         return _unavailable()
-    if scope.grant is None and not owner_asked_for_email(scope.said):
-        return _not_asked("fill_in_email")
     draft_id = str(args.get("draft_id", "")).strip()
     app = str(args.get("app") or "gmail").lower()
     if app not in EMAIL_APPS:
@@ -397,6 +429,11 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if draft is None:
         return ToolResult(False, f"There is no draft {draft_id}. Write one with draft_email first.")
     shown = "Gmail" if app == "gmail" else "Outlook"
+    if scope.grant is None and not owner_asked_for_email(scope.said):
+        to = ", ".join(c.name or c.email for c in draft.to)
+        if (refused := await _ask_to_write(scope, "fill_in_email", f"Fill in an email to {to} in {shown}? "
+                                           f"“{_preview(draft.subject)}”")):
+            return refused
 
     async def perform() -> str:
         d = scope.drafts[draft_id]

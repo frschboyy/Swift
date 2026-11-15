@@ -2648,6 +2648,15 @@ card. Check 330 above changed with these (an earlier address is asked about).
 You should see: the To line shows "test@example.com (from your words, not in your contacts)", the greeting is
 "Hello," and nothing is sent. (Before, Swift said it couldn't find that contact.)
 
+<a id="check-elegant-shtern-2e16f9-2"></a>**Check elegant-shtern-2e16f9-2. Writing you didn't clearly ask for is asked about, with a preview**
+1. Open Notepad and click into it. Say "Hey Swift, reply to Ada saying thanks" (words Swift doesn't read as asking
+   to write).
+2. If Swift asks "Write this in Notepad? “…”", type `yes` and press Enter, then say "yes" (no hotkey, no name).
+
+You should see: the question shows the start of what it would write; the typed yes asks again ("Typing can't
+approve"); the spoken yes writes it into Notepad, and "Hey Swift, undo that" takes it out. If Swift answers in its
+card instead of writing, tell us: the agent chose not to write, which is fine.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

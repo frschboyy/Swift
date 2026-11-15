@@ -58,8 +58,12 @@ async def test_writing_the_owner_asked_for_still_happens() -> None:
 
 async def test_filling_in_an_email_needs_an_email_request() -> None:
     host, desktop, owner, journal = make(FakeApp("chrome.exe", "document"), said="summarise this page")
-    result = await host.call("fill_in_email", {"draft_id": "draft-1"})
+    found = await host.call("find_contact", {"query": "lecturer"})
+    draft = await host.call("draft_email", {"to": [found.data["candidates"][0]["email"]], "subject": "Thursday",
+                                            "message": "I'll miss Thursday."})
+    result = await host.call("fill_in_email", {"draft_id": draft.data["draft_id"]})
     assert not result.ok and "didn't ask" in result.text and journal.entries == [] and owner.asked == []
+    assert desktop.filled == []
     from swift.workflows.desktop_tools import owner_asked_for_email
 
     assert owner_asked_for_email("email Ada that I'm running late") and owner_asked_for_email("fill it in Gmail")

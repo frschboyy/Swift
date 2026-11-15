@@ -2427,7 +2427,8 @@ class Session:
         if decision is None and text and route_target(text) is not None:
             # "Stop the research one", "show me the email one": like "stop" and "show me", no name needed.
             self._heard = heard
-            await self._midrun_text(text, self._run_phase if open_request is None else self._confirm_phase(open_request))
+            await self._midrun_text(text, self._run_phase if open_request is None else self._confirm_phase(open_request),
+                                    source="beside", named=match is not None)
             return
         if decision is None:
             # Other speech: ignored, unless it's addressed to Swift. Then on a card it is a change to
@@ -2444,7 +2445,7 @@ class Session:
                 self._start_beside(text)  # "Swift, turn it back on" during a run (D-05)
                 return
             if open_request is None:
-                await self._midrun_text(text, self._run_phase)
+                await self._midrun_text(text, self._run_phase, source="beside", named=True)
                 return
             if self._new_request(text, strict=True):
                 self._start_beside(text)
@@ -2466,9 +2467,9 @@ class Session:
             entry["hands_free"] = True
             await self._answer_text(open_request, entry, text, phase)
         elif decision.action in HANDS_FREE_MIDRUN:
-            await self._midrun_text(text, self._run_phase)
+            await self._midrun_text(text, self._run_phase, source="beside", named=match is not None)
         elif decision.action == "approve" and match is not None and self._fix_offer is not None:
-            await self._midrun_text(text, self._run_phase)  # "Swift, yes": the follow-up offered (ADR-014 §7)
+            await self._midrun_text(text, self._run_phase, source="beside", named=True)  # "Swift, yes": the follow-up offered (ADR-014 §7)
 
     def _in_followup(self, started_at: float) -> bool:
         """Whether an utterance that started at ``started_at`` falls in the follow-up window."""
@@ -3550,7 +3551,7 @@ class Session:
                     if record is not None:
                         record["moved_on"] = True
                     self._settle(q, None)
-                self._start_beside(turn.answer.rest, source="beside" if source == "answer" else source)
+                self._start_beside(turn.answer.rest, source="beside" if source == "answer" else intake.SPOKEN_LIKE.get(source, source))
         return True
 
     async def _reask(self, q: Question, text: str | None = None) -> None:
@@ -3908,11 +3909,10 @@ class Session:
 
     # ---- workflows (ADR-011 W1) ---------------------------------------------------------
 
-    def _fix_refused(self, offered: str | None, on_card: str | None, said: str, source: str) -> str | None:
+    def _fix_refused(self, offered: str | None, on_card: str | None, source: str, *, named: bool) -> str | None:
         """Why a yes from ``source`` can't take the correction offered on ``offered``'s card, or None if it can."""
         if offered != on_card:
             return FIX_HIDDEN_HINT
-        named = match_address(said, self.wake_greetings) is not None
         return None if intake.approves(source, named=named, level=1).allowed else TYPED_YES_HINT
 
     def _answer_fix(
@@ -3928,7 +3928,8 @@ class Session:
             self._fix_offer = fix  # a "no" to another card isn't about this offer
             return None
         if decision.action == "approve" and (
-            refused := self._fix_refused(thread, run.card_thread, said, str(record.get("source")))
+            refused := self._fix_refused(thread, run.card_thread, str(record.get("source")),
+                                         named=match_address(said, self.wake_greetings) is not None)
         ) is not None:
             self._fix_offer = fix  # still offered
             if refused == TYPED_YES_HINT and thread:
@@ -4536,7 +4537,7 @@ class Session:
             if entry is not None:
                 await self._answer_text(open_request, entry, text, self._confirm_phase(open_request))
             return
-        await self._midrun_text(text, self._run_phase)
+        await self._midrun_text(text, self._run_phase, source="debug.say")
 
     async def _run_phase(self, name: str, text: str = "") -> None:
         await self._send(outbound("run.voice", run_id=self._run_id(), phase=name, text=text))
@@ -4550,14 +4551,19 @@ class Session:
             await self._run_phase("hint", exc.message)
             return
         if text is not None:
-            await self._midrun_text(text, self._run_phase)
+            await self._midrun_text(text, self._run_phase, source="voice")
 
-    async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]], source: str = "beside") -> None:
+    async def _midrun_text(
+        self, text: str, phase: Callable[..., Awaitable[None]], *, source: str, named: bool | None = None,
+    ) -> None:
         """Said during a run: about the one in front, naming another, a change of mind, or a new request.
-        While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control."""
+        While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control.
+        ``source`` is the real door ("voice": the hotkey; "beside": hands-free), so ``intake.approves`` sees
+        the channel; ``named``: Swift's name was said (hands-free passes it, since ``text`` lost it)."""
+        if named is None:
+            named = match_address(text, self.wake_greetings) is not None
         if (asked := self.dialogue.pending) is not None and self._for_question(asked, text):
-            if await self._take_answer(text, source=source if source != "beside" else "voice",
-                                       named=match_address(text, self.wake_greetings) is not None):
+            if await self._take_answer(text, source=source, named=named):
                 await phase("idle")
                 return
         decision = route_midrun(text)
@@ -4604,7 +4610,7 @@ class Session:
             await phase("hint", "There's nothing waiting for approval right now.")
         elif action == "approve" and self._fix_offer is not None:
             on_card = self._focus.thread if self._focus is not None else None
-            if (refused := self._fix_refused(self._fix_offer[1], on_card, text, source)) is not None:
+            if (refused := self._fix_refused(self._fix_offer[1], on_card, source, named=named)) is not None:
                 await phase("hint", refused)
                 return
             text, thread, at = self._fix_offer
@@ -4618,7 +4624,7 @@ class Session:
             await self._redirect(change, phase)
         elif self._new_request(text):
             await phase("idle")
-            self._start_beside(text, source=source)
+            self._start_beside(text, source=source if source == "typed" else "beside")
         else:
             await phase("hint", f"Heard “{_clip(text, 50)}”. {MIDRUN_HINT}")
 

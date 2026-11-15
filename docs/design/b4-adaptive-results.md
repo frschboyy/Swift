@@ -4,8 +4,8 @@ Status: **the owner approved the vetted set on 2026-11-14** (§4): Swift's own c
 simple charts and mind maps; Mermaid's tiny build for diagrams; and Windows' PDF renderer plus a text excerpt for
 documents. The checks before approval (§9) replaced Windows Shell thumbnails, which gave a thumbnail for only 2 of
 24 real files. The owner also asked for a mind-map shape (§6) and, later, a brainstorm map that grows by voice
-(§10). The first slice, `show_result` and the compare shape, is built on a branch (§8, 2026-11-15); the other shapes
-are not. A dev-only prototype draws the shapes (`overlay/dev/b4.html`, §6).
+(§10). The first slice, `show_result` and the compare shape, is merged (§8, 2026-11-15); the second, diagram and
+mind map, is built on a branch (§8); preview, chart and cards are not. A dev-only prototype draws the shapes (`overlay/dev/b4.html`, §6).
 
 **The owner's decision (2026-11-13):** results aren't a fixed list of layouts. For each result, Swift works out
 how best to show it, visually and in words: a table, a side-by-side comparison, project cards, a real diagram, a
@@ -322,6 +322,44 @@ scaling, forced colours and reduced motion.
   | ![](b4/slice1-compare-dark.jpg) | ![](b4/slice1-compare-light.jpg) | ![](b4/slice1-compare-long-light.jpg) |
 - Not yet: headed tables, a `fits()` per block (the backend's size stands in), the fenced-JSON fallback for a second
   provider, "It's on screen" when the card isn't seen, the ADR for the renderer list.
+
+**Slice 2, diagram and mind map (2026-11-15, branch `claude/b4-diagram-902ffc`):**
+- `diagram`: Mermaid source in `show_result`, checked in `swift/shapes.py`. Only the vetted kinds (flowchart/graph,
+  sequence, state, class, ER, timeline, gantt, quadrant, journey), up to 40 lines and 3000 characters. Refused whole
+  for tags and entities (Mermaid's `#name;` too), control or format characters, and anything that does more than
+  draw: `click`, `call`, `href`, `link`, `callback`, `%%{` directives and front matter, `style`/`classDef`/
+  `linkStyle` (the colours are Swift's), `url(`, `@{ }` images and icons, and URLs. Sized by Swift: more than 12
+  statements (6 for sequence, timeline, gantt and journey) opens with Read more.
+- Drawn by `diagramBlock` (`overlay/src/blocks.ts`) through `overlay/src/mermaid.ts`: `@mermaid-js/tiny` 12.3.0, an
+  exact pin. It's a classic script, so the build copies it as a file of Swift's own and it loads by a script tag,
+  only when the first diagram is shown, under the CSP as it was (`script-src` falls back to `'self'`). Strict mode,
+  no HTML labels, `maxTextSize` and `maxEdges` caps, Swift's neutral colours. Its SVG is parsed as SVG and admitted
+  only if `inert()` finds no script, `foreignObject`, image, link, `on*` handler, outside `href` or `url()`. A
+  source that doesn't draw shows "Swift couldn't draw this diagram." and the words. Checked in the harness under
+  the overlay's CSP: no violation, and only same-origin requests.
+- `mindmap`: a root and its children, each `{label, children}`: up to 3 levels and 30 ideas, labels up to 60
+  characters of plain text. Drawn by `mindmapBlock`, Swift's own nested lists from the prototype, textContent only,
+  no dependency. More than 12 ideas opens with Read more; the card shows the first 12 and says how many more.
+- Both sit under the worker's bar ("Drawn from the worker's outline" / "Mapped by the worker, not checked by
+  Swift") in neutral colours, never Swift's accent, amber or red. Copy gives a diagram's source and a map's
+  indented lines.
+- Bundle (`vite build`): the eager JavaScript grows by 1.7 kB (0.5 kB gzipped) and the CSS by 1.7 kB (0.3 kB
+  gzipped). New and lazy: `mermaid.ts`'s chunk, 1.5 kB, and `mermaid.tiny.js`, 2,853 kB (0.76 MB gzipped, §9),
+  fetched from Swift's own files the first time a diagram shows.
+- In the dev harness (`__design("answerDiagram")`, `"answerDiagramLong"`, `"answerDiagramBroken"`,
+  `"answerMindmap"`, `"answerMindmapLong"`):
+
+  | Diagram, dark | Diagram, light | Sequence, opened with Read more |
+  |---|---|---|
+  | ![](b4/slice2-diagram-dark.jpg) | ![](b4/slice2-diagram-light.jpg) | ![](b4/slice2-diagram-long-dark.jpg) |
+
+  | Mind map, dark | Mind map, light |
+  |---|---|
+  | ![](b4/slice2-mindmap-dark.jpg) | ![](b4/slice2-mindmap-light.jpg) |
+- Not yet: a diagram drawn before a theme change keeps its old colours until it's drawn again (`shortcut:` in
+  `mermaid.ts`); a wide left-to-right flow shrinks its labels to fit the card; the card's first twelve ideas are
+  taken depth first, so a big first branch can hide the last branches until Read more; the licence check §4
+  mentions doesn't exist yet, so nothing checks Mermaid's licence automatically.
 
 
 - Each shape: a seam scenario that fails with it undone, owner checks numbered from "Next free check number", their

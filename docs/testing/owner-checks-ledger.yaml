@@ -78,8 +78,8 @@ areas:
     paths: [overlay/src/agents.ts, overlay/src/capsule.ts, overlay/src/orb.ts, overlay/src/styles.css, overlay/src/theme.ts, overlay/src/main.ts, overlay/src/card.ts, overlay/src/blocks.ts, overlay/src/dom.ts, overlay/src/heard.ts, overlay/src-tauri/src/theme.rs, overlay/src-tauri/src/win.rs, overlay/src-tauri/src/hit.rs, overlay/src-tauri/src/lib.rs]
     checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320, 345, 383]
   result-shapes:
-    paths: [src/swift/shapes.py, overlay/src/blocks.ts, overlay/src/answer.ts]
-    checks: [400]
+    paths: [src/swift/shapes.py, overlay/src/blocks.ts, overlay/src/answer.ts, overlay/src/mermaid.ts]
+    checks: [400, b4-diagram-902ffc-1, b4-diagram-902ffc-2]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]

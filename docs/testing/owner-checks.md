@@ -2738,6 +2738,37 @@ today's plain answer, with no table. If step 1 shows only words, say so: the wor
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+### Results laid out to fit: a diagram and a mind map (B4, 2026-11-15)
+
+About 4 minutes, on the branch with B4's second slice. Nothing here sends anything.
+
+<a id="check-b4-diagram-902ffc-1"></a>**Check b4-diagram-902ffc-1. A diagram shows as a drawing, marked as the worker's**
+1. Say "Hey Swift, draw me a diagram of how making a cup of tea works, from boiling the kettle to drinking it".
+2. When the answer shows, look at the card. If it has **Read more**, press it. Then press **Copy** and paste into
+   Notepad.
+3. Say "Hey Swift, draw a sequence diagram of me ordering a pizza by phone, with every step".
+
+You should see: step 1 says one or two sentences aloud, not the diagram. A moment after the card shows, a drawing
+appears under a grey bar that says "Drawn from the worker's outline, not checked by Swift", in grey and white (or
+grey and black in light mode), never Swift's blue, amber or red. Nothing on the card names the provider. The first
+diagram takes up to a second longer than later ones. Step 2 pastes the diagram's outline as text. Step 3's diagram
+is taller than a card: the card shows its top and **Read more** opens all of it. If a card says "Swift couldn't draw
+this diagram", or step 1 shows only words, say so.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
+<a id="check-b4-diagram-902ffc-2"></a>**Check b4-diagram-902ffc-2. A mind map shows as branches, marked as the worker's**
+1. Say "Hey Swift, make me a mind map of ideas for a birthday party for a ten-year-old".
+2. When the answer shows, look at the card, press **Read more** if it's there, then press **Copy** and paste into
+   Notepad.
+
+You should see: the card shows the theme on the left and its branches to the right, each branch's ideas beside it,
+under a grey bar that says "Mapped by the worker, not checked by Swift", in neutral colours. Long labels wrap; none
+is cut. With more than 12 ideas, the card shows the first ones and "and N more ideas (Read more shows them)", and
+Read more shows them all. Step 2 pastes the map as indented lines, one idea per line.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

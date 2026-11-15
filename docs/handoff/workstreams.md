@@ -153,5 +153,5 @@ All taken from the orchestrator's recommendations:
   right before Enter; changed in between, the command is left typed and unrun, and Swift says so. VS Code keeps its
   card on every write but Swift never presses Enter there (it can't tell the editor from the terminal yet). Check 397.
 - **VS Code's card** (the orchestrator's recommendation, accepted 2026-11-15): every write into VS Code keeps the
-  terminal's card until the read-only probe `spikes/desktop/vscode_focus.py` (check nostalgic-sutherland-956529-1)
+  terminal's card until the read-only probe `spikes/desktop/vscode_focus.py` (check 399)
   shows UI Automation tells its editor from its terminal panel; then only the terminal needs it (OCT-01).

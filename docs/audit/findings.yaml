@@ -50,7 +50,7 @@
     it runs.'
   test: tests/unit/test_audit_2026_10.py::test_writing_into_a_terminal_is_its_own_card_showing_every_character
   note: 'Since decision 6, writing into VS Code''s editor needs a card too (a feature cost, the owner''s call).
-    Kept until spikes/desktop/vscode_focus.py (owner check nostalgic-sutherland-956529-1) shows UI Automation tells
+    Kept until spikes/desktop/vscode_focus.py (owner check 399) shows UI Automation tells
     the editor from the terminal panel (the orchestrator''s recommendation, accepted 2026-11-15); then the card can
     apply to the terminal only. In VS Code Swift types (several lines allowed) but never presses Enter, and its
     card says so; a real terminal takes one command and runs it. Was: Owner decides. Checking that VS Code''s focused element is its terminal needs UI Automation verified on

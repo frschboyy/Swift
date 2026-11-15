@@ -113,7 +113,7 @@ code toward these rules, never away.
   (`desktop.writer(terminal=True)`), exactly the card's one line, then Enter only if the same window is still in
   front (checked before typing and again before Enter); text with a line break is refused. VS Code keeps the card
   on every write, typed without Enter, until `spikes/desktop/vscode_focus.py` shows its editor and terminal apart.
-  Owner checks 397 and nostalgic-sutherland-956529-1; not run.
+  Owner checks 397 and 399; not run.
 - **8:** built: `ConnectorError.reason` (a content-free code: `http_503`, `clipboard_busy`,
   an error class) at every raise that fell back to `connector_failed`; the gateway's "action failed" line and the
   calendar and contacts read failures log it; `error_class` joins the swift.log summary; the interaction record

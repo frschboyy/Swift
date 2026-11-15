@@ -2674,7 +2674,7 @@ at a time in a terminal, or shows a separate card for each line (Reject them). I
 run until you press Enter (press Esc instead to clear it). (Before 2026-11-15, an approved card for Windows Terminal
 typed nothing: "Swift doesn't write in Windows Terminal there".)
 
-<a id="check-nostalgic-sutherland-956529-1"></a>**Check nostalgic-sutherland-956529-1. Can Swift tell VS Code's editor from its terminal? (probe, reads only)**
+<a id="check-399"></a>**Check 399. Can Swift tell VS Code's editor from its terminal? (probe, reads only)**
 1. Open VS Code with a file open and its terminal panel showing. Swift needn't be running.
 2. In a terminal outside VS Code, from the repository root, run
    `uv run python spikes/desktop/vscode_focus.py`.

@@ -58,8 +58,9 @@ answered, and whether the owner is there. Swift decides reversibility and reach,
   *(foundation decision 10)*. Change both together.
 - **An approval covers exactly what its card showed.** For Swift's own actions the gateway binds it to the action's
   digest and recomputes it before running: a changed recipient, path, command or payload voids it, and an approval
-  is never reused for another action (ADR-010, threat model T3). A worker's tool is allowed with exactly the
-  arguments its card was built from (`updated_input`), but with no digest re-check or journal line yet (OWN-05).
+  is never reused for another action (ADR-010, threat model T3). A worker's tool card is bound the same way
+  (`ActionGateway.bind` / `allow`, OWN-05): the digest is recomputed from the arguments handed back to run, one
+  approval covers one call, and each is journalled; a step card binds each command it lists.
   Enforcement lives in the backend, never in the agent or the overlay.
 - **No hands-free listening while locked, away or paused.**
 - **Logs:** `swift.log` holds no content (the owner's words, names, addresses, file contents) but does hold

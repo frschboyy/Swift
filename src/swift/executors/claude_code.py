@@ -80,6 +80,7 @@ from swift.executors.claude_mapping import (
 from swift.executors.providers import CLAUDE_CODE
 from swift.executors.read_scope import READ_TOOLS, ReadScope, names_secret, target_path
 from swift.executors.step_grant import reversible
+from swift.security.gateway import ActionGateway, Bound
 from swift.failures import classify, clean_detail, exception_words, failure_text
 from swift.security.web_scope import DENIED_MESSAGE as NOT_GIVEN_URL_MESSAGE
 from swift.security.web_scope import WebScope, result_text
@@ -182,6 +183,10 @@ NEVER_READ_MESSAGE = (
     "Swift never lets you read {path}: it holds sign-ins, keys or other secrets. Go on without it, "
     "and don't try another way to read it."
 )
+# OWN-05: the call about to run isn't the one its card showed, or its approval was used already.
+CHANGED_MESSAGE = "That call changed after the user approved it, so it wasn't run. Ask again if it's still needed."
+# What a step card's approval is bound to: the command as listed, whichever shell runs it.
+STEP_TOOL = "command"
 READ_DECLINED_MESSAGE = "The user didn't allow reading {path}. Go on without it; don't try another way."
 NO_QUESTIONS_MESSAGE = (
     "The user can't answer questions in this mode. Make a reasonable assumption, "
@@ -271,6 +276,14 @@ class _Run:
     # the commands themselves.
     grant: Grant = field(default_factory=Grant)
     grant_counts: dict[str, int] = field(default_factory=lambda: {"steps": 0, "covered": 0, "asked_again": 0})
+    # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
+    step_bound: dict[str, Bound] = field(default_factory=dict)
+
+
+def _set_grant(run: _Run, gateway: ActionGateway, grant: Grant) -> None:
+    """The step the owner approved, each listed command bound to its own one-time approval."""
+    run.grant = grant
+    run.step_bound = {c: gateway.bind(STEP_TOOL, {"command": c}) for c in grant.commands}
 
 
 @contextlib.asynccontextmanager
@@ -371,6 +384,8 @@ class ClaudeCodeExecutor:
         self.confirm_strong = confirm_strong
         self.turn_limits = DEFAULT_TURN_LIMITS | (turn_limits or {})
         self.tools = tools
+        # Binds and journals the approvals of the agent's own tools (OWN-05): the same one as Swift's actions.
+        self.gateway = tools.gateway if tools is not None else ActionGateway()
         # Holds confirm cards while the owner is away (set by the backend); None: plain timeout.
         self.attention: Attention | None = None
         self._spare: asyncio.Task[_Spare | None] | None = None
@@ -599,7 +614,8 @@ class ClaudeCodeExecutor:
         run_id = f"cc-{next(self._ids)}"
         request, budget = task.prompt, task.budget
         level = OVERRIDE_LEVEL.get(budget.override or "") or (budget.demand if budget.demand in LEVELS else "standard")
-        run = _Run(level=level, grant=task.grant)
+        run = _Run(level=level)
+        _set_grant(run, self.gateway, task.grant)
         run.web.note_request(request)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
         spare = await self._take_spare()
@@ -662,7 +678,7 @@ class ClaudeCodeExecutor:
         if run is None or run.finished.is_set() or run.cancelled:
             return False
         run.web.note_request(text)
-        run.grant = Grant()  # the owner changed their mind: the step they approved may no longer be the plan
+        _set_grant(run, self.gateway, Grant())  # the owner changed their mind: the step they approved may no longer be the plan
         waiting = [f for f in run.pending.values() if not f.done()]
         if waiting:  # a card is open: the change answers it, and the turn goes on
             waiting[-1].set_result(text)
@@ -712,18 +728,25 @@ class ClaudeCodeExecutor:
         if name in COMMAND_TOOLS and run.grant.commands:
             command = str(args.get("command", ""))
             # Swift's classification, never the agent's: a delete, a send or anything unknown asks (B2, ADR-019).
-            if run.grant.covers(command, irreversible=not reversible(command)):
+            if run.grant.covers(command, irreversible=not reversible(command)) and command in run.step_bound:
+                bound = run.step_bound.pop(command)
                 left = list(run.grant.commands)
                 left.remove(command)  # each listed command once: the step ends when its list is used up
                 run.grant = replace(run.grant, commands=tuple(left))
+                shown = {"command": command}  # all the step card showed: no other argument rides on it
+                if not self.gateway.allow(bound, STEP_TOOL, shown, how="step"):
+                    return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
                 run.grant_counts["covered"] += 1
-                return PermissionResultAllow(updated_input=args)
+                return PermissionResultAllow(updated_input=shown)
             run.grant_counts["asked_again"] += 1
+        bound = self.gateway.bind(name, args)  # the call the card is made from, as it is now
         title, detail = confirm_card(name, args, cwd=self.cwd)
         if name in FILE_CHANGE_TOOLS and len(detail) > WRITE_MAX:
             return _too_long(run, name, LONG_CHANGE_MESSAGE.format(n=WRITE_MAX))
         decision = await self._decide(run, run_id, title, detail, name, command_purpose(name, args))
         if decision == "approve":
+            if not self.gateway.allow(bound, name, args):  # recomputed from what is handed back to run
+                return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
             _smaller_call_approved(run, name)
             return PermissionResultAllow(updated_input=args)
         if isinstance(decision, tuple):  # ("change", the owner's words): declined, but the run goes on
@@ -747,8 +770,11 @@ class ClaudeCodeExecutor:
             return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=path), interrupt=False)
         shown = Path(path).name or path
         title = f"Read {shown}" if name == "Read" else f"Look through {shown}"
+        bound = self.gateway.bind(name, args)
         decision = await self._decide(run, run_id, title, f"Outside your read folders: {path}", name)
         if decision == "approve":
+            if not self.gateway.allow(bound, name, args):
+                return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
             return PermissionResultAllow(updated_input=args)
         return PermissionResultDeny(message=READ_DECLINED_MESSAGE.format(path=path), interrupt=False)
 
@@ -767,7 +793,7 @@ class ClaudeCodeExecutor:
         title = f"Run {n} command{'s' if n != 1 else ''} on your PC"
         decision = await self._decide(run, run_id, title, "\n".join(ahead), "Bash", said, step=True)
         if decision == "approve":
-            run.grant = Grant(said, tuple(ahead))  # replaces the last step's: a grant lasts one step
+            _set_grant(run, self.gateway, Grant(said, tuple(ahead)))  # replaces the last step's: a grant lasts one step
             run.grant_counts["steps"] += 1
             others = len(commands) - n
             return STEP_APPROVED_MESSAGE.format(

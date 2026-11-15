@@ -155,14 +155,18 @@
   area: actions
   severity: medium
   product_rule: true
-  status: open
+  status: fixed
   confidence: design-concern
   evidence: claude_code.py can_use_tool -> _ask/_ask_read -> _decide returns PermissionResultAllow(updated_input=args);
     the step grant (base.Grant.covers, step_grant.reversible) approves ahead there too
-  test: null
-  note: The arguments allowed are the ones the card was made from, so no swap is visible in this code. CLAUDE.md
-    says the gateway binds every approval to a digest; for worker tools it doesn't. Whether the SDK can change
-    arguments after can_use_tool is unproven.
+  test: tests/unit/test_own05_worker_approval.py
+  note: 'Fix (root): ActionGateway.bind digests the exact call before its card; ActionGateway.allow recomputes it from
+    the arguments handed back, refuses a change (changed_after_approval) or a second use (approval_reused), and
+    journals ALLOWED or FAILED with no content. A step card binds each listed command; a covered call is handed back
+    as {"command": ...} only. SDK 0.2.172 can''t change arguments after can_use_tool (it sends back updated_input as
+    returned; no hooks are set); the CLI running exactly updatedInput is its protocol, unchecked. Left: a single
+    command card shows the command, not run_in_background or timeout, which still ride on its approval (bound, not
+    shown). Product rule: needs review by another author before merge.'
 - id: OWN-06
   title: Where a web address may come from is decided twice, with different rules, for fetching and for opening.
   source: docs/architecture/ownership.md §6
@@ -170,16 +174,15 @@
   area: privacy
   severity: low
   product_rule: true
-  status: partial
+  status: wontfix
   confidence: design-concern
   evidence: claude_code.py:604-697, 851 notes request and tool-result addresses into run.web; desktop_tools._open_url
     opens only an address in this request's words (WebScope.note_request over RunScope.said and answers) and asks
     (_offer) about the owner's earlier or remembered ones; points_back is gone (FD-02)
   test: tests/unit/test_recent_address.py::test_an_address_only_in_the_agents_answer_or_a_tool_result_is_never_opened_or_offered
-  note: 'Partial: opening now has one rule with no pattern (this request''s words, else Swift''s question), and both
-    sides read the owner''s words through WebScope.note_request. Still two sources: a fetch also takes the context
-    Swift adds and tool-result addresses (accepted, OCT-03). Making fetching ask too is the owner''s call, not
-    decision 4.'
+  note: 'Accepted by the owner, 2026-11-15: opening has one rule with no pattern (this request''s words, else
+    Swift''s question), and fetching keeps its wider sources (the context Swift adds and tool-result addresses,
+    OCT-03), since a fetch only reads. Revisit if a fetch can ever send the owner''s data out.'
 - id: OWN-07
   title: memory.Store keeps "Swift's own settings" beside config.yaml, with no caller reading them.
   source: docs/architecture/ownership.md §14
@@ -187,11 +190,12 @@
   area: config
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: memory.py Store.setting and memory/settings/; no call to .setting( in src/swift
-  test: tests/unit/test_memory.py::test_config_yaml_wins_over_a_kept_setting
-  note: A second settings store waiting for a first user. Decide its owner before one is added.
+  evidence: root fix 2026-11-15. Grep of src, overlay, spikes and tests found no use of Store.setting or memory/settings/
+    beyond its own test; both deleted (memory.Kind is now "memory" only). config.yaml (settings.py) is the one settings owner.
+  test: tests/unit/test_memory.py::test_a_new_value_replaces_the_old_and_every_version_is_kept
+  note: An existing memory/settings/ folder on the owner's PC is left untouched on disk; Swift just stops reading it.
 - id: HA-HEAR-02
   title: A wake phrase said just after the screen locks still gets the chime and the "heard" signal from the peek,
     before the 2 s poll catches up.

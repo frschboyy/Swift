@@ -98,3 +98,60 @@ async def test_an_approve_on_a_card_is_what_approves_says(monkeypatch: pytest.Mo
     decision = await _decided(session, records, rid)
     assert (decision == "approve") is allowed, (door, decision)
     assert calls == [(*seen, intake.CARD)], calls
+
+
+QUESTION_DOORS = {  # how a yes reaches Swift's own question ("Turn off Wi-Fi?"); the hotkey can't yet (FD-01)
+    "hands-free": ("yes", ("answer", False)),
+    "hands-free, named": ("Swift, yes", ("answer", True)),
+    "typed": ("Swift, yes", ("typed", True)),
+}
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+@pytest.mark.parametrize("door", list(QUESTION_DOORS))
+async def test_a_yes_to_swifts_question_is_what_approves_says(monkeypatch: pytest.MonkeyPatch, door: str,
+                                                              allowed: bool) -> None:
+    from test_runs import finish_all, say, until
+    from test_seam_replay import _lane, _wifi
+
+    from swift.ipc.protocol import Message
+
+    session, out, agent, stt, control, _ = _lane()
+    await _wifi(session, out, stt)
+    words, seen = QUESTION_DOORS[door]
+    calls = _decider(monkeypatch, allowed)
+    if door == "typed":
+        await session.handle(Message("text", {"text": words}))
+    else:
+        await say(session, stt, words)
+    await until(lambda: calls)
+    await asyncio.sleep(0.1)
+    assert control.radio_state["wifi"] is (not allowed), (door, allowed)
+    assert calls[0] == (*seen, 1), calls
+    await finish_all(session, agent)
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+@pytest.mark.parametrize("door", ["typed", "the hotkey held"])
+async def test_a_typed_or_hotkey_yes_to_the_correction_offer_is_what_approves_says(
+        monkeypatch: pytest.MonkeyPatch, door: str, allowed: bool) -> None:
+    from test_front_rules import _correction_offered
+    from test_runs import finish_all, until
+
+    from swift.ipc.protocol import Message
+
+    session, out, agent, stt, _other = await _correction_offered()
+    before = len(agent.requests)
+    calls = _decider(monkeypatch, allowed)
+    if door == "typed":
+        await session.handle(Message("text", {"text": "Swift, yes", "thread_id": None}))
+    else:
+        stt.text = "yes"
+        await session.handle(Message("ptt", {"state": "down"}))
+        await asyncio.sleep(0.05)
+        await session.handle(Message("ptt", {"state": "up"}))
+    await until(lambda: calls)
+    await asyncio.sleep(0.1)
+    assert (len(agent.requests) == before + 1) is allowed, (door, allowed)
+    assert calls == [("typed", True, 1) if door == "typed" else ("voice", False, 1)], calls
+    await finish_all(session, agent)

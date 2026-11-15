@@ -3501,3 +3501,19 @@
   note: 'Not fixed here: out of scope for 1/3/10, since there is no hotkey door into _take_answer for Swift''s
     question to route through approves. Needs a decision on whether the hotkey answers a question on screen or
     starts a request. Clicking Yes and saying yes hands-free both work.'
+- id: FD-08
+  title: '"Undo that" after the owner quit Word ends in "Something went wrong in Swift": undo and show get Word
+    with _word(create=False), which re-raises the raw COM error, not a DesktopError, so session.py''s
+    ConnectorError catch misses it.'
+  source: foundation decision 8 (claude/sharp-heisenberg-e41ff2), 2026-11-15
+  module: src/swift/desktop/windows.py
+  area: actions
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: 'Read, not run: windows.py _word(create=False) does "if not create: raise" on GetActiveObject''s
+    failure; _undo calls it without a try (_show wraps it as DesktopError "Word isn''t open any more."). The
+    error reaches Session''s generic except: an "internal" card, now with error_class in swift.log.'
+  test: null
+  note: Not fixed here (out of scope for decision 8). The fix is _undo wrapping it as _show does (reason word_closed).

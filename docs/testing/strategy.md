@@ -41,6 +41,21 @@ proves something the one before can't; none proves the next.
   PYTHONPATH=src /c/Users/frchi/Documents/Swift/.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider
   ```
   Use the same interpreter (`PYTHONPATH=src … python.exe`) for `eval/parity/score.py` and `eval/stt/gate.py` below.
+- **Lint (ruff):** `[tool.ruff]` in `pyproject.toml` selects `ASYNC`, `B`, `BLE`, `F`, `RUF` and `S`, the families the
+  `noqa` comments cite; it covers `src` and `tests` (not `spikes` or `eval`). Today's hits are per-file ignores: take
+  one out once its file is clean. Left out: `E` (4,300+ long lines in `src`), `SLF`, `ARG`, `ANN`, `N`, `TRY`, `A`
+  (hundreds of hits each), and `ruff format`. `tests/unit/test_lint_gate.py` keeps the baseline clean and the `noqa`
+  count from growing (QA15-01).
+  ```bash
+  /c/Users/frchi/Documents/Swift/.venv/Scripts/python.exe -m ruff check src tests
+  ```
+- **Pre-commit hook:** `.githooks/pre-commit` runs ruff on the staged `src`/`tests` Python files, then
+  `test_findings_register.py`, `test_structure_ratchet.py` and `test_owner_plan.py` (about 7 s), with the main
+  checkout's venv from any worktree (`SWIFT_PYTHON` overrides it). It is never the full suite. Activate it once per
+  PC (it's shared by every worktree; bundles don't carry it):
+  ```bash
+  git config core.hooksPath .githooks
+  ```
 - **Routing parity** (must not drop):
   ```bash
   uv run python eval/parity/score.py

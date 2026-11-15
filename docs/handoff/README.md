@@ -262,6 +262,8 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 **Deferred** (not started without the owner's OK): screen awareness and the vision fallback (ADR-016 F, ADR-012 D4/D5, decision 26), offline with a local model (G, decision 19), voice ID and the phone companion (H, decisions 20, 21), smart home and messaging connectors (decisions 16, 17), Apple Calendar.
 
+After the adaptive UI sequence in [`workstreams.md`](workstreams.md), a separate session will investigate A12 (spoken Reject latency; cause unproven, so inspect timings and reproduce first) and scope C9 (screen awareness; settle design and privacy, and get the owner's OK before implementation).
+
 **Small leftovers, only on request:** timers that pause and resume, a stopwatch, repeating reminders (ADR-016 §14.4); the redesign's timer card details (decision 5).
 
 **The test for all of this** (product-direction §9): if after six weeks of daily use the owner still reaches for Copilot or a chat app for most things, that answers whether Swift has a reason to exist.
@@ -371,6 +373,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | Branch | What | State |
 |---|---|---|
 | `claude/b4-compare-dacc2b` | B4 step 1: the `show_result` contract and the compare shape | In progress; its session stopped at the usage limit |
+| `claude/a12-c9-followup` | Record the agreed follow-up sequence for A12 and C9 | Handoff update; no implementation started |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
 
 **Cleaned up on 2026-11-15 (owner's OK):** every other local branch and worktree.

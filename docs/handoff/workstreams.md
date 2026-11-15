@@ -89,6 +89,11 @@ decision before anything is built: what may be stored, who enters it, and what S
 6. Review item 9, then Halo Step B and the interaction layer's decisions, for B3–B7.
 7. Groundwork (run records, the grant, the memory store), then C2, C4, C5, C7.
 
+**The owner's current sequence (2026-11-16), for the adaptive UI work:** ADR-019 §8's six items with B3; then B5
+with B7; then B6 with B9–B14. After those, handle A12 and C9 in a separate session: first investigate A12's cause
+(still unproven; inspect timings and reproduce before changing code), then scope C9's design and privacy implications.
+C9 remains deferred until the owner approves implementation.
+
 ## The owner's design decisions (2026-11-13)
 
 Taken from the orchestrator's recommendations, except B4 and B6, which are the owner's own:

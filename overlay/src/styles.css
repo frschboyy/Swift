@@ -515,6 +515,17 @@ code {
 
 /* a long answer: six lines, faded; open, it grows in place and only its body scrolls */
 .answer--long { max-height: 156px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+/* Mind maps choose their own card preview; on short screens, scroll instead of clipping the selected branches. */
+#stage .answer--long:not(.answer--open):has(> .mindmap) {
+  max-height: calc(min(70vh, 720px) - 150px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
 .answer--open {
   max-height: calc(min(70vh, 720px) - 150px);
   overflow-y: auto;

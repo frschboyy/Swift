@@ -427,6 +427,30 @@ async def test_a_mind_map_reaches_the_done_card_as_one() -> None:
         await finish_all(session, agent)
 
 
+async def test_a_large_mind_map_keeps_its_branches_on_the_done_card() -> None:
+    """B4, mind map: a deep first branch doesn't replace later branches in the card's preview."""
+    children = [
+        {"label": "Games", "children": [{"label": f"Game {i}"} for i in range(8)]},
+        {"label": "Food", "children": [{"label": "Cake"}]},
+        {"label": "Invites", "children": [{"label": "Class"}]},
+        {"label": "Music"},
+        {"label": "Decorations", "children": [{"label": "Balloons"}]},
+    ]
+    shape, problems = shapes.check({"shape": "mindmap", "root": "Birthday party", "children": children})
+    assert not problems
+
+    session, out, agent, stt, _control, _sched = _lane()
+    agent.details = shapes.details(shape)
+    run = await started(session, out, agent, stt, "Hey Swift, make me a mind map of party ideas")
+    agent.runs[run]["go"].set()
+    await until(lambda: out.last("result"))
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerKind"] == "mindmap" and screen["answerLong"]
+    for label in ("Games", "Food", "Invites", "Music", "Decorations", "Game 7"):
+        assert label in screen["answerText"]
+    await finish_all(session, agent)
+
+
 # ---- what must keep working ---------------------------------------------------------------------
 
 

@@ -77,17 +77,14 @@ const MINDMAP_BY = "Mapped by the worker, not checked by Swift";
 const CARD_IDEAS = 12;  // swift/shapes.py CARD_IDEAS: more opens with Read more
 
 /** A mind map drawn by Swift's own code: nested lists (the root, its branches beside it, their ideas beside
- *  those), so labels wrap instead of being cut and screen readers get the tree. On the card, the first twelve
- *  ideas; ``full`` shows them all. */
+ *  those), so labels wrap instead of being cut and screen readers get the tree. On the card, twelve ideas taken
+ *  level by level (answer.ts cardIdeas), so every branch shows; ``full`` shows them all. */
 export function mindmapBlock(m: MindMap, full: boolean): HTMLElement {
-  let left = full ? Infinity : CARD_IDEAS;
-  let hidden = 0;
+  const kept = full ? null : A.cardIdeas(m.children, CARD_IDEAS);
+  const hidden = kept ? count(m.children) - kept.size : 0;
   const list = (ideas: Idea[], depth: number): HTMLElement | null => {
-    const items = ideas.flatMap((i) => {
-      if (left <= 0) return (hidden += 1 + count(i.children), []);
-      left--;
-      return [el("li", {}, el("span", { class: "mind-node" }, i.label), i.children.length ? list(i.children, depth + 1) : null)];
-    });
+    const items = ideas.filter((i) => !kept || kept.has(i)).map((i) =>
+      el("li", {}, el("span", { class: "mind-node" }, i.label), i.children.length ? list(i.children, depth + 1) : null));
     return items.length ? el("ul", { class: `mind-l${depth}` }, ...items) : null;
   };
   const tree = list(m.children, 1);

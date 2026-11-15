@@ -89,6 +89,15 @@ export function diagramFits(w: number, h: number, labelPx: number, boxW: number)
   return labelPx * Math.min(1, boxW / w, DIAGRAM_CARD_PX / h) >= DIAGRAM_MIN_LABEL_PX;
 }
 
+/** Up to n card ideas, breadth-first so branches appear before deeper ideas. No child is kept without its parent. */
+export function cardIdeas(children: Idea[], n: number): Set<Idea> {
+  const kept = new Set<Idea>();
+  for (let level = children; level.length && kept.size < n; level = level.flatMap((i) => i.children)) {
+    for (const i of level.slice(0, n - kept.size)) kept.add(i);
+  }
+  return kept;
+}
+
 /** How a comparison's highlighted option is labelled: the worker's choice, never Swift's (B4 decision 4). */
 export const PICK = "Worker's pick";
 

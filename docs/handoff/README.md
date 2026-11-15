@@ -370,7 +370,8 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 | Branch | What | State |
 |---|---|---|
-| `claude/b4-compare-dacc2b` | B4 step 1: the `show_result` contract and the compare shape | In progress; its session stopped at the usage limit |
+| `claude/b4-diagram-902ffc` | B4 step 2: diagrams and mind maps | Visual fixes are in; owner check b4-diagram-902ffc-3 is pending |
+| `claude/byline-no-provider` | Do not name the provider in status text | Waiting for the second review, owner approval and real-PC check |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
 
 **Cleaned up on 2026-11-15 (owner's OK):** every other local branch and worktree.

@@ -606,6 +606,14 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         # Check 305's failure (2026-11-14): a long answer's opening said twice, its "…" kept after Read more.
         ("340 a long answer says its opening once and reads to the end", LOOK,
          "tell us whether the opening showed twice, and whether Read more showed the end with no \"…\""),
+        ("400 a comparison showed its table, its pick marked as the worker's", LOOK,
+         "check on screen: the comparison table, neutral pick mark, and Copy"),
+        ("b4-diagram-902ffc-1 a diagram was drawn and copied as its outline", LOOK,
+         "check on screen: both diagrams, Read more on the tall one, and Copy in Notepad"),
+        ("b4-diagram-902ffc-2 a mind map showed as branches and copied as indented lines", LOOK,
+         "check on screen: the branches, Read more on the larger map, and Copy in Notepad"),
+        ("b4-diagram-902ffc-3 every mind-map branch appeared before deeper ideas", LOOK,
+         "check on screen: all five branches before game ideas; scroll the preview if needed; Read more and Copy include all ideas"),
         *_real_pc(),
         *_runs(rows, runs_dir),
     ]

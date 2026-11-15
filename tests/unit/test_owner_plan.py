@@ -72,6 +72,7 @@ def test_the_status_file_links_each_check_in_the_checks_file() -> None:
 
 def test_a_pasted_report_becomes_verdicts() -> None:
     names = {n for n, _, _ in report.checks([], [])}
+    assert any(name.startswith("b4-diagram-902ffc-3 ") for name in names)
     text = "\n".join([
         "12 requests since 2026-11-09 21:55",
         "  PASS      1  hands-free request (wake)   (3 times)",

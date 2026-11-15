@@ -2769,6 +2769,17 @@ Read more shows them all. Step 2 pastes the map as indented lines, one idea per 
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+<a id="check-b4-diagram-902ffc-3"></a>**Check b4-diagram-902ffc-3. A large mind map shows every branch before deeper ideas**
+1. Say "Hey Swift, make me a birthday-party mind map with lots of games, plus branches for food, invites, music and decorations".
+2. Look at the card; scroll inside the map only if its preview is shorter than the branches.
+3. Press **Read more**, then **Copy** and paste into Notepad.
+
+You should see: Games, Food, Invites, Music and Decorations all appear before deeper game ideas, under the neutral
+"Mapped by the worker, not checked by Swift" label. The preview has no six-line fade; if the screen is short, its
+map can scroll. Read more shows the whole map, and Copy includes every idea. If the worker returns only words, say so.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

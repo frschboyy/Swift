@@ -301,7 +301,7 @@ scaling, forced colours and reduced motion.
 
 ## 8. When it's built
 
-**Slice 1, `show_result` and compare (2026-11-15, branch `claude/b4-compare-dacc2b`):**
+**Slice 1, `show_result` and compare (merged to `main` 2026-11-15):**
 - The tool: `show_result` in the executor's in-process `swift` server (`claude_code.py`), always offered. Its schema
   and description, and the check, are `swift/shapes.py` (pydantic, strict, no extra fields): 2–4 items, 1–12 rows,
   one value per item, cells up to 160 characters, a title up to 120, `pick` an item's index; no tags or entities,
@@ -339,7 +339,8 @@ scaling, forced colours and reduced motion.
   the overlay's CSP: no violation, and only same-origin requests.
 - `mindmap`: a root and its children, each `{label, children}`: up to 3 levels and 30 ideas, labels up to 60
   characters of plain text. Drawn by `mindmapBlock`, Swift's own nested lists from the prototype, textContent only,
-  no dependency. More than 12 ideas opens with Read more; the card shows the first 12 and says how many more.
+  no dependency. The card selects up to 12 ideas breadth-first, so deeper ideas cannot displace later branches; it
+  says how many more remain. More than 12 ideas opens with Read more.
 - Both sit under the worker's bar ("Drawn from the worker's outline" / "Mapped by the worker, not checked by
   Swift") in neutral colours, never Swift's accent, amber or red. Copy gives a diagram's source and a map's
   indented lines.
@@ -356,15 +357,16 @@ scaling, forced colours and reduced motion.
   | Mind map, dark | Mind map, light |
   |---|---|
   | ![](b4/slice2-mindmap-dark.jpg) | ![](b4/slice2-mindmap-light.jpg) |
-- Not yet: a diagram drawn before a theme change keeps its old colours until it's drawn again (`shortcut:` in
-  `mermaid.ts`); a wide left-to-right flow shrinks its labels to fit the card; the card's first twelve ideas are
-  taken depth first, so a big first branch can hide the last branches until Read more; the licence check §4
-  mentions doesn't exist yet, so nothing checks Mermaid's licence automatically.
+- Fixed on `claude/b4-diagram-902ffc`: diagrams redraw when the theme changes; a diagram too wide to stay readable
+  opens in full instead of shrinking; mind-map cards select ideas breadth-first and scroll their preview on short
+  screens instead of clipping it. The owner checks for this slice are still pending. The licence check §4 mentions
+  doesn't exist yet, so nothing checks Mermaid's licence automatically.
 
 
 - Each shape: a seam scenario that fails with it undone, owner checks numbered from "Next free check number", their
   ledger lines, and report lines.
 - Routing parity unchanged: the routing doesn't move.
+- Next: the document preview, then charts and project cards, in the owner's decided order.
 - Preview: decide where `Windows.Data.Pdf` is called from (§9). The spike scripts are in `spikes/b4_previews/`.
 - An ADR for the shipped renderer list and the `show_result` contract.
 

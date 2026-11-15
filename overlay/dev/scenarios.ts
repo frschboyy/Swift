@@ -118,7 +118,10 @@ const PARTY = {
     { label: "Music", children: [] },
   ],
 };
-const PARTY_BIG = { ...PARTY, size: "expanded", children: [...PARTY.children, { label: "Decorations", children: ["Balloons", "Bunting", "Fairy lights"].map((label) => ({ label, children: [] })) }] };
+// A big first branch: the card still shows every branch (taken level by level), then the first ideas under them.
+const PARTY_BIG = { ...PARTY, size: "expanded", children: [
+  { label: "Games", children: ["Treasure hunt", "Musical chairs", "Pass the parcel", "Sack race", "Limbo", "Charades"].map((label) => ({ label, children: [] })) },
+  ...PARTY.children.slice(1), { label: "Decorations", children: ["Balloons", "Bunting", "Fairy lights"].map((label) => ({ label, children: [] })) }] };
 const BROKEN = { kind: "diagram", title: "Half a flow", by: "worker", size: "card", source: "flowchart LR\n  A --> (((", text: "The steps: ask, check, answer." };
 
 const EVENT = {

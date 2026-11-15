@@ -20,7 +20,11 @@ export type PaneKind = "reader" | "stack" | "type" | "tray" | "live";
 
 /** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any.
  * ``confirm``: a confirm card is open, so the box says typing can't approve it (Enter = Change). */
-export type TypeView = { kind: "type"; draft: string; follows: string | null; confirm?: boolean };
+export type TypeView = {
+  kind: "type"; draft: string; follows: string | null; confirm?: boolean;
+  // Decision 2: the card has buttons Tab reaches (``reach``), and the one reached, by its label (``onCard``).
+  reach?: boolean; onCard?: string | null;
+};
 
 /** The tray menu (ADR-017): Swift's status, where the overlay sits, and the menu's actions. */
 export type TrayView = {

@@ -90,15 +90,19 @@ code toward these rules, never away.
   Their owner checks are not run yet. The correction offer is level 1, so a plain spoken "yes" takes it while it's
   on screen (owner, 2026-11-15). Open: the hint leaves out "press Enter on Yes" until decision 2 is built.
   Speech with the hotkey held can't answer Swift's own question yet (FD-01).
-- **2:** no keyboard Tab and Enter on the card's own button yet.
-- **4:** built on `claude/elegant-shtern-2e16f9`, not merged: an address not in this request's words is asked about
+- **2:** built (`overlay/src/keyed.ts`): while the text box is open, Tab reaches the card's own Approve/Reject or
+  Yes/No (or a short list of choices), ringed on the card, and Enter presses it as a click (`confirm.reply` /
+  `ask.reply`, source click). The overlay window never takes focus, so the text box holds the keyboard and tells
+  the card which button is reached. Owner check 394 not run yet. The backend's typed-yes
+  hints (`TYPED_YES_HINT`, `TYPED_APPROVE_HINT`) still say only "click … or say"; the text box shows the Tab way.
+- **4:** built: an address not in this request's words is asked about
   ("Open usiu.ac.ke?", level 1, typing never answers it), offering only the owner's own earlier or remembered
   addresses; `points_back` is deleted (FD-02). A remembered address is now asked about too (stricter than before).
   Owner check 330 rewritten, with 370 and 371; not run.
-- **5:** built on the same branch, not merged: an address the owner said or typed in this request can be a
+- **5:** built: an address the owner said or typed in this request can be a
   recipient, marked "(from your words, not in your contacts)" on the send card (FD-03). Not built: offering to save
   it as a contact; calendar invites still take only contacts. Owner check elegant-shtern-2e16f9-1; not run.
-- **6:** built on the same branch, not merged: a write into an app (or filling in an email) the owner's words
+- **6:** built: a write into an app (or filling in an email) the owner's words
   didn't clearly ask for is asked about, level 1 (FD-04), showing every character a yes writes, marked as the
   worker's (FD-05). Still a pattern: `owner_asked_to_write`
   decides between level 0 and 1, so its false matches write with no question (D4). Owner check

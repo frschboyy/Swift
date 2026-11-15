@@ -40,8 +40,8 @@ areas:
     checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385, 390, 391, 392, 393]
   typing:
     rule: typing never approves
-    paths: [overlay/src/entry.ts, src/swift/intake.py]
-    checks: [16b, 68, 108, 138, 304, 387, 391, 392]
+    paths: [overlay/src/entry.ts, overlay/src/keyed.ts, src/swift/intake.py]
+    checks: [16b, 68, 108, 138, 304, 387, 391, 392, 394]
   calendar:
     paths: [src/swift/workflows/calendar.py, src/swift/connectors/google_calendar.py, src/swift/workflows/library/calendar-event/*]
     checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195, 351, 392]

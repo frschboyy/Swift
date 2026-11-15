@@ -2720,6 +2720,24 @@ has `asks` but not your colour; its `interactions.jsonl` line has `answers` with
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+### Results laid out to fit: a comparison (B4, 2026-11-15)
+
+About 3 minutes, on the branch with B4's first shape. Nothing here sends anything.
+
+<a id="check-b4-compare-dacc2b-1"></a>**Check b4-compare-dacc2b-1. A comparison shows as a table, its pick marked as the worker's**
+1. Say "Hey Swift, compare the Surface Laptop 7 and the MacBook Air M4 for travel: weight, battery and price, and
+   tell me which you'd pick".
+2. When the answer shows, look at the card, then press **Copy** and paste into Notepad.
+3. Say "Hey Swift, what's the capital of Kenya?"
+
+You should see: step 1 says one or two sentences aloud (the conclusion, no table read out). The card shows those
+words, then, under a grey bar, "Compared by the worker, not checked by Swift", a heading per laptop and a row per
+measure; one laptop's column has a grey line and "Worker's pick" under its name, in grey, not Swift's blue. Nothing
+on the card names the provider. Step 2 pastes the same table as rows of words, ending "Worker's pick: …". Step 3 is
+today's plain answer, with no table. If step 1 shows only words, say so: the worker chose not to lay it out.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

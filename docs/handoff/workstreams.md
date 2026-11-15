@@ -155,3 +155,11 @@ All taken from the orchestrator's recommendations:
 - **VS Code's card** (the orchestrator's recommendation, accepted 2026-11-15): every write into VS Code keeps the
   terminal's card until the read-only probe `spikes/desktop/vscode_focus.py` (check 399)
   shows UI Automation tells its editor from its terminal panel; then only the terminal needs it (OCT-01).
+- **B4's open decisions** (`docs/design/b4-adaptive-results.md` §7, all taken as recommended, 2026-11-15): the worker
+  proposes a result's shape through a `show_result` tool and Swift checks, sizes and marks it (1); an installed tool
+  outside the vetted set is reused without asking again, and a new version asks again (3b); outside tools run on the
+  worker's side and reach the card as data or a PNG, never as code in the overlay (3c); the worker's choice is
+  labelled as the worker's, never naming the provider ("Worker's pick", not "Claude's pick") (4); shapes one at a
+  time: compare, diagram and mind map, preview, chart and cards (5); shapes only on Done results and the reader,
+  never on Needs your OK or Waiting for you (6). The first slice, `show_result` and **compare**, is built on
+  `claude/b4-compare-dacc2b`, check b4-compare-dacc2b-1.

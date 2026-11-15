@@ -4,7 +4,8 @@ Status: **the owner approved the vetted set on 2026-11-14** (§4): Swift's own c
 simple charts and mind maps; Mermaid's tiny build for diagrams; and Windows' PDF renderer plus a text excerpt for
 documents. The checks before approval (§9) replaced Windows Shell thumbnails, which gave a thumbnail for only 2 of
 24 real files. The owner also asked for a mind-map shape (§6) and, later, a brainstorm map that grows by voice
-(§10). Nothing here is built into Swift yet. A dev-only prototype draws the shapes (`overlay/dev/b4.html`, §6).
+(§10). The first slice, `show_result` and the compare shape, is built on a branch (§8, 2026-11-15); the other shapes
+are not. A dev-only prototype draws the shapes (`overlay/dev/b4.html`, §6).
 
 **The owner's decision (2026-11-13):** results aren't a fixed list of layouts. For each result, Swift works out
 how best to show it, visually and in words: a table, a side-by-side comparison, project cards, a real diagram, a
@@ -68,10 +69,10 @@ mixes data into prose and fails quietly. Keep it only as the fallback for a seco
 type By = { who: "swift" } | { who: "worker"; name: string };
 ```
 
-**X-17 on result cards:** the byline ("Swift · via Claude") already names the worker. A worker's *judgment* inside
-a shape needs its own mark too: the comparison's highlighted column, or a chart's "best". Swift's accent can't
-present it as Swift's own advice. **Recommendation:** label it "Claude's pick", never "Best fit". The prototype
-still says "Best fit"; that's the change to make.
+**X-17 on result cards:** a worker's *judgment* inside a shape needs its own mark: the comparison's highlighted
+column, or a chart's "best". Swift's accent can't present it as Swift's own advice, and the label never names the
+provider (`CLAUDE.md`: "Swift speaks as itself"). **Decided (2026-11-15):** "Worker's pick", in grey under the
+worker's bar, never "Best fit" and never "Claude's pick". The prototype still says "Best fit"; Swift's block doesn't.
 
 ## 3. The renderer: Halo Step B, and what changes in it
 
@@ -259,7 +260,7 @@ The mind map is `?shape=mindmap`. The Mermaid cases are `?shape=mermaid|mermaid-
   exactly what Mermaid (or dagre) already does. This is the clear need for the one new dependency.
 - **The fallback holds:** `?shape=bad` (an edge to a missing node) shows the worker's words, not a broken drawing.
 - **Mermaid lays the same seven nodes out with no crossing,** in Halo's colours, dark and light.
-- The "Best fit" tag in Swift's accent reads like Swift's own advice. Rename it "Claude's pick" (§2).
+- The "Best fit" tag in Swift's accent reads like Swift's own advice. Swift's block says "Worker's pick" (§2, §7.4).
 - A sequence diagram of six messages is taller than a card: it belongs in the expanded card (`fits()`, §3).
 - **The mind map needs no layout library.** A mind map is a tree, so nothing crosses. Swift draws it as nested
   lists (`drawMindMap` in `shapes.ts`, about 15 lines, plus CSS for the lines): the root on the left, the branches
@@ -276,9 +277,9 @@ scaling, forced colours and reduced motion.
 
 ## 7. Decisions for the owner
 
-1. **Who chooses the shape:** the worker proposes it through a `show_result` tool, and Swift checks it, sizes it
-   and marks it. *Recommended.* Alternative: Swift guesses the shape from the worker's text, which is weaker and
-   guesses wrong on prose.
+1. **Who chooses the shape:** **decided by the owner (2026-11-15):** the worker proposes it through a `show_result`
+   tool, and Swift checks it, sizes it and marks it. (The alternative, Swift guessing the shape from the worker's
+   text, is weaker and guesses wrong on prose.)
 2. **Ship or install:** **decided by the owner (2026-11-13).** A vetted set ships and is approved once. Anything
    outside it is installed when needed, with a card every time (§4).
 3. **The vetted set:** **approved by the owner on 2026-11-14.** Swift's own blocks; Mermaid (`@mermaid-js/tiny`
@@ -286,18 +287,42 @@ scaling, forced colours and reduced motion.
    (§4). The checks replaced Windows thumbnails with the last two (§9).
    - **3a. Mind maps:** **the owner said yes (2026-11-14).** They're drawn by Swift's own code, with no new
      dependency (§6). The brainstorm map that grows by voice is a separate, later item (§10).
-   - **3b.** An installed tool outside the set is reused without asking again, and a new version asks again.
-     *Recommended.* The other reading is to ask before every use, which means a card on every chart from that tool.
-   - **3c.** Outside tools run on the worker's side and reach the card as data or a PNG, never as code in the
-     overlay. *Recommended*; it follows from the product rules.
-4. **The worker's judgment is labelled as the worker's** ("Claude's pick"), never in Swift's voice. *Recommended.*
-5. **Order:** Halo Step B first, built as a table of typed blocks with no protocol change. Then the shapes one at a
-   time: compare, diagram and mind map, preview, chart and cards. *Recommended.* B4 can't land before Step B without drawing
-   everything twice.
-6. **Shapes only on Done results and the reader,** never on Needs your OK or Waiting for you. *Recommended*; it
-   follows from the product rules.
+   - **3b.** **Decided (2026-11-15):** an installed tool outside the set is reused without asking again, and a new
+     version asks again.
+   - **3c.** **Decided (2026-11-15):** outside tools run on the worker's side and reach the card as data or a PNG,
+     never as code in the overlay.
+4. **The worker's judgment is labelled as the worker's,** never in Swift's voice and **never naming the provider**:
+   "Worker's pick". **Decided (2026-11-15).** The earlier "Claude's pick" wording was wrong (`CLAUDE.md`: "Swift
+   speaks as itself").
+5. **Order:** **decided (2026-11-15):** Halo Step B first (merged 2026-11-14), then the shapes one at a time:
+   compare, diagram and mind map, preview, chart and cards.
+6. **Shapes only on Done results and the reader,** never on Needs your OK or Waiting for you. **Decided
+   (2026-11-15).**
 
 ## 8. When it's built
+
+**Slice 1, `show_result` and compare (2026-11-15, branch `claude/b4-compare-dacc2b`):**
+- The tool: `show_result` in the executor's in-process `swift` server (`claude_code.py`), always offered. Its schema
+  and description, and the check, are `swift/shapes.py` (pydantic, strict, no extra fields): 2–4 items, 1–12 rows,
+  one value per item, cells up to 160 characters, a title up to 120, `pick` an item's index; no tags or entities,
+  no control or format characters. Anything else is refused whole and the worker is told to answer in words; the
+  log gets field roles and error kinds only.
+- Sizing and marking are Swift's: `size` is `"expanded"` past six rows (drawn today as an answer that opens with
+  Read more, until B5's expanded card) and `by` is always `"worker"`. The answer's words after its summary go
+  under the table (`text`), so nothing is lost.
+- Done only: the shape is attached in `_final` on a Done outcome; a stop, refusal or failure never carries it. The
+  question card draws no details.
+- The overlay: `Compare` in `ResultDetails`, drawn by `compareBlock` in `blocks.ts` (the one renderer's block, used
+  by the card and the reader), with `detailsText` in `answer.ts` for Copy and the seam. The table sits under the
+  worker's bar with "Compared by the worker, not checked by Swift", and its pick is grey, never the accent.
+- In the dev harness (`__design("answerCompare")`, `"answerCompareLong"`, default look, headless at 100%):
+
+  | Compare, dark | Compare, light | Seven rows, opened with Read more |
+  |---|---|---|
+  | ![](b4/slice1-compare-dark.jpg) | ![](b4/slice1-compare-light.jpg) | ![](b4/slice1-compare-long-light.jpg) |
+- Not yet: headed tables, a `fits()` per block (the backend's size stands in), the fenced-JSON fallback for a second
+  provider, "It's on screen" when the card isn't seen, the ADR for the renderer list.
+
 
 - Each shape: a seam scenario that fails with it undone, owner checks numbered from "Next free check number", their
   ledger lines, and report lines.

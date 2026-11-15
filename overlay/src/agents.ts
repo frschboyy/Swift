@@ -5,7 +5,7 @@
 import type { Activity, Agent } from "./protocol";
 
 // What the working card says, without naming the provider (owner, 2026-10-26: no "Claude Code is
-// thinking"; the result's byline says who did the work).
+// thinking"). Swift speaks as itself, the result's byline too (owner, 2026-11-15, FD-13).
 const DOING: Record<Activity, string> = {
   starting: "Working on it",
   reading: "Reading",
@@ -23,8 +23,6 @@ const DOING: Record<Activity, string> = {
   writing: "Writing",
 };
 
-const isSwift = (agent: Agent | null | undefined): boolean => !agent || agent.id === "swift";
-
 /** Working-card title: "Reading", "Writing in Word", "Thinking (helper)". */
 export function activityLabel(_agent: Agent | null | undefined, activity: Activity | undefined, subagent = false, app?: string | null): string {
   if (activity === "writing") return `Writing${app ? ` in ${app}` : ""}`;
@@ -37,7 +35,7 @@ export function handoffLabel(_agent: Agent | null | undefined): string {
   return "Working on it";
 }
 
-/** Footer on results: Swift presents, the provider (if any) did the work. */
-export function byline(agent: Agent | null | undefined): string {
-  return isSwift(agent) ? "Swift" : `Swift · via ${agent!.name}`;
+/** Footer on results: always "Swift", whoever did the work (never the provider's name, FD-13). */
+export function byline(_agent: Agent | null | undefined): string {
+  return "Swift";
 }

@@ -165,7 +165,7 @@ async def test_fallback_is_shown_as_a_swift_handoff_step() -> None:
     await ask(session, "Find the open to-dos in this project.")
     first = of(rec, "step")[0]
     assert first["kind"] == "handoff" and first["agent"] == {"id": "swift", "name": "Swift"}
-    assert first["text"] == "Away agent isn't available, so Demo agent is taking this"
+    assert first["text"] == "The usual worker isn't available, so another one is taking this"  # FD-13: no names
     assert records[0]["provider"] == "mock" and records[0]["skipped"] == ["away"]
 
 

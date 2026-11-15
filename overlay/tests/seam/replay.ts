@@ -3,6 +3,7 @@
 // for each message, and the rows through the Deck (ADR-018). What the screen ends up showing goes to
 // stdout, with the acknowledgements main.ts would send back (``P.drawn``). No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
+import { byline } from "../../src/agents.ts";
 import * as Q from "../../src/ask.ts";
 import { detailsText } from "../../src/answer.ts";
 import { commandFolded, commandParts, quoteLines, stepCommands } from "../../src/cardtext.ts";
@@ -117,6 +118,8 @@ process.stdout.write(JSON.stringify({
   answerKind: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.details?.kind ?? null : null,
   answerText: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? detailsText(resultData!.details) : null,
   answerLong: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? needsReader(resultData!.summary, resultData!.details) : null,
+  // The answer card's footer, as renderResult draws it (FD-13: never the provider's name).
+  answerBy: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? byline(resultData!.agent) : null,
   lost,
   broken: [...broken],
   acks,

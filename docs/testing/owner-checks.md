@@ -2634,6 +2634,26 @@ should answer the question on screen. Then click **No** if the question is still
 
 The report checks: nothing to judge from the log; tell us what you saw in each.
 
+### The card's own button from the keyboard (2026-11-15)
+
+About 3 minutes, on the branch with foundation decision 2. Nothing here sends anything.
+
+<a id="check-exciting-cartwright-9ace60-1"></a>**Check exciting-cartwright-9ace60-1. Tab and Enter press the card's own button; typing still doesn't approve**
+1. Say "Hey Swift, create a file called swift-check-d2.txt on my desktop that says hello". When the card asks before
+   writing it, press the type hotkey and type `approve` (don't press Enter yet).
+2. Press Tab. Then press Tab again, then Shift+Tab.
+3. Press Enter.
+4. Say "Hey Swift, turn off Wi-Fi". When the question shows, press the type hotkey, press Tab, then Tab again, and
+   press Enter.
+
+You should see: step 1 says "Typing can't approve" in the box, and the box's hint starts with "Tab card". Step 2:
+the first Tab rings **Approve** on the card and the hint says "Enter = Approve"; the second rings **Reject**;
+Shift+Tab rings Approve again. Typing a letter instead takes the ring away. Step 3 approves the card (as a click
+would), the box closes, the file is written. Step 4 rings **Yes**, then **No**; Enter on No answers no and Wi-Fi
+stays on. Delete the file afterwards.
+
+The report checks: nothing to judge from the log; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

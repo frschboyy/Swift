@@ -166,7 +166,7 @@ code {
 .btn .icon { width: 15px; height: 15px; }
 .btn:active:not(:disabled) { transform: scale(0.98); }
 .btn:disabled { opacity: 0.5; cursor: default; }
-.btn:focus-visible, .icon-btn:focus-visible, .link:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .btn--keyed, .icon-btn:focus-visible, .link:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn--ghost { background: var(--raise); color: var(--text); border-color: var(--panel-edge); }
 .btn--ghost:hover:not(:disabled) { background: var(--raise-hover); }
 .btn--primary { background: var(--accent); color: var(--on-accent); }

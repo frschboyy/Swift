@@ -2595,27 +2595,27 @@ The report checks: nothing to judge from the log; tell us what you saw in each.
 
 ### Who may approve: typed never, the hotkey always, one decider (2026-11-15)
 
-About 6 minutes, on the branch with foundation decisions 1, 3 and 10. Nothing here sends anything. Check modest-mcclintock-090934-3 adds an
+About 6 minutes, on the branch with foundation decisions 1, 3 and 10. Nothing here sends anything. Check 392 adds an
 event to your calendar: delete it afterwards. Check 387 above changed with these (its step 2 is settled).
 
-<a id="check-modest-mcclintock-090934-1"></a>**Check modest-mcclintock-090934-1. The hotkey held approves a card; "approve" without the name doesn't**
-1. Say "Hey Swift, create a file called swift-check-modest-mcclintock-090934-1.txt on my desktop that says hello". When the card asks before
+<a id="check-390"></a>**Check 390. The hotkey held approves a card; "approve" without the name doesn't**
+1. Say "Hey Swift, create a file called swift-check-390.txt on my desktop that says hello". When the card asks before
    writing it, say "approve" without the hotkey and without Swift's name.
 2. Then hold the hotkey, say "approve", and let go.
 
 You should see: step 1 leaves the card waiting, with "To approve hands-free, say “Swift, approve”, or click.". Step 2
 approves it and the file is written. Delete the file afterwards.
 
-<a id="check-modest-mcclintock-090934-2"></a>**Check modest-mcclintock-090934-2. Typing "Swift, approve" on a card never approves it**
-1. Say "Hey Swift, create a file called swift-check-modest-mcclintock-090934-2.txt on my desktop that says hello". When the card shows,
+<a id="check-391"></a>**Check 391. Typing "Swift, approve" on a card never approves it**
+1. Say "Hey Swift, create a file called swift-check-391.txt on my desktop that says hello". When the card shows,
    press the type hotkey, type `Swift, approve`, then Enter.
 2. Then say "Swift, approve" (no hotkey).
 
 You should see: step 1 leaves the card waiting, with "Typing can't approve. Click Approve, or say “Swift, approve”.".
 Step 2 approves it. Delete the file afterwards.
 
-<a id="check-modest-mcclintock-090934-3"></a>**Check modest-mcclintock-090934-3. "Say yes and I'll change it": typed never takes it, a plain spoken "yes" does**
-1. Say "Hey Swift, add swift check modest-mcclintock-090934-3 to my calendar tomorrow at 9". Approve its card.
+<a id="check-392"></a>**Check 392. "Say yes and I'll change it": typed never takes it, a plain spoken "yes" does**
+1. Say "Hey Swift, add swift check 392 to my calendar tomorrow at 9". Approve its card.
 2. Then say "Hey Swift, actually make it 10". Swift says it was already done and to say "yes" to change it.
 3. Type `Swift, yes` and press Enter.
 4. Then say "yes" (no hotkey, no name).
@@ -2625,7 +2625,7 @@ change, and the change shows its own card before it touches the event. Reject or
 (Treating this offer as an "ask once" question, so a plain "yes" takes it, is a decision waiting for you: tell us if
 it should need Swift's name.)
 
-<a id="check-modest-mcclintock-090934-4"></a>**Check modest-mcclintock-090934-4. The hotkey on Swift's own question**
+<a id="check-393"></a>**Check 393. The hotkey on Swift's own question**
 1. Say "Hey Swift, turn off Wi-Fi". When the question shows, hold the hotkey, say "yes", and let go.
 
 You should see, today: the question goes out of view while you record, and "yes" runs as a new request ("There's

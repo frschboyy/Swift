@@ -162,4 +162,4 @@ All taken from the orchestrator's recommendations:
   labelled as the worker's, never naming the provider ("Worker's pick", not "Claude's pick") (4); shapes one at a
   time: compare, diagram and mind map, preview, chart and cards (5); shapes only on Done results and the reader,
   never on Needs your OK or Waiting for you (6). The first slice, `show_result` and **compare**, is built on
-  `claude/b4-compare-dacc2b`, check b4-compare-dacc2b-1.
+  `claude/b4-compare-dacc2b`, check 400.

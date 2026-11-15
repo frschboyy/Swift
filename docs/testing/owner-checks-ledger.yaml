@@ -79,7 +79,7 @@ areas:
     checks: [18, 58, 63-75, 96, 137, 166, 167, 174, 176, 198, 203, 207, 251, 253, 254, 263, 305, 306, 320, 345, 383]
   result-shapes:
     paths: [src/swift/shapes.py, overlay/src/blocks.ts, overlay/src/answer.ts]
-    checks: [b4-compare-dacc2b-1]
+    checks: [400]
   halo:
     paths: [overlay/src/look/*]
     checks: [216-221]

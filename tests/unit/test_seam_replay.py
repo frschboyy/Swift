@@ -373,7 +373,7 @@ async def test_a_step_card_lists_the_commands_it_approves() -> None:
 async def test_a_comparison_reaches_the_done_card_as_one() -> None:
     """B4, compare: the shape Swift checked (swift/shapes.py) goes through the real session to the answer card
     the presenter holds, drawn as the comparison with the worker's pick marked as the worker's; seven rows open
-    in full (owner check b4-compare-dacc2b-1)."""
+    in full (owner check 400)."""
     rows = [{"label": f"Measure {i}", "values": [f"{i} a", f"{i} b"]} for i in range(7)]
     for shown, long in [(rows[:2], False), (rows, True)]:
         session, out, agent, stt, _control, _sched = _lane()

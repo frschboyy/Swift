@@ -2724,7 +2724,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 3 minutes, on the branch with B4's first shape. Nothing here sends anything.
 
-<a id="check-b4-compare-dacc2b-1"></a>**Check b4-compare-dacc2b-1. A comparison shows as a table, its pick marked as the worker's**
+<a id="check-400"></a>**Check 400. A comparison shows as a table, its pick marked as the worker's**
 1. Say "Hey Swift, compare the Surface Laptop 7 and the MacBook Air M4 for travel: weight, battery and price, and
    tell me which you'd pick".
 2. When the answer shows, look at the card, then press **Copy** and paste into Notepad.

@@ -16,6 +16,8 @@ def test_hook_is_a_posix_script_checked_in_as_executable():
     mode = subprocess.run(["git", "ls-files", "-s", str(HOOK)], cwd=ROOT, capture_output=True, text=True, check=True)
     assert mode.stdout.startswith("100755"), mode.stdout
     assert b"ruff check" in text and b"test_findings_register.py" in text
+    # Git's own variables are cleared before the tests run, or a scratch-repository test acts on this repository.
+    assert text.index(b"unset $(git rev-parse --local-env-vars)") < text.index(b"-m pytest")
 
 
 def test_ruff_config_parses_and_selects_the_cited_families():

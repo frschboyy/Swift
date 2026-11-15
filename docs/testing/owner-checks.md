@@ -2169,30 +2169,30 @@ Nothing to judge here: the lines say whether Task Manager sits in a band above e
 
 <a id="check-255"></a>**Check 255. A website you name opens**
 1. Say "Hey Swift, open usiu dot ac dot ke". The site opens in your browser, with no approval card.
-2. Say "Hey Swift, open my university's website" (no address). Since your decision of 2026-11-14 this opens the site
-   you named in step 1 only if you've told Swift that's your university: [check 330](#check-330) checks that. Otherwise Swift asks you for it instead
-   of guessing one.
+2. Say "Hey Swift, open my university's website" (no address). Swift asks "Open usiu.ac.ke?" about the site you
+   named in step 1 rather than opening it (foundation decision 4): [check 330](#check-330) checks that.
 
 The report checks: every spoken "… dot …" address was opened.
 
-<a id="check-330"></a>**Check 330. "That site again" opens it; "my university's website" only once you've told Swift**
+<a id="check-330"></a>**Check 330. An address you gave earlier is asked about: "Open usiu.ac.ke?"**
 
-About 3 minutes. Re-worded after your run of 2026-11-14 15:00 (you never said usiu.ac.ke was your university). Your
-decision: an address you said in the last 10 minutes is reused only when you point at it ("open that site again", "the
-one I just opened"); a description like "my university's website" only once you've told Swift ("remember my
-university is …"); otherwise Swift asks you to say the address and never offers one, even for your yes.
-1. Say "Hey Swift, open usiu dot ac dot ke". The site opens in your browser, with no card.
-2. Within a minute, say "Hey Swift, open that site again". You should see the same site open again, with no card and
-   **no question**.
-3. Say "Hey Swift, open my university's website". Swift should **ask you to say the address**, and not offer one
-   ("Should I open usiu.ac.ke?" is wrong). Say "never mind".
-4. Say "Hey Swift, remember that my university is usiu dot ac dot ke", then "Hey Swift, new topic", then "Hey Swift,
-   open my university's website". The site opens, with **no question**. (Say "Hey Swift, forget my university" after,
-   if you don't want it kept.)
+About 3 minutes. Rewritten for foundation decision 4 (2026-11-15). Before, Swift guessed from your words whether you
+pointed back at an address ("open that site again"), and QA kept finding requests it misread. Now, when the address
+isn't in this request's words, Swift asks "Open usiu.ac.ke?" with an address you gave yourself (in the last 10
+minutes, or one you told it to remember), and a plain "yes" while it's on screen opens it. Typing never answers it.
+1. Say "Hey Swift, open usiu dot ac dot ke". The site opens in your browser, with no card and no question.
+2. Within a minute, say "Hey Swift, open that site again". Swift asks **"Open usiu.ac.ke?"**. Type `yes` and press
+   Enter: it asks again, with "Typing can't approve" in front. Then say "yes" (no hotkey, no name). The site opens.
+3. Say "Hey Swift, open my university's website". Swift asks "Open usiu.ac.ke?" again (you said it a moment ago).
+   Say "no". Nothing opens.
+4. Say "Hey Swift, new topic", then "Hey Swift, open my university's website". Swift asks you to **say the
+   address**, and offers none. Say "never mind".
+5. Say "Hey Swift, remember that my university is usiu dot ac dot ke", then "Hey Swift, new topic", then "Hey Swift,
+   open my university's website". Swift asks "Open usiu.ac.ke?"; say "yes" and it opens. (Say "Hey Swift, forget my
+   university" after, if you don't want it kept.)
 
-The report checks: "that site again" within 10 minutes of an address you said (and no "new topic" between) opened it
-without a question; "my university's website" opened without a question only after a "remember …" of yours; tell us
-what Swift asked in step 3.
+The report checks: no request without the address in its words opened a site without a question; tell us what Swift
+asked in each step.
 ### Where you are (2026-11-13)
 
 About 3 minutes. From your run of 2026-11-13, 15:02: asked how far the CBD was "from my current location", Swift said
@@ -2542,8 +2542,9 @@ In step 3 the question comes back, and after End it is gone and doesn't come bac
 2. Say "Hey Swift, new topic: open my university's website".
 3. Say "Hey Swift, remember my university is usiu dot ac dot ke", then "Hey Swift, open my university's website".
 
-You should see: the site opens in steps 1 and 3. In step 2 Swift asks for the address and offers none. (Check 330 asks
-the same; this run is on `main` after C3's merge.)
+You should see: the site opens in step 1; "open that site again" and step 3 each ask "Open usiu.ac.ke?" first, and
+a spoken "yes" opens it (foundation decision 4). In step 2 Swift asks for the address and offers none. (Check 330
+asks the same.)
 
 The report checks: 389's steps through the run's tools (as 255 and 330); the rest is for your eyes. Tell us what you saw
 in each.
@@ -2558,15 +2559,16 @@ drafts afterwards. Checks 370 and 371 run straight after each other; each starts
 2. Within a minute, say "Hey Swift, show this week's timetable on my university's website again".
 3. Then say "Hey Swift, find my university's website and open it".
 
-You should see: neither step 2 nor step 3 opens usiu.ac.ke. Swift asks you to say the address (unless you taught it
-your university's address earlier: then it may open that one).
+You should see: neither step 2 nor step 3 opens usiu.ac.ke by itself. Since foundation decision 4 (2026-11-15) each
+asks "Open usiu.ac.ke?" first; say "no" and nothing opens ([check 330](#check-330)).
 
 <a id="check-371"></a>**Check 371. Pointing words reopen it, also with a browser or "please"**
 1. Say "Hey Swift, open usiu dot ac dot ke". Close the browser tab.
 2. Say "Hey Swift, open it in Edge". Close the tab.
 3. Say "Hey Swift, go ahead and open that site again, please".
 
-You should see: usiu.ac.ke opens at step 2 (in your default browser is fine) and again at step 3, with no question.
+You should see: at step 2 and again at step 3 Swift asks "Open usiu.ac.ke?" (foundation decision 4, 2026-11-15:
+no more guessing from your words); say "yes" and it opens (in your default browser is fine).
 
 <a id="check-372"></a>**Check 372. Gmail with your own draft open writes only into the one Swift opened**
 1. In Chrome, open Gmail and click **Compose**. Leave that draft empty, with no subject, and don't click into it.
@@ -2634,7 +2636,58 @@ should answer the question on screen. Then click **No** if the question is still
 
 The report checks: nothing to judge from the log; tell us what you saw in each.
 
-<a id="check-sharp-heisenberg-e41ff2-1"></a>**Check sharp-heisenberg-e41ff2-1. swift.log says why a desktop action failed; your answers stay in your own log**
+### Asking instead of guessing or refusing: addresses, recipients, writing (2026-11-15)
+
+About 4 minutes, on the branch with foundation decisions 4, 5 and 6. Nothing here sends anything: reject every send
+card. Check 330 above changed with these (an earlier address is asked about).
+
+<a id="check-395"></a>**Check 395. An email to an address you say, marked on its card**
+1. Say "Hey Swift, email test at example dot com saying this is a test" (an address that isn't one of your contacts).
+2. When the card asks before sending, read its To line, then click **Reject**.
+
+You should see: the To line shows "test@example.com (from your words, not in your contacts)", the greeting is
+"Hello," and nothing is sent. (Before, Swift said it couldn't find that contact.)
+
+<a id="check-396"></a>**Check 396. Writing you didn't clearly ask for is asked about, with a preview**
+1. Open Notepad and click into it. Say "Hey Swift, reply to Ada saying thanks" (words Swift doesn't read as asking
+   to write).
+2. If Swift asks "Write this in Notepad?", read the text under it, type `yes` and press Enter, then say "yes"
+   (no hotkey, no name).
+
+You should see: under the question, all of what it would write, with a bar down its left edge (the worker's words;
+a long text scrolls, with "More below"); the typed yes asks again ("Typing can't
+approve"); the spoken yes writes it into Notepad, and "Hey Swift, undo that" takes it out. If Swift answers in its
+card instead of writing, tell us: the agent chose not to write, which is fine.
+
+<a id="check-397"></a>**Check 397. Typing into a terminal has its own card**
+1. Open Windows Terminal and click into it. Say "Hey Swift, type echo hello here".
+2. Read the card, then click **Reject**.
+3. Open VS Code, click into its terminal panel, and say the same. Click **Reject** again.
+
+You should see: each time a card "Type this into …? A line typed there runs as a command." showing exactly
+`echo hello`, and after Reject nothing is typed. (Before, Swift refused terminals and typed into VS Code freely.)
+
+### The card's own button from the keyboard (2026-11-15)
+
+About 3 minutes, on the branch with foundation decision 2. Nothing here sends anything.
+
+<a id="check-394"></a>**Check 394. Tab and Enter press the card's own button; typing still doesn't approve**
+1. Say "Hey Swift, create a file called swift-check-d2.txt on my desktop that says hello". When the card asks before
+   writing it, press the type hotkey and type `approve` (don't press Enter yet).
+2. Press Tab. Then press Tab again, then Shift+Tab.
+3. Press Enter.
+4. Say "Hey Swift, turn off Wi-Fi". When the question shows, press the type hotkey, press Tab, then Tab again, and
+   press Enter.
+
+You should see: step 1 says "Typing can't approve" in the box, and the box's hint starts with "Tab card". Step 2:
+the first Tab rings **Approve** on the card and the hint says "Enter = Approve"; the second rings **Reject**;
+Shift+Tab rings Approve again. Typing a letter instead takes the ring away. Step 3 approves the card (as a click
+would), the box closes, the file is written. Step 4 rings **Yes**, then **No**; Enter on No answers no and Wi-Fi
+stays on. Delete the file afterwards.
+
+The report checks: nothing to judge from the log; tell us what you saw.
+
+<a id="check-398"></a>**Check 398. swift.log says why a desktop action failed; your answers stay in your own log**
 1. Say "Hey Swift, write hello in a new Word document". When it's written, press Ctrl+W in Word and choose
    **Don't Save** (Word itself stays open). Then say "Hey Swift, undo that".
 2. Say "Hey Swift, ask me which colour I like, then tell me what I said". Answer with a colour.

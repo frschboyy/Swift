@@ -3240,7 +3240,7 @@ class Session:
         self._question_done(q)
 
     async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...], *, own: bool = False,
-                         note: str = "", slot: str | None = None, payload: Any = None) -> Answer | None:
+                         note: str = "", slot: str | None = None, payload: Any = None, approval: bool = False, quote: str = "") -> Answer | None:
         """A run asks the owner something (``ask_owner``): on its card, said aloud for a spoken request, then the
         microphone opens for the answer. None: no answer (away, or none in time); it waits in the stack with its conversation."""
         run = self._current()
@@ -3248,7 +3248,8 @@ class Session:
         q = Question(_clip(text, 300), kind, options, source="run", thread=run.thread, owner=run,
                      future=asyncio.get_running_loop().create_future(),
                      request=self._said or str((record or {}).get("transcript") or ""),
-                     note=note, approval=own and kind == "yes_no", own=own, slot=slot, payload=payload)
+                     note=note, quote=quote, approval=approval or (own and kind == "yes_no"), own=own, slot=slot,
+                     payload=payload)
         entry: dict[str, Any] = {"kind": kind, "options": len(options)}
         if record is not None:
             record.setdefault("asks", []).append(entry)
@@ -3514,7 +3515,7 @@ class Session:
             record["asks"][-1].setdefault("turns", []).append(turn.action)
         match turn.action:
             case "answered" | "cancelled":
-                if q.approval and turn.action == "answered" and turn.answer.kind == "yes" and not intake.approves(
+                if q.approval and turn.action == "answered" and turn.answer.kind in ("yes", "choice") and not intake.approves(
                     source, named=named or turn.answer.named, level=1,
                 ).allowed:
                     await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
@@ -4183,10 +4184,10 @@ class Session:
             self._scope.carry_from(before)
         CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it
 
-    async def _for_run(self, run: Run, fn: Callable[..., Awaitable[Any]], *args: Any) -> Any:
+    async def _for_run(self, run: Run, fn: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:
         """A tool scope's callback, for its own request whichever task the provider calls it from."""
         with self._as(run):
-            return await fn(*args)
+            return await fn(*args, **kwargs)
 
     def _close_scope(self) -> None:
         # Only this request's cards: another request's card may be waiting its turn (owner's log,

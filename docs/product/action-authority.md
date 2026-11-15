@@ -75,8 +75,8 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 | On screen and in front | `drawn.Drawn` (what the overlay drew), `attention.set_seen` | `session._on_screen` for questions (OWN-04) |
 | An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`) | worker tool cards in `executors/claude_code` (OWN-05) |
 | Reversibility of commands | `executors/step_grant.reversible`, `base.Grant.covers` | — |
-| Recipients | `workflows/tools.find_contact` → `RunScope.resolved`; the gateway checks it | — |
-| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` | two source rules (OWN-06) |
+| Recipients | `workflows/tools.find_contact`, and `draft_email` for an address in the owner's words → `RunScope.resolved`; the gateway checks it | — |
+| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too (OWN-06, partial) |
 | Reads | `executors/read_scope.ReadScope` | — |
 | Memory | `memory.Store.write` (`said` text must be in the owner's words; `approved` needs a card) | — |
 | Presence | `presence`, `intake` step 1 | about four checks in `session` (RV-15) |
@@ -90,10 +90,27 @@ code toward these rules, never away.
   Their owner checks are not run yet. The correction offer is level 1, so a plain spoken "yes" takes it while it's
   on screen (owner, 2026-11-15). Open: the hint leaves out "press Enter on Yes" until decision 2 is built.
   Speech with the hotkey held can't answer Swift's own question yet (FD-01).
-- **2:** no keyboard Tab and Enter on the card's own button yet.
-- **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and
-  `find_contact`; an unclear write into an app is still refused, not asked about.
-- **8:** built on its branch (not merged): `ConnectorError.reason` (a content-free code: `http_503`, `clipboard_busy`,
+- **2:** built (`overlay/src/keyed.ts`): while the text box is open, Tab reaches the card's own Approve/Reject or
+  Yes/No (or a short list of choices), ringed on the card, and Enter presses it as a click (`confirm.reply` /
+  `ask.reply`, source click). The overlay window never takes focus, so the text box holds the keyboard and tells
+  the card which button is reached. Owner check 394 not run yet. The backend's typed-yes
+  hints (`TYPED_YES_HINT`, `TYPED_APPROVE_HINT`) still say only "click … or say"; the text box shows the Tab way.
+- **4:** built: an address not in this request's words is asked about
+  ("Open usiu.ac.ke?", level 1, typing never answers it), offering only the owner's own earlier or remembered
+  addresses; `points_back` is deleted (FD-02). A remembered address is now asked about too (stricter than before).
+  Owner check 330 rewritten, with 370 and 371; not run.
+- **5:** built: an address the owner said or typed in this request can be a
+  recipient, marked "(from your words, not in your contacts)" on the send card (FD-03). Not built: offering to save
+  it as a contact; calendar invites still take only contacts. Owner check 395; not run.
+- **6:** built: a write into an app (or filling in an email) the owner's words
+  didn't clearly ask for is asked about, level 1 (FD-04), showing every character a yes writes, marked as the
+  worker's (FD-05). Still a pattern: `owner_asked_to_write`
+  decides between level 0 and 1, so its false matches write with no question (D4). Owner check
+  396; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
+  can't be told from its editor), has its own card showing every character (level 3) instead of being refused.
+  Where the code is stricter than the rule: the real Windows writer still refuses true terminals after the card
+  (A-02's backstop, `windows.py:785`), so only VS Code types after one. Owner check 397; not run.
+- **8:** built: `ConnectorError.reason` (a content-free code: `http_503`, `clipboard_busy`,
   an error class) at every raise that fell back to `connector_failed`; the gateway's "action failed" line and the
   calendar and contacts read failures log it; `error_class` joins the swift.log summary; the interaction record
   keeps `answers` (local only). Owner check not run. Not covered: a desktop write stopped mid-way (`_changed`) and

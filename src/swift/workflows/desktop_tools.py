@@ -18,23 +18,27 @@ Text read from the screen is untrusted (ADR-012 §7): it is handed over marked a
 and nothing on the screen can choose a target: a path comes from the owner's selection
 or a configured name, and recipients only from ``find_contact``.
 
-**Only when the owner asked** (audit 2026-10, B-02). Outside a workflow, ``desktop_write`` and
-``fill_in_email`` run only if the owner's own words for this request (``RunScope.said``) ask for
-writing ("write … here", "put this in Word", "rewrite this") or for an email. So a web page, a
-document or a tool result can't make Swift type into the app in front, as ``system_action``
-can't lock the PC. A workflow's manifest already decides whether it writes.
+**When the owner asked, or after asking them** (audit 2026-10, B-02; foundation decision 6). Outside a
+workflow, ``desktop_write`` and ``fill_in_email`` go ahead when the owner's own words for this request
+(``RunScope.said``) ask for writing ("write … here", "put this in Word", "rewrite this") or for an
+email. Otherwise Swift asks first, with a preview ("Write this in Notepad? “Dear Ada…”"), a level 1
+question (``intake.approves``: typing never answers it), so a web page, a document or a tool result
+can't make Swift type into the app in front by itself. A workflow's manifest already decides whether
+it writes. A terminal (or VS Code, whose terminal Swift can't tell from its editor: OCT-01) always
+gets its own card showing every character it would type (level 3): a line typed there runs.
 
 **A web address** (owner checks 2026-11-13, C3): ``desktop_open(url=…)`` opens it in the owner's
 default browser only when the address, or its site, is in the owner's own words for this request
 (``RunScope.said`` and their answers), written or spoken ("usiu dot ac dot ke"). The same rule as a
 fetch (audit 2026-10, A-03; check 52): an address the model put together, or one a page gave, could
 carry what it read to someone else, so it isn't opened; the model asks the owner for the address.
-Two more sources, both the owner's own words (swift/workflows/owner_address.py; decisions of 2026-11-14):
-an address said or typed earlier in the same conversation, in the last ``RECENT_ADDRESS_S``
-(``RunScope.earlier``, Swift's own record of the conversation), only when this request points at it
-("open that site again"); and for a description ("my university's website"), a memory the owner had
-Swift keep ("remember my university is usiu dot ac dot ke"). Never the agent's context; a yes to an
-address the agent offered is still not the owner's address.
+An address the owner gave earlier isn't opened by matching words (foundation decision 4, replacing
+the ``points_back`` pattern of 2026-11-14): Swift asks "Open usiu.ac.ke?", a level 1 question
+(``intake.approves``: typing never answers it), offering only the owner's own earlier addresses, said
+or typed in this conversation in the last ``RECENT_ADDRESS_S`` (``RunScope.earlier``, Swift's own
+record) or in a memory they had Swift keep for what the request names ("my university's website").
+Several: it asks which. None: the agent asks the owner to say the address. Never the agent's context;
+a yes to an address the agent offered is still not the owner's address.
 """
 
 from __future__ import annotations
@@ -56,7 +60,7 @@ from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
 from swift.security.web_scope import WebScope
-from swift.workflows.owner_address import points_back, remembered
+from swift.workflows.owner_address import remembered
 from swift.workflows.scope import RunScope
 from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
 
@@ -78,6 +82,8 @@ _WRITE_WORDS = re.compile(
 _EMAIL_WORDS = re.compile(r"\b(?:e-?mail|mail|gmail|outlook|draft|fill (?:it|this|that) in)\b", re.IGNORECASE)
 NOT_ASKED = ("The owner didn't ask for writing in their apps in this request, so Swift didn't write anything. "
              "Only text the owner asked to be written can be; tell them what you would write instead.")
+# Apps whose integrated terminal Swift can't tell from their editor (OCT-01): every write there is a terminal's.
+INTEGRATED_TERMINALS = frozenset({"code.exe", "code - insiders.exe"})
 
 
 def owner_asked_to_write(said: str) -> bool:
@@ -93,6 +99,30 @@ def owner_asked_for_email(said: str) -> bool:
 def _not_asked(tool: str) -> ToolResult:
     logger.info("desktop write refused: not asked", tool=tool)  # the tool only, never the words
     return ToolResult(False, NOT_ASKED, expected=True)
+
+
+async def _ask_to_write(scope: RunScope, tool: str, question: str, text: str) -> ToolResult | None:
+    """Foundation decision 6: the owner's words didn't ask for this write, so Swift asks (level 1) instead of
+    refusing. The question shows ``text``, every character a yes writes, marked as the worker's (``quote``): an
+    approval covers exactly what it showed. None: the owner said yes; otherwise why nothing was written."""
+    if scope.ask_fn is None:
+        return _not_asked(tool)
+    answer = await scope.ask(question, "yes_no", approval=True, quote=text)
+    logger.info("desktop write asked", tool=tool, yes=answer is not None and answer.kind == "yes")  # never the text
+    if answer is not None and answer.kind == "yes":
+        return None
+    told = "didn't answer" if answer is None else "said not to"
+    return ToolResult(False, f"Nothing was written: Swift asked the owner, and they {told}. Don't try another way; "
+                      "say so.", expected=True)
+
+
+def _window(context: Any) -> tuple[int, str]:
+    return context.hwnd, context.exe.lower()
+
+
+def is_terminal(exe: str) -> bool:
+    """A line typed into this app may run as a command."""
+    return exe.lower() in TERMINALS or exe.lower() in INTEGRATED_TERMINALS
 
 
 def _unavailable() -> ToolResult:
@@ -137,8 +167,6 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     desktop = host.desktop
     if desktop is None:
         return _unavailable()
-    if scope.grant is None and not owner_asked_to_write(scope.said):
-        return _not_asked("desktop_write")
     text = str(args.get("text", ""))
     where = args.get("where", "focus")
     mode = args.get("mode", "insert")
@@ -148,6 +176,16 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return ToolResult(False, f"That's too long to write at once (over {MAX_WRITE} characters).")
     if where not in ("focus", "word") or mode not in ("insert", "replace"):
         return ToolResult(False, "where is 'focus' or 'word'; mode is 'insert' or 'replace'.")
+    asked_in: tuple[int, str] | None = None  # the window Swift asked about: (hwnd, exe)
+    if scope.grant is None and not owner_asked_to_write(scope.said):
+        before = await desktop.context()
+        app = "Word" if where == "word" else before.app or "the app in front"
+        asked_in = _window(before) if where == "focus" else None
+        # A terminal's own card shows every character and approves it (level 3): no question before it.
+        if not (where == "focus" and is_terminal(before.exe)) and (
+                refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}?", text)):
+            return refused
+    terminal, front, window = False, "", (0, "")
     if where == "focus":
         context = await desktop.context()
         if not context.hwnd:
@@ -156,9 +194,9 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             return ToolResult(False, f"{context.app} is on the never-read list, so Swift doesn't write there.")
         if context.password:
             return ToolResult(False, "That's a password field: Swift never types there.")
-        if context.exe.lower() in TERMINALS:
-            return ToolResult(False, f"{context.app} is a terminal: a line typed there runs as a command, so "
-                              "Swift doesn't write there. Nothing was written.")
+        terminal, front, window = is_terminal(context.exe), context.app, _window(context)
+        if asked_in is not None and asked_in != window:
+            return ToolResult(False, "The app in front changed after Swift asked. Nothing was written.")
     chunks = paragraphs(text)
     n = next(scope.ids)
     digest = hashlib.sha256(f"{n}\n{where}\n{text}".encode()).hexdigest()
@@ -170,6 +208,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return tick != since[0] and cursor == since[1] and time.monotonic() > scope.talking_until
 
     async def perform() -> str:
+        if terminal and _window(await desktop.context()) != window:
+            raise DesktopError("The terminal Swift asked about isn't in front any more. Nothing was written.", "")
         async with _one_writer(host, scope, "Word" if where == "word" else "the app in front"):
             writer = await desktop.writer(where, mode, bool(args.get("new_document")))  # type: ignore[arg-type]
             report["app"] = host.writing_app = writer.app
@@ -203,10 +243,12 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             return f"{writer.route}:{report['written']}"
 
     action = Action(
-        tool="desktop_write",
+        # A terminal: its own card with every character it types (level 3, foundation decision 6).
+        tool="desktop_write_terminal" if terminal else "desktop_write",
         targets=(),
-        title=f"Write into {'Word' if where == 'word' else 'the app in front'}",
-        detail=f"{len(chunks)} paragraphs",
+        title=f"Type this into {front}? A line typed there runs as a command." if terminal
+        else f"Write into {'Word' if where == 'word' else 'the app in front'}",
+        detail=text if terminal else f"{len(chunks)} paragraphs",
         artifact_id=None,
         digest=lambda: digest,
         perform=perform,
@@ -224,14 +266,61 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                       {"written": written, "route": outcome.receipt.split(":", 1)[0]})
 
 
-# How long an address the owner gave earlier in the conversation may still be opened (C3, 2026-11-14).
+# How long an address the owner gave earlier in the conversation may still be offered (C3, 2026-11-14).
 RECENT_ADDRESS_S = 600.0
+# At most this many of the owner's earlier addresses are offered in one question.
+MAX_OFFERED = 4
 NOT_NAMED_URL = (
-    "Not opened: Swift opens only a web address the owner said or wrote in this request; one from earlier in this "
-    "conversation (last 10 minutes) only when they point at it (\"open that site again\"); for a description "
-    "(\"my university's website\") only one they asked Swift to remember. Otherwise ask the owner to say the "
-    "address with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest doesn't count."
+    "Not opened: Swift opens a web address the owner said or wrote in this request; one they gave earlier (in the "
+    "last 10 minutes, or asked Swift to remember) only after Swift asks them, and none fits here: ask the owner to "
+    "say the address with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest "
+    "doesn't count."
 )
+
+
+def _addresses(texts: Any) -> list[str]:
+    """The web addresses in the owner's words, each once, in order: an address as said, a site as https://site."""
+    found: dict[str, None] = {}
+    for text in texts:
+        given = WebScope()
+        given.note_request(text)
+        found.update(dict.fromkeys([*sorted(given.urls), *(f"https://{site}" for site in sorted(given.sites))]))
+    return list(found)
+
+
+def _covers(address: str, url: str) -> bool:
+    """``url`` is on ``address``'s site."""
+    site, host = ((urlsplit(u).hostname or "").removeprefix("www.") for u in (address, url))
+    return host == site or host.endswith("." + site)
+
+
+def _shown(url: str) -> str:
+    parts = urlsplit(url)
+    return ((parts.hostname or "").removeprefix("www.") + parts.path.rstrip("/"))[:80]
+
+
+async def _offer(scope: RunScope, url: str, earlier: list[str]) -> str | ToolResult:
+    """Foundation decision 4: the address isn't in this request's words, so Swift asks about the owner's own earlier
+    ones ("Open usiu.ac.ke?", a level 1 question): the one ``url`` is on if any, else each. The answer only picks
+    among the owner's addresses, so the agent's ``url`` itself is never opened. What to open, or why not."""
+    offered = ([own for own in earlier if _covers(own, url)] or earlier)[:MAX_OFFERED]
+    if not offered or scope.ask_fn is None:
+        return ToolResult(False, NOT_NAMED_URL, expected=True)
+    labels = tuple(_shown(own) for own in offered)
+    if len(offered) == 1:
+        answer = await scope.ask(f"Open {labels[0]}?", "yes_no", approval=True)
+        chosen = offered[0] if answer is not None and answer.kind == "yes" else None
+    else:
+        answer = await scope.ask(f"Open which: {', '.join(labels[:-1])} or {labels[-1]}?", "choice", labels,
+                                 approval=True)
+        index = answer.index if answer is not None and answer.kind == "choice" else None
+        chosen = offered[index] if index is not None and 0 <= index < len(offered) else None
+    logger.info("web address offered", options=len(offered), opened=chosen is not None)  # never the address
+    if chosen is not None:
+        return chosen
+    told = "didn't answer" if answer is None else "said not to open it"
+    return ToolResult(False, f"Not opened: the owner {told}. Don't open another address or ask again; say so.",
+                      expected=True)
 
 
 async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
@@ -241,15 +330,20 @@ async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
     url = url.strip().rstrip(".,;:!?")
     if "://" not in url:  # "usiu.ac.ke" or "usiu.ac.ke:443"; "javascript:…" then fails the scope check
         url = "https://" + url
-    allowed = WebScope()
-    now = clock.now()
-    own = (scope.said, *scope.answers)
-    recent = [w for heard, w in scope.earlier if now - heard <= RECENT_ADDRESS_S] if any(map(points_back, own)) else []
-    for words in (*own, *recent, *remembered(host.memories, " ".join(own))):
-        allowed.note_request(words)
-    if not url.lower().startswith(("https://", "http://")) or not allowed.allows(url):
+    if not url.lower().startswith(("https://", "http://")):
         logger.info("web address not opened: not the owner's")  # never the address
         return ToolResult(False, NOT_NAMED_URL, expected=True)
+    allowed = WebScope()
+    own = (scope.said, *scope.answers)
+    for words in own:
+        allowed.note_request(words)
+    if not allowed.allows(url):
+        now = clock.now()
+        recent = [words for heard, words in reversed(scope.earlier) if now - heard <= RECENT_ADDRESS_S]
+        offered = await _offer(scope, url, _addresses([*recent, *remembered(host.memories, " ".join(own))]))
+        if isinstance(offered, ToolResult):
+            return offered
+        url = offered
     host_name = (urlsplit(url).hostname or "").removeprefix("www.")
 
     async def perform() -> str:
@@ -334,8 +428,6 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     desktop = host.desktop
     if desktop is None:
         return _unavailable()
-    if scope.grant is None and not owner_asked_for_email(scope.said):
-        return _not_asked("fill_in_email")
     draft_id = str(args.get("draft_id", "")).strip()
     app = str(args.get("app") or "gmail").lower()
     if app not in EMAIL_APPS:
@@ -344,9 +436,17 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if draft is None:
         return ToolResult(False, f"There is no draft {draft_id}. Write one with draft_email first.")
     shown = "Gmail" if app == "gmail" else "Outlook"
+    asked = scope.grant is None and not owner_asked_for_email(scope.said)
+    if asked:
+        to = ", ".join(c.email for c in draft.to)
+        whole = f"To: {to}\nSubject: {draft.subject}\n\n{draft.body}"
+        if (refused := await _ask_to_write(scope, "fill_in_email", f"Fill in this email in {shown}?", whole)):
+            return refused
 
     async def perform() -> str:
         d = scope.drafts[draft_id]
+        if asked and d is not draft:  # revised after the question: the owner didn't see this one
+            raise DesktopError("The draft changed after Swift asked. Nothing was filled in.", "")
         async with _one_writer(host, scope, shown):
             return await desktop.fill_in_email(app, [c.email for c in d.to], d.subject, d.body)
 
@@ -409,9 +509,9 @@ DESKTOP_TOOLS: tuple[ToolSpec, ...] = (
         "Open what the owner selected in File Explorer (what: 'selection'), an app, folder or project Swift "
         "knows by name (name), or a web address in the owner's browser (url: one the owner said or wrote, in this "
         "request or earlier in this conversation, 'dot' read as '.', e.g. 'usiu dot ac dot ke' is usiu.ac.ke). "
-        "An address from earlier only when the owner points at it ('open that site again'); a description "
-        "('my university's website') only through what they asked Swift to remember. Never a path or address you "
-        "made up; when no address the owner gave fits, ask them to say it with ask_owner rather than offering one.",
+        "For an address from earlier, or a description ('my university's website'), pass the address you think "
+        "they mean: Swift asks the owner about their own earlier addresses itself. Never a path or address you made "
+        "up; when it says none fits, ask them to say it with ask_owner rather than offering one.",
         _obj([], what={"type": "string", "enum": ["selection"]}, name={"type": "string"}, url={"type": "string"}),
         "reversible", desktop_open,
     ),

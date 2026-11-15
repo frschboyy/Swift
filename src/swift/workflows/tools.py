@@ -60,6 +60,7 @@ from swift.connectors.base import (
     OutgoingEmail,
 )
 from swift.security.gateway import UNDO_WINDOW_S, Action, ActionGateway
+from swift.security.web_scope import spoken_addresses
 from swift.workflows import names
 from swift.workflows.scope import Asker, Confirmer, Draft, Grant, Liver, Publisher, RunScope, Stepper
 
@@ -362,6 +363,22 @@ def subject_problem(subject: str, message: str) -> str | None:
     return None
 
 
+# An email address in the owner's words, written or spoken: "ada at example dot com" is ada@example.com.
+_SPOKEN_AT = re.compile(r"\b([\w.+-]+)\s+at\s+((?:[\w-]+\.)+[a-z]{2,24})\b", re.IGNORECASE)
+_ADDRESS = re.compile(r"[\w.+-]+@(?:[\w-]+\.)+[a-z]{2,24}\b", re.IGNORECASE)
+# The source of a recipient taken from the owner's own words: the send card marks it (foundation decision 5).
+SAID = "said"
+
+
+def said_addresses(*texts: str) -> set[str]:
+    """The email addresses in the owner's own words, lower-cased."""
+    found: set[str] = set()
+    for text in texts:
+        written = _SPOKEN_AT.sub(r"\1@\2", spoken_addresses(text))
+        found |= {m.group(0).lower().rstrip(".") for m in _ADDRESS.finditer(written)}
+    return {a for a in found if _EMAIL.match(a)}
+
+
 async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     draft_id = str(args.get("draft_id") or "").strip()
     previous = scope.drafts.get(draft_id) if draft_id else None
@@ -380,11 +397,18 @@ async def draft_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> 
     if len(message) > MAX_BODY:
         return ToolResult(False, f"The message is too long (over {MAX_BODY} characters).")
     recipients = []
+    own = said_addresses(scope.said, *scope.answers)
     for address in addresses:
-        contact = scope.resolved.get(address.strip().lower())
+        key = address.strip().lower()
+        contact = scope.resolved.get(key)
+        if contact is None and key in own:
+            # Foundation decision 5: an address the owner said or typed for this request, never one a worker read.
+            # The send card marks it as from their words, not their contacts.
+            contact = scope.resolved[key] = Contact(key, key, SAID)
+            logger.info("recipient from the owner's words")  # never the address
         if contact is None:
-            return ToolResult(False, f"{address} isn't a contact Swift has resolved. Use find_contact first; "
-                              "never type an address yourself.")
+            return ToolResult(False, f"{address} isn't a contact Swift has resolved, or an address the owner said "
+                              "in this request. Use find_contact first; never type an address yourself.")
         recipients.append(contact)
     signer = await owner_name(host)
     body = compose(tuple(recipients), message, signer)
@@ -617,7 +641,8 @@ def _draft_title(draft: Draft) -> str:
 
 def _draft_data(draft: Draft) -> dict[str, Any]:
     body = draft.body if len(draft.body) <= SHOWN_BODY else draft.body[:SHOWN_BODY] + "…"
-    return {"to": [{"name": c.name, "email": c.email} for c in draft.to], "subject": draft.subject, "body": body}
+    to = [{"name": c.name, "email": c.email, **({"said": True} if c.source == SAID else {})} for c in draft.to]
+    return {"to": to, "subject": draft.subject, "body": body}
 
 
 async def read_workflow(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
@@ -648,7 +673,8 @@ TOOLS: tuple[ToolSpec, ...] = (
         _obj(
             ["message"],
             to={"type": "array", "items": {"type": "string"},
-                "description": "Addresses from find_contact (a new draft needs them)"},
+                "description": "Addresses from find_contact, or one the owner said or typed in this request "
+                "(a new draft needs them)"},
             subject={"type": "string", "description": "A short summary of what it's about, e.g. 'Meeting cancelled'; "
                      "never the message or a sentence to the recipient (a new draft needs it)"},
             message={"type": "string", "description": "What the owner says to the recipient, in the first person "

@@ -40,15 +40,15 @@ areas:
     checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385, 390, 391, 392, 393]
   typing:
     rule: typing never approves
-    paths: [overlay/src/entry.ts, src/swift/intake.py]
-    checks: [16b, 68, 108, 138, 304, 387, 391, 392]
+    paths: [overlay/src/entry.ts, overlay/src/keyed.ts, src/swift/intake.py]
+    checks: [16b, 68, 108, 138, 304, 387, 391, 392, 394]
   calendar:
     paths: [src/swift/workflows/calendar.py, src/swift/connectors/google_calendar.py, src/swift/workflows/library/calendar-event/*]
     checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195, 351, 392]
   email:
-    rule: recipients only from contacts or find_contact
-    paths: [src/swift/connectors/gmail.py, src/swift/workflows/names.py, src/swift/workflows/tools.py, src/swift/workflows/library/email-draft/*]
-    checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240, 350, 380, 381]
+    rule: recipients only from contacts, find_contact, or an address in the owner's own words, marked on the card
+    paths: [src/swift/connectors/gmail.py, src/swift/workflows/names.py, src/swift/workflows/tools.py, src/swift/workflows/library/email-draft/*, overlay/src/cardtext.ts]
+    checks: [37, 40-42, 49, 104, 135, 141, 182, 214, 215, 240, 350, 380, 381, 395]
   system:
     paths: [src/swift/system/*, src/swift/workflows/system_tools.py]
     checks: [53, 61, 71, 77, 78, 100-102, 105, 106, 124, 128-134, 142-144, 147, 150, 156-158, 160, 161, 201, 202, 204-206, 209, 211, 212, 235, 239, 243, 262, 303, 304, 386, 374, 393]
@@ -84,9 +84,9 @@ areas:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
     checks: [10, 90-95, 126, 127]
   apps:
-    rule: Swift writes into apps only when the owner's own words asked
+    rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372, 396, 397]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340, 373]
@@ -110,7 +110,7 @@ areas:
   logs:
     rule: logs content-free, transcripts redacted
     paths: [src/swift/logging_setup.py, src/swift/runlog.py]
-    checks: [123, 140, sharp-heisenberg-e41ff2-1]
+    checks: [123, 140, 398]
   speech:
     paths: [src/swift/speech.py]
     checks: [59, 107, 136, 192]
@@ -141,8 +141,14 @@ focus:
     why: A10, the owner's decision of 2026-11-14 after check 254 (Task Manager on top is in band 16); Swift's card now moves to the nearest uncovered anchor, not seen on the real PC
   - checks: [345]
     why: A10, check 320 failed on the other PC (2026-11-14 15:00); at 125% or 150% no anchor was wholly uncovered, so the card now goes where it is least covered; not seen on the real PC
-  - checks: [330]
-    why: C3, the owner's second decision of 2026-11-14 after check 330's run (a recent address only when pointed at; a description only from a memory he taught); re-worded, product rule, not seen on the real PC
+  - checks: [397]
+    why: foundation decision 6 and OCT-01 (2026-11-15), typing into a terminal or VS Code has its own card; product rule, not seen on the real PC
+  - checks: [396]
+    why: foundation decision 6 (2026-11-15), a write the owner's words didn't clearly ask for is asked about with a preview instead of refused; product rule, not seen on the real PC
+  - checks: [395]
+    why: foundation decision 5 (2026-11-15), an address in the owner's own words can be a recipient, marked on the send card; product rule, not seen on the real PC
+  - checks: [330, 370, 371]
+    why: foundation decision 4 (2026-11-15), an address not in the request's words is asked about ("Open usiu.ac.ke?") instead of matched by points_back; rewritten, with 370 and 371, product rule, not seen on the real PC
   - checks: [204, 303, 304]
     why: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC
   - checks: [290-293]

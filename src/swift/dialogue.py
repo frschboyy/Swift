@@ -79,6 +79,9 @@ class Question:
     # ("Swift needs the internet for most requests") that is shown, never said.
     run_id: str | None = None
     note: str = ""
+    # The worker's text a yes acts on (a write's every character: foundation decision 6), shown whole under the
+    # question, marked as the worker's, never said aloud and never clipped: an approval covers what it showed.
+    quote: str = ""
     closed: bool = False
     # The owner's words that led to it, for the stack if it goes unanswered (never logged).
     request: str = ""
@@ -96,7 +99,8 @@ class Question:
 
     def as_message(self) -> dict[str, Any]:
         return {"ask_id": self.id, "question": self.text, "kind": self.kind, "options": list(self.options),
-                "thread_id": self.thread, **({"note": self.note} if self.note else {})}
+                "thread_id": self.thread, **({"note": self.note} if self.note else {}),
+                **({"quote": self.quote} if self.quote else {})}
 
     @property
     def expects_free_text(self) -> bool:

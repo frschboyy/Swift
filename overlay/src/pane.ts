@@ -94,17 +94,21 @@ function watchOutside(): void {
 }
 
 /** The text box: Enter sends, Esc closes; what was typed is kept if it closes unsent. While a
- * confirm card is open it says typing can't approve (Enter sends a change). */
+ * confirm card is open it says typing can't approve (Enter sends a change). Tab reaches the card's own
+ * buttons, and Enter then presses the one reached, as a click (decision 2, keyed.ts). */
 function drawType(v: Extract<PaneView, { kind: "type" }>): void {
   const notices = (): HTMLElement[] => ([
     v.confirm
       ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"),
-          el("span", {}, el("b", {}, "Typing can't approve."), " Click Approve, or say “approve”."))
+          el("span", {}, el("b", {}, "Typing can't approve."), " Click Approve (or Tab to it, Enter), or say “approve”."))
       : null,
     v.follows ? el("p", { class: "type-note type-note--follow" }, icon("info"), `Following up: ${v.follows}`) : null,
   ] as (HTMLElement | null)[]).filter((n): n is HTMLElement => n !== null);
   const hint = (): HTMLElement =>
-    el("span", { class: "hint" }, ...(v.confirm ? [el("kbd", {}, "Enter"), "= Change"] : [el("kbd", {}, "Enter"), "sends ·", el("kbd", {}, "Esc"), "closes"]));
+    el("span", { class: "hint" }, ...(
+      v.onCard ? [el("kbd", {}, "Enter"), `= ${v.onCard} ·`, el("kbd", {}, "Tab"), "next"]
+      : v.reach ? [el("kbd", {}, "Tab"), "card ·", el("kbd", {}, "Enter"), v.confirm ? "= Change" : "sends"]
+      : v.confirm ? [el("kbd", {}, "Enter"), "= Change"] : [el("kbd", {}, "Enter"), "sends ·", el("kbd", {}, "Esc"), "closes"]));
   const known = root.querySelector<HTMLInputElement>(".type-input");
   if (known) {
     // An update while typing must not wipe what's being typed: only the notice and the hint change.
@@ -120,14 +124,21 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
   }) as HTMLInputElement;
   input.value = v.draft;
   input.addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
+    const on = view?.kind === "type" ? view.onCard : null;  // the latest view: this listener outlives updates
+    if (ev.key === "Tab") {
       ev.preventDefault();
-      if (input.value.trim()) act("type-send", { text: input.value });
+      act("type-tab", { value: ev.shiftKey ? "-1" : "1" });
+    } else if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
+      ev.preventDefault();
+      if (on) act("type-press", { text: input.value });
+      else if (input.value.trim()) act("type-send", { text: input.value });
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       act("type-close", { text: input.value });
     }
   });
+  // Typing again puts the keyboard back in the text.
+  input.addEventListener("input", () => { if (view?.kind === "type" && view.onCard) act("type-tab", { value: "0" }); });
   root.replaceChildren(
     el(
       "section",

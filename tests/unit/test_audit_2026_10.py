@@ -31,15 +31,34 @@ def test_a_line_break_is_shift_enter_never_a_bare_enter() -> None:
     assert all(i.u.ki.wVk != w.VK_RETURN for i in w._keystrokes("no line break"))
 
 
-# ---- A-02: Swift never writes into a terminal -----------------------------------------------
+# ---- A-02: Swift never writes into a terminal without its own card (foundation decision 6) -----
 
 
-@pytest.mark.parametrize("exe", ["WindowsTerminal.exe", "powershell.exe", "cmd.exe", "pwsh.exe", "conhost.exe"])
-async def test_writing_into_a_terminal_is_refused(exe: str) -> None:
-    host, desktop, owner, journal = make(FakeApp(exe, "edit", route="keys"))
-    result = await host.call("desktop_write", {"text": "Remove-Item -Recurse C:\\\nexit"})
-    assert not result.ok and "terminal" in result.text and "Nothing was written" in result.text
-    assert desktop.writes == [] and journal.entries == [] and owner.asked == []
+@pytest.mark.parametrize("exe", ["WindowsTerminal.exe", "powershell.exe", "cmd.exe", "pwsh.exe", "conhost.exe",
+                                 "Code.exe"])
+async def test_writing_into_a_terminal_is_its_own_card_showing_every_character(exe: str) -> None:
+    """A line typed into a terminal runs: level 3, its own card. VS Code too: Swift can't tell its terminal from its
+    editor (OCT-01). Rejected, nothing is typed."""
+    text = "Remove-Item -Recurse C:\\\nexit"
+    host, desktop, owner, journal = make(FakeApp(exe, "edit", route="keys"), decision="reject")
+    result = await host.call("desktop_write", {"text": text})
+    assert not result.ok and desktop.writes == []
+    [(title, detail, tool, _)] = owner.asked
+    assert tool == "desktop_write_terminal" and detail == text and "runs as a command" in title
+    host, desktop, owner, _ = make(FakeApp(exe, "edit", route="keys"))
+    assert (await host.call("desktop_write", {"text": "dir"})).ok and [t for _, t in desktop.writes] == ["dir"]
+    assert [tool for _, _, tool, _ in owner.asked] == ["desktop_write_terminal"]
+
+
+async def test_a_terminal_brought_forward_after_the_card_is_never_typed_into() -> None:
+    host, desktop, owner, _ = make(FakeApp("cmd.exe", "edit", route="keys"))
+    owner.on_ask = lambda: _bring(desktop, FakeApp("powershell.exe", "edit", route="keys"))
+    result = await host.call("desktop_write", {"text": "dir"})
+    assert not result.ok and "isn't in front" in result.text and desktop.writes == []
+
+
+async def _bring(desktop, app) -> None:  # type: ignore[no-untyped-def]
+    desktop.front = app
 
 
 async def test_writing_into_an_ordinary_app_still_works() -> None:

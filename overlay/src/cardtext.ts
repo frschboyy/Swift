@@ -2,6 +2,8 @@
 // without the mark is always Swift's own. The mark becomes a bar down the whole line, because a character
 // marks only the first row: a long line wrapping would put the agent's words at the edge, unmarked.
 
+import type { Person } from "./protocol";
+
 export const QUOTE = "│ ";
 
 const FILE_CHANGES: ReadonlySet<string> = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
@@ -33,3 +35,17 @@ export function commandParts(detail: string): { head: string; rest: string } {
 // each of them, so the list starts open: the owner sees what they approve without a click.
 export const stepCommands = (tool: string, purpose: string | undefined, step: boolean | undefined, detail: string): string[] | null =>
   step && commandFolded(tool, purpose) ? detail.split("\n") : null;
+
+// Foundation decision 6: the worker's text a question's yes would write, every line marked as the worker's and
+// none left out, so what the owner approves is exactly what was shown.
+export const quoteLines = (quote: string): CardLine[] => (quote ? quote.split("\n").map((text) => ({ text, agent: true })) : []);
+
+// Foundation decision 5: a recipient the owner gave by address, in their own words, is marked on the send card,
+// so an address that isn't a contact never passes as one.
+export const SAID_MARK = "from your words, not in your contacts";
+
+/** A recipient as the card shows it: "Ada Lovelace <ada@example.edu>", or the address, with the mark if any. */
+export function recipientText(p: Person): string {
+  const who = p.name && p.name !== p.email ? `${p.name} <${p.email}>` : p.email;
+  return p.said ? `${who} (${SAID_MARK})` : who;
+}

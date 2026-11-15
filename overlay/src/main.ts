@@ -33,7 +33,7 @@ import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, commandFolded, commandParts, hasMarkedLines, stepCommands } from "./cardtext";
+import { cardLines, commandFolded, commandParts, hasMarkedLines, quoteLines, recipientText, stepCommands } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -41,6 +41,7 @@ import { Orb } from "./orb";
 import { leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
+import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Scenario, type UiState } from "./protocol";
@@ -459,6 +460,24 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       typedDraft = payload.text ?? typedDraft;
       closeTyping();
       break;
+    case "type-tab":
+      // "0": typing again puts the keyboard back in the text.
+      keyOn = payload.value === "0" ? null : K.step(keyedButtons().map((b) => b.dataset.key!), keyOn, payload.value === "-1" ? -1 : 1);
+      syncKeyed();
+      break;
+    case "type-press": {
+      // Enter on the button Tab reached presses it: the mouse's own click, with its guards (decision 2).
+      const pressed = keyedButtons().find((b) => b.dataset.key === keyOn);
+      keyOn = null;
+      if (!pressed) {
+        syncKeyed();
+        break;
+      }
+      typedDraft = payload.text ?? typedDraft;
+      pressed.click();
+      closeTyping();
+      break;
+    }
     case "live-close":
     case "live-stop":
     case "live-app":
@@ -558,6 +577,7 @@ function toggleTyping(): void {
   typingThread = onScreen;
   const follows = onScreen && pres.lastAnswer?.threadId === onScreen ? pres.lastAnswer.text : null;
   typing = { kind: "type", draft: typedDraft, follows, confirm: confirmOpen() };
+  syncKeyed();
   if (!paneWindows) {
     // The dev harness has no pane windows: a prompt stands in for the text box.
     const text = window.prompt(confirmOpen() ? "Type a change (typing can't approve)" : "Type to Swift");
@@ -580,7 +600,36 @@ function closeTyping(): void {
   if (!typing) return;
   typing = null;
   typingThread = null;
+  keyOn = null;
+  syncKeyed();
   void syncEscape();
+  void syncPanes();
+}
+
+// ---- the keyboard on the card's own buttons (foundation decision 2, keyed.ts) ----------------
+
+// The card button the text box's Tab reached (``data-key``: the card's id and the button), or null: the text.
+let keyOn: string | null = null;
+
+/** The card's buttons Tab reaches, in Tab order (``data-tab``, then as drawn): only ones shown and pressable. */
+const keyedButtons = (): HTMLButtonElement[] =>
+  [...card.querySelectorAll<HTMLButtonElement>("button[data-key]")]
+    .filter((b) => !b.disabled && b.getClientRects().length > 0)
+    .sort((a, b) => Number(a.dataset.tab ?? 0) - Number(b.dataset.tab ?? 0));
+
+/** The ring follows the card: drawn again, the same button keeps it; gone (or another card), it's back to
+ * the text. The text box says what Enter will press. */
+function syncKeyed(): void {
+  const buttons = typing ? keyedButtons() : [];
+  const on = buttons.find((b) => b.dataset.key === keyOn) ?? null;
+  keyOn = on?.dataset.key ?? null;
+  card.querySelectorAll(".btn--keyed").forEach((b) => b.classList.remove("btn--keyed"));
+  on?.classList.add("btn--keyed");
+  if (!typing) return;
+  const onCard = on?.textContent?.trim() || null;
+  const reach = buttons.length > 0;
+  if ((typing.onCard ?? null) === onCard && !!typing.reach === reach) return;
+  typing = { ...typing, onCard, reach };
   void syncPanes();
 }
 
@@ -816,6 +865,7 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   // Scrolling a card that didn't fit holds it, like scrolling a long answer.
   node.addEventListener("scroll", () => noteScroll(), { passive: true });
   scheduleRegions();
+  syncKeyed();
 }
 
 /** Every card is drawn here (card.ts, ADR-019 Step B): its inside from its spec, then shown, its time bar
@@ -988,7 +1038,7 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
   let body: HTMLElement;
   switch (a.kind) {
     case "email_draft": {
-      const to = a.data.to.map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join(", ");
+      const to = a.data.to.map(recipientText).join(", ");
       const lines = a.data.body.split("\n");
       const clipped = clipLines > 0 && lines.length > clipLines;
       body = el(
@@ -1191,7 +1241,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     return el(
       "dl",
       { class: "facts" },
-      el("dt", {}, "To"), el("dd", { class: "key" }, d.to.map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join(", ")),
+      el("dt", {}, "To"), el("dd", { class: "key" }, d.to.map(recipientText).join(", ")),
       el("dt", {}, "Subject"), el("dd", {}, d.subject),
       el("div", { class: `mail-body${fullDraft ? " mail-body--full" : ""}`, tabindex: "0", role: "document", "aria-label": "The email" }, d.body),
       long ? el("button", { class: "link link--quiet wide", "aria-expanded": String(fullDraft), onclick: () => askView(fullDraft ? "hide" : "show") }, fullDraft ? "Show less" : "Show the whole email") : null,
@@ -1263,7 +1313,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   // Swift's own card (send_email, calendar) shows what it will do (ADR-010 §4).
   const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
   const email = shown?.kind === "email_draft";
-  const approve = el("button", { class: "btn btn--warn btn--big", onclick: reply("approve") }, icon("check"), email ? "Send" : "Approve");
+  // Tab from the text box reaches Approve first, then Reject (decision 2).
+  const approve = el("button", { class: "btn btn--warn btn--big", "data-key": `${data.request_id}:approve`, "data-tab": "0", onclick: reply("approve") }, icon("check"), email ? "Send" : "Approve");
   drawCard({
     state: "ok", look: `confirm${pres.away ? " card--away" : ""}`, role: "alert",
     lead: el("div", { class: "band", role: "heading", "aria-level": "2" }, icon("shield"), "Needs your OK", el("span", { class: "band-time", "aria-live": "off" })),
@@ -1276,7 +1327,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       el(
         "div",
         { class: "confirm-actions" },
-        el("button", { class: "btn btn--ghost btn--big", onclick: reply("reject") }, icon("x"), "Reject"),
+        el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), "Reject"),
         // "Change" opens the text box, where Enter sends a change; typing never approves.
         el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
         el("span", { class: "foot-gap" }),
@@ -1481,10 +1532,20 @@ function renderAsk(a: Q.Ask): void {
   drawCard({ state: asking ? "asking" : "waiting", look: `working card--question${asking ? "" : " card--waiting"}`, ...Card.questionParts({
     // Swift's own question says what it's about; ``request`` may be another request's words.
     asking, about: request && !own ? `about “${clipLine(request, 48)}”` : "", title: a.question, note: a.note,
+    quote: questionQuote(a.quote),
     pill: Q.askPill(a, speaking), live: true, secs: left || null, barMs: left * 1000,
-    options: Q.askButtons(a).map((o) => el("button", { class: "btn", onclick: (ev: Event) => send(ev, { type: "ask.reply", data: { ask_id: a.id, text: o } }) }, o)),
+    options: Q.askButtons(a).map((o) => el("button", { class: "btn", "data-key": `${a.id}:${o}`, onclick: (ev: Event) => send(ev, { type: "ask.reply", data: { ask_id: a.id, text: o } }) }, o)),
     foot: [typeHint(!own), own ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => send(ev, { type: "run.stop", data: { run_id: a.runId, from: "question" } }) }, "Stop request")],
   }) });
+}
+
+/** What a question's yes would write, all of it, under the worker's bar; a long one scrolls (decision 6). */
+function questionQuote(quote: string): HTMLElement | null {
+  const lines = quoteLines(quote);
+  if (!lines.length) return null;
+  const box = el("div", { class: "facts-text facts-text--mono", tabindex: "0", role: "document", "aria-label": "What it will write" },
+    ...lines.map((line) => el("div", { class: "facts-line--agent" }, line.text || " ")));
+  return el("div", { class: "facts" }, el("span", { class: "confirm-purpose-by" }, "What it will write, all of it (not your words)"), box, moreBelow(box));
 }
 
 function onAskMessage(data: Q.AskData): void {

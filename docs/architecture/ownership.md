@@ -130,7 +130,10 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 - **Checked by:** the gateway (`gateway.py:172`, `not_a_contact`), `draft_email` (`tools.py:382`), calendar
   attendees (`calendar.py:118`).
 - **Tests:** `tests/unit/test_google_contacts.py`, `test_email_as_owner.py`, `test_audit_2026_10.py`.
-- **Second owners:** none found. Target, not built: an address in the owner's own words (decision 5).
+- **Also, in the same module:** `draft_email` writes an address from the owner's own words (`said_addresses` over
+  `RunScope.said` and answers) into `RunScope.resolved` with source `said`; the send card marks it
+  (`overlay/src/cardtext.recipientText`). Foundation decision 5; `tests/unit/test_recipient_from_words.py`.
+- **Second owners:** none found.
 
 ## 6. Web addresses
 
@@ -138,13 +141,16 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 - **Two callers with different rules about where an address may come from:**
   - fetching (`executors/claude_code.py:604-697, 851`): the request and context, **plus addresses from earlier
     tool results** (search results, pages, files it read). A read, so no card.
-  - opening in the browser (`workflows/desktop_tools._open_url`, `:236`): the owner's words and answers, a recent
-    address if `owner_address.points_back` says the request points back, and remembered addresses
-    (`owner_address.remembered`). Never a tool result. Then the gateway (`desktop_open`, level 1 or 2 by policy).
-- **Tests:** `tests/unit/test_recent_address.py`, `test_audit_2026_10.py`.
-- **Second owner, OWN-06:** "which addresses came from the owner" is decided twice, differently. Fetching an
-  address a page gave is accepted risk (OCT-03); the point is that a change to one rule doesn't reach the other.
-  Target, not built: decision 4 replaces `points_back` with a question.
+  - opening in the browser (`workflows/desktop_tools._open_url`): an address in the owner's words and answers for
+    this request opens; otherwise `_offer` asks "Open usiu.ac.ke?" (a level 1 question: `RunScope.ask(approval=True)`,
+    decided by `intake.approves`) about the owner's own earlier addresses (`RunScope.earlier`, 10 minutes) and
+    remembered ones (`owner_address.remembered`), and opens the owner's address as given. Never a tool result or
+    the agent's url. Then the gateway (`desktop_open`, reversible). `points_back` is gone (foundation decision 4).
+- **Tests:** `tests/unit/test_recent_address.py`, `test_desktop.py`, `test_audit_2026_10.py`, and the seam scenario
+  `test_seam_replay.py::test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plain_yes_opens_it`.
+- **Second owner, OWN-06 (partial):** opening has one rule with no word pattern, and both callers read the owner's
+  words through `WebScope.note_request`. Fetching still also takes the context Swift adds and tool-result
+  addresses (accepted risk, OCT-03), so the two sources still differ; making fetching ask is the owner's call.
 
 ## 7. Read scope
 

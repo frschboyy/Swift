@@ -258,22 +258,30 @@ async def test_a_web_address_the_owner_said_opens_in_their_browser_and_no_other(
     assert (await host.call("desktop_open", {"url": "https://usiu.ac.ke"})).ok
 
 
-async def test_an_address_the_owner_gave_earlier_opens_for_ten_minutes_and_a_yes_to_the_agents_never() -> None:
-    """C3, owner's decisions 2026-11-14 (checks 255, 330): the owner's own words earlier in the conversation count
-    for ten minutes when the request points at them (``RunScope.earlier``, filled from Swift's record)."""
+async def test_an_address_the_owner_gave_earlier_is_asked_about_for_ten_minutes_and_a_yes_to_the_agents_never() -> None:
+    """C3 (checks 255, 330) and foundation decision 4: the owner's own words earlier in the conversation, for ten
+    minutes (``RunScope.earlier``, filled from Swift's record), are offered in Swift's own level 1 question."""
     from swift import clock
+    from swift.dialogue import Answer
     from swift.workflows.desktop_tools import RECENT_ADDRESS_S
 
     host, desktop, _, _ = make(said="Open that site again.")
     assert host.scope is not None
+    asked: list[tuple[str, bool]] = []
+
+    async def ask(question: str, kind: str, options: tuple[str, ...], *, approval: bool = False) -> Answer:
+        asked.append((question, approval))
+        return Answer("yes")
+
+    host.scope.ask_fn = ask
     host.scope.answers.append("yes")  # to the agent's "Should I open usiu.ac.ke?": not the owner's address
     refused = await host.call("desktop_open", {"url": "usiu.ac.ke"})
-    assert not refused.ok and "a yes to an address you suggest doesn't count" in refused.text
+    assert not refused.ok and "a yes to an address you suggest doesn't count" in refused.text and asked == []
     host.scope.earlier = ((clock.now() - RECENT_ADDRESS_S - 1, "open usiu dot ac dot ke"),)
-    assert not (await host.call("desktop_open", {"url": "usiu.ac.ke"})).ok  # said over ten minutes ago
+    assert not (await host.call("desktop_open", {"url": "usiu.ac.ke"})).ok and asked == []  # over ten minutes ago
     host.scope.earlier = ((clock.now() - RECENT_ADDRESS_S + 30, "open usiu dot ac dot ke"),)
     assert (await host.call("desktop_open", {"url": "usiu.ac.ke"})).ok
-    assert desktop.opened == ["https://usiu.ac.ke"]
+    assert asked == [("Open usiu.ac.ke?", True)] and desktop.opened == ["https://usiu.ac.ke"]
 
 
 async def test_fill_in_email_never_sends_and_only_to_contacts() -> None:

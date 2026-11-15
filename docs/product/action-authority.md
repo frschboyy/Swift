@@ -93,7 +93,7 @@ code toward these rules, never away.
 - **2:** built (`overlay/src/keyed.ts`): while the text box is open, Tab reaches the card's own Approve/Reject or
   Yes/No (or a short list of choices), ringed on the card, and Enter presses it as a click (`confirm.reply` /
   `ask.reply`, source click). The overlay window never takes focus, so the text box holds the keyboard and tells
-  the card which button is reached. Owner check exciting-cartwright-9ace60-1 not run yet. The backend's typed-yes
+  the card which button is reached. Owner check 394 not run yet. The backend's typed-yes
   hints (`TYPED_YES_HINT`, `TYPED_APPROVE_HINT`) still say only "click … or say"; the text box shows the Tab way.
 - **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and
   `find_contact`; an unclear write into an app is still refused, not asked about.

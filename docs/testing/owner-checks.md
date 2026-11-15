@@ -2638,7 +2638,7 @@ The report checks: nothing to judge from the log; tell us what you saw in each.
 
 About 3 minutes, on the branch with foundation decision 2. Nothing here sends anything.
 
-<a id="check-exciting-cartwright-9ace60-1"></a>**Check exciting-cartwright-9ace60-1. Tab and Enter press the card's own button; typing still doesn't approve**
+<a id="check-394"></a>**Check 394. Tab and Enter press the card's own button; typing still doesn't approve**
 1. Say "Hey Swift, create a file called swift-check-d2.txt on my desktop that says hello". When the card asks before
    writing it, press the type hotkey and type `approve` (don't press Enter yet).
 2. Press Tab. Then press Tab again, then Shift+Tab.

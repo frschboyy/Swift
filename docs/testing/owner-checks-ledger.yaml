@@ -41,7 +41,7 @@ areas:
   typing:
     rule: typing never approves
     paths: [overlay/src/entry.ts, overlay/src/keyed.ts, src/swift/intake.py]
-    checks: [16b, 68, 108, 138, 304, 387, 391, 392, exciting-cartwright-9ace60-1]
+    checks: [16b, 68, 108, 138, 304, 387, 391, 392, 394]
   calendar:
     paths: [src/swift/workflows/calendar.py, src/swift/connectors/google_calendar.py, src/swift/workflows/library/calendar-event/*]
     checks: [4-9, 14, 15, 21, 22, 26, 27, 29-36, 47, 54, 68, 136, 139, 172, 195, 351, 392]

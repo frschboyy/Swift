@@ -984,20 +984,20 @@
   title: No check runs by itself on any commit. There is no CI and no pre-commit hook, the lint rules that 78 noqa
     comments cite can't be run, and nothing scans the dependencies for known vulnerabilities.
   source: docs/audit/2026-11-15-quality-audit.md §4
-  module: pyproject.toml, overlay/package.json, overlay/src-tauri/Cargo.toml, .git/hooks
+  module: pyproject.toml, .githooks/pre-commit, overlay/package.json, overlay/src-tauri/Cargo.toml
   area: process
   severity: medium
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
-  evidence: no .github, no .pre-commit-config, no [tool.ruff] or mypy config; ruff, mypy, pyright, pip-audit are
-    not in the dev group or the main .venv\Scripts; 78 "noqa" comments in src/swift, 67 naming ruff codes (S, RUF,
-    ASYNC, B); every gate in docs/testing/strategy.md §3 is run by hand by the session that remembers to
-    (673 commits on main since 2026-10-15)
-  test: null
-  note: The rules are specified, and nothing in the repo runs them. Fixing it means adding dev tools (ruff,
-    pip-audit) and a hook, which needs the owner's OK (no new dependencies without a clear need). A local hook,
-    not hosted CI, fits decision 13 (never push).
+  evidence: 'A2 (branch claude/hook-and-ruff-3a7d0e, owner OK 2026-11-15): ruff 0.17.5 in the dev group, [tool.ruff]
+    selecting ASYNC, B, BLE, F, RUF, S; ruff check src tests passes (today''s hits are per-file ignores, none a real
+    bug); .githooks/pre-commit runs ruff on staged files plus the register, ratchet and owner-plan tests (about 7 s).
+    Was: no hook, no lint config, 78 noqa comments in src/swift that nothing ran.'
+  test: tests/unit/test_lint_gate.py::test_ruff_passes_on_src_and_tests
+  note: 'Left open: no dependency scan (pip-audit, npm audit, cargo audit), no TypeScript or Rust lint in the hook,
+    and the hook is inactive until `git config core.hooksPath .githooks` is run once per PC (the owner''s step at
+    merge). A local hook, not hosted CI, fits decision 13 (never push).'
 - id: B-08
   title: An "unknown" outcome is not remembered, so it can't be undone and the same action can be approved and done
     again.

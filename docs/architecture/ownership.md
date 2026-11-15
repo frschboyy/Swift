@@ -18,7 +18,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 | Responsibility | Owner | Second owners found |
 |---|---|---|
 | Who may approve what, from where | `intake.approves` | none since foundation decision 10 (OWN-01, OWN-02, OWN-03 fixed) |
-| An approved Swift action runs as shown | `security/gateway.ActionGateway.execute` | Worker tool cards decided in `executors/claude_code` (OWN-05) |
+| An approved Swift action runs as shown | `security/gateway.ActionGateway.execute`; worker tool cards through `ActionGateway.bind` / `allow` | none (OWN-05 fixed) |
 | Conversation and question state | `session` (questions), `dialogue.Dialogue` (parsing an answer), `answer_window.AnswerWindow` (its clock) | none found; split by design |
 | What's on screen | overlay `presenter.ts`; backend view in `drawn.Drawn` | `session._on_screen` decides from backend state, not the overlay's `screen` ack (OWN-04) |
 | Card countdowns | `attention.Attention` (confirm cards), `answer_window` (questions) | none: the overlay only draws (`presenter.ts` header, T-08) |
@@ -68,13 +68,20 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
   `digest` lambda (`workflows/calendar.py:_digest`, `desktop_tools.py`, `scope.Draft.digest`, `system_tools.py`).
 - **Tests:** `tests/unit/test_audit_2026_10.py`, `tests/unit/test_calendar_lifecycle.py`,
   `tests/unit/test_email_as_owner.py`, `tests/unit/test_desktop.py`.
-- **Second owner, OWN-05:** the agent's own tools (Bash, PowerShell, Edit, Write, reads outside the read folders)
-  are decided in `executors/claude_code.py` `can_use_tool` → `_ask` / `_ask_read` → `_decide`, not the gateway.
-  On approval it returns `PermissionResultAllow(updated_input=args)`: the same arguments the card was made from,
-  so no swap is visible in this code. But there is no digest recomputed before execution and no journal line, and
-  the step grant (`executors/step_grant.reversible`, `base.Grant.covers`) is a second place that decides "approved
-  ahead". `CLAUDE.md` says "The gateway binds it to the action's digest"; for worker tools that is not what the
-  code does. Whether the SDK can change the arguments between `can_use_tool` and the call is unproven.
+- **The agent's own tools (OWN-05, fixed):** Bash, PowerShell, Edit, Write and reads outside the read folders are
+  carried out by the worker, so they don't go through `execute`, but their approval is the gateway's too:
+  `ActionGateway.bind(tool, args)` digests the exact call (`call_digest`, canonical JSON of the tool and every
+  argument) before `executors/claude_code.py` `_ask` / `_ask_read` shows its card, and `ActionGateway.allow` recomputes
+  it from the arguments about to be handed back in `PermissionResultAllow(updated_input=...)`. A change is refused
+  (`changed_after_approval`), an approval used once can't cover another call (`approval_reused`), and each outcome
+  is one journal line (`ALLOWED` or `FAILED`: tool, digest prefix, `how`; no content). A step card binds each listed
+  command to its own approval (`claude_code._set_grant`, `run.step_bound`), and a covered call is handed back as
+  `{"command": <as listed>}` only: an argument the step card didn't show (`run_in_background`, `timeout`) doesn't
+  ride on it. Which commands may be listed is still `step_grant.reversible`; `base.Grant.covers` checks the list.
+  The SDK (0.2.172, `_internal/query.py`) can't change the arguments after `can_use_tool`: it sends back the
+  `updated_input` Swift returns, serialized when the callback returns, and Swift sets no hooks
+  (`setting_sources=[]`). That the CLI runs exactly `updatedInput` is its protocol, not checked here.
+  Tests: `tests/unit/test_own05_worker_approval.py`.
 
 ## 2. Conversation and question state
 
@@ -245,4 +252,4 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
   `executors/quick.py`; the stream mapped to steps in `claude_mapping.py`.
 - **Tests:** `test_claude_executor.py`, `test_executor_contract.py`, `test_providers.py`, `test_claude_mapping.py`,
   `test_worker_task.py`.
-- **Second owners:** none for running the agent. Its permission decisions are OWN-05 (§1).
+- **Second owners:** none for running the agent. Its approvals are bound by the gateway (§1, OWN-05).

@@ -152,14 +152,18 @@
   area: actions
   severity: medium
   product_rule: true
-  status: open
+  status: fixed
   confidence: design-concern
   evidence: claude_code.py can_use_tool -> _ask/_ask_read -> _decide returns PermissionResultAllow(updated_input=args);
     the step grant (base.Grant.covers, step_grant.reversible) approves ahead there too
-  test: null
-  note: The arguments allowed are the ones the card was made from, so no swap is visible in this code. CLAUDE.md
-    says the gateway binds every approval to a digest; for worker tools it doesn't. Whether the SDK can change
-    arguments after can_use_tool is unproven.
+  test: tests/unit/test_own05_worker_approval.py
+  note: 'Fix (root): ActionGateway.bind digests the exact call before its card; ActionGateway.allow recomputes it from
+    the arguments handed back, refuses a change (changed_after_approval) or a second use (approval_reused), and
+    journals ALLOWED or FAILED with no content. A step card binds each listed command; a covered call is handed back
+    as {"command": ...} only. SDK 0.2.172 can''t change arguments after can_use_tool (it sends back updated_input as
+    returned; no hooks are set); the CLI running exactly updatedInput is its protocol, unchecked. Left: a single
+    command card shows the command, not run_in_background or timeout, which still ride on its approval (bound, not
+    shown). Product rule: needs review by another author before merge.'
 - id: OWN-06
   title: Where a web address may come from is decided twice, with different rules, for fetching and for opening.
   source: docs/architecture/ownership.md §6

@@ -22,18 +22,26 @@ added). The gateway remembers the approved actions it did (``approved``), newest
 ``undo_last`` reverses the newest one, if it can be undone, through this same
 ``execute``: a confirm card, journalled with ``undoes`` naming the action it reverses.
 A sent email has no undo, and the owner is told so.
+
+A worker's own tools (a command, a file edit, a read outside the read folders) are run by the worker,
+not here, but their approval is bound the same way (OWN-05): ``bind`` digests the exact tool and
+arguments the card was built from, before it is shown; ``allow`` recomputes it from the arguments about
+to be handed back, refuses a change, spends the approval so it never covers a second call, and journals
+it (``ALLOWED``, metadata only). The worker reports how the call went; Swift doesn't journal that.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import time
 
 import anyio
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
-from typing import Literal
+from typing import Any, Literal
 
 from loguru import logger
 
@@ -124,6 +132,21 @@ LATE_STOP_WAIT_S = 20.0
 UNDO_WINDOW_S = 15 * 60.0
 
 
+def call_digest(tool: str, args: Any) -> str:
+    """A worker's tool call, exactly: the tool and every argument, as canonical JSON."""
+    text = json.dumps([tool, args], sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=repr)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class Bound:
+    """One approval of one worker call: the call's digest when its card was made."""
+
+    id: str
+    tool: str
+    digest: str
+
+
 class ActionGateway:
     def __init__(self, journal: Journal | None = None, send_grace_s: float = 0.0) -> None:
         self.journal = journal or Journal(None)
@@ -131,6 +154,28 @@ class ActionGateway:
         self.send_grace_s = send_grace_s
         # Approved and done, newest last; an undone one is removed.
         self.approved: list[Approved] = []
+        # Worker approvals already used (``allow``): an approval covers one call, once.
+        self._spent: set[str] = set()
+
+    def bind(self, tool: str, args: Any) -> Bound:
+        """Bind an approval to exactly this call, before its card is shown."""
+        return Bound(uuid.uuid4().hex[:12], tool, call_digest(tool, args))
+
+    def allow(self, bound: Bound, tool: str, args: Any, *, how: str = "card") -> bool:
+        """Just before a worker's approved call is handed back: True only if it is the call that was approved,
+        and this approval hasn't covered another. Journalled either way; the log gets codes, never content."""
+        if bound.id in self._spent:
+            code = "approval_reused"
+        elif tool != bound.tool or call_digest(tool, args) != bound.digest:
+            code = "changed_after_approval"
+        else:
+            self._spent.add(bound.id)
+            self.journal.write(bound.id, "ALLOWED", tool=tool, digest=bound.digest[:16], how=how)
+            logger.info("worker call allowed", tool=tool, action=bound.id, how=how)
+            return True
+        self.journal.write(bound.id, "FAILED", tool=tool, digest=bound.digest[:16], reason=code)
+        logger.warning("worker call refused", tool=tool, action=bound.id, code=code)
+        return False
 
     def last_approved(self, within_s: float | None = None) -> Approved | None:
         """The newest action the owner approved that's still in place (done less than ``within_s`` ago)."""

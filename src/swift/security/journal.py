@@ -26,7 +26,8 @@ from swift import runs
 
 # UNKNOWN: the connection dropped before the service answered, and Swift couldn't tell whether it was done.
 # CANCELLED: the owner stopped it in its last seconds before it went (X-08): never done.
-State = Literal["PENDING", "DONE", "FAILED", "UNKNOWN", "CANCELLED"]
+# ALLOWED: a worker's approved tool call, handed to the worker after its digest check (OWN-05); the worker runs it.
+State = Literal["PENDING", "DONE", "FAILED", "UNKNOWN", "CANCELLED", "ALLOWED"]
 
 
 class Journal:
@@ -36,7 +37,7 @@ class Journal:
         self.entries: list[dict[str, Any]] = []
 
     def write(self, action_id: str, state: State, **fields: Any) -> None:
-        if state == "PENDING":
+        if state in ("PENDING", "ALLOWED"):  # ALLOWED: the request the worker runs in
             fields = {"run": runs.current.get()} | fields  # the gateway's own ``run`` wins: its tool calls run elsewhere
         entry = {"ts": datetime.now().astimezone().isoformat(timespec="milliseconds"), "action": action_id,
                  "state": state, **{k: v for k, v in fields.items() if not (k == "run" and v is None)}}
@@ -79,7 +80,7 @@ class Journal:
         done: list[tuple[str, str]] = []
         for entry in self._all():
             action, state = entry["action"], entry.get("state")
-            if state == "PENDING":
+            if state in ("PENDING", "ALLOWED"):  # ALLOWED: the request the worker runs in
                 tools[action] = str(entry.get("tool", ""))
                 if entry.get("undoes"):
                     undoes[action] = str(entry["undoes"])

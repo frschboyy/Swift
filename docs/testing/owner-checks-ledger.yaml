@@ -86,7 +86,7 @@ areas:
   apps:
     rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372, 396, 397]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372, 396, 397, nostalgic-sutherland-956529-1]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340, 373]
@@ -142,7 +142,9 @@ focus:
   - checks: [345]
     why: A10, check 320 failed on the other PC (2026-11-14 15:00); at 125% or 150% no anchor was wholly uncovered, so the card now goes where it is least covered; not seen on the real PC
   - checks: [397]
-    why: foundation decision 6 and OCT-01 (2026-11-15), typing into a terminal or VS Code has its own card; product rule, not seen on the real PC
+    why: foundation decision 6, OCT-01 and the owner's decision of 2026-11-15, typing into a terminal or VS Code has its own card and a real terminal now types after Approve; product rule, not seen on the real PC
+  - checks: [nostalgic-sutherland-956529-1]
+    why: OCT-01 (2026-11-15), the VS Code probe decides whether only its terminal needs the terminal's card
   - checks: [396]
     why: foundation decision 6 (2026-11-15), a write the owner's words didn't clearly ask for is asked about with a preview instead of refused; product rule, not seen on the real PC
   - checks: [395]

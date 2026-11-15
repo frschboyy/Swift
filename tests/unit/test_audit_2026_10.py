@@ -13,6 +13,7 @@ import os
 import pytest
 from test_desktop import make
 
+from swift.desktop.base import app_name
 from swift.desktop.fake import FakeApp
 
 # ---- A-01: a line break typed by keystrokes never presses a bare Enter -----------------------
@@ -37,18 +38,23 @@ def test_a_line_break_is_shift_enter_never_a_bare_enter() -> None:
 @pytest.mark.parametrize("exe", ["WindowsTerminal.exe", "powershell.exe", "cmd.exe", "pwsh.exe", "conhost.exe",
                                  "Code.exe"])
 async def test_writing_into_a_terminal_is_its_own_card_showing_every_character(exe: str) -> None:
-    """A line typed into a terminal runs: level 3, its own card. VS Code too: Swift can't tell its terminal from its
-    editor (OCT-01). Rejected, nothing is typed; approved, exactly its characters are, with no Enter (the owner's
-    decision of 2026-11-15: the real writer types into a terminal after its own card)."""
+    """A line typed into a terminal runs: level 3, its own card showing every character. Rejected, nothing is typed
+    or run; approved, a terminal types it and presses Enter once (the owner's decision of 2026-11-15). VS Code too
+    gets the card, since Swift can't tell its terminal from its editor (OCT-01), but there Swift never presses Enter."""
+    vscode = exe == "Code.exe"
     text = "Remove-Item -Recurse C:\\"
     host, desktop, owner, journal = make(FakeApp(exe, "edit", route="keys"), decision="reject")
     result = await host.call("desktop_write", {"text": text})
-    assert not result.ok and desktop.writes == []
+    assert not result.ok and desktop.writes == [] and desktop.ran == []
     [(title, detail, tool, _)] = owner.asked
-    assert tool == "desktop_write_terminal" and detail == text and "runs as a command" in title
+    assert tool == "desktop_write_terminal" and detail == text
+    assert ("won't press Enter" in title) if vscode else (title.startswith("Run this in") and "presses Enter" in title)
     host, desktop, owner, _ = make(FakeApp(exe, "edit", route="keys"))
-    assert (await host.call("desktop_write", {"text": "dir"})).ok and [t for _, t in desktop.writes] == ["dir"]
+    result = await host.call("desktop_write", {"text": "dir"})
+    assert result.ok and [t for _, t in desktop.writes] == ["dir"]
+    assert desktop.ran == ([] if vscode else [(app_name(exe), "dir")]) and desktop.front.text == "dir" + "\n" * (not vscode)
     assert [tool for _, _, tool, _ in owner.asked] == ["desktop_write_terminal"]
+    assert (host.last_write is None) != vscode  # a command that ran can't be undone: no Ctrl+Z in a terminal
 
 
 async def test_a_terminal_brought_forward_after_the_card_is_never_typed_into() -> None:
@@ -83,18 +89,55 @@ async def test_the_fake_writer_types_into_a_terminal_only_for_its_own_card_and_o
     with pytest.raises(DesktopError, match="doesn't write"):
         await desktop.writer("focus", "insert")
     writer = await desktop.writer("focus", "insert", terminal=True)
-    with pytest.raises(DesktopError, match="never a line break"):
+    with pytest.raises(DesktopError, match="one command at a time"):
         await writer.write("dir", last=False)
     await writer.write("dir", last=True)
-    assert desktop.writes == [(writer.app, "dir")] and desktop.front.text == "dir"  # no Enter added
+    assert desktop.writes == desktop.ran == [(writer.app, "dir")] and desktop.front.text == "dir\n"  # Enter once
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the Win32 key presses exist only on Windows")
+def test_the_windows_writer_presses_enter_only_after_checking_the_window_again(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from swift.desktop import windows as w
+    from swift.desktop.base import DesktopError
+
+    pressed: list[object] = []
+    monkeypatch.setattr(w, "_type", lambda text: pressed.append(text))
+    monkeypatch.setattr(w, "_send", lambda inputs: pressed.append([i.u.ki.wVk for i in inputs]))
+    writer = object.__new__(w._KeyWriter)  # nothing real: the key presses are recorded above
+    writer.app, writer.terminal, writer.route = "cmd", True, "keys"
+    for changed, expected in ((None, ["dir", [w.VK_RETURN, w.VK_RETURN]]), ("cmd isn't in front any more", ["dir"])):
+        pressed.clear()
+        writer._changed = lambda changed=changed: changed  # type: ignore[method-assign]
+        if changed:
+            with pytest.raises(DesktopError, match="didn't press Enter"):
+                writer._write("dir", last=True)
+        else:
+            writer._write("dir", last=True)
+        assert pressed == expected
+    with pytest.raises(DesktopError, match="one command at a time"):
+        writer._write("dir", last=False)
+
+
+async def test_a_window_change_after_typing_leaves_the_command_unrun() -> None:
+    """The window is checked before typing and again right before Enter: changed between them, nothing runs."""
+    host, desktop, owner, _ = make(FakeApp("cmd.exe", "edit", route="keys"))
+    terminal = desktop.front
+
+    async def notepad_comes_forward(_: int) -> None:  # after typing, before Enter
+        desktop.front = FakeApp("notepad.exe", "edit", route="keys")
+
+    desktop.on_write = notepad_comes_forward
+    result = await host.call("desktop_write", {"text": "dir"})
+    assert not result.ok and "didn't press Enter" in result.text and "didn't run" in result.text
+    assert [t for _, t in desktop.writes] == ["dir"] and desktop.ran == [] and terminal.text == "dir"
 
 
 @pytest.mark.parametrize("exe", ["WindowsTerminal.exe", "cmd.exe", "powershell.exe"])
 async def test_several_lines_are_never_typed_into_a_terminal(exe: str) -> None:
-    """A line break is Shift+Enter (A-01); cmd and bash run the line on it, so a card couldn't say which lines run."""
+    """Each line would run, and the card runs one command: refused before any card, never typed as Shift+Enter."""
     host, desktop, owner, _ = make(FakeApp(exe, "edit", route="keys"))
     result = await host.call("desktop_write", {"text": "cd C:\\\ndir"})
-    assert not result.ok and "one line" in result.text and desktop.writes == [] and owner.asked == []
+    assert not result.ok and "one command at a time" in result.text and desktop.writes == [] and owner.asked == []
 
 
 async def test_several_lines_into_vs_code_say_each_line_may_run() -> None:
@@ -102,8 +145,8 @@ async def test_several_lines_into_vs_code_say_each_line_may_run() -> None:
     host, desktop, owner, _ = make(FakeApp("Code.exe", "edit", route="keys"))
     assert (await host.call("desktop_write", {"text": "one\ntwo"})).ok
     [(title, detail, tool, _)] = owner.asked
-    assert tool == "desktop_write_terminal" and "2 lines" in title and detail == "one\ntwo"
-    assert [t for _, t in desktop.writes] == ["one", "two"]
+    assert tool == "desktop_write_terminal" and "2 lines" in title and "won't press Enter" in title
+    assert detail == "one\ntwo" and [t for _, t in desktop.writes] == ["one", "two"] and desktop.ran == []
 
 
 async def _bring(desktop, app) -> None:  # type: ignore[no-untyped-def]

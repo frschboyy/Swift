@@ -26,8 +26,9 @@ question (``intake.approves``: typing never answers it), so a web page, a docume
 can't make Swift type into the app in front by itself. A workflow's manifest already decides whether
 it writes. A terminal (or VS Code, whose terminal Swift can't tell from its editor: OCT-01) always
 gets its own card showing every character it would type (level 3): a line typed there runs. Only that
-card types into a terminal (``desktop.writer(terminal=True)``), one line and no Enter: a line break is
-Shift+Enter, which cmd and bash run, so several lines into a terminal are refused before any card.
+card types into a terminal (``desktop.writer(terminal=True)``): one command, typed and then run with Enter
+(the owner's decision of 2026-11-15) if the same window is still in front; several lines are refused, since
+each would run. VS Code's card types only, never Enter: Swift can't tell its terminal from its editor.
 
 **A web address** (owner checks 2026-11-13, C3): ``desktop_open(url=…)`` opens it in the owner's
 default browser only when the address, or its site, is in the owner's own words for this request
@@ -187,7 +188,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         if not (where == "focus" and is_terminal(before.exe)) and (
                 refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}?", text)):
             return refused
-    terminal, front, window = False, "", (0, "")
+    terminal, runs, front, window = False, False, "", (0, "")
     if where == "focus":
         context = await desktop.context()
         if not context.hwnd:
@@ -197,13 +198,13 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         if context.password:
             return ToolResult(False, "That's a password field: Swift never types there.")
         terminal, front, window = is_terminal(context.exe), context.app, _window(context)
+        runs = context.exe.lower() in TERMINALS  # a real terminal: Swift types the line and presses Enter
         if asked_in is not None and asked_in != window:
             return ToolResult(False, "The app in front changed after Swift asked. Nothing was written.")
     chunks = paragraphs(text)
-    if terminal and len(chunks) > 1 and context.exe.lower() in TERMINALS:
-        # A line break is Shift+Enter (A-01), and cmd or bash runs the line on it: the card couldn't say which run.
-        return ToolResult(False, f"Swift types one line at a time into {front}, never a line break, so nothing was "
-                          "written. Ask the owner which single line to type.")
+    if runs and len(chunks) > 1:  # each line would run: the card runs one command
+        return ToolResult(False, f"Swift runs one command at a time in {front}, so nothing was typed. Ask the owner "
+                          "which single command to run.")
     n = next(scope.ids)
     digest = hashlib.sha256(f"{n}\n{where}\n{text}".encode()).hexdigest()
     report: dict[str, Any] = {"written": 0, "of": len(chunks), "stopped": None, "app": ""}
@@ -246,7 +247,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                     await asyncio.sleep(0)  # Esc (the run cancelled) stops here, between paragraphs
             finally:
                 host.live_write = None
-                host.last_write = await writer.finish()
+                # A command that ran can't be undone, and Ctrl+Z in a terminal isn't undo.
+                host.last_write = None if runs else await writer.finish()
                 host.last_write_at = time.monotonic()
                 host.last_write_scope = scope
             return f"{writer.route}:{report['written']}"
@@ -255,8 +257,11 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         # A terminal: its own card with every character it types (level 3, foundation decision 6).
         tool="desktop_write_terminal" if terminal else "desktop_write",
         targets=(),
-        title=(f"Type these {len(chunks)} lines into {front}? In a terminal each line runs as a command."
-               if len(chunks) > 1 else f"Type this into {front}? A line typed there runs as a command.") if terminal
+        title=f"Run this in {front}? Swift types it and presses Enter." if runs
+        # VS Code: its editor or its terminal, Swift can't tell (OCT-01), so it types only; the owner presses Enter.
+        else (f"Type these {len(chunks)} lines into {front}? Swift won't press Enter; in its terminal each line may run."
+              if len(chunks) > 1 else f"Type this into {front}? Swift won't press Enter; in its terminal a line typed "
+              "there may run.") if terminal
         else f"Write into {'Word' if where == 'word' else 'the app in front'}",
         detail=text if terminal else f"{len(chunks)} paragraphs",
         artifact_id=None,
@@ -272,6 +277,9 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return ToolResult(False, f"Stopped after {written} of {report['of']} paragraphs in {app}: {report['stopped']}. "
                           "Don't write the rest or try another way; tell the owner how far it got.",
                           {"written": written})
+    if runs:
+        return ToolResult(True, f"Ran the command in {app}. It can't be undone from Swift.",
+                          {"written": written, "route": outcome.receipt.split(":", 1)[0]})
     return ToolResult(True, f"Wrote {written} paragraphs into {app}. The owner can say “undo that”.",
                       {"written": written, "route": outcome.receipt.split(":", 1)[0]})
 

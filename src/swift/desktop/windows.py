@@ -44,7 +44,7 @@ from loguru import logger
 from swift.desktop import gmail_fill
 from swift.desktop.base import (
     APP_NAMES, BROWSERS, TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt,
-    app_name,
+    app_name, unrun_message,
 )
 
 T = TypeVar("T")
@@ -642,14 +642,24 @@ class _KeyWriter(_Writer):
 
     def _write(self, text: str, last: bool) -> None:
         text += "" if last else "\n"
-        if self.terminal and "\n" in text:  # Shift+Enter runs the line in cmd and bash: the card showed one line
-            raise DesktopError("Swift types one line into a terminal, never a line break.", "", reason="terminal_line_break")
+        if self.terminal:
+            self._run_command(text)
+            return
         if self.route == "keys":
             _type(text)
             return
         _set_clipboard(text.replace("\n", "\r\n"))
         _chord(VK_CONTROL, ord("V"))
         time.sleep(PASTE_SETTLE_S)
+
+    def _run_command(self, text: str) -> None:
+        """A terminal's approved card: type its one line, then, if the same window is still in front, press Enter."""
+        if "\n" in text:  # each line would run; the card ran one command
+            raise DesktopError("Swift runs one command at a time in a terminal.", "", reason="terminal_line_break")
+        _type(text)
+        if (why := self._changed()) is not None:
+            raise DesktopError(unrun_message(self.app, why), "", reason="terminal_changed_before_enter")
+        _send([_key(VK_RETURN), _key(VK_RETURN, True)])
 
     def _changed(self) -> str | None:
         if _foreground() != self.hwnd:
@@ -786,7 +796,7 @@ class WindowsDesktop:
         exe = context.exe.lower()
         if context.private or context.password or (exe in TERMINALS and not terminal):
             raise DesktopError(f"Swift doesn't write in {context.app} there.", "", reason="not_writable_there")
-        if exe in TERMINALS:  # approved on its own card: keystrokes, exactly the characters it showed, no paste
+        if exe in TERMINALS:  # approved on its own card: keystrokes, exactly the line it showed, then Enter; no paste
             tid, _, _ = _process(context.hwnd)
             return _KeyWriter(self, context.app, context.hwnd, _focus(tid), None, False, terminal=True)
         if exe == "winword.exe":

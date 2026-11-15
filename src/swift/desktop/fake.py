@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from swift.desktop.base import (
-    TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name,
+    TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name, unrun_message,
 )
 
 
@@ -35,14 +35,19 @@ class FakeWriter:
             app.selected = ""
 
     async def write(self, text: str, last: bool) -> None:
-        if self.terminal and ("\n" in text or not last):  # windows.py's rule: one line, no line break
-            raise DesktopError("Swift types one line into a terminal, never a line break.", "", reason="terminal_line_break")
+        if self.terminal and ("\n" in text or not last):  # windows.py's rule: one command, no line break
+            raise DesktopError("Swift runs one command at a time in a terminal.", "", reason="terminal_line_break")
         self.desktop.writes.append((self.app, text))
         self.target.text += text + ("" if last else "\n")
         self.chunks += 1
         self.chars += len(text)
         if self.desktop.on_write is not None:
             await self.desktop.on_write(self.chunks)
+        if self.terminal:  # windows.py's rule: the same window still in front right before Enter
+            if (why := await self.changed()) is not None:
+                raise DesktopError(unrun_message(self.app, why), "", reason="terminal_changed_before_enter")
+            self.target.text += "\n"
+            self.desktop.ran.append((self.app, text))
 
     async def changed(self) -> str | None:
         if self.desktop.front is not self.target and self.route != "object_model":
@@ -62,6 +67,7 @@ class FakeDesktop:
         self.word = FakeApp("WINWORD.EXE", route="object_model")
         self.never_read = never_read or NeverRead()
         self.writes: list[tuple[str, str]] = []
+        self.ran: list[tuple[str, str]] = []  # commands Enter was pressed for, in a terminal
         self.opened: list[str] = []
         self.shown: list[WriteReceipt] = []
         self.filled: list[tuple[str, list[str], str, str]] = []

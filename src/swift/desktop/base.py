@@ -88,6 +88,11 @@ def app_name(exe: str) -> str:
     return APP_NAMES.get(exe.lower(), exe.rsplit(".", 1)[0].title() if exe else "")
 
 
+def unrun_message(app: str, why: str) -> str:
+    """A command typed into a terminal whose window changed before Enter: typed, left unrun."""
+    return f"Typed the command in {app} but didn't press Enter ({why}), so it didn't run."
+
+
 @dataclass(frozen=True)
 class DesktopContext:
     """Where the owner is, at the moment they spoke. No text, no title."""
@@ -171,7 +176,8 @@ class Desktop(Protocol):
 
     async def writer(self, where: Where, mode: Mode, new_document: bool = False, terminal: bool = False) -> Writer:
         """Raises ``DesktopError`` when there is nowhere Swift may write. A terminal only with ``terminal``: the
-        write was approved on a terminal's own card. There it types one line and never a line break."""
+        write was approved on a terminal's own card. There it types one command, then presses Enter only if the same
+        window is still in front; a line break is refused."""
         ...
 
     async def owner_input(self) -> tuple[int, tuple[int, int]]:

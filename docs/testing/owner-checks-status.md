@@ -71,7 +71,7 @@ As of 2026-11-15 at `5878646`. Each number links to its check.
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 120 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 19 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
 - `claude/festive-colden-b068a2`: changes code behind 55 checks here (10, 18, 38, 39, 49, 50, 51, 58, 63, 64, 65, 66, …).
-- `claude/sharp-heisenberg-e41ff2`: adds checks sharp-heisenberg-e41ff2-1; changes code behind 171 checks here (2, 2b, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, …).
+- `claude/sharp-heisenberg-e41ff2`: changes code behind 171 checks here (2, 2b, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, …).
 
 **Next free check number: 399** (counted across `main` and every open branch; `plan.py --renumber` gives it to a branch's first provisional check when the branch merges).
 

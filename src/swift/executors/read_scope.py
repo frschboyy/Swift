@@ -23,7 +23,7 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from typing import Any, Literal
 
 READ_TOOLS = frozenset({"Read", "Glob", "Grep"})
@@ -158,6 +158,22 @@ class ReadScope:
         if any(_inside(n, target) and n != target for n in self.never):
             return "ask"
         return "read" if any(_inside(target, d) for d in self.read_dirs) else "ask"
+
+    def key(self, path: str) -> str:
+        """A resolved, case-normalized path, for matching a prior read approval."""
+        return _norm(path)
+
+    def permits_preview(self, path: str, approved: Collection[str]) -> bool:
+        """A preview may reuse an in-scope read or the exact path approved for this run; secrets stay refused."""
+        verdict = self.verdict(path)
+        if verdict == "read":
+            return True
+        if verdict == "never":
+            return False
+        try:
+            return self.key(path) in approved
+        except OSError:
+            return False
 
 
 # One name of each never-read kind, and ordinary names that a wide search takes in as well.

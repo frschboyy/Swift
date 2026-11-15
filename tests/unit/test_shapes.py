@@ -194,3 +194,27 @@ def test_a_mind_map_is_kept_as_sent_and_sized_by_swift() -> None:
 def test_a_mind_map_out_of_shape_is_refused_whole(change: dict[str, Any]) -> None:
     shape, problems = shapes.check(PARTY | change)
     assert shape is None and problems
+
+
+def test_a_preview_is_a_supported_local_document_and_swift_sets_its_frame() -> None:
+    from swift.previews import PreparedPreview
+
+    shape, problems = shapes.check({"shape": "preview", "path": r"C:\Users\owner\Documents\brief.pdf"})
+    assert problems == [] and shape == {"shape": "preview", "path": r"C:\Users\owner\Documents\brief.pdf"}
+    preview = PreparedPreview(r"C:\Users\owner\Documents\brief.pdf", "brief.pdf", "pdf", "cG5n", 4)
+    details = shapes.details(shape, preview=preview)
+    assert details == {
+        "kind": "preview", "path": preview.path, "title": "brief.pdf", "file_type": "pdf",
+        "thumbnail": "cG5n", "pages": 4, "excerpt": None, "by": "swift", "size": "card",
+    }
+
+
+@pytest.mark.parametrize("path", [
+    "https://example.test/brief.pdf",
+    r"C:\Users\owner\Documents\notes.txt",
+    "brief.pdf\u202e",
+    "",
+])
+def test_a_preview_refuses_nonlocal_unsupported_or_hidden_paths(path: str) -> None:
+    shape, problems = shapes.check({"shape": "preview", "path": path})
+    assert shape is None and problems

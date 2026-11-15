@@ -123,6 +123,14 @@ export function detailsText(details: ResultDetails | null | undefined): string {
       walk(details.children, 1);
       return [details.title, ...lines, details.text].filter(Boolean).join("\n");
     }
+    case "preview":
+      return [
+        details.title,
+        details.file_type.toUpperCase(),
+        details.pages ? `${details.pages} pages` : "",
+        details.excerpt,
+        details.text,
+      ].filter(Boolean).join("\n");
   }
 }
 

@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
-import type { Compare, Diagram, Idea, MindMap, ResultDetails } from "./protocol";
+import type { Compare, Diagram, Idea, MindMap, Preview, ResultDetails } from "./protocol";
 
 export { detailsText } from "./answer";
 
@@ -96,6 +96,31 @@ export function mindmapBlock(m: MindMap, full: boolean): HTMLElement {
     ...(m.text ? renderBlocks(m.text) : []));
 }
 
+/** A PDF image or an Office text excerpt, both made locally from a file the worker was allowed to read. */
+export function previewBlock(p: Preview, full: boolean): HTMLElement {
+  const open = el("button", { class: "btn btn--ghost", title: `Open ${p.title}` }, "Open");
+  open.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      await invoke("open_preview", { path: p.path });
+      open.textContent = "Opened";
+    } catch {
+      open.textContent = "Couldn't open";
+    }
+    window.setTimeout(() => { open.textContent = "Open"; }, 1600);
+  });
+  return el("div", { class: `preview-block${full ? " preview-block--full" : ""}` },
+    el("span", { class: "confirm-purpose-by" }, "Preview made by Swift from this document"),
+    el("p", { class: "preview-title" }, p.title),
+    el("p", { class: "preview-meta" }, p.file_type.toUpperCase(), p.pages ? ` · ${p.pages} pages` : ""),
+    p.thumbnail
+      ? el("img", { class: "preview-thumbnail", src: `data:image/png;base64,${p.thumbnail}`, alt: `First page of ${p.title}` })
+      : null,
+    p.excerpt ? el("p", { class: "preview-excerpt" }, p.excerpt) : null,
+    p.text ? el("p", { class: "answer-more" }, p.text) : null,
+    open);
+}
+
 const count = (ideas: Idea[]): number => ideas.reduce((n, i) => n + 1 + count(i.children), 0);
 
 /** Paragraphs and lists with their marks, as elements (text only, never HTML). */
@@ -145,6 +170,8 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
       return diagramBlock(details, full);
     case "mindmap":
       return mindmapBlock(details, full);
+    case "preview":
+      return previewBlock(details, full);
   }
 }
 

@@ -451,6 +451,27 @@ async def test_a_large_mind_map_keeps_its_branches_on_the_done_card() -> None:
     await finish_all(session, agent)
 
 
+async def test_a_document_preview_reaches_the_done_card_without_speaking_its_path() -> None:
+    """B4, preview: Swift's generated excerpt reaches the card, but the file path stays out of its words."""
+    from swift.previews import PreparedPreview
+
+    path = r"C:\Users\owner\Documents\brief.docx"
+    shape, problems = shapes.check({"shape": "preview", "path": path})
+    assert not problems and shape is not None
+    preview = PreparedPreview(path, "brief.docx", "docx", excerpt="The project starts with a short summary.")
+
+    session, out, agent, stt, _control, _sched = _lane()
+    agent.details = shapes.details(shape, preview=preview)
+    run = await started(session, out, agent, stt, "Hey Swift, show me a preview of the brief")
+    agent.runs[run]["go"].set()
+    await until(lambda: out.last("result"))
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerKind"] == "preview"
+    assert "brief.docx" in screen["answerText"] and "short summary" in screen["answerText"]
+    assert path not in screen["answerText"]
+    await finish_all(session, agent)
+
+
 # ---- what must keep working ---------------------------------------------------------------------
 
 

@@ -756,6 +756,27 @@ async fn open_link(url: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Open a document only after the owner presses Open on its preview.
+#[tauri::command]
+async fn open_preview(path: String) -> Result<(), String> {
+    let path = std::path::Path::new(&path).canonicalize().map_err(|_| "file unavailable")?;
+    if !path.is_file() || !preview_extension(&path) {
+        return Err("unsupported preview file".into());
+    }
+    std::process::Command::new("rundll32.exe")
+        .args(["url.dll,FileProtocolHandler"])
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| "couldn't open preview".into())
+}
+
+fn preview_extension(path: &std::path::Path) -> bool {
+    path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| {
+        ["pdf", "docx", "pptx", "xlsx"].iter().any(|supported| ext.eq_ignore_ascii_case(supported))
+    })
+}
+
 /// "Open logs" on an error card.
 #[tauri::command]
 async fn open_logs() -> Result<(), String> {
@@ -903,6 +924,7 @@ pub fn run() {
             pane_labels,
             copy_text,
             open_link,
+            open_preview,
             open_logs,
             set_status,
             get_theme,
@@ -1023,4 +1045,20 @@ pub fn run() {
             backend::stop(&app.state::<SharedBackend>());
         }
     });
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::preview_extension;
+    use std::path::Path;
+
+    #[test]
+    fn only_vetted_document_types_can_be_opened_from_a_preview() {
+        for path in ["brief.pdf", "brief.DOCX", "slides.pptx", "numbers.xlsx"] {
+            assert!(preview_extension(Path::new(path)), "{path}");
+        }
+        for path in ["notes.txt", "program.exe", "folder"] {
+            assert!(!preview_extension(Path::new(path)), "{path}");
+        }
+    }
 }

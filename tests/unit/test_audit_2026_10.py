@@ -669,3 +669,11 @@ async def test_claude_code_asks_before_reading_elsewhere_and_never_reads_secrets
     await ex.reply(card.request_id, False)
     declined = await asyncio.wait_for(asking, 2)
     assert isinstance(declined, PermissionResultDeny) and not declined.interrupt and run.stopped_by is None
+
+    approved_path = home / "Pictures" / "approved.txt"
+    asking = asyncio.create_task(ex._ask(run, "cc-1", "Read", {"file_path": str(approved_path)}))
+    card = await asyncio.wait_for(run.queue.get(), 2)
+    await ex.reply(card.request_id, True)
+    approved = await asyncio.wait_for(asking, 2)
+    assert isinstance(approved, PermissionResultAllow)
+    assert run.approved_reads == {ex.reads.key(str(approved_path))}

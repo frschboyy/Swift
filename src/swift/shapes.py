@@ -6,17 +6,20 @@ no hidden characters), and anything that fails is refused whole, so the card fal
 overlay draws the frame as data with textContent (``overlay/src/blocks.ts``), never as HTML.
 
 Shapes so far (owner's order, §7.5): ``compare``, ``diagram`` (Mermaid source, drawn by the overlay's pinned
-Mermaid in strict mode) and ``mindmap`` (a small tree of short labels, drawn by Swift's own code). Preview, chart
-and cards are later shapes.
+Mermaid in strict mode), ``mindmap`` (a small tree of short labels, drawn by Swift's own code), and ``preview``
+(a local document path rendered by Swift). Chart and cards are later shapes.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, ValidationError, model_validator
+
+from swift.previews import PreparedPreview
 
 MAX_ITEMS = 4
 MAX_ROWS = 12
@@ -84,6 +87,16 @@ def _mermaid(source: str) -> str:
     return source
 
 
+def _preview_path(path: str) -> str:
+    if any(unicodedata.category(c) in ("Cc", "Cf") for c in path) or path.lower().startswith(
+        ("http://", "https://", "file://")
+    ):
+        raise ValueError("a local path")
+    if os.path.splitext(path)[1].lower() not in {".pdf", ".docx", ".pptx", ".xlsx"}:
+        raise ValueError("a supported document")
+    return path
+
+
 def _statements(source: str) -> list[str]:
     """The source's lines that say something: not blank, not a ``%%`` comment."""
     return [line.strip() for line in source.splitlines() if line.strip() and not line.strip().startswith("%%")]
@@ -146,7 +159,13 @@ class MindMap(_Strict):
         return self
 
 
-MODELS: dict[str, type[_Strict]] = {"compare": Compare, "diagram": Diagram, "mindmap": MindMap}
+class Preview(_Strict):
+    shape: Literal["preview"]
+    path: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32767),
+                    AfterValidator(_preview_path)]
+
+
+MODELS: dict[str, type[_Strict]] = {"compare": Compare, "diagram": Diagram, "mindmap": MindMap, "preview": Preview}
 
 
 # What the tool's input schema says, for the SDK's own check; the backend checks again above.
@@ -167,6 +186,7 @@ SCHEMA: dict[str, Any] = {
             "type": "object", "properties": {"label": {"type": "string", "maxLength": LABEL_MAX},
                                              "children": {"type": "array", "items": {"type": "object"}}},
             "required": ["label"]}},
+        "path": {"type": "string", "minLength": 1, "maxLength": 32767},
     },
     "required": ["shape"],
 }
@@ -179,7 +199,9 @@ DESCRIPTION = (
     "timeline, gantt, quadrantChart, journey; at most 40 lines, plain labels, no click, links, style, classDef or "
     "init directives). Use it when a picture of steps or parts explains the answer. shape 'mindmap': a root "
     "label and its children, each {label, children}, at most 3 levels under the root and 30 ideas, labels up to "
-    "60 characters of plain text. Use it for ideas grouped under a theme. Keep "
+    "60 characters of plain text. Use it for ideas grouped under a theme. shape 'preview': a local path to a "
+    "PDF, DOCX, PPTX or XLSX file the user asked about and you have read; Swift makes the preview from the file. "
+    "Keep "
     "the data out of your final answer: that answer is said aloud, so make it the conclusion in one or two "
     "sentences. Call it at most once, before your final answer; if it's refused, answer in words."
 )
@@ -202,6 +224,8 @@ def check(args: Any) -> tuple[dict[str, Any] | None, list[str]]:
 
 def extent(shape: dict[str, Any]) -> tuple[int, int]:
     """How much a checked shape holds, and how much of that a card shows (the rest opens with Read more)."""
+    if shape["shape"] == "preview":
+        return 1, 1
     if shape["shape"] == "diagram":
         lines = _statements(shape["source"])
         return len(lines), CARD_LINES_TALL if DIAGRAM_KINDS[lines[0].split()[0]] else CARD_LINES
@@ -210,9 +234,18 @@ def extent(shape: dict[str, Any]) -> tuple[int, int]:
     return len(shape["rows"]), CARD_ROWS
 
 
-def details(shape: dict[str, Any], rest: str = "") -> dict[str, Any]:
+def details(shape: dict[str, Any], rest: str = "", preview: PreparedPreview | None = None) -> dict[str, Any]:
     """The result's ``details`` frame: the checked shape, its size and who made it, all set by Swift. ``rest``:
     the answer's words after the spoken summary, kept under the shape so nothing the worker wrote is lost."""
+    if shape["shape"] == "preview":
+        if preview is None:
+            raise ValueError("a preview must be prepared before it is sent to the overlay")
+        size = "expanded" if preview.excerpt and len(preview.excerpt) > 240 else "card"
+        return {
+            "kind": "preview", "path": preview.path, "title": preview.title, "file_type": preview.kind,
+            "thumbnail": preview.thumbnail, "pages": preview.pages, "excerpt": preview.excerpt, "by": "swift",
+            "size": size, **({"text": rest} if rest.strip() else {}),
+        }
     held, fits = extent(shape)
     size = "expanded" if held > fits else "card"
     return {"kind": shape["shape"], **{k: v for k, v in shape.items() if k != "shape"}, "by": "worker", "size": size,

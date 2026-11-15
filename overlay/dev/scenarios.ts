@@ -122,6 +122,32 @@ const PARTY = {
 const PARTY_BIG = { ...PARTY, size: "expanded", children: [
   { label: "Games", children: ["Treasure hunt", "Musical chairs", "Pass the parcel", "Sack race", "Limbo", "Charades"].map((label) => ({ label, children: [] })) },
   ...PARTY.children.slice(1), { label: "Decorations", children: ["Balloons", "Bunting", "Fairy lights"].map((label) => ({ label, children: [] })) }] };
+const samplePdfPage = (): string => {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 720;
+  const g = canvas.getContext("2d");
+  if (!g) return "";
+  g.fillStyle = "#fff";
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = "#334155";
+  g.font = "bold 24px sans-serif";
+  g.fillText("Project brief", 28, 52);
+  g.fillStyle = "#94a3b8";
+  for (let y = 94; y < 680; y += 28) g.fillRect(28, y, y % 3 ? 440 : 300, 2);
+  return canvas.toDataURL("image/png").split(",", 2)[1] ?? "";
+};
+const PDF_PREVIEW = {
+  kind: "preview", path: "C:\\Users\\owner\\Documents\\project-brief.pdf", title: "project-brief.pdf",
+  file_type: "pdf", thumbnail: samplePdfPage(), pages: 8, excerpt: null, by: "swift", size: "card",
+};
+const OFFICE_PREVIEW = {
+  kind: "preview", path: "C:\\Users\\owner\\Documents\\plan.docx", title: "plan.docx", file_type: "docx",
+  thumbnail: null, pages: null,
+  excerpt: "This proposal compares three approaches, summarizes the constraints, and recommends a phased rollout. "
+    .repeat(4),
+  by: "swift", size: "expanded",
+};
 const BROKEN = { kind: "diagram", title: "Half a flow", by: "worker", size: "card", source: "flowchart LR\n  A --> (((", text: "The steps: ask, check, answer." };
 
 const EVENT = {
@@ -240,6 +266,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerDiagramBroken: async (s) => { await answer(s, "Draw the request steps", "Three steps.", BROKEN); },
   answerMindmap: async (s) => { await answer(s, "Make me a mind map of party ideas", "Four areas: games, food, invites and music.", PARTY); },
   answerMindmapLong: async (s) => { await answer(s, "Make me a bigger mind map of party ideas", "Five areas, with decorations.", PARTY_BIG); },
+  answerPdfPreview: async (s) => { await answer(s, "Preview this PDF", "The first page is a project summary.", PDF_PREVIEW); },
+  answerOfficePreview: async (s) => { await answer(s, "Preview this Word document", "It opens with the rollout proposal.", OFFICE_PREVIEW); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   answerLongOpen: async (s) => {

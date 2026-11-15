@@ -362,12 +362,26 @@ scaling, forced colours and reduced motion.
   screens instead of clipping it. The owner checks for this slice are still pending. The licence check §4 mentions
   doesn't exist yet, so nothing checks Mermaid's licence automatically.
 
+**Slice 3, document previews (2026-11-15, branch `claude/b4-diagram-902ffc`):**
+- `preview`: a local PDF, DOCX, PPTX or XLSX path. Swift permits a preview only inside the run's read scope or after
+  that exact file was approved through `Read`; secret paths remain refused.
+- PDF: `Windows.Data.Pdf` renders the first page in the packaged `pdf_page.ps1` helper. Swift resizes the PNG to at
+  most 512×720 pixels, caps it at 1 MB, and gives rendering 15 seconds. The helper is included in the wheel.
+- Office files use only Python's standard-library ZIP/XML support: Word's document text, the first PowerPoint slide
+  in presentation order, or the first Excel worksheet in workbook order (including shared and inline cell text).
+  Parts are bounded; DTD/entity declarations, NUL-containing XML and archives with over 10,000 entries are refused.
+  Excerpts are capped at 600 characters; there is no new dependency.
+- The result shows the PDF thumbnail or Office excerpt, filename and an explicit **Open** button. The file path is
+  not copied or read aloud; the Tauri command canonicalizes it and accepts only the four supported extensions.
+- Verified with synthetic PDF/OOXML fixtures, the overlay tests and production build, Rust tests, and a wheel
+  inspection. The dev harness showed the PDF image/page count and the Office excerpt with **Open** and **Read more**.
+  No personal documents were opened. Owner checks b4-diagram-902ffc-4 and -5 are pending.
+
 
 - Each shape: a seam scenario that fails with it undone, owner checks numbered from "Next free check number", their
   ledger lines, and report lines.
 - Routing parity unchanged: the routing doesn't move.
-- Next: the document preview, then charts and project cards, in the owner's decided order.
-- Preview: decide where `Windows.Data.Pdf` is called from (§9). The spike scripts are in `spikes/b4_previews/`.
+- Next: charts and project cards, in the owner's decided order.
 - An ADR for the shipped renderer list and the `show_result` contract.
 
 ## 9. The two checks before approval (2026-11-13, on the owner's PC)

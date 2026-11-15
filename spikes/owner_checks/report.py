@@ -614,6 +614,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
          "check on screen: the branches, Read more on the larger map, and Copy in Notepad"),
         ("b4-diagram-902ffc-3 every mind-map branch appeared before deeper ideas", LOOK,
          "check on screen: all five branches before game ideas; scroll the preview if needed; Read more and Copy include all ideas"),
+        ("b4-diagram-902ffc-4 a PDF preview showed its first page", LOOK,
+         "check on screen: the PDF's first-page image, page count, and Open"),
+        ("b4-diagram-902ffc-5 Word, PowerPoint and Excel previews showed document text", LOOK,
+         "check on screen: the right content from all three formats and Open"),
         *_real_pc(),
         *_runs(rows, runs_dir),
     ]

@@ -63,7 +63,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift import clock, shapes
+from swift import clock, previews, shapes
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
@@ -283,6 +283,8 @@ class _Run:
     grant_counts: dict[str, int] = field(default_factory=lambda: {"steps": 0, "covered": 0, "asked_again": 0})
     # B4: the result's shape as Swift checked it (show_result), drawn only on a Done answer.
     shape: dict[str, Any] | None = None
+    preview: previews.PreparedPreview | None = None
+    approved_reads: set[str] = field(default_factory=set)
     # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
     step_bound: dict[str, Bound] = field(default_factory=dict)
 
@@ -573,7 +575,14 @@ class ClaudeCodeExecutor:
         @tool("show_result", shapes.DESCRIPTION, shapes.SCHEMA)
         async def show_result(args: dict[str, Any]) -> dict[str, Any]:
             run, _run_id = current()
-            return {"content": [{"type": "text", "text": _show_result(run, args)}]}
+            run.shape = None
+            run.preview = None
+            shape, problems = shapes.check(args)
+            if shape is None:
+                text = _refused_shape(problems)
+            else:
+                text = await _show_checked_shape(run, shape, self.reads, self.cwd)
+            return {"content": [{"type": "text", "text": text}]}
 
         sdk_tools.append(show_result)
         if self.tools is not None:
@@ -789,6 +798,8 @@ class ClaudeCodeExecutor:
         if decision == "approve":
             if not self.gateway.allow(bound, name, args):
                 return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
+            if name == "Read":
+                run.approved_reads.add(self.reads.key(path))
             return PermissionResultAllow(updated_input=args)
         return PermissionResultDeny(message=READ_DECLINED_MESSAGE.format(path=path), interrupt=False)
 
@@ -1023,7 +1034,9 @@ class ClaudeCodeExecutor:
             return ExecResult("rejected", f"{why}: {title}. Swift stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
             if outcome.status == "done" and getattr(run, "shape", None) is not None:  # B4: shapes on Done answers only (§7.6)
-                return ExecResult("done", outcome.summary, shapes.details(run.shape, _words(outcome.details)), meta)
+                return ExecResult(
+                    "done", outcome.summary, shapes.details(run.shape, _words(outcome.details), getattr(run, "preview", None)), meta
+                )
             status = "done" if outcome.status == "done" else "error"
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
@@ -1042,11 +1055,43 @@ def _show_result(run: _Run, args: Any) -> str:
     """B4: the worker's proposed shape, checked by Swift (swift/shapes.py). Refused, the answer stays words."""
     shape, problems = shapes.check(args)
     if shape is None:
-        logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
-        return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))
+        run.shape = None
+        run.preview = None
+        return _refused_shape(problems)
+    if shape["shape"] == "preview":
+        return "Swift must prepare a document preview before it can show it. Answer in words instead."
+    return _accepted_shape(run, shape)
+
+
+def _refused_shape(problems: list[str]) -> str:
+    logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
+    return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))
+
+
+def _accepted_shape(
+    run: _Run, shape: dict[str, Any], preview: previews.PreparedPreview | None = None
+) -> str:
     run.shape = shape
+    run.preview = preview
     logger.info("result shape", shape=shape["shape"], held=shapes.extent(shape)[0])
     return SHAPE_SHOWN_MESSAGE
+
+
+async def _show_checked_shape(run: _Run, shape: dict[str, Any], reads: ReadScope, cwd: str | None) -> str:
+    run.shape = None
+    run.preview = None
+    if shape["shape"] != "preview":
+        return _accepted_shape(run, shape)
+    path = target_path("Read", {"file_path": shape["path"]}, cwd)
+    if not reads.permits_preview(path, run.approved_reads):
+        logger.info("document preview refused", reason="outside_read_scope")
+        return "Swift can preview only a file this run is allowed to read. Answer in words instead."
+    try:
+        preview = await previews.prepare(reads.key(path))
+    except previews.PreviewError as exc:
+        logger.info("document preview unavailable", reason=exc.reason)
+        return "Swift couldn't prepare that document preview. Answer in words instead."
+    return _accepted_shape(run, shape, preview)
 
 
 def _words(details: dict[str, Any] | None) -> str:

@@ -2780,6 +2780,29 @@ map can scroll. Read more shows the whole map, and Copy includes every idea. If 
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+### Document previews (B4, 2026-11-15)
+
+About 5 minutes. Use files in Documents or Downloads that you're comfortable seeing on screen. Nothing is sent.
+
+<a id="check-b4-diagram-902ffc-4"></a>**Check b4-diagram-902ffc-4. A PDF preview shows its first page**
+1. Ask Swift to preview a PDF in Documents or Downloads.
+2. Look at the card, then press **Open**.
+
+You should see a thumbnail of the PDF's first page, its file name and page count. The button opens that same file
+in its usual app. The path is not shown in the answer. If the preview is missing or **Open** fails, say so.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
+<a id="check-b4-diagram-902ffc-5"></a>**Check b4-diagram-902ffc-5. Word, PowerPoint and Excel previews show document text**
+1. Ask Swift to preview a DOCX, then a PPTX, then an XLSX file in Documents or Downloads.
+2. Check that the DOCX shows its text, the PPTX shows the first slide's text, and the XLSX shows the first worksheet's text.
+3. Press **Open** on one preview.
+
+You should see readable text, not XML or formatting markup, and each **Open** button opens its named file. The path is
+not shown in the answer. If one format has no text or shows the wrong content, say which one.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

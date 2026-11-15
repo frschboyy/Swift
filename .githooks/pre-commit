@@ -1,0 +1,19 @@
+#!/bin/sh
+# Swift's pre-commit gate (QA15-01): ruff on the staged Python files, then the fast structural tests.
+# Activate once per PC: git config core.hooksPath .githooks   (docs/testing/strategy.md §3)
+set -e
+cd "$(git rev-parse --show-toplevel)"
+# Every worktree uses the main checkout's venv; SWIFT_PYTHON overrides it.
+main="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)"
+py="${SWIFT_PYTHON:-$main/.venv/Scripts/python.exe}"
+[ -x "$py" ] || py="$main/.venv/bin/python"
+[ -x "$py" ] || { echo "pre-commit: no Python at $main/.venv (set SWIFT_PYTHON)" >&2; exit 1; }
+
+# shortcut: ruff reads the working-tree copy, not the staged one; fine unless a file is partly staged.
+files="$(git diff --cached --name-only --diff-filter=ACMR -- 'src/*.py' 'tests/*.py')"
+if [ -n "$files" ]; then
+    echo "$files" | tr '\n' '\0' | xargs -0 "$py" -m ruff check --quiet
+fi
+
+PYTHONPATH=src "$py" -m pytest -q -p no:cacheprovider --no-header \
+    tests/unit/test_findings_register.py tests/unit/test_structure_ratchet.py tests/unit/test_owner_plan.py

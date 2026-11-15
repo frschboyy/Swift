@@ -618,6 +618,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
          "check on screen: the PDF's first-page image, page count, and Open"),
         ("b4-diagram-902ffc-5 Word, PowerPoint and Excel previews showed document text", LOOK,
          "check on screen: the right content from all three formats and Open"),
+        ("b4-diagram-902ffc-6 bar and line charts showed their data", LOOK,
+         "check on screen: both chart types, labels and values, Read more, and Copy of all categories"),
+        ("b4-diagram-902ffc-7 project cards showed every project and copied their details", LOOK,
+         "check on screen: three cards, Read more for the fourth, and Copy of all titles, details and statuses"),
         *_real_pc(),
         *_runs(rows, runs_dir),
     ]

@@ -162,7 +162,6 @@ All taken from the orchestrator's recommendations:
   labelled as the worker's, never naming the provider ("Worker's pick", not "Claude's pick") (4); shapes one at a
   time: compare, diagram and mind map, preview, chart and cards (5); shapes only on Done results and the reader,
   never on Needs your OK or Waiting for you (6). The first slice, `show_result` and **compare**, is on `main`
-  (check 400). The second, **diagram** (Mermaid's tiny build, lazy, strict) and **mind map** (Swift's own code), is
-  on `claude/b4-diagram-902ffc`; its follow-up visual fixes are in, and check b4-diagram-902ffc-3 is pending the
-  owner's real-PC run. The third, **document preview**, is also in that branch; automated checks pass, and checks
-  b4-diagram-902ffc-4 and -5 are pending the owner's real-PC run. Next are chart and cards.
+  (check 400). **Diagrams** (Mermaid's tiny build, lazy, strict), **mind maps** (Swift's own code), **document
+  previews**, **charts**, and **project cards** are implemented on `claude/b4-diagram-902ffc`; automated checks pass.
+  Owner checks b4-diagram-902ffc-3 through -7 are pending the owner's real-PC run.

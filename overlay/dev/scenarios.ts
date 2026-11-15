@@ -148,6 +148,30 @@ const OFFICE_PREVIEW = {
     .repeat(4),
   by: "swift", size: "expanded",
 };
+const CHART = {
+  kind: "chart", title: "Quarterly active users", type: "bar", x: ["Q1", "Q2", "Q3", "Q4"],
+  series: [{ name: "North", values: [12, 18, 15, 21] }, { name: "South", values: [9, 14, 17, 16] }],
+  unit: "thousands", by: "worker", size: "card",
+};
+const CHART_LONG = {
+  ...CHART, title: "Weekly active users", type: "line", size: "expanded",
+  x: ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5", "Week 6", "Week 7", "Week 8"],
+  series: [{ name: "North", values: [10, 12, 11, 15, 16, 15, 19, 21] },
+    { name: "South", values: [8, 9, 13, 12, 14, 15, 15, 18] }],
+};
+const PROJECTS = {
+  kind: "cards", title: "Current projects", by: "worker", size: "card",
+  cards: [
+    { title: "Website refresh", detail: "Update the homepage and simplify navigation.", meta: "Planning" },
+    { title: "Data migration", detail: "Move the archive to the new storage service.", meta: "In progress" },
+    { title: "Mobile app", detail: "Improve offline access and startup time.", meta: "Next quarter" },
+  ],
+};
+const PROJECTS_LONG = {
+  ...PROJECTS, size: "expanded",
+  cards: [...PROJECTS.cards, { title: "Reporting", detail: "Combine project metrics in one dashboard.", meta: "Discovery" },
+    { title: "Support portal", detail: "Make the help articles easier to find.", meta: "Planned" }],
+};
 const BROKEN = { kind: "diagram", title: "Half a flow", by: "worker", size: "card", source: "flowchart LR\n  A --> (((", text: "The steps: ask, check, answer." };
 
 const EVENT = {
@@ -268,6 +292,10 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerMindmapLong: async (s) => { await answer(s, "Make me a bigger mind map of party ideas", "Five areas, with decorations.", PARTY_BIG); },
   answerPdfPreview: async (s) => { await answer(s, "Preview this PDF", "The first page is a project summary.", PDF_PREVIEW); },
   answerOfficePreview: async (s) => { await answer(s, "Preview this Word document", "It opens with the rollout proposal.", OFFICE_PREVIEW); },
+  answerChart: async (s) => { await answer(s, "Show quarterly active users", "Activity grew in the north and south.", CHART); },
+  answerChartLong: async (s) => { await answer(s, "Show weekly active users", "The trend rises overall.", CHART_LONG); },
+  answerProjects: async (s) => { await answer(s, "List my current projects", "Three active projects.", PROJECTS); },
+  answerProjectsLong: async (s) => { await answer(s, "List all my current projects", "Five projects are in progress.", PROJECTS_LONG); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   answerLongOpen: async (s) => {

@@ -27,6 +27,10 @@
   --warn-text: #f5c26b;
   --warn-soft: rgba(245, 194, 107, 0.16);
   --warn-halo: rgba(245, 194, 107, 0.18);
+  --chart-1: #f2f3f6;
+  --chart-2: #c3c6d0;
+  --chart-3: #a0a4b0;
+  --chart-4: #858b99;
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.28);
   --spin-track: rgba(138, 180, 255, 0.25);
   --scrollbar: rgba(255, 255, 255, 0.25);
@@ -55,6 +59,10 @@
   --warn-text: #875800;
   --warn-soft: rgba(242, 179, 61, 0.22);
   --warn-halo: rgba(242, 179, 61, 0.25);
+  --chart-1: #15171c;
+  --chart-2: #3e4552;
+  --chart-3: #586172;
+  --chart-4: #747e90;
   --shadow: 0 18px 48px rgba(20, 30, 50, 0.18), 0 2px 8px rgba(20, 30, 50, 0.1);
   --spin-track: rgba(35, 87, 201, 0.22);
   --scrollbar: rgba(0, 0, 0, 0.25);
@@ -520,6 +528,39 @@ code {
 .mind-l3 { padding-left: 14px; }
 .mind-l3 .mind-node { color: var(--muted); padding: 0 6px; }
 .section-title { margin: 12px 0 0; color: var(--muted); font-size: 13px; font-weight: 600; }
+/* B4: charts use neutral tones and distinct line patterns, never Swift's accent or status colours. */
+.chart-block { margin-top: 10px; }
+.chart-title { margin: 4px 0 0; font-weight: 600; }
+.chart-unit { margin: 0; color: var(--faint); font-size: 13px; }
+.chart-plot { display: block; width: 100%; height: auto; margin: 6px 0 0; overflow: visible; }
+.chart-grid { stroke: var(--panel-edge); stroke-width: 1; }
+.chart-axis-label { fill: var(--faint); font: 12px var(--font-text); }
+.chart-series-0 { --chart-color: var(--chart-1); }
+.chart-series-1 { --chart-color: var(--chart-2); }
+.chart-series-2 { --chart-color: var(--chart-3); }
+.chart-series-3 { --chart-color: var(--chart-4); }
+.chart-bar { fill: var(--chart-color); opacity: .8; }
+.chart-line { fill: none; stroke: var(--chart-color); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart-series-1.chart-line { stroke-dasharray: 6 3; }
+.chart-series-2.chart-line { stroke-dasharray: 2 3; }
+.chart-series-3.chart-line { stroke-dasharray: 8 2 2 2; }
+.chart-point { fill: var(--panel-solid); stroke: var(--chart-color); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; list-style: none; margin: 4px 0 0; padding: 0; color: var(--muted); font-size: 12px; }
+.chart-legend li { display: inline-flex; align-items: center; gap: 5px; overflow-wrap: anywhere; }
+.chart-legend-swatch { display: inline-block; flex: 0 0 auto; width: 10px; height: 10px; background: var(--chart-color); }
+.chart-legend-swatch--line { width: 16px; height: 2px; background: var(--chart-color); }
+.chart-series-1.chart-legend-swatch--line { background: repeating-linear-gradient(90deg, var(--chart-color) 0 6px, transparent 6px 9px); }
+.chart-series-2.chart-legend-swatch--line { background: repeating-linear-gradient(90deg, var(--chart-color) 0 2px, transparent 2px 5px); }
+.chart-series-3.chart-legend-swatch--line { background: repeating-linear-gradient(90deg, var(--chart-color) 0 8px, transparent 8px 10px, var(--chart-color) 10px 12px, transparent 12px 14px); }
+/* B4: a compact, read-only project overview; the cards are the worker's data, not a Swift recommendation. */
+.project-cards-block { margin-top: 10px; }
+.project-cards-title { margin: 4px 0 0; font-weight: 600; }
+.project-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; margin-top: 8px; }
+.project-card { min-width: 0; padding: 10px; border: 1px solid var(--panel-edge); border-radius: 12px; background: var(--raise); }
+.project-card > * + * { margin-top: 4px; }
+.project-card-title { margin: 0; color: var(--text); font-size: 14px; line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.project-card-meta { color: var(--faint); font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
+.project-card-detail { color: var(--muted); font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 
 /* a long answer: six lines, faded; open, it grows in place and only its body scrolls */
 .answer--long { max-height: 156px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
@@ -535,6 +576,24 @@ code {
   mask-image: none;
 }
 #stage .answer--long:not(.answer--open):has(> .preview-block) {
+  max-height: calc(min(70vh, 720px) - 150px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+#stage .answer--long:not(.answer--open):has(> .chart-block) {
+  max-height: calc(min(70vh, 720px) - 150px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+#stage .answer--long:not(.answer--open):has(> .project-cards-block) {
   max-height: calc(min(70vh, 720px) - 150px);
   overflow: auto;
   overscroll-behavior: contain;

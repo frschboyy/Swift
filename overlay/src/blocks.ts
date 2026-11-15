@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
-import type { Compare, Diagram, Idea, MindMap, Preview, ResultDetails } from "./protocol";
+import type { Cards, Chart, Compare, Diagram, Idea, MindMap, Preview, ResultDetails } from "./protocol";
 
 export { detailsText } from "./answer";
 
@@ -121,6 +121,141 @@ export function previewBlock(p: Preview, full: boolean): HTMLElement {
     open);
 }
 
+const CHART_BY = "Chart from the worker's data, not checked by Swift";
+const CHART_CARD_POINTS = 6;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svgNode<K extends keyof SVGElementTagNameMap>(
+  tag: K, attributes: Record<string, string> = {}, text?: string,
+): SVGElementTagNameMap[K] {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function chartTickStep(range: number): number {
+  const raw = range / 5 || range;
+  const magnitude = 10 ** Math.max(-323, Math.floor(Math.log10(raw)));
+  const fraction = raw / magnitude;
+  return Math.max(Number.MIN_VALUE, (fraction < 1.5 ? 1 : fraction < 3 ? 2 : fraction < 7 ? 5 : 10) * magnitude);
+}
+
+/** A small accessible SVG chart; the card previews six categories and the reader shows all of them. */
+export function chartBlock(c: Chart, full: boolean): HTMLElement {
+  const shown = full ? c.x.length : Math.min(c.x.length, CHART_CARD_POINTS);
+  const labels = c.x.slice(0, shown);
+  const values = c.series.flatMap((s) => s.values);
+  let low = Math.min(...values);
+  let high = Math.max(...values);
+  if (c.type === "bar") {
+    const padding = high === low ? Math.max(1, Math.abs(low) * 0.1) : (high - low) * 0.08;
+    low = low < 0 ? low - padding : 0;
+    high = high > 0 ? high + padding : 0;
+    if (low === high) {
+      low -= padding;
+      high += padding;
+    }
+  } else {
+    const padding = low === high ? Math.max(1, Math.abs(low) * 0.1) : (high - low) * 0.08;
+    low -= padding;
+    high += padding;
+  }
+  const step = chartTickStep(high - low);
+  if (!(step > 0) || !Number.isFinite(step)) throw new RangeError("chart axis is out of range");
+  low = c.type === "bar" && low === 0 ? 0 : Math.floor(low / step) * step;
+  high = c.type === "bar" && high === 0 ? 0 : Math.ceil(high / step) * step;
+  if (low === high) {
+    low -= step;
+    high += step;
+  }
+
+  const plot = { left: 62, top: 10, width: 402, height: 126 };
+  const y = (value: number): number => plot.top + plot.height * (high - value) / (high - low);
+  const pointX = (index: number): number => plot.left + plot.width * (index + 0.5) / shown;
+  const number = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4, notation: "compact" });
+  const description = c.series.map((s) =>
+    `${s.name}: ${labels.map((label, i) => `${label}, ${number.format(s.values[i])}${c.unit ? ` ${c.unit}` : ""}`).join("; ")}`,
+  ).join(". ");
+  const svg = svgNode("svg", {
+    class: "chart-plot", viewBox: "0 0 480 176", role: "img", "aria-label": description,
+  });
+  svg.append(svgNode("title", {}, c.title ?? `${c.type === "bar" ? "Bar" : "Line"} chart`));
+  svg.append(svgNode("desc", {}, description));
+  const ticks = Math.round((high - low) / step);
+  for (let i = 0; i <= ticks; i++) {
+    const value = high - step * i;
+    const py = y(value);
+    svg.append(
+      svgNode("line", { x1: String(plot.left), y1: String(py), x2: String(plot.left + plot.width), y2: String(py), class: "chart-grid" }),
+      svgNode("text", { x: String(plot.left - 8), y: String(py + 4), "text-anchor": "end", class: "chart-axis-label" }, number.format(value)),
+    );
+  }
+  const groupWidth = plot.width / shown;
+  for (const [i, label] of labels.entries()) {
+    svg.append(svgNode("text", {
+      x: String(pointX(i)), y: String(plot.top + plot.height + 22), "text-anchor": "middle", class: "chart-axis-label",
+    }, label));
+  }
+
+  if (c.type === "bar") {
+    const base = y(0);
+    const slot = groupWidth / c.series.length;
+    const barWidth = Math.min(20, slot * 0.72);
+    c.series.forEach((s, seriesIndex) => s.values.slice(0, shown).forEach((value, i) => {
+      const top = Math.min(base, y(value));
+      svg.append(svgNode("rect", {
+        x: String(plot.left + i * groupWidth + seriesIndex * slot + (slot - barWidth) / 2),
+        y: String(top), width: String(barWidth), height: String(Math.max(1, Math.abs(base - y(value)))),
+        class: `chart-bar chart-series-${seriesIndex}`,
+      }));
+    }));
+  } else {
+    c.series.forEach((s, seriesIndex) => {
+      const points = s.values.slice(0, shown).map((value, i) => `${pointX(i)},${y(value)}`);
+      svg.append(svgNode("polyline", {
+        points: points.join(" "), class: `chart-line chart-series-${seriesIndex}`,
+      }));
+      s.values.slice(0, shown).forEach((value, i) => svg.append(svgNode("circle", {
+        cx: String(pointX(i)), cy: String(y(value)), r: "3.5", class: `chart-point chart-series-${seriesIndex}`,
+      })));
+    });
+  }
+
+  return el("div", { class: `chart-block facts-line--agent${full ? " chart-block--full" : ""}` },
+    el("span", { class: "confirm-purpose-by" }, CHART_BY),
+    c.title ? el("p", { class: "chart-title" }, c.title) : null,
+    c.unit ? el("p", { class: "chart-unit" }, `Unit: ${c.unit}`) : null,
+    svg,
+    el("ul", { class: "chart-legend", "aria-label": "Chart series" },
+      ...c.series.map((s, i) => el("li", {},
+        el("span", { class: `chart-legend-swatch chart-series-${i}${c.type === "line" ? " chart-legend-swatch--line" : ""}`, "aria-hidden": "true" }),
+        el("span", {}, s.name)))),
+    shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Read more shows them)`) : null,
+    ...(c.text ? renderBlocks(c.text) : []));
+}
+
+const PROJECTS_BY = "Project cards from the worker, not checked by Swift";
+const CARD_PROJECTS = 3;
+
+/** A read-only project overview. Larger sets or text-heavy summaries open in the reader. */
+export function cardsBlock(c: Cards, full: boolean): HTMLElement {
+  const shown = full ? c.cards : c.cards.slice(0, CARD_PROJECTS);
+  const hidden = c.cards.length - shown.length;
+  const cards = shown.map((card) =>
+    el("article", { class: "project-card" },
+      el("h4", { class: "project-card-title" }, card.title),
+      card.meta ? el("p", { class: "project-card-meta" }, card.meta) : null,
+      card.detail ? el("p", { class: "project-card-detail" }, card.detail) : null));
+  return el("div", { class: `project-cards-block facts-line--agent${full ? " project-cards-block--full" : ""}` },
+    el("span", { class: "confirm-purpose-by" }, PROJECTS_BY),
+    c.title ? el("p", { class: "project-cards-title" }, c.title) : null,
+    el("div", { class: "project-cards" }, ...cards),
+    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more projects (Read more shows them)`)
+      : !full && c.size === "expanded" ? el("p", { class: "answer-more" }, "Read more shows all project details") : null,
+    ...(c.text ? renderBlocks(c.text) : []));
+}
+
 const count = (ideas: Idea[]): number => ideas.reduce((n, i) => n + 1 + count(i.children), 0);
 
 /** Paragraphs and lists with their marks, as elements (text only, never HTML). */
@@ -172,6 +307,10 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
       return mindmapBlock(details, full);
     case "preview":
       return previewBlock(details, full);
+    case "chart":
+      return chartBlock(details, full);
+    case "cards":
+      return cardsBlock(details, full);
   }
 }
 

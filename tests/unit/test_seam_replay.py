@@ -427,6 +427,64 @@ async def test_a_mind_map_reaches_the_done_card_as_one() -> None:
         await finish_all(session, agent)
 
 
+async def test_a_chart_reaches_the_done_card_as_one() -> None:
+    """B4, chart: checked numeric data reaches the result as a chart; seven categories open in full (owner check
+    b4-diagram-902ffc-6)."""
+    examples = [
+        ({"shape": "chart", "title": "Quarterly sales", "type": "bar", "x": ["Q1", "Q2", "Q3"],
+          "series": [{"name": "North", "values": [12, 18, 15]}, {"name": "South", "values": [9, 14, 17]}],
+          "unit": "units"}, False, "Quarterly sales\nUnit: units\n\tNorth\tSouth\nQ1\t12\t9"),
+        ({"shape": "chart", "type": "line", "x": [f"W{i}" for i in range(1, 8)],
+          "series": [{"name": "North", "values": list(range(10, 17))}]}, True, "\tNorth\nW1\t10"),
+    ]
+    for data, long, text_start in examples:
+        shape, problems = shapes.check(data)
+        assert not problems
+        agent_details = shapes.details(shape, "Totals are preliminary.")
+        session, out, agent, stt, _control, _sched = _lane()
+        agent.details = agent_details
+        run = await started(session, out, agent, stt, "Hey Swift, show the sales trend")
+        agent.runs[run]["go"].set()
+        await until(lambda: out.last("result"))
+        screen = agree(session, out)
+        assert screen["stage"] == "result" and screen["answerKind"] == "chart" and screen["answerLong"] is long
+        assert screen["answerText"].startswith(text_start)
+        assert screen["answerText"].endswith("Totals are preliminary.")
+        await finish_all(session, agent)
+
+
+async def test_project_cards_reach_the_done_card_as_one() -> None:
+    """B4, cards: bounded project summaries reach the result; a fourth project opens in full (owner check
+    b4-diagram-902ffc-7)."""
+    examples = [
+        ({"shape": "cards", "title": "Current projects", "cards": [
+            {"title": "Website refresh", "detail": "Update the homepage.", "meta": "Planning"},
+            {"title": "Data migration", "detail": "Move the archive.", "meta": "In progress"},
+        ]}, False),
+        ({"shape": "cards", "title": "Current projects", "cards": [
+            {"title": "Website refresh", "detail": "Update the homepage.", "meta": "Planning"},
+            {"title": "Data migration", "detail": "Move the archive.", "meta": "In progress"},
+            {"title": "Mobile app", "detail": "Improve offline access."},
+            {"title": "Reporting", "detail": "Combine project metrics."},
+        ]}, True),
+    ]
+    for data, long in examples:
+        shape, problems = shapes.check(data)
+        assert not problems
+        session, out, agent, stt, _control, _sched = _lane()
+        agent.details = shapes.details(shape, "The schedule is preliminary.")
+        run = await started(session, out, agent, stt, "Hey Swift, show my projects")
+        agent.runs[run]["go"].set()
+        await until(lambda: out.last("result"))
+        screen = agree(session, out)
+        assert screen["stage"] == "result" and screen["answerKind"] == "cards" and screen["answerLong"] is long
+        assert screen["answerText"].startswith("Current projects\n- Website refresh\n  Planning\n  Update the homepage.")
+        assert screen["answerText"].endswith("The schedule is preliminary.")
+        if long:
+            assert "- Reporting\n  Combine project metrics." in screen["answerText"]
+        await finish_all(session, agent)
+
+
 async def test_a_large_mind_map_keeps_its_branches_on_the_done_card() -> None:
     """B4, mind map: a deep first branch doesn't replace later branches in the card's preview."""
     children = [

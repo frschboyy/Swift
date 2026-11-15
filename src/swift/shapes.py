@@ -7,7 +7,7 @@ overlay draws the frame as data with textContent (``overlay/src/blocks.ts``), ne
 
 Shapes so far (owner's order, §7.5): ``compare``, ``diagram`` (Mermaid source, drawn by the overlay's pinned
 Mermaid in strict mode), ``mindmap`` (a small tree of short labels, drawn by Swift's own code), and ``preview``
-(a local document path rendered by Swift). Chart and cards are later shapes.
+(a local document path rendered by Swift), ``chart`` (a small bar or line chart), and ``cards`` (project cards).
 """
 
 from __future__ import annotations
@@ -17,7 +17,9 @@ import re
 import unicodedata
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, ValidationError, model_validator
+from pydantic import (
+    AfterValidator, BaseModel, ConfigDict, Field, FiniteFloat, StringConstraints, ValidationError, model_validator,
+)
 
 from swift.previews import PreparedPreview
 
@@ -45,6 +47,18 @@ MAP_DEPTH = 3
 MAP_IDEAS = 30
 # Four branches with twelve ideas fill a card (§6); more opens the answer in full.
 CARD_IDEAS = 12
+# A chart has up to eight categories; six fit in the card, and the rest open in the reader.
+CHART_POINTS = 8
+CARD_CHART_POINTS = 6
+CHART_SERIES = 4
+CHART_LABEL_MAX = 8
+CHART_VALUE_MAX = 1_000_000_000
+PROJECT_CARDS = 8
+CARD_PROJECT_CARDS = 3
+PROJECT_TITLE_MAX = 80
+PROJECT_DETAIL_MAX = 120
+PROJECT_META_MAX = 48
+PROJECT_TEXT_UNITS = 240
 # What Mermaid can be told to do besides draw: clicks, links, callbacks, directives and front matter, styles (the
 # colours are Swift's, and url() fetches), and images or icons on nodes (``A@{ img: ... }``). Refused whole.
 _MERMAID_ACTIVE = re.compile(
@@ -165,7 +179,45 @@ class Preview(_Strict):
                     AfterValidator(_preview_path)]
 
 
-MODELS: dict[str, type[_Strict]] = {"compare": Compare, "diagram": Diagram, "mindmap": MindMap, "preview": Preview}
+class ChartSeries(_Strict):
+    name: _words(40)
+    values: list[FiniteFloat] = Field(min_length=2, max_length=CHART_POINTS)
+
+
+class Chart(_Strict):
+    shape: Literal["chart"]
+    title: _words(TITLE_MAX) | None = None
+    type: Literal["bar", "line"]
+    x: list[_words(CHART_LABEL_MAX)] = Field(min_length=2, max_length=CHART_POINTS)
+    series: list[ChartSeries] = Field(min_length=1, max_length=CHART_SERIES)
+    unit: _words(16) | None = None
+
+    @model_validator(mode="after")
+    def _fits(self) -> Chart:
+        if any(len(s.values) != len(self.x) for s in self.series):
+            raise ValueError("each series needs one value per category")
+        if any(abs(value) > CHART_VALUE_MAX for s in self.series for value in s.values):
+            raise ValueError("chart values are out of range")
+        if len({s.name.casefold() for s in self.series}) != len(self.series):
+            raise ValueError("series names must be distinct")
+        return self
+
+
+class ProjectCard(_Strict):
+    title: _words(PROJECT_TITLE_MAX)
+    detail: _words(PROJECT_DETAIL_MAX) | None = None
+    meta: _words(PROJECT_META_MAX) | None = None
+
+
+class Cards(_Strict):
+    shape: Literal["cards"]
+    title: _words(TITLE_MAX) | None = None
+    cards: list[ProjectCard] = Field(min_length=1, max_length=PROJECT_CARDS)
+
+
+MODELS: dict[str, type[_Strict]] = {
+    "compare": Compare, "diagram": Diagram, "mindmap": MindMap, "preview": Preview, "chart": Chart, "cards": Cards,
+}
 
 
 # What the tool's input schema says, for the SDK's own check; the backend checks again above.
@@ -187,6 +239,23 @@ SCHEMA: dict[str, Any] = {
                                              "children": {"type": "array", "items": {"type": "object"}}},
             "required": ["label"]}},
         "path": {"type": "string", "minLength": 1, "maxLength": 32767},
+        "type": {"type": "string", "enum": ["bar", "line"]},
+        "x": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": CHART_LABEL_MAX},
+              "minItems": 2, "maxItems": CHART_POINTS},
+        "series": {"type": "array", "minItems": 1, "maxItems": CHART_SERIES, "items": {
+            "type": "object", "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 40},
+                "values": {"type": "array", "items": {
+                    "type": "number", "minimum": -CHART_VALUE_MAX, "maximum": CHART_VALUE_MAX,
+                }, "minItems": 2, "maxItems": CHART_POINTS},
+            }, "required": ["name", "values"]}},
+        "unit": {"type": "string", "minLength": 1, "maxLength": 16},
+        "cards": {"type": "array", "minItems": 1, "maxItems": PROJECT_CARDS, "items": {
+            "type": "object", "properties": {
+                "title": {"type": "string", "minLength": 1, "maxLength": PROJECT_TITLE_MAX},
+                "detail": {"type": "string", "minLength": 1, "maxLength": PROJECT_DETAIL_MAX},
+                "meta": {"type": "string", "minLength": 1, "maxLength": PROJECT_META_MAX},
+            }, "required": ["title"]}},
     },
     "required": ["shape"],
 }
@@ -201,6 +270,9 @@ DESCRIPTION = (
     "label and its children, each {label, children}, at most 3 levels under the root and 30 ideas, labels up to "
     "60 characters of plain text. Use it for ideas grouped under a theme. shape 'preview': a local path to a "
     "PDF, DOCX, PPTX or XLSX file the user asked about and you have read; Swift makes the preview from the file. "
+    "shape 'chart': a simple bar or line chart; x has 2-8 short category labels and series has 1-4 named sets "
+    "of finite numbers, one per category. An optional unit labels the values. shape 'cards': 1-8 project cards, "
+    "each with a short title and optional detail and meta. Use cards for a small set of projects, not a long list. "
     "Keep "
     "the data out of your final answer: that answer is said aloud, so make it the conclusion in one or two "
     "sentences. Call it at most once, before your final answer; if it's refused, answer in words."
@@ -231,6 +303,13 @@ def extent(shape: dict[str, Any]) -> tuple[int, int]:
         return len(lines), CARD_LINES_TALL if DIAGRAM_KINDS[lines[0].split()[0]] else CARD_LINES
     if shape["shape"] == "mindmap":
         return _ideas([Idea.model_validate(i) for i in shape["children"]]), CARD_IDEAS
+    if shape["shape"] == "chart":
+        return len(shape["x"]), CARD_CHART_POINTS
+    if shape["shape"] == "cards":
+        text_units = len(shape.get("title", "")) + sum(
+            len(card["title"]) + len(card.get("detail", "")) + len(card.get("meta", "")) for card in shape["cards"]
+        )
+        return len(shape["cards"]) + text_units // PROJECT_TEXT_UNITS, CARD_PROJECT_CARDS
     return len(shape["rows"]), CARD_ROWS
 
 

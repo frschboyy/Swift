@@ -377,11 +377,29 @@ scaling, forced colours and reduced motion.
   inspection. The dev harness showed the PDF image/page count and the Office excerpt with **Open** and **Read more**.
   No personal documents were opened. Owner checks b4-diagram-902ffc-4 and -5 are pending.
 
+**Slice 4a, charts (2026-11-15, branch `claude/b4-diagram-902ffc`):**
+- `chart`: one bar or line chart, with 2–8 short categories and 1–4 named series. Values must be finite and within
+  ±1 billion, with one value per category; the optional unit and title are plain text. The overlay draws the chart
+  from SVG elements created by Swift's own code, never from worker-provided markup.
+- The card shows the first six categories; the reader shows all eight. The chart and series have neutral theme
+  colors, and line series have different dash patterns. Its SVG has a text description; Copy emits a tab-separated
+  table of every category and value, not the SVG or only the visible subset. The worker's data is marked as not
+  checked by Swift.
+- The owner check is b4-diagram-902ffc-6. Project cards followed in slice 4b.
+
+**Slice 4b, project cards (2026-11-15, branch `claude/b4-diagram-902ffc`):**
+- `cards`: 1–8 read-only project summaries, each with a plain-text title (80 characters at most) and optional
+  detail (120) and meta (48). Larger or text-heavy sets are marked expanded by Swift.
+- The card shows up to three projects in a responsive neutral grid; the reader shows all of them. Copy includes
+  every title, detail and meta line. Each card is marked as the worker's data, not a Swift recommendation.
+- The owner check is b4-diagram-902ffc-7. B4 step 4 now has both approved shapes; checks 6 and 7 remain for the
+  owner to run.
+
 
 - Each shape: a seam scenario that fails with it undone, owner checks numbered from "Next free check number", their
   ledger lines, and report lines.
 - Routing parity unchanged: the routing doesn't move.
-- Next: charts and project cards, in the owner's decided order.
+- Charts and project cards (slices 4a and 4b) are implemented; owner checks 6 and 7 remain.
 - An ADR for the shipped renderer list and the `show_result` contract.
 
 ## 9. The two checks before approval (2026-11-13, on the owner's PC)

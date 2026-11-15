@@ -131,6 +131,22 @@ export function detailsText(details: ResultDetails | null | undefined): string {
         details.excerpt,
         details.text,
       ].filter(Boolean).join("\n");
+    case "chart":
+      return [
+        details.title,
+        details.unit ? `Unit: ${details.unit}` : "",
+        ["", ...details.series.map((s) => s.name)].join("\t"),
+        ...details.x.map((category, i) => [category, ...details.series.map((s) => s.values[i])].join("\t")),
+        details.text,
+      ].filter(Boolean).join("\n");
+    case "cards":
+      return [
+        details.title,
+        ...details.cards.map((card) =>
+          [`- ${card.title}`, card.meta ? `  ${card.meta}` : "", card.detail ? `  ${card.detail}` : ""]
+            .filter(Boolean).join("\n")),
+        details.text,
+      ].filter(Boolean).join("\n");
   }
 }
 

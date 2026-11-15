@@ -22,7 +22,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { answerTable, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock } from "./blocks";
+import {
+  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock,
+} from "./blocks";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
@@ -78,6 +80,10 @@ function details(d: ResultDetails | null): HTMLElement | null {
       return mindmapBlock(d, true);
     case "preview":
       return previewBlock(d, true);
+    case "chart":
+      return chartBlock(d, true);
+    case "cards":
+      return cardsBlock(d, true);
   }
 }
 

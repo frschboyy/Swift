@@ -134,6 +134,8 @@ export function needsReader(summary: string, details: ResultDetails | null | und
     case "diagram":
     case "mindmap":
     case "preview":
+    case "chart":
+    case "cards":
       return details.size === "expanded";  // Swift sized it (swift/shapes.py)
   }
 }

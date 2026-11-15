@@ -33,7 +33,9 @@ export type ResultDetails =
   | Compare
   | Diagram
   | MindMap
-  | Preview;
+  | Preview
+  | Chart
+  | Cards;
 
 // B4: options side by side, as the worker proposed them and Swift checked them (swift/shapes.py). by and size are
 // Swift's: who made it (always the worker's here, marked on the card) and whether it fits a card. text: the
@@ -57,6 +59,20 @@ export type Preview = {
   kind: "preview"; path: string; title: string; file_type: "pdf" | "docx" | "pptx" | "xlsx";
   thumbnail: string | null; pages: number | null; excerpt: string | null; by: "swift";
   size: "card" | "expanded"; text?: string;
+};
+
+// B4: small bar and line charts, drawn from bounded numeric data by Swift's own SVG code.
+export type Chart = {
+  kind: "chart"; type: "bar" | "line"; title?: string; x: string[];
+  series: { name: string; values: number[] }[]; unit?: string;
+  by: "worker"; size: "card" | "expanded"; text?: string;
+};
+
+// B4: a bounded set of read-only project summaries, marked as the worker's.
+export type ProjectCard = { title: string; detail?: string; meta?: string };
+export type Cards = {
+  kind: "cards"; title?: string; cards: ProjectCard[];
+  by: "worker"; size: "card" | "expanded"; text?: string;
 };
 
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).

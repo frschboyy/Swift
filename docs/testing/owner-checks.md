@@ -2803,6 +2803,35 @@ not shown in the answer. If one format has no text or shows the wrong content, s
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+### Charts (B4, 2026-11-15)
+
+About 5 minutes. Use sample numbers; no files or accounts are needed.
+
+<a id="check-b4-diagram-902ffc-6"></a>**Check b4-diagram-902ffc-6. Bar and line charts show their data**
+1. Ask Swift: "Make a bar chart of North and South sales for Q1, Q2 and Q3: North 12, 18, 15; South 9, 14, 17."
+2. Check that the labels, values, units and two series are visible, and that the chart is marked as the worker's.
+3. Ask Swift: "Make a line chart for North's weekly values: W1 10, W2 11, W3 13, W4 12, W5 15, W6 16, W7 18."
+4. Check that the card says two categories are in Read more. Open Read more and confirm W7 is shown; Copy the answer and check that all seven labels and values are present.
+
+You should see neutral bar and line charts, not a coloured recommendation. If a number, label or series is missing,
+or the full line chart can't be copied, say which one.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
+### Project cards (B4, 2026-11-15)
+
+About 3 minutes. Use sample text only; no files or accounts are needed.
+
+<a id="check-b4-diagram-902ffc-7"></a>**Check b4-diagram-902ffc-7. Project cards are readable and copy completely**
+1. Ask Swift: "Show four projects as cards: Website refresh, planning, update the homepage; Data migration, in progress, move the archive; Mobile app, next quarter, improve offline access; Reporting, planned, combine project metrics."
+2. Look at the first three cards and their worker mark. Press **Read more** and check that Reporting appears.
+3. Press **Copy** and check that all four titles, details and statuses are included.
+
+You should see a small set of neutral, read-only project cards, with no action buttons. If a project or its status is
+missing, say which one.
+
+The report checks: nothing to judge from the log yet; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -218,3 +218,88 @@ def test_a_preview_is_a_supported_local_document_and_swift_sets_its_frame() -> N
 def test_a_preview_refuses_nonlocal_unsupported_or_hidden_paths(path: str) -> None:
     shape, problems = shapes.check({"shape": "preview", "path": path})
     assert shape is None and problems
+
+
+# ---- chart: small bar and line charts drawn by Swift --------------------------------------------------------
+
+SALES: dict[str, Any] = {
+    "shape": "chart", "title": "Quarterly sales", "type": "bar", "x": ["Q1", "Q2", "Q3"],
+    "series": [{"name": "North", "values": [12, 18, 15]}, {"name": "South", "values": [9, 14, 17]}],
+    "unit": "units",
+}
+
+
+def test_a_chart_is_kept_as_sent_and_sized_by_swift() -> None:
+    shape, problems = shapes.check(SALES)
+    assert problems == [] and shape == SALES
+    card = shapes.details(shape, rest="Totals are preliminary.")
+    assert card == {
+        "kind": "chart", **{k: v for k, v in SALES.items() if k != "shape"},
+        "by": "worker", "size": "card", "text": "Totals are preliminary.",
+    }
+    more = SALES | {"x": [f"Q{i}" for i in range(1, 8)],
+                    "series": [{"name": "North", "values": [12, 18, 15, 17, 21, 19, 22]}]}
+    assert shapes.details(shapes.check(more)[0])["size"] == "expanded"
+
+
+@pytest.mark.parametrize("change", [
+    {"type": "pie"},
+    {"x": ["Q1"]},
+    {"x": ["Q1", "Q2"], "series": [{"name": "North", "values": [12]}]},
+    {"series": [{"name": "North", "values": [12, float("nan"), 15]}]},
+    {"series": [{"name": "North", "values": [12, 18, 1_000_000_001]}]},
+    {"series": [{"name": "North", "values": [12, 18, 15]}, {"name": "north", "values": [1, 2, 3]}]},
+    {"x": ["Q1", "<b>Q2</b>", "Q3"]},
+    {"series": [{"name": "North", "values": [12, 18, 15], "color": "red"}]},
+    {"by": "swift"},
+])
+def test_a_chart_out_of_shape_is_refused_whole(change: dict[str, Any]) -> None:
+    shape, problems = shapes.check(SALES | change)
+    assert shape is None and problems
+
+
+def test_a_chart_refuses_more_than_eight_categories_or_four_series() -> None:
+    too_many_points = SALES | {"x": [f"Q{i}" for i in range(9)],
+                               "series": [{"name": "North", "values": list(range(9))}]}
+    too_many_series = SALES | {"series": [{"name": f"Series {i}", "values": [1, 2, 3]} for i in range(5)]}
+    assert shapes.check(too_many_points)[0] is None
+    assert shapes.check(too_many_series)[0] is None
+
+
+# ---- project cards: a short set of read-only project summaries ---------------------------------------------
+
+PROJECTS: dict[str, Any] = {
+    "shape": "cards", "title": "Current projects", "cards": [
+        {"title": "Website refresh", "detail": "Update the homepage and simplify navigation.", "meta": "Planning"},
+        {"title": "Data migration", "detail": "Move the archive to the new storage service.", "meta": "In progress"},
+    ],
+}
+
+
+def test_project_cards_are_kept_as_sent_and_sized_by_swift() -> None:
+    shape, problems = shapes.check(PROJECTS)
+    assert problems == [] and shape == PROJECTS
+    card = shapes.details(shape, rest="The schedule is preliminary.")
+    assert card == {
+        "kind": "cards", "title": "Current projects", "cards": PROJECTS["cards"],
+        "by": "worker", "size": "card", "text": "The schedule is preliminary.",
+    }
+    expanded = PROJECTS | {"cards": [{"title": f"Project {i}", "detail": "x" * 120} for i in range(3)]}
+    assert shapes.details(shapes.check(expanded)[0])["size"] == "expanded"
+    many = PROJECTS | {"cards": [{"title": f"Project {i}"} for i in range(4)]}
+    assert shapes.details(shapes.check(many)[0])["size"] == "expanded"
+
+
+@pytest.mark.parametrize("change", [
+    {"cards": []},
+    {"cards": [{"title": f"Project {i}"} for i in range(9)]},
+    {"cards": [{"title": ""}]},
+    {"cards": [{"title": "<script>alert(1)</script>"}]},
+    {"cards": [{"title": "Website", "detail": "x" * 121}]},
+    {"cards": [{"title": "Website", "meta": "fine\u202e"}]},
+    {"cards": [{"title": "Website", "colour": "blue"}]},
+    {"by": "swift"},
+])
+def test_project_cards_out_of_shape_are_refused_whole(change: dict[str, Any]) -> None:
+    shape, problems = shapes.check(PROJECTS | change)
+    assert shape is None and problems

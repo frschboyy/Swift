@@ -633,15 +633,17 @@ class _KeyWriter(_Writer):
     """Paste (``clipboard`` not None: the owner's text to put back) or keystrokes, into the focused window."""
 
     def __init__(self, desktop: WindowsDesktop, app: str, hwnd: int, focus: int, clipboard: str | None,
-                 collapse: bool) -> None:
+                 collapse: bool, terminal: bool = False) -> None:
         super().__init__(desktop)
-        self.app, self.hwnd, self.focus, self.clipboard = app, hwnd, focus, clipboard
+        self.app, self.hwnd, self.focus, self.clipboard, self.terminal = app, hwnd, focus, clipboard, terminal
         self.route = "keys" if clipboard is None else "paste"
         if collapse:  # insert after the selection, not over it
             _send([_key(VK_RIGHT), _key(VK_RIGHT, True)])
 
     def _write(self, text: str, last: bool) -> None:
         text += "" if last else "\n"
+        if self.terminal and "\n" in text:  # Shift+Enter runs the line in cmd and bash: the card showed one line
+            raise DesktopError("Swift types one line into a terminal, never a line break.", "", reason="terminal_line_break")
         if self.route == "keys":
             _type(text)
             return
@@ -772,18 +774,21 @@ class WindowsDesktop:
 
     # ---- writing ----
 
-    async def writer(self, where: Where, mode: Mode, new_document: bool = False) -> _Writer:
-        return await self._run(self._writer, where, mode, new_document)
+    async def writer(self, where: Where, mode: Mode, new_document: bool = False, terminal: bool = False) -> _Writer:
+        return await self._run(self._writer, where, mode, new_document, terminal)
 
-    def _writer(self, where: Where, mode: Mode, new_document: bool) -> _Writer:
+    def _writer(self, where: Where, mode: Mode, new_document: bool, terminal: bool) -> _Writer:
         if where == "word":
             return _WordWriter(self, mode, new_document)
         context = self._context()
         if not context.hwnd:
             raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.", reason="no_app_in_front")
         exe = context.exe.lower()
-        if context.private or context.password or exe in TERMINALS:
+        if context.private or context.password or (exe in TERMINALS and not terminal):
             raise DesktopError(f"Swift doesn't write in {context.app} there.", "", reason="not_writable_there")
+        if exe in TERMINALS:  # approved on its own card: keystrokes, exactly the characters it showed, no paste
+            tid, _, _ = _process(context.hwnd)
+            return _KeyWriter(self, context.app, context.hwnd, _focus(tid), None, False, terminal=True)
         if exe == "winword.exe":
             return _WordWriter(self, mode, False)
         uia = self._uia()

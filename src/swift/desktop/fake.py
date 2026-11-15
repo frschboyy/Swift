@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from swift.desktop.base import (
-    DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name,
+    TERMINALS, DesktopContext, DesktopError, Mode, NeverRead, Route, Where, WriteReceipt, app_name,
 )
 
 
@@ -28,12 +28,15 @@ class FakeWriter:
         self.desktop, self.target, self.route = desktop, app, route
         self.app = app_name(app.exe)
         self.chunks = self.chars = 0
+        self.terminal = app.exe.lower() in TERMINALS  # only reached for a terminal's own approved card
         self.before = app.text
         if mode == "replace" and app.selected:
             app.text = app.text.replace(app.selected, "", 1)
             app.selected = ""
 
     async def write(self, text: str, last: bool) -> None:
+        if self.terminal and ("\n" in text or not last):  # windows.py's rule: one line, no line break
+            raise DesktopError("Swift types one line into a terminal, never a line break.", "", reason="terminal_line_break")
         self.desktop.writes.append((self.app, text))
         self.target.text += text + ("" if last else "\n")
         self.chunks += 1
@@ -94,7 +97,7 @@ class FakeDesktop:
             return []
         return list(app.files)
 
-    async def writer(self, where: Where, mode: Mode, new_document: bool = False) -> FakeWriter:
+    async def writer(self, where: Where, mode: Mode, new_document: bool = False, terminal: bool = False) -> FakeWriter:
         if where == "word":
             if "word" in self.unavailable:
                 raise DesktopError("Word isn't installed.", "Install Word, or ask for the text instead.", reason="word_unavailable")
@@ -104,7 +107,7 @@ class FakeDesktop:
         app = self.front
         if app is None:
             raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.", reason="no_app_in_front")
-        if self._private(app) or app.password:
+        if self._private(app) or app.password or (app.exe.lower() in TERMINALS and not terminal):  # windows.py's rule
             raise DesktopError(f"Swift doesn't write in {app_name(app.exe)} there.", "", reason="not_writable_there")
         return FakeWriter(self, app, app.route, mode)
 

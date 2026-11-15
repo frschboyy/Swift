@@ -38,8 +38,9 @@ def test_a_line_break_is_shift_enter_never_a_bare_enter() -> None:
                                  "Code.exe"])
 async def test_writing_into_a_terminal_is_its_own_card_showing_every_character(exe: str) -> None:
     """A line typed into a terminal runs: level 3, its own card. VS Code too: Swift can't tell its terminal from its
-    editor (OCT-01). Rejected, nothing is typed."""
-    text = "Remove-Item -Recurse C:\\\nexit"
+    editor (OCT-01). Rejected, nothing is typed; approved, exactly its characters are, with no Enter (the owner's
+    decision of 2026-11-15: the real writer types into a terminal after its own card)."""
+    text = "Remove-Item -Recurse C:\\"
     host, desktop, owner, journal = make(FakeApp(exe, "edit", route="keys"), decision="reject")
     result = await host.call("desktop_write", {"text": text})
     assert not result.ok and desktop.writes == []
@@ -55,6 +56,54 @@ async def test_a_terminal_brought_forward_after_the_card_is_never_typed_into() -
     owner.on_ask = lambda: _bring(desktop, FakeApp("powershell.exe", "edit", route="keys"))
     result = await host.call("desktop_write", {"text": "dir"})
     assert not result.ok and "isn't in front" in result.text and desktop.writes == []
+
+
+@pytest.mark.parametrize("terminal", ["cmd.exe", "Code.exe"])
+async def test_a_write_decided_for_another_app_never_types_into_a_terminal_brought_forward(terminal: str) -> None:
+    """Only a terminal's own card types there, whatever comes to the front after Notepad's write was decided."""
+    host, desktop, owner, _ = make(FakeApp("notepad.exe", "edit", route="keys"))
+    context = desktop.context
+
+    async def then_a_terminal():  # type: ignore[no-untyped-def]
+        decided = await context()
+        desktop.front = FakeApp(terminal, "edit", route="keys")  # comes forward before the write runs
+        return decided
+
+    desktop.context = then_a_terminal  # type: ignore[method-assign]
+    result = await host.call("desktop_write", {"text": "dir"})
+    assert not result.ok and "came to the front" in result.text and desktop.writes == []
+    assert owner.asked == []  # the owner's words asked: Notepad needed no card
+
+
+async def test_the_fake_writer_types_into_a_terminal_only_for_its_own_card_and_one_line() -> None:
+    from swift.desktop.base import DesktopError
+    from swift.desktop.fake import FakeDesktop
+
+    desktop = FakeDesktop(FakeApp("WindowsTerminal.exe", "edit", route="keys"))
+    with pytest.raises(DesktopError, match="doesn't write"):
+        await desktop.writer("focus", "insert")
+    writer = await desktop.writer("focus", "insert", terminal=True)
+    with pytest.raises(DesktopError, match="never a line break"):
+        await writer.write("dir", last=False)
+    await writer.write("dir", last=True)
+    assert desktop.writes == [(writer.app, "dir")] and desktop.front.text == "dir"  # no Enter added
+
+
+@pytest.mark.parametrize("exe", ["WindowsTerminal.exe", "cmd.exe", "powershell.exe"])
+async def test_several_lines_are_never_typed_into_a_terminal(exe: str) -> None:
+    """A line break is Shift+Enter (A-01); cmd and bash run the line on it, so a card couldn't say which lines run."""
+    host, desktop, owner, _ = make(FakeApp(exe, "edit", route="keys"))
+    result = await host.call("desktop_write", {"text": "cd C:\\\ndir"})
+    assert not result.ok and "one line" in result.text and desktop.writes == [] and owner.asked == []
+
+
+async def test_several_lines_into_vs_code_say_each_line_may_run() -> None:
+    """VS Code's editor takes several lines (its terminal can't be told apart yet: OCT-01): the card says so."""
+    host, desktop, owner, _ = make(FakeApp("Code.exe", "edit", route="keys"))
+    assert (await host.call("desktop_write", {"text": "one\ntwo"})).ok
+    [(title, detail, tool, _)] = owner.asked
+    assert tool == "desktop_write_terminal" and "2 lines" in title and detail == "one\ntwo"
+    assert [t for _, t in desktop.writes] == ["one", "two"]
 
 
 async def _bring(desktop, app) -> None:  # type: ignore[no-untyped-def]

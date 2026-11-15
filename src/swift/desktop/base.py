@@ -44,8 +44,8 @@ PROGRAMS = (".exe", ".msi", ".bat", ".cmd", ".com", ".ps1", ".vbs", ".vbe", ".js
             # Run by what's installed (Python, Java) or by Windows itself, or point at something that is.
             ".py", ".pyw", ".jar", ".msc", ".url", ".pif", ".wsh", ".msix", ".appx", ".appinstaller")
 
-# Terminals and shells: a line typed there runs as a command, so Swift never writes into them.
-# Claude Code's Bash needs a confirm card; writing into a terminal must not be a way around it.
+# Terminals and shells: a line typed there runs as a command, so Swift writes into them only for a write
+# approved on a terminal's own card (foundation decision 6; the owner's decision of 2026-11-15).
 TERMINALS = frozenset({
     "windowsterminal.exe", "wt.exe", "openconsole.exe", "conhost.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
     "powershell_ise.exe", "mintty.exe", "bash.exe", "wsl.exe", "wslhost.exe", "alacritty.exe", "wezterm-gui.exe",
@@ -169,8 +169,9 @@ class Desktop(Protocol):
         """Paths selected in the File Explorer window in front."""
         ...
 
-    async def writer(self, where: Where, mode: Mode, new_document: bool = False) -> Writer:
-        """Raises ``DesktopError`` when there is nowhere Swift may write."""
+    async def writer(self, where: Where, mode: Mode, new_document: bool = False, terminal: bool = False) -> Writer:
+        """Raises ``DesktopError`` when there is nowhere Swift may write. A terminal only with ``terminal``: the
+        write was approved on a terminal's own card. There it types one line and never a line break."""
         ...
 
     async def owner_input(self) -> tuple[int, tuple[int, int]]:

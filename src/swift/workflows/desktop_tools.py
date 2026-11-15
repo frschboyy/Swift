@@ -25,7 +25,9 @@ email. Otherwise Swift asks first, with a preview ("Write this in Notepad? “De
 question (``intake.approves``: typing never answers it), so a web page, a document or a tool result
 can't make Swift type into the app in front by itself. A workflow's manifest already decides whether
 it writes. A terminal (or VS Code, whose terminal Swift can't tell from its editor: OCT-01) always
-gets its own card showing every character it would type (level 3): a line typed there runs.
+gets its own card showing every character it would type (level 3): a line typed there runs. Only that
+card types into a terminal (``desktop.writer(terminal=True)``), one line and no Enter: a line break is
+Shift+Enter, which cmd and bash run, so several lines into a terminal are refused before any card.
 
 **A web address** (owner checks 2026-11-13, C3): ``desktop_open(url=…)`` opens it in the owner's
 default browser only when the address, or its site, is in the owner's own words for this request
@@ -198,6 +200,10 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         if asked_in is not None and asked_in != window:
             return ToolResult(False, "The app in front changed after Swift asked. Nothing was written.")
     chunks = paragraphs(text)
+    if terminal and len(chunks) > 1 and context.exe.lower() in TERMINALS:
+        # A line break is Shift+Enter (A-01), and cmd or bash runs the line on it: the card couldn't say which run.
+        return ToolResult(False, f"Swift types one line at a time into {front}, never a line break, so nothing was "
+                          "written. Ask the owner which single line to type.")
     n = next(scope.ids)
     digest = hashlib.sha256(f"{n}\n{where}\n{text}".encode()).hexdigest()
     report: dict[str, Any] = {"written": 0, "of": len(chunks), "stopped": None, "app": ""}
@@ -208,10 +214,13 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         return tick != since[0] and cursor == since[1] and time.monotonic() > scope.talking_until
 
     async def perform() -> str:
-        if terminal and _window(await desktop.context()) != window:
+        now = await desktop.context() if where == "focus" else None
+        if terminal and _window(now) != window:
             raise DesktopError("The terminal Swift asked about isn't in front any more. Nothing was written.", "")
+        if now is not None and not terminal and is_terminal(now.exe):  # only a terminal's own card types there
+            raise DesktopError(f"{now.app} came to the front after the card. Nothing was written.", "")
         async with _one_writer(host, scope, "Word" if where == "word" else "the app in front"):
-            writer = await desktop.writer(where, mode, bool(args.get("new_document")))  # type: ignore[arg-type]
+            writer = await desktop.writer(where, mode, bool(args.get("new_document")), terminal)  # type: ignore[arg-type]
             report["app"] = host.writing_app = writer.app
             host.live_write = (scope, writer.live())
             await scope.step(f"Writing in {writer.app}", "writing", writer.app)
@@ -246,7 +255,8 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         # A terminal: its own card with every character it types (level 3, foundation decision 6).
         tool="desktop_write_terminal" if terminal else "desktop_write",
         targets=(),
-        title=f"Type this into {front}? A line typed there runs as a command." if terminal
+        title=(f"Type these {len(chunks)} lines into {front}? In a terminal each line runs as a command."
+               if len(chunks) > 1 else f"Type this into {front}? A line typed there runs as a command.") if terminal
         else f"Write into {'Word' if where == 'word' else 'the app in front'}",
         detail=text if terminal else f"{len(chunks)} paragraphs",
         artifact_id=None,

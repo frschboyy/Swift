@@ -524,10 +524,9 @@ async def test_after_an_email_was_sent_swift_says_so_and_offers_a_correction() -
     hint = out.last("run.voice")["text"]
     assert hint == "The email was already sent, so I can't take it back. Say “yes” and I'll send a correction."
     assert agent.redirected == [] and len(agent.requests) == 1  # type: ignore[attr-defined]  # nothing pretends to undo
-    await say(session, stt, "yes")  # approving the follow-up needs the name too
-    await asyncio.sleep(0.05)
-    assert len(agent.requests) == 1
-    await say(session, stt, "Swift, yes")
+    # Swift's own offer, on screen: level 1, so a plain spoken yes takes it (intake.approves decides; OWN-03).
+    # The correction is sent only from its own card.
+    await say(session, stt, "yes")
     await until(lambda: len(agent.requests) == 2)
     assert agent.requests[1].startswith("actually say I'll miss Friday instead")
     assert "can't be undone: Send this email to Dr Ada Lovelace" in agent.requests[1]

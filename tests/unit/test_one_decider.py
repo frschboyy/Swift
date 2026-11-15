@@ -40,3 +40,26 @@ async def test_mid_run_words_reach_the_decider_by_their_real_channel(monkeypatch
     assert calls == [(source, named, 1)], calls
     assert control.radio_state["wifi"] is False
     await finish_all(session, agent)
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+@pytest.mark.parametrize("said", ["yes", "Swift, yes"])
+async def test_a_hands_free_yes_to_the_correction_offer_is_what_approves_says(monkeypatch: pytest.MonkeyPatch,
+                                                                             allowed: bool, said: str) -> None:
+    """OWN-03: ``_hear_busy`` took "Swift, yes" for the correction offer by its own condition (the name said),
+    and ignored a plain "yes" before ``approves`` was asked."""
+    from test_front_rules import _correction_offered
+    from test_runs import finish_all, say, until
+
+    session, out, agent, stt, _other = await _correction_offered()
+    before = len(agent.requests)
+    calls = _decider(monkeypatch, allowed)
+    await say(session, stt, said)
+    if allowed:
+        await until(lambda: len(agent.requests) == before + 1)
+    else:
+        await until(lambda: calls)
+        await asyncio.sleep(0.05)
+        assert len(agent.requests) == before and session._fix_offer is not None
+    assert calls == [("beside", said.startswith("Swift"), 1)], calls
+    await finish_all(session, agent)

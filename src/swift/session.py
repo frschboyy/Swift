@@ -2415,9 +2415,10 @@ class Session:
 
         An open microphone mostly hears other speech, so anything that isn't one of these
         phrases is ignored silently. Rejecting, stopping and "show me" need no wake phrase;
-        approving needs Swift's name first ("Swift, approve", "hey Swift, approve"), so a TV
+        approving a card needs Swift's name first ("Swift, approve", "hey Swift, approve"), so a TV
         or a bystander saying "yes" can never approve an action (threat model T2). The
-        noisy-room double check still applies.
+        noisy-room double check still applies. Who may approve what is ``intake.approves``: a
+        plain "yes" takes the correction offer on screen (level 1, like Swift's own question).
         """
         if self._deaf():
             return  # never an answer on a card while locked (T-07)
@@ -2468,8 +2469,9 @@ class Session:
             await self._answer_text(open_request, entry, text, phase)
         elif decision.action in HANDS_FREE_MIDRUN:
             await self._midrun_text(text, self._run_phase, source="beside", named=match is not None)
-        elif decision.action == "approve" and match is not None and self._fix_offer is not None:
-            await self._midrun_text(text, self._run_phase, source="beside", named=True)  # "Swift, yes": the follow-up offered (ADR-014 §7)
+        elif decision.action == "approve" and self._fix_offer is not None:
+            # "Yes" to the follow-up offered (ADR-014 §7): ``intake.approves`` decides, through ``_fix_refused``.
+            await self._midrun_text(text, self._run_phase, source="beside", named=match is not None)
 
     def _in_followup(self, started_at: float) -> bool:
         """Whether an utterance that started at ``started_at`` falls in the follow-up window."""
@@ -4560,10 +4562,9 @@ class Session:
         While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control.
         ``source`` is the real door ("voice": the hotkey; "beside": hands-free), so ``intake.approves`` sees
         the channel; ``named``: Swift's name was said (hands-free passes it, since ``text`` lost it)."""
-        if named is None:
-            named = match_address(text, self.wake_greetings) is not None
+        addressed = match_address(text, self.wake_greetings) is not None if named is None else named
         if (asked := self.dialogue.pending) is not None and self._for_question(asked, text):
-            if await self._take_answer(text, source=source, named=named):
+            if await self._take_answer(text, source=source, named=addressed):
                 await phase("idle")
                 return
         decision = route_midrun(text)
@@ -4610,7 +4611,7 @@ class Session:
             await phase("hint", "There's nothing waiting for approval right now.")
         elif action == "approve" and self._fix_offer is not None:
             on_card = self._focus.thread if self._focus is not None else None
-            if (refused := self._fix_refused(self._fix_offer[1], on_card, source, named=named)) is not None:
+            if (refused := self._fix_refused(self._fix_offer[1], on_card, source, named=addressed)) is not None:
                 await phase("hint", refused)
                 return
             text, thread, at = self._fix_offer

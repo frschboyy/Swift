@@ -1194,3 +1194,18 @@ async def test_a_typed_swift_yes_on_a_correction_offer_shows_the_typing_hint_on_
     assert len(agent.requests) == before, "typed words took the correction offer"
     assert screen["stage"] == "result" and session._fix_offer is not None
     await finish_all(session, agent)
+
+
+async def test_a_plain_spoken_yes_takes_the_correction_offer_on_screen() -> None:
+    """OWN-03: "yes" without the name, hands-free, was ignored in silence while the card said "Say “yes”". Swift's
+    own offer is level 1, so ``intake.approves`` takes a plain spoken yes while it's on screen."""
+    from test_front_rules import _correction_offered
+
+    session, out, agent, stt, _other = await _correction_offered()
+    before = len(agent.requests)
+    await say(session, stt, "yes")
+    await until(lambda: len(agent.requests) == before + 1)
+    await asyncio.sleep(0.05)
+    agree(session, out)
+    assert "Friday" in agent.requests[-1] and session._fix_offer is None
+    await finish_all(session, agent)

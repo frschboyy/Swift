@@ -70,7 +70,7 @@ As of 2026-11-15 at `722b7d6`. Each number links to its check.
 
 - `claude/audit-fixes-google-calendar`: adds checks 222, 223, 224, 225, 226, 227; changes code behind 117 checks here (4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 19, 19b, …).
 - `claude/audit-fixes-recipients`: changes code behind 18 checks here (37, 40, 41, 42, 49, 104, 135, 141, 182, 193, 214, 215, …).
-- `claude/elegant-shtern-2e16f9`: adds checks elegant-shtern-2e16f9-1, elegant-shtern-2e16f9-2, elegant-shtern-2e16f9-3; changes code behind 152 checks here (2, 2b, 3, 4, 5, 6, 7, 8, 10, 14, 18, 21, …).
+- `claude/elegant-shtern-2e16f9`: adds checks 395, 396, 397; changes code behind 152 checks here (2, 2b, 3, 4, 5, 6, 7, 8, 10, 14, 18, 21, …).
 - `claude/exciting-cartwright-9ace60`: changes code behind 72 checks here (16b, 17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, …).
 - `claude/festive-colden-b068a2`: changes code behind 53 checks here (10, 18, 38, 39, 49, 50, 51, 58, 63, 64, 65, 66, …).
 - `claude/sharp-heisenberg-e41ff2`: adds checks sharp-heisenberg-e41ff2-1; changes code behind 165 checks here (2, 2b, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, …).

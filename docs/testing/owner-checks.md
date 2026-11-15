@@ -2641,14 +2641,14 @@ The report checks: nothing to judge from the log; tell us what you saw in each.
 About 4 minutes, on the branch with foundation decisions 4, 5 and 6. Nothing here sends anything: reject every send
 card. Check 330 above changed with these (an earlier address is asked about).
 
-<a id="check-elegant-shtern-2e16f9-1"></a>**Check elegant-shtern-2e16f9-1. An email to an address you say, marked on its card**
+<a id="check-395"></a>**Check 395. An email to an address you say, marked on its card**
 1. Say "Hey Swift, email test at example dot com saying this is a test" (an address that isn't one of your contacts).
 2. When the card asks before sending, read its To line, then click **Reject**.
 
 You should see: the To line shows "test@example.com (from your words, not in your contacts)", the greeting is
 "Hello," and nothing is sent. (Before, Swift said it couldn't find that contact.)
 
-<a id="check-elegant-shtern-2e16f9-2"></a>**Check elegant-shtern-2e16f9-2. Writing you didn't clearly ask for is asked about, with a preview**
+<a id="check-396"></a>**Check 396. Writing you didn't clearly ask for is asked about, with a preview**
 1. Open Notepad and click into it. Say "Hey Swift, reply to Ada saying thanks" (words Swift doesn't read as asking
    to write).
 2. If Swift asks "Write this in Notepad?", read the text under it, type `yes` and press Enter, then say "yes"
@@ -2659,7 +2659,7 @@ a long text scrolls, with "More below"); the typed yes asks again ("Typing can't
 approve"); the spoken yes writes it into Notepad, and "Hey Swift, undo that" takes it out. If Swift answers in its
 card instead of writing, tell us: the agent chose not to write, which is fine.
 
-<a id="check-elegant-shtern-2e16f9-3"></a>**Check elegant-shtern-2e16f9-3. Typing into a terminal has its own card**
+<a id="check-397"></a>**Check 397. Typing into a terminal has its own card**
 1. Open Windows Terminal and click into it. Say "Hey Swift, type echo hello here".
 2. Read the card, then click **Reject**.
 3. Open VS Code, click into its terminal panel, and say the same. Click **Reject** again.

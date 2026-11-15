@@ -101,15 +101,15 @@ code toward these rules, never away.
   Owner check 330 rewritten, with 370 and 371; not run.
 - **5:** built: an address the owner said or typed in this request can be a
   recipient, marked "(from your words, not in your contacts)" on the send card (FD-03). Not built: offering to save
-  it as a contact; calendar invites still take only contacts. Owner check elegant-shtern-2e16f9-1; not run.
+  it as a contact; calendar invites still take only contacts. Owner check 395; not run.
 - **6:** built: a write into an app (or filling in an email) the owner's words
   didn't clearly ask for is asked about, level 1 (FD-04), showing every character a yes writes, marked as the
   worker's (FD-05). Still a pattern: `owner_asked_to_write`
   decides between level 0 and 1, so its false matches write with no question (D4). Owner check
-  elegant-shtern-2e16f9-2; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
+  396; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
   can't be told from its editor), has its own card showing every character (level 3) instead of being refused.
   Where the code is stricter than the rule: the real Windows writer still refuses true terminals after the card
-  (A-02's backstop, `windows.py:785`), so only VS Code types after one. Owner check elegant-shtern-2e16f9-3; not run.
+  (A-02's backstop, `windows.py:785`), so only VS Code types after one. Owner check 397; not run.
 - **8:** `swift.log` has no reason codes for connector failures yet.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
 - Found by the ownership map, not in the decisions: worker tool cards aren't bound to a digest (OWN-05).

@@ -39,8 +39,14 @@ export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
     d.title ? el("p", { class: "compare-title" }, d.title) : null,
     stage,
     ...(d.text ? renderBlocks(d.text) : []));
-  void import("./mermaid").then((m) => m.draw(d.source, block)).then((svg) =>
-    stage.replaceChildren(svg ?? el("p", { class: "answer-more" }, "Swift couldn't draw this diagram.")));
+  // Mermaid bakes the colours into its SVG, so a theme change (data-theme on the window's root) draws it again.
+  const themed = new MutationObserver(() => (block.isConnected ? paint() : themed.disconnect()));
+  const paint = (): void => void import("./mermaid").then((m) => m.draw(d.source, block)).then((svg) => {
+    stage.replaceChildren(svg ?? el("p", { class: "answer-more" }, "Swift couldn't draw this diagram."));
+    const root = block.closest("[data-theme]");
+    if (svg && root) themed.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  });
+  paint();
   return block;
 }
 

@@ -47,8 +47,7 @@ export async function draw(source: string, stage: Element): Promise<SVGSVGElemen
     const mermaid = await load();
     const v = (name: string, or = ""): string => getComputedStyle(stage).getPropertyValue(name).trim() || or;
     const panel = v("--panel-solid", "#1f2127");
-    // shortcut: the colours are read once per drawing, so a diagram drawn before a theme change keeps the old
-    // ones until it's drawn again; redraw on the theme event if the owner notices.
+    // The colours are read at each drawing; blocks.ts draws again when the theme changes.
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",  // labels are text; clicks and links off

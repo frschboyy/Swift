@@ -148,9 +148,9 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
     the agent's url. Then the gateway (`desktop_open`, reversible). `points_back` is gone (foundation decision 4).
 - **Tests:** `tests/unit/test_recent_address.py`, `test_desktop.py`, `test_audit_2026_10.py`, and the seam scenario
   `test_seam_replay.py::test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plain_yes_opens_it`.
-- **Second owner, OWN-06 (partial):** opening has one rule with no word pattern, and both callers read the owner's
-  words through `WebScope.note_request`. Fetching still also takes the context Swift adds and tool-result
-  addresses (accepted risk, OCT-03), so the two sources still differ; making fetching ask is the owner's call.
+- **OWN-06, accepted (owner, 2026-11-15):** opening has one rule with no word pattern, and both callers read the
+  owner's words through `WebScope.note_request`. Fetching keeps its wider sources (the context Swift adds and
+  tool-result addresses, OCT-03), on purpose: a fetch only reads.
 
 ## 7. Read scope
 

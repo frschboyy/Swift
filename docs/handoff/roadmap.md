@@ -16,7 +16,7 @@ once a report from that day on is recorded. A step with none of these is ticked 
 
 ## Week of 2026-11-12: a clean baseline on the real PC
 
-- [ ] Restart Swift on today's `main` (Tray → Quit Swift, then `npm run tauri dev` in `overlay`), run the "Run these first" list in [`owner-checks.md`](../testing/owner-checks.md), and paste the report. <!-- report since 2026-11-12 -->
+- [ ] Restart Swift on today's `main` (Tray → Quit Swift, then `npm run tauri dev` in `overlay`), run the "Run these first" list in [`owner-checks-status.md`](../testing/owner-checks-status.md), and paste the report. <!-- report since 2026-11-12 -->
 - [ ] Re-run what failed on 2026-11-05 and 2026-11-08, now that fixes landed. <!-- checks: 13, 191, 193-197 -->
 - [ ] The safety fixes of 2026-11-10: stopping an approved email, names, Swift's own files. <!-- checks: 212-215 -->
 - [ ] The fixes from your checks of 2026-11-09 (ADR-020 keeps them once these pass). <!-- checks: 201-211 -->

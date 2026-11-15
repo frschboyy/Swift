@@ -159,7 +159,7 @@ def main() -> None:
              "❌ a check failed · ⬜ to do.", "", "## Next up", ""]
     if found and found[0][5] >= f"{today - timedelta(days=1):%Y-%m-%d}":
         lines.append("- **Swift logged problems in the last day** (below): ask Claude to look at them.")
-    lines += nxt[:5] + ["", f"The checks to run first are at the top of [`owner-checks.md`](docs/testing/owner-checks.md#run-these-first)."]
+    lines += nxt[:5] + ["", f"The checks to run first are at the top of [`owner-checks-status.md`](docs/testing/owner-checks-status.md#run-these-first)."]
 
     lines += ["", f"## Problems ({args.days} days of `swift.log`, and your checks)", "",
               "A log problem stays here until it hasn't happened for that long. Ask Claude to look at any of them.", ""]

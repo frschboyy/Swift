@@ -81,10 +81,13 @@ code each check proves in `docs/testing/owner-checks-ledger.yaml` (`test_owner_p
 - after recording, and after every merge, run it with `--write`. The status file is generated and never merged by
   hand (`merge=ours`) *(foundation decision 12)*.
 
-Not built yet (2026-11-15):
+A new check's id comes from `plan.py --next-id`. At merge, on the branch's worktree:
 
-- **11, 12:** check numbers are still whole numbers taken from "Next free check number", and the run list is still
-  generated between markers in `docs/testing/owner-checks.md` (by `plan.py --write`).
+1. `git merge main` (the status file keeps this side; a conflict there is fixed by step 3);
+2. `plan.py --renumber`, then commit ("Owner checks: renumbered at merge");
+3. `plan.py --write`, then commit; then fast-forward `main`.
+
+Once per clone, so `merge=ours` takes effect: `git config merge.ours.driver true`.
 
 A pasted report carries the first 60 characters of each request ([`docs/security/privacy.md`](../security/privacy.md)
 §8).

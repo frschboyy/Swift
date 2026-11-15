@@ -97,15 +97,15 @@ class FakeDesktop:
     async def writer(self, where: Where, mode: Mode, new_document: bool = False) -> FakeWriter:
         if where == "word":
             if "word" in self.unavailable:
-                raise DesktopError("Word isn't installed.", "Install Word, or ask for the text instead.")
+                raise DesktopError("Word isn't installed.", "Install Word, or ask for the text instead.", reason="word_unavailable")
             if new_document:
                 self.word = FakeApp("WINWORD.EXE", route="object_model")
             return FakeWriter(self, self.word, "object_model", mode)
         app = self.front
         if app is None:
-            raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.")
+            raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.", reason="no_app_in_front")
         if self._private(app) or app.password:
-            raise DesktopError(f"Swift doesn't write in {app_name(app.exe)} there.", "")
+            raise DesktopError(f"Swift doesn't write in {app_name(app.exe)} there.", "", reason="not_writable_there")
         return FakeWriter(self, app, app.route, mode)
 
     async def owner_input(self) -> tuple[int, tuple[int, int]]:
@@ -128,6 +128,6 @@ class FakeDesktop:
 
     async def fill_in_email(self, app: str, to: list[str], subject: str, body: str) -> str:
         if app in self.unavailable:
-            raise DesktopError(f"{app.title()} isn't available.", "")
+            raise DesktopError(f"{app.title()} isn't available.", "", reason=f"{app}_unavailable")
         self.filled.append((app, to, subject, body))
         return f"{app}-compose-{len(self.filled)}"

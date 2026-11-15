@@ -316,7 +316,7 @@ async def desktop_open(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         try:
             await asyncio.to_thread(opener.launch, target)
         except OSError as exc:
-            raise DesktopError(f"Windows couldn't start {target.name}: {exc}", "") from None
+            raise DesktopError(f"Windows couldn't start {target.name}: {exc}", "", reason=type(exc).__name__) from None
         return OPENED
 
     action = Action(

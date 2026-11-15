@@ -165,6 +165,7 @@ async def find_contact(host: ToolHost, scope: RunScope, args: dict[str, Any]) ->
         try:
             found += await host.connector.directory(query)
         except ConnectorError as exc:
+            logger.info("contacts read failed", code=exc.code, reason=exc.reason)
             problem = f"{exc} {exc.hint}".strip()
     candidates = _unique(found)
     guessed = False

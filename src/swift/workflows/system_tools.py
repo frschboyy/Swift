@@ -146,7 +146,7 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         async def perform(intent: it.Intent = intent, result: dict[str, str] = result) -> str:
             outcome = await lane.run_intents([intent])
             if not outcome.ok:
-                raise ConnectorError(outcome.said)
+                raise ConnectorError(outcome.said, reason="system_action_failed")
             result["said"] = outcome.said
             return intent.name  # the receipt: the intent only, never its words
 

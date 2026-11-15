@@ -141,6 +141,11 @@ class Answer:
             return {"answered": False, "reason": "The owner said never mind: don't do this part. Stop and say so."}
         return {"answered": False, "reason": "No answer."}
 
+    def for_log(self, question: str) -> dict[str, Any]:
+        """The owner's answer for the local interaction log: words, so never swift.log (decision 8)."""
+        kept = {"question": question, "kind": self.kind, "answer": self.for_run().get("answer"), "said": self.said}
+        return {k: v for k, v in kept.items() if v not in (None, "")}
+
 
 # ---- reading what was said ----------------------------------------------------------------------
 

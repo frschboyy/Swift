@@ -178,7 +178,7 @@ def _send(inputs: list[INPUT]) -> None:
         return
     array = (INPUT * len(inputs))(*inputs)
     if user32.SendInput(len(inputs), array, ctypes.sizeof(INPUT)) != len(inputs):
-        raise DesktopError("Windows didn't accept Swift's key presses.", "Swift can't type into windows run as administrator.")
+        raise DesktopError("Windows didn't accept Swift's key presses.", "Swift can't type into windows run as administrator.", reason="send_input_refused")
 
 
 def _chord(modifier: int, key: int, times: int = 1) -> None:
@@ -233,7 +233,7 @@ def _clipboard(fn: Any) -> Any:
         except Exception:  # noqa: BLE001
             time.sleep(0.05)
     else:
-        raise DesktopError("The clipboard is busy.", "Try again in a moment.")
+        raise DesktopError("The clipboard is busy.", "Try again in a moment.", reason="clipboard_busy")
     try:
         return fn(win32clipboard)
     finally:
@@ -284,7 +284,7 @@ def _word(create: bool) -> Any:
     try:
         return win32com.client.Dispatch("Word.Application")
     except Exception as exc:  # noqa: BLE001
-        raise DesktopError("Word isn't available on this computer.", "Ask for the text instead.") from exc
+        raise DesktopError("Word isn't available on this computer.", "Ask for the text instead.", reason="word_unavailable") from exc
 
 
 class _Uia:
@@ -780,10 +780,10 @@ class WindowsDesktop:
             return _WordWriter(self, mode, new_document)
         context = self._context()
         if not context.hwnd:
-            raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.")
+            raise DesktopError("No app is in front to write in.", "Click where the text should go, then ask again.", reason="no_app_in_front")
         exe = context.exe.lower()
         if context.private or context.password or exe in TERMINALS:
-            raise DesktopError(f"Swift doesn't write in {context.app} there.", "")
+            raise DesktopError(f"Swift doesn't write in {context.app} there.", "", reason="not_writable_there")
         if exe == "winword.exe":
             return _WordWriter(self, mode, False)
         uia = self._uia()
@@ -815,20 +815,20 @@ class WindowsDesktop:
             word = _word(create=False)
             doc = next((d for d in word.Documents if d.FullName == name), None)
             if doc is None:
-                raise DesktopError("That Word document isn't open any more.", "")
+                raise DesktopError("That Word document isn't open any more.", "", reason="document_closed")
             if doc.Content.End != end:
-                raise DesktopError("The document has changed since Swift wrote in it.", "Use Ctrl+Z in Word instead.")
+                raise DesktopError("The document has changed since Swift wrote in it.", "Use Ctrl+Z in Word instead.", reason="document_changed")
             doc.Undo(steps)
             return "Undid what I wrote in Word."
         if kind == "value":
             _, value, text = receipt.target
             if value.CurrentValue.replace("\r\n", "\n") != text:
-                raise DesktopError(f"The text in {receipt.app} has changed since.", f"Use Ctrl+Z in {receipt.app}.")
+                raise DesktopError(f"The text in {receipt.app} has changed since.", f"Use Ctrl+Z in {receipt.app}.", reason="text_changed")
             value.SetValue("")
             return f"Removed what I wrote in {receipt.app}."
         _, hwnd = receipt.target
         if _foreground() != hwnd:
-            raise DesktopError(f"{receipt.app} isn't in front.", f"Click in {receipt.app} and say “undo that” again.")
+            raise DesktopError(f"{receipt.app} isn't in front.", f"Click in {receipt.app} and say “undo that” again.", reason="app_not_in_front")
         _chord(VK_CONTROL, ord("Z"), receipt.chunks)
         return f"Pressed Ctrl+Z in {receipt.app} {receipt.chunks} time{'s' if receipt.chunks != 1 else ''}."
 
@@ -841,10 +841,10 @@ class WindowsDesktop:
             try:
                 word = _word(create=False)
             except Exception as exc:  # noqa: BLE001 - Word was closed
-                raise DesktopError("Word isn't open any more.", "") from exc
+                raise DesktopError("Word isn't open any more.", "", reason="word_closed") from exc
             doc = next((d for d in word.Documents if d.FullName == receipt.target[1]), None)
             if doc is None:
-                raise DesktopError("That Word document isn't open any more.", "")
+                raise DesktopError("That Word document isn't open any more.", "", reason="document_closed")
             word.Visible = True
             doc.Activate()
             word.Activate()
@@ -855,7 +855,7 @@ class WindowsDesktop:
         elif kind == "keys":
             hwnd = receipt.target[1]
         else:
-            raise DesktopError(f"Swift can't bring {receipt.app} to the front.", f"Switch to {receipt.app} yourself.")
+            raise DesktopError(f"Swift can't bring {receipt.app} to the front.", f"Switch to {receipt.app} yourself.", reason="cant_bring_forward")
         if hwnd:
             if user32.IsIconic(hwnd):
                 user32.ShowWindow(hwnd, 9)  # SW_RESTORE
@@ -903,7 +903,7 @@ class WindowsDesktop:
             outlook = win32com.client.Dispatch("Outlook.Application")
             mail = outlook.CreateItem(0)  # olMailItem
         except Exception as exc:  # noqa: BLE001
-            raise DesktopError("Classic Outlook isn't available.", "Use Gmail instead, or start Outlook first.") from exc
+            raise DesktopError("Classic Outlook isn't available.", "Use Gmail instead, or start Outlook first.", reason="outlook_unavailable") from exc
         mail.To = "; ".join(to)
         mail.Subject = subject
         mail.Body = body

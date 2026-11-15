@@ -5,6 +5,7 @@ rules (a bare "yes" never approves; typing never approves; never asked while awa
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Any
 
@@ -21,6 +22,7 @@ from swift.endpoint import EndOfTurn, more_coming
 from swift.executors.base import ExecEvent, ExecResult
 from swift.ipc.protocol import Message, ProtocolError, decode
 from swift.parked import ParkedThreads
+from swift.runlog import summary
 from swift.speech import FakeSpeaker, card_speech
 from swift.system import intents as it
 from swift.workflows.tools import KnownContact
@@ -502,6 +504,9 @@ async def test_a_run_asks_and_the_open_microphone_takes_the_answer() -> None:
     assert not asks(out)[-1]["open"] and session.wake_stats["answer"] == 1
     await finish_all(session, agent)
     assert records[0]["asks"] == [{"kind": "choice", "options": 2, "turns": ["answered"], "result": "choice"}]
+    # the answer is kept in the local interaction log, never in swift.log's line (decision 8)
+    assert records[0]["answers"] == [{"question": "Paris or Rome?", "kind": "choice", "answer": "Rome", "said": "the second one"}]
+    assert "answers" not in summary(records[0]) and "Rome" not in json.dumps(summary(records[0]))
 
 
 async def test_a_clear_new_request_still_wins_and_the_question_waits() -> None:

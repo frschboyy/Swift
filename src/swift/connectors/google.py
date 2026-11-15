@@ -206,9 +206,10 @@ class GoogleSession:
         raise AssertionError("unreachable")
 
     def _failure(self, exc: Exception) -> ConnectorError:
+        why = f"http_{status}" if (status := http_status(exc)) else type(exc).__name__  # never the text: it holds the address
         if transient(exc):
             return ConnectorError(f"Swift lost the connection to {self.service_name}, so it couldn't finish.",
-                                  "Try again in a moment.")
+                                  "Try again in a moment.", reason=why)
         text, low = str(exc), str(exc).lower()
         if ("insufficient" in low and "scope" in low) or "insufficientpermissions" in low:
             return ConnectorError(
@@ -219,7 +220,7 @@ class GoogleSession:
             for listener in expired_listeners:
                 listener()
             return ConnectorError(f"{self.service_name} sign-in has expired.", SIGNIN_HINT, code="not_connected")
-        return ConnectorError(f"{self.service_name} couldn't do that: {text[:200]}", "Try again in a moment.")
+        return ConnectorError(f"{self.service_name} couldn't do that: {text[:200]}", "Try again in a moment.", reason=why)
 
 
 def signin_flow(timeout_s: float | None = None) -> set[str]:

@@ -33,6 +33,8 @@ from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+from loguru import logger
+
 from swift.connectors.base import CalendarConnector, CalendarEvent, ConnectorError, Contact, StoredEvent
 from swift.security.gateway import Action, Outcome
 from swift.workflows.library import likeness
@@ -320,6 +322,7 @@ async def _known(host: ToolHost, calendar: CalendarConnector, scope: RunScope, e
     try:
         stored = await calendar.get_event(event_id)
     except ConnectorError as exc:
+        logger.info("calendar read failed", code=exc.code, reason=exc.reason)
         return f"Couldn't read the calendar: {exc} {exc.hint}".strip()
     if stored is None:
         return "That event isn't in the calendar any more (it may have been removed already)."
@@ -381,6 +384,7 @@ async def list_calendar_events(host: ToolHost, scope: RunScope, args: dict[str, 
             events = [e for score, e in sorted(alike, key=lambda a: -a[0]) if score >= HEARD_LIKENESS][:limit]
             heard = bool(events)
     except ConnectorError as exc:
+        logger.info("calendar read failed", code=exc.code, reason=exc.reason)
         return ToolResult(False, f"Couldn't read the calendar: {exc} {exc.hint}".strip())
     host.saw_titles(*(e.event.title for e in events))
     mine = set(host.gateway.journal.receipts("create_calendar_event"))

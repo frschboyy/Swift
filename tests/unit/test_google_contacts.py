@@ -202,6 +202,7 @@ async def test_a_refusal_is_not_retried_or_called_a_refusal() -> None:
     with pytest.raises(ConnectorError) as raised:
         await GoogleSession("Google Calendar").call(bad, retry=True)
     assert len(tries) == 1 and "Google Calendar couldn't do that" in str(raised.value)
+    assert raised.value.reason == "http_400"  # what swift.log gets: the status, never Google's text (decision 8)
 
 
 class FakeEvents:

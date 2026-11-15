@@ -2954,7 +2954,7 @@ class Session:
             await self._send_failure(exc.failure, record)
         except Exception as exc:  # noqa: BLE001 - any bug here ends the request with a card
             logger.exception("interaction failed")
-            record["status"] = "error"
+            record["status"], record["error_class"] = "error", type(exc).__name__
             record["error_detail"] = failure_text(exc)
             self._last_exchange = None
             await self._send_failure(
@@ -3057,7 +3057,7 @@ class Session:
                 answer = await self.desktop.undo(self.tools.last_write)
             except ConnectorError as exc:  # kept: "click in Notepad and say undo that again"
                 record["status"] = "error"
-                record["error"] = "undo_failed"
+                record["error"], record["reason"] = "undo_failed", exc.reason or exc.code
                 await self._send_failure(Failure("undo_failed", "Couldn't undo that", str(exc), exc.hint), record)
                 return
             self.tools.last_write = None
@@ -3241,9 +3241,8 @@ class Session:
 
     async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...], *, own: bool = False,
                          note: str = "", slot: str | None = None, payload: Any = None) -> Answer | None:
-        """A request asks the owner something while it runs (``ask_owner``). Shown on its card and said
-        aloud for a spoken request, then the microphone opens by itself for the answer. None: no
-        answer (the owner is away, or didn't answer in time); it waits in the stack with its conversation."""
+        """A run asks the owner something (``ask_owner``): on its card, said aloud for a spoken request, then the
+        microphone opens for the answer. None: no answer (away, or none in time); it waits in the stack with its conversation."""
         run = self._current()
         record = self._record
         q = Question(_clip(text, 300), kind, options, source="run", thread=run.thread, owner=run,
@@ -3281,6 +3280,8 @@ class Session:
         entry["result"] = answer.kind if answer is not None else "unanswered"
         if answer is None and record is not None:
             record["asked_unanswered"] = q.text
+        elif record is not None:  # the owner's answer: the local log only (decision 8)
+            record.setdefault("answers", []).append(answer.for_log(q.text))
         return answer
 
     async def _show_question(self, q: Question) -> None:

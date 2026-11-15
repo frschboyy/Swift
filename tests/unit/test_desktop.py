@@ -11,6 +11,7 @@ import time
 from typing import Any
 
 import pytest
+from loguru import logger
 from test_workflows import LECTURER, Owner
 
 from swift.desktop.base import DesktopContext, NeverRead
@@ -300,8 +301,16 @@ async def test_fill_in_reports_an_unavailable_app() -> None:
     desktop.unavailable.add("gmail")
     found = await host.call("find_contact", {"query": "lecturer"})
     draft = await host.call("draft_email", {"to": [found.data["candidates"][0]["email"]], "subject": "x", "body": "y"})
-    result = await host.call("fill_in_email", {"draft_id": draft.data["draft_id"]})
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(str(m) + json.dumps(m.record["extra"])), level="INFO")
+    try:
+        result = await host.call("fill_in_email", {"draft_id": draft.data["draft_id"]})
+    finally:
+        logger.remove(sink)
     assert not result.ok and "Gmail couldn't be filled in" in result.text and "Nothing was sent" in result.text
+    # swift.log says why, as a code, never the failure's words (decision 8)
+    failed = [line for line in lines if "action failed" in line]
+    assert len(failed) == 1 and '"reason": "gmail_unavailable"' in failed[0] and "isn't available" not in failed[0]
 
 
 # ---- workflow grants -------------------------------------------------------------------

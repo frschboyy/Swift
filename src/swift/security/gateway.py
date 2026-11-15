@@ -256,9 +256,9 @@ class ActionGateway:
             if exc.code == "unknown":  # it may have been done: say so, never "failed" (audit 2026-10, A-05)
                 self.journal.write(action_id, "UNKNOWN", reason=exc.code)
                 await status("failed", reason=str(exc)[:200])
-                logger.warning("action outcome unknown", tool=action.tool, action=action_id)
+                logger.warning("action outcome unknown", tool=action.tool, action=action_id, reason=exc.reason)
                 return Outcome("unknown", str(exc))
-            return await self._failed(action, action_id, str(exc), exc.code, status)
+            return await self._failed(action, action_id, str(exc), exc.code, status, exc.reason)
         except asyncio.CancelledError:
             self.journal.write(action_id, "FAILED", reason="interrupted")
             raise
@@ -288,10 +288,11 @@ class ActionGateway:
 
     async def _failed(
         self, action: Action, action_id: str, reason: str, code: str,
-        status: Callable[..., Awaitable[None]],
+        status: Callable[..., Awaitable[None]], why: str = "",
     ) -> Outcome:
-        """``reason`` is for the owner and the agent, and can quote the service. The journal and the log get ``code``."""
+        """``reason`` is for the owner and the agent, and can quote the service. The journal gets ``code``;
+        the log ``code`` and ``why`` (``ConnectorError.reason``, content-free)."""
         self.journal.write(action_id, "FAILED", reason=code)
         await status("failed", reason=reason[:200])
-        logger.warning("action failed", tool=action.tool, action=action_id, code=code)
+        logger.warning("action failed", tool=action.tool, action=action_id, code=code, reason=why or code)
         return Outcome("failed", reason)

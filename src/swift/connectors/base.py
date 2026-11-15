@@ -53,12 +53,16 @@ class SentMessage:
 
 
 class ConnectorError(RuntimeError):
-    """The service refused or couldn't be reached. ``hint`` says what the owner can do."""
+    """The service refused or couldn't be reached. ``hint`` says what the owner can do.
 
-    def __init__(self, message: str, hint: str = "", *, code: str = "connector_failed") -> None:
+    ``reason``: why, as a content-free code for ``swift.log`` ("http_503", "clipboard_busy", an error
+    class), since ``message`` can quote the service, a path or the owner's words (decision 8)."""
+
+    def __init__(self, message: str, hint: str = "", *, code: str = "connector_failed", reason: str = "") -> None:
         super().__init__(message)
         self.hint = hint
         self.code = code
+        self.reason = reason
 
 
 class EmailConnector(Protocol):

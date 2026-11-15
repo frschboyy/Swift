@@ -13,6 +13,8 @@ Fields (absent when they don't apply):
 - ``steps``: ``[{t_ms, text}]``
 - ``status``: done, cancelled, error or rejected, with ``error`` (a code) and ``reason``
 - ``error_detail``: what the failure said in its own words (a path, a service's text, a model's words)
+- ``answers``: ``[{question, kind, answer, said}]``, the owner's answers to Swift's questions (``asks`` has their shape)
+- ``error_class``: the exception's class, when Swift itself failed
 - ``approvals``: ``[{tool, decision, asked_ms, answered_ms, source, heard}]`` (``source``: voice or click)
 - ``context``: ``{previous, age_s}`` when the previous exchange was sent along (follow-ups)
 - ``cost_usd``, ``turns``, ``denied``, ``exit_code`` (Claude Code runs)
@@ -45,7 +47,7 @@ FIELD_ORDER = (
 # the local interaction log only, so a new field can't reach swift.log until someone decides it may.
 SUMMARY_FIELDS: frozenset[str] = frozenset({
     "action", "answered_later", "artifacts", "asked", "asks", "audio_s", "back", "carried", "clip_flags",
-    "confirmed", "context", "cost_usd", "demand", "denied", "desktop", "dialogue",
+    "confirmed", "context", "cost_usd", "demand", "denied", "desktop", "dialogue", "error_class",
     "duration_ms", "ended", "endpoint_waits", "error", "executor", "first_audio_ms", "fix",
     "follows_local", "fragment", "heard_back_ms", "improve", "intents", "interaction_ms", "live", "midrun",
     "models", "moved_on", "noise_db", "offer", "offered", "offered_resume", "override", "parked", "paused",
@@ -58,7 +60,7 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
 # Fields that stay out on purpose: words, or the name or path of something of the owner's. Also
 # ``continues``, which is taken off the record before it finishes.
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
-    "addressed_as", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "id", "steps", "target",
+    "addressed_as", "answers", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "id", "steps", "target",
     "transcript", "transcript_heard", "transcript_raw", "ts", "unclear",
 })
 _ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request

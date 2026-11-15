@@ -372,7 +372,6 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 |---|---|---|
 | `claude/audit-fixes-google-calendar` | Audit fixes for Google Calendar, owner checks 222–227 (worktree `C:\Users\frchi\Documents\Swift-audit-fixes`) | 20 commits not in `main`, not merged; on origin |
 | `claude/audit-fixes-recipients` | Audit fixes for recipients | 3 commits not in `main`, not merged; on origin |
-| `claude/cross-platform-note` | Decision 29 and its note (docs only) | 1 commit not in `main`, not merged |
 
 **Next free owner check number:** `plan.py` prints it, counted across `main` and every open branch (240 on 2026-11-12). When two sessions add checks at the same time, they still say which numbers they took here.
 

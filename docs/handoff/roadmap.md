@@ -41,6 +41,7 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 - [ ] A8. Swift checks a thing happened before it says so ("Playing.", "Wi-Fi off"). <!-- checks: 235, 239 -->
 - [ ] A9. An email is written wherever the cursor was. <!-- checks: 49, 215 -->
 - [ ] A10. "Hey Swift" brings Swift in front of an always-on-top window. <!-- checks: 203 -->
+- [ ] A12. A spoken Reject is heard as fast as a click. <!-- checks: 195 -->
 - [ ] Structure: review item 9, one versioned screen snapshot acknowledged when drawn (the fix under A2–A6).
 
 **B. Adaptive UI and UX, extending Halo**
@@ -53,6 +54,12 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 - [ ] B6. The watch and working views each have their own look (decided: study first: a separate card or not; a technical feel, or a visual one that shows the email or deck being built).
 - [ ] B7. Motion you can see (decided: slower transitions; the grow-from-the-orb version tried in the harness before you choose). <!-- checks: 221 -->
 - [ ] B8. Your pen.dev prompt that extends Halo.
+- [ ] B9. The watch docked as a sidebar or mini sidebar, at a corner or edge (not decided). <!-- checks: 305 -->
+- [ ] B10. The watch stays connected to its request: the card doesn't go while it's open. <!-- checks: 305 -->
+- [ ] B11. Progress or animation in the watch. <!-- checks: 305 -->
+- [ ] B12. "Open answer" leads back to the answer. <!-- checks: 305 -->
+- [ ] B13. File lists shown as a tree. <!-- checks: 305 -->
+- [ ] B14. A discreet running-timer indicator, perhaps in the stack. <!-- checks: 305 -->
 
 **C. Agent autonomy: working out how to reach a goal, inside the product rules**
 
@@ -63,6 +70,7 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 - [ ] C5. Reminders, schedules and repeating automations. <!-- checks: 237, 239 -->
 - [ ] C6. "Play some music" finds out how you play music.
 - [ ] C7. "Remember that…" (the memory store).
+- [ ] C9. "What's on my screen?" sees more than the front window (screen awareness, deferred). <!-- checks: 237 -->
 - [ ] Decide on a credentials vault for C2 and C4 (sign-in is yours today).
 
 ## Next week, when you have 15 minutes each

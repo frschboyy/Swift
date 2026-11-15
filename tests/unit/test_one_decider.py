@@ -63,3 +63,38 @@ async def test_a_hands_free_yes_to_the_correction_offer_is_what_approves_says(mo
         assert len(agent.requests) == before and session._fix_offer is not None
     assert calls == [("beside", said.startswith("Swift"), 1)], calls
     await finish_all(session, agent)
+
+
+CARD_DOORS = {  # how an "approve" reaches an open confirm card: (the words, the source and named approves sees)
+    "the hotkey held": ("approve", ("voice", False)),  # a gesture: foundation decision 3
+    "hands-free": ("Swift, approve.", ("beside", True)),
+    "typed": ("Swift, approve", ("typed", True)),
+}
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+@pytest.mark.parametrize("door", list(CARD_DOORS))
+async def test_an_approve_on_a_card_is_what_approves_says(monkeypatch: pytest.MonkeyPatch, door: str,
+                                                          allowed: bool) -> None:
+    """The push-to-talk card door (_answer_by_voice -> _answer_text) approved without asking ``approves``; the
+    typed and hands-free doors each asked it before ``_answer_text``. Now ``_answer_text`` asks, for all three."""
+    from test_hands_free import say
+    from test_intake import _card, _decided
+
+    from swift.ipc.protocol import Message
+
+    session, out, records, stt, rid = await _card()
+    words, seen = CARD_DOORS[door]
+    calls = _decider(monkeypatch, allowed)
+    if door == "typed":
+        await session.handle(Message("text", {"text": words}))
+    elif door == "hands-free":
+        await say(session, stt, words)
+    else:
+        stt.text = words
+        await session.handle(Message("ptt", {"state": "down"}))
+        await asyncio.sleep(0.05)
+        await session.handle(Message("ptt", {"state": "up"}))
+    decision = await _decided(session, records, rid)
+    assert (decision == "approve") is allowed, (door, decision)
+    assert calls == [(*seen, intake.CARD)], calls

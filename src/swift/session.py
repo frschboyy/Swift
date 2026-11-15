@@ -1543,16 +1543,10 @@ class Session:
         open_request = self._open_confirm()
         if open_request is not None and (run := self._owner_of(open_request)) is not None:
             with self._as(run):
-                phase = self._confirm_phase(open_request)
-                decision = (self.router or default_router)(text)
-                verdict = intake.approves("typed", named=match_address(text, self.wake_greetings) is not None,
-                                          level=intake.CARD)
-                if decision.route == "control" and decision.action == "approve" and not verdict.allowed:
-                    await phase("hint", TYPED_APPROVE_HINT)
-                    return
                 entry = self._approval(open_request)
                 if entry is not None:
-                    await self._answer_text(open_request, entry, text, phase)
+                    await self._answer_text(open_request, entry, text, self._confirm_phase(open_request),
+                                            source="typed", named=match_address(text, self.wake_greetings) is not None)
             return
         focus = self._focus
         if self._carries(text) and self._front_busy():
@@ -2417,8 +2411,7 @@ class Session:
         phrases is ignored silently. Rejecting, stopping and "show me" need no wake phrase;
         approving a card needs Swift's name first ("Swift, approve", "hey Swift, approve"), so a TV
         or a bystander saying "yes" can never approve an action (threat model T2). The
-        noisy-room double check still applies. Who may approve what is ``intake.approves``: a
-        plain "yes" takes the correction offer on screen (level 1, like Swift's own question).
+        noisy-room double check still applies. ``intake.approves`` decides (a plain "yes" takes Swift's offer).
         """
         if self._deaf():
             return  # never an answer on a card while locked (T-07)
@@ -2454,23 +2447,20 @@ class Session:
             entry = self._approval(open_request)
             if entry is not None:
                 entry["hands_free"] = True
-                await self._answer_text(open_request, entry, text, self._confirm_phase(open_request))
+                await self._answer_text(open_request, entry, text, self._confirm_phase(open_request),
+                                        source="beside", named=True)
             return
         self._heard = heard
         if open_request is not None:
             entry = self._approval(open_request)
             if entry is None or decision.action not in HANDS_FREE_CONFIRM:
                 return
-            phase = self._confirm_phase(open_request)
-            if decision.action == "approve" and not intake.approves("wake", named=match is not None, level=intake.CARD).allowed:
-                await phase("hint", HANDS_FREE_APPROVE_HINT)
-                return
             entry["hands_free"] = True
-            await self._answer_text(open_request, entry, text, phase)
+            await self._answer_text(open_request, entry, text, self._confirm_phase(open_request),
+                                    source="beside", named=match is not None)
         elif decision.action in HANDS_FREE_MIDRUN:
             await self._midrun_text(text, self._run_phase, source="beside", named=match is not None)
         elif decision.action == "approve" and self._fix_offer is not None:
-            # "Yes" to the follow-up offered (ADR-014 §7): ``intake.approves`` decides, through ``_fix_refused``.
             await self._midrun_text(text, self._run_phase, source="beside", named=match is not None)
 
     def _in_followup(self, started_at: float) -> bool:
@@ -4022,7 +4012,7 @@ class Session:
         # Only the plain word: "never mind", "enough" and "quiet" are for the answer on the card.
         return (named is not None and named[0] == "stop") or _PLAIN_STOP.fullmatch(_normalize(said)) is not None
 
-    async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]]) -> None:
+    async def _redirect(self, change: str, phase: Callable[..., Awaitable[None]], *, source: str, named: bool) -> None:
         """"Actually, make it about the deadline": the request in front changes course (ADR-014 §7)."""
         run = self._current()
         record = self._record
@@ -4035,7 +4025,7 @@ class Session:
             # A card is open: the change is a change to it, as if said on the card.
             entry = self._approval(open_request)
             if entry is not None:
-                await self._answer_text(open_request, entry, change, phase)
+                await self._answer_text(open_request, entry, change, phase, source=source, named=named)
             return
         done = run.scope.done if run.scope is not None else []
         if done:
@@ -4537,7 +4527,8 @@ class Session:
         if open_request is not None:
             entry = self._approval(open_request)
             if entry is not None:
-                await self._answer_text(open_request, entry, text, self._confirm_phase(open_request))
+                await self._answer_text(open_request, entry, text, self._confirm_phase(open_request), source="debug.say",
+                                        named=False)
             return
         await self._midrun_text(text, self._run_phase, source="debug.say")
 
@@ -4555,13 +4546,10 @@ class Session:
         if text is not None:
             await self._midrun_text(text, self._run_phase, source="voice")
 
-    async def _midrun_text(
-        self, text: str, phase: Callable[..., Awaitable[None]], *, source: str, named: bool | None = None,
-    ) -> None:
+    async def _midrun_text(self, text: str, phase: Callable[..., Awaitable[None]], *, source: str, named: bool | None = None) -> None:
         """Said during a run: about the one in front, naming another, a change of mind, or a new request.
         While Swift's question waits, it is the answer (ADR-016 §5.1), unless it is a mid-run control.
-        ``source`` is the real door ("voice": the hotkey; "beside": hands-free), so ``intake.approves`` sees
-        the channel; ``named``: Swift's name was said (hands-free passes it, since ``text`` lost it)."""
+        ``source``: the real door, for ``intake.approves``; ``named``: hands-free passes it (``text`` lost the name)."""
         addressed = match_address(text, self.wake_greetings) is not None if named is None else named
         if (asked := self.dialogue.pending) is not None and self._for_question(asked, text):
             if await self._take_answer(text, source=source, named=addressed):
@@ -4622,7 +4610,7 @@ class Session:
         elif action in ("approve", "reject"):
             await phase("hint", "There's nothing waiting for approval right now.")
         elif change is not None:
-            await self._redirect(change, phase)
+            await self._redirect(change, phase, source=source, named=addressed)
         elif self._new_request(text):
             await phase("idle")
             self._start_beside(text, source=source if source == "typed" else "beside")
@@ -4683,7 +4671,7 @@ class Session:
             return
         if text is None:
             return
-        await self._answer_text(request_id, entry, text, phase)
+        await self._answer_text(request_id, entry, text, phase, source="voice", named=False)  # the hotkey: a gesture
 
     def _confirm_phase(self, request_id: str) -> Callable[..., Awaitable[None]]:
         async def phase(name: str, text: str = "") -> None:
@@ -4692,9 +4680,10 @@ class Session:
         return phase
 
     async def _answer_text(
-        self, request_id: str, entry: dict[str, Any], text: str, phase: Callable[..., Awaitable[None]]
+        self, request_id: str, entry: dict[str, Any], text: str, phase: Callable[..., Awaitable[None]], *, source: str, named: bool,
     ) -> None:
-        """What was said on an open confirm card: approve, reject, stop, show / hide, or a hint."""
+        """What was said or typed on an open confirm card: approve, reject, stop, show / hide, or a hint.
+        ``intake.approves`` decides an "approve" (the hotkey is a gesture: foundation decision 3)."""
         entry.setdefault("heard", []).append(text)
         if request_id not in self._confirm_ids:  # answered by click meanwhile
             return
@@ -4711,6 +4700,10 @@ class Session:
                 owner.task.cancel()
             return
         decision = (self.router or default_router)(text)
+        if decision.route == "control" and decision.action == "approve" and not (
+                verdict := intake.approves(source, named=named, level=intake.CARD)).allowed:
+            await phase("hint", TYPED_APPROVE_HINT if verdict.reason == "typed" else HANDS_FREE_APPROVE_HINT)
+            return
         held = entry.pop("held", None)
         if decision.route == "control" and decision.action == "approve" and held is None:
             if (doubt := self._approval_doubt(self._heard)) is not None:

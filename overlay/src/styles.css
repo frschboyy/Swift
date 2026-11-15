@@ -485,6 +485,29 @@ code {
 .diagram-stage { margin-top: 6px; }
 .diagram-stage svg { display: block; max-width: 100%; height: auto; max-height: 260px; margin: 0 auto; }
 .diagram--full .diagram-stage svg { max-height: none; }
+/* B4: a mind map as nested lists, the root on the left (prototype: overlay/dev/b4.html). The worker's, so neutral:
+   never Swift's accent, and never amber or red, which mean an OK is waiting or something failed. */
+.mindmap { margin-top: 10px; }
+.mind { display: flex; align-items: center; margin-top: 6px; font-size: 13px; line-height: 18px; --mind-line: var(--faint); }
+.mind ul { list-style: none; margin: 0; padding: 0 0 0 16px; position: relative; }
+.mind li { position: relative; padding: 3px 0; }
+.mind li::before { content: ""; position: absolute; left: -10px; top: 0; bottom: 0; border-left: 1.4px solid var(--mind-line); }
+.mind li:first-child::before { top: 13px; }
+.mind li:last-child::before { bottom: auto; height: 13px; }
+.mind li:only-child::before { display: none; }
+.mind li::after { content: ""; position: absolute; left: -10px; top: 13px; width: 10px; border-top: 1.4px solid var(--mind-line); }
+.mind > ul::before, .mind-l1 > li > ul::before { content: ""; position: absolute; left: 0; top: 50%; width: 6px; border-top: 1.4px solid var(--mind-line); }
+.mind-l1 > li { display: flex; align-items: center; }
+/* A branch sits at the middle of its ideas, so its lines meet it there, not at the top. */
+.mind-l1 > li::after { top: 50%; }
+.mind-l1 > li:first-child::before { top: 50%; }
+.mind-l1 > li:last-child::before { height: 50%; }
+.mind-node { display: inline-block; padding: 1px 8px; border-radius: 8px; color: var(--text); overflow-wrap: anywhere; }
+.mind-root { flex: 0 0 auto; max-width: 104px; padding: 8px 10px; border-radius: 12px; background: var(--raise-hover); border: 1px solid var(--panel-edge); color: var(--text); font-weight: 700; text-align: center; overflow-wrap: anywhere; }
+.mind-l1 > li > .mind-node { flex: 0 0 auto; max-width: 96px; background: var(--raise); border: 1px solid var(--panel-edge); font-weight: 600; padding: 4px 8px; }
+.mind-l2 > li > .mind-node { background: var(--raise); }
+.mind-l3 { padding-left: 14px; }
+.mind-l3 .mind-node { color: var(--muted); padding: 0 6px; }
 .section-title { margin: 12px 0 0; color: var(--muted); font-size: 13px; font-weight: 600; }
 
 /* a long answer: six lines, faded; open, it grows in place and only its body scrolls */

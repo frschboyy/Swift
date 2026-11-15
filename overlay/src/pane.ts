@@ -22,7 +22,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { answerTable, compareBlock, copyButton, detailsText, diagramBlock } from "./blocks";
+import { answerTable, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock } from "./blocks";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
@@ -74,6 +74,8 @@ function details(d: ResultDetails | null): HTMLElement | null {
       return compareBlock(d, true);
     case "diagram":
       return diagramBlock(d, true);
+    case "mindmap":
+      return mindmapBlock(d, true);
   }
 }
 

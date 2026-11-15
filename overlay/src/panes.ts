@@ -132,6 +132,7 @@ export function needsReader(summary: string, details: ResultDetails | null | und
       return details.rows.length > READ_ALL_ROWS;
     case "compare":
     case "diagram":
+    case "mindmap":
       return details.size === "expanded";  // Swift sized it (swift/shapes.py)
   }
 }

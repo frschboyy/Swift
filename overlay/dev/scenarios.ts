@@ -104,6 +104,17 @@ const SEQUENCE = {
   kind: "diagram", title: "Signing in", by: "worker", size: "expanded",
   source: "sequenceDiagram\n  participant You\n  participant Swift\n  participant Google\n  You->>Swift: Sign in\n  Swift->>Google: Open the sign-in page\n  Google-->>You: Ask for your password\n  You->>Google: Approve\n  Google-->>Swift: A token\n  Swift-->>You: Signed in",
 };
+// B4: a mind map as swift/shapes.py hands it on; the second has more ideas than a card shows.
+const PARTY = {
+  kind: "mindmap", title: "Party ideas", root: "Birthday party", by: "worker", size: "card",
+  children: [
+    { label: "Games", children: [{ label: "Treasure hunt", children: [] }, { label: "Musical chairs", children: [] }] },
+    { label: "Food", children: [{ label: "Pizza", children: [] }, { label: "A cake shaped like a dinosaur", children: [{ label: "Order by Thursday", children: [] }] }] },
+    { label: "Invites", children: [{ label: "Class of 24", children: [] }] },
+    { label: "Music", children: [] },
+  ],
+};
+const PARTY_BIG = { ...PARTY, size: "expanded", children: [...PARTY.children, { label: "Decorations", children: ["Balloons", "Bunting", "Fairy lights"].map((label) => ({ label, children: [] })) }] };
 const BROKEN = { kind: "diagram", title: "Half a flow", by: "worker", size: "card", source: "flowchart LR\n  A --> (((", text: "The steps: ask, check, answer." };
 
 const EVENT = {
@@ -218,6 +229,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerDiagram: async (s) => { await answer(s, "Draw how a request runs", "Most requests finish without a card; a card waits for your OK.", { ...FLOW, text: "Declining stops the run." }); },
   answerDiagramLong: async (s) => { await answer(s, "Draw how signing in works", "Swift opens Google's page; you approve there, and Swift gets a token.", SEQUENCE); },
   answerDiagramBroken: async (s) => { await answer(s, "Draw the request steps", "Three steps.", BROKEN); },
+  answerMindmap: async (s) => { await answer(s, "Make me a mind map of party ideas", "Four areas: games, food, invites and music.", PARTY); },
+  answerMindmapLong: async (s) => { await answer(s, "Make me a bigger mind map of party ideas", "Five areas, with decorations.", PARTY_BIG); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   answerLongOpen: async (s) => {

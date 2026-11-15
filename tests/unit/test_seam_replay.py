@@ -409,6 +409,24 @@ async def test_a_diagram_reaches_the_done_card_as_one() -> None:
         await finish_all(session, agent)
 
 
+async def test_a_mind_map_reaches_the_done_card_as_one() -> None:
+    """B4, mind map: a tree Swift checked (swift/shapes.py) goes through the real session to the answer card as a
+    mind map, its ideas as indented lines; more than twelve ideas open in full (owner check b4-diagram-902ffc-2)."""
+    branches = [{"label": f"Branch {b}", "children": [{"label": f"Idea {b}.{i}"} for i in range(3)]} for b in range(4)]
+    for children, long in [(branches[:2], False), (branches, True)]:
+        session, out, agent, stt, _control, _sched = _lane()
+        shape, problems = shapes.check({"shape": "mindmap", "root": "Party", "children": children})
+        assert not problems
+        agent.details = shapes.details(shape)
+        run = await started(session, out, agent, stt, "Hey Swift, make me a mind map of party ideas")
+        agent.runs[run]["go"].set()
+        await until(lambda: out.last("result"))
+        screen = agree(session, out)
+        assert screen["stage"] == "result" and screen["answerKind"] == "mindmap" and screen["answerLong"] is long
+        assert screen["answerText"].startswith("Party\n- Branch 0\n  - Idea 0.0\n  - Idea 0.1")
+        await finish_all(session, agent)
+
+
 # ---- what must keep working ---------------------------------------------------------------------
 
 

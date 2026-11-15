@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
-import type { Compare, Diagram, ResultDetails } from "./protocol";
+import type { Compare, Diagram, Idea, MindMap, ResultDetails } from "./protocol";
 
 export { detailsText } from "./answer";
 
@@ -43,6 +43,34 @@ export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
     stage.replaceChildren(svg ?? el("p", { class: "answer-more" }, "Swift couldn't draw this diagram.")));
   return block;
 }
+
+const MINDMAP_BY = "Mapped by the worker, not checked by Swift";
+const CARD_IDEAS = 12;  // swift/shapes.py CARD_IDEAS: more opens with Read more
+
+/** A mind map drawn by Swift's own code: nested lists (the root, its branches beside it, their ideas beside
+ *  those), so labels wrap instead of being cut and screen readers get the tree. On the card, the first twelve
+ *  ideas; ``full`` shows them all. */
+export function mindmapBlock(m: MindMap, full: boolean): HTMLElement {
+  let left = full ? Infinity : CARD_IDEAS;
+  let hidden = 0;
+  const list = (ideas: Idea[], depth: number): HTMLElement | null => {
+    const items = ideas.flatMap((i) => {
+      if (left <= 0) return (hidden += 1 + count(i.children), []);
+      left--;
+      return [el("li", {}, el("span", { class: "mind-node" }, i.label), i.children.length ? list(i.children, depth + 1) : null)];
+    });
+    return items.length ? el("ul", { class: `mind-l${depth}` }, ...items) : null;
+  };
+  const tree = list(m.children, 1);
+  return el("div", { class: "mindmap facts-line--agent" },
+    el("span", { class: "confirm-purpose-by" }, MINDMAP_BY),
+    m.title ? el("p", { class: "compare-title" }, m.title) : null,
+    el("div", { class: "mind" }, el("span", { class: "mind-root" }, m.root), tree),
+    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more ideas (Read more shows them)`) : null,
+    ...(m.text ? renderBlocks(m.text) : []));
+}
+
+const count = (ideas: Idea[]): number => ideas.reduce((n, i) => n + 1 + count(i.children), 0);
 
 /** Paragraphs and lists with their marks, as elements (text only, never HTML). */
 export function renderBlocks(text: string): HTMLElement[] {
@@ -89,6 +117,8 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
       return compareBlock(details, full);
     case "diagram":
       return diagramBlock(details, full);
+    case "mindmap":
+      return mindmapBlock(details, full);
   }
 }
 

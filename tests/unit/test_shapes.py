@@ -144,3 +144,53 @@ def test_a_diagram_takes_nothing_else() -> None:
     for change in ({"source": None}, {"source": ["flowchart"]}, {"items": ["a", "b"]}, {"by": "swift"}):
         assert shapes.check(FLOW | change)[0] is None, change
     assert shapes.check({"shape": ["diagram"]}) == (None, ["shape:unknown"])
+
+
+# ---- mind map: a small tree of short labels, drawn by Swift's own code ----------------------------------------
+
+PARTY: dict[str, Any] = {"shape": "mindmap", "title": "Party ideas", "root": "Birthday party", "children": [
+    {"label": "Games", "children": [{"label": "Treasure hunt", "children": []}, {"label": "Musical chairs", "children": [
+        {"label": "Needs a speaker", "children": []}]}]},
+    {"label": "Food", "children": [{"label": "Pizza", "children": []}]},
+]}
+
+
+def _tree(depth: int) -> dict[str, Any]:
+    """One idea per level, ``depth`` levels deep (built in a loop: a deep one must not overflow here)."""
+    node: dict[str, Any] = {"label": "level 1", "children": []}
+    for level in range(2, depth + 1):
+        node = {"label": f"level {level}", "children": [node]}
+    return node
+
+
+def test_a_mind_map_is_kept_as_sent_and_sized_by_swift() -> None:
+    shape, problems = shapes.check(PARTY)
+    assert problems == [] and shape == PARTY
+    card = shapes.details(shape)
+    assert card["kind"] == "mindmap" and card["by"] == "worker" and card["size"] == "card" and card["root"] == "Birthday party"
+    assert shapes.check(PARTY | {"children": [{"label": "Games"}]})[0] == PARTY | {"children": [{"label": "Games", "children": []}]}
+    thirteen = [{"label": f"Idea {i}"} for i in range(13)]
+    assert shapes.details(shapes.check(PARTY | {"children": thirteen})[0])["size"] == "expanded"
+    thirty = [{"label": f"Branch {b}", "children": [{"label": f"Idea {b}.{i}"} for i in range(5)]} for b in range(5)]
+    assert shapes.check(PARTY | {"children": thirty})[1] == []  # 5 branches + 25 ideas: the limit
+    assert shapes.check(PARTY | {"children": [_tree(3)]})[1] == []  # three levels under the root
+
+
+@pytest.mark.parametrize("change", [
+    {"children": []},
+    {"children": [_tree(4)]},  # a fourth level
+    {"children": [_tree(2000)]},  # far too deep: refused, not a crash
+    {"children": [{"label": f"Branch {b}", "children": [{"label": f"Idea {b}.{i}"} for i in range(5)]} for b in range(6)]},  # 36
+    {"root": ""}, {"root": "x" * 61},
+    {"children": [{"label": "<script>alert(1)</script>"}]},
+    {"children": [{"label": "Games", "children": [{"label": "&amp; more"}]}]},
+    {"children": [{"label": "line\nbreak"}]},
+    {"children": [{"label": "fine​"}]},  # a zero-width space
+    {"children": [{"label": ""}]},
+    {"children": [{"label": "Games", "colour": "red"}]},
+    {"children": ["Games"]},
+    {"source": "flowchart LR"},
+])
+def test_a_mind_map_out_of_shape_is_refused_whole(change: dict[str, Any]) -> None:
+    shape, problems = shapes.check(PARTY | change)
+    assert shape is None and problems

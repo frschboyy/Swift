@@ -7,7 +7,7 @@
 //   with textContent only: answers are untrusted text, never HTML.
 // - **Reading time**: how long an answer stays, ``clamp(4 s, words × 240 ms, 20 s)``.
 
-import type { ResultDetails } from "./protocol";
+import type { Idea, ResultDetails } from "./protocol";
 
 export type Shape = "line" | "text" | "table" | "long";
 
@@ -95,6 +95,13 @@ export function detailsText(details: ResultDetails | null | undefined): string {
         details.pick === undefined ? "" : `${PICK}: ${details.items[details.pick]}`, details.text].filter(Boolean).join("\n");
     case "diagram":
       return [details.title, details.source, details.text].filter(Boolean).join("\n");
+    case "mindmap": {
+      // One idea per line, indented by level: the map's words for Copy and screen readers.
+      const lines = [details.root];
+      const walk = (ideas: Idea[], depth: number): void => ideas.forEach((i) => { lines.push(`${"  ".repeat(depth - 1)}- ${i.label}`); walk(i.children, depth + 1); });
+      walk(details.children, 1);
+      return [details.title, ...lines, details.text].filter(Boolean).join("\n");
+    }
   }
 }
 

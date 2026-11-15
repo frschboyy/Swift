@@ -5,8 +5,9 @@ and marks it. What the worker sends is untrusted data: every field is checked he
 no hidden characters), and anything that fails is refused whole, so the card falls back to today's text. The
 overlay draws the frame as data with textContent (``overlay/src/blocks.ts``), never as HTML.
 
-Shapes so far (owner's order, §7.5): ``compare`` and ``diagram`` (Mermaid source, drawn by the overlay's pinned
-Mermaid in strict mode). Mind map, preview, chart and cards are later shapes.
+Shapes so far (owner's order, §7.5): ``compare``, ``diagram`` (Mermaid source, drawn by the overlay's pinned
+Mermaid in strict mode) and ``mindmap`` (a small tree of short labels, drawn by Swift's own code). Preview, chart
+and cards are later shapes.
 """
 
 from __future__ import annotations
@@ -35,6 +36,12 @@ DIAGRAM_KINDS = {
     "erDiagram": False, "quadrantChart": False,
     "sequenceDiagram": True, "timeline": True, "gantt": True, "journey": True,
 }
+# A mind map: the vetted set's limits (§4, row 1): three levels of ideas under the root, thirty in all.
+LABEL_MAX = 60
+MAP_DEPTH = 3
+MAP_IDEAS = 30
+# Four branches with twelve ideas fill a card (§6); more opens the answer in full.
+CARD_IDEAS = 12
 # What Mermaid can be told to do besides draw: clicks, links, callbacks, directives and front matter, styles (the
 # colours are Swift's, and url() fetches), and images or icons on nodes (``A@{ img: ... }``). Refused whole.
 _MERMAID_ACTIVE = re.compile(
@@ -114,7 +121,32 @@ class Diagram(_Strict):
                       AfterValidator(_mermaid)]
 
 
-MODELS: dict[str, type[_Strict]] = {"compare": Compare, "diagram": Diagram}
+class Idea(_Strict):
+    label: _words(LABEL_MAX)
+    children: list[Idea] = Field(default_factory=list, max_length=MAP_IDEAS)
+
+
+def _ideas(ideas: list[Idea], depth: int = 1) -> int:
+    """How many ideas the branches hold; deeper than the limit is refused."""
+    if ideas and depth > MAP_DEPTH:
+        raise ValueError("at most three levels under the root")
+    return sum(1 + _ideas(i.children, depth + 1) for i in ideas)
+
+
+class MindMap(_Strict):
+    shape: Literal["mindmap"]
+    title: _words(TITLE_MAX) | None = None
+    root: _words(LABEL_MAX)
+    children: list[Idea] = Field(min_length=1, max_length=MAP_IDEAS)
+
+    @model_validator(mode="after")
+    def _fits(self) -> MindMap:
+        if _ideas(self.children) > MAP_IDEAS:
+            raise ValueError("at most thirty ideas")
+        return self
+
+
+MODELS: dict[str, type[_Strict]] = {"compare": Compare, "diagram": Diagram, "mindmap": MindMap}
 
 
 # What the tool's input schema says, for the SDK's own check; the backend checks again above.
@@ -130,6 +162,11 @@ SCHEMA: dict[str, Any] = {
             "required": ["label", "values"]}},
         "pick": {"type": "integer", "minimum": 0},
         "source": {"type": "string", "maxLength": SOURCE_MAX},
+        "root": {"type": "string", "maxLength": LABEL_MAX},
+        "children": {"type": "array", "maxItems": MAP_IDEAS, "items": {
+            "type": "object", "properties": {"label": {"type": "string", "maxLength": LABEL_MAX},
+                                             "children": {"type": "array", "items": {"type": "object"}}},
+            "required": ["label"]}},
     },
     "required": ["shape"],
 }
@@ -140,7 +177,9 @@ DESCRIPTION = (
     "pick: the index of the option you recommend, if any. Use it when the answer compares options. shape "
     "'diagram': Mermaid source (one of flowchart, sequenceDiagram, stateDiagram-v2, classDiagram, erDiagram, "
     "timeline, gantt, quadrantChart, journey; at most 40 lines, plain labels, no click, links, style, classDef or "
-    "init directives). Use it when a picture of steps or parts explains the answer. Keep "
+    "init directives). Use it when a picture of steps or parts explains the answer. shape 'mindmap': a root "
+    "label and its children, each {label, children}, at most 3 levels under the root and 30 ideas, labels up to "
+    "60 characters of plain text. Use it for ideas grouped under a theme. Keep "
     "the data out of your final answer: that answer is said aloud, so make it the conclusion in one or two "
     "sentences. Call it at most once, before your final answer; if it's refused, answer in words."
 )
@@ -166,6 +205,8 @@ def extent(shape: dict[str, Any]) -> tuple[int, int]:
     if shape["shape"] == "diagram":
         lines = _statements(shape["source"])
         return len(lines), CARD_LINES_TALL if DIAGRAM_KINDS[lines[0].split()[0]] else CARD_LINES
+    if shape["shape"] == "mindmap":
+        return _ideas([Idea.model_validate(i) for i in shape["children"]]), CARD_IDEAS
     return len(shape["rows"]), CARD_ROWS
 
 

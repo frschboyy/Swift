@@ -31,7 +31,8 @@ export type ResultDetails =
   | { kind: "list"; items: string[] }
   | { kind: "table"; columns: string[]; rows: string[][] }
   | Compare
-  | Diagram;
+  | Diagram
+  | MindMap;
 
 // B4: options side by side, as the worker proposed them and Swift checked them (swift/shapes.py). by and size are
 // Swift's: who made it (always the worker's here, marked on the card) and whether it fits a card. text: the
@@ -44,6 +45,11 @@ export type Compare = {
 // B4: a diagram as Mermaid source, checked by Swift (only the kinds it vetted, nothing that clicks, links, styles
 // or fetches) and drawn by the overlay's pinned Mermaid in strict mode (mermaid.ts).
 export type Diagram = { kind: "diagram"; title?: string; source: string; by: "worker"; size: "card" | "expanded"; text?: string };
+
+// B4: a mind map, a root and up to three levels of short plain labels (30 ideas at most), checked by Swift and drawn
+// by Swift's own code (blocks.ts), no dependency.
+export type Idea = { label: string; children: Idea[] };
+export type MindMap = { kind: "mindmap"; title?: string; root: string; children: Idea[]; by: "worker"; size: "card" | "expanded"; text?: string };
 
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).
 export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done" | "failed";

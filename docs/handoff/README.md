@@ -362,6 +362,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | 26 | Screenshots to a cloud model as a fallback (ADR-012 D5) | Deferred |
 | 27 | Other AI providers (Codex, Hermes), and which tasks they'd take | A second worker (Later) |
 | 28 | Learning by watching PC use (ADR-011 L3), a strong privacy decision | Never without a yes |
+| 29 | Keep Windows first but make the core not depend on Windows, and put provider independence ahead of it? Saved 2026-11-15, not studied: [`cross-platform-readiness.md`](../explorations/cross-platform-readiness.md) | When the owner is ready; not before Swift is stable on Windows |
 
 ## 6. Branches, sessions and folders
 

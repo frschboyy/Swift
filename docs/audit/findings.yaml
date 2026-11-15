@@ -184,11 +184,12 @@
   area: config
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: memory.py Store.setting and memory/settings/; no call to .setting( in src/swift
-  test: tests/unit/test_memory.py::test_config_yaml_wins_over_a_kept_setting
-  note: A second settings store waiting for a first user. Decide its owner before one is added.
+  evidence: root fix 2026-11-15. Grep of src, overlay, spikes and tests found no use of Store.setting or memory/settings/
+    beyond its own test; both deleted (memory.Kind is now "memory" only). config.yaml (settings.py) is the one settings owner.
+  test: tests/unit/test_memory.py::test_a_new_value_replaces_the_old_and_every_version_is_kept
+  note: An existing memory/settings/ folder on the owner's PC is left untouched on disk; Swift just stops reading it.
 - id: HA-HEAR-02
   title: A wake phrase said just after the screen locks still gets the chime and the "heard" signal from the peek,
     before the 2 s poll catches up.

@@ -181,7 +181,9 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         before = await desktop.context()
         app = "Word" if where == "word" else before.app or "the app in front"
         asked_in = _window(before) if where == "focus" else None
-        if (refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}?", text)):
+        # A terminal's own card shows every character and approves it (level 3): no question before it.
+        if not (where == "focus" and is_terminal(before.exe)) and (
+                refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}?", text)):
             return refused
     terminal, front, window = False, "", (0, "")
     if where == "focus":

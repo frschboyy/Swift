@@ -1,7 +1,7 @@
 """Foundation decision 6 (2026-11-15): when the owner's words don't clearly ask for writing into an app, Swift asks
 ("Write this in Notepad?"), a level 1 question, instead of refusing (audit B-02's refusal). The question shows every
 character a yes writes, marked as the worker's (``quote``; second review, 2026-11-15: a 100-character preview
-approved the whole text). A terminal also gets its own card (test_audit_2026_10.py, A-02)."""
+approved the whole text). A terminal skips the question: its own card shows everything (test_audit_2026_10.py, A-02)."""
 
 from __future__ import annotations
 
@@ -75,11 +75,11 @@ async def test_the_app_in_front_changing_while_swift_asks_writes_nothing() -> No
     assert not result.ok and "changed" in result.text and desktop.writes == []
 
 
-async def test_an_unclear_terminal_write_asks_and_then_still_has_its_own_card() -> None:
+async def test_an_unclear_terminal_write_isnt_asked_twice_its_own_card_is_enough() -> None:
     host, desktop, owner, _ = make(FakeApp("cmd.exe", "edit", route="keys"), said="summarise this page", decision="reject")
     questions = _answering(host, "yes")
     result = await host.call("desktop_write", {"text": "dir"})
-    assert len(questions) == 1 and [tool for _, _, tool, _ in owner.asked] == ["desktop_write_terminal"]
+    assert questions == [] and [tool for _, _, tool, _ in owner.asked] == ["desktop_write_terminal"]
     assert not result.ok and desktop.writes == []
 
 

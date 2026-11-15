@@ -3608,3 +3608,34 @@
     (the replay reports questionQuote as the card draws it) and overlay/tests/cardtext.test.ts; both Python tests
     fail with the quote clipped to 100 characters. The DOM (the scroll box) is not seen in a test. Product rule,
     needs review by someone other than the author.'
+- id: FD-09
+  title: test_redaction's generator can make a "secret" that is part of the key name it sits under ("client_secre"
+    under "client_secret"), so test_embedded_secret_never_survives fails though nothing leaked.
+  source: second review of claude/elegant-shtern-2e16f9 (orchestrator), 2026-11-15
+  module: tests/unit/test_redaction.py
+  area: tests
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'Falsifying case (" \"client_secret\": \"client_secre\" ") replayed against main''s redact(): the value is
+    [REDACTED] and the key is kept on purpose, so the substring survives in the key. Hypothesis saves the example in
+    a worktree''s .hypothesis folder, so it then fails on every run there; other checkouts pass.'
+  test: tests/unit/test_redaction.py::test_embedded_secret_never_survives
+  note: The generator should never draw a secret that is a substring of the key name. Not a redaction defect.
+- id: FD-10
+  title: The overlay's main window takes the text box's "type-tab" and "type-press" messages from any of Swift's pane
+    windows, not only the text box, so script in a pane could press a ringed card button.
+  source: second review of claude/exciting-cartwright-9ace60 (orchestrator), 2026-11-15
+  module: overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: 'main.ts listen("pane-action") handles type-tab and type-press without checking which window sent them; a
+    press needs the text box open (keyOn is cleared otherwise). Reachable only if a pane runs script, which the CSP
+    blocks (see the quality audit''s note on pane windows and app commands).'
+  test: null
+  note: Fix by accepting those two actions only from the text box's window (its label), or emitting them to the main
+    window from the type pane alone.

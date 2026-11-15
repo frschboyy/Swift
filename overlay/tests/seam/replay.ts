@@ -4,7 +4,7 @@
 // stdout, with the acknowledgements main.ts would send back (``P.drawn``). No DOM: what is drawn from this state is still checked by replaying frames in the dev harness.
 
 import * as Q from "../../src/ask.ts";
-import { commandFolded, commandParts, stepCommands } from "../../src/cardtext.ts";
+import { commandFolded, commandParts, quoteLines, stepCommands } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
 import * as P from "../../src/presenter.ts";
 
@@ -95,6 +95,8 @@ process.stdout.write(JSON.stringify({
   cardRun: pres.card.runId,
   cardWords: words,
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
+  // Decision 6: the worker's text the question shows under it, as the card draws it (every line, marked).
+  questionQuote: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? quoteLines(asked!.quote).map((l) => l.text).join("\n") : null,
   confirm: P.confirmVisible(pres) ? pres.pendingConfirm : null,
   // The countdown the card draws (T-08): what the backend's clock last said.
   countdown: P.confirmLeftMs(pres, now),

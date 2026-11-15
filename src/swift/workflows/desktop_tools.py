@@ -84,7 +84,6 @@ NOT_ASKED = ("The owner didn't ask for writing in their apps in this request, so
              "Only text the owner asked to be written can be; tell them what you would write instead.")
 # Apps whose integrated terminal Swift can't tell from their editor (OCT-01): every write there is a terminal's.
 INTEGRATED_TERMINALS = frozenset({"code.exe", "code - insiders.exe"})
-PREVIEW = 100  # characters of the text in the question
 
 
 def owner_asked_to_write(said: str) -> bool:
@@ -102,17 +101,13 @@ def _not_asked(tool: str) -> ToolResult:
     return ToolResult(False, NOT_ASKED, expected=True)
 
 
-def _preview(text: str) -> str:
-    flat = " ".join(text.split())
-    return flat if len(flat) <= PREVIEW else flat[:PREVIEW].rstrip() + "…"
-
-
-async def _ask_to_write(scope: RunScope, tool: str, question: str) -> ToolResult | None:
+async def _ask_to_write(scope: RunScope, tool: str, question: str, text: str) -> ToolResult | None:
     """Foundation decision 6: the owner's words didn't ask for this write, so Swift asks (level 1) instead of
-    refusing. None: the owner said yes; otherwise why nothing was written."""
+    refusing. The question shows ``text``, every character a yes writes, marked as the worker's (``quote``): an
+    approval covers exactly what it showed. None: the owner said yes; otherwise why nothing was written."""
     if scope.ask_fn is None:
         return _not_asked(tool)
-    answer = await scope.ask(question, "yes_no", approval=True)
+    answer = await scope.ask(question, "yes_no", approval=True, quote=text)
     logger.info("desktop write asked", tool=tool, yes=answer is not None and answer.kind == "yes")  # never the text
     if answer is not None and answer.kind == "yes":
         return None
@@ -186,7 +181,7 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         before = await desktop.context()
         app = "Word" if where == "word" else before.app or "the app in front"
         asked_in = _window(before) if where == "focus" else None
-        if (refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}? “{_preview(text)}”")):
+        if (refused := await _ask_to_write(scope, "desktop_write", f"Write this in {app}?", text)):
             return refused
     terminal, front, window = False, "", (0, "")
     if where == "focus":
@@ -439,14 +434,17 @@ async def fill_in_email(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if draft is None:
         return ToolResult(False, f"There is no draft {draft_id}. Write one with draft_email first.")
     shown = "Gmail" if app == "gmail" else "Outlook"
-    if scope.grant is None and not owner_asked_for_email(scope.said):
-        to = ", ".join(c.name or c.email for c in draft.to)
-        if (refused := await _ask_to_write(scope, "fill_in_email", f"Fill in an email to {to} in {shown}? "
-                                           f"“{_preview(draft.subject)}”")):
+    asked = scope.grant is None and not owner_asked_for_email(scope.said)
+    if asked:
+        to = ", ".join(c.email for c in draft.to)
+        whole = f"To: {to}\nSubject: {draft.subject}\n\n{draft.body}"
+        if (refused := await _ask_to_write(scope, "fill_in_email", f"Fill in this email in {shown}?", whole)):
             return refused
 
     async def perform() -> str:
         d = scope.drafts[draft_id]
+        if asked and d is not draft:  # revised after the question: the owner didn't see this one
+            raise DesktopError("The draft changed after Swift asked. Nothing was filled in.", "")
         async with _one_writer(host, scope, shown):
             return await desktop.fill_in_email(app, [c.email for c in d.to], d.subject, d.body)
 

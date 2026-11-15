@@ -99,7 +99,8 @@ code toward these rules, never away.
   recipient, marked "(from your words, not in your contacts)" on the send card (FD-03). Not built: offering to save
   it as a contact; calendar invites still take only contacts. Owner check elegant-shtern-2e16f9-1; not run.
 - **6:** built on the same branch, not merged: a write into an app (or filling in an email) the owner's words
-  didn't clearly ask for is asked about with a preview, level 1 (FD-04). Still a pattern: `owner_asked_to_write`
+  didn't clearly ask for is asked about, level 1 (FD-04), showing every character a yes writes, marked as the
+  worker's (FD-05). Still a pattern: `owner_asked_to_write`
   decides between level 0 and 1, so its false matches write with no question (D4). Owner check
   elegant-shtern-2e16f9-2; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
   can't be told from its editor), has its own card showing every character (level 3) instead of being refused.

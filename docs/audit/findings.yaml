@@ -3570,5 +3570,25 @@
   note: 'Also the rest of test_unclear_writes.py and the seam scenario
     test_seam_replay.py::test_swift_s_question_before_an_unclear_write_is_on_screen_and_a_typed_yes_doesn_t_answer_it.
     Still open from D4: the owner_asked_to_write pattern decides between level 0 and 1, so its false matches ("what''s
-    here on my screen?") still write with no question. The preview is the first 100 characters; the full text is
-    not shown before a reversible write. Product rule, needs review by someone other than the author.'
+    here on my screen?") still write with no question. The question first showed only 100 characters (FD-05,
+    fixed). Product rule, needs review by someone other than the author.'
+- id: FD-05
+  title: The unclear-write question showed a 100-character preview, not marked as the worker's, while a yes wrote the
+    whole text (up to 50,000 characters); fill_in_email's question showed only the subject.
+  source: second review of claude/elegant-shtern-2e16f9 (orchestrator), 2026-11-15
+  module: src/swift/workflows/desktop_tools.py, src/swift/dialogue.py, overlay/src/main.ts, overlay/src/cardtext.ts
+  area: actions
+  severity: high
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: 'Root fix. _ask_to_write passes every character a yes writes as the question''s quote
+    (RunScope.ask(quote=...) -> Question.quote -> the ask frame''s "quote"), never clipped or said aloud; the
+    overlay draws it whole under the worker''s bar (cardtext.quoteLines, facts-line--agent) in a scroll box with
+    "More below"; fill_in_email quotes To, Subject and the body, and refuses if the draft changed after the question.'
+  test: tests/unit/test_unclear_writes.py::test_a_long_text_is_shown_whole_and_the_owners_own_words_need_no_question
+  note: 'Also the seam scenario
+    test_seam_replay.py::test_swift_s_question_before_an_unclear_write_is_on_screen_and_a_typed_yes_doesn_t_answer_it
+    (the replay reports questionQuote as the card draws it) and overlay/tests/cardtext.test.ts; both Python tests
+    fail with the quote clipped to 100 characters. The DOM (the scroll box) is not seen in a test. Product rule,
+    needs review by someone other than the author.'

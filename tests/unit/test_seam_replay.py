@@ -1231,8 +1231,9 @@ async def test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plai
 
 
 async def test_swift_s_question_before_an_unclear_write_is_on_screen_and_a_typed_yes_doesn_t_answer_it() -> None:
-    """Foundation decision 6: a write the owner's words didn't ask for is asked about with a preview on the request's
-    card; both sides agree it's on screen; a typed "yes" asks again (shown with the typing hint), a spoken one writes."""
+    """Foundation decision 6: a write the owner's words didn't ask for is asked about on the request's card, showing
+    every character it would write under the worker's mark (second review: a 100-character preview approved all of
+    it); both sides agree it's on screen; a typed "yes" asks again (with the typing hint), a spoken one writes."""
     from test_recent_address import answer, asked
     from test_recent_address import make as address_session
     from test_session import Recorder
@@ -1241,11 +1242,15 @@ async def test_swift_s_question_before_an_unclear_write_is_on_screen_and_a_typed
 
     out = Recorder()
     session, agent, desktop, _ = address_session(FakeApp("notepad.exe", "edit", route="keys"), out=out)
-    q = await asked(session, agent, "summarise this page", write="Click here")
+    text = "Click here: https://x.example/login\n" + "\n".join(f"Paragraph {i}: " + "word " * 40 for i in range(20))
+    q = await asked(session, agent, "summarise this page", write=text)
     await asyncio.sleep(0.05)
-    assert agree(session, out)["question"] == "Write this in Notepad? “Click here”" == q.text
+    screen = agree(session, out)
+    assert screen["question"] == "Write this in Notepad?" == q.text
+    assert screen["questionQuote"] == text  # all of what a yes writes, as the card draws it
     await answer(session, "typed", "yes")
     assert agree(session, out)["question"] == q.reask_text and q.reask_text.startswith("Typing can't approve")
     await answer(session, "spoken")
     await asyncio.sleep(0.1)
-    assert agree(session, out)["question"] is None and [t for _, t in desktop.writes] == ["Click here"]
+    assert agree(session, out)["question"] is None
+    assert "\n".join(t for _, t in desktop.writes) == screen["questionQuote"]  # written is exactly what was shown

@@ -33,7 +33,7 @@ import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, commandFolded, commandParts, hasMarkedLines, recipientText, stepCommands } from "./cardtext";
+import { cardLines, commandFolded, commandParts, hasMarkedLines, quoteLines, recipientText, stepCommands } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -1481,10 +1481,20 @@ function renderAsk(a: Q.Ask): void {
   drawCard({ state: asking ? "asking" : "waiting", look: `working card--question${asking ? "" : " card--waiting"}`, ...Card.questionParts({
     // Swift's own question says what it's about; ``request`` may be another request's words.
     asking, about: request && !own ? `about “${clipLine(request, 48)}”` : "", title: a.question, note: a.note,
+    quote: questionQuote(a.quote),
     pill: Q.askPill(a, speaking), live: true, secs: left || null, barMs: left * 1000,
     options: Q.askButtons(a).map((o) => el("button", { class: "btn", onclick: (ev: Event) => send(ev, { type: "ask.reply", data: { ask_id: a.id, text: o } }) }, o)),
     foot: [typeHint(!own), own ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => send(ev, { type: "run.stop", data: { run_id: a.runId, from: "question" } }) }, "Stop request")],
   }) });
+}
+
+/** What a question's yes would write, all of it, under the worker's bar; a long one scrolls (decision 6). */
+function questionQuote(quote: string): HTMLElement | null {
+  const lines = quoteLines(quote);
+  if (!lines.length) return null;
+  const box = el("div", { class: "facts-text facts-text--mono", tabindex: "0", role: "document", "aria-label": "What it will write" },
+    ...lines.map((line) => el("div", { class: "facts-line--agent" }, line.text || " ")));
+  return el("div", { class: "facts" }, el("span", { class: "confirm-purpose-by" }, "What it will write, all of it (not your words)"), box, moreBelow(box));
 }
 
 function onAskMessage(data: Q.AskData): void {

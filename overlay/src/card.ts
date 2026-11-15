@@ -61,6 +61,8 @@ export type Question = {
   about: string;
   title: string;
   note?: string;
+  // The worker's text a yes acts on, drawn whole under the title (foundation decision 6).
+  quote?: Node | null;
   pill: string;
   // Seconds shown on the pill (null: none), and the bar under it (ms; 0: none).
   secs: number | null;
@@ -86,6 +88,7 @@ export function questionParts(q: Question): Pick<CardSpec, "lead" | "body" | "fo
     body: [
       el("p", { class: "q-title" }, q.title),
       q.note ? el("p", { class: "q-note" }, q.note) : null,
+      q.quote ?? null,
       pill,
       q.options?.length ? el("div", { class: "q-options" }, ...q.options) : null,
     ],

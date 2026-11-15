@@ -3241,7 +3241,7 @@ class Session:
 
     async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...], *, own: bool = False,
                          note: str = "", slot: str | None = None, payload: Any = None,
-                         approval: bool = False) -> Answer | None:
+                         approval: bool = False, quote: str = "") -> Answer | None:
         """A request asks the owner something while it runs (``ask_owner``). Shown on its card and said
         aloud for a spoken request, then the microphone opens by itself for the answer. None: no
         answer (the owner is away, or didn't answer in time); it waits in the stack with its conversation."""
@@ -3250,7 +3250,7 @@ class Session:
         q = Question(_clip(text, 300), kind, options, source="run", thread=run.thread, owner=run,
                      future=asyncio.get_running_loop().create_future(),
                      request=self._said or str((record or {}).get("transcript") or ""),
-                     note=note, approval=approval or (own and kind == "yes_no"), own=own, slot=slot,
+                     note=note, quote=quote, approval=approval or (own and kind == "yes_no"), own=own, slot=slot,
                      payload=payload)
         entry: dict[str, Any] = {"kind": kind, "options": len(options)}
         if record is not None:

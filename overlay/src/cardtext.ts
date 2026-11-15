@@ -36,6 +36,10 @@ export function commandParts(detail: string): { head: string; rest: string } {
 export const stepCommands = (tool: string, purpose: string | undefined, step: boolean | undefined, detail: string): string[] | null =>
   step && commandFolded(tool, purpose) ? detail.split("\n") : null;
 
+// Foundation decision 6: the worker's text a question's yes would write, every line marked as the worker's and
+// none left out, so what the owner approves is exactly what was shown.
+export const quoteLines = (quote: string): CardLine[] => (quote ? quote.split("\n").map((text) => ({ text, agent: true })) : []);
+
 // Foundation decision 5: a recipient the owner gave by address, in their own words, is marked on the send card,
 // so an address that isn't a contact never passes as one.
 export const SAID_MARK = "from your words, not in your contacts";

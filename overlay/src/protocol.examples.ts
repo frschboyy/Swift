@@ -56,6 +56,7 @@ export const TO_OVERLAY = [
   {"type": "ask", "data": {"ask_id": "ask-1", "run_id": "a-1", "open": false}},
   {"type": "ask", "data": {"ask_id": "ask-1", "question": "Turn off Wi-Fi?", "kind": "yes_no", "options": [], "thread_id": "t-1", "note": "Swift needs the internet for most requests.", "run_id": "local-1", "open": true, "phase": "listening", "seconds": 25.0}},
   {"type": "ask", "data": {"ask_id": "ask-2", "question": "Paris or Rome?", "kind": "choice", "options": ["Paris", "Rome"], "thread_id": "t-1", "run_id": "a-1", "open": true, "phase": "again", "text": "Sorry, which one: Paris or Rome?", "seconds": 0}},
+  {"type": "ask", "data": {"ask_id": "ask-3", "question": "Write this in Notepad?", "kind": "yes_no", "options": [], "thread_id": "t-1", "quote": "Dear Ada,\nThanks for Thursday.", "run_id": "a-1", "open": true, "phase": "listening", "seconds": 25.0}},
 ] satisfies Inbound[];
 
 export const TO_BACKEND = [

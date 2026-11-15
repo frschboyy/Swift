@@ -103,12 +103,15 @@ class RunScope:
         # Asking the owner is never outside what a workflow may do: it does nothing by itself.
         return self.grant is None or tool in self.grant.tools or tool == "ask_owner"
 
-    async def ask(self, question: str, kind: str, options: tuple[str, ...] = (), *, approval: bool = False) -> Any:
+    async def ask(self, question: str, kind: str, options: tuple[str, ...] = (), *, approval: bool = False,
+                  quote: str = "") -> Any:
         """Ask the owner (ADR-016 §5.1): their answer, or None (away, no answer, or no way to ask). ``approval``:
-        the answer does something by itself, so only what approves level 1 answers it (typing never does)."""
+        the answer does something by itself, so only what approves level 1 answers it (typing never does).
+        ``quote``: the worker's text the answer acts on, shown whole on the question and marked as the worker's."""
         if self.ask_fn is None:
             return None
-        return await self.ask_fn(question, kind, options, **({"approval": True} if approval else {}))
+        extra = {**({"approval": True} if approval else {}), **({"quote": quote} if quote else {})}
+        return await self.ask_fn(question, kind, options, **extra)
 
     def carry_from(self, before: RunScope) -> None:
         """Go on from the request before in the same thread: its contacts, drafts and events, so

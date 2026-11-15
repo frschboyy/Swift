@@ -22,6 +22,9 @@ export type AskData = {
   seconds?: number;
   // What the question means, shown small under it and never said ("Swift needs the internet …").
   note?: string;
+  // The worker's text a yes acts on (every character a write types: foundation decision 6), shown whole under
+  // the question, marked as the worker's, never said.
+  quote?: string;
 };
 
 export type Ask = {
@@ -35,6 +38,7 @@ export type Ask = {
   // When the answer window closes (ms), or null while Swift is still saying it.
   until: number | null;
   note: string;
+  quote: string;
 };
 
 // More than this and the options are read, not clicked (the card has room for a row of buttons).
@@ -55,6 +59,7 @@ export function onAsk(cur: Ask | null, d: AskData, now: number): Ask | null {
     kind: d.kind ?? same?.kind ?? "free",
     options: d.options ?? same?.options ?? [],
     note: d.note ?? same?.note ?? "",
+    quote: d.quote ?? same?.quote ?? "",
     phase,
     until: timed ? now + (d.seconds as number) * 1000 : phase === "heard" ? null : same?.until ?? null,
   };

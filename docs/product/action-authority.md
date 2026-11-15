@@ -76,7 +76,7 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 | An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`); the agent's tool cards and step cards through `ActionGateway.bind` / `allow` (`changed_after_approval`, `approval_reused`, journalled) | none (OWN-05 fixed, review pending) |
 | Reversibility of commands | `executors/step_grant.reversible`, `base.Grant.covers` | — |
 | Recipients | `workflows/tools.find_contact`, and `draft_email` for an address in the owner's words → `RunScope.resolved`; the gateway checks it | — |
-| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too (OWN-06, partial) |
+| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too, accepted: a fetch only reads (OWN-06) |
 | Reads | `executors/read_scope.ReadScope` | — |
 | Memory | `memory.Store.write` (`said` text must be in the owner's words; `approved` needs a card) | — |
 | Presence | `presence`, `intake` step 1 | about four checks in `session` (RV-15) |

@@ -37,7 +37,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 | Presence (locked, away, paused) | `presence` + `intake` step 1 | about four checks in `session` (existing RV-15) |
 | Logging (`swift.log`) | `logging_setup` (redaction on every record) | none found |
 | Interaction log | `runlog.InteractionLog` | none found |
-| Settings | `settings` (`config.yaml`) | `memory.Store.setting` with no callers (OWN-07); `overlay.json` (split by design). The unused `config/loader` TOML was removed on 2026-11-15 (HA-CFG-06) |
+| Settings | `settings` (`config.yaml`) | `overlay.json` (split by design). The unused `config/loader` TOML was removed on 2026-11-15 (HA-CFG-06) |
 | The agent executor | `executors/claude_code.ClaudeCodeExecutor` behind `executors/base.Executor`; chosen by `executors/providers` | none found |
 
 ## 1. Action approval
@@ -155,9 +155,9 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
     the agent's url. Then the gateway (`desktop_open`, reversible). `points_back` is gone (foundation decision 4).
 - **Tests:** `tests/unit/test_recent_address.py`, `test_desktop.py`, `test_audit_2026_10.py`, and the seam scenario
   `test_seam_replay.py::test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plain_yes_opens_it`.
-- **Second owner, OWN-06 (partial):** opening has one rule with no word pattern, and both callers read the owner's
-  words through `WebScope.note_request`. Fetching still also takes the context Swift adds and tool-result
-  addresses (accepted risk, OCT-03), so the two sources still differ; making fetching ask is the owner's call.
+- **OWN-06, accepted (owner, 2026-11-15):** opening has one rule with no word pattern, and both callers read the
+  owner's words through `WebScope.note_request`. Fetching keeps its wider sources (the context Swift adds and
+  tool-result addresses, OCT-03), on purpose: a fetch only reads.
 
 ## 7. Read scope
 
@@ -171,7 +171,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 
 ## 8. Memory
 
-- **Owner:** `src/swift/memory.py` `Store` (`write`, `forget`, `get`, `all`, `versions`, `setting`) and `answer`
+- **Owner:** `src/swift/memory.py` `Store` (`write`, `forget`, `get`, `all`, `versions`) and `answer`
   for "remember / forget / what do you know". Only the backend imports it.
 - **Tests:** `tests/unit/test_memory.py`, including
   `test_one_writer_only_swifts_backend_imports_the_store` and the `test_worker_text_*` cases.
@@ -239,9 +239,8 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 - **Split by design:** the overlay's position and smart placement in `overlay.json` (`prefs.rs`: "config.yaml is
   the owner's file, which Swift never writes").
 - **Second owners:**
-  - **OWN-07** `memory.Store.setting` and `memory/settings/`: "Swift's own settings", with `config.yaml` winning
-    (`test_config_yaml_wins_over_a_kept_setting`). No caller in `src/swift` reads it today. A second settings
-    store waiting for a first user.
+  - **OWN-07** (fixed 2026-11-15): `memory.Store.setting` and `memory/settings/`, an unused second settings store, were
+    deleted. `config.yaml` (`settings.py`) is the one owner of settings; the memory store holds only the owner's records.
   - **HA-CFG-06** (fixed 2026-11-15): `config/loader.py` and the TOML files, loaded by nothing live, were deleted.
 
 ## 15. The agent executor

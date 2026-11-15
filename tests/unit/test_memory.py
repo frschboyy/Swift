@@ -1,4 +1,4 @@
-"""The settings and memory store (swift/memory.py; product direction §5.5, workstream C7).
+"""The memory store (swift/memory.py; product direction §5.5, workstream C7).
 
 Product rule: memory is written only from the owner's own words or an approved card, never from what a worker
 read. The tests named ``test_worker_text_*`` each try to get a worker's text into memory and show it fails.
@@ -16,7 +16,7 @@ import pytest
 
 from swift.memory import OWNER_WORDS, NotOwnerWords, Store, answer, key_of, parse
 from swift.routing import route
-from swift.settings import Settings, SpeechSettings
+from swift.settings import Settings
 from test_routing import SpyExecutor, ask
 
 SRC = Path(__file__).resolve().parents[2] / "src"
@@ -87,13 +87,6 @@ def test_two_writers_at_once_never_share_a_version(store: Store) -> None:
         t.join()
     versions = store.versions("memory", "my-manager")
     assert [v.version for v in versions] == list(range(1, 13)) and len({v.run for v in versions}) == 12
-
-
-def test_config_yaml_wins_over_a_kept_setting(tmp_path: Path, store: Store) -> None:
-    store.write("setting", "always", source="said", words="always read answers aloud", run="r", key="SpeechSettings.replies")
-    assert store.setting(SpeechSettings(), "replies") == "always"  # not set in config.yaml: the store's
-    assert store.setting(SpeechSettings(replies="never"), "replies") == "never"  # set there: it wins
-    assert store.setting(SpeechSettings(), "voice") == ""  # neither: the default
 
 
 def test_passwords_and_vague_requests_are_not_kept(store: Store) -> None:

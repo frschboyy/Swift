@@ -146,10 +146,12 @@ All taken from the orchestrator's recommendations:
   Swift's own question. While "Say yes and I'll send a correction" is on screen, a plain spoken "yes" takes it, with
   no need for Swift's name; typed words never do. What it starts is a new request, whose actions still get their own
   cards.
-- **Typing into a terminal after its card** (the owner's decision, 2026-11-15): an approved terminal card types. The
-  real Windows writer no longer refuses terminals (A-02's old backstop) for a write approved as a terminal write; it
-  types exactly the card's text, one line, with no Enter. Several lines into a real terminal are refused: a line
-  break is Shift+Enter, which cmd and bash run, so a card can't say which lines would run. Check 397.
+- **Type and run in a terminal after its card** (the owner's decision, 2026-11-15, replacing "no Enter" from earlier
+  the same day): an approved terminal card types the command and runs it. The card says "Run this in …? Swift types
+  it and presses Enter." with every character; approving it is the level 3 approval for running code. One command
+  only: text with a line break is refused, since each line would run. The window is checked before typing and again
+  right before Enter; changed in between, the command is left typed and unrun, and Swift says so. VS Code keeps its
+  card on every write but Swift never presses Enter there (it can't tell the editor from the terminal yet). Check 397.
 - **VS Code's card** (the orchestrator's recommendation, accepted 2026-11-15): every write into VS Code keeps the
   terminal's card until the read-only probe `spikes/desktop/vscode_focus.py` (check nostalgic-sutherland-956529-1)
   shows UI Automation tells its editor from its terminal panel; then only the terminal needs it (OCT-01).

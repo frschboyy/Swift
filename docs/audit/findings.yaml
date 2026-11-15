@@ -52,8 +52,8 @@
   note: 'Since decision 6, writing into VS Code''s editor needs a card too (a feature cost, the owner''s call).
     Kept until spikes/desktop/vscode_focus.py (owner check nostalgic-sutherland-956529-1) shows UI Automation tells
     the editor from the terminal panel (the orchestrator''s recommendation, accepted 2026-11-15); then the card can
-    apply to the terminal only. VS Code may take several lines (its card says "Type these N lines"), a real
-    terminal only one. Was: Owner decides. Checking that VS Code''s focused element is its terminal needs UI Automation verified on
+    apply to the terminal only. In VS Code Swift types (several lines allowed) but never presses Enter, and its
+    card says so; a real terminal takes one command and runs it. Was: Owner decides. Checking that VS Code''s focused element is its terminal needs UI Automation verified on
     a real VS Code, which this session can''t do; the alternative, never typing into VS Code, removes a feature.
     Line breaks are typed as Shift+Enter (A-01) and writing needs the owner''s words (B-02). untested: needs a real
     VS Code.'
@@ -2386,10 +2386,11 @@
     character, instead of refusing
   test: tests/unit/test_audit_2026_10.py::test_writing_into_a_terminal_is_its_own_card_showing_every_character
   note: 'VS Code too since decision 6 (OCT-01). The owner''s decision of 2026-11-15: an approved terminal card
-    types. WindowsDesktop._writer refuses TERMINALS unless desktop_write passes terminal=True (the write was approved
-    as desktop_write_terminal); then it types by keystrokes exactly the card''s text, with no Enter. A write decided
-    for another app never types into a terminal that came forward. Several lines into a terminal are refused before
-    any card: a line break is Shift+Enter (A-01), which cmd and bash run. Tests:
+    types and runs. WindowsDesktop._writer refuses TERMINALS unless desktop_write passes terminal=True (the write was
+    approved as desktop_write_terminal, "Run this in …? Swift types it and presses Enter."); then it types by
+    keystrokes exactly the card''s one line and presses Enter only if the same window is still in front, checked
+    again after typing. A write decided for another app never types into a terminal that came forward. Text with a
+    line break is refused. Tests: test_a_window_change_after_typing_leaves_the_command_unrun,
     test_a_write_decided_for_another_app_never_types_into_a_terminal_brought_forward,
     test_several_lines_are_never_typed_into_a_terminal. untested on a real terminal: check 397.'
 - id: A-03

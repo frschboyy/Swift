@@ -2659,18 +2659,20 @@ a long text scrolls, with "More below"); the typed yes asks again ("Typing can't
 approve"); the spoken yes writes it into Notepad, and "Hey Swift, undo that" takes it out. If Swift answers in its
 card instead of writing, tell us: the agent chose not to write, which is fine.
 
-<a id="check-397"></a>**Check 397. Typing into a terminal has its own card, and types after Approve**
+<a id="check-397"></a>**Check 397. A terminal command has its own card, and runs after Approve**
 1. Open Windows Terminal and click into it. Say "Hey Swift, type echo hello here".
 2. Read the card, then click **Reject**.
 3. Say the same again, and this time click **Approve**.
 4. Say "Hey Swift, type these two lines here: echo one, then echo two".
-5. Open VS Code, click into its terminal panel, and say "Hey Swift, type echo hello here". Click **Reject**.
+5. Open VS Code, click into its terminal panel, and say "Hey Swift, type echo hello here". Click **Approve**.
 
-You should see: each card says "Type this into …? A line typed there runs as a command." and shows exactly
-`echo hello`. After Reject nothing is typed. After Approve (step 3), `echo hello` appears at the prompt and does
-**not** run: no Enter is pressed (press Esc to clear it). Step 4 types nothing with a line break: Swift says it types one
-line at a time into a terminal, or shows a separate card for each line (Reject them). (Before 2026-11-15, an approved card for Windows Terminal typed
-nothing: "Swift doesn't write in Windows Terminal there".)
+You should see: in Windows Terminal the card says "Run this in Windows Terminal? Swift types it and presses
+Enter." and shows exactly `echo hello`. After Reject nothing is typed or run. After Approve (step 3), `echo hello`
+is typed and runs once: `hello` is printed. Step 4 runs nothing with a line break: Swift says it runs one command
+at a time in a terminal, or shows a separate card for each line (Reject them). In VS Code (step 5) the card says
+"Type this into VS Code? Swift won't press Enter…"; after Approve `echo hello` is typed in its terminal but doesn't
+run until you press Enter (press Esc instead to clear it). (Before 2026-11-15, an approved card for Windows Terminal
+typed nothing: "Swift doesn't write in Windows Terminal there".)
 
 <a id="check-nostalgic-sutherland-956529-1"></a>**Check nostalgic-sutherland-956529-1. Can Swift tell VS Code's editor from its terminal? (probe, reads only)**
 1. Open VS Code with a file open and its terminal panel showing. Swift needn't be running.

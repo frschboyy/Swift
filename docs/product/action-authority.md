@@ -108,10 +108,11 @@ code toward these rules, never away.
   decides between level 0 and 1, so its false matches write with no question (D4). Owner check
   396; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
   can't be told from its editor), has its own card showing every character (level 3) instead of being refused.
-  After its card the real Windows writer types into a terminal (the owner's decision of 2026-11-15): only for a
-  write approved as a terminal write (`desktop.writer(terminal=True)`), exactly the card's text, one line, no
-  Enter; several lines into a real terminal are refused, since Shift+Enter runs a line in cmd and bash. VS Code
-  keeps the card on every write until `spikes/desktop/vscode_focus.py` shows its editor and terminal apart.
+  After its card ("Run this in …? Swift types it and presses Enter.") the real Windows writer types the command
+  into a terminal and runs it (the owner's decision of 2026-11-15): only for a write approved as a terminal write
+  (`desktop.writer(terminal=True)`), exactly the card's one line, then Enter only if the same window is still in
+  front (checked before typing and again before Enter); text with a line break is refused. VS Code keeps the card
+  on every write, typed without Enter, until `spikes/desktop/vscode_focus.py` shows its editor and terminal apart.
   Owner checks 397 and nostalgic-sutherland-956529-1; not run.
 - **8:** built: `ConnectorError.reason` (a content-free code: `http_503`, `clipboard_busy`,
   an error class) at every raise that fell back to `connector_failed`; the gateway's "action failed" line and the

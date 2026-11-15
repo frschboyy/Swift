@@ -3375,12 +3375,9 @@ class Session:
         return q if q.window.takes(started_at, q.asked_at) else None
 
     def _on_screen(self, q: Question) -> bool:
-        """Whether the owner can see ``q``: only then can what they say answer it (owner, 2026-11-05: a
-        "yes" said to someone else, with nothing asking on screen, turned off Wi-Fi). A confirm card
-        or another request in front hides it. A click needs no check: it was on the question."""
-        if self._cards:
-            return False
-        return q.owner is self._focus
+        """Whether the owner can see ``q``, so what they say can answer it (owner, 2026-11-05): what the overlay last said
+        it drew in front (``drawn.py``), as for a confirm card, not what was sent (OWN-04). A click was on the question."""
+        return self._drawn.ask == q.id
 
     def _follow_screen(self, q: Question) -> None:
         """A question's countdown runs only while the owner can see it (owner check 164, 2026-11-09: a
@@ -3766,6 +3763,7 @@ class Session:
         """What the overlay drew (``drawn.py``): a confirm card counts down only while seen (ADR-015 §4.2); a
         due card leaves the schedule once drawn (B-03), and one it didn't draw waits in the stack (O-08)."""
         seen, drawn, refused, rest = self._drawn.ack(screen)
+        self._sync_answer_capture()  # the question may have come into view or left it (OWN-04)
         for key, visible in seen if self.attention is not None else ():
             self.attention.set_seen(key, visible)  # type: ignore[union-attr]
         for item, _, _ in drawn if self.system is not None else ():
@@ -4291,6 +4289,7 @@ class Session:
             self.attention.set_seen(shown, False)
         # A due card sent and not confirmed may never have been drawn: back in line for the next overlay.
         self._due = self._drawn.gone() + self._due
+        self._sync_answer_capture()  # no question is drawn either
 
     async def _resync(self) -> None:
         """A new overlay (a reload, a restart, a reconnect) is told everything that is on screen: the rows,

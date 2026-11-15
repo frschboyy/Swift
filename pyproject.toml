@@ -65,6 +65,7 @@ markers = [
     "windows: Windows integration tests",
     "hw: live microphone/speaker on the target machine (owner-run)",
     "google: needs Google test-account credentials (owner-run)",
+    "drawn_by_test: the test sends the overlay's screen acknowledgements itself (no fake overlay; OWN-04)",
 ]
 
 [tool.uv]

@@ -93,6 +93,8 @@ export function detailsText(details: ResultDetails | null | undefined): string {
     case "compare":
       return [details.title, ["", ...details.items].join("\t"), ...details.rows.map((r) => [r.label, ...r.values].join("\t")),
         details.pick === undefined ? "" : `${PICK}: ${details.items[details.pick]}`, details.text].filter(Boolean).join("\n");
+    case "diagram":
+      return [details.title, details.source, details.text].filter(Boolean).join("\n");
   }
 }
 

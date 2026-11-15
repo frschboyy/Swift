@@ -4,7 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
-import type { Compare, ResultDetails } from "./protocol";
+import type { Compare, Diagram, ResultDetails } from "./protocol";
 
 export { detailsText } from "./answer";
 
@@ -26,6 +26,22 @@ export function compareBlock(c: Compare, full: boolean): HTMLElement {
         ...r.values.map((v, i) => el("td", { class: mark(i) }, v)))))),
     shown.length < c.rows.length ? el("p", { class: "answer-more" }, `and ${c.rows.length - shown.length} more rows (Read more shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
+}
+
+const DIAGRAM_BY = "Drawn from the worker's outline, not checked by Swift";
+
+/** A worker's diagram, drawn by Mermaid once it has loaded (only now: it's 2.8 MB). Until then it says so; if it
+ *  doesn't draw, the words below it stand alone. ``full``: the reader's size, not the card's. */
+export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
+  const stage = el("div", { class: "diagram-stage", role: "img", "aria-label": d.title ?? "Diagram" }, el("p", { class: "answer-more" }, "Drawing the diagram…"));
+  const block = el("div", { class: `diagram facts-line--agent${full ? " diagram--full" : ""}` },
+    el("span", { class: "confirm-purpose-by" }, DIAGRAM_BY),
+    d.title ? el("p", { class: "compare-title" }, d.title) : null,
+    stage,
+    ...(d.text ? renderBlocks(d.text) : []));
+  void import("./mermaid").then((m) => m.draw(d.source, block)).then((svg) =>
+    stage.replaceChildren(svg ?? el("p", { class: "answer-more" }, "Swift couldn't draw this diagram.")));
+  return block;
 }
 
 /** Paragraphs and lists with their marks, as elements (text only, never HTML). */
@@ -71,6 +87,8 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
     }
     case "compare":
       return compareBlock(details, full);
+    case "diagram":
+      return diagramBlock(details, full);
   }
 }
 

@@ -30,7 +30,8 @@ export type ResultDetails =
   | { kind: "text"; text: string }
   | { kind: "list"; items: string[] }
   | { kind: "table"; columns: string[]; rows: string[][] }
-  | Compare;
+  | Compare
+  | Diagram;
 
 // B4: options side by side, as the worker proposed them and Swift checked them (swift/shapes.py). by and size are
 // Swift's: who made it (always the worker's here, marked on the card) and whether it fits a card. text: the
@@ -39,6 +40,10 @@ export type Compare = {
   kind: "compare"; title?: string; items: string[]; rows: { label: string; values: string[] }[]; pick?: number;
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
+
+// B4: a diagram as Mermaid source, checked by Swift (only the kinds it vetted, nothing that clicks, links, styles
+// or fetches) and drawn by the overlay's pinned Mermaid in strict mode (mermaid.ts).
+export type Diagram = { kind: "diagram"; title?: string; source: string; by: "worker"; size: "card" | "expanded"; text?: string };
 
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).
 export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done" | "failed";

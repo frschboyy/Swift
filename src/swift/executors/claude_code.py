@@ -1045,7 +1045,7 @@ def _show_result(run: _Run, args: Any) -> str:
         logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
         return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))
     run.shape = shape
-    logger.info("result shape", shape=shape["shape"], items=len(shape["items"]), rows=len(shape["rows"]))
+    logger.info("result shape", shape=shape["shape"], held=shapes.extent(shape)[0])
     return SHAPE_SHOWN_MESSAGE
 
 

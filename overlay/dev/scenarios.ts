@@ -95,6 +95,17 @@ const LAPTOPS = {
     { label: "Screen", values: ['14" OLED', '13.4" IPS', '14" OLED'] }, { label: "Price", values: ["$1,099", "$1,299", "$899"] }],
 };
 
+// B4: diagrams as swift/shapes.py hands them on; the last one doesn't parse, so the card keeps the words.
+const FLOW = {
+  kind: "diagram", title: "How a request runs", by: "worker", size: "card",
+  source: "flowchart LR\n  A[You ask] --> B{Needs your OK?}\n  B -->|no| D[Done]\n  B -->|yes| C[Card]\n  C -->|approved| D\n  C -->|declined| E[Stopped]",
+};
+const SEQUENCE = {
+  kind: "diagram", title: "Signing in", by: "worker", size: "expanded",
+  source: "sequenceDiagram\n  participant You\n  participant Swift\n  participant Google\n  You->>Swift: Sign in\n  Swift->>Google: Open the sign-in page\n  Google-->>You: Ask for your password\n  You->>Google: Approve\n  Google-->>Swift: A token\n  Swift-->>You: Signed in",
+};
+const BROKEN = { kind: "diagram", title: "Half a flow", by: "worker", size: "card", source: "flowchart LR\n  A --> (((", text: "The steps: ask, check, answer." };
+
 const EVENT = {
   title: "Meeting with Sam Okafor", when: "Fri 30 Oct, 16:00–17:00", location: "", all_day: false, start: "2026-10-30T16:00", end: "2026-10-30T17:00",
   attendees: "sam.okafor@northwind.com", meet: true, state: "waiting_approval",
@@ -204,6 +215,9 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     ...LAPTOPS, size: "expanded", text: "Prices are from the makers' own stores this week.",
     rows: [...LAPTOPS.rows, ...["Ports", "Weight of charger", "Keyboard"].map((label) => ({ label, values: ["good", "fair", "good"] }))],
   }); },
+  answerDiagram: async (s) => { await answer(s, "Draw how a request runs", "Most requests finish without a card; a card waits for your OK.", { ...FLOW, text: "Declining stops the run." }); },
+  answerDiagramLong: async (s) => { await answer(s, "Draw how signing in works", "Swift opens Google's page; you approve there, and Swift gets a token.", SEQUENCE); },
+  answerDiagramBroken: async (s) => { await answer(s, "Draw the request steps", "Three steps.", BROKEN); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   answerLongOpen: async (s) => {

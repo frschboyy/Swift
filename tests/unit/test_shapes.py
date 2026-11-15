@@ -87,3 +87,60 @@ def test_a_shape_never_reaches_an_answer_that_isnt_done() -> None:
             run.stopped_by = ("reject", "Edit")
         outcome = Outcome("error", "Failed.", None, {}) if setup == "error" else Outcome("done", "x", None, {})
         assert ClaudeCodeExecutor._final(run, outcome, None).details is None, setup
+
+
+# ---- diagram: Mermaid source, refused unless it only draws ---------------------------------------------------
+
+FLOW: dict[str, Any] = {"shape": "diagram", "title": "How a request runs",
+                        "source": "flowchart LR\n  A[You ask] --> B{Needs an OK?}\n  B -->|yes| C[Card]\n  B -->|no| D[Done]"}
+
+
+def test_a_diagram_is_kept_as_sent_and_sized_by_swift() -> None:
+    shape, problems = shapes.check(FLOW)
+    assert problems == [] and shape == FLOW
+    card = shapes.details(shape)
+    assert card["kind"] == "diagram" and card["by"] == "worker" and card["size"] == "card"
+    long = "flowchart TD\n" + "\n".join(f"  N{i} --> N{i + 1}" for i in range(12))
+    assert shapes.details(shapes.check(FLOW | {"source": long})[0])["size"] == "expanded"
+    seq = "sequenceDiagram\n" + "\n".join(f"  A->>B: step {i}" for i in range(6))  # tall: six messages fill a card
+    assert shapes.details(shapes.check(FLOW | {"source": seq})[0])["size"] == "expanded"
+    for kind in ["graph TD", "stateDiagram-v2", "classDiagram", "erDiagram", "timeline", "gantt", "quadrantChart",
+                 "journey", "sequenceDiagram"]:
+        assert shapes.check(FLOW | {"source": f"%% a comment\n{kind}\n  x"})[1] == [], kind
+    assert shapes.check(FLOW | {"source": "classDiagram\n  Animal <|-- Duck\n  A --> B : call it"})[1] == []
+
+
+@pytest.mark.parametrize("source", [
+    "pie\n  \"a\" : 1",  # not a kind §4 vetted
+    "mindmap\n  root",  # tiny leaves it out; Swift draws mind maps itself
+    "architecture-beta\n  service a",
+    "---\nconfig:\n  securityLevel: loose\n---\nflowchart LR\n  A --> B",  # front matter
+    "%%{init: {'securityLevel': 'loose'}}%%\nflowchart LR\n  A --> B",
+    "flowchart LR\n  A --> B\n  click A \"https://example.com\"",
+    "flowchart LR\n  A --> B\n  click A call alert(1)",
+    "flowchart LR\n  A --> B\n  CLICK A callback",
+    "classDiagram\n  class A\n  link A \"x\"",
+    "flowchart LR\n  A[\"<img src=x onerror=alert(1)>\"] --> B",
+    "flowchart LR\n  A[\"<b>bold</b>\"] --> B",
+    "flowchart LR\n  A[\"#lt;script#gt;\"] --> B",
+    "flowchart LR\n  A[\"&lt;b&gt;\"] --> B",
+    "flowchart LR\n  A --> B\n  style A fill:url(https://x/y.svg)",
+    "flowchart LR\n  A --> B\n  classDef red fill:red",
+    "flowchart LR\n  A@{ img: \"https://x/p.png\" } --> B",
+    "flowchart LR\n  A[see https://example.com] --> B",
+    "flowchart LR\n  A[javascript:alert] --> B",
+    "flowchart LR\n  A[fine‮] --> B",  # a bidi override
+    "flowchart LR\r  A --> B",
+    "flowchart LR\n" + "\n".join(f"  N{i} --> N{i + 1}" for i in range(40)),  # 41 lines
+    "flowchart LR\n  " + "A --> B " * 400,  # over 3000 characters
+    "", "   ", "%% only a comment",
+])
+def test_a_diagram_that_does_more_than_draw_is_refused_whole(source: str) -> None:
+    shape, problems = shapes.check(FLOW | {"source": source})
+    assert shape is None and problems == ["source:" + problems[0].split(":", 1)[1]]
+
+
+def test_a_diagram_takes_nothing_else() -> None:
+    for change in ({"source": None}, {"source": ["flowchart"]}, {"items": ["a", "b"]}, {"by": "swift"}):
+        assert shapes.check(FLOW | change)[0] is None, change
+    assert shapes.check({"shape": ["diagram"]}) == (None, ["shape:unknown"])

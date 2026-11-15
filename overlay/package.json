@@ -11,6 +11,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@mermaid-js/tiny": "12.3.0",
     "@tauri-apps/api": "2.12.4"
   },
   "devDependencies": {

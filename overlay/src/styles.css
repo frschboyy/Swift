@@ -480,6 +480,11 @@ code {
 .compare-table td { font-variant-numeric: tabular-nums; }
 .compare-table .compare-pick { padding-left: 8px; font-weight: 600; box-shadow: inset 2px 0 0 var(--muted); }
 .compare-tag { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+/* B4: a diagram, under the worker's bar. On the card it's sized to fit; the reader shows it at full size. */
+.diagram { margin-top: 10px; }
+.diagram-stage { margin-top: 6px; }
+.diagram-stage svg { display: block; max-width: 100%; height: auto; max-height: 260px; margin: 0 auto; }
+.diagram--full .diagram-stage svg { max-height: none; }
 .section-title { margin: 12px 0 0; color: var(--muted); font-size: 13px; font-weight: 600; }
 
 /* a long answer: six lines, faded; open, it grows in place and only its body scrolls */

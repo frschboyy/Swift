@@ -76,7 +76,7 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 | An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`) | worker tool cards in `executors/claude_code` (OWN-05) |
 | Reversibility of commands | `executors/step_grant.reversible`, `base.Grant.covers` | — |
 | Recipients | `workflows/tools.find_contact` → `RunScope.resolved`; the gateway checks it | — |
-| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` | two source rules (OWN-06) |
+| Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too (OWN-06, partial) |
 | Reads | `executors/read_scope.ReadScope` | — |
 | Memory | `memory.Store.write` (`said` text must be in the owner's words; `approved` needs a card) | — |
 | Presence | `presence`, `intake` step 1 | about four checks in `session` (RV-15) |
@@ -91,8 +91,12 @@ code toward these rules, never away.
   on screen (owner, 2026-11-15). Open: the hint leaves out "press Enter on Yes" until decision 2 is built.
   Speech with the hotkey held can't answer Swift's own question yet (FD-01).
 - **2:** no keyboard Tab and Enter on the card's own button yet.
-- **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and
-  `find_contact`; an unclear write into an app is still refused, not asked about.
+- **4:** built on `claude/elegant-shtern-2e16f9`, not merged: an address not in this request's words is asked about
+  ("Open usiu.ac.ke?", level 1, typing never answers it), offering only the owner's own earlier or remembered
+  addresses; `points_back` is deleted (FD-02). A remembered address is now asked about too (stricter than before).
+  Owner check 330 rewritten, with 370 and 371; not run.
+- **5, 6:** recipients still only from contacts and `find_contact`; an unclear write into an app is still refused,
+  not asked about.
 - **8:** `swift.log` has no reason codes for connector failures yet.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
 - Found by the ownership map, not in the decisions: worker tool cards aren't bound to a digest (OWN-05).

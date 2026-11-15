@@ -29,12 +29,13 @@ default browser only when the address, or its site, is in the owner's own words 
 (``RunScope.said`` and their answers), written or spoken ("usiu dot ac dot ke"). The same rule as a
 fetch (audit 2026-10, A-03; check 52): an address the model put together, or one a page gave, could
 carry what it read to someone else, so it isn't opened; the model asks the owner for the address.
-Two more sources, both the owner's own words (swift/workflows/owner_address.py; decisions of 2026-11-14):
-an address said or typed earlier in the same conversation, in the last ``RECENT_ADDRESS_S``
-(``RunScope.earlier``, Swift's own record of the conversation), only when this request points at it
-("open that site again"); and for a description ("my university's website"), a memory the owner had
-Swift keep ("remember my university is usiu dot ac dot ke"). Never the agent's context; a yes to an
-address the agent offered is still not the owner's address.
+An address the owner gave earlier isn't opened by matching words (foundation decision 4, replacing
+the ``points_back`` pattern of 2026-11-14): Swift asks "Open usiu.ac.ke?", a level 1 question
+(``intake.approves``: typing never answers it), offering only the owner's own earlier addresses, said
+or typed in this conversation in the last ``RECENT_ADDRESS_S`` (``RunScope.earlier``, Swift's own
+record) or in a memory they had Swift keep for what the request names ("my university's website").
+Several: it asks which. None: the agent asks the owner to say the address. Never the agent's context;
+a yes to an address the agent offered is still not the owner's address.
 """
 
 from __future__ import annotations
@@ -56,7 +57,7 @@ from swift.desktop.base import PROGRAMS, TERMINALS, DesktopError
 from swift.routing.rules import Route
 from swift.security.gateway import Action
 from swift.security.web_scope import WebScope
-from swift.workflows.owner_address import points_back, remembered
+from swift.workflows.owner_address import remembered
 from swift.workflows.scope import RunScope
 from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
 
@@ -224,14 +225,61 @@ async def desktop_write(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
                       {"written": written, "route": outcome.receipt.split(":", 1)[0]})
 
 
-# How long an address the owner gave earlier in the conversation may still be opened (C3, 2026-11-14).
+# How long an address the owner gave earlier in the conversation may still be offered (C3, 2026-11-14).
 RECENT_ADDRESS_S = 600.0
+# At most this many of the owner's earlier addresses are offered in one question.
+MAX_OFFERED = 4
 NOT_NAMED_URL = (
-    "Not opened: Swift opens only a web address the owner said or wrote in this request; one from earlier in this "
-    "conversation (last 10 minutes) only when they point at it (\"open that site again\"); for a description "
-    "(\"my university's website\") only one they asked Swift to remember. Otherwise ask the owner to say the "
-    "address with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest doesn't count."
+    "Not opened: Swift opens a web address the owner said or wrote in this request; one they gave earlier (in the "
+    "last 10 minutes, or asked Swift to remember) only after Swift asks them, and none fits here: ask the owner to "
+    "say the address with ask_owner (kind 'free'); don't offer one yourself: a yes to an address you suggest "
+    "doesn't count."
 )
+
+
+def _addresses(texts: Any) -> list[str]:
+    """The web addresses in the owner's words, each once, in order: an address as said, a site as https://site."""
+    found: dict[str, None] = {}
+    for text in texts:
+        given = WebScope()
+        given.note_request(text)
+        found.update(dict.fromkeys([*sorted(given.urls), *(f"https://{site}" for site in sorted(given.sites))]))
+    return list(found)
+
+
+def _covers(address: str, url: str) -> bool:
+    """``url`` is on ``address``'s site."""
+    site, host = ((urlsplit(u).hostname or "").removeprefix("www.") for u in (address, url))
+    return host == site or host.endswith("." + site)
+
+
+def _shown(url: str) -> str:
+    parts = urlsplit(url)
+    return ((parts.hostname or "").removeprefix("www.") + parts.path.rstrip("/"))[:80]
+
+
+async def _offer(scope: RunScope, url: str, earlier: list[str]) -> str | ToolResult:
+    """Foundation decision 4: the address isn't in this request's words, so Swift asks about the owner's own earlier
+    ones ("Open usiu.ac.ke?", a level 1 question): the one ``url`` is on if any, else each. The answer only picks
+    among the owner's addresses, so the agent's ``url`` itself is never opened. What to open, or why not."""
+    offered = ([own for own in earlier if _covers(own, url)] or earlier)[:MAX_OFFERED]
+    if not offered or scope.ask_fn is None:
+        return ToolResult(False, NOT_NAMED_URL, expected=True)
+    labels = tuple(_shown(own) for own in offered)
+    if len(offered) == 1:
+        answer = await scope.ask(f"Open {labels[0]}?", "yes_no", approval=True)
+        chosen = offered[0] if answer is not None and answer.kind == "yes" else None
+    else:
+        answer = await scope.ask(f"Open which: {', '.join(labels[:-1])} or {labels[-1]}?", "choice", labels,
+                                 approval=True)
+        index = answer.index if answer is not None and answer.kind == "choice" else None
+        chosen = offered[index] if index is not None and 0 <= index < len(offered) else None
+    logger.info("web address offered", options=len(offered), opened=chosen is not None)  # never the address
+    if chosen is not None:
+        return chosen
+    told = "didn't answer" if answer is None else "said not to open it"
+    return ToolResult(False, f"Not opened: the owner {told}. Don't open another address or ask again; say so.",
+                      expected=True)
 
 
 async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
@@ -241,15 +289,20 @@ async def _open_url(host: ToolHost, scope: RunScope, url: str) -> ToolResult:
     url = url.strip().rstrip(".,;:!?")
     if "://" not in url:  # "usiu.ac.ke" or "usiu.ac.ke:443"; "javascript:…" then fails the scope check
         url = "https://" + url
-    allowed = WebScope()
-    now = clock.now()
-    own = (scope.said, *scope.answers)
-    recent = [w for heard, w in scope.earlier if now - heard <= RECENT_ADDRESS_S] if any(map(points_back, own)) else []
-    for words in (*own, *recent, *remembered(host.memories, " ".join(own))):
-        allowed.note_request(words)
-    if not url.lower().startswith(("https://", "http://")) or not allowed.allows(url):
+    if not url.lower().startswith(("https://", "http://")):
         logger.info("web address not opened: not the owner's")  # never the address
         return ToolResult(False, NOT_NAMED_URL, expected=True)
+    allowed = WebScope()
+    own = (scope.said, *scope.answers)
+    for words in own:
+        allowed.note_request(words)
+    if not allowed.allows(url):
+        now = clock.now()
+        recent = [words for heard, words in reversed(scope.earlier) if now - heard <= RECENT_ADDRESS_S]
+        offered = await _offer(scope, url, _addresses([*recent, *remembered(host.memories, " ".join(own))]))
+        if isinstance(offered, ToolResult):
+            return offered
+        url = offered
     host_name = (urlsplit(url).hostname or "").removeprefix("www.")
 
     async def perform() -> str:
@@ -409,9 +462,9 @@ DESKTOP_TOOLS: tuple[ToolSpec, ...] = (
         "Open what the owner selected in File Explorer (what: 'selection'), an app, folder or project Swift "
         "knows by name (name), or a web address in the owner's browser (url: one the owner said or wrote, in this "
         "request or earlier in this conversation, 'dot' read as '.', e.g. 'usiu dot ac dot ke' is usiu.ac.ke). "
-        "An address from earlier only when the owner points at it ('open that site again'); a description "
-        "('my university's website') only through what they asked Swift to remember. Never a path or address you "
-        "made up; when no address the owner gave fits, ask them to say it with ask_owner rather than offering one.",
+        "For an address from earlier, or a description ('my university's website'), pass the address you think "
+        "they mean: Swift asks the owner about their own earlier addresses itself. Never a path or address you made "
+        "up; when it says none fits, ask them to say it with ask_owner rather than offering one.",
         _obj([], what={"type": "string", "enum": ["selection"]}, name={"type": "string"}, url={"type": "string"}),
         "reversible", desktop_open,
     ),

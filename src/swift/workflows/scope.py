@@ -28,8 +28,9 @@ Confirmer = Callable[[str, str, str, str | None], Awaitable[Decision]]
 Publisher = Callable[[Artifact], Awaitable[None]]
 # (text, activity, app) -> a step on the working card, from Swift itself.
 Stepper = Callable[[str, str, str | None], Awaitable[None]]
-# (question, kind, options) -> the owner's answer (``swift.dialogue.Answer``), or None: no answer (ADR-016 §5.1).
-Asker = Callable[[str, str, tuple[str, ...]], Awaitable[Any]]
+# (question, kind, options[, approval=True]) -> the owner's answer (``swift.dialogue.Answer``), or None: no answer
+# (ADR-016 §5.1). ``approval``: a yes or a pick does something, so it is Swift's level 1 question (``intake.approves``).
+Asker = Callable[..., Awaitable[Any]]
 # An item for the live view (ADR-017 §7): {"kind": "text", "text", "app"}, what Swift just wrote.
 Liver = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -102,11 +103,12 @@ class RunScope:
         # Asking the owner is never outside what a workflow may do: it does nothing by itself.
         return self.grant is None or tool in self.grant.tools or tool == "ask_owner"
 
-    async def ask(self, question: str, kind: str, options: tuple[str, ...] = ()) -> Any:
-        """Ask the owner (ADR-016 §5.1): their answer, or None (away, no answer, or no way to ask)."""
+    async def ask(self, question: str, kind: str, options: tuple[str, ...] = (), *, approval: bool = False) -> Any:
+        """Ask the owner (ADR-016 §5.1): their answer, or None (away, no answer, or no way to ask). ``approval``:
+        the answer does something by itself, so only what approves level 1 answers it (typing never does)."""
         if self.ask_fn is None:
             return None
-        return await self.ask_fn(question, kind, options)
+        return await self.ask_fn(question, kind, options, **({"approval": True} if approval else {}))
 
     def carry_from(self, before: RunScope) -> None:
         """Go on from the request before in the same thread: its contacts, drafts and events, so

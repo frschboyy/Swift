@@ -1209,3 +1209,22 @@ async def test_a_plain_spoken_yes_takes_the_correction_offer_on_screen() -> None
     agree(session, out)
     assert "Friday" in agent.requests[-1] and session._fix_offer is None
     await finish_all(session, agent)
+
+
+async def test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plain_yes_opens_it() -> None:
+    """Foundation decision 4: "Open that site again" asks "Open usiu.ac.ke?" on the request's card, and the backend
+    and the overlay agree it's on screen, so a plain spoken yes (level 1) answers it."""
+    from test_recent_address import answer, ask, asked
+    from test_recent_address import make as address_session
+    from test_session import Recorder
+
+    out = Recorder()
+    session, agent, desktop, _ = address_session(out=out)
+    await ask(session, agent, "open usiu dot ac dot ke", open="usiu.ac.ke")
+    q = await asked(session, agent, "Open that site again.", open="usiu.ac.ke")
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["question"] == "Open usiu.ac.ke?" == q.text
+    await answer(session, "spoken")
+    await asyncio.sleep(0.1)
+    assert agree(session, out)["question"] is None
+    assert desktop.opened == ["https://usiu.ac.ke"] * 2

@@ -746,46 +746,17 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
     """Checks 253-254: Swift in front of an always-on-top window (A10). 255: a spoken web address opens (C3).
     320: out from under Task Manager, which no ordinary app can come in front of (A10).
     345: the same at 125% or 150% scaling, where Task Manager reaches every anchor; and the hotkey keeps it out (A10).
-    330: "open that site again" reuses the address said in the last 10 minutes; "my university's website" opens only
-    after the owner's "remember …" (C3, owner's decisions of 2026-11-14)."""
+    330: an address not in the request's own words opens only after Swift asks "Open …?" (foundation decision 4)."""
     spoken = [r for r in rows if re.search(r"\bopen\b.*\b\w+ dot (com|org|net|edu|ac|co|io)\b", r.get("transcript") or "", re.I)]
 
     def opened(r: dict[str, Any]) -> bool:
         return any("desktop_open" in str(s.get("text")) for s in r.get("steps") or [])
 
     missed = [r for r in spoken if not opened(r)]
-    # 330: pointing at an address said in the last 10 minutes, with no "new topic" between, must open it; a
-    # description ("my university's website") opens only after a "remember …" of the owner's, else Swift asks.
-    def said(r: dict[str, Any]) -> str:
-        return r.get("transcript") or ""
-
-    pointing = re.compile(r"\bagain\b|\bthat (?:web ?site|site|page|one)\b|\bthe one (?:i|we) (?:just )?opened\b", re.I)
-    fresh = re.compile(r"new topic|start (?:over|fresh)|different topic", re.I)
-
-    def follows_spoken(r: dict[str, Any]) -> bool:
-        i = rows.index(r)
-        for s in reversed(rows[:i]):
-            if (r["_t"] - s["_t"]).total_seconds() > 600 or fresh.search(said(s)):
-                return False
-            if s in spoken:
-                return True
-        return False
-
-    asks_to_open = [r for r in rows if re.search(r"\bopen\b", said(r), re.I) and r not in spoken]
-    bare = [r for r in asks_to_open if pointing.search(said(r)) and follows_spoken(r)]
-    described = [r for r in asks_to_open if not pointing.search(said(r))
-                 and re.search(r"\bmy \w+(?:'s)? (?:web ?site|site|page|portal)\b", said(r), re.I)]
-    taught = [r for r in described
-              if any(re.match(r"\s*(?:hey )?(?:swift[, ]*)?remember\b", said(m), re.I) for m in rows[:rows.index(r)])]
-
-    def asked_or_refused(r: dict[str, Any]) -> bool:
-        texts = [str(s.get("text")) for s in r.get("steps") or []]
-        return bool(r.get("asks")) or sum("desktop_open" in t for t in texts) != 1 or any(
-            re.search(r"\b(couldn't|can't|could not|cannot) open\b", t, re.I) for t in texts)
-
-    again = [r for r in bare if asked_or_refused(r)]
-    unasked = [r for r in described if r not in taught and not asked_or_refused(r)]  # opened a description he never taught
-    not_opened = [r for r in taught if asked_or_refused(r)]
+    # 330: a request without the address in its words ("that site again", "my university's website") opens a site
+    # only after Swift's own question (foundation decision 4): one that opened with no question is the failure.
+    asks_to_open = [r for r in rows if re.search(r"\bopen\b",r.get("transcript") or "", re.I) and r not in spoken]
+    unasked = [r for r in asks_to_open if opened(r) and not r.get("asks")]
     return [
         ("253 Swift came in front of an ordinary always-on-top window", LOOK,
          "tell us whether Swift was in front of the test window, and whether Notepad kept the cursor"),
@@ -797,23 +768,20 @@ def _front_and_web(rows: list[dict[str, Any]]) -> list[tuple[str, Outcome | bool
         ("345 at 125% or 150% the card moved out from under Task Manager, and the hotkey kept it there", LOOK,
          "tell us your scale, where the card showed with Task Manager over the orb, after the hotkey, after closing it,"
          " and whether Notepad kept the cursor"),
-        ("330 'that site again' opened the address said a moment ago", unless(again, bare),
-         f"{len(bare)} heard; asked or refused instead: " + (", ".join(f"{r['_t']:%H:%M:%S}" for r in again) or "none")),
-        ("330 'my university's website' opened only after you told Swift", unless(unasked + not_opened, described),
-         f"{len(described)} heard; opened without being told: "
-         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in unasked) or "none") + "; told but not opened: "
-         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in not_opened) or "none")),
-        ("330 without a remembered address Swift asked you to say it", LOOK,
-         "tell us whether Swift asked you to say the address, or offered one"),
+        ("330 an address not in your words opened only after Swift asked", unless(unasked, asks_to_open),
+         f"{len(asks_to_open)} heard; opened with no question: "
+         + (", ".join(f"{r['_t']:%H:%M:%S}" for r in unasked) or "none")),
+        ("330 Swift asked 'Open usiu.ac.ke?', a typed yes didn't open it, and with nothing to offer it asked for the "
+         "address", LOOK, "tell us what Swift asked in each step"),
         ("350 an email to a contact saved as 'Last, First' went to that one person", LOOK,
          "check on screen and in Sent; skip it if you have no such contact"),
         ("351 'until (a day)' listed that day's events too", LOOK, "check on screen"),
         ("352 'open this' on a .url, .jar or .py asked on a card first", LOOK, "check on screen: nothing opened after Reject"),
         ("353 a search aimed at .env files was refused with no card", LOOK, "check on screen: no contents shown"),
-        ("370 'show this week's timetable… again' and 'find my university's website and open it' didn't reopen it",
-         LOOK, "tell us whether either opened usiu.ac.ke, and whether Swift asked you to say the address"),
-        ("371 'open it in Edge' and 'go ahead and open that site again, please' reopened it", LOOK,
-         "tell us whether each opened usiu.ac.ke without a question"),
+        ("370 'show this week's timetable… again' and 'find my university's website and open it' asked first", LOOK,
+         "tell us whether each asked 'Open usiu.ac.ke?' and whether 'no' left it closed"),
+        ("371 'open it in Edge' and 'go ahead and open that site again, please' asked, and 'yes' opened it", LOOK,
+         "tell us whether each asked 'Open usiu.ac.ke?' and opened it after your spoken yes"),
         ("372 Gmail with your own empty draft open: every field went into Swift's compose", LOOK,
          "tell us which compose window got the To, the subject and the body; nothing sent"),
         ("373 a long bold opening showed no stars on the card or after Read more", LOOK, "check on screen"),

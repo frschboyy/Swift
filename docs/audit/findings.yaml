@@ -164,13 +164,16 @@
   area: privacy
   severity: low
   product_rule: true
-  status: open
+  status: partial
   confidence: design-concern
   evidence: claude_code.py:604-697, 851 notes request and tool-result addresses into run.web; desktop_tools._open_url
-    builds its own WebScope from the owner's words, points_back and remembered
-  test: null
-  note: Fetching a tool-result address is accepted (OCT-03). The finding is that a change to one rule doesn't reach
-    the other. Decision 4 changes the opening side.
+    opens only an address in this request's words (WebScope.note_request over RunScope.said and answers) and asks
+    (_offer) about the owner's earlier or remembered ones; points_back is gone (FD-02)
+  test: tests/unit/test_recent_address.py::test_an_address_only_in_the_agents_answer_or_a_tool_result_is_never_opened_or_offered
+  note: 'Partial: opening now has one rule with no pattern (this request''s words, else Swift''s question), and both
+    sides read the owner''s words through WebScope.note_request. Still two sources: a fetch also takes the context
+    Swift adds and tool-result addresses (accepted, OCT-03). Making fetching ask too is the owner''s call, not
+    decision 4.'
 - id: OWN-07
   title: memory.Store keeps "Swift's own settings" beside config.yaml, with no caller reading them.
   source: docs/architecture/ownership.md §14
@@ -3422,15 +3425,15 @@
   area: actions
   severity: high
   product_rule: true
-  status: partial
+  status: stale
   confidence: confirmed
   evidence: owner_address.py _POINTS_BACK; "open/show/visit this|that|it" points only when the clause ends there or
     goes on with again, up, back, please, now or a word for a site; "that site" not as "that site's"; "again" not
     after "try" or "ask"
-  test: tests/unit/test_recent_address.py::test_words_that_only_contain_open_this_dont_point_back_at_a_recent_address
-  note: The web-address rule (a recent address only when the owner points at it). Only the owner's own earlier
-    addresses could open, never the agent's. The session-level test fails with the fix undone. Built on the
-    orchestrator's go-ahead; second review by the orchestrator pending.
+  test: tests/unit/test_recent_address.py::test_whatever_the_request_says_a_recent_address_opens_only_after_the_question
+  note: 'Superseded by FD-02 (foundation decision 4, 2026-11-15): points_back is deleted, and Swift asks "Open
+    usiu.ac.ke?" instead. Was: the web-address rule (a recent address only when the owner points at it); only the
+    owner''s own earlier addresses could open, never the agent''s.'
   # 2026-11-15 (qa1-pstack): partial, not root. interrogate proved it still opened for "again" anywhere and for a
   # pointing word followed by "one", "page" or "back", and refused "open it in Edge": see QA-04.
 - id: QA-04
@@ -3442,14 +3445,13 @@
   area: actions
   severity: high
   product_rule: true
-  status: fixed
+  status: stale
   confidence: confirmed
   evidence: points_back read a few words after a pointing word, and "again" or "reopen" anywhere; 22 phrasings went
     wrong through Session and desktop_open. Now every clause of the request, stripped of the wake word, fillers,
     "again", "please" and "in Edge", must be one pointing phrase, and a bare "it"/"that" needs a verb.
-  test: tests/unit/test_recent_address.py::test_a_request_that_names_anything_else_doesnt_reopen_a_recent_address
-  note: Also test_a_request_that_is_only_pointing_words_reopens_the_recent_address and
-    test_an_answer_points_back_only_by_the_same_whole_clause_rule. 23 of the 39 tests fail with d28e4bd's rule, 19 on
+  test: tests/unit/test_recent_address.py::test_whatever_the_request_says_a_recent_address_opens_only_after_the_question
+  note: Superseded by FD-02 (foundation decision 4, 2026-11-15); points_back and its tests are deleted. 23 of the 39 tests fail with d28e4bd's rule, 19 on
     main. The web-address rule; built on the orchestrator's go-ahead, second review by the orchestrator pending.
 - id: QA-05
   title: A long first sentence over 300 characters was cut inside **bold**, `code` or a [link](…), so the card's
@@ -3501,3 +3503,24 @@
   note: 'Not fixed here: out of scope for 1/3/10, since there is no hotkey door into _take_answer for Swift''s
     question to route through approves. Needs a decision on whether the hotkey answers a question on screen or
     starts a request. Clicking Yes and saying yes hands-free both work.'
+- id: FD-02
+  title: 'An address the owner gave earlier (10 minutes) opened when a pattern guessed the request pointed back at it
+    (owner_address.points_back), and a remembered one opened with no question; QA kept finding misreadings (QA-02,
+    QA-04, review D5).'
+  source: foundation decision 4 (foundation-rules-review.md §7), 2026-11-15
+  module: src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py
+  area: actions
+  severity: high
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: 'Root fix. desktop_tools._offer asks "Open usiu.ac.ke?" (several: "Open which: ...?") with only the
+    owner''s own earlier or remembered addresses, as a level 1 question (RunScope.ask(approval=True) ->
+    Question.approval, so _take_answer asks intake.approves and typing never answers it); it opens the owner''s
+    address as given, never the agent''s url. points_back and its patterns are deleted.'
+  test: tests/unit/test_recent_address.py::test_a_typed_yes_never_opens_it_and_a_click_does
+  note: 'Also test_whatever_the_request_says_a_recent_address_opens_only_after_the_question, the choice and memory
+    tests there, test_desktop.py and the seam scenario
+    test_seam_replay.py::test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plain_yes_opens_it. 21
+    fail with the fix undone. Stricter than before: a remembered address is now asked about too. A choice question
+    with approval also refuses a typed pick. Product rule, needs review by someone other than the author.'

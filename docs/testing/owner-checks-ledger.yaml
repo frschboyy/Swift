@@ -141,8 +141,8 @@ focus:
     why: A10, the owner's decision of 2026-11-14 after check 254 (Task Manager on top is in band 16); Swift's card now moves to the nearest uncovered anchor, not seen on the real PC
   - checks: [345]
     why: A10, check 320 failed on the other PC (2026-11-14 15:00); at 125% or 150% no anchor was wholly uncovered, so the card now goes where it is least covered; not seen on the real PC
-  - checks: [330]
-    why: C3, the owner's second decision of 2026-11-14 after check 330's run (a recent address only when pointed at; a description only from a memory he taught); re-worded, product rule, not seen on the real PC
+  - checks: [330, 370, 371]
+    why: foundation decision 4 (2026-11-15), an address not in the request's words is asked about ("Open usiu.ac.ke?") instead of matched by points_back; rewritten, with 370 and 371, product rule, not seen on the real PC
   - checks: [204, 303, 304]
     why: A7, check 204's real attempt of 2026-11-13 (a request begun again went to the agent) and 14:44:20 (the request said again to its open question; product rule, owner's A+B of 2026-11-14); fixed, not seen on the real PC
   - checks: [290-293]

@@ -130,7 +130,10 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 - **Checked by:** the gateway (`gateway.py:172`, `not_a_contact`), `draft_email` (`tools.py:382`), calendar
   attendees (`calendar.py:118`).
 - **Tests:** `tests/unit/test_google_contacts.py`, `test_email_as_owner.py`, `test_audit_2026_10.py`.
-- **Second owners:** none found. Target, not built: an address in the owner's own words (decision 5).
+- **Also, in the same module:** `draft_email` writes an address from the owner's own words (`said_addresses` over
+  `RunScope.said` and answers) into `RunScope.resolved` with source `said`; the send card marks it
+  (`overlay/src/cardtext.recipientText`). Foundation decision 5; `tests/unit/test_recipient_from_words.py`.
+- **Second owners:** none found.
 
 ## 6. Web addresses
 

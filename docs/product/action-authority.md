@@ -75,7 +75,7 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 | On screen and in front | `drawn.Drawn` (what the overlay drew), `attention.set_seen` | `session._on_screen` for questions (OWN-04) |
 | An approval covers what its card showed | `security/gateway.ActionGateway.execute` (digest recomputed, `changed_after_approval`) | worker tool cards in `executors/claude_code` (OWN-05) |
 | Reversibility of commands | `executors/step_grant.reversible`, `base.Grant.covers` | — |
-| Recipients | `workflows/tools.find_contact` → `RunScope.resolved`; the gateway checks it | — |
+| Recipients | `workflows/tools.find_contact`, and `draft_email` for an address in the owner's words → `RunScope.resolved`; the gateway checks it | — |
 | Web addresses | `security/web_scope.WebScope`; `desktop_tools._open_url` and `_offer` (Swift's question) | fetching takes tool-result addresses too (OWN-06, partial) |
 | Reads | `executors/read_scope.ReadScope` | — |
 | Memory | `memory.Store.write` (`said` text must be in the owner's words; `approved` needs a card) | — |
@@ -95,8 +95,10 @@ code toward these rules, never away.
   ("Open usiu.ac.ke?", level 1, typing never answers it), offering only the owner's own earlier or remembered
   addresses; `points_back` is deleted (FD-02). A remembered address is now asked about too (stricter than before).
   Owner check 330 rewritten, with 370 and 371; not run.
-- **5, 6:** recipients still only from contacts and `find_contact`; an unclear write into an app is still refused,
-  not asked about.
+- **5:** built on the same branch, not merged: an address the owner said or typed in this request can be a
+  recipient, marked "(from your words, not in your contacts)" on the send card (FD-03). Not built: offering to save
+  it as a contact; calendar invites still take only contacts. Owner check elegant-shtern-2e16f9-1; not run.
+- **6:** an unclear write into an app is still refused, not asked about.
 - **8:** `swift.log` has no reason codes for connector failures yet.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
 - Found by the ownership map, not in the decisions: worker tool cards aren't bound to a digest (OWN-05).

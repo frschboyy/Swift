@@ -2636,6 +2636,18 @@ should answer the question on screen. Then click **No** if the question is still
 
 The report checks: nothing to judge from the log; tell us what you saw in each.
 
+### Asking instead of guessing or refusing: addresses, recipients, writing (2026-11-15)
+
+About 4 minutes, on the branch with foundation decisions 4, 5 and 6. Nothing here sends anything: reject every send
+card. Check 330 above changed with these (an earlier address is asked about).
+
+<a id="check-elegant-shtern-2e16f9-1"></a>**Check elegant-shtern-2e16f9-1. An email to an address you say, marked on its card**
+1. Say "Hey Swift, email test at example dot com saying this is a test" (an address that isn't one of your contacts).
+2. When the card asks before sending, read its To line, then click **Reject**.
+
+You should see: the To line shows "test@example.com (from your words, not in your contacts)", the greeting is
+"Hello," and nothing is sent. (Before, Swift said it couldn't find that contact.)
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

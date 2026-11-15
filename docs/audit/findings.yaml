@@ -3524,3 +3524,22 @@
     test_seam_replay.py::test_swift_s_question_about_an_earlier_address_is_on_screen_and_a_plain_yes_opens_it. 21
     fail with the fix undone. Stricter than before: a remembered address is now asked about too. A choice question
     with approval also refuses a typed pick. Product rule, needs review by someone other than the author.'
+- id: FD-03
+  title: An email address the owner said or typed for the request couldn't be a recipient ("isn't a contact Swift has
+    resolved"), so the owner had to save a contact first.
+  source: foundation decision 5 (foundation-rules-review.md §7), 2026-11-15
+  module: src/swift/workflows/tools.py, overlay/src/cardtext.ts
+  area: actions
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: 'Root fix. draft_email takes an address found in RunScope.said or the owner''s answers (said_addresses:
+    written, or spoken with "at" and "dot") as Contact(address, address, "said") in RunScope.resolved, so the
+    gateway''s not_a_contact check still holds; never the agent''s text or a tool result. The draft''s "to" entry
+    carries said: true and the send card shows "(from your words, not in your contacts)" (cardtext.recipientText).'
+  test: tests/unit/test_recipient_from_words.py::test_an_address_in_the_owners_words_is_a_recipient_marked_on_the_send_card
+  note: 'Also test_an_address_only_a_worker_read_is_never_a_recipient and overlay/tests/cardtext.test.ts. Not built:
+    the decision''s "offers to save it" as a contact (Swift has no contact writer); calendar invites still take only
+    resolved contacts. The seam replay doesn''t draw the DOM, so the mark is covered by the overlay test, not a seam
+    scenario. Product rule, needs review by someone other than the author.'

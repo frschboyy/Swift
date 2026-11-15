@@ -33,7 +33,8 @@ export type ResultDetails =
 
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).
 export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done" | "failed";
-export type Person = { name: string; email: string };
+// said: an address in the owner's own words, not a contact (foundation decision 5); the send card marks it.
+export type Person = { name: string; email: string; said?: boolean };
 // filled_in: the email is in Gmail's compose window or an Outlook draft; the owner presses Send (ADR-012 Q3).
 export type SendState = "waiting_approval" | "sending" | "sent" | "failed" | "rejected" | "filled_in";
 export type CalendarEventData = {

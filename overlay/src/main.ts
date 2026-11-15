@@ -33,7 +33,7 @@ import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, commandFolded, commandParts, hasMarkedLines, stepCommands } from "./cardtext";
+import { cardLines, commandFolded, commandParts, hasMarkedLines, recipientText, stepCommands } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -988,7 +988,7 @@ function artifactView(a: Artifact, clipLines = 0, titled = true): HTMLElement {
   let body: HTMLElement;
   switch (a.kind) {
     case "email_draft": {
-      const to = a.data.to.map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join(", ");
+      const to = a.data.to.map(recipientText).join(", ");
       const lines = a.data.body.split("\n");
       const clipped = clipLines > 0 && lines.length > clipLines;
       body = el(
@@ -1191,7 +1191,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     return el(
       "dl",
       { class: "facts" },
-      el("dt", {}, "To"), el("dd", { class: "key" }, d.to.map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join(", ")),
+      el("dt", {}, "To"), el("dd", { class: "key" }, d.to.map(recipientText).join(", ")),
       el("dt", {}, "Subject"), el("dd", {}, d.subject),
       el("div", { class: `mail-body${fullDraft ? " mail-body--full" : ""}`, tabindex: "0", role: "document", "aria-label": "The email" }, d.body),
       long ? el("button", { class: "link link--quiet wide", "aria-expanded": String(fullDraft), onclick: () => askView(fullDraft ? "hide" : "show") }, fullDraft ? "Show less" : "Show the whole email") : null,

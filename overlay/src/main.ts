@@ -28,7 +28,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as Q from "./ask";
-import { copyButton, detailsText, renderBlocks, renderDetails } from "./blocks";
+import { copyButton, detailsText, DIAGRAM_WIDE, renderBlocks, renderDetails } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
@@ -1451,12 +1451,21 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const fuller = data.details ?? readable?.data ?? null;
   // A long answer opens in place, on this card (owner checks 2026-10-28: a separate reader
   // window wasn't easy to read). Open, it stays until "Read less", Esc or a click on it.
-  const long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
+  let long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
   const shape = A.shape(data.summary, fuller, long);
   if (!presentAnswer("result", A.readingMs(copyable), data.run_id, data.thread_id, clipLine(data.summary))) return;
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
+  // A diagram found too wide to read on the card once drawn (blocks.ts): the answer opens with Read more after all.
+  body.addEventListener(DIAGRAM_WIDE, () => {
+    if (long) return;
+    long = true;
+    body.classList.add("answer--long");
+    body.tabIndex = 0;
+    drawFoot();
+    scheduleRegions();
+  });
   const drawBody = (): void => {
     const parts: (HTMLElement | null)[] = shape === "line"
       ? renderBlocks(data.summary)

@@ -98,8 +98,12 @@ const LAPTOPS = {
 // B4: diagrams as swift/shapes.py hands them on; the last one doesn't parse, so the card keeps the words.
 const FLOW = {
   kind: "diagram", title: "How a request runs", by: "worker", size: "card",
-  source: "flowchart LR\n  A[You ask] --> B{Needs your OK?}\n  B -->|no| D[Done]\n  B -->|yes| C[Card]\n  C -->|approved| D\n  C -->|declined| E[Stopped]",
+  source: "flowchart TD\n  A[You ask] --> B{Needs your OK?}\n  B -->|no| D[Done]\n  B -->|yes| C[Card]\n  C -->|approved| D\n  C -->|declined| E[Stopped]",
 };
+// The same flow left to right: too wide to read shrunk into a card, so it opens with Read more (as does the one
+// above, too tall); a small one that fits.
+const FLOW_WIDE = { ...FLOW, source: FLOW.source.replace("flowchart TD", "flowchart LR") };
+const FLOW_SMALL = { ...FLOW, title: "Asking for your OK", source: "flowchart LR\n  A[You ask] --> B{OK?}\n  B -->|yes| C[Done]\n  B -->|no| D[Stopped]" };
 const SEQUENCE = {
   kind: "diagram", title: "Signing in", by: "worker", size: "expanded",
   source: "sequenceDiagram\n  participant You\n  participant Swift\n  participant Google\n  You->>Swift: Sign in\n  Swift->>Google: Open the sign-in page\n  Google-->>You: Ask for your password\n  You->>Google: Approve\n  Google-->>Swift: A token\n  Swift-->>You: Signed in",
@@ -227,6 +231,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     rows: [...LAPTOPS.rows, ...["Ports", "Weight of charger", "Keyboard"].map((label) => ({ label, values: ["good", "fair", "good"] }))],
   }); },
   answerDiagram: async (s) => { await answer(s, "Draw how a request runs", "Most requests finish without a card; a card waits for your OK.", { ...FLOW, text: "Declining stops the run." }); },
+  answerDiagramSmall: async (s) => { await answer(s, "Draw what happens when you ask", "If it needs your OK, Swift asks; otherwise it's done.", FLOW_SMALL); },
+  answerDiagramWide: async (s) => { await answer(s, "Draw how a request runs, left to right", "Most requests finish without a card; a card waits for your OK.", FLOW_WIDE); },
   answerDiagramLong: async (s) => { await answer(s, "Draw how signing in works", "Swift opens Google's page; you approve there, and Swift gets a token.", SEQUENCE); },
   answerDiagramBroken: async (s) => { await answer(s, "Draw the request steps", "Three steps.", BROKEN); },
   answerMindmap: async (s) => { await answer(s, "Make me a mind map of party ideas", "Four areas: games, food, invites and music.", PARTY); },

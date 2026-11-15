@@ -77,6 +77,18 @@ export function inline(text: string): Run[] {
   return out;
 }
 
+// A diagram on a card is shrunk to fit at most this wide and this tall (styles.css .diagram-stage svg)...
+export const DIAGRAM_CARD_PX = 260;
+// ...but never so far that its smallest label drops below 10 px: one under Swift's smallest card text (the pick tag,
+// 11 px), because at 11 even a four-step flow didn't fit a card; 15 physical px at 150% Windows scaling.
+export const DIAGRAM_MIN_LABEL_PX = 10;
+
+/** Whether a diagram drawn ``w`` by ``h`` with labels of ``labelPx`` stays readable shrunk into a card ``boxW``
+ *  wide. If not, the card doesn't shrink it: it opens in full with Read more. */
+export function diagramFits(w: number, h: number, labelPx: number, boxW: number): boolean {
+  return labelPx * Math.min(1, boxW / w, DIAGRAM_CARD_PX / h) >= DIAGRAM_MIN_LABEL_PX;
+}
+
 /** How a comparison's highlighted option is labelled: the worker's choice, never Swift's (B4 decision 4). */
 export const PICK = "Worker's pick";
 

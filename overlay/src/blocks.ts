@@ -29,20 +29,43 @@ export function compareBlock(c: Compare, full: boolean): HTMLElement {
 }
 
 const DIAGRAM_BY = "Drawn from the worker's outline, not checked by Swift";
+/** Fired (bubbling) by a card's diagram too wide to read there: the answer then opens with Read more (main.ts). */
+export const DIAGRAM_WIDE = "swift-diagram-wide";
 
 /** A worker's diagram, drawn by Mermaid once it has loaded (only now: it's 2.8 MB). Until then it says so; if it
  *  doesn't draw, the words below it stand alone. ``full``: the reader's size, not the card's. */
 export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
   const stage = el("div", { class: "diagram-stage", role: "img", "aria-label": d.title ?? "Diagram" }, el("p", { class: "answer-more" }, "Drawing the diagram…"));
+  const note = el("p", { class: "answer-more" }, "Too wide to read on the card (Read more shows all of it)");
+  note.hidden = true;
   const block = el("div", { class: `diagram facts-line--agent${full ? " diagram--full" : ""}` },
     el("span", { class: "confirm-purpose-by" }, DIAGRAM_BY),
     d.title ? el("p", { class: "compare-title" }, d.title) : null,
     stage,
+    note,
     ...(d.text ? renderBlocks(d.text) : []));
+  // Shrunk into the card unless its labels would drop below Swift's smallest text (answer.ts diagramFits). Then
+  // the card shows its start at full size and asks for Read more, which shows it whole at that size, scrolling.
+  const size = (svg: SVGSVGElement): void => {
+    const [, , w, h] = (svg.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
+    if (!(w > 0 && h > 0)) return;
+    const label = Math.min(...[...svg.querySelectorAll("text")].map((t) => parseFloat(getComputedStyle(t).fontSize)).filter((px) => px > 0));
+    const wide = !full && !A.diagramFits(w, h, Number.isFinite(label) ? label : 13, stage.clientWidth);
+    if (full || wide) {
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
+    }
+    block.classList.toggle("diagram--wide", wide);
+    // The cut edge fades: the right one when the width is what doesn't fit, else the bottom one.
+    block.style.setProperty("--diagram-fade", stage.clientWidth / w < A.DIAGRAM_CARD_PX / h ? "to right" : "to bottom");
+    note.hidden = !wide;
+    if (wide) block.dispatchEvent(new CustomEvent(DIAGRAM_WIDE, { bubbles: true }));
+  };
   // Mermaid bakes the colours into its SVG, so a theme change (data-theme on the window's root) draws it again.
   const themed = new MutationObserver(() => (block.isConnected ? paint() : themed.disconnect()));
   const paint = (): void => void import("./mermaid").then((m) => m.draw(d.source, block)).then((svg) => {
     stage.replaceChildren(svg ?? el("p", { class: "answer-more" }, "Swift couldn't draw this diagram."));
+    if (svg) size(svg);
     const root = block.closest("[data-theme]");
     if (svg && root) themed.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
   });

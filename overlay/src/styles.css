@@ -483,8 +483,11 @@ code {
 /* B4: a diagram, under the worker's bar. On the card it's sized to fit; the reader shows it at full size. */
 .diagram { margin-top: 10px; }
 .diagram-stage { margin-top: 6px; }
+/* 260px: answer.ts DIAGRAM_CARD_PX. Too wide to read shrunk: its start at full size, fading out (diagramBlock). */
 .diagram-stage svg { display: block; max-width: 100%; height: auto; max-height: 260px; margin: 0 auto; }
-.diagram--full .diagram-stage svg { max-height: none; }
+.diagram--full .diagram-stage { overflow-x: auto; }
+.diagram--full .diagram-stage svg, .diagram--wide .diagram-stage svg { max-width: none; max-height: none; margin: 0; }
+.diagram--wide .diagram-stage { overflow: hidden; max-height: 260px; -webkit-mask-image: linear-gradient(var(--diagram-fade, to right), #000 75%, transparent); mask-image: linear-gradient(var(--diagram-fade, to right), #000 75%, transparent); }
 /* B4: a mind map as nested lists, the root on the left (prototype: overlay/dev/b4.html). The worker's, so neutral:
    never Swift's accent, and never amber or red, which mean an OK is waiting or something failed. */
 .mindmap { margin-top: 10px; }

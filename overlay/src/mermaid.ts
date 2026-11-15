@@ -52,7 +52,8 @@ export async function draw(source: string, stage: Element): Promise<SVGSVGElemen
       startOnLoad: false,
       securityLevel: "strict",  // labels are text; clicks and links off
       htmlLabels: false,
-      flowchart: { htmlLabels: false },
+      // Tighter than Mermaid's defaults (50, 50, 15, 8), so more diagrams fit a card at a readable size.
+      flowchart: { htmlLabels: false, nodeSpacing: 28, rankSpacing: 32, padding: 8, diagramPadding: 4 },
       maxTextSize: 4000,
       maxEdges: 100,
       theme: "base",

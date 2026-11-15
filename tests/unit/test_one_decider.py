@@ -5,7 +5,6 @@ to say yes or no; a door that decides by its own rule (OWN-01..03) disagrees wit
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import pytest
 

@@ -87,8 +87,8 @@ The rules above are the target; until each decision's code is merged, the code m
 code toward these rules, never away.
 
 - **1, 3, 10:** built (typed never approves; the hotkey held is a gesture; `intake.approves` is the one decider).
-  Their owner checks are not run yet. Two questions for the owner: the hint leaves out "press Enter on Yes" until
-  decision 2 is built, and the correction offer is treated as level 1, so a plain spoken "yes" on screen takes it.
+  Their owner checks are not run yet. The correction offer is level 1, so a plain spoken "yes" takes it while it's
+  on screen (owner, 2026-11-15). Open: the hint leaves out "press Enter on Yes" until decision 2 is built.
   Speech with the hotkey held can't answer Swift's own question yet (FD-01).
 - **2:** no keyboard Tab and Enter on the card's own button yet.
 - **4, 5, 6:** web addresses still go through `owner_address.points_back`; recipients still only from contacts and

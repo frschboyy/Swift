@@ -142,3 +142,7 @@ All taken from the orchestrator's recommendations:
   `CLAUDE.md`'s table; provisional check ids renumbered at merge; the generated run list in its own file
   (`merge=ours`); moving between PCs by `git bundle` on request, still never push; `CLAUDE.md` lists this PC's working
   commands. `CLAUDE.md`'s rules are rewritten to the model, with a note of what isn't built yet.
+- **The correction offer's level** (2026-11-15, after the second review of decisions 1, 3 and 10): level 1, like
+  Swift's own question. While "Say yes and I'll send a correction" is on screen, a plain spoken "yes" takes it, with
+  no need for Swift's name; typed words never do. What it starts is a new request, whose actions still get their own
+  cards.

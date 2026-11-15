@@ -3650,3 +3650,20 @@
   test: null
   note: Fix by accepting those two actions only from the text box's window (its label), or emitting them to the main
     window from the type pane alone.
+- id: FD-11
+  title: A write into an ordinary app types control characters (a bare carriage return, a tab, Esc, Ctrl+C) that its
+    question's preview or its card can't show.
+  source: second review of claude/nostalgic-sutherland-956529 (orchestrator), 2026-11-15
+  module: src/swift/desktop/windows.py, src/swift/workflows/desktop_tools.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: 'windows._keystrokes turns only "\n" into Shift+Enter; other characters go out as Unicode keystrokes, and
+    paragraphs() folds only "\r\n". desktop_write''s level 1 preview and its "Write into the app in front" card show
+    text, where a bare "\r", "\t" or "\x1b" is invisible; what an app does with one (a chat app taking "\r" as send) is
+    unproven. Terminal cards refuse them since b5e9573 (base.hidden_controls).'
+  test: null
+  note: Fix by refusing or dropping base.hidden_controls in every desktop_write and fill_in_email, or showing them on
+    the preview; prove first what Slack, Teams and a browser field do with a typed "\r".

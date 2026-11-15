@@ -74,15 +74,14 @@
   area: actions
   severity: critical
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: src/swift/intake.py:72-75 (typed + target "reversible" -> ALLOWED when named); reached from session.py:1596
-    (_midrun_text source="typed") -> _take_answer -> session.py:3570. Contradicts dialogue.py:69-71 ("typed, it
-    never does"), docs/handoff/README.md:238 ("typing doesn't") and the hint at session.py:280 ("Typing can't turn
-    it off"). test_audit_2026_10.py only tries a bare typed "yes".
+  evidence: 'intake.approves: typed is refused at every level above 0, with or without the name (c66e82c). The hint
+    on the question is "Typing can''t approve: click Yes, or say yes."'
   test: tests/unit/test_health_HEAR.py::test_a_typed_swift_yes_doesnt_turn_the_wifi_off
-  note: The intake table documents it on purpose, so the table and the rule disagree; the owner decides. The typed
-    "Swift, yes" for a correction offer (test_front_rules.py:748) is a separate path and may be meant.
+  note: 'Foundation decision 1, accepted by the owner 2026-11-15. Was a strict xfail, now passes. Seam scenario
+    test_seam_replay.py::test_a_typed_swift_yes_on_swifts_question_shows_the_typing_hint_and_changes_nothing. The
+    correction offer''s typed yes is OWN-01. Product rule: needs review by someone other than the author.'
 - id: OWN-01
   title: The correction offer decides its own approval in session._fix_refused, outside intake.approves.
   source: docs/architecture/ownership.md §1; foundation-rules-review.md D3
@@ -90,12 +89,14 @@
   area: actions
   severity: high
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: session.py:3916 _fix_refused checks "typed needs Swift's name" itself and never calls intake.approves;
-    called from session.py:3937 and :4613
-  test: null
-  note: Foundation decisions 1 and 10 make approves the only decider. A second decider is where D1-like drift starts.
+  evidence: session._fix_refused asks intake.approves(source, named=..., level=1) and keeps only its "on screen"
+    check (2518193); typed never takes the offer
+  test: tests/unit/test_front_rules.py::test_typed_words_never_take_a_correction_offer
+  note: Also the seam scenario test_seam_replay.py::test_a_typed_swift_yes_on_a_correction_offer_shows_the_typing_hint_on_its_card
+    and test_one_decider.py. Open for the owner, the offer is treated as level 1. Product rule, needs review by
+    someone other than the author.
 - id: OWN-02
   title: restated.restated adds its own "not typed" condition on top of intake.approves.
   source: docs/architecture/ownership.md §1; foundation-rules-review.md D1b
@@ -103,11 +104,12 @@
   area: actions
   severity: high
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: restated.py:49 yes = how == "same" and source != "typed" and intake.approves(...)
-  test: null
-  note: Typed "Swift, turn off the Wi-Fi" isn't a yes while typed "Swift, yes" is (D1b). Decision 10.
+  evidence: restated.py yes = how == "same" and intake.approves(source, named=named, level=1).allowed; the extra
+    source != "typed" is gone (5161d09)
+  test: tests/unit/test_intake.py::test_a_restatement_is_a_yes_exactly_when_approves_says_so
+  note: Decision 10. No behaviour change (approves refuses typed since decision 1). Product rule, needs a second reviewer.
 - id: OWN-03
   title: The hands-free fix offer takes "Swift, yes" by its own condition in session, without intake.approves.
   source: docs/architecture/ownership.md §1; foundation-rules-review.md D3
@@ -115,11 +117,15 @@
   area: actions
   severity: high
   product_rule: true
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: session.py:2471-2472 decision.action == "approve" and match is not None and self._fix_offer is not None
-  test: null
-  note: Decision 10.
+  evidence: 'session._hear_busy: any hands-free "approve" while an offer stands goes to _midrun_text(source="beside",
+    named=match is not None) -> _fix_refused -> intake.approves; the "match is not None" condition is gone (3a80cae)'
+  test: tests/unit/test_one_decider.py::test_a_hands_free_yes_to_the_correction_offer_is_what_approves_says
+  note: 'Decision 10. Behaviour change: at level 1 a plain spoken "yes" on screen now takes the offer, as the table
+    says and the offer asks (test_runs.py updated; seam scenario
+    test_seam_replay.py::test_a_plain_spoken_yes_takes_the_correction_offer_on_screen). Whether the offer is level
+    1 is open for the owner. Product rule: needs a second reviewer.'
 - id: OWN-04
   title: Whether a question is on screen is decided from the backend's own state, while confirm cards use the
     overlay's screen acknowledgement.
@@ -3429,3 +3435,21 @@
   note: Fixed on the orchestrator's go-ahead (A+B, a product rule; his second review). Also
     test_seam_replay.py::test_part_of_a_compound_request_said_to_its_question_never_approves_it (guard) and
     test_same_request.py::test_restated_and_same_request_agree_on_every_system_request (one owner).
+- id: FD-01
+  title: Speech with the hotkey held can't answer Swift's own question ("Turn off Wi-Fi?"); the recording hides the
+    question and "yes" runs as a new request ("There's nothing waiting for approval.").
+  source: foundation decisions 1, 3 and 10 (claude/modest-mcclintock-090934), 2026-11-15
+  module: src/swift/session.py
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: 'Seen with the fakes: _lane() + _wifi(), then ptt down, "yes", ptt up: the log says "question out of
+    view: its countdown paused", then "next request recorded", and the result is "There''s nothing waiting for
+    approval."; intake.approves is never called. Same with a run beside it. Decision 3 makes the hotkey a gesture,
+    so it should approve level 1.'
+  test: null
+  note: 'Not fixed here: out of scope for 1/3/10, since there is no hotkey door into _take_answer for Swift''s
+    question to route through approves. Needs a decision on whether the hotkey answers a question on screen or
+    starts a request. Clicking Yes and saying yes hands-free both work.'

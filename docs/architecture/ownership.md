@@ -17,7 +17,7 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 
 | Responsibility | Owner | Second owners found |
 |---|---|---|
-| Who may approve what, from where | `intake.approves` | `session._fix_refused` (OWN-01), `restated.restated` (OWN-02), the hands-free fix offer in `session` (OWN-03) |
+| Who may approve what, from where | `intake.approves` | none since foundation decision 10 (OWN-01, OWN-02, OWN-03 fixed) |
 | An approved Swift action runs as shown | `security/gateway.ActionGateway.execute` | Worker tool cards decided in `executors/claude_code` (OWN-05) |
 | Conversation and question state | `session` (questions), `dialogue.Dialogue` (parsing an answer), `answer_window.AnswerWindow` (its clock) | none found; split by design |
 | What's on screen | overlay `presenter.ts`; backend view in `drawn.Drawn` | `session._on_screen` decides from backend state, not the overlay's `screen` ack (OWN-04) |
@@ -44,22 +44,20 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
 
 ### Who may approve, from where
 
-- **Owner:** `src/swift/intake.py` `approves(source, *, named, target) -> Verdict`. Its docstring says "The rules live
-  here once; every door calls them."
-- **Callers that defer to it:** `session.py:1549` (typed text on a card), `:2464` (hands-free "approve" on a
-  card), `:3528` (Swift's own yes/no question).
-- **Tests:** `tests/unit/test_intake.py::test_who_may_approve_what`; `tests/unit/test_health_HEAR.py` (HA-HEAR-01's
-  strict xfail, the typed "Swift, yes").
-- **Second owners** (all three found by the foundation review, D3, and confirmed here):
-  - **OWN-01** `session._fix_refused` (`session.py:3916`): decides whether a yes takes the correction offered after
-    something couldn't be undone. It checks "typed needs Swift's name" itself and never calls `approves`. Called
-    from `:3937` and `:4613`.
-  - **OWN-02** `restated.restated` (`restated.py:49`): calls `approves(..., target="reversible")` but adds its own
-    `source != "typed"`. So typed "Swift, turn off the Wi-Fi" isn't a yes while typed "Swift, yes" is (D1b).
-  - **OWN-03** the hands-free fix offer (`session.py:2471-2472`): `decision.action == "approve" and match is not
-    None and self._fix_offer is not None` sends "Swift, yes" to the offer by its own condition.
-- **Target, not built:** foundation decision 10 makes `approves` the only decider, with its test checked against
-  the table in `CLAUDE.md`.
+- **Owner:** `src/swift/intake.py` `approves(source, *, named, level, paying=False) -> Verdict`. `channel()` maps the
+  source to gesture (a click, or the hotkey held: decision 3), named voice, plain voice or typed; `APPROVES` is the
+  "What approves" column of `CLAUDE.md`'s table, level by level (foundation decision 10).
+- **Callers, every approval door:** `session._answer_text` (an "approve" on a confirm card: typed, hands-free, the
+  hotkey, debug; level 2), `session._take_answer` (a yes to Swift's own question; level 1), `session._fix_refused`
+  (the correction offer, from `_midrun_text` and `_answer_fix`; level 1), `restated.restated` (the request said
+  again; level 1). Each passes its real source (`_midrun_text` takes it as a required keyword) and whether Swift's
+  name was said. A click on a confirm card (`confirm.reply`) is the gesture itself and doesn't ask.
+- **Tests:** `tests/unit/test_intake.py::test_approves_is_the_table_cell_by_cell` (reads the table in `CLAUDE.md` and
+  `action-authority.md`); `tests/unit/test_one_decider.py` (patches `approves` both ways and drives the doors: a door
+  with a rule of its own fails it); `tests/unit/test_health_HEAR.py` (HA-HEAR-01).
+- **Second owners:** none left. OWN-01 (`_fix_refused`'s own typed rule), OWN-02 (`restated`'s extra
+  `source != "typed"`) and OWN-03 (the hands-free fix offer's `match is not None`) are fixed.
+- **Gap, not a second owner:** speech with the hotkey held can't answer Swift's own question at all (FD-01).
 
 ### An approved action runs exactly as shown
 

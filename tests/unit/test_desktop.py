@@ -14,7 +14,7 @@ import pytest
 from loguru import logger
 from test_workflows import LECTURER, Owner
 
-from swift.desktop.base import DesktopContext, NeverRead
+from swift.desktop.base import DesktopContext, DesktopError, NeverRead
 from swift.desktop.fake import FakeApp, FakeDesktop
 from swift.routing.local import OpenTarget
 from swift.security.gateway import ActionGateway
@@ -312,6 +312,28 @@ async def test_fill_in_reports_an_unavailable_app() -> None:
     failed = [line for line in lines if "action failed" in line]
     assert len(failed) == 1 and '"reason": "gmail_unavailable"' in failed[0] and "isn't available" not in failed[0]
 
+
+
+async def test_a_reason_with_words_in_it_reaches_swift_log_as_unlisted() -> None:
+    """Safeguard (decision 8): ``reason`` is a code; a raise that passes words gets "unlisted" in the log."""
+    host, desktop, _, _ = make(said="email my lecturer")
+
+    async def leaky(app: str, to: list[str], subject: str, body: str) -> str:
+        raise DesktopError("x", "", reason="C:/Users/ada/visa interview.docx")
+
+    desktop.fill_in_email = leaky  # type: ignore[method-assign]
+    found = await host.call("find_contact", {"query": "lecturer"})
+    draft = await host.call("draft_email", {"to": [found.data["candidates"][0]["email"]], "subject": "x", "body": "y"})
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(str(m) + json.dumps(m.record["extra"])), level="INFO")
+    try:
+        await host.call("fill_in_email", {"draft_id": draft.data["draft_id"]})
+    finally:
+        logger.remove(sink)
+    failed = [line for line in lines if "action failed" in line]
+    assert len(failed) == 1 and '"reason": "unlisted"' in failed[0]
+    assert all("visa" not in line and "ada" not in line for line in lines), lines
+    assert DesktopError("x", reason="http_503").reason == "http_503" and DesktopError("x").reason == ""
 
 # ---- workflow grants -------------------------------------------------------------------
 

@@ -12,6 +12,7 @@ Everything a connector returns is untrusted external data.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Literal, Protocol
@@ -52,6 +53,10 @@ class SentMessage:
     message_id: str
 
 
+# A reason is a code, never words: anything else is logged as "unlisted" (decision 8, safeguard).
+_REASON = re.compile(r"[A-Za-z0-9_]{1,48}")
+
+
 class ConnectorError(RuntimeError):
     """The service refused or couldn't be reached. ``hint`` says what the owner can do.
 
@@ -62,7 +67,7 @@ class ConnectorError(RuntimeError):
         super().__init__(message)
         self.hint = hint
         self.code = code
-        self.reason = reason
+        self.reason = reason if not reason or _REASON.fullmatch(reason) else "unlisted"
 
 
 class EmailConnector(Protocol):

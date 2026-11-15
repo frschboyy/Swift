@@ -980,6 +980,24 @@
   test: null
   note: A check that fails on a new two-way edge would stop it getting worse; breaking the existing cycles is part
     of the session.py split.
+- id: QA15-01
+  title: No check runs by itself on any commit. There is no CI and no pre-commit hook, the lint rules that 78 noqa
+    comments cite can't be run, and nothing scans the dependencies for known vulnerabilities.
+  source: docs/audit/2026-11-15-quality-audit.md §4
+  module: pyproject.toml, overlay/package.json, overlay/src-tauri/Cargo.toml, .git/hooks
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: no .github, no .pre-commit-config, no [tool.ruff] or mypy config; ruff, mypy, pyright, pip-audit are
+    not in the dev group or the main .venv\Scripts; 78 "noqa" comments in src/swift, 67 naming ruff codes (S, RUF,
+    ASYNC, B); every gate in docs/testing/strategy.md §3 is run by hand by the session that remembers to
+    (673 commits on main since 2026-10-15)
+  test: null
+  note: The rules are specified, and nothing in the repo runs them. Fixing it means adding dev tools (ruff,
+    pip-audit) and a hook, which needs the owner's OK (no new dependencies without a clear need). A local hook,
+    not hosted CI, fits decision 13 (never push).
 - id: B-08
   title: An "unknown" outcome is not remembered, so it can't be undone and the same action can be approved and done
     again.
@@ -1685,6 +1703,36 @@
   evidence: ast import graph of src/swift at bb5cb89
   test: null
   note: Make each one public where it is shared (rename, no behaviour change). Supersedes the single _bare entry.
+- id: QA15-02
+  title: A confirm card answered while it waits behind another leaves a task waiting forever on its "shown" event.
+  source: docs/audit/2026-11-15-quality-audit.md §4
+  module: src/swift/session.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: session.py:4264 asyncio.wait({future, asyncio.ensure_future(shown.wait())}, FIRST_COMPLETED) never
+    cancels the shown.wait() task when the answer wins; if that card is never drawn, the task and its Event stay
+    pending until shutdown
+  test: null
+  note: Found by reading, not reproduced. One pending task per such card, so a slow leak, not a fault. The fix is
+    to cancel the loser after the wait. Related to T-09 (fire-and-forget tasks), not a duplicate of it.
+- id: QA15-03
+  title: The overlay's Rust code takes its locks with lock().unwrap() 49 times, so one panic while a lock is held
+    makes every later command that needs that lock panic too.
+  source: docs/audit/2026-11-15-quality-audit.md §4
+  module: overlay/src-tauri/src/lib.rs, overlay/src-tauri/src/backend.rs
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: 37 in lib.rs, 12 in backend.rs, 1 in hit.rs (2026-11-15); std Mutex poisons on a panic inside the guard;
+    no panic = "abort" profile and no poison recovery
+  test: null
+  note: No panic inside a guard has been seen. Worth checking only if the overlay ever stops answering after an
+    error; the fix, if needed, is lock().unwrap_or_else(PoisonError::into_inner) at the few shared states.
 - id: D-01
   title: Each entry point (voice, typed, click, lane) had its own copy of the dialogue and approval steps.
   source: docs/audit/2026-11-seams-audit.md §3.1

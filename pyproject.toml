@@ -69,3 +69,49 @@ markers = [
 
 [tool.uv]
 required-version = ">=0.5"
+
+# QA15-01: the rule families the code's noqa comments cite. A baseline that passes on src and tests as of
+# 2026-11-15; a per-file entry is today's hit in that file, not a licence: remove it once the file is clean.
+# Left out (see docs/testing/strategy.md §3): E (4,300+ E501 in src), SLF, ARG, ANN, N, TRY, A (hundreds each).
+# No `ruff format`: the code isn't formatted by it and a mass reformat is out of scope.
+[tool.ruff]
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ASYNC", "B", "BLE", "F", "RUF", "S"]
+ignore = [
+    "S101",    # assert: tests, and invariants in src
+    "RUF001",  # ambiguous unicode: the code means its ▁, ’ and – characters
+    "RUF002",
+    "RUF100",  # noqa comments also cite families not selected here (SLF, ARG, ANN, E)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S603", "S607", "RUF012", "RUF043", "RUF059"]  # fakes, fixtures and unpacking in tests
+"src/swift/audio/recorder.py" = ["BLE001"]
+"src/swift/backend/__main__.py" = ["RUF006"]  # the tasks are main()'s locals, held for the backend's life
+"src/swift/connectors/google.py" = ["S105"]  # TOKEN_URI is a URL, not a secret
+"src/swift/desktop/windows.py" = ["S112", "RUF036"]
+"src/swift/lifecycle.py" = ["ASYNC110"]
+"src/swift/logging_setup.py" = ["S105"]  # a key name, not a secret
+"src/swift/network.py" = ["BLE001"]
+"src/swift/routing/classifier.py" = ["B905"]
+"src/swift/routing/local.py" = ["S603", "S606"]
+"src/swift/session.py" = ["F401"]
+"src/swift/signin.py" = ["S603"]
+"src/swift/stt/transcriber.py" = ["RUF021"]
+"src/swift/system/control.py" = ["S603", "S607"]
+"src/swift/system/intents.py" = ["F541", "RUF046"]
+"src/swift/system/lane.py" = ["BLE001"]
+"src/swift/system/scheduler.py" = ["BLE001"]
+"src/swift/workflows/library.py" = ["RUF021"]
+"src/swift/workflows/names.py" = ["RUF007"]
+"tests/unit/settling.py" = ["ASYNC109"]
+"tests/unit/test_claude_executor.py" = ["ASYNC220", "RUF006"]
+"tests/unit/test_corrections.py" = ["F841", "RUF034"]
+"tests/unit/test_dialogue.py" = ["ASYNC110", "B023", "F401", "F841", "RUF021"]
+"tests/unit/test_providers.py" = ["F841"]
+"tests/unit/test_recordings.py" = ["ASYNC240"]
+"tests/unit/test_runs.py" = ["ASYNC109", "RUF021"]
+"tests/unit/test_seam_replay.py" = ["ASYNC109", "B023", "B905"]
+"tests/unit/test_seams_audit_state.py" = ["B007"]

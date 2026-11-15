@@ -3687,3 +3687,37 @@
   test: null
   note: The WIP and the refactor it builds on are in .claude/stale-wip/2026-11-15/ (festive-colden-b068a2.patch on
     top of festive-colden-b068a2-base-8fe61d5.patch). Main's own A10 work kept only a safeguard test (6c53326).
+- id: FD-13
+  title: A result card's footer named the provider ("Swift · via Claude Code"), and the handoff step between providers
+    named both, though Swift speaks as itself.
+  source: orchestrator, after B4 slice 1's report (claude/b4-compare-dacc2b), 2026-11-15; owner's decision the same day
+  module: overlay/src/agents.ts, src/swift/session.py
+  area: screen
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: confirmed
+  evidence: 'agents.ts byline() returned `Swift · via ${agent.name}` for any provider (ADR-008, 2026-10-26), drawn by
+    main.ts renderResult and the due card. session.py''s fallback step said "<first> isn''t available, so <other> is
+    taking this" (left for the owner in B-10). Both now name nobody: the footer is "Swift", the step "The usual worker
+    isn''t available, so another one is taking this". The new tests fail on the old byline (checked).'
+  test: tests/unit/test_seam_replay.py::test_an_agent_s_answer_is_signed_swift_alone
+  note: Also overlay/tests/agents.test.ts and test_providers.py::test_fallback_is_shown_as_a_swift_handoff_step. Owner
+    check byline-no-provider-1. Setup errors and sign-in or credit failures still name the provider, as the rule allows.
+    The identity answers are FD-14.
+- id: FD-14
+  title: Swift's answers to "who are you?" and "are you Claude?" name the configured providers ("Claude Code is one of
+    the agents I work with").
+  source: FD-13's sweep for provider names (claude/byline-no-provider), 2026-11-15
+  module: src/swift/identity.py
+  area: speech
+  severity: low
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: 'identity.introduction and identity.clarification build their words from ProviderInfo.name; they are
+    spoken and shown as the result''s note (ADR-008 §2 Identity, tests in test_providers.py). The owner asked about
+    the provider in those cases, so whether naming it there is allowed is the owner''s call, not a one-line fix.'
+  test: null
+  note: Ask the owner whether "Swift speaks as itself" covers answers to his own question about who Swift is. If it
+    does, both answers become Swift's alone ("No, I'm Swift.") and ADR-008's identity examples change with them.

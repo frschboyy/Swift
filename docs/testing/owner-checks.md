@@ -2738,6 +2738,19 @@ today's plain answer, with no table. If step 1 shows only words, say so: the wor
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+### Swift signs its answers as itself (2026-11-15)
+
+About 1 minute. Nothing here sends anything.
+
+<a id="check-byline-no-provider-1"></a>**Check byline-no-provider-1. An agent's answer is signed "Swift" alone**
+1. Say "Hey Swift, what are three good teas for the evening?" (it goes to the agent).
+2. When the answer shows, read its footer, left of Copy.
+
+You should see: the footer says just "Swift", with no "via" and no provider's name. Nothing on the working card or
+the answer names the provider either.
+
+The report checks: nothing to judge from the log; tell us what you saw.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -44,7 +44,7 @@ The owner talks to Swift. Swift hands the work to an execution provider: Claude 
 - The overlay turns these into words in one file, `overlay/src/agents.ts`, which knows no provider by name:
   - working card: "Claude Code is reading", "Swift handed this to Claude Code". *Changed 2026-10-26 (owner): the working card no longer names the provider ("Reading", "Thinking", "Working on it"); the result's byline still does.*
   - confirm card: "Claude Code wants to:";
-  - result card: "Swift · via Claude Code";
+  - result card: "Swift · via Claude Code"; *Superseded 2026-11-15 (owner) by `CLAUDE.md`'s "Swift speaks as itself": the result's footer says just "Swift" (FD-13). The frame keeps `agent`; no card draws its name.*
   - error card: "Claude Code ran into a problem".
 
 ### Identity
@@ -62,7 +62,7 @@ The owner talks to Swift. Swift hands the work to an execution provider: Claude 
 3. Build it in `backend/__main__.py`, as the default or as a fallback.
 4. *Added 2026-10-26 (owner):* behaviour must be the same whichever provider works:
    - Don't announce start-up. Steps with activity `starting` are dropped by the session anyway.
-   - The working card never names the provider; only the result's byline does.
+   - The working card never names the provider; only the result's byline does. *Superseded 2026-11-15 (owner): no card names it, the byline included (FD-13).*
    - Corrections on the provider's own confirm cards: implement `change(request_id, text)` if the provider can revise and ask again; Claude Code declines with the owner's words and carries on. Without it, Swift rejects the card and sends the change as the next request, so the owner sees the same thing.
 
 Neither the session nor the overlay changes.

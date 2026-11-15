@@ -49,11 +49,25 @@ def test_the_walk_finds_the_path_settings() -> None:
         assert name in found
 
 
+# Settings Swift only reads from, never writes: the harness keeps their defaults, so it routes as the app does.
+READ_ONLY = {"demand_classifier.model_dir"}
+
+
 def test_no_harness_path_is_in_the_owner_s_data() -> None:
     settings = load_settings(HARNESS)
     owner = _owner_folders()
-    leaks = {name: p for name, p in _path_settings(settings).items() if any(_inside(p, f) for f in owner)}
+    leaks = {name: p for name, p in _path_settings(settings).items()
+             if name not in READ_ONLY and any(_inside(p, f) for f in owner)}
     assert not leaks, f"harness-config.yaml leaves these in the owner's Swift folders: {sorted(leaks)}"
+
+
+def test_the_read_only_settings_are_only_models() -> None:
+    # The exception covers model folders only: one that held the owner's data would need its own %TEMP% path.
+    # As written, not realpath: an app sandbox redirects real folders, so realpath can land in its own copy.
+    models = Path(os.path.normcase(os.path.normpath(Path(_env_value("LOCALAPPDATA")) / "Swift" / "models")))
+    paths = _path_settings(load_settings(HARNESS))
+    inside = {name: models in Path(os.path.normcase(os.path.normpath(paths[name]))).parents for name in READ_ONLY}
+    assert all(inside.values()), {name: paths[name] for name in READ_ONLY}
 
 
 def test_the_backend_harness_launch_entry_loads_that_config() -> None:

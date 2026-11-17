@@ -8,7 +8,7 @@ import pytest
 
 from swift import previews
 from swift import shapes
-from swift.executors.claude_code import _Run, _show_checked_shape
+from swift.executors.claude_code import _Run, _show_result
 from swift.executors.read_scope import ReadScope
 
 
@@ -169,7 +169,7 @@ async def test_worker_preview_is_refused_outside_the_run_read_scope(tmp_path: Pa
     assert problems == [] and shape is not None
     run = _Run()
 
-    message = await _show_checked_shape(run, shape, ReadScope([], home=str(tmp_path)), None)
+    message = await _show_result(run, shape, ReadScope([], home=str(tmp_path)), None)
 
     assert "allowed to read" in message
     assert run.shape is None and run.preview is None
@@ -185,7 +185,7 @@ async def test_worker_preview_can_reuse_an_exactly_approved_read(tmp_path: Path)
     reads = ReadScope([], home=str(tmp_path))
     run = _Run(approved_reads={reads.key(str(path))})
 
-    message = await _show_checked_shape(run, shape, reads, None)
+    message = await _show_result(run, shape, reads, None)
 
     assert message
     assert run.preview is not None and run.preview.excerpt == "Approved text"

@@ -8,6 +8,7 @@ import pytest
 
 from swift import shapes
 from swift.executors.claude_code import ClaudeCodeExecutor, _Run, _show_result
+from swift.executors.read_scope import ReadScope
 from swift.executors.claude_mapping import Outcome
 
 LAPTOPS: dict[str, Any] = {
@@ -16,6 +17,7 @@ LAPTOPS: dict[str, Any] = {
              {"label": "Battery", "values": ["15 h", "12 h", "<10 h"]}],
     "pick": 0,
 }
+READS = ReadScope([])  # what show_result is handed by the executor; only a preview reads it
 
 
 def test_a_comparison_is_kept_as_sent() -> None:
@@ -59,9 +61,9 @@ def test_swift_sets_the_size_and_the_mark() -> None:
     assert shapes.details(shapes.check(LAPTOPS | {"rows": rows})[0])["size"] == "expanded"
 
 
-def test_the_tool_keeps_a_checked_shape_and_a_done_answer_shows_it() -> None:
+async def test_the_tool_keeps_a_checked_shape_and_a_done_answer_shows_it() -> None:
     run = _Run()
-    assert "Swift will show this" in _show_result(run, LAPTOPS)
+    assert "Swift will show this" in await _show_result(run, LAPTOPS, READS, None)
     outcome = Outcome("done", "The Zenbook fits travel best.", {"kind": "text", "text": "Prices vary."}, {})
     final = ClaudeCodeExecutor._final(run, outcome, None)
     assert final.status == "done" and final.summary == "The Zenbook fits travel best."
@@ -69,18 +71,19 @@ def test_the_tool_keeps_a_checked_shape_and_a_done_answer_shows_it() -> None:
     assert final.details["items"] == LAPTOPS["items"] and final.details["text"] == "Prices vary."  # nothing lost
 
 
-def test_a_refused_shape_leaves_the_words() -> None:
+async def test_a_refused_shape_leaves_the_words() -> None:
     run = _Run()
-    assert "Answer in words" in _show_result(run, LAPTOPS | {"pick": 9})
+    await _show_result(run, LAPTOPS, READS, None)
+    assert "Answer in words" in await _show_result(run, LAPTOPS | {"pick": 9}, READS, None)  # the earlier one goes too
     outcome = Outcome("done", "Zenbook.", {"kind": "list", "items": ["light"]}, {})
     assert ClaudeCodeExecutor._final(run, outcome, None).details == {"kind": "list", "items": ["light"]}
 
 
-def test_a_shape_never_reaches_an_answer_that_isnt_done() -> None:
+async def test_a_shape_never_reaches_an_answer_that_isnt_done() -> None:
     """§7.6: shapes on Done results only, never on a stop, a refusal or a failure."""
     for setup in ("cancelled", "rejected", "error"):
         run = _Run()
-        _show_result(run, LAPTOPS)
+        await _show_result(run, LAPTOPS, READS, None)
         if setup == "cancelled":
             run.cancelled = True
         if setup == "rejected":

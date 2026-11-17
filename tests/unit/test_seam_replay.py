@@ -1532,3 +1532,15 @@ async def test_f1_an_ok_that_ran_out_into_the_stack_frees_the_front() -> None:
     await asyncio.sleep(0.05)
     assert agree(session, out)["confirm"] == rid
     await finish_all(session, agent)
+
+
+async def test_f2_a_lapsed_ok_never_comes_back_to_the_front_by_itself() -> None:
+    """F2 (live run 2026-11-18): after a lapse, an "I didn't catch that" card faded and the overlay sent
+    ``focus`` for the lapsed OK's row: it came back with a fresh countdown, unasked. Only the owner brings
+    a stacked item back (Open, or "what's waiting?"); the overlay never promotes it on its own."""
+    session, out, agent, _stt, rid = await _lapsed()
+    await session.handle(Message("error", {"code": "no_speech", "message": "I didn't catch that."}))
+    screen = _screen(out)
+    owner = session._owner_of(rid)
+    assert screen["promoted"] != owner.ui_id, f"the overlay would bring the lapsed OK back: {screen}"
+    await finish_all(session, agent)

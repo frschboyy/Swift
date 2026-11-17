@@ -135,6 +135,15 @@ def test_a_steady_noise_stops_counting_as_speech() -> None:
     assert gate.speech(0.8) is True  # but real speech over it still counts
 
 
+
+def test_talk_far_below_the_owners_voice_is_the_room() -> None:
+    # 14:23 on 2026-11-17: talk in the room (peaks near -22 dBFS) kept a request open for 18 s; the owner
+    # speaks at about -13.5. Level 0.3 is -45.6 dBFS, 0.9 is -16.8 (``level_from_block``'s scale).
+    gate = NoiseGate(voice_db=lambda: -13.5)
+    assert gate.speech(0.3) is False  # -45.6 dBFS: more than 30 dB under the owner's voice
+    assert gate.speech(0.9) is True
+    assert NoiseGate(voice_db=lambda: None).speech(0.3) is True  # not known yet: today's bar
+
 # ---- the recorder keeps the stream open and hands out the lead -------------------------------
 
 

@@ -3822,3 +3822,22 @@
   test: null
   note: B12 ("Open answer leads back to the answer") can't be judged in the harness until this works there. Whether
     it should open the reader or bring the answer card back is the owner's design call.
+- id: NV-01
+  title: In a room with people or a TV talking, a hands-free request stayed open until the room paused (18 s at
+    14:23 on 2026-11-17) and was answered from the room's words.
+  source: owner report 2026-11-17 ("when there's a lot of noise, it should not focus on anything outside my voice")
+  module: src/swift/wake.py, src/swift/session.py
+  area: speech
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: 'The capture after "hey Swift" ends on a 0.8 s pause judged by a fresh NoiseGate, whose bar (about
+    40 dB under the owner''s voice) the room''s talk crossed in almost every second. Replayed: the 14:23 clip
+    (talk peaking at -22, mostly -53 dBFS; owner -13.5) ends at 2.7 s with a bar 30 dB under the owner''s voice.
+    Over 106 saved hands-free requests, 30 dB cut none short (24 dB cut two, in a quiet room).'
+  test: tests/unit/test_voice_fixes_1700.py::test_talk_in_the_room_doesnt_hold_a_hands_free_request_open
+  note: 'Partial. Not fixed here: (1) the wake listener in long talk, where an utterance runs past 10 s and is
+    dropped, deaf until a pause or 30 s (the same bar lost 2–4 of the owner''s wake takes over babble, so it
+    wasn''t applied); (2) "hey Swift" misheard in noise ("It''s Wift", "They swift"), a speech model limit; (3)
+    the bar waits for one sure request after each start to learn the owner''s voice.'

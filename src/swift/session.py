@@ -2556,7 +2556,7 @@ class Session:
         except MicError as exc:
             raise UserFacingError("mic_unavailable", str(exc), exc.hint, title="Microphone unavailable") from None
 
-        gate, began, last_speech = NoiseGate(), clock.now(), None
+        gate, began, last_speech = NoiseGate(voice_db=lambda: self._voice_db), clock.now(), None
         # The pause that ends it; longer while the words so far say more is coming (swift/endpoint.py).
         pause_s = auto.end_silence_s if auto is not None else 0.0
         paused, spoke = False, False

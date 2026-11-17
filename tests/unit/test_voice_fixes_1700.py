@@ -255,6 +255,34 @@ async def test_the_hotkey_during_a_hands_free_capture_holds_it_open() -> None:
     assert records[-1]["transcript"] == "what time is it"
 
 
+
+async def room_talk_after_the_owner(voice_db: float | None) -> bool:
+    """Whether a hands-free capture is still recording after the owner spoke and talk in the room went on."""
+    session, _out, _records, stt = wake_session()
+    session._voice_db = voice_db
+    session.transcriber = FakeTranscriber(text="Hey Swift")
+    await session.hear_wake(AUDIO, time.monotonic())
+    await until(lambda: session.state == "listening")
+    rec = session.recorder
+    assert isinstance(rec, LeadRecorder) and rec.on_level is not None
+    rec.on_level(0.9)  # the owner's request, about -17 dBFS
+    for _ in range(10):
+        rec.on_level(0.3)  # a TV or people further away: -45.6 dBFS, over a fresh gate's bar
+        await asyncio.sleep(0.02)
+    recording = rec.recording
+    session.transcriber = FakeTranscriber(text="Hey Swift what time is it")
+    for _ in range(5):  # then the room falls quiet, so either way it ends
+        rec.on_level(0.0)
+        await asyncio.sleep(0.03)
+    await finish(session)
+    return recording
+
+
+async def test_talk_in_the_room_doesnt_hold_a_hands_free_request_open() -> None:
+    # 2026-11-17 14:23: a request stayed open 18 s while people talked; ended by a pause the room never made.
+    assert await room_talk_after_the_owner(-13.5) is False  # 30 dB under the owner's voice: the room
+    assert await room_talk_after_the_owner(None) is True  # their voice not known yet: as before
+
 # ---- 4. brisk control phrases --------------------------------------------------------------------
 
 

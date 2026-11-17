@@ -183,6 +183,13 @@ def close_control(text: str) -> str | None:
     return best if SequenceMatcher(None, said, best.replace(" ", "")).ratio() >= CLOSE else None
 
 
+# Speech this far below the owner's voice is the room's, when a request is over (``NoiseGate.voice_db``).
+# On the owner's clips (2026-11-17): the talk that kept a request open for 18 s at 14:23 peaked at -22 dBFS
+# and sat at -53, against their -13.5. Over their 106 saved hands-free requests, 24 dB cut two of them
+# short in a quiet room; 27 and 30 cut none. Waking isn't given this bar: on their wake takes it lost a few.
+VOICE_BELOW_DB = 30.0
+
+
 class NoiseGate:
     """Tells speech from the room by level (0..1, ``level_from_block``), following the room.
 
@@ -194,13 +201,22 @@ class NoiseGate:
     stops being taken for it after some seconds.
     """
 
-    def __init__(self, min_level: float = 0.12, margin: float = 0.2) -> None:
+    def __init__(
+        self, min_level: float = 0.12, margin: float = 0.2, voice_db: Callable[[], float | None] | None = None,
+    ) -> None:
         self.min_level = min_level
         self.margin = margin
+        # How loud the owner speaks to Swift (dBFS of their loudest block), once known: talk far below it
+        # is the room (a TV, people further away), so it neither starts nor holds open an utterance.
+        self.voice_db = voice_db
         self.floor = 0.0
 
     def speech(self, level: float) -> bool:
-        is_speech = level > max(self.min_level, self.floor + self.margin)
+        bar = max(self.min_level, self.floor + self.margin)
+        voice = self.voice_db() if self.voice_db is not None else None
+        if voice is not None:
+            bar = max(bar, (voice - VOICE_BELOW_DB - FLOOR_DB) / (CEIL_DB - FLOOR_DB))
+        is_speech = level > bar
         self.floor += (level - self.floor) * (0.002 if is_speech else 0.02)
         return is_speech
 
@@ -299,7 +315,7 @@ class WakeListener:
         self._blocks, self._pad = [], type(self._pad)(maxlen=self._pad.maxlen)
         self._lead = self._quiet = self._too_long_blocks = 0
         self._too_long = self._peeked = False
-        self._gate = NoiseGate(self._gate.min_level, self._gate.margin)
+        self._gate = NoiseGate(self._gate.min_level, self._gate.margin, self._gate.voice_db)
 
     def take_stats(self) -> dict[str, float]:
         """The counters since the last call (and the room's level now), then start again."""

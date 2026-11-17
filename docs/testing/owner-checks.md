@@ -2844,6 +2844,24 @@ the answer names the provider either.
 
 The report checks: nothing to judge from the log; tell us what you saw.
 
+### A request ends when you stop, even with people talking (2026-11-17)
+
+About 5 minutes, with a talk video or podcast playing on another device or across the room. Nothing here sends
+anything.
+
+<a id="check-noise-voice-gate-1"></a>**Check noise-voice-gate-1. Talk in the room doesn't hold a hands-free request open**
+1. Restart Swift (tray icon → **Restart Swift**). In a quiet room, say "Hey Swift, what time is it?" once, so Swift
+   learns how loud you speak.
+2. Start the video at a normal listening volume, across the room. Say "Hey Swift", wait for the chime, then say
+   "what's the date today?" and stop talking.
+3. Do step 2 twice more. Then once from where you'd sit at 1.5 m, speaking normally.
+
+You should see: each time, "Listening…" ends within about 2–3 s of you stopping, and Swift answers your question,
+not words from the video. In step 3's far try, nothing you said is cut off. If a request still listens for many
+seconds, or the answer is about the video's words, note the time.
+
+The report checks: nothing to judge from the log yet; tell us how many of the four ended promptly.
+
 ### Echo cancellation trial (seams S5, 2026-11-17)
 
 About 10 minutes, with speakers (not headphones). Nothing here sends anything.

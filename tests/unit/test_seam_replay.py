@@ -370,6 +370,19 @@ async def test_a_step_card_lists_the_commands_it_approves() -> None:
     await finish_all(session, agent)
 
 
+async def test_an_agent_s_answer_is_signed_swift_alone() -> None:
+    """FD-13 (owner, 2026-11-15): Swift speaks as itself. The worker's answer reaches the card with its agent,
+    and the footer the card draws says "Swift", never "via" the provider."""
+    session, out, agent, stt, _control, _sched = _lane()
+    run = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[run]["go"].set()
+    await until(lambda: out.last("result"))
+    assert out.last("result")["agent"]["name"] == "Agent"  # the frame still says who worked: the card doesn't
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerBy"] == "Swift"
+    await finish_all(session, agent)
+
+
 async def test_a_comparison_reaches_the_done_card_as_one() -> None:
     """B4, compare: the shape Swift checked (swift/shapes.py) goes through the real session to the answer card
     the presenter holds, drawn as the comparison with the worker's pick marked as the worker's; seven rows open

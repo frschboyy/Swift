@@ -3845,11 +3845,11 @@ class Session:
         agent = self._agent()
         self.runs.worker(record, provider.id, run_id, [p.id for p, _ in started.skipped])
         await self._set_state("working", run_id=run_id, agent=agent)
-        for skipped, _ in started.skipped:
-            # Swift's own step: who couldn't take the request and who did.
+        for _ in started.skipped:
+            # Swift's own step: another worker took it, never named (Swift speaks as itself, FD-13).
             await self._send(
                 outbound(
-                    "step", run_id=run_id, text=f"{skipped.name} isn't available, so {provider.name} is taking this",
+                    "step", run_id=run_id, text="The usual worker isn't available, so another one is taking this",
                     kind="handoff", ts=now_ms(), activity="starting", agent=SWIFT.as_agent(), subagent=False,
                 )
             )

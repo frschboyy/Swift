@@ -212,7 +212,7 @@ The report checks: a conversation picked up from the stack; a card that ran out 
 5. Type "reject" and press Enter.
 
 You should see: a text box with a blue edge where the cards appear, the cursor in it (Esc closes it and keeps what you typed).
-The second time it says "Following up: …". The time, then the date **on the same card**, with a keyboard icon by your words.
+The second time it says "Follows “…”". The time, then the date **on the same card**, with a keyboard icon by your words.
 With the meeting card open, the box has an amber line "**Typing can't approve.** Click Approve, or say "approve"."
 The card stays after "approve"; "reject" rejects it.
 

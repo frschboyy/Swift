@@ -42,7 +42,12 @@
         typeTyped: { kind: "type", draft: "Remind me to call mum at 6", follows: null, confirm: false },
         typeConfirm: { kind: "type", draft: "make it 5 pm instead", follows: null, confirm: true },
         typeFollows: { kind: "type", draft: "", follows: "It's 3:42 pm", confirm: false },
+        // Board 9 §2 (Halo B8): the names 03-verify.md uses.
+        typeFollow: { kind: "type", draft: "and tomorrow?", follows: "It's 3:42 pm", confirm: false },
+        typeKeyed: { kind: "type", draft: "", follows: null, confirm: false, reach: true, onCard: "Copy" },
+        typeFix: { kind: "type", draft: "", follows: null, confirm: false, fix: { clip: "c-1", heard: "what time is it in the cooler" } },
         trayMenu: { kind: "tray", status: "Listening for “Hey Swift”", paused: false, anchor: "bottom-center", smart: true, typeKey: "ctrl+space" },
+        trayListening: { kind: "tray", status: "Listening · hold Ctrl+Shift+Space", paused: false, anchor: "bottom-right", smart: true, typeKey: "ctrl+alt+space" },
         trayPaused: { kind: "tray", status: "Not listening · Mic off", paused: true, anchor: "bottom-right", smart: false, typeKey: "ctrl+space" },
         stackClosed: { kind: "stack", expanded: false, items: STACK },
         stackOpen: { kind: "stack", expanded: true, items: STACK },

@@ -111,18 +111,18 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
     drawFix(v.fix);
     return;
   }
+  // Board 9 §2: a note strip only when the mode changes what Enter does.
   const notices = (): HTMLElement[] => ([
-    v.confirm
-      ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"),
-          el("span", {}, el("b", {}, "Typing can't approve."), " Click Approve (or Tab to it, Enter), or say “approve”."))
-      : null,
-    v.follows ? el("p", { class: "type-note type-note--follow" }, icon("info"), `Following up: ${v.follows}`) : null,
+    v.onCard
+      ? el("p", { class: "type-note type-note--follow", role: "note" }, icon("keyboard"), `Enter presses “${v.onCard}” on the card · Tab for the next`)
+      : v.confirm
+        ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"), "Typing can't approve. Enter sends this as a change.")
+        : v.follows ? el("p", { class: "type-note type-note--follow" }, icon("info"), `Follows “${v.follows}”`) : null,
   ] as (HTMLElement | null)[]).filter((n): n is HTMLElement => n !== null);
+  // The key, then what it does now.
   const hint = (): HTMLElement =>
-    el("span", { class: "hint" }, ...(
-      v.onCard ? [el("kbd", {}, "Enter"), `= ${v.onCard} ·`, el("kbd", {}, "Tab"), "next"]
-      : v.reach ? [el("kbd", {}, "Tab"), "card ·", el("kbd", {}, "Enter"), v.confirm ? "= Change" : "sends"]
-      : v.confirm ? [el("kbd", {}, "Enter"), "= Change"] : [el("kbd", {}, "Enter"), "sends ·", el("kbd", {}, "Esc"), "closes"]));
+    el("span", { class: "hint" }, el("kbd", {}, "Enter"), v.onCard ? `presses ${v.onCard}` : v.confirm ? "sends a change" : "sends");
+  const warn = (): void => void root.querySelector(".type-box")?.classList.toggle("type-box--warn", Boolean(v.confirm && !v.onCard));
   const known = root.querySelector<HTMLInputElement>(".type-input");
   if (known) {
     // An update while typing must not wipe what's being typed: only the notice and the hint change.
@@ -130,6 +130,7 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
     box.querySelectorAll(".type-note").forEach((n) => n.remove());
     box.prepend(...notices());
     box.querySelector(".hint")?.replaceWith(hint());
+    warn();
     return;
   }
   const input = el("input", {
@@ -161,6 +162,7 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
       el("div", { class: "type-row" }, icon("keyboard"), input, hint()),
     ),
   );
+  warn();
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
 }
@@ -218,7 +220,7 @@ function drawTray(v: TrayView): void {
     el(
       "section",
       { class: "tray", role: "menu", "aria-label": "Swift" },
-      el("div", { class: "tray-head" }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", {}, v.status))),
+      el("div", { class: `tray-head${v.paused ? " tray-head--paused" : ""}` }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", { class: "tray-status" }, v.status))),
       el("div", { class: "tray-sep" }),
       el("div", { class: "tray-block" },
         el("div", { class: "tray-row" }, "Position", el("span", {}, anchorName(v.anchor))),

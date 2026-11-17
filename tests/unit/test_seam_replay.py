@@ -145,6 +145,40 @@ async def test_a_unsure_answers_put_it_in_the_stack_and_a_timer_shows() -> None:
     await finish_all(session, agent)
 
 
+
+async def test_an_answer_being_heard_shows_on_the_question_and_what_wasnt_one_brings_it_back() -> None:
+    # Owner, 2026-11-17: answering hands-free, nothing on screen said Swift heard him.
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    await _wifi(session, out, stt)
+    assert agree(session, out)["questionPill"] == "Waiting for your answer"
+    pills: list[str | None] = []
+    plain = stt.transcribe
+
+    async def looks(audio: Any) -> Any:  # while the words are being transcribed
+        pills.append(_screen(out)["questionPill"])
+        return await plain(audio)
+
+    stt.transcribe = looks
+    await say(session, stt, "")  # a cough: heard, then not an answer
+    await asyncio.sleep(0.05)
+    assert pills == ["Got it…"]
+    screen = agree(session, out)
+    assert screen["question"] == "Turn off Wi-Fi?" and screen["questionPill"] == "Waiting for your answer"
+    assert [a for a in asks(out) if a.get("open")][-1]["seconds"] > 0  # its countdown again
+    await finish_all(session, agent)
+
+
+async def test_the_orb_follows_the_owners_voice_only_while_an_answer_is_awaited() -> None:
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    session.answer_level(0.5)  # nothing asked: the open microphone's level stays off the screen
+    await asyncio.sleep(0.02)
+    assert not [m for m in out.messages if m.type == "level"]
+    await _wifi(session, out, stt)
+    session.answer_level(0.5)
+    await asyncio.sleep(0.02)
+    assert [m.data["rms"] for m in out.messages if m.type == "level"] == [0.5]
+    await finish_all(session, agent)
+
 async def test_b_the_question_runs_out_behind_a_run_that_goes_on() -> None:
     session, out, agent, stt, _control, _sched = _lane(0.6)
     rid = await _beside(session, out, agent, stt)
@@ -855,10 +889,13 @@ async def test_a_wake_phrase_only_the_detector_heard_starts_the_request_on_scree
 async def test_the_detector_alone_starts_nothing() -> None:
     session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
     session.acoustic = Detector()
+    kept: list[Any] = []
+    session.on_detector_miss = kept.append
     script(stt, "a swift reply would be nice", "Nice.", "Would be nice.", "A reply would be nice.")
     await session.hear_wake(SHORT, time.monotonic())
     await asyncio.sleep(0.05)
     assert agent.requests == [] and session.wake_stats["acoustic_rejected"] == 1
+    assert len(kept) == 1  # saved as a likely missed wake phrase, to tune on (2026-11-17)
     assert session.wake_stats["other_speech"] == 1  # what it was before ADR-021
     assert agree(session, out)["stage"] not in ("working", "confirm")
 
@@ -876,9 +913,12 @@ async def test_the_screen_locking_while_the_second_way_in_checks_starts_nothing(
         return heard
 
     stt.transcribe = locks
+    kept: list[Any] = []
+    session.on_detector_miss = kept.append
     await session.hear_wake(SHORT, time.monotonic())
     await asyncio.sleep(0.05)
     assert agent.requests == [] and session.wake_stats["acoustic_wake"] == 0
+    assert kept == []  # the speech check agreed: turned down for the lock, not a miss to keep
     agree(session, out)
 
 

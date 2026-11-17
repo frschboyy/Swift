@@ -69,7 +69,7 @@ folds the deck to one edge. One run has five sizes: badge on the orb → edge �
 - **Activity:** working shows an orbit ring; speaking shows a pill with Stop and Esc.
 - **Waiting:** a count badge, amber with a shield when an OK waits.
 
-### 3. What the B work added since the last canvas (draw these as they are now)
+### 3. What the B work added since the last canvas (draw these as they are now, except where marked)
 
 - **B1, the approval card:** it leads with the worker's own plain sentence (what it will do and why), marked as
   the worker's. The command's first line always shows under it; only the rest folds.
@@ -82,7 +82,8 @@ folds the deck to one edge. One run has five sizes: badge on the orb → edge �
   - **Drawn, not merged:** diagram, mind map, document preview, chart and project cards.
   - The worker's choice is labelled **"Worker's pick"**, in grey, never in Swift's blue.
   - A grey bar marks content that was "Compared by the worker, not checked by Swift".
-- **B6, the live view ("Watch"):** its own window, restyled as a monitor:
+- **B6, the live view ("Watch"):** today it is its own window beside the card, with a LIVE badge, live sources
+  and notes, in Halo's card styles. **Decided but not built** (draw it as a proposal): restyled as a monitor:
   - solid near-black (`#0d1018`) in both themes;
   - a title bar with a pulsing blue **● LIVE** (`#8ab4ff` in both themes), the title, a running clock and ×;
   - Cascadia Mono for steps, the clock and results;

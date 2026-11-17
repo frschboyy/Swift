@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, get_args
 
+from swift.parked import _clip
+
 Kind = Literal["email_draft", "recipient", "send_status", "calendar_event", "text", "list", "table"]
 KINDS: tuple[str, ...] = get_args(Kind)
 Phase = Literal["resolving", "drafting", "confirming", "sending", "done", "failed"]
@@ -75,3 +77,24 @@ class ArtifactStore:
             if (found := self.newest(preferred)) is not None:
                 return found
         return self.newest()
+
+def last_proposal(store: ArtifactStore | None) -> str:
+    """The last email or event shown on a card, in one line, for the follow-up context."""
+    if store is None:
+        return ""
+    for kind in ("calendar_event", "email_draft"):
+        artifact = store.newest(kind)
+        if artifact is None:
+            continue
+        data = artifact.data
+        if kind == "calendar_event":
+            where = f", at {data['location']}" if data.get("location") else ""
+            return f"calendar event “{data.get('title', '')}”, {data.get('when', '')}{where}"
+        to = ", ".join(f"{p.get('name')} <{p.get('email')}>" for p in data.get("to", []))
+        # The message alone: Swift adds the greeting and sign-off again, so they mustn't come back in it.
+        parts = str(data.get("body", "")).split("\n\n")
+        message = "\n\n".join(parts[1:-1]) if len(parts) >= 3 else str(data.get("body", ""))
+        return (f"email draft {artifact.id} to {to}, subject “{data.get('subject', '')}”, message: {_clip(message, 300)} "
+                f"(“send it” sends {artifact.id} with send_email; a correction revises it with draft_email, "
+                f"draft_id {artifact.id} and the new message only: the subject stays)")
+    return ""

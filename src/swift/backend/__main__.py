@@ -25,7 +25,7 @@ from loguru import logger
 
 from swift import __version__
 from swift.audio.chime import Chime
-from swift.audio.recorder import MicRecorder
+from swift.audio.recorder import MicRecorder, level_from_block
 from swift.config.paths import app_paths
 from swift.connectors.base import CalendarConnector, EmailConnector
 from swift.connectors.fake import FakeCalendarConnector, FakeMailConnector
@@ -462,6 +462,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     session.on_recordings = _recordings_action(recordings, session, improve)
     if wake.enabled:
         session.on_unaddressed = recordings.heard_unaddressed  # in memory; saved only before a wake phrase
+        session.on_detector_miss = recordings.keep_detector_miss  # the detector heard it, the speech check didn't
     upkeep = asyncio.create_task(  # noqa: F841 - lives as long as the backend
         _keep_recordings(recordings, session, improve if settings.audio.improve_weekly else None)
     )
@@ -492,7 +493,15 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         listener = WakeListener(heard, accept_short=session.wants_short, on_peek=peek, accept_peek=session.wants_peek,
                                 end_silence=session.answer_pause_s)
         session.in_speech = lambda: listener.speaking  # an answer still being said joins what came before it
-        recorder.tap = listener.feed
+        last_level = [0.0]
+
+        def hear(block: Any) -> None:  # audio thread: the listener, and the level while an answer is awaited (15/s)
+            listener.feed(block)
+            if (now := time.monotonic()) - last_level[0] >= 1 / 15:
+                last_level[0] = now
+                loop.call_soon_threadsafe(session.answer_level, level_from_block(block))
+
+        recorder.tap = hear
         recorder.on_reopen = listener.reset
         if wake.acoustic and (acoustic := _make_acoustic(wake.acoustic_threshold)) is not None:
             # ADR-021: the detector hears the same blocks, and forgets them when the stream reopens. A
@@ -500,7 +509,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             session.acoustic = acoustic
 
             def tap(block: Any) -> None:  # audio thread
-                listener.feed(block)
+                hear(block)
                 acoustic.push(block)
 
             def reopened() -> None:

@@ -2844,6 +2844,36 @@ the answer names the provider either.
 
 The report checks: nothing to judge from the log; tell us what you saw.
 
+### Answering hands-free, you can see you're heard (2026-11-17)
+
+About 3 minutes, hands-free on. Nothing here sends anything.
+
+<a id="check-412"></a>**Check 412. While Swift waits for your answer, it shows it hears you**
+1. Say "Hey Swift, turn off the Wi-Fi". When "Turn off Wi-Fi?" shows, don't answer yet: cough once.
+2. Then say "no".
+3. Say "Hey Swift, remind me in five minutes" if Swift asks you something, or any request that asks you
+   something; answer it slowly.
+
+You should see: while you speak, the orb moves with your voice. When you stop, the line under the question says
+"Got it…" until Swift has your words. After the cough, it goes back to "Waiting for your answer" with its
+countdown. After "no", Wi-Fi stays on.
+
+The report checks: nothing to judge from the log; tell us what you saw.
+
+### Missed "hey Swift" kept to tune on (2026-11-17)
+
+About 3 minutes, in a quiet room. Nothing here sends anything.
+
+<a id="check-411"></a>**Check 411. A "hey Swift" Swift didn't take is kept, flagged as missed**
+1. Restart Swift. Say "Hey Swift" ten times, a few seconds apart, without a request after it.
+2. Open the logs folder (tray icon → **Open logs folder**), then the `audio` folder next to it.
+
+You should see: in `swift.log`, a "recordings: missed wake phrase kept" line with `source='detector'` for some of
+the tries Swift didn't take; in `audio`, a `miss-….wav` for each, and in `index.json` its entry with
+`"source": "detector_miss"` and `"flags": ["missed_wake"]`, without any words. Tell us how many of the ten Swift took.
+
+The report checks: nothing to judge from the log yet; tell us the count.
+
 ### A request ends when you stop, even with people talking (2026-11-17)
 
 About 5 minutes, with a talk video or podcast playing on another device or across the room. Nothing here sends

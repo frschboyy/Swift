@@ -6,17 +6,20 @@ A recording is kept only when it can improve transcription, and only on this PC:
   ``unsure`` (the model was unsure of a word), ``say_again`` (Swift asked to say it again),
   ``repeated`` (the owner said it again, or corrected it, within a few seconds), ``missed_wake``
   (speech just before a wake phrase or the hotkey, which Swift didn't take as addressed to it),
-  ``failed`` (the request failed).
+  ``failed`` (the request failed), ``corrected`` (the owner corrected the heard words on the card).
 - **Known words:** a repeat or correction heard surely gives the words the owner meant for the
-  clip before it. They are the only words written down, in the index next to the clips.
+  clip before it. A correction typed on the card (``correct``, docs/design/heard-corrections.md) gives
+  them too, with the words Swift heard and the kind of mistake. Only these are written down, in the
+  index next to the clips. A correction is a label: it never approves or sends anything.
 - **Kept** at most ``keep_days`` (0: nothing is saved). A clip with no flag goes once the time for
   a repeat has passed (``HOLD_S``), unless ``keep_all``.
 - **Test set:** a flagged clip with known words is copied to ``test_dir``, kept after
   ``keep_days``, at most ``test_max`` clips, the oldest dropped first.
 - ``clear()`` deletes the clips, the index and the test set ("Clear saved recordings").
 
-The index (``index.json``) holds content-free metadata: id, time, length, source, flags, how sure
-the model was, the outcome, and the known words where the owner gave them. Never the transcript.
+The index (``index.json``) holds metadata: id, time, length, source, flags, how sure the model was,
+peak and noise dB, the speech model, the outcome, and the known words where the owner gave them. The
+heard words only on a clip the owner corrected.
 Nothing here opens a network connection; logs carry counts only. Audio and words are never used
 to train a model: the improvement pass (``swift.stt.improve``) proposes word fixes for the owner
 to approve and checks accuracy.
@@ -42,7 +45,12 @@ from loguru import logger
 from swift.audio.recorder import save_wav
 
 SAMPLE_RATE = 16_000
-FLAGS = ("unsure", "say_again", "repeated", "missed_wake", "failed")
+FLAGS = ("unsure", "say_again", "repeated", "missed_wake", "failed", "corrected")
+# What the owner can say went wrong, on the correction pane (overlay pane.ts FIX_KINDS: the same list).
+FIX_KINDS = ("wrong_word", "missed_word", "extra_word", "name", "accent", "background", "cut_off", "other")
+FIX_MAX_CHARS = 2000
+# Copied from a clip's entry into the test set, for reports (eval/stt/corrections.py).
+TEST_META = ("ts", "source", "confidence", "noise_db", "peak_db", "stt_model", "heard", "kind", "corrected_at")
 INDEX = "index.json"
 # A request started this soon after the last one ended may be the owner saying it again.
 REPEAT_S = 10.0
@@ -120,11 +128,17 @@ class Recordings:
     test_max: int = 200
     # A clip whose least sure word is below this is flagged "unsure" (stt.unclear_p).
     unsure_p: float = 0.4
+    # The speech model's label (stt.model_label), kept with each clip.
+    stt_model: str | None = None
     clock: Callable[[], float] = time.time
     mono: Callable[[], float] = time.monotonic
     _held: dict[str, float] = field(default_factory=dict)  # unflagged clip id -> when it may go (mono)
     _last: _Last | None = None
     _unaddressed: _Unaddressed | None = None
+    # Clips whose correction pane is open: never dropped while the owner types.
+    _fixing: set[str] = field(default_factory=set)
+    # Corrections of clips whose request hasn't finished yet: written when it does (``_note``).
+    _pending_fix: dict[str, dict[str, Any]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     @property
@@ -160,9 +174,10 @@ class Recordings:
         now = self.mono()
         self._expire_held(now)
         source = record.get("source")
-        if source not in VOICE_SOURCES:
-            return []
         clip_id = str(record.get("id", ""))
+        if source not in VOICE_SOURCES:
+            self._pending_fix.pop(clip_id, None)  # shortcut: a correction of such a clip (an answer) isn't kept yet
+            return []
         text = str(record.get("transcript") or record.get("transcript_heard") or "")
         started = now - (record.get("interaction_ms") or 0) / 1000
         error, status = record.get("error"), record.get("status")
@@ -184,9 +199,12 @@ class Recordings:
             entry = {
                 "id": clip_id, "ts": round(self.clock(), 1), "audio_s": record.get("audio_s"), "source": source,
                 "flags": flags, "confidence": confidence, "status": status, "error": error,
+                "peak_db": record.get("peak_db"), "noise_db": record.get("noise_db"), "stt_model": self.stt_model,
             }
             self._write_entry(entry)
-            if not flags and not self.keep_all:
+            if (fix := self._pending_fix.pop(clip_id, None)) is not None:
+                self._apply_fix(clip_id, fix)
+            elif not flags and not self.keep_all and clip_id not in self._fixing:
                 self._held[clip_id] = now + HOLD_S
         self._last = _Last(
             clip_id if has_clip else "", now, text, error in SAY_AGAIN_ERRORS,
@@ -234,13 +252,59 @@ class Recordings:
 
     def _expire_held(self, now: float) -> None:
         for clip_id, until in list(self._held.items()):
-            if now >= until:
+            if now >= until and clip_id not in self._fixing:
                 del self._held[clip_id]
                 self._delete_clip(clip_id)
 
     def tick(self) -> None:
         """Drop the unflagged clips whose time for a repeat has passed (every minute or so)."""
         self._expire_held(self.mono())
+
+    # ---- corrections typed on the card (docs/design/heard-corrections.md) ----------------
+
+    def fixing(self, clip_id: str) -> None:
+        """The owner opened the correction pane on this clip: keep it while they type."""
+        if self.enabled and _ID.match(clip_id):
+            self._fixing.add(clip_id)
+            self._held.pop(clip_id, None)
+
+    def correct(self, clip_id: str, heard: str, said: str, kind: str) -> bool:
+        """The owner's correction of what Swift heard: the clip is flagged ``corrected``, its words known,
+        and it joins the test set. A label only. False when it can't be kept (no such clip, recordings
+        off, a bad kind or empty words). Never raises."""
+        heard, said = heard.strip()[:FIX_MAX_CHARS], said.strip()[:FIX_MAX_CHARS]
+        if not self.enabled or not _ID.match(clip_id) or kind not in FIX_KINDS or not said:
+            return False
+        self._fixing.discard(clip_id)
+        if not (self.audio_dir / f"{clip_id}.wav").exists():
+            logger.info("recordings: correction for a clip no longer kept", kind=kind)
+            return False
+        fix = {"heard": heard, "known": said, "kind": kind, "corrected_at": round(self.clock(), 1)}
+        try:
+            with self._lock:
+                noted = clip_id in self._load(self.audio_dir)
+            if noted:
+                self._apply_fix(clip_id, fix)
+            else:
+                self._pending_fix[clip_id] = fix  # its request is still running: written when it ends
+        except (OSError, ValueError):  # a label the owner typed must not break Swift
+            logger.exception("recordings: could not keep a correction")
+            return False
+        logger.info("recordings: correction kept", kind=kind, pending=not noted)
+        return True
+
+    def _apply_fix(self, clip_id: str, fix: dict[str, Any]) -> None:
+        with self._lock:
+            entries = self._load(self.audio_dir)
+            entry = entries.get(clip_id)
+            if entry is None:
+                return
+            entry.update(fix)
+            if "corrected" not in entry.setdefault("flags", []):
+                entry["flags"].append("corrected")
+            self._save(self.audio_dir, entries)
+        self._held.pop(clip_id, None)
+        self._to_test_set(entry)
 
     # ---- the index ----------------------------------------------------------------------
 
@@ -310,6 +374,7 @@ class Recordings:
             tests[entry["id"]] = {
                 "id": entry["id"], "wav": src.name, "known": entry["known"], "flags": entry.get("flags", []),
                 "audio_s": entry.get("audio_s"), "added": round(self.clock(), 1),
+                **{k: entry[k] for k in TEST_META if entry.get(k) is not None},
             }
             dropped = 0
             for old in sorted(tests.values(), key=lambda e: e.get("added", 0))[: max(0, len(tests) - self.test_max)]:
@@ -363,6 +428,8 @@ class Recordings:
         clips = tests = 0
         with self._lock:
             self._held.clear()
+            self._fixing.clear()
+            self._pending_fix.clear()
             self._last = None
             self._unaddressed = None
             for folder in (self.audio_dir, self.test_dir):
@@ -383,4 +450,4 @@ class Recordings:
         return {"clips": clips, "test_set": tests}
 
 
-__all__ = ["FLAGS", "Recordings", "correction", "read_wav", "same_request", "save_wav"]
+__all__ = ["FIX_KINDS", "FLAGS", "Recordings", "correction", "read_wav", "same_request", "save_wav"]

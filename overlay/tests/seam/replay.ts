@@ -8,6 +8,7 @@ import * as Q from "../../src/ask.ts";
 import { detailsText } from "../../src/answer.ts";
 import { commandFolded, commandParts, quoteLines, stepCommands } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
+import { canFlag } from "../../src/heardfix.ts";
 import { needsReader } from "../../src/panes.ts";
 import * as P from "../../src/presenter.ts";
 
@@ -20,8 +21,9 @@ let asked: Q.Ask | null = null;
 let deck = D.initialDeck;
 // The confirm card's frame, as main.ts keeps it (lastConfirm).
 let confirmData: Record<string, any> | null = null;
-// The words on the card, as main.ts keeps them.
+// The words on the card, as main.ts keeps them, and their saved clip (heardClip: the flag corrects it).
 let words = "";
+let clip: string | null = null;
 // The last answer's frame, as main.ts keeps it (lastResult).
 let resultData: Record<string, any> | null = null;
 const lost: string[] = [];
@@ -43,7 +45,8 @@ for (const { type, data: d, n } of frames) {
       break;
     case "runs": {
       const onCard = pres.focus ?? pres.card.runId;
-      words = D.wordsComingForward(pres.rows, onCard, d.focus) ?? words;
+      const forward = D.wordsComingForward(pres.rows, onCard, d.focus);
+      if (forward !== null) [words, clip] = [forward, null];
       pres = P.onRuns(pres, d.focus, d.rows.map((r: any) => ({
         runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
         startedMs: r.started_ms, summary: r.summary, words: r.words,
@@ -52,7 +55,7 @@ for (const { type, data: d, n } of frames) {
       break;
     }
     case "transcript":
-      if (d.final) words = d.text;
+      if (d.final) [words, clip] = [d.text, d.clip ?? null];
       break;
     case "ask":
       asked = Q.onAsk(asked, d as Q.AskData, now);
@@ -100,6 +103,8 @@ process.stdout.write(JSON.stringify({
   stage: P.stageOf(pres),
   cardRun: pres.card.runId,
   cardWords: words,
+  // The flag on the heard words (heardfix.ts): the clip it corrects, or null where main.ts draws none.
+  heardFlag: words && canFlag(clip, P.stageOf(pres)) ? clip : null,
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
   // Decision 6: the worker's text the question shows under it, as the card draws it (every line, marked).
   questionQuote: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? quoteLines(asked!.quote).map((l) => l.text).join("\n") : null,

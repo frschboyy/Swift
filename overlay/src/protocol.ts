@@ -102,7 +102,8 @@ export type Inbound =
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
-  | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean } }
+  // clip: the request's saved recording, when kept: the card's flag corrects what was heard (heardfix.ts).
+  | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean; clip?: string } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
   | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
@@ -224,6 +225,9 @@ export type Outbound =
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
   | { type: "listen"; data: { on: boolean } }
   | { type: "recordings"; data: { action: "clear" | "improve" } }
+  // The card's flag on the heard words (heardfix.ts): the pane opened, and the correction saved. A label only.
+  | { type: "recordings"; data: { action: "fix_open"; clip: string } }
+  | { type: "recordings"; data: { action: "fix"; clip: string; heard: string; said: string; kind: string } }
   // ADR-017 §7: a live view opened or closed (for the log), its Stop (that request only), and
   // its "Show in Word" (the app the request writes in, to the front).
   | { type: "watch"; data: { run_id: string; open: boolean } }

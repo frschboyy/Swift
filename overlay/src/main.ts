@@ -41,6 +41,7 @@ import { Orb } from "./orb";
 import { leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
+import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
@@ -81,6 +82,10 @@ let steps: string[] = [];
 let request = "";
 // The request was typed (the card's keyboard icon), not said.
 let typed = false;
+// The saved recording of the words on the card, when Swift kept one: its flag corrects them (heardfix.ts).
+let heardClip: string | null = null;
+// The clip the hint on the card was last counted for (Halo SPEC §3: at most 3 times).
+let hintClip: string | null = null;
 // The live words on the capsule while listening.
 let transcriptText = "";
 // The provider working on the current run, and what it last reported doing.
@@ -244,6 +249,7 @@ function resetRun(keepRequest: boolean): void {
   if (!keepRequest) {
     request = "";  // the transcript of a request that skipped "listening" arrived just before
     typed = false;
+    heardClip = null;
     agent = null;  // the "state" message that starts a run sets it just before
   }
   current = null;
@@ -335,6 +341,7 @@ function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
     resetRun(true);
     request = words;
     typed = false;
+    heardClip = null;  // another request's words: its clip isn't known here
     forward = { runId: data.focus!, startedMs: started };
   }
   pres = P.onRuns(pres, data.focus, rows, data.waiting);
@@ -462,6 +469,14 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       break;
     case "type-close":
       typedDraft = payload.text ?? typedDraft;
+      closeTyping();
+      break;
+    // The fix pane (heardfix.ts): a correction saved, a label only; or closed unsaved.
+    case "fix-save":
+      if (typing?.fix) saveFix(typing.fix.clip, typing.fix.heard, payload.text ?? "", payload.value || null);
+      closeTyping();
+      break;
+    case "fix-close":
       closeTyping();
       break;
     case "type-tab":
@@ -624,7 +639,7 @@ const keyedButtons = (): HTMLButtonElement[] =>
 /** The ring follows the card: drawn again, the same button keeps it; gone (or another card), it's back to
  * the text. The text box says what Enter will press. */
 function syncKeyed(): void {
-  const buttons = typing ? keyedButtons() : [];
+  const buttons = typing && !typing.fix ? keyedButtons() : [];  // fix mode: Tab never reaches the card
   const on = buttons.find((b) => b.dataset.key === keyOn) ?? null;
   keyOn = on?.dataset.key ?? null;
   card.querySelectorAll(".btn--keyed").forEach((b) => b.classList.remove("btn--keyed"));
@@ -881,6 +896,7 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
  * following the presenter's deadline. */
 function drawCard(spec: Card.CardSpec): void {
   showCard(Card.cardInside(spec), spec.look, spec.role);
+  heardHint();
   showDeadline();
   if (spec.ownTime) card.querySelector<HTMLElement>(":scope > .timebar")!.hidden = true;
 }
@@ -929,7 +945,47 @@ function dismiss(): void {
 function headRow(close: (() => void) | null = dismiss, label = "Close"): HTMLElement {
   const how = icon(typed ? "keyboard" : "mic");
   how.classList.add("head-icon");
-  return el("header", { class: "card-head" }, how, el("p", { class: "words", title: request }, request ? `“${request}”` : ""), close && Card.iconButton("x", label, close));
+  const flag = F.canFlag(heardClip, stageNow()) && request
+    ? Card.iconButton("flag", "Heard that wrong? Correct it: it helps Swift learn your voice", openFix, { class: "icon-btn heard-flag" })
+    : null;
+  return el("header", { class: "card-head" }, how, el("p", { class: "words", title: request }, request ? `“${request}”` : ""), flag, close && Card.iconButton("x", label, close));
+}
+
+/** The flag on the heard words: the text box in fix mode, the heard words in it (heardfix.ts). A label only. */
+function openFix(): void {
+  if (!heardClip) return;
+  const clip = heardClip, heard = request;
+  writePref(F.HINT_KEY, "used");
+  card.querySelector(".card-hint")?.remove();
+  client.send({ type: "recordings", data: { action: "fix_open", clip } });
+  if (!paneWindows) {
+    // The dev harness has no pane windows: a prompt stands in for the fix pane.
+    const said = window.prompt("What did you say? Corrections help Swift hear you better.", heard);
+    if (said !== null) saveFix(clip, heard, said, null);
+    return;
+  }
+  typing = { kind: "type", draft: "", follows: null, fix: { clip, heard } };
+  syncKeyed();
+  void syncEscape();
+  void syncPanes();
+}
+
+function saveFix(clip: string, heard: string, said: string, kind: string | null): void {
+  const fix = F.fixToSave(heard, said, kind);
+  if (fix) client.send({ type: "recordings", data: { action: "fix", clip, heard, ...fix } });
+}
+
+/** Halo's hint under a card with the flag: counted once per clip, at most 3 clips, never again once used. */
+function heardHint(): void {
+  if (!card.querySelector(".heard-flag")) return;
+  const stored = readPref(F.HINT_KEY);
+  if (heardClip !== hintClip) {
+    if (!F.hintDue(stored)) return;
+    writePref(F.HINT_KEY, F.hintShown(stored));
+    hintClip = heardClip;
+  } else if (stored === "used") return;
+  (card.firstElementChild ?? card).append(
+    el("p", { class: "card-hint" }, icon("bulb"), "Heard something wrong? The flag corrects it, and helps Swift hear you better."));
 }
 
 /** The working card shrinks to one line (its × , or no news for a while); the pointer opens it again. */
@@ -1951,6 +2007,7 @@ function onMessage(msg: Inbound): void {
       if (msg.data.final) {
         request = msg.data.text;
         typed = !!msg.data.typed;
+        heardClip = msg.data.clip ?? null;
       }
       drawCapsule();
       break;

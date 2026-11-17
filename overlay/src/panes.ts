@@ -24,6 +24,8 @@ export type TypeView = {
   kind: "type"; draft: string; follows: string | null; confirm?: boolean;
   // Decision 2: the card has buttons Tab reaches (``reach``), and the one reached, by its label (``onCard``).
   reach?: boolean; onCard?: string | null;
+  // Fix mode (heardfix.ts): correcting what Swift heard on a request's clip. Enter saves a label only.
+  fix?: { clip: string; heard: string };
 };
 
 /** The tray menu (ADR-017): Swift's status, where the overlay sits, and the menu's actions. */
@@ -165,7 +167,7 @@ export function paneSize(spec: PaneSpec): { w: number; h: number } {
     case "stack":
       return v.expanded ? { w: 320, h: 64 + 76 * Math.min(6, v.items.length) } : { w: 280, h: 80 };
     case "type":
-      return { w: 512, h: 52 + (v.confirm ? 44 : 0) + (v.follows ? 44 : 0) };
+      return v.fix ? { w: 512, h: 200 } : { w: 512, h: 52 + (v.confirm ? 44 : 0) + (v.follows ? 44 : 0) };
     case "tray":
       return { w: 280, h: 400 };
     case "live":

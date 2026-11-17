@@ -118,6 +118,7 @@ def _make_recordings(settings: Settings) -> Recordings:
     return Recordings(
         Path(settings.stt.audio_dir), Path(settings.stt.test_set_dir), keep_days=cfg.keep_days,
         keep_all=cfg.keep_all or settings.stt.save_audio, test_max=cfg.test_set_max, unsure_p=settings.stt.unclear_p,
+        stt_model=settings.stt.model_label,
     )
 
 
@@ -156,11 +157,18 @@ def _last_pass(recordings: Recordings) -> float:
 
 def _recordings_action(
     recordings: Recordings, session: Session, improve: ImproveExecutor | None
-) -> Callable[[str], Awaitable[None]]:
-    """The tray's "Clear saved recordings" and "Improve speech recognition"."""
+) -> Callable[[dict[str, Any]], Awaitable[None]]:
+    """The tray's "Clear saved recordings" and "Improve speech recognition"; the card's correction of
+    what Swift heard (a label: it writes the recordings index and nothing else)."""
 
-    async def act(action: str) -> None:
-        if action == "clear":
+    async def act(data: dict[str, Any]) -> None:
+        action, clip = data["action"], str(data.get("clip") or "")
+        if action == "fix_open":
+            recordings.fixing(clip)
+        elif action == "fix":
+            await asyncio.to_thread(recordings.correct, clip, str(data.get("heard") or ""), str(data.get("said") or ""),
+                                    str(data.get("kind") or ""))
+        elif action == "clear":
             counts = await asyncio.to_thread(recordings.clear)
             n = counts["clips"] + counts["test_set"]
             text = (f"Deleted {n} saved recording{'s' if n != 1 else ''} and the test set."

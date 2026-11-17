@@ -30,7 +30,10 @@ areas:
     checks: [228-232]
   recordings:
     paths: [src/swift/stt/recordings.py, src/swift/stt/improve.py, src/swift/executors/improve.py]
-    checks: [110-116]
+    checks: [110-116, stt-corrections-1]
+  heard-corrections:
+    paths: [overlay/src/heardfix.ts, eval/stt/corrections.py]
+    checks: [stt-corrections-1]
   conversation:
     paths: [src/swift/dialogue.py, src/swift/answer_window.py, src/swift/intake.py, overlay/src/ask.ts]
     checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250]

@@ -1428,3 +1428,30 @@ async def test_swift_s_question_before_an_unclear_write_is_on_screen_and_a_typed
     await asyncio.sleep(0.1)
     assert agree(session, out)["question"] is None
     assert "\n".join(t for _, t in desktop.writes) == screen["questionQuote"]  # written is exactly what was shown
+
+
+async def test_heard_words_with_a_kept_clip_get_the_flag_and_a_confirm_card_or_typed_words_never_do(tmp_path: Path) -> None:
+    """Correcting what Swift heard (docs/design/heard-corrections.md): the flag on the card corrects the clip the
+    backend kept for those words; typed words have no clip; a Needs your OK card never shows it (typing never
+    approves, so no keyboard pane opens over one from the flag)."""
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None), audio_dir=tmp_path)
+    session.system, _control, _sched = lane()
+    await say(session, stt, "Hey Swift, what time is it")
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    clip = out.last("transcript")["clip"]
+    assert screen["stage"] == "result" and clip and screen["heardFlag"] == clip and (tmp_path / f"{clip}.wav").exists()
+
+    await session.handle(Message("text", {"text": "what time is it"}))
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    assert "clip" not in out.last("transcript") and screen["heardFlag"] is None
+
+    rid = await started(session, out, agent, stt, "Hey Swift, research card tea")
+    assert agree(session, out)["heardFlag"] == out.last("transcript")["clip"]  # working on it: the flag is there
+    agent.runs[rid]["ask"].set()
+    await until(lambda: out.last("confirm.request"))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["stage"] == "confirm" and screen["heardFlag"] is None
+    await finish_all(session, agent)

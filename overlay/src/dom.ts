@@ -52,6 +52,9 @@ const ICONS: Record<string, string> = {
   // Saved recordings (audit B-06): clear them, improve speech recognition from them.
   trash: "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3",
   wave: "M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2",
+  // Correcting what Swift heard (heardfix.ts), and a card's hint (Halo SPEC §3).
+  flag: "M5 21V4M5 4h11l-2 4 2 4H5",
+  bulb: "M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9V16h7v-2.1A6 6 0 0012 3z",
 };
 
 export function icon(name: keyof typeof ICONS | string): SVGSVGElement {

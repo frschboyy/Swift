@@ -221,8 +221,93 @@ def test_the_index_holds_no_transcript(rec: Recordings, clock: Clock) -> None:
     finish(rec, clock, "b", "please wire it today", confidence=0.95, status="error", error="crashed")
     raw = (rec.audio_dir / "index.json").read_text(encoding="utf-8")
     assert "honey" not in raw and "wire" not in raw
-    allowed = {"id", "ts", "audio_s", "source", "flags", "confidence", "status", "error", "known"}
+    allowed = {"id", "ts", "audio_s", "source", "flags", "confidence", "status", "error", "known",
+               "peak_db", "noise_db", "stt_model"}
     assert all(set(e) <= allowed for e in index(rec).values())
+
+
+# ---- corrections typed on the card (docs/design/heard-corrections.md) ----------------------
+
+
+def test_a_correction_labels_the_clip_and_joins_the_test_set_with_its_conditions(tmp_path: Path, clock: Clock) -> None:
+    r = Recordings(tmp_path / "a", tmp_path / "t", stt_model="parakeet-tdt-0.6b-v2", clock=lambda: clock.t, mono=lambda: clock.m)
+    path = r.path_for("c1")
+    assert path is not None
+    recordings.save_wav(path, tone())
+    r.note({"id": "c1", "source": "wake", "transcript": "hey christy what time is it", "status": "done",
+            "stt_confidence": 0.8, "peak_db": -12.0, "noise_db": -44.5, "audio_file": str(path), "audio_s": 1.0})
+    assert r.correct("c1", "hey christy what time is it", "hey Swift what time is it", "name")
+    e = index(r)["c1"]
+    assert e["flags"] == ["corrected"] and e["known"] == "hey Swift what time is it" and e["kind"] == "name"
+    assert e["heard"] == "hey christy what time is it"
+    test = r.test_set()[0]
+    assert test["known"] == "hey Swift what time is it" and (r.test_dir / test["wav"]).exists()
+    assert {k: test[k] for k in ("source", "confidence", "peak_db", "noise_db", "stt_model", "kind", "heard")} == {
+        "source": "wake", "confidence": 0.8, "peak_db": -12.0, "noise_db": -44.5, "stt_model": "parakeet-tdt-0.6b-v2",
+        "kind": "name", "heard": "hey christy what time is it"}
+    clock.advance(HOLD_S + 1)
+    r.tick()
+    assert (r.audio_dir / "c1.wav").exists()  # corrected: no longer an unflagged clip waiting to go
+
+
+def test_a_correction_while_the_request_runs_is_written_when_it_ends(rec: Recordings, clock: Clock) -> None:
+    path = rec.path_for("run1")
+    assert path is not None
+    recordings.save_wav(path, tone())  # saved by the session before the words are known
+    assert rec.correct("run1", "turn of the lights", "turn off the lights", "wrong_word")
+    assert index(rec) == {}  # not noted yet
+    assert finish(rec, clock, "run1", "turn of the lights") == []
+    assert index(rec)["run1"]["known"] == "turn off the lights" and "corrected" in index(rec)["run1"]["flags"]
+    clock.advance(HOLD_S + 1)
+    rec.tick()
+    assert (rec.audio_dir / "run1.wav").exists() and len(rec.test_set()) == 1
+
+
+def test_an_open_correction_pane_keeps_its_clip_past_the_hold(rec: Recordings, clock: Clock) -> None:
+    finish(rec, clock, "slow")
+    rec.fixing("slow")
+    clock.advance(HOLD_S * 4)
+    rec.tick()
+    assert (rec.audio_dir / "slow.wav").exists()
+    assert rec.correct("slow", SECRET, "transfer the money to Rob", "name")
+
+
+def test_a_correction_without_its_clip_or_a_known_kind_keeps_nothing(rec: Recordings, clock: Clock, tmp_path: Path) -> None:
+    finish(rec, clock, "c")
+    assert not rec.correct("gone", "a", "b", "name")  # no such clip (dropped, or never saved)
+    assert not rec.correct("c", "a", "b", "made_up_kind")
+    assert not rec.correct("c", "a", "   ", "name")
+    assert not rec.correct("../c", "a", "b", "name")
+    off = Recordings(tmp_path / "off", tmp_path / "offt", keep_days=0)
+    assert not off.correct("c", "a", "b", "name")
+    assert rec.test_set() == [] and "corrected" not in index(rec)["c"]["flags"]
+
+
+def test_a_correction_logs_its_kind_never_its_words(rec: Recordings, clock: Clock) -> None:
+    lines: list[str] = []
+    sink = logger.add(lines.append, format="{message} {extra}")
+    try:
+        finish(rec, clock, "w")
+        assert rec.correct("w", SECRET, "transfer the honey to Bob", "wrong_word")
+    finally:
+        logger.remove(sink)
+    text = "".join(lines)
+    assert "wrong_word" in text and "Bob" not in text and "honey" not in text
+
+
+async def test_the_fix_message_only_labels_it_never_answers_or_starts_anything(rec: Recordings, clock: Clock) -> None:
+    class FakeSession:
+        calls: list[str] = []
+
+        def __getattr__(self, name: str) -> Any:
+            self.calls.append(name)
+            raise AssertionError(f"a correction reached the session: {name}")
+
+    finish(rec, clock, "f")
+    act = _recordings_action(rec, FakeSession(), None)  # type: ignore[arg-type]
+    await act({"action": "fix_open", "clip": "f"})
+    await act({"action": "fix", "clip": "f", "heard": SECRET, "said": "approve", "kind": "other"})
+    assert FakeSession.calls == [] and index(rec)["f"]["known"] == "approve"
 
 
 # ---- the test set: cap and clearing --------------------------------------------------------
@@ -277,8 +362,8 @@ async def test_the_tray_clear_item_wipes_and_says_so(rec: Recordings, clock: Clo
 
     session = FakeSession()
     act = _recordings_action(rec, session, object())  # type: ignore[arg-type]
-    await act("clear")
-    await act("improve")
+    await act({"action": "clear"})
+    await act({"action": "improve"})
     assert session.notices == ["Deleted 1 saved recording and the test set."] and session.started == ["improve"]
     assert not list(rec.audio_dir.glob("*.wav"))
     assert decode(json.dumps({"v": 1, "type": "recordings", "data": {"action": "clear"}})).type == "recordings"
@@ -446,8 +531,8 @@ async def test_session_saves_wake_clips_and_hands_over_unaddressed_speech(tmp_pa
 
     actions: list[str] = []
 
-    async def on_recordings(action: str) -> None:
-        actions.append(action)
+    async def on_recordings(data: dict[str, Any]) -> None:
+        actions.append(data["action"])
 
     session.on_recordings = on_recordings
     await session.handle(Message("recordings", {"action": "clear"}))

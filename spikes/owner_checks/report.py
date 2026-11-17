@@ -193,6 +193,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
     to_test_set = [line for line in log if "| recordings: added to the test set |" in line]
     missed_wake = [line for line in log if "| recordings: missed wake phrase kept |" in line]
     improve_runs = [line for line in log if "| improvement pass |" in line]
+    fixes_kept = [line for line in log if "| recordings: correction kept |" in line]
+    fix_kinds = Counter(m.group(1) for line in fixes_kept if (m := re.search(r"\bkind=(\w+)", line)))
     # Sign-ins (2026-11-04): checked, offered on a card, signed in again; and words kept out of the log.
     # The fixes from the checks of 2026-11-04 (124-127).
     short_answers = [r for r in rows if r.get("source") in ("followup", "answer")
@@ -436,6 +438,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("115 the improvement pass ran", bool(improve_runs),
          f"{len(improve_runs)} pass(es)"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
+        ("stt-corrections-1 a correction of what Swift heard was kept", bool(fixes_kept),
+         ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.
         ("124 a short 'yes' or 'no' heard as a reply", unless(answers_refused, short_answers),
          f"{len(short_answers)} taken, {len(answers_refused)} refused as unclear"),

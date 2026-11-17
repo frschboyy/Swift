@@ -924,7 +924,7 @@ class Session:
         # Speech the open microphone heard that wasn't for Swift (in memory: a missed wake phrase?).
         self.on_unaddressed: Callable[[Any], None] | None = None
         # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
-        self.on_recordings: Callable[[str], Awaitable[None]] | None = None
+        self.on_recordings: Callable[[dict[str, Any]], Awaitable[None]] | None = None
         # The agent refused for its sign-in: Swift offers to sign in again (``swift.signin``).
         self.on_signin_refused: Callable[[str], None] | None = None
         # Content-free counters for the periodic "wake listening" log line (``take_wake_stats``).
@@ -1626,7 +1626,7 @@ class Session:
                     await self.on_listen(msg.data["on"])
             case "recordings":
                 if self.on_recordings is not None:
-                    await self.on_recordings(msg.data["action"])
+                    await self.on_recordings(msg.data)
             case "retry":
                 await self._start_retry()
             case "confirm.reply":
@@ -2758,7 +2758,7 @@ class Session:
             if not run.title or run.title == QUEUED_TITLE:
                 run.title = _short_title(transcript)
             run.words = run.words or _clip(strip_wake(transcript) or transcript, 120)
-            await self._send(outbound("transcript", text=transcript, final=True, typed=record.get("source") == "typed"))
+            await self._send(outbound("transcript", text=transcript, final=True, typed=record.get("source") == "typed", **({"clip": record["id"]} if record.get("audio_file") else {})))
 
             target: OpenTarget | None = None
             workflow: Match | None = None

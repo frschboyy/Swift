@@ -2882,6 +2882,28 @@ false and tell us.
 
 The report checks: nothing to judge from the log yet; tell us how many of each five worked.
 
+### Correcting what Swift heard (2026-11-17)
+
+About 5 minutes. Nothing here sends anything; a correction stays on this PC.
+
+<a id="check-stt-corrections-1"></a>**Check stt-corrections-1. The flag on the heard words keeps a correction**
+1. Say "Hey Swift, what time is it?". On the answer card, find the small flag after your words in quotes. Hover it:
+   a tooltip says what it's for. Under the card, a faint line with a lightbulb says the flag helps Swift hear you.
+2. Click the flag. A box opens with the words Swift heard, all selected, and a row of kinds ("Wrong word",
+   "A name", …). Select one word, type a different one, pick a kind, press Enter. The box closes.
+3. Say something longer with "hey Swift" in it, and correct it the same way while the card still says Working.
+4. Type a request (the typing hotkey): its card has no flag. Ask for something that needs your OK (for example
+   "Hey Swift, delete the file test.txt on my desktop" with such a file there): the Needs your OK card has no flag.
+   Press Reject.
+5. After using the flag, the lightbulb line no longer shows on new cards.
+6. Run `uv run python eval/stt/corrections.py` in the Swift folder.
+
+You should see: steps 2 and 3 each add one correction, with the kind you picked; the report counts them and shows
+what each word was heard as. Nothing happened besides saving: no request was sent, no card answered. If the box
+didn't take your typing, or a card with a flag answered when you pressed Enter, note the time.
+
+The report checks: a correction was kept, and its kind.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

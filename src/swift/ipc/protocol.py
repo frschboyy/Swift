@@ -103,8 +103,10 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "live.app": {"run_id": (str, None)},
     # The answer to Swift's question on the card (ADR-016 §5.1): an option clicked. Never approves a card.
     "ask.reply": {"ask_id": (str, None), "text": (str, None)},
-    # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
-    "recordings": {"action": (str, ("clear", "improve"))},
+    # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06); the card's flag on
+    # the heard words: "fix_open" (``clip``) and "fix" (``clip``, ``heard``, ``said``, ``kind``), a label only
+    # (docs/design/heard-corrections.md). Typed words never approve.
+    "recordings": {"action": (str, ("clear", "improve", "fix_open", "fix"))},
 }
 
 OUTBOUND_TYPES = frozenset(

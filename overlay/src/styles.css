@@ -442,6 +442,12 @@ code {
 }
 .words:empty::before { content: "Swift"; color: var(--faint); }
 .card-head .icon-btn { margin-top: -4px; }
+.card-head .heard-flag { opacity: .55; }
+.card-head .heard-flag:hover, .card-head .heard-flag:focus-visible { opacity: 1; }
+/* Halo SPEC §3 row 6: a card's hint, one line, faint, with a lightbulb */
+.card-hint { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 22px 12px; color: var(--faint); font-size: 12px; line-height: 16px; }
+.card-hint .icon { width: 12px; height: 12px; flex: none; }
+.card .card-hint { padding: 8px 0 0; }
 
 /* earlier turns of this conversation: one line each */
 .thread { list-style: none; margin: 0 0 8px; padding: 0 0 6px; border-bottom: 1px solid var(--panel-edge); }
@@ -977,6 +983,10 @@ code {
 .type-input { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0; border: 0; outline: none; background: transparent; color: var(--text); font: 17px/1 var(--font-text); }
 .type-input::placeholder { color: var(--faint); }
 .type-box .hint { flex: none; }
+/* fix mode (heardfix.ts): what kind of mistake, and the hint */
+.fix-kinds { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px; }
+.fix-kind { height: 26px; padding: 0 10px; border-radius: 13px; border: 1px solid var(--panel-edge); background: transparent; color: var(--muted); font: 13px/1 var(--font-text); cursor: pointer; }
+.fix-kind[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
 
 /* ---- 9. the tray menu ------------------------------------------------------------------- */
 

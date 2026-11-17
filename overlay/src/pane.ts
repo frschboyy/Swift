@@ -29,6 +29,7 @@ import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
 import type { ResultDetails } from "./protocol";
+import { FIX_KINDS } from "./heardfix";
 import { EASE, MOVE_MS } from "./shuffle";
 import { followTheme } from "./theme";
 import * as V from "./views";
@@ -111,6 +112,10 @@ function watchOutside(): void {
  * confirm card is open it says typing can't approve (Enter sends a change). Tab reaches the card's own
  * buttons, and Enter then presses the one reached, as a click (decision 2, keyed.ts). */
 function drawType(v: Extract<PaneView, { kind: "type" }>): void {
+  if (v.fix) {
+    drawFix(v.fix);
+    return;
+  }
   const notices = (): HTMLElement[] => ([
     v.confirm
       ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"),
@@ -163,6 +168,47 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
   );
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
+}
+
+/** Fix mode (heardfix.ts): the heard words, all selected, to type over; what kind of mistake; Enter saves
+ * a label, Esc closes. Never a request, never a card's answer: Tab moves inside this pane only. */
+function drawFix(fix: { clip: string; heard: string }): void {
+  if (root.querySelector(`.fix-box[data-clip="${CSS.escape(fix.clip)}"]`)) return;
+  let kind: string | null = null;
+  const chips = FIX_KINDS.map((k) => {
+    const chip = el("button", { class: "fix-kind", type: "button", "aria-pressed": "false" }, k.label) as HTMLButtonElement;
+    chip.addEventListener("click", () => {
+      kind = kind === k.id ? null : k.id;
+      for (const c of root.querySelectorAll(".fix-kind")) c.setAttribute("aria-pressed", String(c === chip && kind !== null));
+      input.focus();
+    });
+    return chip;
+  });
+  const input = el("input", {
+    class: "type-input fix-input", type: "text", "aria-label": "What you said", autocomplete: "off", spellcheck: "true", maxlength: "2000",
+  }) as HTMLInputElement;
+  input.value = fix.heard;
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
+      ev.preventDefault();
+      act("fix-save", { text: input.value, value: kind ?? "" });
+    } else if (ev.key === "Escape") {
+      ev.preventDefault();
+      act("fix-close");
+    }
+  });
+  root.replaceChildren(
+    el(
+      "section",
+      { class: "type-box fix-box", role: "dialog", "aria-label": "Correct what Swift heard", "data-clip": fix.clip },
+      el("p", { class: "type-note type-note--follow" }, icon("flag"), "Select what Swift got wrong and type what you said."),
+      el("div", { class: "type-row" }, icon("edit"), input, el("span", { class: "hint" }, el("kbd", {}, "Enter"), "saves ·", el("kbd", {}, "Esc"), "closes")),
+      el("div", { class: "fix-kinds", role: "group", "aria-label": "What went wrong" }, ...chips),
+      el("p", { class: "card-hint" }, icon("bulb"), "Corrections stay on this PC and help Swift hear you better."),
+    ),
+  );
+  input.focus();
+  input.select();
 }
 
 const ANCHORS = ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"];
@@ -353,7 +399,8 @@ root.addEventListener("pointerdown", async (ev) => {
 // Clicking away from the text box closes it (it keeps what was typed for next time).
 window.addEventListener("blur", () => {
   const input = root.querySelector<HTMLInputElement>(".type-input");
-  if (view?.kind === "type" && input) act("type-close", { text: input.value });
+  if (view?.kind === "type" && view.fix) act("fix-close");
+  else if (view?.kind === "type" && input) act("type-close", { text: input.value });
 });
 
 void listen<{ label: string; view: PaneView }>("pane", ({ payload }) => {

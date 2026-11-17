@@ -91,7 +91,7 @@ def _input_device(echo_cancel: bool = False) -> tuple[int | None, object | None]
             extra = sd.WasapiSettings(auto_convert=True)
             if echo_cancel:
                 # shortcut: sounddevice 0.5.6 doesn't expose the category; set PortAudio's field directly.
-                extra._streaminfo.streamCategory = COMMUNICATIONS  # noqa: SLF001
+                extra._streaminfo.streamCategory = COMMUNICATIONS
             return api["default_input_device"], extra
     return None, None
 

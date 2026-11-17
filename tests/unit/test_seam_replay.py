@@ -1544,3 +1544,17 @@ async def test_f2_a_lapsed_ok_never_comes_back_to_the_front_by_itself() -> None:
     owner = session._owner_of(rid)
     assert screen["promoted"] != owner.ui_id, f"the overlay would bring the lapsed OK back: {screen}"
     await finish_all(session, agent)
+
+
+async def test_f3_after_an_overlay_restart_a_lapsed_ok_is_in_the_pile_not_the_front() -> None:
+    """F3 (live run 2026-11-18): an overlay restarted after a lapse drew the lapsed OK as the front card,
+    without its countdown. A new overlay gets the stack with the OK in it, and no card in front."""
+    session, out, agent, _stt, rid = await _lapsed()
+    n = len(out.messages)
+    await session.handle(Message("ready", {"startup_ms": 1}))
+    await asyncio.sleep(0.05)
+    fresh = out.messages[n:]
+    assert not [m for m in fresh if m.type == "confirm.request"], "the lapsed OK drawn in front again"
+    stacks = [m for m in fresh if m.type == "stack"]
+    assert stacks and any(i["id"] == f"card:{rid}" for i in stacks[-1].data["items"]), stacks
+    await finish_all(session, agent)

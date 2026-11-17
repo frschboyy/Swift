@@ -3721,3 +3721,39 @@
   test: null
   note: Ask the owner whether "Swift speaks as itself" covers answers to his own question about who Swift is. If it
     does, both answers become Swift's alone ("No, I'm Swift.") and ADR-008's identity examples change with them.
+- id: BUI-04
+  title: show_result ran through _show_checked_shape, but test_shapes.py tested _show_result, which nothing else
+    called.
+  source: B UI review, 2026-11-17 (claude/b-ui-review)
+  module: src/swift/executors/claude_code.py, tests/unit/test_shapes.py, tests/unit/test_previews.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 'Before 973c3e8 the tool body called shapes.check and _show_checked_shape; _show_result was referenced
+    only by test_shapes.py, with its own copy of "a refused shape drops the earlier one". Now _show_result is the
+    tool''s only path and both test files call it; 125 passed (shapes, previews, executor).'
+  test: tests/unit/test_shapes.py
+  note: null
+- id: BUI-05
+  title: Three Copilot commits on this branch (c654f80 previews, 7da80fb chart and cards, cf68ffa mind map) had no
+    fix label and touch read permissions and a new open-a-file command; they needed another author's review.
+  source: B UI review, 2026-11-17
+  module: src/swift/executors/read_scope.py, src/swift/previews.py, overlay/src-tauri/src/lib.rs, overlay/src/blocks.ts
+  area: process
+  severity: medium
+  product_rule: true
+  status: fixed
+  confidence: design-concern
+  evidence: 'Reviewed 2026-11-17 (another author than the commits). No blocking defect. A preview needs the path in
+    the read folders or the exact file approved through Read in this run, and never a never-read path
+    (permits_preview); the overlay draws every field with textContent and the thumbnail as a PNG data URL (CSP
+    img-src data:); Open runs only on the owner''s click on Swift''s button, for a canonical pdf/docx/pptx/xlsx
+    path. Chart values are finite and bounded (booleans and NaN refused); a null title is dropped before extent().
+    The labels can''t be added without rewriting history: c654f80 and 7da80fb are features, cf68ffa is a root fix.'
+  test: tests/unit/test_previews.py
+  note: 'Left for the owner, not fixed: (1) the preview card shows only the file name, not its folder, so two
+    brief.pdf files look the same before Open; (2) a \host\share path is resolved (realpath) by the read-scope
+    check before anything refuses it, as for any Read, so reordering previews.prepare alone would be a symptom fix;
+    (3) the Office excerpt is shown unfiltered (bidi or control characters in the document reach the card as text).'

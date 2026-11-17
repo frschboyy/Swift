@@ -2848,7 +2848,7 @@ The report checks: nothing to judge from the log; tell us what you saw.
 
 About 3 minutes, in a quiet room. Nothing here sends anything.
 
-<a id="check-keep-detector-misses-1"></a>**Check keep-detector-misses-1. A "hey Swift" Swift didn't take is kept, flagged as missed**
+<a id="check-411"></a>**Check 411. A "hey Swift" Swift didn't take is kept, flagged as missed**
 1. Restart Swift. Say "Hey Swift" ten times, a few seconds apart, without a request after it.
 2. Open the logs folder (tray icon → **Open logs folder**), then the `audio` folder next to it.
 

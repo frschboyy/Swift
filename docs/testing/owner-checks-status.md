@@ -70,7 +70,7 @@ As of 2026-11-17 at `fd874df`. Each number links to its check.
 
 - `agents/swift-session-workstream-setup`: adds checks swift-session-workstream-setup-1, swift-session-workstream-setup-2, swift-session-workstream-setup-3, swift-session-workstream-setup-4, swift-session-workstream-setup-5, swift-session-workstream-setup-6, swift-session-workstream-setup-7, swift-session-workstream-setup-8; changes code behind 70 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 55, 58, …).
 - `claude/answer-heard-feedback`: changes code behind 16 checks here (10, 77, 78, 79, 80, 90, 91, 92, 93, 94, 95, 110, …).
-- `claude/stt-corrections`: adds checks stt-corrections-1; changes code behind 96 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 54, 55, …).
+- `claude/stt-corrections`: adds checks 413; changes code behind 96 checks here (17, 18, 19, 19b, 20, 21, 22, 23, 24, 25, 54, 55, …).
 
 **Next free check number: 413** (counted across `main` and every open branch; `plan.py --renumber` gives it to a branch's first provisional check when the branch merges).
 

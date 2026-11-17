@@ -2916,7 +2916,7 @@ The report checks: nothing to judge from the log yet; tell us how many of each f
 
 About 5 minutes. Nothing here sends anything; a correction stays on this PC.
 
-<a id="check-stt-corrections-1"></a>**Check stt-corrections-1. The flag on the heard words keeps a correction**
+<a id="check-413"></a>**Check 413. The flag on the heard words keeps a correction**
 1. Say "Hey Swift, what time is it?". On the answer card, find the small flag after your words in quotes. Hover it:
    a tooltip says what it's for. Under the card, a faint line with a lightbulb says the flag helps Swift hear you.
 2. Click the flag. A box opens with the words Swift heard, all selected, and a row of kinds ("Wrong word",

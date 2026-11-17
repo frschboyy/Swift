@@ -1568,3 +1568,19 @@ async def test_f4_the_stage_follows_the_presenter_after_a_lapse() -> None:
     screen = agree(session, out)
     assert screen["stage"] == "idle" and screen["confirm"] is None and screen["cardRun"] is None, screen
     await finish_all(session, agent)
+
+
+async def test_f5_the_same_question_asked_three_times_is_one_edge_with_a_count() -> None:
+    """F5 (live run 2026-11-18): "what time is it" three times gave three identical "Ready to read" edges
+    ("+2"). The same words ended the same way within a minute fold into one edge, "×3"."""
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    for _ in range(4):
+        await say(session, stt, "Swift, what time is it")
+        await asyncio.sleep(0.15)
+    await session.handle(Message("focus", {"run_id": first}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == first and len(screen["behind"]) == 1 and screen["behindTimes"] == [4], screen
+    await finish_all(session, agent)

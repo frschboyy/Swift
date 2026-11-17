@@ -22,6 +22,24 @@ export const PEEKS: readonly number[] = [32, 30, 28];
 export const INSET_STEP = 10;
 
 const ENDED: ReadonlySet<string> = new Set(["result", "error", "done"]);
+/** The same words, ended the same way, within this long of each other: one edge with a count (F5). */
+export const SAME_WITHIN_MS = 60_000;
+
+const said = (r: Row): string => (r.words || r.title).trim().toLowerCase();
+
+/** F5: asking the same thing again gave identical edges ("what time is it · Ready to read" twice and "+2").
+ * Ended rows with the same words and state, started within a minute of the first, fold into the first. */
+export function foldSame(rows: Row[]): { row: Row; times: number }[] {
+  const out: { row: Row; times: number }[] = [];
+  for (const row of rows) {
+    const same = ENDED.has(row.state)
+      ? out.find((o) => o.row.state === row.state && said(o.row) === said(row) && Math.abs(o.row.startedMs - row.startedMs) <= SAME_WITHIN_MS)
+      : undefined;
+    if (same) same.times += 1;
+    else out.push({ row, times: 1 });
+  }
+  return out;
+}
 
 export type Deck = {
   // Every row, in its place: the first is nearest the card.
@@ -96,6 +114,8 @@ export type Edge = {
   landing: boolean;
   // Requests past the last edge ("+N").
   more: number;
+  // The same request asked this many times, folded into this edge ("×3"; F5).
+  times: number;
 };
 
 /** One edge in place of them all, while a long answer is open: "2 more running". */
@@ -114,14 +134,16 @@ export function deckView(d: Deck, rows: Row[], now: number, folded = false): Dec
     const needOk = shown.filter((r) => r.state === "confirm").length;
     return { edges: [], fold: { count: shown.length, running, needOk }, height: PEEKS[0] };
   }
-  const drawn = shown.slice(0, MAX_EDGES);
+  const same = foldSame(shown);
+  const drawn = same.slice(0, MAX_EDGES);
   let offset = 0;
-  const edges = drawn.map((row, depth): Edge => {
+  const edges = drawn.map(({ row, times }, depth): Edge => {
     const edge = {
       row, key: keyOf(d, row.runId)!, depth, inset: INSET_STEP * (depth + 1), offset, peek: PEEKS[depth],
       // Its news comes first: an OK waiting or an answer ready never hides behind "Got it".
       landing: (d.landing.get(row.runId) ?? 0) > now && !ENDED.has(row.state) && row.state !== "confirm",
-      more: depth === drawn.length - 1 ? shown.length - drawn.length : 0,
+      more: depth === drawn.length - 1 ? same.length - drawn.length : 0,
+      times,
     };
     offset += PEEKS[depth];
     return edge;

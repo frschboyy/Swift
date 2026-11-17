@@ -17,6 +17,8 @@ export type EdgeView = {
   title: string; words: string; label: string; startedMs: number; running: boolean; state: string; more: number;
   // Just arrived: it says "Got it: …" in the owner's words.
   saying: boolean;
+  // Asked this many times, folded into this edge (F5).
+  times?: number;
 };
 
 function edgeMark(v: EdgeView): HTMLElement {
@@ -41,6 +43,7 @@ export function edgeContent(v: EdgeView, watch: () => void): HTMLElement[] {
   return [
     edgeMark(v),
     el("span", { class: "edge-title" }, v.title),
+    v.times && v.times > 1 ? el("span", { class: "edge-times", title: `Asked ${v.times} times` }, `×${v.times}`) : null,
     el("span", { class: "edge-sub" }, v.label),
     v.more ? el("span", { class: "edge-time edge-more" }, `+${v.more}`) : v.running ? el("span", { class: "edge-time", "aria-hidden": "true", "data-started": String(v.startedMs) }, elapsed(v.startedMs)) : null,
     watchable

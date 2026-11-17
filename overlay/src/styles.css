@@ -845,6 +845,7 @@ code {
 .edge-title { flex: 0 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
 .edge-sub { flex: 0 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .edge-time { flex: none; margin-left: auto; color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.edge-times { flex: none; color: var(--muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .edge-watch, .edge-open { display: none; flex: none; margin-left: auto; color: var(--accent); font-size: 13px; font-weight: 600; }
 .edge-watch { padding: 0 6px; border-radius: 6px; }
 .edge-watch + .edge-open { margin-left: 0; }

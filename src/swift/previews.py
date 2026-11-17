@@ -140,11 +140,12 @@ def _xml_events(data: bytes, truncated: bool) -> Iterator[tuple[str, ET.Element]
 def _xml_root(data: bytes, truncated: bool) -> ET.Element:
     if truncated:
         raise PreviewError("office_part_too_large")
-    try:
-        # _read_part admits only UTF-8-compatible XML and refuses DTD/entity declarations before parsing.
-        return ET.fromstring(data)  # noqa: S314
-    except ET.ParseError:
-        raise PreviewError("invalid_document_xml") from None
+    root = None
+    for _, node in _xml_events(data, False):  # the last element to end is the root
+        root = node
+    if root is None:
+        raise PreviewError("invalid_document_xml")
+    return root
 
 
 def _local(tag: str) -> str:

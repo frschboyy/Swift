@@ -3751,7 +3751,8 @@
     (permits_preview); the overlay draws every field with textContent and the thumbnail as a PNG data URL (CSP
     img-src data:); Open runs only on the owner''s click on Swift''s button, for a canonical pdf/docx/pptx/xlsx
     path. Chart values are finite and bounded (booleans and NaN refused); a null title is dropped before extent().
-    The labels can''t be added without rewriting history: c654f80 and 7da80fb are features, cf68ffa is a root fix.'
+    The labels can''t be added without rewriting history: c654f80 and 7da80fb are features, cf68ffa is a root fix.
+    c654f80 also broke the lint gate (a noqa S314, 79 against the cap of 78); fixed in the next commit.'
   test: tests/unit/test_previews.py
   note: 'Left for the owner, not fixed: (1) the preview card shows only the file name, not its folder, so two
     brief.pdf files look the same before Open; (2) a \host\share path is resolved (realpath) by the read-scope

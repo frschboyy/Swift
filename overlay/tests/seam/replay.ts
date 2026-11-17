@@ -128,6 +128,8 @@ process.stdout.write(JSON.stringify({
   answerText: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? detailsText(resultData!.details) : null,
   answerLong: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? needsReader(resultData!.summary, resultData!.details) : null,
   // The answer card's footer, as renderResult draws it (FD-13: never the provider's name).
+  // The answer card's one line (F6/F7: "Stopped “…”").
+  answerSummary: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.summary ?? null : null,
   answerBy: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? byline(resultData!.agent) : null,
   // What main.ts would ask to bring forward by itself once the card in front fades (P.promotion, F2).
   promoted: P.promotion(P.tick(pres, Number.MAX_SAFE_INTEGER).p),

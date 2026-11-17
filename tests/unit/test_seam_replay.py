@@ -1584,3 +1584,36 @@ async def test_f5_the_same_question_asked_three_times_is_one_edge_with_a_count()
     screen = agree(session, out)
     assert screen["cardRun"] == first and len(screen["behind"]) == 1 and screen["behindTimes"] == [4], screen
     await finish_all(session, agent)
+
+
+async def test_f6_stop_before_the_run_starts_says_so() -> None:
+    """F6 (live run 2026-11-18): "stop" during a working run shows a Stopped card; said while the request
+    was still being transcribed, it was recorded as a request of its own that ended in silence, and the
+    first went on. It stops the request being heard, which says so. (Esc there stays a silent discard.)"""
+    from test_voice import FakeTranscriber
+
+    class Slow(FakeTranscriber):
+        """The first recording takes a second to transcribe; the next is quick."""
+
+        def __init__(self, items: list[tuple[str, float]]) -> None:
+            super().__init__()
+            self.items = items
+
+        async def transcribe(self, audio: Any) -> Any:
+            text, delay = self.items.pop(0)
+            await asyncio.sleep(delay)
+            self.text, self.delay = text, 0.0
+            return await super().transcribe(audio)
+
+    session, out, _records, agent, _stt = make()
+    session.transcriber = Slow([("research the history of tea", 1.0), ("stop", 0.0)])
+    for _ in range(2):
+        await session.handle(Message("ptt", {"state": "down"}))
+        await asyncio.sleep(0.01)
+        await session.handle(Message("ptt", {"state": "up"}))
+        await asyncio.sleep(0.2)
+    await asyncio.sleep(1.5)
+    screen = agree(session, out)
+    assert not agent.requests, "a stopped request was sent anyway"
+    assert screen["stage"] == "result" and screen["answerSummary"] in ("Stopped “research the history of tea”.", "Stopped. Nothing was sent."), screen
+    await finish_all(session, agent)

@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock, memory, seen
+from swift import clock, memory, seen, stops
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -487,6 +487,7 @@ class Run:
     # Its tool scope, kept after it closed: "Show in Word" from the live view after the run ended.
     last_scope: RunScope | None = None
     thread: str | None = None
+    said_stop: bool = False  # stops.py (F6)
     confirm_ids: set[str] = field(default_factory=set)
     # Confirm card titles by request id, and the ones approved in this run.
     confirm_titles: dict[str, str] = field(default_factory=dict)
@@ -1445,9 +1446,7 @@ class Session:
         elif others := self._live(besides=run):
             await self._bring(others[-1])
         else:
-            if self._focus is run:
-                # F1/F4: its card waits in the stack, so nothing is in front. The run still waits for
-                # the answer, but the front is free for the next request.
+            if self._focus is run:  # F1/F4: its card waits in the stack (its run for the answer): the front is free
                 self._focus, self.state = None, "idle"
                 await self._raw_send(outbound("state", state="idle"))
             await self._send_rows()
@@ -2949,6 +2948,8 @@ class Session:
                 active_executor, run_id = self._active
                 said = ExecResult("cancelled", PAUSED_HINT if record.get("paused") else "Cancelled.")
                 await to_the_end(in_turn(active_executor.cancel(run_id), self._send_result(run_id, said, self._agent())))
+            elif run.said_stop:  # stopped before it started (F6): a Stopped card, never a silent idle
+                await to_the_end(self._send_result(f"local-{next(self._local_ids)}", ExecResult("cancelled", stops.line(record.get("transcript"), _short_title))))
             else:
                 await to_the_end(self._set_state("idle"))
             raise
@@ -3045,6 +3046,8 @@ class Session:
             return
         if action in ("stop", "cancel", "mute"):
             record["status"] = "cancelled"
+            if await stops.at_rest(self, action):
+                return
             await self._set_state("idle")
             return
         if action == "not_now":

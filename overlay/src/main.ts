@@ -170,6 +170,10 @@ let asked: Q.Ask | null = null;
 let pressAt: { x: number; y: number } | null = null;
 
 const client = new BackendClient(onFrame, onStatus);
+// Rust reloads this page if it stops saying so while the backend is up (watchdog.rs).
+window.setInterval(() => {
+  if (connection.phase === "connected") void invoke("overlay_alive").catch(() => {});
+}, 10000);
 
 followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 // The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.
@@ -645,9 +649,14 @@ function setLive(next: L.Live): void {
   else drawLiveInline();
 }
 
+/** When a request started, by the clock its card or row shows (0: unknown), so its live view counts from the same time. */
+function runStart(runId: string): number {
+  return runId === pres.runId && runStarted ? runStarted : pres.rows.find((r) => r.runId === runId)?.startedMs ?? 0;
+}
+
 /** Watch: the live view of a request, beside the card. The backend hears of it for the log only. */
 function openLive(runId: string, title: string, words: string): void {
-  setLive(L.watch(live, runId, title, words, Date.now()));
+  setLive(L.since(L.watch(live, runId, title, words, Date.now()), runId, runStart(runId)));
   client.send({ type: "watch", data: { run_id: runId, open: true } });
 }
 
@@ -1975,10 +1984,10 @@ function onMessage(msg: Inbound): void {
       renderError(msg.data);
       break;
     case "live":
-      setLive(L.onItem(live, msg.data.run_id, msg.data, Date.now()));
+      setLive(L.since(L.onItem(live, msg.data.run_id, msg.data, Date.now()), msg.data.run_id, runStart(msg.data.run_id)));
       break;
     case "watch":
-      if (msg.data.open) setLive(L.watch(live, msg.data.run_id, msg.data.title ?? "", msg.data.words ?? "", Date.now()));
+      if (msg.data.open) setLive(L.since(L.watch(live, msg.data.run_id, msg.data.title ?? "", msg.data.words ?? "", Date.now()), msg.data.run_id, runStart(msg.data.run_id)));
       else setLive(L.close(live, msg.data.run_id));
       break;
     case "artifact":

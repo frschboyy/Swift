@@ -473,15 +473,15 @@
 - id: W-01
   title: Word-fix proposals swap common words without context ("text" to "Test").
   source: docs/audit/2026-11-seams-audit.md §3.5
-  module: src/swift/stt/improve.py, src/swift/stt/fixes.py
+  module: src/swift/stt/improve.py
   area: speech
   severity: medium
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: two strict xfails still fail 2026-11-12
-  test: tests/unit/test_seams_audit_stt.py::test_text_to_test_is_not_proposed
-  note: null
+  evidence: word fixes removed 2026-11-17 at the owner's request (branch claude/remove-word-fixes); no proposals are made
+  test: null
+  note: Fixed by removing the feature, not by making proposals safe; its xfails went with it.
 - id: W-03
   title: The speech regression gate is aggregate-only, so one sentence going wrong passes.
   source: docs/audit/2026-11-seams-audit.md §3.5
@@ -1195,15 +1195,16 @@
 - id: W-02
   title: Two enabled word fixes rewrite rare real words ("tori", "distal").
   source: docs/audit/2026-11-seams-audit.md §3.5
-  module: src/swift/stt/fixes.py
+  module: src/swift/stt/transcriber.py
   area: speech
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: strict xfail still fails 2026-11-12
-  test: tests/unit/test_seams_audit_stt.py::test_word_fixes_do_not_rewrite_a_correct_common_word
-  note: null
+  evidence: word fixes removed 2026-11-17 (branch claude/remove-word-fixes); transcripts are no longer rewritten. The
+    owner's word_fixes.json is left on disk, unread
+  test: null
+  note: Fixed by removing the feature; its xfail went with it.
 - id: X-13
   title: A cancelled or killed run reports no cost.
   source: docs/audit/2026-11-seams-audit.md §3.7
@@ -2321,15 +2322,15 @@
 - id: II-04
   title: The speech model writes 'tea' as the letter 'T' ('Research the history of T').
   source: docs/audit/2026-11-08-interaction-investigation.md checks 196-197, §3.3
-  module: src/swift/stt/fixes.py
+  module: src/swift/stt/transcriber.py
   area: speech
   severity: low
   product_rule: false
   status: unproven
   confidence: confirmed
-  evidence: 4 recordings (doc); word-fix corpus not checked for this pair
+  evidence: 4 recordings (doc)
   test: null
-  note: Proposed as a learned word fix; not rechecked.
+  note: Was proposed as a learned word fix; word fixes were removed 2026-11-17, so this needs another remedy.
 - id: II-09
   title: 'Check 193: an ellipsis appeared in an answer.'
   source: docs/audit/2026-11-08-interaction-investigation.md check 193
@@ -3758,3 +3759,66 @@
     brief.pdf files look the same before Open; (2) a \host\share path is resolved (realpath) by the read-scope
     check before anything refuses it, as for any Read, so reordering previews.prepare alone would be a symptom fix;
     (3) the Office excerpt is shown unfiltered (bidi or control characters in the document reach the card as text).'
+- id: OV-01
+  title: After the PC woke from sleep the overlay page stopped reconnecting to the backend; the orb froze for three
+    hours while Swift kept listening and running requests.
+  source: owner report 2026-11-17 ("hey Swift wasn't responding, the orb did not change")
+  module: overlay/src/ipc.ts, overlay/src-tauri/src/watchdog.rs
+  area: screen
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: 'swift.log 2026-11-17: overlay disconnected 10:46:18 (critical-battery sleep), connected 11:34:25 after
+    the wake, disconnected 11:34:28, next connect 14:28:51 only after the owner restarted tauri dev. Wake phrase heard
+    and a request run at 14:23 with no overlay. ipc.ts retries every 5 s at most, so the page itself stopped running
+    or stalled; a Vite dev reload 3 s after the wake is likely but unproven (the overlay''s terminal output was lost).
+    No WebView2 crash report.'
+  test: overlay/src-tauri/src/watchdog.rs
+  note: 'Safeguard, not root: Rust reloads the page after 4 silent 15 s checks with the backend up. The root cause
+    needs the overlay console captured across a sleep and wake.'
+- id: BUI-01
+  title: The watch (live view) counted from when it first heard of a request, the card from the request's start, so
+    one request showed two times.
+  source: B UI review, 2026-11-17 (claude/b-ui-review)
+  module: overlay/src/live.ts, overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 'Dev harness, research demo with Watch at 4 s: watch 0:14 against card 0:16. live.ts fresh() stamped
+    startedMs at the first live item or Watch. Fixed in fc25663: L.since sets it to the card''s or row''s start; then
+    watch 0:19 | card 0:19.'
+  test: overlay/tests/live.test.ts
+  note: No seam scenario is possible yet; the seam replay drives the presenter only, not live.ts or main.ts.
+- id: BUI-02
+  title: An open watch doesn't hold its answer card (B10). The card goes after its reading time while the watch
+    stays 45 s saying "Closes by itself", so the two feel like separate things.
+  source: B UI review, 2026-11-17; the owner's note on check 305
+  module: overlay/src/main.ts (presentAnswer, A.readingMs), overlay/src/live.ts (LINGER_MS)
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: 'Dev harness (research demo, short answer): the result card is in at 19.2 s and out at 23.6 s with the
+    watch open, and in at 23.4 s, out at 27.6 s without it. The watch ends DONE and closes 45 s after it was last
+    looked at. Neither lifetime looks at the other; A5''s rules say nothing about an open watch.'
+  test: null
+  note: Design first, B10 with A5, on whether an open watch keeps the card, or the card folds into the watch.
+- id: BUI-03
+  title: In the dev harness (no pane windows) "Open the answer" on an ended watch shows nothing.
+  source: B UI review, 2026-11-17
+  module: overlay/src/main.ts liveAction("live-answer")
+  area: tests
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'Without pane windows the reader branch falls back to askFocus, and the backend ignores a focus for a
+    request it no longer lists (live.ts answerOpens says so). Harness: the watch closes, no card, no reader. With
+    pane windows (the real overlay) it opens the reader pane; not checked on the PC.'
+  test: null
+  note: B12 ("Open answer leads back to the answer") can't be judged in the harness until this works there. Whether
+    it should open the reader or bring the answer card back is the owner's design call.

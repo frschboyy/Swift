@@ -23,7 +23,7 @@
 | Engine | Parakeet-TDT 0.6B v2, int8 ONNX, through `onnx-asr`; greedy decoding only: no beam, no n-best, no language model, no prompt | `stt/transcriber.py` `ParakeetTranscriber` |
 | Second engine | `faster-whisper` 1.2.1 on CTranslate2; `base.en`, `small.en` and `distil-small.en` on disk (2.8 GB). Reports no word probabilities to Swift today | `WhisperTranscriber` |
 | Confidence | Per word: the probability of its least likely token. `assess()` refuses a sentence averaging under 0.7 and marks words under 0.4 as unclear | `Word.p`, `UNCLEAR_P`, `REJECT_P` |
-| After recognition | Silence gate, trim, word fixes (whole-word replacement), then intake and routing | `_transcribe_sync`, `stt/fixes.py` |
+| After recognition | Silence gate, trim, then intake and routing (word fixes were removed 2026-11-17) | `_transcribe_sync` |
 | Outcome signals | A clip is kept when Swift was unsure, the owner said it again, corrected it, or the request failed; 7 days | `stt/recordings.py` |
 | Evaluation | The improvement pass: word error rate clean and with noise, the aggregate gate, and W-03's per-sentence gate, on the owner's test set | `stt/improve.py` |
 | Corpora | `stt_corpus` 51 read clips, `stt_noisy` 30 (TV, music, far), `stt_testset` 15 kept clips with known words, 296 unlabelled clips in `audio` | `%LOCALAPPDATA%\Swift` |

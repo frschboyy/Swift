@@ -23,8 +23,8 @@ given_out: 339
 
 areas:
   hearing:
-    paths: [src/swift/wake.py, src/swift/endpoint.py, src/swift/audio/*, src/swift/stt/transcriber.py, src/swift/stt/fixes.py]
-    checks: [1, 11, 13, 43-48, 65, 103, 114, 124, 125, 136, 160, 191, 192, 200, 228-231, 384]
+    paths: [src/swift/wake.py, src/swift/endpoint.py, src/swift/audio/*, src/swift/stt/transcriber.py]
+    checks: [1, 11, 13, 43-48, 65, 103, 114, 124, 125, 136, 160, 191, 192, 200, 228-231, 384, 401]
   wake-detector:
     paths: [src/swift/wake_acoustic.py, src/swift/wake.py]
     checks: [228-232]

@@ -78,13 +78,21 @@ def warm_up() -> None:
     sd.query_devices()
 
 
-def _input_device() -> tuple[int | None, object | None]:
+# PortAudio's eAudioCategoryCommunications: Windows applies its communications processing (AEC).
+COMMUNICATIONS = 3
+
+
+def _input_device(echo_cancel: bool = False) -> tuple[int | None, object | None]:
     """Prefer WASAPI's default input: fastest to start here (~0.35 s to first audio)."""
     import sounddevice as sd
 
     for api in sd.query_hostapis():
         if api["name"] == "Windows WASAPI" and api["default_input_device"] >= 0:
-            return api["default_input_device"], sd.WasapiSettings(auto_convert=True)
+            extra = sd.WasapiSettings(auto_convert=True)
+            if echo_cancel:
+                # shortcut: sounddevice 0.5.6 doesn't expose the category; set PortAudio's field directly.
+                extra._streaminfo.streamCategory = COMMUNICATIONS
+            return api["default_input_device"], extra
     return None, None
 
 
@@ -148,7 +156,9 @@ class MicRecorder:
         *,
         keep_open: bool = False,
         lookback_s: float = 0.0,
+        echo_cancel: bool = False,
     ) -> None:
+        self._echo_cancel = echo_cancel
         self._audio = ThreadPoolExecutor(max_workers=1, thread_name_prefix="audio")
         self._loop = loop
         self._max_blocks = int(max_seconds * SAMPLE_RATE / BLOCK)
@@ -219,7 +229,7 @@ class MicRecorder:
         """Open and start the input stream. Audio thread only."""
         import sounddevice as sd
 
-        device, extra = _input_device()
+        device, extra = _input_device(self._echo_cancel)
         try:
             try:
                 self._stream = sd.InputStream(
@@ -230,13 +240,15 @@ class MicRecorder:
                 if device is None:
                     raise
                 # WASAPI refused (e.g. exclusive mode elsewhere): fall back to the default device.
+                extra = None
                 self._stream = sd.InputStream(
                     samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=BLOCK, callback=self._callback
                 )
             self._stream.start()
             self._last_block = self.opened_at = time.monotonic()
             self.device_name = _device_name(device)
-            logger.info("microphone opened", device=self.device_name, kept_open=self._keep_open)
+            logger.info("microphone opened", device=self.device_name, kept_open=self._keep_open,
+                        echo_cancel=self._echo_cancel and extra is not None)
         except sd.PortAudioError as exc:
             self._stream = None
             raise _mic_error(exc) from None

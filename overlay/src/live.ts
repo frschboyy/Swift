@@ -157,6 +157,12 @@ export function answerOpens(r: LiveRun, inFront: boolean, listed: boolean): "rea
   return r.ended && (r.ended.details || inFront || !listed) ? "reader" : "focus";
 }
 
+/** The request's own start (its card's clock): the view first heard of it later, at its first item or Watch. */
+export function since(l: Live, runId: string, startedMs: number): Live {
+  if (!startedMs || !l.runs.some((r) => r.runId === runId && r.startedMs > startedMs)) return l;
+  return { runs: l.runs.map((r) => (r.runId === runId ? { ...r, startedMs } : r)) };
+}
+
 export const close = (l: Live, runId: string): Live => ({ runs: l.runs.map((r) => (r.runId === runId ? { ...r, open: false } : r)) });
 
 export const touch = (l: Live, runId: string, now: number): Live =>

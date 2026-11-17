@@ -57,7 +57,6 @@ from swift.executors.improve import REQUEST as IMPROVE_REQUEST
 from swift.executors.improve import ImproveExecutor
 from swift.executors.signin import REQUEST as SIGNIN_REQUEST
 from swift.executors.signin import SigninExecutor
-from swift.stt.fixes import WordFixes
 from swift.stt.recordings import Recordings
 from swift.stt.transcriber import LocalTranscriber, ParakeetTranscriber, WhisperTranscriber
 from swift.wake import WakeListener
@@ -101,16 +100,14 @@ def _make_acoustic(threshold: float) -> AcousticWake | None:
 
 def _make_transcriber(settings: Settings) -> LocalTranscriber:
     cfg = settings.stt
-    fixes = WordFixes.load(Path(cfg.word_fixes_file), cfg.word_fixes)
     if cfg.engine == "parakeet":
-        return ParakeetTranscriber(app_paths().models_dir, cpu_threads=cfg.cpu_threads, fixes=fixes)
+        return ParakeetTranscriber(app_paths().models_dir, cpu_threads=cfg.cpu_threads)
     return WhisperTranscriber(
         cfg.model,
         app_paths().models_dir / "whisper",
         cpu_threads=cfg.cpu_threads,
         initial_prompt=cfg.initial_prompt,
         beam_size=cfg.beam_size,
-        fixes=fixes,
     )
 
 
@@ -319,7 +316,7 @@ def _swift_s_own(settings: Settings) -> list[str]:
     """Swift's own folders and files, wherever the environment or the settings moved them (X-07)."""
     paths, log, stt = app_paths(), settings.logging, settings.stt
     return [str(paths.config_dir), str(paths.data_dir), log.app_log_dir, log.interactions, log.journal, log.runs,
-            stt.audio_dir, stt.test_set_dir, stt.word_fixes_file,  # the recordings themselves, and words heard
+            stt.audio_dir, stt.test_set_dir,  # the recordings themselves
             settings.demand_classifier.examples_file, settings.system.schedule_file]
 
 
@@ -403,7 +400,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     # Wake listening keeps the stream open and remembers the last few seconds, so a request
     # spoken while the wake phrase was being transcribed is not lost.
     recorder = MicRecorder(
-        loop, preroll_s=settings.audio.preroll_s, keep_open=wake.enabled, lookback_s=8.0 if wake.enabled else 0.0
+        loop, preroll_s=settings.audio.preroll_s, keep_open=wake.enabled, lookback_s=8.0 if wake.enabled else 0.0,
+        echo_cancel=settings.audio.echo_cancellation,
     )
 
     recordings = _make_recordings(settings)
@@ -452,7 +450,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         runs=RunRecords(Path(settings.logging.runs)),
     )
     # The test set outlives audio.keep_days, so the pass works even with saving off.
-    improve = ImproveExecutor(recordings, transcriber, Path(settings.stt.word_fixes_file), settings.stt.word_fixes)
+    improve = ImproveExecutor(recordings, transcriber)
     session.on_recordings = _recordings_action(recordings, session, improve)
     if wake.enabled:
         session.on_unaddressed = recordings.heard_unaddressed  # in memory; saved only before a wake phrase

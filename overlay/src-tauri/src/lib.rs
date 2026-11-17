@@ -20,6 +20,7 @@ mod panes;
 mod placement;
 mod prefs;
 mod theme;
+mod watchdog;
 mod win;
 
 use std::collections::HashMap;
@@ -905,7 +906,9 @@ pub fn run() {
         })))
         .manage(started)
         .manage(TrayClick::default())
+        .manage(watchdog::Alive::default())
         .invoke_handler(tauri::generate_handler![
+            watchdog::overlay_alive,
             backend_info,
             register_hotkeys,
             set_escape,
@@ -953,6 +956,7 @@ pub fn run() {
 
             place_on_cursor_monitor(app.handle(), &window, hwnd, &shared_hit, Place::Smart);
             hit::spawn(window.clone(), hwnd, shared_hit.clone());
+            watchdog::spawn(app.handle().clone());
 
             // Position: the same choices as dragging a card, for when dragging isn't practical.
             let chosen = app.state::<Placement>().0.lock().unwrap().prefs;

@@ -213,7 +213,6 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
                     or (re.search(r"\| action (failed|denied) \|", line) and "reason=" in line)
                     or ("| action done |" in line and "domains=" in line)
                     or (re.search(r"\| (failure shown|claude run failed) \|", line) and "detail=" in line)]
-    fixes_decided = [line for line in log if "| word fixes decided |" in line]
     set_aside = [line for line in log if "| question set aside for another |" in line]
     resynced = [line for line in log if "| overlay told what is on screen |" in line]
     resynced_card = [line for line in resynced if "card=True" in line]
@@ -435,7 +434,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("112-113 a repeat or correction gave a clip its words", bool(to_test_set), f"{len(to_test_set)} added to the test set"),
         ("114 a missed wake phrase was kept", bool(missed_wake), f"{len(missed_wake)} time(s)"),
         ("115 the improvement pass ran", bool(improve_runs),
-         f"{len(improve_runs)} pass(es), {len(fixes_decided)} word-fix card(s) answered"),
+         f"{len(improve_runs)} pass(es)"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
         # Fixes from the checks of 2026-11-04.
         ("124 a short 'yes' or 'no' heard as a reply", unless(answers_refused, short_answers),

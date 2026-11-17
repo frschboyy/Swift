@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
-  answerOpens, close, doingLine, ended, initialLive, name, onItem, onRows, openRuns, plain, tick, touch, view, watch, webUrl,
+  answerOpens, close, doingLine, ended, initialLive, name, onItem, onRows, openRuns, plain, since, tick, touch, view, watch, webUrl,
   FORGET_MS, LINGER_MS, MAX_NOTES, MAX_OPEN, MAX_SOURCES, MAX_WRITTEN, type Live,
 } from "../src/live.ts";
 import { diffPanes, paneLabel, paneSize, wantedPanes } from "../src/panes.ts";
@@ -32,6 +32,15 @@ test("items arrive before the view opens, and it shows them when it does", () =>
   assert.deepEqual(v.sources.map((s) => [s.site, s.title]), [["britannica.com", "Tea | Britannica"], ["en.wikipedia.org", "History of tea"]]);
   assert.deepEqual(v.notes, ["Tea was first drunk in Yunnan."]);
   assert.ok(v.running && v.ended === null);
+});
+
+test("the view's clock is its request's: it doesn't restart when the first item or Watch comes in (B10)", () => {
+  let l = watch(research(), "cc-1", "Research the history of tea", "", T + 2000);
+  assert.equal(view(openRuns(l)[0]).startedMs, T, "the view started at its first item");
+  l = since(l, "cc-1", T - 2000);  // the card's clock started at the request's working state
+  assert.equal(view(openRuns(l)[0]).startedMs, T - 2000);
+  assert.equal(since(l, "cc-1", T + 5000), l, "never later than it was");
+  assert.equal(since(l, "cc-1", 0), l, "an unknown start changes nothing");
 });
 
 test("a source is listed once: reading, then read; its title is kept; only web addresses", () => {

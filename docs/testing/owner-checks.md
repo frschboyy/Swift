@@ -1042,10 +1042,9 @@ The report checks: a missed wake phrase was kept.
 
 <a id="check-115"></a>**Check 115**
 1. Right-click the tray icon → **Improve speech recognition**.
-2. If a card "Use N new word fixes?" shows, click **Reject**. Run it again.
 
-You should see: a row "Improve speech recognition", then either the card listing heard → meant, or straight to
-"Checked N of your recordings: …% of words right". After Reject, the same fixes aren't offered again.
+You should see: a row "Improve speech recognition", then "Checked N of your recordings: …% of words right".
+No card asks you anything.
 
 The report checks: the improvement pass ran.
 
@@ -2844,6 +2843,26 @@ You should see: the footer says just "Swift", with no "via" and no provider's na
 the answer names the provider either.
 
 The report checks: nothing to judge from the log; tell us what you saw.
+
+### Echo cancellation trial (seams S5, 2026-11-17)
+
+About 10 minutes, with speakers (not headphones). Nothing here sends anything.
+
+<a id="check-401"></a>**Check 401. With echo cancellation on, Swift hears you over a video playing on the PC**
+1. With `audio: echo_cancellation: false` (today's setting), play a talk video or podcast on this PC at your usual
+   volume. Say "Hey Swift, what time is it?" five times, a few seconds apart, from where you usually sit.
+2. In `config.yaml`, set `audio:` → `echo_cancellation: true`, then tray icon → **Restart Swift**. Play the same
+   video at the same volume and say it five times again.
+3. Stop the video. Say "Hey Swift, what time is it?" twice in a quiet room, and once from across the room.
+4. Note whether other sounds on the PC got quieter while Swift was listening.
+
+You should see: in step 2 Swift answers more of the five than in step 1, and no request starts from the video's
+own words. Step 3 still works as before. In `swift.log`, step 2's "microphone opened" line has
+`echo_cancel=True`. If step 4 happened (Windows lowering other sounds), say so: it's Windows' communications
+setting, and we'd turn it off. If step 2 is no better, or your voice is harder to hear in step 3, set it back to
+false and tell us.
+
+The report checks: nothing to judge from the log yet; tell us how many of each five worked.
 
 ## After the checks: the report
 

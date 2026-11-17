@@ -6,7 +6,7 @@ from Swift's local model folder only (``HF_HUB_OFFLINE`` is forced in
 inference in a worker thread so the event loop keeps serving the overlay.
 
 Both engines share the same front end: near-silent recordings are skipped,
-leading and trailing silence is trimmed, and word fixes are applied to the text.
+and leading and trailing silence is trimmed.
 Both also say how sure they were of each word (``Transcription.words``), so the
 session can refuse to act on speech that noise made unclear (``assess``).
 """
@@ -24,8 +24,6 @@ from typing import Any, Literal, Protocol
 
 import numpy as np
 from loguru import logger
-
-from swift.stt.fixes import WordFixes
 
 SAMPLE_RATE = 16_000
 # Loudest 32 ms block below this is treated as silence and never reaches the model,
@@ -86,9 +84,7 @@ class Transcription:
     stt_ms: int
     audio_s: float
     peak_db: float | None = None
-    # What the model said before word fixes, when they changed anything.
-    raw_text: str | None = None
-    # Words as the model heard them (before fixes), with their probabilities.
+    # Words as the model heard them, with their probabilities.
     words: tuple[Word, ...] | None = None
     # How loud the room was between words (dBFS), or None if the clip was too short to say.
     noise_db: float | None = None
@@ -231,10 +227,9 @@ class LocalTranscriber:
 
     name = "?"
 
-    def __init__(self, models_dir: Path, cpu_threads: int = 4, fixes: WordFixes | None = None) -> None:
+    def __init__(self, models_dir: Path, cpu_threads: int = 4) -> None:
         self.models_dir = models_dir
         self.cpu_threads = cpu_threads
-        self.fixes = fixes or WordFixes()
         self.stats: ModelStats | None = None
         self._model: Any = None
         self._error: SttUnavailable | None = None
@@ -287,7 +282,6 @@ class LocalTranscriber:
                 model=self.name,
                 load_s=self.stats.load_s,
                 private_mb_delta=self.stats.private_mb_delta,
-                word_fixes=len(self.fixes),
             )
         finally:
             self._loading = False
@@ -339,11 +333,8 @@ class LocalTranscriber:
             t0 = time.perf_counter()
             heard = self._recognize(samples)
             ms = int((time.perf_counter() - t0) * 1000)
-        raw = heard.text.strip()
-        text = self.fixes.apply(raw)
-        return Transcription(
-            text, ms, audio_s, peak_db, raw if text != raw else None, heard.words if raw else None, noise_db
-        )
+        text = heard.text.strip()
+        return Transcription(text, ms, audio_s, peak_db, heard.words if text else None, noise_db)
 
 
 class WhisperTranscriber(LocalTranscriber):
@@ -354,9 +345,8 @@ class WhisperTranscriber(LocalTranscriber):
         cpu_threads: int = 4,
         initial_prompt: str = "",
         beam_size: int = 5,
-        fixes: WordFixes | None = None,
     ) -> None:
-        super().__init__(models_dir, cpu_threads, fixes)
+        super().__init__(models_dir, cpu_threads)
         self.name = model
         self.beam_size = beam_size
         self.initial_prompt = initial_prompt or None
@@ -396,8 +386,7 @@ class ParakeetTranscriber(LocalTranscriber):
     """NVIDIA Parakeet-TDT 0.6B v2 (English), int8 ONNX, via onnx-asr.
 
     On the development laptop it was as accurate as Whisper small.en with beam 5
-    and about 8x faster (spikes/stt). It takes no vocabulary prompt; word fixes
-    cover jargon instead.
+    and about 8x faster (spikes/stt). It takes no vocabulary prompt.
     """
 
     name = "parakeet-tdt-0.6b-v2-int8"

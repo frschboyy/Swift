@@ -200,3 +200,16 @@ def test_a_reopen_tells_the_listener_to_start_over(fake_sd: Any) -> None:
     r.prepare().result()
     r._last_block -= 10
     assert r.check_stream() is True and calls == ["reset"]
+
+
+def test_echo_cancellation_opens_the_mic_as_a_communications_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Settings:
+        def __init__(self, **_: Any) -> None:
+            self._streaminfo = types.SimpleNamespace(streamCategory=0)
+
+    mod = types.SimpleNamespace(
+        query_hostapis=lambda: [{"name": "Windows WASAPI", "default_input_device": 2}], WasapiSettings=Settings,
+    )
+    monkeypatch.setitem(sys.modules, "sounddevice", mod)
+    assert rec._input_device(echo_cancel=True)[1]._streaminfo.streamCategory == rec.COMMUNICATIONS
+    assert rec._input_device()[1]._streaminfo.streamCategory == 0  # off: the raw stream, as before

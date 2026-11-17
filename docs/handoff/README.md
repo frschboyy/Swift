@@ -227,7 +227,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 **While the owner uses Swift**
 
-- **f. Speech:** the per-sentence check (W-03) is done (merged 2026-11-13); next, make word-fix proposals safe (W-01, W-02, seams audit §7.4 step 1). Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
+- **f. Speech:** the per-sentence check (W-03) is done (merged 2026-11-13). Word fixes were removed on 2026-11-17 at the owner's request (rigid, context-free rewrites), which closes W-01 and W-02. Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
 - **Context-aware speech** ([`context-aware-speech.md`](../explorations/context-aware-speech.md), merged 2026-11-13): an investigation with measurements, not an ADR. Its step 1 (the speech gate and fairer scoring) is built. Step 2, a monitor that flags and never rewrites, waits for the owner's yes on the labelling card (seams decision 7); step 3 needs their OK for one model download.
 - **g. Review item 9: one versioned screen snapshot** (first half merged: the acknowledgement of what was drawn, `6aadae9`, and one clock for a card's countdown, `f0970e6`; the versioned snapshot itself is not built), derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.

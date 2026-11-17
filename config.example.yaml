@@ -15,7 +15,7 @@ audio:
   keep_days: 7                     # deleted after this many days; 0 = no recording is saved
   keep_all: false                  # true keeps every recording for keep_days (debugging)
   test_set_max: 200                # clips with words you gave (a repeat, a correction), kept to check accuracy
-  improve_weekly: true             # once a week while you're here: word fixes to approve, an accuracy check
+  improve_weekly: true             # once a week while you're here: an accuracy check
 
 wake:                              # start by voice: "hey / hello / good afternoon Swift" (swift/wake.py)
   enabled: false                   # on keeps the mic open (Windows' mic indicator stays on) and
@@ -40,10 +40,6 @@ stt:
   beam_size: 5                     # 1 is fastest; 5 is more accurate
   # Names and jargon you say often. Whisper follows its spelling and style.
   initial_prompt: "Swift, Claude Code, README, PLAN.md, config.yaml, Python, Rust, Tauri, TypeScript, pytest, git commit."
-  # Phrases the model mishears -> what you meant. Both engines. Learned fixes
-  # (spikes/stt/learn_fixes.py) live in word_fixes_file; these win over them.
-  word_fixes: {}
-  word_fixes_file: "%LOCALAPPDATA%/Swift/word_fixes.json"
   # Noise checks, Parakeet only (docs/stt-noise.md). Words heard with less than
   # unclear_p probability are named to the agent so it asks instead of guessing;
   # a transcript averaging below reject_p isn't acted on. 0 turns a check off.

@@ -9,7 +9,6 @@ executor:
   kind: echo
   prewarm: false
 stt:
-  word_fixes_file: "%TEMP%/swift-harness/word_fixes.json"
   audio_dir: "%TEMP%/swift-harness/audio"
   test_set_dir: "%TEMP%/swift-harness/stt_testset"
 demand_classifier:

@@ -1,0 +1,18 @@
+{
+  "card-dark": "{\"flag\":true,\"hint\":true,\"store\":\"1\",\"words\":\"“What time is it in Tokyo?”\"}",
+  "flagRest": "{\"opacity\":\"0.55\",\"color\":\"rgb(160, 164, 176)\",\"svgStroke\":\"rgb(160, 164, 176)\",\"size\":[32,32],\"svg\":[16,16],\"hintColor\":\"rgb(160, 164, 176)\",\"hintSize\":\"12px\"}",
+  "card-light": "{\"flag\":true,\"hint\":true,\"store\":\"1\",\"words\":\"“What time is it in Tokyo?”\"}",
+  "card-dark-150": "{\"flag\":true,\"hint\":true,\"store\":\"1\",\"words\":\"“What time is it in Tokyo?”\"}",
+  "typed": "{\"flag\":false,\"hint\":false,\"store\":null,\"words\":\"“convert 12 miles to km”\"}",
+  "confirm": "{\"flag\":false,\"hint\":false,\"store\":null}",
+  "hintCount": [
+    "{\"flag\":true,\"hint\":true,\"store\":\"1\",\"words\":\"“What time is it in Tokyo?”\"}",
+    "{\"flag\":true,\"hint\":true,\"store\":\"2\",\"words\":\"“What time is it in Tokyo?”\"}",
+    "{\"flag\":true,\"hint\":true,\"store\":\"3\",\"words\":\"“What time is it in Tokyo?”\"}",
+    "{\"flag\":true,\"hint\":false,\"store\":\"3\",\"words\":\"“What time is it in Tokyo?”\"}"
+  ],
+  "fix-dark": "{\"box\":[508,206,210],\"focus\":true,\"sel\":[0,25,25],\"chips\":8,\"chipRows\":2}",
+  "kindPressed": "[\"false\",\"false\",\"false\",\"true\",\"false\",\"false\",\"false\",\"false\"]",
+  "fix-light": "{\"box\":[508,206,210],\"focus\":true,\"sel\":[0,25,25],\"chips\":8,\"chipRows\":2}",
+  "fix-dark-150": "{\"box\":[508,206,210],\"focus\":true,\"sel\":[0,25,25],\"chips\":8,\"chipRows\":2}"
+}

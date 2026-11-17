@@ -403,7 +403,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     # Wake listening keeps the stream open and remembers the last few seconds, so a request
     # spoken while the wake phrase was being transcribed is not lost.
     recorder = MicRecorder(
-        loop, preroll_s=settings.audio.preroll_s, keep_open=wake.enabled, lookback_s=8.0 if wake.enabled else 0.0
+        loop, preroll_s=settings.audio.preroll_s, keep_open=wake.enabled, lookback_s=8.0 if wake.enabled else 0.0,
+        echo_cancel=settings.audio.echo_cancellation,
     )
 
     recordings = _make_recordings(settings)

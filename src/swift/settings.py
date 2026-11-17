@@ -90,6 +90,10 @@ class AudioSettings(_Section):
     # Seconds of audio kept from before the key goes down (0 = off). Above 0 the microphone
     # stays open while Swift runs, so Windows' mic-in-use indicator is on all the time.
     preroll_s: float = Field(0.0, ge=0.0, le=2.0)
+    # A trial (seams audit S5, decision 5): open the microphone as a communications stream, so
+    # Windows' own processing (the driver's echo cancellation, or Windows 11 Voice Clarity) takes
+    # out sound the PC is playing. It may change how the mic sounds; off restores the raw stream.
+    echo_cancellation: bool = False
     # A short soft chime the moment Swift hears "hey Swift" or the hotkey (false: the overlay's
     # "Listening…" only).
     chime: bool = True

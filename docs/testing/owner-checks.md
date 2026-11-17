@@ -2738,6 +2738,26 @@ today's plain answer, with no table. If step 1 shows only words, say so: the wor
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
+### Echo cancellation trial (seams S5, 2026-11-17)
+
+About 10 minutes, with speakers (not headphones). Nothing here sends anything.
+
+<a id="check-mic-echo-trial-1"></a>**Check mic-echo-trial-1. With echo cancellation on, Swift hears you over a video playing on the PC**
+1. With `audio: echo_cancellation: false` (today's setting), play a talk video or podcast on this PC at your usual
+   volume. Say "Hey Swift, what time is it?" five times, a few seconds apart, from where you usually sit.
+2. In `config.yaml`, set `audio:` → `echo_cancellation: true`, then tray icon → **Restart Swift**. Play the same
+   video at the same volume and say it five times again.
+3. Stop the video. Say "Hey Swift, what time is it?" twice in a quiet room, and once from across the room.
+4. Note whether other sounds on the PC got quieter while Swift was listening.
+
+You should see: in step 2 Swift answers more of the five than in step 1, and no request starts from the video's
+own words. Step 3 still works as before. In `swift.log`, step 2's "microphone opened" line has
+`echo_cancel=True`. If step 4 happened (Windows lowering other sounds), say so: it's Windows' communications
+setting, and we'd turn it off. If step 2 is no better, or your voice is harder to hear in step 3, set it back to
+false and tell us.
+
+The report checks: nothing to judge from the log yet; tell us how many of each five worked.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

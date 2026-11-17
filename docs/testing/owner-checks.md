@@ -2741,7 +2741,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 10 minutes, with speakers (not headphones). Nothing here sends anything.
 
-<a id="check-mic-echo-trial-1"></a>**Check mic-echo-trial-1. With echo cancellation on, Swift hears you over a video playing on the PC**
+<a id="check-401"></a>**Check 401. With echo cancellation on, Swift hears you over a video playing on the PC**
 1. With `audio: echo_cancellation: false` (today's setting), play a talk video or podcast on this PC at your usual
    volume. Say "Hey Swift, what time is it?" five times, a few seconds apart, from where you usually sit.
 2. In `config.yaml`, set `audio:` → `echo_cancellation: true`, then tray icon → **Restart Swift**. Play the same

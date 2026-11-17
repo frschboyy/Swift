@@ -3687,3 +3687,21 @@
   test: null
   note: The WIP and the refactor it builds on are in .claude/stale-wip/2026-11-15/ (festive-colden-b068a2.patch on
     top of festive-colden-b068a2-base-8fe61d5.patch). Main's own A10 work kept only a safeguard test (6c53326).
+- id: OV-01
+  title: After the PC woke from sleep the overlay page stopped reconnecting to the backend; the orb froze for three
+    hours while Swift kept listening and running requests.
+  source: owner report 2026-11-17 ("hey Swift wasn't responding, the orb did not change")
+  module: overlay/src/ipc.ts, overlay/src-tauri/src/watchdog.rs
+  area: screen
+  severity: high
+  product_rule: false
+  status: partial
+  confidence: confirmed
+  evidence: 'swift.log 2026-11-17: overlay disconnected 10:46:18 (critical-battery sleep), connected 11:34:25 after
+    the wake, disconnected 11:34:28, next connect 14:28:51 only after the owner restarted tauri dev. Wake phrase heard
+    and a request run at 14:23 with no overlay. ipc.ts retries every 5 s at most, so the page itself stopped running
+    or stalled; a Vite dev reload 3 s after the wake is likely but unproven (the overlay''s terminal output was lost).
+    No WebView2 crash report.'
+  test: overlay/src-tauri/src/watchdog.rs
+  note: 'Safeguard, not root: Rust reloads the page after 4 silent 15 s checks with the backend up. The root cause
+    needs the overlay console captured across a sleep and wake.'

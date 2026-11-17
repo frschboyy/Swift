@@ -170,6 +170,10 @@ let asked: Q.Ask | null = null;
 let pressAt: { x: number; y: number } | null = null;
 
 const client = new BackendClient(onFrame, onStatus);
+// Rust reloads this page if it stops saying so while the backend is up (watchdog.rs).
+window.setInterval(() => {
+  if (connection.phase === "connected") void invoke("overlay_alive").catch(() => {});
+}, 10000);
 
 followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 // The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.

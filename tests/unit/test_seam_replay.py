@@ -1558,3 +1558,13 @@ async def test_f3_after_an_overlay_restart_a_lapsed_ok_is_in_the_pile_not_the_fr
     stacks = [m for m in fresh if m.type == "stack"]
     assert stacks and any(i["id"] == f"card:{rid}" for i in stacks[-1].data["items"]), stacks
     await finish_all(session, agent)
+
+
+async def test_f4_the_stage_follows_the_presenter_after_a_lapse() -> None:
+    """F4 (live run 2026-11-18): ``#stage[data-state]`` stayed ``confirm`` with no card after a lapse, so
+    Esc and the hit regions still acted for a card. The stage is ``P.stageOf`` (main.ts syncStage); the
+    backend now says the front is idle, so nothing still claims a confirm card."""
+    session, out, agent, _stt, _rid = await _lapsed()
+    screen = agree(session, out)
+    assert screen["stage"] == "idle" and screen["confirm"] is None and screen["cardRun"] is None, screen
+    await finish_all(session, agent)

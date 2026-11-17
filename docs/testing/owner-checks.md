@@ -2849,7 +2849,7 @@ The report checks: nothing to judge from the log; tell us what you saw.
 About 5 minutes, with a talk video or podcast playing on another device or across the room. Nothing here sends
 anything.
 
-<a id="check-noise-voice-gate-1"></a>**Check noise-voice-gate-1. Talk in the room doesn't hold a hands-free request open**
+<a id="check-410"></a>**Check 410. Talk in the room doesn't hold a hands-free request open**
 1. Restart Swift (tray icon → **Restart Swift**). In a quiet room, say "Hey Swift, what time is it?" once, so Swift
    learns how loud you speak.
 2. Start the video at a normal listening volume, across the room. Say "Hey Swift", wait for the chime, then say

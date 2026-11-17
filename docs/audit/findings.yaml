@@ -3706,3 +3706,82 @@
   test: overlay/src-tauri/src/watchdog.rs
   note: 'Safeguard, not root: Rust reloads the page after 4 silent 15 s checks with the backend up. The root cause
     needs the overlay console captured across a sleep and wake.'
+- id: BUI-01
+  title: The watch (live view) counted from when it first heard of a request, the card from the request's start, so
+    one request showed two times.
+  source: B UI review, 2026-11-17 (claude/b-ui-review)
+  module: overlay/src/live.ts, overlay/src/main.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: 'Dev harness, research demo with Watch at 4 s: watch 0:14 against card 0:16. live.ts fresh() stamped
+    startedMs at the first live item or Watch. Fixed in fc25663: L.since sets it to the card''s or row''s start; then
+    watch 0:19 | card 0:19.'
+  test: overlay/tests/live.test.ts
+  note: No seam scenario is possible yet; the seam replay drives the presenter only, not live.ts or main.ts.
+- id: BUI-02
+  title: An open watch doesn't hold its answer card (B10). The card goes after its reading time while the watch
+    stays 45 s saying "Closes by itself", so the two feel like separate things.
+  source: B UI review, 2026-11-17; the owner's note on check 305
+  module: overlay/src/main.ts (presentAnswer, A.readingMs), overlay/src/live.ts (LINGER_MS)
+  area: screen
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: design-concern
+  evidence: 'Dev harness (research demo, short answer): the result card is in at 19.2 s and out at 23.6 s with the
+    watch open, and in at 23.4 s, out at 27.6 s without it. The watch ends DONE and closes 45 s after it was last
+    looked at. Neither lifetime looks at the other; A5''s rules say nothing about an open watch.'
+  test: null
+  note: Design first, B10 with A5, on whether an open watch keeps the card, or the card folds into the watch.
+- id: BUI-03
+  title: In the dev harness (no pane windows) "Open the answer" on an ended watch shows nothing.
+  source: B UI review, 2026-11-17
+  module: overlay/src/main.ts liveAction("live-answer")
+  area: tests
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'Without pane windows the reader branch falls back to askFocus, and the backend ignores a focus for a
+    request it no longer lists (live.ts answerOpens says so). Harness: the watch closes, no card, no reader. With
+    pane windows (the real overlay) it opens the reader pane; not checked on the PC.'
+  test: null
+  note: B12 ("Open answer leads back to the answer") can't be judged in the harness until this works there. Whether
+    it should open the reader or bring the answer card back is the owner's design call.
+- id: BUI-04
+  title: On claude/b4-diagram-902ffc, show_result runs through _show_checked_shape, but test_shapes.py still tests
+    _show_result, which nothing else calls.
+  source: B UI review, 2026-11-17
+  module: src/swift/executors/claude_code.py, tests/unit/test_shapes.py
+  area: tests
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'claude_code.py show_result calls shapes.check, then _show_checked_shape; _show_result (line 1054) is
+    referenced only by tests/unit/test_shapes.py (lines 64, 74, 83). Its checks (refused shape clears run.shape)
+    are re-implemented in the tool body.'
+  test: null
+  note: Before merging the branch, point the tests at the tool's real path and delete _show_result.
+- id: BUI-05
+  title: The last three commits on claude/b4-diagram-902ffc (document previews, chart and project cards, the
+    mind-map fix) carry no fix label and touch read permissions and a new open-a-file command; they need a second
+    author's review before merge.
+  source: B UI review, 2026-11-17
+  module: src/swift/executors/read_scope.py, src/swift/previews.py, overlay/src-tauri/src/lib.rs
+  area: process
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: 'c654f80, 7da80fb, cf68ffa: one-line messages, no root/partial label (reliability.md §3). read_scope.py
+    permits_preview lets a preview reuse any Read approved in the run (approved_reads); lib.rs open_preview opens a
+    worker-named pdf/docx/pptx/xlsx path on the owner''s click. previews.prepare calls is_file before refusing a UNC
+    path, so a \host\share path is touched before it is refused (only reachable after the path passed the read
+    check). Tests pass (overlay 149, Python suite) and the harness draws every shape.'
+  test: null
+  note: Product rule "a worker's text never chooses a path" applies to Open; the path is shown on the card and the
+    owner clicks, which the rule allows, but the review must say so.

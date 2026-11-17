@@ -1269,6 +1269,29 @@ code {
   backdrop-filter: none;
 }
 #stage .capsule[data-p="orb"] .orb { width: var(--orb); height: var(--orb); box-shadow: 0 4px 12px #00000040; }
+/* Board 9 §5, the follow-up window: a 44 px ring on the orb (--track, arc --accent, inner radius 0.86)
+   draining over followup_s, and a pill on the screen side of the orb. */
+#stage .capsule[data-followup]::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--fu-left, 1) * 1turn), var(--raise-hover) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent 86%, #000 87%);
+  mask: radial-gradient(farthest-side, transparent 86%, #000 87%);
+  pointer-events: none;
+}
+#stage .fu-pill {
+  position: absolute; top: 50%; right: calc(100% + 12px); transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; white-space: nowrap;
+  border-radius: var(--radius-pill); background: var(--panel-solid); border: 1px solid var(--rim); box-shadow: var(--shadow);
+  font-size: 12px; pointer-events: none;
+}
+#stage[data-anchor$="left"] .fu-pill { right: auto; left: calc(100% + 12px); }
+#stage .fu-pill .icon { width: 13px; height: 13px; color: var(--accent); }
+#stage .fu-pill b { font-weight: 600; }
+#stage .fu-time { color: var(--faint); }
+#stage .capsule:not([data-p="orb"]) .fu-pill, #stage .capsule:not([data-p="orb"])::before { display: none; }
+/* Board 9 §5, "say approve again". */
+#stage .voice-hint--again { display: flex; flex-wrap: nowrap; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--warn-text); font-size: 13px; font-weight: 600; }
+#stage .voice-hint--again .icon { flex: none; width: 14px; height: 14px; margin-top: 2px; color: var(--warn-text); }
 #stage[data-anchor$="left"] .capsule[data-p="orb"] { margin-left: calc(var(--tail-inset) - var(--orb) / 2); }
 #stage[data-anchor$="right"] .capsule[data-p="orb"] { margin-right: calc(var(--tail-inset) - var(--orb) / 2); }
 /* idle: a 14 px dot at 70 %, in the same 44 px slot */

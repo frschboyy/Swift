@@ -278,6 +278,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     await sleep(3400);  // elapsed shows after 3 s
   },
   answerLine: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); },
+  // Board 9 §5: the reply window after an answer, on the orb.
+  followup: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); s.inject("followup", { open: true, seconds: 8 }); await sleep(1600); },
   answerText: async (s) => { await answer(s, "Is it going to rain this afternoon?", "Probably not. There's a 20% chance of a light shower around 4 pm, then it clears. 14 °C at the warmest."); },
   answerTable: async (s) => { await answer(s, "What's on my calendar tomorrow?", "Three things on Thursday, 29 October. Free after 3 pm.", CALENDAR); },
   answerCompare: async (s) => { await answer(s, "Compare laptops for travel", "The Zenbook fits travel best: lightest, longest battery, mid-priced.", LAPTOPS); },
@@ -345,6 +347,13 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
       to: [{ name: "Priya Raman", email: "priya@contoso.com" }], subject: "Tea report, first draft",
       body: "Hi Priya, here's the first draft of the tea report. The history section is done; I'd love your notes on the trade figures before Friday.\n\nThanks,\nFrancis",
     } }, "", "Email Priya the tea report");
+  },
+  // Board 9 §5: a spoken approve held back for noise asks once more, on the same card.
+  confirmAgain: async (s) => {
+    await DESIGN.confirmEmail(s);
+    const id = document.querySelector<HTMLElement>("#card .voice-hint[data-request]")?.dataset.request ?? "";
+    s.inject("confirm.voice", { request_id: id, phase: "again", text: "Heard “approve”, but it's noisy here. Say “approve” again to go ahead, or click." });
+    await sleep(150);
   },
   confirmCommand: async (s) => { await confirm(s, "Run a command in your project", null, "npm run build -- --mode production", "Build the site"); },
   confirmAway: async (s) => {

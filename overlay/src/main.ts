@@ -1212,6 +1212,7 @@ function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
 function onFollowup(data: Extract<Inbound, { type: "followup" }>["data"]): void {
   // The presenter keeps the answer up at least as long as Swift listens for a reply.
   pres = P.onFollowup(pres, data.open, data.seconds, Date.now());
+  if (data.open) followupTotal = data.seconds;
   showDeadline();
   if (data.open && data.question && lastResult && (stageNow() === "result") && pres.card.runId === lastResult.run_id) {
     // The answer asked something: it becomes Swift's question card.
@@ -1225,19 +1226,26 @@ function drawFollowup(left: number): void {
   if (question) {
     const time = card.querySelector<HTMLElement>(".q-pill .elapsed");
     if (time) time.textContent = `0:${String(Math.max(0, left)).padStart(2, "0")}`;
+    left = 0;  // Swift's question shows its own time: nothing on the orb
+  }
+  // Board 9 §5: on the orb, a ring that drains over the window and a pill saying what it means.
+  const on = left > 0 && (stageNow() === "result" || stageNow() === "error");
+  capsuleEl.toggleAttribute("data-followup", on);
+  let pill = capsuleEl.querySelector<HTMLElement>(".fu-pill");
+  if (!on) {
+    pill?.remove();
     return;
   }
-  let line = card.querySelector<HTMLElement>(".followup");
-  if (left <= 0 || (stageNow() !== "result" && stageNow() !== "error")) {
-    line?.remove();
-    return;
+  capsuleEl.style.setProperty("--fu-left", String(Math.min(1, left / Math.max(1, followupTotal))));
+  if (!pill) {
+    pill = el("span", { class: "fu-pill", "aria-live": "off" });
+    capsuleEl.append(pill);
   }
-  if (!line) {
-    line = el("p", { class: "voice-hint followup", "data-phase": "listening", "aria-live": "off" });
-    lineAboveFoot(line);
-  }
-  line.replaceChildren(icon("mic"), `Listening for a reply · ${left} s`);
+  pill.replaceChildren(icon("mic"), el("b", {}, "Reply without “Hey Swift”"), el("span", { class: "fu-time" }, `· ${left} s`));
 }
+
+// How long the reply window was open for, for its ring.
+let followupTotal = 0;
 
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
   window.clearTimeout(runVoiceTimer);
@@ -1473,8 +1481,10 @@ function renderConfirmVoice(data: Extract<Inbound, { type: "confirm.voice" }>["d
   else if (data.phase === "transcribing") hint.textContent = "Transcribing…";
   else if (data.phase === "hint") hint.textContent = data.text;
   // A voice approval Swift held back (noise, or not sure what it heard): it needs one more.
-  else if (data.phase === "again") hint.replaceChildren(icon("alert"), data.text);
+  else if (data.phase === "again") hint.replaceChildren(icon("mic"), data.text);
   else hint.replaceChildren(...voiceHint());
+  // Board 9 §5, "say approve again": a --warn-soft box in place of the voice line, not a new card.
+  hint.classList.toggle("voice-hint--again", data.phase === "again");
 }
 
 // ---- answers ---------------------------------------------------------------------------------

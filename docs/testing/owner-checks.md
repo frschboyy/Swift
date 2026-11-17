@@ -60,7 +60,7 @@ The list of what to run first, worked out from every result so far and what chan
 <a id="check-1"></a>**Check 1**
 1. Say "Hey Swift, what time is it".
 
-You should see: an answer, then "Listening for a reply · 8 s" under it.
+You should see: an answer, then a ring draining round the orb and a pill "Reply without “Hey Swift” · 8 s" beside it.
 
 The report checks: a wake request; how many wake phrases the model was unsure of but still took (`unsure_wake`).
 
@@ -110,7 +110,7 @@ You should see: a hint telling you to say "Swift, approve". The card stays. Leav
 <a id="check-7"></a>**Check 7**
 1. On the same card, say "no".
 
-You should see: "Not approved", then "Listening for a reply…".
+You should see: "Not approved", then the reply ring and pill on the orb.
 
 The report checks: a rejection by voice.
 

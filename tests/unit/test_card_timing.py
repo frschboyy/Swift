@@ -106,7 +106,7 @@ async def test_a_card_never_drawn_does_not_run_out() -> None:
     assert records == [] and out.last("confirm.hold")["held"] is True
     assert out.last("stack")["items"][0]["reason"] == "expired"
     await session.handle(Message("stack.action", {"id": f"card:{card['request_id']}", "action": "end"}))
-    await finish(session)
+    assert not session._live()  # ended from the stack: it was not in front (F1), and it is over
 
 
 async def test_back_redraws_the_held_card_then_gives_its_time() -> None:

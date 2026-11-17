@@ -1495,3 +1495,40 @@ async def test_heard_words_with_a_kept_clip_get_the_flag_and_a_confirm_card_or_t
     screen = agree(session, out)
     assert screen["stage"] == "confirm" and screen["heardFlag"] is None
     await finish_all(session, agent)
+
+
+async def _lapsed() -> tuple[Any, Any, Any, Any, str]:
+    """An OK whose countdown ran out: Attention's ``on_expire`` sets it aside into the stack."""
+    from swift.attention import Attention
+    from test_runs import sent_for
+    from test_seams_audit_ipc import seen
+
+    attention = Attention(require_seen=True)
+    session, out, _records, agent, stt = make(attention=attention)
+    agent.attention = attention
+    first = await started(session, out, agent, stt, "Hey Swift, tidy the readme with a card")
+    agent.runs[first]["ask"].set()
+    await until(lambda: sent_for(out, first, "confirm.request"))
+    request_id = sent_for(out, first, "confirm.request")[-1]["request_id"]
+    await session.handle(seen(request_id))
+    assert session._expire_card(request_id)
+    await asyncio.sleep(0.05)
+    return session, out, agent, stt, request_id
+
+
+async def test_f1_an_ok_that_ran_out_into_the_stack_frees_the_front() -> None:
+    """F1 (live run 2026-11-18): after "card expired into the stack", debug.run said "busy |
+    state='confirm'". The lapsed OK waits in the stack; nothing is in front, so a new request starts."""
+    session, out, agent, stt, rid = await _lapsed()
+    assert not session._front_busy(), "a lapsed OK keeps the front busy"
+    assert session.state != "confirm", session.state
+    screen = _screen(out)
+    assert screen["stage"] != "confirm" and screen["confirm"] is None, screen  # F4: the stage follows
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["cardRun"] == tea, "the new request didn't take the free front"
+    # Opened from the stack, the OK is back in front.
+    await session.handle(Message("stack.action", {"id": f"card:{rid}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["confirm"] == rid
+    await finish_all(session, agent)

@@ -1445,6 +1445,11 @@ class Session:
         elif others := self._live(besides=run):
             await self._bring(others[-1])
         else:
+            if self._focus is run:
+                # F1/F4: its card waits in the stack, so nothing is in front. The run still waits for
+                # the answer, but the front is free for the next request.
+                self._focus, self.state = None, "idle"
+                await self._raw_send(outbound("state", state="idle"))
             await self._send_rows()
 
     async def _open_card(self, request_id: str) -> None:

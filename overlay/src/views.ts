@@ -73,12 +73,13 @@ export function stackClosed(v: StackView, attrs: Record<string, string | boolean
     "div",
     {
       class: `stack${look}`, role: "button",
-      title: "Double-click to see what needs you", "aria-label": `${countLine(n)}. ${nextLine(v)}`, ...attrs,
+      title: "Click to see what needs you", "aria-label": `${countLine(n)}. ${nextLine(v)}`, ...attrs,
     },
-    n > 2 ? el("span", { class: "stack-layer stack-layer--1" }) : null,
-    n > 1 ? el("span", { class: "stack-layer stack-layer--2" }) : null,
+    // Board 9 §1, Stack · Pile: three offset sheets, whatever the count.
+    el("span", { class: "stack-layer stack-layer--1" }),
+    el("span", { class: "stack-layer stack-layer--2" }),
     el("div", { class: "stack-top" },
-      el("span", { class: "badge" }, String(n)),
+      el("span", { class: "badge" }, needsOk(v) ? icon("shield") : null, String(n)),
       el("span", { class: "stack-text" }, el("span", { class: "stack-count" }, countLine(n)), el("span", { class: "stack-next" }, nextLine(v)))),
   );
 }
@@ -103,25 +104,26 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
         class: `stack-row stack-row--${i.icon}${i.fresh ? " stack-row--fresh" : ""}`, "data-id": i.id, style: `--i:${at}`,
         "aria-selected": String(i.id === selected), onpointerenter: () => h.select?.(i.id),
       },
-      // A subtle ring around the icon: the time left before it leaves the stack (owner, 2026-11-09).
+      // Its mark (board 9 §1, Stack · Row); a subtle ring round it is the time left before it leaves (2026-11-09).
       i.left === null || i.left === undefined
-        ? icon(i.icon)
-        : el("span", { class: "stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
+        ? el("span", { class: "stack-mark" }, icon(i.icon))
+        : el("span", { class: "stack-mark stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
       el("span", { class: "stack-title" }, i.title),
+      el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, "open") }, i.open),
       el("span", { class: "stack-reason" }, i.line),
       el("span", { class: "stack-actions" },
-        el("button", { class: "btn btn--primary btn--small", onclick: () => h.item(i.id, "open") }, i.open),
         el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => h.item(i.id, "skip") }, "Skip"),
         el("button", { class: "btn btn--ghost btn--small", title: "End it: it won't come back", onclick: () => h.item(i.id, "end") }, "End")),
     );
   return el(
     "section",
-    { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Needs you" },
+    { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Waiting for you" },
     el("header", { class: "stack-head", title: "Drag to move" },
-      el("b", {}, "Needs you"),
-      el("span", {}, String(v.items.length)),
+      el("b", {}, "Waiting for you"),
+      el("span", {}, `· ${v.items.length}`),
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
     el("ul", { class: "stack-list" }, ...v.items.map(row)),
+    el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
   );
 }
 

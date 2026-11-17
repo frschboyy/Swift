@@ -357,12 +357,12 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   concurrent: async (s) => { await concurrent(s); },
   // 6. the stack (inline in the harness)
   stackClosed: async (s) => { s.inject("stack", { items: STACK }); await sleep(150); },
+  // Board 9 §1: the pile with no OK waiting (neutral), and with one (stackClosed, amber).
+  stackPile: async (s) => { s.inject("stack", { items: STACK.slice(1) }); await sleep(150); },
   stackOpen: async (s) => {
     s.inject("stack", { items: STACK });
     await sleep(100);
-    const top = document.querySelector<HTMLElement>("#stack .stack");
-    top?.click();
-    top?.click();
+    document.querySelector<HTMLElement>("#stack .stack")?.click();  // one click opens it (board 9 §1)
     await sleep(250);
   },
   // 8. timers and reminders

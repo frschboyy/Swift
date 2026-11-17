@@ -54,17 +54,20 @@ test("a card that just joined glows for a few seconds", () => {
 
 test("each card says why it waits, in plain words (the Capsule design's wording)", () => {
   const now = 5 * 60_000;
-  assert.equal(reasonLine(item("card:1", "waiting", "waiting"), now), "Waiting for your OK · behind another card");
+  assert.equal(reasonLine(item("card:1", "waiting", "waiting"), now), "Needs your OK · behind another card");
   assert.equal(reasonLine(item("parked:a", "parked", "asked"), now), "Unanswered question · 5 min ago");
   assert.equal(reasonLine(item("parked:a", "parked", "stopped", now - 30_000), now), "Unfinished · stopped before it was done · just now");
-  assert.equal(reasonLine(item("card:1", "held", "held"), now), "Waiting for your OK · held while you were away");
-  assert.equal(reasonLine(item("card:1", "later", "expired", now - 120_000), now), "Waiting for your OK · held, no answer in time · 2 min ago");
-  assert.equal(reasonLine(item("card:1", "later", "later", now - 60_000), now), "Waiting for your OK · put off 1 min ago");
+  assert.equal(reasonLine(item("card:1", "held", "held"), now), "Needs your OK · held while you were away");
+  assert.equal(reasonLine(item("card:1", "later", "expired", now - 120_000), now), "Needs your OK · held, no answer in time · 2 min ago");
+  assert.equal(reasonLine(item("card:1", "later", "later", now - 60_000), now), "Needs your OK · put off 1 min ago");
   const view = stackView(onStack(initialStack, [item("parked:a"), item("card:1", "waiting", "waiting")], 0), 0)!;
   assert.deepEqual(view.items.map((i) => i.open), ["Open", "Open"]);
   assert.equal(countLine(1), "1 thing needs you");
   assert.equal(countLine(3), "3 things need you");
-  assert.equal(nextLine(view), "Next: Title parked:a");
+  // An OK waiting leads the pile's line, whatever comes first (board 9 §1).
+  assert.equal(nextLine(view), "Needs your OK · Title card:1");
+  const quiet = stackView(onStack(initialStack, [item("parked:a")], 0), 0)!;
+  assert.equal(nextLine(quiet), "Next: Title parked:a");
 });
 
 test("each row's icon says what kind of thing it is, beside its words", () => {

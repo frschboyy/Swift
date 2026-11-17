@@ -38,9 +38,6 @@ const label = getCurrentWindow().label;
 const root = document.getElementById("stage")!;
 let view: PaneView | null = null;
 let lastTouch = 0;
-// Two clicks this close make a double click (the press goes to Rust first, so no dblclick event).
-const DOUBLE_MS = 450;
-let lastClick = 0;
 // Waiting for a click outside the expanded stack (or the tray menu).
 let watching = false;
 // The open stack's row the owner last pointed at.
@@ -382,9 +379,7 @@ root.addEventListener("pointerdown", async (ev) => {
   reportPlace();
   if (moved || !click) return;
   if (click === "stack") {
-    const now = Date.now();
-    if (now - lastClick < DOUBLE_MS) act("stack-expand");
-    lastClick = now;
+    act("stack-expand");  // one click opens the pile (board 9 §1); a drag only moves it
   } else if (click === "item" && clicked?.dataset.id) {
     // A click on a row selects it (its buttons show); Open is one of them.
     selected = clicked.dataset.id;

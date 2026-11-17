@@ -547,7 +547,6 @@ function drawStackInline(): void {
     scheduleRegions();
     return;
   }
-  let lastClick = 0;
   stackEl.replaceChildren(
     view.expanded
       ? el("div", { "data-hit": true }, V.stackOpen(view, {
@@ -557,13 +556,9 @@ function drawStackInline(): void {
       : el("div", { "data-hit": true }, V.stackClosed(view, {
           tabindex: "0",
           onclick: () => {
-            const now = Date.now();
-            if (now - lastClick < 450) {
-              stack = S.expand(stack);
-              void syncEscape();
-              drawStackInline();
-            }
-            lastClick = now;
+            stack = S.expand(stack);
+            void syncEscape();
+            drawStackInline();
           },
         })),
   );

@@ -58,13 +58,13 @@ export function reasonLine(item: StackEntry, now: number): string {
   const since = ago(now - item.since_ms);
   switch (item.reason) {
     case "waiting":
-      return "Waiting for your OK · behind another card";
+      return "Needs your OK · behind another card";
     case "later":
-      return `Waiting for your OK · put off ${since}`;
+      return `Needs your OK · put off ${since}`;
     case "held":
-      return "Waiting for your OK · held while you were away";
+      return "Needs your OK · held while you were away";
     case "expired":
-      return `Waiting for your OK · held, no answer in time · ${since}`;
+      return `Needs your OK · held, no answer in time · ${since}`;
     case "stopped":
       return `Unfinished · stopped before it was done · ${since}`;
     case "unanswered":
@@ -130,5 +130,9 @@ export const freshNeedsOk = (v: StackView): boolean => v.items.some((i) => i.fre
 /** The compressed stack's one line: "3 things need you". */
 export const countLine = (n: number): string => (n === 1 ? "1 thing needs you" : `${n} things need you`);
 
-/** Under it: the one that comes next. */
-export const nextLine = (v: StackView): string => (v.items.length ? `Next: ${v.items[0].title}` : "");
+/** Under it: the one that comes next; an OK waiting always leads, in amber (board 9 §1). */
+export function nextLine(v: StackView): string {
+  const ok = v.items.find((i) => i.icon === "shield");
+  if (ok) return `Needs your OK · ${ok.title}`;
+  return v.items.length ? `Next: ${v.items[0].title}` : "";
+}

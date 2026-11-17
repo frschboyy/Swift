@@ -199,7 +199,7 @@ The report checks: two stopped requests kept; one skipped, one ended from the st
 5. When it has gone into the stack, double-click the stack and click **Open** on it, then click **Reject**.
 
 You should see: lunch picks up on the card where it stopped. The Saturday card counts down in its amber band
-(0:45 … 0:00), then **goes into the stack** ("Waiting for your OK · held, no answer in time"); it is **not** refused.
+(0:45 … 0:00), then **goes into the stack** ("Needs your OK · held, no answer in time"); it is **not** refused.
 Opened from the stack it's back with a fresh 0:45. (Saying "continue" also picks up the last one.)
 
 The report checks: a conversation picked up from the stack; a card that ran out went to the stack, then was answered.

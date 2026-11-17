@@ -3751,37 +3751,3 @@
   test: null
   note: B12 ("Open answer leads back to the answer") can't be judged in the harness until this works there. Whether
     it should open the reader or bring the answer card back is the owner's design call.
-- id: BUI-04
-  title: On claude/b4-diagram-902ffc, show_result runs through _show_checked_shape, but test_shapes.py still tests
-    _show_result, which nothing else calls.
-  source: B UI review, 2026-11-17
-  module: src/swift/executors/claude_code.py, tests/unit/test_shapes.py
-  area: tests
-  severity: medium
-  product_rule: false
-  status: open
-  confidence: confirmed
-  evidence: 'claude_code.py show_result calls shapes.check, then _show_checked_shape; _show_result (line 1054) is
-    referenced only by tests/unit/test_shapes.py (lines 64, 74, 83). Its checks (refused shape clears run.shape)
-    are re-implemented in the tool body.'
-  test: null
-  note: Before merging the branch, point the tests at the tool's real path and delete _show_result.
-- id: BUI-05
-  title: The last three commits on claude/b4-diagram-902ffc (document previews, chart and project cards, the
-    mind-map fix) carry no fix label and touch read permissions and a new open-a-file command; they need a second
-    author's review before merge.
-  source: B UI review, 2026-11-17
-  module: src/swift/executors/read_scope.py, src/swift/previews.py, overlay/src-tauri/src/lib.rs
-  area: process
-  severity: medium
-  product_rule: true
-  status: open
-  confidence: design-concern
-  evidence: 'c654f80, 7da80fb, cf68ffa: one-line messages, no root/partial label (reliability.md §3). read_scope.py
-    permits_preview lets a preview reuse any Read approved in the run (approved_reads); lib.rs open_preview opens a
-    worker-named pdf/docx/pptx/xlsx path on the owner''s click. previews.prepare calls is_file before refusing a UNC
-    path, so a \host\share path is touched before it is refused (only reachable after the path passed the read
-    check). Tests pass (overlay 149, Python suite) and the harness draws every shape.'
-  test: null
-  note: Product rule "a worker's text never chooses a path" applies to Open; the path is shown on the card and the
-    owner clicks, which the rule allows, but the review must say so.

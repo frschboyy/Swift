@@ -1,9 +1,9 @@
-// Dev only (ADR-019 Step A): today's cards in Halo's anatomy, without touching how they behave. The card
+// Halo's anatomy on every card (ADR-019, Step B: the only look). The card
 // renderer (card.ts) draws a card as always, marked with its state; this then moves its parts into a state
 // line and an origin line. The buttons and the live time are the same elements, so their handlers and the
 // once-a-second tick keep working. Words go through textContent only (dom.ts ``el``).
 
-import { el, icon } from "../dom";
+import { el, icon } from "./dom";
 import { needsCompact, tailX } from "./geometry";
 
 const TAIL_PATH = "M0 0C6 0 9 11 12 11C15 11 18 0 24 0";

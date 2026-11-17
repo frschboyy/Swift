@@ -48,6 +48,7 @@ import * as P from "./presenter";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Scenario, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
+import { dressCards } from "./dress";
 import { followTheme } from "./theme";
 import * as V from "./views";
 
@@ -181,8 +182,8 @@ window.setInterval(() => {
 }, 10000);
 
 followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
-// The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.
-if (import.meta.env.DEV) void import("./look").then((look) => look.applyLook(stage));
+// Halo's anatomy on every card, the tail on the orb and the compact rule (ADR-019 Step B).
+dressCards(stage);
 
 /** The push-to-talk hotkey for sentences: "Ctrl+Shift+Space". */
 const pttText = (): string => (pttSpec ? hotkeyParts(pttSpec).join("+") : "the push-to-talk hotkey");

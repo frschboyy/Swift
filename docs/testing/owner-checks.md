@@ -1808,13 +1808,7 @@ The report checks: a yes went ahead with what it sounded like.
 
 About 15 minutes. Nothing here has been seen on your screen: these checks decide whether Halo goes ahead as drawn. Say what you think, not only whether it passes, and click **Reject** on any card. Only the look changes: Swift behaves as it does today, and a release build never shows it.
 
-Quit Swift (Tray → Quit Swift), then in `overlay`:
-
-```powershell
-$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev
-```
-
-To go back to today's look, quit Swift and run `Remove-Item Env:VITE_SWIFT_LOOK` in that terminal before starting it again.
+Halo has been Swift's only look since Step B (2026-11-18): start Swift as usual, no setting needed.
 
 <a id="check-216"></a>**Check 216. Halo's glass is readable over your real screen**
 1. Say "Hey Swift, is it going to rain this afternoon?", then "hey Swift, research the history of tea".

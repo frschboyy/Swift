@@ -1,4 +1,4 @@
-// Halo's two layout rules, pure so Node can test them (ADR-019 Step A).
+// Halo's two layout rules, pure so Node can test them (ADR-019).
 
 /** What the window keeps free of card and deck (SPEC §10: 560 − 466). */
 const WINDOW_KEEPS = 94;

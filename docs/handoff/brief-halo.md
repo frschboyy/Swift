@@ -12,7 +12,7 @@ The working rules are `CLAUDE.md`: a worktree, one finding per commit, a seam te
 
 ## Where this sits in the order of work
 
-ADR-019 §5 and handoff §4: Halo doesn't go ahead of the reliability work, the short real-PC checks or the two weeks of daily use **unless the owner says so**, as they did for the Deck. **Ask the owner before starting Step B.** Step A is small and changes nothing in the release build, so it can go first if the owner wants the look checked early.
+ADR-019 §5 and handoff §4: Halo doesn't go ahead of the reliability work, the short real-PC checks or the two weeks of daily use **unless the owner says so**, as they did for the Deck. **Ask the owner before starting Step B.** (Asked and approved 2026-11-18: ADR-019 §10.) Step A is small and changes nothing in the release build, so it can go first if the owner wants the look checked early.
 
 ## Step A: a look spike (dev builds only)
 
@@ -33,6 +33,10 @@ ADR-019 §5 and handoff §4: Halo doesn't go ahead of the reliability work, the 
 **Then stop** and let the owner run the checks. Record what they find in ADR-019 (a "§8 Step A: checked" section), and change the spec where the PC disagrees with the canvas.
 
 ## Step B: Halo for real, behind today's behaviour (after the owner's go-ahead)
+
+**Approved 2026-11-18:** the owner confirmed that building the B8 handoff includes this step: Halo is the only
+look in debug and release builds, no switch, the old look deleted. Recorded in ADR-019 §10. (The one card
+renderer was built earlier, ADR-019 §9.)
 
 - **Halo becomes the only look;** the switch and the old styles go.
 - **One card renderer:** state line + origin line + blocks + footer (`SPEC.md` §3–§6), replacing the per-kind drawing in `main.ts`. Map today's messages as in `SPEC.md` §14. Small modules with narrow interfaces, not more `main.ts`.

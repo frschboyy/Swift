@@ -37,6 +37,26 @@
   --spin-track: #8ab4ff40;      /* changed */
   --shadow: 0 12px 32px #00000085; /* changed: one shadow for cards and pills */
   color-scheme: dark;
+  /* B8 (handoff/halo-b8/tokens-b8.css, 2026-11-18) */
+  /* The watch as a monitor (B6, decided, not built): the same in both themes. */
+  --mon-bg: #0d1018;
+  --mon-raise: #ffffff0f;
+  --mon-line: #ffffff1a;
+  --mon-text: #e6eaf4;            /* 15.9:1 on --mon-bg */
+  --mon-muted: #b4bbcb;
+  --mon-faint: #8d95a8;           /* 6.1:1 on --mon-bg */
+  --mon-live: #8ab4ff;            /* the LIVE pulse; 8.8:1 on --mon-bg */
+  --mon-ok: #7fd8a4;
+  --mon-bad: #ff8a80;
+  /* The paper view inside the watch: what's being made, as it will look. */
+  --paper: #ffffff;
+  --on-paper: #1b1e27;
+  --paper-faint: #5b6275;
+  /* Worker's content and Worker's pick (B4): grey, never the accent. */
+  --worker-soft: #ffffff1a;
+  --worker-bar: #9da4b6;
+  /* The fade at a card's height cap (B5): --panel at 0% alpha. */
+  --card-fade: #1c203000;
 }
 
 #stage[data-theme="light"] {
@@ -72,6 +92,22 @@
   --spin-track: #2357c933;
   --shadow: 0 12px 32px #1a2a5533;
   color-scheme: light;
+  /* B8 */
+  --mon-bg: #0d1018;
+  --mon-raise: #ffffff0f;
+  --mon-line: #ffffff1a;
+  --mon-text: #e6eaf4;
+  --mon-muted: #b4bbcb;
+  --mon-faint: #8d95a8;
+  --mon-live: #8ab4ff;
+  --mon-ok: #7fd8a4;
+  --mon-bad: #ff8a80;
+  --paper: #ffffff;
+  --on-paper: #1b1e27;
+  --paper-faint: #5b6275;
+  --worker-soft: #1215221a;
+  --worker-bar: #5b6275;
+  --card-fade: #fafbff00;
 }
 
 #stage {
@@ -102,4 +138,15 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --orb-fill: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), transparent 42%), radial-gradient(circle, #8ab4ff, #4f7bdc 78%);
+  /* B8 */
+  /* Motion (B7). Reduced motion replaces every one with --dur-reduced, a linear crossfade. */
+  --dur-grow: 280ms;    --ease-grow: cubic-bezier(0.22, 1, 0.36, 1);   /* card out of the orb; Show all */
+  --dur-tail: 120ms;                                                    /* the tail settles, after grow */
+  --dur-fold: 220ms;    --ease-fold: cubic-bezier(0.4, 0, 1, 1);       /* card into the orb; Show less */
+  --dur-edge: 320ms;                                                    /* edge forward to card; uses --ease */
+  --dur-drain: 400ms;                                                   /* Done leaving after its reading time */
+  --dur-reduced: 120ms;
+  /* Geometry (B5) */
+  --card-w-expanded: 640px;
+  --cap-fade-h: 56px;
 }

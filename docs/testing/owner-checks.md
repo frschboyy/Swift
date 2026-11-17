@@ -2844,6 +2844,20 @@ the answer names the provider either.
 
 The report checks: nothing to judge from the log; tell us what you saw.
 
+### Missed "hey Swift" kept to tune on (2026-11-17)
+
+About 3 minutes, in a quiet room. Nothing here sends anything.
+
+<a id="check-keep-detector-misses-1"></a>**Check keep-detector-misses-1. A "hey Swift" Swift didn't take is kept, flagged as missed**
+1. Restart Swift. Say "Hey Swift" ten times, a few seconds apart, without a request after it.
+2. Open the logs folder (tray icon → **Open logs folder**), then the `audio` folder next to it.
+
+You should see: in `swift.log`, a "recordings: missed wake phrase kept" line with `source='detector'` for some of
+the tries Swift didn't take; in `audio`, a `miss-….wav` for each, and in `index.json` its entry with
+`"source": "detector_miss"` and `"flags": ["missed_wake"]`, without any words. Tell us how many of the ten Swift took.
+
+The report checks: nothing to judge from the log yet; tell us the count.
+
 ### A request ends when you stop, even with people talking (2026-11-17)
 
 About 5 minutes, with a talk video or podcast playing on another device or across the room. Nothing here sends

@@ -456,7 +456,9 @@
   confidence: confirmed
   evidence: four strict xfails still fail 2026-11-12
   test: tests/unit/test_seams_audit_speech.py::test_s07_no_over_the_card_hint_is_the_owner
-  note: Also test_s07b, test_s08, test_s09. The AEC trial (S5) hasn't started.
+  note: 'Also test_s07b, test_s08, test_s09. The AEC trial (S5, audio.echo_cancellation, d59d29c): on
+    2026-11-17 in a quiet room the owner''s "hey Swift" was taken about 3 times in 8-10 with it on, 9 in 10 with it
+    off (21:21-21:26 and 21:34-21:37, swift.log). Windows'' communications processing hurts waking; it stays off.'
 - id: V-03
   title: Speech confidence is three measures tuned case by case, and the logged number isn't the deciding one.
   source: docs/audit/2026-11-seams-audit.md §3.4

@@ -5,7 +5,8 @@ A recording is kept only when it can improve transcription, and only on this PC:
 - **Flagged** when it is saved, for any of these reasons (``FLAGS``):
   ``unsure`` (the model was unsure of a word), ``say_again`` (Swift asked to say it again),
   ``repeated`` (the owner said it again, or corrected it, within a few seconds), ``missed_wake``
-  (speech just before a wake phrase or the hotkey, which Swift didn't take as addressed to it),
+  (speech just before a wake phrase or the hotkey, which Swift didn't take as addressed to it, or that the
+  acoustic detector heard as "Hey Swift" and the speech check turned down),
   ``failed`` (the request failed).
 - **Known words:** a repeat or correction heard surely gives the words the owner meant for the
   clip before it. They are the only words written down, in the index next to the clips.
@@ -30,6 +31,7 @@ import re
 import shutil
 import threading
 import time
+import uuid
 import wave
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -144,6 +146,23 @@ class Recordings:
         ``MISSED_WAKE_S`` only: saved only if the owner addresses Swift right after it."""
         if self.enabled:
             self._unaddressed = _Unaddressed(np.asarray(audio).copy(), self.mono())
+
+    def keep_detector_miss(self, audio: np.ndarray) -> None:
+        """Speech the acoustic detector heard as "Hey Swift" but the speech check turned down (ADR-021):
+        a likely missed wake phrase, saved at once and flagged, to tune the wake phrase on. Never raises."""
+        path = self.path_for(f"miss-{uuid.uuid4().hex}")
+        if path is None:
+            return
+        try:
+            save_wav(path, np.asarray(audio))
+        except OSError as exc:
+            logger.warning("recordings: could not save a clip", error=type(exc).__name__)
+            return
+        self._write_entry({
+            "id": path.stem, "ts": round(self.clock(), 1), "audio_s": round(len(audio) / SAMPLE_RATE, 2),
+            "source": "detector_miss", "flags": ["missed_wake"],
+        })
+        logger.info("recordings: missed wake phrase kept", source="detector")
 
     def note(self, record: dict[str, Any]) -> list[str]:
         """An interaction finished: flag its clip, perhaps the clip before it, and a missed wake

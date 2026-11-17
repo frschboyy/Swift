@@ -454,6 +454,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     session.on_recordings = _recordings_action(recordings, session, improve)
     if wake.enabled:
         session.on_unaddressed = recordings.heard_unaddressed  # in memory; saved only before a wake phrase
+        session.on_detector_miss = recordings.keep_detector_miss  # the detector heard it, the speech check didn't
     upkeep = asyncio.create_task(  # noqa: F841 - lives as long as the backend
         _keep_recordings(recordings, session, improve if settings.audio.improve_weekly else None)
     )

@@ -209,6 +209,17 @@ def test_missed_wake_phrase_is_saved_only_when_the_owner_addresses_swift_right_a
     assert sorted(p.name for p in rec.audio_dir.glob("*-miss.wav")) == ["w-miss.wav"]
 
 
+
+def test_a_wake_phrase_the_detector_heard_and_the_speech_check_turned_down_is_kept(rec: Recordings,
+                                                                                    tmp_path: Path) -> None:
+    rec.keep_detector_miss(tone(1.5))
+    (entry,) = index(rec).values()
+    assert entry["flags"] == ["missed_wake"] and entry["source"] == "detector_miss" and "transcript" not in entry
+    assert (rec.audio_dir / f"{entry['id']}.wav").exists()
+    off = Recordings(tmp_path / "off", tmp_path / "t2", keep_days=0)
+    off.keep_detector_miss(tone(1.5))  # recordings off: nothing saved
+    assert not (tmp_path / "off").exists() or not list((tmp_path / "off").glob("*.wav"))
+
 def test_typed_and_swift_own_requests_are_not_flagged(rec: Recordings, clock: Clock) -> None:
     assert finish(rec, clock, "typed", source="typed", confidence=0.1, audio=False) == []
     assert finish(rec, clock, "pass", source="improve", confidence=None, audio=False) == []

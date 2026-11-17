@@ -855,10 +855,13 @@ async def test_a_wake_phrase_only_the_detector_heard_starts_the_request_on_scree
 async def test_the_detector_alone_starts_nothing() -> None:
     session, out, _records, agent, stt = asker(parked=ParkedThreads(None))
     session.acoustic = Detector()
+    kept: list[Any] = []
+    session.on_detector_miss = kept.append
     script(stt, "a swift reply would be nice", "Nice.", "Would be nice.", "A reply would be nice.")
     await session.hear_wake(SHORT, time.monotonic())
     await asyncio.sleep(0.05)
     assert agent.requests == [] and session.wake_stats["acoustic_rejected"] == 1
+    assert len(kept) == 1  # saved as a likely missed wake phrase, to tune on (2026-11-17)
     assert session.wake_stats["other_speech"] == 1  # what it was before ADR-021
     assert agree(session, out)["stage"] not in ("working", "confirm")
 
@@ -876,9 +879,12 @@ async def test_the_screen_locking_while_the_second_way_in_checks_starts_nothing(
         return heard
 
     stt.transcribe = locks
+    kept: list[Any] = []
+    session.on_detector_miss = kept.append
     await session.hear_wake(SHORT, time.monotonic())
     await asyncio.sleep(0.05)
     assert agent.requests == [] and session.wake_stats["acoustic_wake"] == 0
+    assert kept == []  # the speech check agreed: turned down for the lock, not a miss to keep
     agree(session, out)
 
 

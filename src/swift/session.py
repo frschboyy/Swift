@@ -923,6 +923,7 @@ class Session:
         self.on_listen: Callable[[bool], Awaitable[None]] | None = None
         # Speech the open microphone heard that wasn't for Swift (in memory: a missed wake phrase?).
         self.on_unaddressed: Callable[[Any], None] | None = None
+        self.on_detector_miss: Callable[[Any], None] | None = None  # the second way in turned down (saved)
         # The tray's "Clear saved recordings" and "Improve speech recognition" (audit B-06).
         self.on_recordings: Callable[[str], Awaitable[None]] | None = None
         # The agent refused for its sign-in: Swift offers to sign in again (``swift.signin``).
@@ -2078,6 +2079,8 @@ class Session:
         locked = self._deaf() or changes != self._listening_changes
         if found is None or locked or self._front_busy() or self._capturing():
             self.wake_stats["acoustic_rejected"] += 1
+            if found is None and self.on_detector_miss is not None:
+                self.on_detector_miss(audio)  # the detector heard the name, the speech check didn't: kept to tune on
             return heard, None
         self.wake_stats["acoustic_wake"] += 1
         match, request = found

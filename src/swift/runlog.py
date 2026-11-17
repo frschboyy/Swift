@@ -6,7 +6,6 @@ Fields (absent when they don't apply):
 - ``source``: "voice", "debug.run" or "debug.ask"
 - ``transcript``, ``audio_s``, ``first_audio_ms`` (key-down to first audio), ``preroll_ms`` (audio from before the key-down), ``stt_ms`` and ``stt_model``
 - ``peak_db`` (loudest 32 ms of the recording, dBFS) and ``audio_file`` (when ``stt.save_audio`` is on)
-- ``transcript_raw``: what the model heard, when word fixes changed it
 - ``route`` (control, local, claude), ``action`` (control/local), ``demand`` and ``override`` (claude)
 - ``start_model``, ``models`` (every model that ran) and ``escalations``: ``[{to, by, reason, t_ms}]`` (Claude Code)
 - ``executor``, ``run_ms`` (the executor's run), ``interaction_ms`` (key-down to result)
@@ -36,7 +35,7 @@ from loguru import logger
 from swift import __version__
 
 FIELD_ORDER = (
-    "ts", "id", "source", "transcript", "transcript_raw", "audio_s", "first_audio_ms", "preroll_ms", "stt_ms", "stt_model",
+    "ts", "id", "source", "transcript", "audio_s", "first_audio_ms", "preroll_ms", "stt_ms", "stt_model",
     "peak_db", "audio_file",
     "route", "action", "demand", "override", "start_model", "models", "escalations",
     "executor", "run_ms", "interaction_ms", "steps", "status", "error", "reason", "approvals",
@@ -58,7 +57,8 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
     "thread", "turns", "undo", "views", "workflow",
 })
 # Fields that stay out on purpose: words, or the name or path of something of the owner's. Also
-# ``continues``, which is taken off the record before it finishes.
+# ``continues``, which is taken off the record before it finishes, and ``transcript_raw``, which only
+# older records have (word fixes, removed 2026-11-17).
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
     "addressed_as", "answers", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "id", "steps", "target",
     "transcript", "transcript_heard", "transcript_raw", "ts", "unclear",

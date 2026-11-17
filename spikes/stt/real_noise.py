@@ -5,7 +5,7 @@ Usage (from the repo root):
   .venv\\Scripts\\python spikes/stt/corpus.py read --prompts spikes/stt/prompts_noisy.txt --condition tv
   .venv\\Scripts\\python spikes/stt/real_noise.py
 
-Runs each clip through Swift's own transcriber (engine, word fixes and the
+Runs each clip through Swift's own transcriber (engine and the
 reject_p / unclear_p thresholds from config.yaml) and reports, per condition:
 WER, how often Swift would act / name unclear words / refuse, and, for clips with
 nobody speaking, whether anything was invented. The same sentences from the clean

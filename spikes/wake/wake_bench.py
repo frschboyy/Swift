@@ -4,7 +4,7 @@ ADR-020 decision 2. Nothing here is imported by src/swift, and nothing leaves th
 copied into --out (outside git), transcribed locally with Parakeet, and scored locally.
 
   build  copy the owner's saved clips into --out and write manifest.jsonl (ids, labels, durations; no text)
-  stt    transcribe every clip with Parakeet (+ the owner's word fixes) and score swift.wake.match_wake
+  stt    transcribe every clip with Parakeet and score swift.wake.match_wake
   align  when the name ends in each positive clip (Parakeet's token times), for the latency column
   oww    stream every clip through openWakeWord and score it (needs a model: --model NAME_OR_PATH)
   viola  stream every clip through a ViolaWake model (--model PATH.onnx), scored like oww
@@ -163,13 +163,12 @@ def build(out: Path) -> None:
 def stt(out: Path, whisper: bool) -> None:
     import psutil
 
-    from swift.stt.fixes import WordFixes
     from swift.stt.transcriber import ParakeetTranscriber, WhisperTranscriber
 
     rows = load_jsonl(out / "manifest.jsonl")
     proc = psutil.Process()
     rss0 = proc.memory_info().rss
-    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4, fixes=WordFixes.load(SWIFT / "word_fixes.json"))
+    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4)
     stt._load()
     if stt._error is not None:
         sys.exit(f"{stt._error} {stt._error.hint}")
@@ -406,7 +405,6 @@ def detections(out: Path, rows: list[dict], tags: list[str], thresholds: list[fl
 def stage2(out: Path, labels: Path | None, tags: list[str], thresholds: list[float], patience: int,
            porcupine_tags: list[str]) -> None:
     """Transcribe the windows each detector fired on, as stage 2 would live; cached in stage2.json."""
-    from swift.stt.fixes import WordFixes
     from swift.stt.transcriber import ParakeetTranscriber
 
     path = out / "stage2.json"
@@ -414,7 +412,7 @@ def stage2(out: Path, labels: Path | None, tags: list[str], thresholds: list[flo
     rows = labelled(out, labels)
     todo = {(r["id"], hit[r["id"]]) for _, hit in detections(out, rows, tags, thresholds, patience, porcupine_tags)
             for r in rows if hit[r["id"]] is not None and heard_key(r["id"], hit[r["id"]]) not in heard}
-    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4, fixes=WordFixes.load(SWIFT / "word_fixes.json"))
+    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4)
     stt._load()
     for i, (cid, t) in enumerate(sorted(todo), 1):
         print(f"\rstage2 {i}/{len(todo)}", end="", flush=True)

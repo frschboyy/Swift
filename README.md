@@ -211,10 +211,8 @@ Accuracy and speed are from `spikes/stt` on 40 read requests, plugged in. Memory
 ```
 
 - **Silence:** both engines skip near-silent recordings and trim silence at the start and end before transcribing.
-- **Word fixes (both engines):** a phrase the model keeps mishearing can be corrected after transcription, for example `word_fixes: {"tori": "Tauri"}` in `config.yaml`. Matching ignores case, only whole words match, and spaces and hyphens are treated alike. When a fix changes a transcript, the interaction log keeps the original as `transcript_raw`.
-- **Learned word fixes:** `spikes/stt/learn_fixes.py` transcribes your test set (below), finds the phrases the engine got wrong, and asks you about each one. The ones you keep go to `%LOCALAPPDATA%\Swift\word_fixes.json` (`stt.word_fixes_file`), loaded at startup. Fixes in `config.yaml` win over learned ones. Reject fixes that would change a real word, such as "deadlock" → "git log". Rerun it as you label more recordings.
-- **Vocabulary (Whisper only):** put names and jargon you say often in `initial_prompt`. Whisper follows its spelling. Parakeet has no prompt, so use word fixes instead.
-- **Recordings (audit B-06):** a request's recording is kept only when it can improve transcription: heard unsurely, "say it again", said again or corrected, a missed wake phrase, a failed request. It is deleted after `audio.keep_days` (7; 0 saves nothing). Clips with the words you meant become a local test set (at most 200). The tray's **Improve speech recognition** proposes word fixes for you to approve and checks accuracy; it also runs weekly. **Clear saved recordings** deletes everything. `audio.keep_all: true` keeps every recording for `keep_days`, for debugging. The interaction log's `audio_file` names the clip, which may be gone by now. Nothing leaves this PC; see `docs/stt-models.md` §Recordings.
+- **Vocabulary (Whisper only):** put names and jargon you say often in `initial_prompt`. Whisper follows its spelling. Parakeet has no prompt.
+- **Recordings (audit B-06):** a request's recording is kept only when it can improve transcription: heard unsurely, "say it again", said again or corrected, a missed wake phrase, a failed request. It is deleted after `audio.keep_days` (7; 0 saves nothing). Clips with the words you meant become a local test set (at most 200). The tray's **Improve speech recognition** checks accuracy; it also runs weekly. **Clear saved recordings** deletes everything. `audio.keep_all: true` keeps every recording for `keep_days`, for debugging. The interaction log's `audio_file` names the clip, which may be gone by now. Nothing leaves this PC; see `docs/stt-models.md` §Recordings.
 
 ### Comparing speech models on your voice
 
@@ -226,7 +224,6 @@ uv run --group sttbench python spikes/stt/corpus.py read        # read ~40 sente
 uv run --group sttbench python spikes/stt/corpus.py label       # correct transcripts of Swift's saved recordings
 uv run --group sttbench python spikes/stt/bench.py --download   # fetch every model once (~1.5 GB)
 uv run --group sttbench python spikes/stt/bench.py              # WER and speed per model
-uv run --group sttbench python spikes/stt/learn_fixes.py        # review word fixes for Swift's engine
 ```
 
 - **The test set** lives in `%LOCALAPPDATA%\Swift\stt_corpus`, never in git. `read` records you reading `spikes/stt/prompts.txt`. Recording starts before you speak, so nothing is clipped. `label` works through push-to-talk clips Swift saved (`stt.save_audio: true`), which are closer to real use.

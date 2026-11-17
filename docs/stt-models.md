@@ -44,7 +44,7 @@ What the failed clips became:
 - **What fails is the same in every model:** the name "Swift" after "hey", the names "Test Me" and "Swift check", and short words said hard ("write", "research"). No model fixes them. So the fixes are in Swift, not in the model:
   - **The name.** A misheard name at the start of a hotkey request ("Hey Crift", "Hey thrift") is now set aside before Swift judges how sure the model was. So are "um" and "uh". Two of the day's refusals, at 17:40 and 17:59, began that way.
   - **Say it again.** A request that is still mostly guesses gets "I didn't catch that. Try saying it again." instead of an action. This now covers wake requests and replies too, which used to act on any guess.
-  - **Word fixes.** The owner can add these through `spikes/stt/learn_fixes.py`, which asks before saving each one. Candidates from today: "swift stack" / "swift deck" / "swiftstec" → "Swift check", and "hethme" / "testme" → "Test Me". Swift doesn't write fixes by itself.
+  - **Word fixes** (removed 2026-11-17: rigid, context-free rewrites). At the time the owner could add these through `spikes/stt/learn_fixes.py`, which asked before saving each one. Candidates from today: "swift stack" / "swift deck" / "swiftstec" → "Swift check", and "hethme" / "testme" → "Test Me". Swift doesn't write fixes by itself.
 
 ## The microphone (Intel SST array): gain and AGC
 
@@ -101,17 +101,11 @@ Earlier spikes used the owner's clips by hand: this comparison, `docs/stt-noise.
 
 **The improvement pass.** It runs from the tray's **Improve speech recognition**, and once a week while the owner is here and nothing runs (`audio.improve_weekly`). The code is in `swift/stt/improve.py` and `swift/executors/improve.py`. Over the test set it:
 
-1. **Proposes word fixes.** It uses `learn_fixes.py`'s rules: no formatting-only differences, no errors at the start of a clip, at most three words, and nothing the owner also said for real. Fixes already kept or rejected are left out. The fixes are shown on **one confirm card**:
-   - Approve: they go to `stt.word_fixes_file` and are used at once.
-   - Reject: they are never proposed again.
-   - No answer within 5 minutes: they are asked again next time.
-
-   Nothing is applied without the card.
-2. **Checks accuracy, clean and in noise.** This is `model_compare.py`'s WER with Swift's model and fixes, plus `noise_bench.py`'s pink noise at 10 dB SNR.
+1. **Checks accuracy, clean and in noise.** This is `model_compare.py`'s WER with Swift's model, plus `noise_bench.py`'s pink noise at 10 dB SNR.
    - Each clip is compared with the last pass, on the clips both passes saw.
    - A rise of more than 2 points is reported on the result card.
    - `improve.json` keeps per-clip word and error counts only.
-3. **Feeds end-of-speech tuning.** It writes `endpoint_feed.json` in the test set's folder. Per clip, that file holds the length, the silence before and after the speech, the longest pause inside it, the flags, and for test-set clips the word count. It holds no words. ADR-016 §5.1 (`swift/endpoint.py`, `spikes/endpointing`) can read it.
+2. **Feeds end-of-speech tuning.** It writes `endpoint_feed.json` in the test set's folder. Per clip, that file holds the length, the silence before and after the speech, the longest pause inside it, the flags, and for test-set clips the word count. It holds no words. ADR-016 §5.1 (`swift/endpoint.py`, `spikes/endpointing`) can read it.
 
 For the full comparison across models, `spikes/stt/model_compare.py --sets kept` runs the test set as its own set.
 

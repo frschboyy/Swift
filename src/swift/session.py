@@ -2647,8 +2647,6 @@ class Session:
             record["peak_db"] = result.peak_db
         if result.noise_db is not None:
             record["noise_db"] = result.noise_db
-        if result.raw_text is not None:
-            record["transcript_raw"] = result.raw_text
         text = result.text
         # The name at the start says nothing about the request: it doesn't count toward how sure
         # the model was ("Hey Crift, research about um Mozart" was refused, 2026-10-27).

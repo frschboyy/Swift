@@ -473,15 +473,15 @@
 - id: W-01
   title: Word-fix proposals swap common words without context ("text" to "Test").
   source: docs/audit/2026-11-seams-audit.md §3.5
-  module: src/swift/stt/improve.py, src/swift/stt/fixes.py
+  module: src/swift/stt/improve.py
   area: speech
   severity: medium
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: two strict xfails still fail 2026-11-12
-  test: tests/unit/test_seams_audit_stt.py::test_text_to_test_is_not_proposed
-  note: null
+  evidence: word fixes removed 2026-11-17 at the owner's request (branch claude/remove-word-fixes); no proposals are made
+  test: null
+  note: Fixed by removing the feature, not by making proposals safe; its xfails went with it.
 - id: W-03
   title: The speech regression gate is aggregate-only, so one sentence going wrong passes.
   source: docs/audit/2026-11-seams-audit.md §3.5
@@ -1195,15 +1195,16 @@
 - id: W-02
   title: Two enabled word fixes rewrite rare real words ("tori", "distal").
   source: docs/audit/2026-11-seams-audit.md §3.5
-  module: src/swift/stt/fixes.py
+  module: src/swift/stt/transcriber.py
   area: speech
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: strict xfail still fails 2026-11-12
-  test: tests/unit/test_seams_audit_stt.py::test_word_fixes_do_not_rewrite_a_correct_common_word
-  note: null
+  evidence: word fixes removed 2026-11-17 (branch claude/remove-word-fixes); transcripts are no longer rewritten. The
+    owner's word_fixes.json is left on disk, unread
+  test: null
+  note: Fixed by removing the feature; its xfail went with it.
 - id: X-13
   title: A cancelled or killed run reports no cost.
   source: docs/audit/2026-11-seams-audit.md §3.7
@@ -2321,15 +2322,15 @@
 - id: II-04
   title: The speech model writes 'tea' as the letter 'T' ('Research the history of T').
   source: docs/audit/2026-11-08-interaction-investigation.md checks 196-197, §3.3
-  module: src/swift/stt/fixes.py
+  module: src/swift/stt/transcriber.py
   area: speech
   severity: low
   product_rule: false
   status: unproven
   confidence: confirmed
-  evidence: 4 recordings (doc); word-fix corpus not checked for this pair
+  evidence: 4 recordings (doc)
   test: null
-  note: Proposed as a learned word fix; not rechecked.
+  note: Was proposed as a learned word fix; word fixes were removed 2026-11-17, so this needs another remedy.
 - id: II-09
   title: 'Check 193: an ellipsis appeared in an answer.'
   source: docs/audit/2026-11-08-interaction-investigation.md check 193

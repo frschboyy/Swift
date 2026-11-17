@@ -43,7 +43,7 @@ The fixes on the branch are real, but several are special cases: a word swap for
 - **The open question doesn't come first.** A reply is judged as words. Its link to the question on screen is checked only after "is this a new request?".
 - **Recovery is in the agent's prompt.** Whether Swift offers a guess, retries or gives up depends on the model's wording.
 - **Wake detection is speech-to-text.** 10 of 21 wake-ups needed a second "Hey Swift". On the saved clips, the first was heard as "He had swift", "And Swift", "They're swift", "He's wave", and similar. Text matching can't safely accept those.
-- **Learning stops at words.** Saved recordings improve word fixes (`stt/fixes.py`), but nothing learns that "wafer" meant Wi-Fi in that sentence, or which wording the owner uses for which request.
+- **Learning stops at words.** Saved recordings measure accuracy (`stt/improve.py`; word fixes were removed 2026-11-17), but nothing learns that "wafer" meant Wi-Fi in that sentence, or which wording the owner uses for which request.
 
 ## 3. Options
 

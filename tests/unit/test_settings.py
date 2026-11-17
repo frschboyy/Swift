@@ -68,6 +68,13 @@ def test_invalid_file_refuses_to_start(tmp_path: Path, text: str) -> None:
         load_settings(f)
 
 
+def test_a_retired_setting_is_ignored(tmp_path: Path) -> None:
+    # Word fixes were removed (2026-11-17); an older config.yaml that still has them must start.
+    path = tmp_path / "config.yaml"
+    path.write_text('stt:\n  word_fixes: {"tori": "Tauri"}\n  word_fixes_file: "x.json"\n  cpu_threads: 2\n', encoding="utf-8")
+    assert load_settings(path).stt.cpu_threads == 2
+
+
 def test_audio_preroll_defaults_off_and_is_bounded(tmp_path: Path) -> None:
     assert Settings().audio.preroll_s == 0.0
     f = tmp_path / "config.yaml"

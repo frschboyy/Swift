@@ -405,7 +405,7 @@ async def test_a_comparison_reaches_the_done_card_as_one() -> None:
 
 async def test_a_diagram_reaches_the_done_card_as_one() -> None:
     """B4, diagram: Mermaid source Swift checked (swift/shapes.py) goes through the real session to the answer card
-    as a diagram block, its source kept for Copy; a long one opens in full (owner check b4-diagram-902ffc-1)."""
+    as a diagram block, its source kept for Copy; a long one opens in full (owner check 402)."""
     steps = [f"  S{i} --> S{i + 1}" for i in range(13)]
     for lines, long in [(steps[:3], False), (steps, True)]:
         session, out, agent, stt, _control, _sched = _lane()
@@ -424,7 +424,7 @@ async def test_a_diagram_reaches_the_done_card_as_one() -> None:
 
 async def test_a_mind_map_reaches_the_done_card_as_one() -> None:
     """B4, mind map: a tree Swift checked (swift/shapes.py) goes through the real session to the answer card as a
-    mind map, its ideas as indented lines; more than twelve ideas open in full (owner check b4-diagram-902ffc-2)."""
+    mind map, its ideas as indented lines; more than twelve ideas open in full (owner check 403)."""
     branches = [{"label": f"Branch {b}", "children": [{"label": f"Idea {b}.{i}"} for i in range(3)]} for b in range(4)]
     for children, long in [(branches[:2], False), (branches, True)]:
         session, out, agent, stt, _control, _sched = _lane()
@@ -442,7 +442,7 @@ async def test_a_mind_map_reaches_the_done_card_as_one() -> None:
 
 async def test_a_chart_reaches_the_done_card_as_one() -> None:
     """B4, chart: checked numeric data reaches the result as a chart; seven categories open in full (owner check
-    b4-diagram-902ffc-6)."""
+    407)."""
     examples = [
         ({"shape": "chart", "title": "Quarterly sales", "type": "bar", "x": ["Q1", "Q2", "Q3"],
           "series": [{"name": "North", "values": [12, 18, 15]}, {"name": "South", "values": [9, 14, 17]}],
@@ -468,7 +468,7 @@ async def test_a_chart_reaches_the_done_card_as_one() -> None:
 
 async def test_project_cards_reach_the_done_card_as_one() -> None:
     """B4, cards: bounded project summaries reach the result; a fourth project opens in full (owner check
-    b4-diagram-902ffc-7)."""
+    408)."""
     examples = [
         ({"shape": "cards", "title": "Current projects", "cards": [
             {"title": "Website refresh", "detail": "Update the homepage.", "meta": "Planning"},

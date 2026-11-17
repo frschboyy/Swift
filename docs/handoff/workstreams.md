@@ -164,4 +164,4 @@ All taken from the orchestrator's recommendations:
   never on Needs your OK or Waiting for you (6). The first slice, `show_result` and **compare**, is on `main`
   (check 400). **Diagrams** (Mermaid's tiny build, lazy, strict), **mind maps** (Swift's own code), **document
   previews**, **charts**, and **project cards** are implemented on `claude/b4-diagram-902ffc`; automated checks pass.
-  Owner checks b4-diagram-902ffc-3 through -7 are pending the owner's real-PC run.
+  Owner checks 404 through -7 are pending the owner's real-PC run.

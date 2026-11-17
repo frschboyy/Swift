@@ -375,7 +375,7 @@ scaling, forced colours and reduced motion.
   not copied or read aloud; the Tauri command canonicalizes it and accepts only the four supported extensions.
 - Verified with synthetic PDF/OOXML fixtures, the overlay tests and production build, Rust tests, and a wheel
   inspection. The dev harness showed the PDF image/page count and the Office excerpt with **Open** and **Read more**.
-  No personal documents were opened. Owner checks b4-diagram-902ffc-4 and -5 are pending.
+  No personal documents were opened. Owner checks 405 and -5 are pending.
 
 **Slice 4a, charts (2026-11-15, branch `claude/b4-diagram-902ffc`):**
 - `chart`: one bar or line chart, with 2–8 short categories and 1–4 named series. Values must be finite and within
@@ -385,14 +385,14 @@ scaling, forced colours and reduced motion.
   colors, and line series have different dash patterns. Its SVG has a text description; Copy emits a tab-separated
   table of every category and value, not the SVG or only the visible subset. The worker's data is marked as not
   checked by Swift.
-- The owner check is b4-diagram-902ffc-6. Project cards followed in slice 4b.
+- The owner check is 407. Project cards followed in slice 4b.
 
 **Slice 4b, project cards (2026-11-15, branch `claude/b4-diagram-902ffc`):**
 - `cards`: 1–8 read-only project summaries, each with a plain-text title (80 characters at most) and optional
   detail (120) and meta (48). Larger or text-heavy sets are marked expanded by Swift.
 - The card shows up to three projects in a responsive neutral grid; the reader shows all of them. Copy includes
   every title, detail and meta line. Each card is marked as the worker's data, not a Swift recommendation.
-- The owner check is b4-diagram-902ffc-7. B4 step 4 now has both approved shapes; checks 6 and 7 remain for the
+- The owner check is 408. B4 step 4 now has both approved shapes; checks 6 and 7 remain for the
   owner to run.
 
 

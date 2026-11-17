@@ -2741,7 +2741,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 4 minutes, on the branch with B4's second slice. Nothing here sends anything.
 
-<a id="check-b4-diagram-902ffc-1"></a>**Check b4-diagram-902ffc-1. A diagram shows as a drawing, marked as the worker's**
+<a id="check-402"></a>**Check 402. A diagram shows as a drawing, marked as the worker's**
 1. Say "Hey Swift, draw me a diagram of how making a cup of tea works, from boiling the kettle to drinking it".
 2. When the answer shows, look at the card. If it has **Read more**, press it. Then press **Copy** and paste into
    Notepad.
@@ -2756,7 +2756,7 @@ this diagram", or step 1 shows only words, say so.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
-<a id="check-b4-diagram-902ffc-2"></a>**Check b4-diagram-902ffc-2. A mind map shows as branches, marked as the worker's**
+<a id="check-403"></a>**Check 403. A mind map shows as branches, marked as the worker's**
 1. Say "Hey Swift, make me a mind map of ideas for a birthday party for a ten-year-old".
 2. When the answer shows, look at the card, press **Read more** if it's there, then press **Copy** and paste into
    Notepad.
@@ -2768,7 +2768,7 @@ Read more shows them all. Step 2 pastes the map as indented lines, one idea per 
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
-<a id="check-b4-diagram-902ffc-3"></a>**Check b4-diagram-902ffc-3. A large mind map shows every branch before deeper ideas**
+<a id="check-404"></a>**Check 404. A large mind map shows every branch before deeper ideas**
 1. Say "Hey Swift, make me a birthday-party mind map with lots of games, plus branches for food, invites, music and decorations".
 2. Look at the card; scroll inside the map only if its preview is shorter than the branches.
 3. Press **Read more**, then **Copy** and paste into Notepad.
@@ -2783,7 +2783,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 5 minutes. Use files in Documents or Downloads that you're comfortable seeing on screen. Nothing is sent.
 
-<a id="check-b4-diagram-902ffc-4"></a>**Check b4-diagram-902ffc-4. A PDF preview shows its first page**
+<a id="check-405"></a>**Check 405. A PDF preview shows its first page**
 1. Ask Swift to preview a PDF in Documents or Downloads.
 2. Look at the card, then press **Open**.
 
@@ -2792,7 +2792,7 @@ in its usual app. The path is not shown in the answer. If the preview is missing
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
-<a id="check-b4-diagram-902ffc-5"></a>**Check b4-diagram-902ffc-5. Word, PowerPoint and Excel previews show document text**
+<a id="check-406"></a>**Check 406. Word, PowerPoint and Excel previews show document text**
 1. Ask Swift to preview a DOCX, then a PPTX, then an XLSX file in Documents or Downloads.
 2. Check that the DOCX shows its text, the PPTX shows the first slide's text, and the XLSX shows the first worksheet's text.
 3. Press **Open** on one preview.
@@ -2806,7 +2806,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 5 minutes. Use sample numbers; no files or accounts are needed.
 
-<a id="check-b4-diagram-902ffc-6"></a>**Check b4-diagram-902ffc-6. Bar and line charts show their data**
+<a id="check-407"></a>**Check 407. Bar and line charts show their data**
 1. Ask Swift: "Make a bar chart of North and South sales for Q1, Q2 and Q3: North 12, 18, 15; South 9, 14, 17."
 2. Check that the labels, values, units and two series are visible, and that the chart is marked as the worker's.
 3. Ask Swift: "Make a line chart for North's weekly values: W1 10, W2 11, W3 13, W4 12, W5 15, W6 16, W7 18."
@@ -2821,7 +2821,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 3 minutes. Use sample text only; no files or accounts are needed.
 
-<a id="check-b4-diagram-902ffc-7"></a>**Check b4-diagram-902ffc-7. Project cards are readable and copy completely**
+<a id="check-408"></a>**Check 408. Project cards are readable and copy completely**
 1. Ask Swift: "Show four projects as cards: Website refresh, planning, update the homepage; Data migration, in progress, move the archive; Mobile app, next quarter, improve offline access; Reporting, planned, combine project metrics."
 2. Look at the first three cards and their worker mark. Press **Read more** and check that Reporting appears.
 3. Press **Copy** and check that all four titles, details and statuses are included.
@@ -2835,7 +2835,7 @@ The report checks: nothing to judge from the log yet; tell us what you saw.
 
 About 1 minute. Nothing here sends anything.
 
-<a id="check-byline-no-provider-1"></a>**Check byline-no-provider-1. An agent's answer is signed "Swift" alone**
+<a id="check-409"></a>**Check 409. An agent's answer is signed "Swift" alone**
 1. Say "Hey Swift, what are three good teas for the evening?" (it goes to the agent).
 2. When the answer shows, read its footer, left of Copy.
 

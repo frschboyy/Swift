@@ -3704,7 +3704,7 @@
     isn''t available, so another one is taking this". The new tests fail on the old byline (checked).'
   test: tests/unit/test_seam_replay.py::test_an_agent_s_answer_is_signed_swift_alone
   note: Also overlay/tests/agents.test.ts and test_providers.py::test_fallback_is_shown_as_a_swift_handoff_step. Owner
-    check byline-no-provider-1. Setup errors and sign-in or credit failures still name the provider, as the rule allows.
+    check 409. Setup errors and sign-in or credit failures still name the provider, as the rule allows.
     The identity answers are FD-14.
 - id: FD-14
   title: Swift's answers to "who are you?" and "are you Claude?" name the configured providers ("Claude Code is one of

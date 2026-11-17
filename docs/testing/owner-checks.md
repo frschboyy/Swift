@@ -2848,7 +2848,7 @@ The report checks: nothing to judge from the log; tell us what you saw.
 
 About 3 minutes, hands-free on. Nothing here sends anything.
 
-<a id="check-answer-heard-feedback-1"></a>**Check answer-heard-feedback-1. While Swift waits for your answer, it shows it hears you**
+<a id="check-412"></a>**Check 412. While Swift waits for your answer, it shows it hears you**
 1. Say "Hey Swift, turn off the Wi-Fi". When "Turn off Wi-Fi?" shows, don't answer yet: cough once.
 2. Then say "no".
 3. Say "Hey Swift, remind me in five minutes" if Swift asks you something, or any request that asks you

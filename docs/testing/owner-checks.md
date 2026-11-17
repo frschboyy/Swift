@@ -1042,10 +1042,9 @@ The report checks: a missed wake phrase was kept.
 
 <a id="check-115"></a>**Check 115**
 1. Right-click the tray icon → **Improve speech recognition**.
-2. If a card "Use N new word fixes?" shows, click **Reject**. Run it again.
 
-You should see: a row "Improve speech recognition", then either the card listing heard → meant, or straight to
-"Checked N of your recordings: …% of words right". After Reject, the same fixes aren't offered again.
+You should see: a row "Improve speech recognition", then "Checked N of your recordings: …% of words right".
+No card asks you anything.
 
 The report checks: the improvement pass ran.
 

@@ -2,7 +2,7 @@
 
 Usage:  uv run python eval/stt/gate.py [--write]
 
-Transcribes every labelled clip on this PC as Swift would (Parakeet, then the learned word fixes):
+Transcribes every labelled clip on this PC as Swift would (Parakeet):
 the read corpus, the noisy corpus and the owner's kept clips. Per clip it keeps counts only:
 the words, the word errors, and whether the heard sentence routes like the known one (same
 route, action, target and app), which says whether an error changed what Swift would do.
@@ -10,9 +10,6 @@ route, action, target and app), which says whether an error changed what Swift w
 It fails (exit 1) when a clip that was exactly right in ``baseline.json`` isn't now, or one that
 routed like its known sentence doesn't now. Run it before and after any change to speech
 recognition; ``--write`` saves today's result as the baseline once a change is accepted.
-
-shortcut: fixes from config.yaml's stt.word_fixes aren't applied, only the learned file; load
-the settings here if the owner starts using them.
 """
 
 from __future__ import annotations
@@ -27,7 +24,6 @@ import numpy as np
 
 from swift.config.paths import app_paths
 from swift.routing import route
-from swift.stt.fixes import WordFixes
 from swift.stt.improve import edits, normalize
 
 HERE = Path(__file__).parent
@@ -76,7 +72,7 @@ def main() -> int:
     from swift.stt.transcriber import ParakeetTranscriber
 
     data = args.data or app_paths().data_dir
-    stt = ParakeetTranscriber(data / "models", fixes=WordFixes.load(data / "word_fixes.json"))
+    stt = ParakeetTranscriber(data / "models")
     stt._load()
     if stt._model is None:
         print("The speech model didn't load.")

@@ -178,12 +178,12 @@ Line numbers are as of `55a4886` and will drift; the function names won't, as of
   for "remember / forget / what do you know". Only the backend imports it.
 - **Tests:** `tests/unit/test_memory.py`, including
   `test_one_writer_only_swifts_backend_imports_the_store` and the `test_worker_text_*` cases.
-- **Second owners:** none found. `stt/fixes.py` (word fixes) is a separate store of a different kind.
+- **Second owners:** none found.
 
 ## 9. Speech
 
 - **Recognition:** `src/swift/stt/transcriber.py` (Parakeet or faster-whisper, local); end of speech
-  `endpoint.py`; word fixes `stt/fixes.py`; saved recordings `stt/recordings.py`; improvement pass
+  `endpoint.py`; saved recordings `stt/recordings.py`; improvement pass
   `stt/improve.py`. Gate: `eval/stt/gate.py`. Tests: `test_stt.py`, `test_stt_gate.py`, `test_recordings.py`,
   `test_seams_audit_stt.py`.
 - **Wake:** `src/swift/wake.py` (words matched on transcripts). `wake_acoustic.py` is "not wired in yet"

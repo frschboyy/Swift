@@ -26,7 +26,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from wake_bench import RATE, SWIFT, labelled, load_jsonl, read_wav, save_jsonl, summary
 
 from swift.audio.recorder import BLOCK
-from swift.stt.fixes import WordFixes
 from swift.stt.transcriber import ParakeetTranscriber
 from swift.wake import WakeListener, match_wake
 from swift.wake_acoustic import AcousticWake, HeySwiftScorer, second_way_in
@@ -49,7 +48,7 @@ async def main() -> None:
     rows = labelled(a.out, a.labels)
     path = a.out / "live.jsonl"
     done = {r["id"]: r for r in load_jsonl(path)} if path.exists() else {}
-    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4, fixes=WordFixes.load(SWIFT / "word_fixes.json"))
+    stt = ParakeetTranscriber(SWIFT / "models", cpu_threads=4)
     stt._load()
     acoustic = AcousticWake(HeySwiftScorer(a.models), threshold=a.threshold)
     rng = np.random.default_rng(0)

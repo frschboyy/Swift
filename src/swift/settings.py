@@ -60,10 +60,6 @@ class SttSettings(_Section):
     model: Literal["base.en", "small.en"] = "small.en"
     beam_size: int = Field(5, ge=1, le=10)
     initial_prompt: str = ""
-    # Heard phrase -> meant phrase, e.g. {"tori": "Tauri"}. Both engines. Merged
-    # over the learned fixes in word_fixes_file (these win).
-    word_fixes: dict[str, str] = Field(default_factory=dict)
-    word_fixes_file: Expanded = "%LOCALAPPDATA%/Swift/word_fixes.json"
     # Noise checks (docs/stt-noise.md). The agent is told which words the model was
     # less sure of than unclear_p, so it asks instead of guessing. A transcript whose
     # words average below reject_p isn't acted on ("I couldn't make that out").
@@ -101,7 +97,7 @@ class AudioSettings(_Section):
     keep_all: bool = False
     # Useful clips with known words, kept as a test set after keep_days (oldest dropped first).
     test_set_max: int = Field(200, ge=0, le=2000)
-    # The improvement pass (word fixes to approve, an accuracy check): once a week, while idle.
+    # The improvement pass (an accuracy check): once a week, while idle.
     improve_weekly: bool = True
 
 
@@ -340,6 +336,10 @@ class SettingsError(ValueError):
     pass
 
 
+# Settings Swift no longer has, per section: ignored, so an older config.yaml still starts.
+RETIRED = {"stt": ("word_fixes", "word_fixes_file")}  # word fixes, removed 2026-11-17
+
+
 def load_settings(path: Path | None) -> Settings:
     if path is None or not path.exists():
         return Settings()
@@ -349,6 +349,10 @@ def load_settings(path: Path | None) -> Settings:
         raise SettingsError(f"{path.name}: cannot read: {exc}") from None
     if not isinstance(data, dict):
         raise SettingsError(f"{path.name}: top level must be a mapping")
+    for section, keys in RETIRED.items():
+        if isinstance(data.get(section), dict):
+            for key in keys:
+                data[section].pop(key, None)
     try:
         return Settings.model_validate(data)
     except ValidationError as exc:

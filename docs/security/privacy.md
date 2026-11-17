@@ -26,13 +26,13 @@ some of them (`settings.py` `LoggingSettings`, `SttSettings`, `SystemSettings`).
 | Memory (facts, every version) | `%LOCALAPPDATA%\Swift\memory` | Implemented | `memory.py`; plain files, one writer, logs kinds only; `tests/unit/test_memory.py` |
 | Parked conversations | `%LOCALAPPDATA%\Swift\parked.json` | Implemented | `parked.py`, `backend/__main__.py:419` |
 | Timers and reminders | `%LOCALAPPDATA%\Swift\schedule.json` | Implemented | `system/scheduler.py`, `settings.SystemSettings.schedule_file` |
-| Word fixes, routing examples | config and data dirs | Implemented | `stt/fixes.py`, `settings.demand_classifier.examples_file` |
+| Routing examples | config and data dirs | Implemented | `settings.demand_classifier.examples_file` |
 | App log | `%LOCALAPPDATA%\Swift\logs\swift.log` | Implemented | `logging_setup.py`; see §4 |
 | Overlay position | `%LOCALAPPDATA%\Swift\overlay.json` | Implemented | `overlay/src-tauri/src/prefs.rs` |
 | Desktop context (app in front, selection) | not stored | Implemented | `desktop/windows.py`: "Nothing read here is logged; titles are used only to check the never-read list"; `desktop/base.py` `NeverRead` skips banking titles and private windows |
 
 **A worker can't read Swift's own data.** `backend/__main__.py` `_swift_s_own` adds the config and data dirs, the
-logs, interaction log, journal, run records, recordings, test set and word fixes to the never-read list
+logs, interaction log, journal, run records, recordings and test set to the never-read list
 (`executors/read_scope.py`). **Implemented** for Read, Glob and Grep; **partly** for Bash and PowerShell
 (`ReadScope.in_command` reads the command's text, so a path built in pieces gets a card instead of a refusal;
 X-20, README §2).

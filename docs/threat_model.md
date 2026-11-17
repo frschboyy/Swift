@@ -43,7 +43,6 @@ Audit B-06, decided by the owner on 2026-10-28: recordings are kept for 7 days a
 
 - **Stays on the PC.** Clips, the index and the test set are files in `%LOCALAPPDATA%\Swift` (`audio`, `stt_testset`). No code that touches them imports a network module, and a test runs the whole loop with sockets cut off.
 - **No training.** Clips are never used to train or fine-tune a model. The weekly improvement pass:
-  - proposes word fixes, which the owner approves or rejects on a card;
   - measures accuracy;
   - writes pause timings for end-of-speech tuning.
 - **Words written down.** The index records why a clip was kept, and the words the owner meant when they said them again or corrected them. Transcripts are not written down. Logs carry counts, flags and rates only.

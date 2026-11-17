@@ -23,7 +23,7 @@ from swift.ipc.protocol import decode
 from swift.logging_setup import make_patcher
 from swift.settings import Settings
 from swift.stt import improve, recordings
-from swift.stt.improve import Proposal, candidates, decide, error_spans, pauses, run_pass
+from swift.stt.improve import pauses, run_pass
 from swift.stt.recordings import HOLD_S, MISSED_WAKE_S, REPEAT_S, Recordings, correction, same_request
 
 SECRET = "transfer the money to Bob"  # stands in for what the owner said: must never reach a log
@@ -313,15 +313,6 @@ def test_finish_hook_logs_flags_not_words(rec: Recordings, clock: Clock, tmp_pat
 # ---- the improvement pass ------------------------------------------------------------------
 
 
-def test_error_spans_and_candidates_follow_learn_fixes_rules() -> None:
-    assert error_spans("open the Tauri app", "open the tori app") == [("tori", "Tauri", 2)]
-    rows = [("open the Tauri app", "open the tori app"), ("build Tauri now", "build tori now"),
-            ("set three timers", "set 3 timers"), ("Tauri is great", "tori is great")]
-    props = candidates(rows, known=set())
-    assert props == [Proposal("tori", "Tauri", 2)]  # "3"/"three" and the clip-start error dropped
-    assert candidates(rows, known={("tori", "Tauri")}) == []
-
-
 def make_test_set(r: Recordings, clock: Clock, pairs: list[tuple[str, str]]) -> None:
     for i, (heard, meant) in enumerate(pairs):
         finish(r, clock, f"c{i}", heard, confidence=0.2)
@@ -330,19 +321,13 @@ def make_test_set(r: Recordings, clock: Clock, pairs: list[tuple[str, str]]) -> 
         clock.advance(60)
 
 
-def test_run_pass_proposes_fixes_scores_and_feeds_end_of_speech(rec: Recordings, clock: Clock,
-                                                               tmp_path: Path) -> None:
+def test_run_pass_scores_and_feeds_end_of_speech(rec: Recordings, clock: Clock) -> None:
     make_test_set(rec, clock, [("open the tori app", "open the Tauri app"), ("build tori now", "build Tauri now")])
     heard = {"c0": "open the tori app", "c1": "build tori now"}
     order = iter(["c0", "c0", "c1", "c1"])  # each clip clean, then noisy
 
-    def recognize(audio: np.ndarray) -> tuple[str, str]:
-        text = heard[next(order)]
-        return text, text
-
-    fixes = tmp_path / "word_fixes.json"
-    report = run_pass(recognize, rec, fixes)
-    assert report.clips == 2 and report.proposals == [Proposal("tori", "Tauri", 2)]
+    report = run_pass(lambda audio: heard[next(order)], rec)
+    assert report.clips == 2
     assert report.wer == pytest.approx(2 / 7, abs=0.001) and not report.dropped
     feed = json.loads((rec.test_dir / "endpoint_feed.json").read_text(encoding="utf-8"))["clips"]
     assert {f["id"] for f in feed} >= {"c0", "c1"}
@@ -351,34 +336,23 @@ def test_run_pass_proposes_fixes_scores_and_feeds_end_of_speech(rec: Recordings,
     assert "tori" not in state and "Tauri" not in state  # counts only
 
     # The next pass does worse on the same clips: reported.
-    worse = lambda audio: ("open a story up", "open a story up")  # noqa: E731
-    again = run_pass(worse, rec, fixes)
+    again = run_pass(lambda audio: "open a story up", rec)
     assert again.compared == 2 and again.dropped and "worse than last time" in again.summary()
     assert "tori" not in again.summary()  # the card's summary: no transcript
     assert again.regressed == []  # neither sentence was exactly right before
 
 
-def test_run_pass_reports_one_sentence_going_wrong_among_many(rec: Recordings, clock: Clock, tmp_path: Path) -> None:
+def test_run_pass_reports_one_sentence_going_wrong_among_many(rec: Recordings, clock: Clock) -> None:
     # W-03: one right sentence going wrong among 30 moves the word error rate by under DROP.
     said = "open the settings app for me now please"
     wrong = said.replace("settings", "sittings")
     make_test_set(rec, clock, [(wrong, said)] * 30)
-    fixes = tmp_path / "word_fixes.json"
-    first = run_pass(lambda audio: (said, said), rec, fixes)
+    first = run_pass(lambda audio: said, rec)
     assert first.clips == 30 and first.wer == 0 and not first.dropped
     calls = iter(range(60))  # each clip clean, then noisy
-    again = run_pass(lambda audio: (wrong, wrong) if next(calls) == 0 else (said, said), rec, fixes)
+    again = run_pass(lambda audio: wrong if next(calls) == 0 else said, rec)
     assert again.wer_after - again.wer_before <= improve.DROP
     assert len(again.regressed) == 1 and again.dropped and "1 sentence" in again.summary()
-
-
-def test_decide_writes_approved_fixes_and_remembers_rejected(tmp_path: Path) -> None:
-    path = tmp_path / "word_fixes.json"
-    decide(path, [Proposal("tori", "Tauri", 2)], approve=True)
-    decide(path, [Proposal("deadlock", "git log", 1)], approve=False)
-    store = json.loads(path.read_text(encoding="utf-8"))
-    assert store["fixes"] == [{"heard": "tori", "meant": "Tauri", "count": 2, "enabled": True}]
-    assert store["rejected"] == [["deadlock", "git log"]]
 
 
 def test_pauses_measures_silence_around_and_inside_speech() -> None:
@@ -393,7 +367,6 @@ def test_pauses_measures_silence_around_and_inside_speech() -> None:
 class FakeTranscriber:
     def __init__(self, text: str) -> None:
         self.text = text
-        self.fixes: Any = None
 
     async def wait_loaded(self) -> None:
         return None
@@ -404,44 +377,17 @@ class FakeTranscriber:
         return Transcription(self.text, 1, 1.0)
 
 
-async def drive(executor: ImproveExecutor, answer: bool | None) -> tuple[list[Any], Any]:
+async def drive(executor: ImproveExecutor) -> tuple[list[Any], Any]:
     run_id = await executor.start(WorkerTask("Improve speech recognition"))
-    events = []
-    async for event in executor.events(run_id):
-        events.append(event)
-        if event.type == "confirm" and answer is not None:
-            await executor.reply(event.request_id, answer)
+    events = [event async for event in executor.events(run_id)]
     return events, await executor.result(run_id)
 
 
-async def test_the_word_fix_card_changes_nothing_until_approved(rec: Recordings, clock: Clock,
-                                                                tmp_path: Path) -> None:
+async def test_the_pass_shows_a_step_then_its_result_and_asks_nothing(rec: Recordings, clock: Clock) -> None:
     make_test_set(rec, clock, [("open the tori app", "open the Tauri app")])
-    fixes = tmp_path / "word_fixes.json"
-    stt = FakeTranscriber("open the tori app")
-
-    unanswered = ImproveExecutor(rec, stt, fixes, answer_s=0.05)  # type: ignore[arg-type]
-    events, result = await drive(unanswered, None)
-    assert [e.type for e in events] == ["step", "confirm"] and "tori" in events[1].detail
-    assert not fixes.exists() and stt.fixes is None and "ask again" in result.summary
-
-    approve = ImproveExecutor(rec, stt, fixes, configured_fixes={"vs code": "VS Code"})  # type: ignore[arg-type]
-    _, result = await drive(approve, True)
-    assert json.loads(fixes.read_text(encoding="utf-8"))["fixes"][0]["meant"] == "Tauri"
-    assert stt.fixes.apply("the tori app on vs code") == "the Tauri app on VS Code"  # in use at once
-    assert result.status == "done" and "in use now" in result.summary
-
-    _, result = await drive(ImproveExecutor(rec, stt, fixes), None)  # type: ignore[arg-type]
-    assert "No new word fixes" in result.summary  # kept fixes aren't proposed again
-
-
-async def test_rejected_fixes_are_never_proposed_again(rec: Recordings, clock: Clock, tmp_path: Path) -> None:
-    make_test_set(rec, clock, [("open the tori app", "open the Tauri app")])
-    fixes = tmp_path / "word_fixes.json"
-    stt = FakeTranscriber("open the tori app")
-    await drive(ImproveExecutor(rec, stt, fixes), False)  # type: ignore[arg-type]
-    events, _ = await drive(ImproveExecutor(rec, stt, fixes), None)  # type: ignore[arg-type]
-    assert [e.type for e in events] == ["step"] and stt.fixes is None
+    events, result = await drive(ImproveExecutor(rec, FakeTranscriber("open the tori app")))  # type: ignore[arg-type]
+    assert [e.type for e in events] == ["step"]
+    assert result.status == "done" and "Checked 1 of your recordings" in result.summary and "tori" not in result.summary
 
 
 # ---- nothing leaves the machine ------------------------------------------------------------
@@ -471,11 +417,11 @@ async def test_the_whole_loop_runs_with_the_network_cut(rec: Recordings, clock: 
     clock.advance(1)
     finish(rec, clock, "w", source="wake")
     rec.sweep()
-    await drive(ImproveExecutor(rec, FakeTranscriber("open the tori app"), tmp_path / "f.json"), True)  # type: ignore[arg-type]
+    await drive(ImproveExecutor(rec, FakeTranscriber("open the tori app")))  # type: ignore[arg-type]
     rec.clear()
     await asyncio.sleep(0)
-    # Everything it wrote is under its two folders and the word-fixes file.
-    assert {p.parent for p in tmp_path.rglob("*") if p.is_file()} <= {rec.audio_dir, rec.test_dir, tmp_path}
+    # Everything it wrote is under its two folders.
+    assert {p.parent for p in tmp_path.rglob("*") if p.is_file()} <= {rec.audio_dir, rec.test_dir}
 
 
 # ---- the session's side ---------------------------------------------------------------------
@@ -521,7 +467,6 @@ def test_the_owner_checks_report_sees_recordings_from_counts_and_lines() -> None
         "10:01:00 | INFO | recordings: added to the test set | size=1 dropped=0",
         "10:02:00 | INFO | recordings: missed wake phrase kept | before_s=2.1",
         "10:03:00 | INFO | improvement pass | clips=1 wer=0.1",
-        "10:03:30 | INFO | word fixes decided | approved=True fixes=1",
         "10:04:00 | INFO | recordings cleared | clips=4 test_set=1",
     ]
     results = {name.split(" ")[0]: (ok, detail) for name, ok, detail in report.checks(rows, log)}

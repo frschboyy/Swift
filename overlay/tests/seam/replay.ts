@@ -103,6 +103,8 @@ process.stdout.write(JSON.stringify({
   question: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? asked!.question : null,
   // Decision 6: the worker's text the question shows under it, as the card draws it (every line, marked).
   questionQuote: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? quoteLines(asked!.quote).map((l) => l.text).join("\n") : null,
+  // The line under the question (2026-11-17: "Got it…" while a spoken answer is transcribed, then back to waiting).
+  questionPill: Q.askVisible(asked, P.stageOf(pres), pres.focus) ? Q.askPill(asked!, false) : null,
   confirm: P.confirmVisible(pres) ? pres.pendingConfirm : null,
   // The countdown the card draws (T-08): what the backend's clock last said.
   countdown: P.confirmLeftMs(pres, now),

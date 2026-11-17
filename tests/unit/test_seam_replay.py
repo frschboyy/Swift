@@ -145,6 +145,40 @@ async def test_a_unsure_answers_put_it_in_the_stack_and_a_timer_shows() -> None:
     await finish_all(session, agent)
 
 
+
+async def test_an_answer_being_heard_shows_on_the_question_and_what_wasnt_one_brings_it_back() -> None:
+    # Owner, 2026-11-17: answering hands-free, nothing on screen said Swift heard him.
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    await _wifi(session, out, stt)
+    assert agree(session, out)["questionPill"] == "Waiting for your answer"
+    pills: list[str | None] = []
+    plain = stt.transcribe
+
+    async def looks(audio: Any) -> Any:  # while the words are being transcribed
+        pills.append(_screen(out)["questionPill"])
+        return await plain(audio)
+
+    stt.transcribe = looks
+    await say(session, stt, "")  # a cough: heard, then not an answer
+    await asyncio.sleep(0.05)
+    assert pills == ["Got it…"]
+    screen = agree(session, out)
+    assert screen["question"] == "Turn off Wi-Fi?" and screen["questionPill"] == "Waiting for your answer"
+    assert [a for a in asks(out) if a.get("open")][-1]["seconds"] > 0  # its countdown again
+    await finish_all(session, agent)
+
+
+async def test_the_orb_follows_the_owners_voice_only_while_an_answer_is_awaited() -> None:
+    session, out, agent, stt, _control, _sched = _lane(30.0)
+    session.answer_level(0.5)  # nothing asked: the open microphone's level stays off the screen
+    await asyncio.sleep(0.02)
+    assert not [m for m in out.messages if m.type == "level"]
+    await _wifi(session, out, stt)
+    session.answer_level(0.5)
+    await asyncio.sleep(0.02)
+    assert [m.data["rms"] for m in out.messages if m.type == "level"] == [0.5]
+    await finish_all(session, agent)
+
 async def test_b_the_question_runs_out_behind_a_run_that_goes_on() -> None:
     session, out, agent, stt, _control, _sched = _lane(0.6)
     rid = await _beside(session, out, agent, stt)

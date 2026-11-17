@@ -2844,6 +2844,22 @@ the answer names the provider either.
 
 The report checks: nothing to judge from the log; tell us what you saw.
 
+### Answering hands-free, you can see you're heard (2026-11-17)
+
+About 3 minutes, hands-free on. Nothing here sends anything.
+
+<a id="check-answer-heard-feedback-1"></a>**Check answer-heard-feedback-1. While Swift waits for your answer, it shows it hears you**
+1. Say "Hey Swift, turn off the Wi-Fi". When "Turn off Wi-Fi?" shows, don't answer yet: cough once.
+2. Then say "no".
+3. Say "Hey Swift, remind me in five minutes" if Swift asks you something, or any request that asks you
+   something; answer it slowly.
+
+You should see: while you speak, the orb moves with your voice. When you stop, the line under the question says
+"Got it…" until Swift has your words. After the cough, it goes back to "Waiting for your answer" with its
+countdown. After "no", Wi-Fi stays on.
+
+The report checks: nothing to judge from the log; tell us what you saw.
+
 ### Missed "hey Swift" kept to tune on (2026-11-17)
 
 About 3 minutes, in a quiet room. Nothing here sends anything.

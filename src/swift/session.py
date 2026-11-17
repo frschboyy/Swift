@@ -204,7 +204,8 @@ from swift.speech import Speaker, card_speech, spoken
 from swift.system import intents as system_intents
 from swift.system.lane import SystemLane
 from swift.system.scheduler import Item
-from swift.workflows.artifacts import Artifact, ArtifactStore
+from swift.demo_listening import fake_listening
+from swift.workflows.artifacts import Artifact, ArtifactStore, last_proposal
 from swift.workflows.library import Library, Match, is_question, refresh_now
 from swift.workflows.scope import Decision, Grant, RunScope
 from swift.workflows.tools import CURRENT as CURRENT_SCOPE
@@ -437,26 +438,6 @@ class AutoEnd:
     free_text: bool = False
 
 
-def _proposal(store: ArtifactStore | None) -> str:
-    """The last email or event shown on a card, in one line, for the follow-up context."""
-    if store is None:
-        return ""
-    for kind in ("calendar_event", "email_draft"):
-        artifact = store.newest(kind)
-        if artifact is None:
-            continue
-        data = artifact.data
-        if kind == "calendar_event":
-            where = f", at {data['location']}" if data.get("location") else ""
-            return f"calendar event “{data.get('title', '')}”, {data.get('when', '')}{where}"
-        to = ", ".join(f"{p.get('name')} <{p.get('email')}>" for p in data.get("to", []))
-        # The message alone: Swift adds the greeting and sign-off again, so they mustn't come back in it.
-        parts = str(data.get("body", "")).split("\n\n")
-        message = "\n\n".join(parts[1:-1]) if len(parts) >= 3 else str(data.get("body", ""))
-        return (f"email draft {artifact.id} to {to}, subject “{data.get('subject', '')}”, message: {_clip(message, 300)} "
-                f"(“send it” sends {artifact.id} with send_email; a correction revises it with draft_email, "
-                f"draft_id {artifact.id} and the new message only: the subject stays)")
-    return ""
 
 
 # What each lane needs to work (seams audit S4). A lane is tried only if what it needs is there: offline,
@@ -1733,7 +1714,7 @@ class Session:
 
         async def capture(rec: dict[str, Any]) -> str:
             await self._set_state("listening")
-            await self._fake_listening(transcript)
+            await fake_listening(self._send, transcript, self.demo_speed)
             await self._set_state("transcribing")
             t0 = clock.now()
             await asyncio.sleep(0.6 * self.demo_speed)
@@ -1874,10 +1855,29 @@ class Session:
                 self.wake_stats["skipped_hearing"] += 1  # waits now; the older one waiting is dropped
                 self._next_heard = (audio, ended_at, short)
             return
-        await self._hear_wake_once(audio, ended_at, short)
+        await self._heard_for_answer(audio, ended_at, short)
         while (waiting := self._next_heard) is not None:
             self._next_heard = None
-            await self._hear_wake_once(*waiting)
+            await self._heard_for_answer(*waiting)
+
+    async def _heard_for_answer(self, audio: Any, ended_at: float, short: bool = False) -> None:
+        """``_hear_wake_once``, with "Got it…" on a question it may answer while it's transcribed, and the
+        question back with its countdown if it wasn't the answer (owner, 2026-11-17: no sign he was heard)."""
+        started = ended_at - len(audio) / SAMPLE_RATE
+        asked = None if short or self.speaker.recently(started) else self._listening_for(started)
+        if asked is not None:
+            await self._send_ask(asked, phase="heard", seconds=0)
+        try:
+            await self._hear_wake_once(audio, ended_at, short)
+        finally:
+            if asked is not None and self.dialogue.pending is asked and asked.window is not None:
+                if (left := asked.window.left()) is not None and left > 0:
+                    await self._send_question(asked, left)
+
+    def answer_level(self, level: float) -> None:
+        """The open microphone's level (loop thread): while a spoken answer is awaited, the orb follows it."""
+        if self._listening_for() is not None and not self.speaker.speaking:
+            self._background(self._send(outbound("level", rms=round(level, 3))))
 
     async def _hear_wake_once(self, audio: Any, ended_at: float, short: bool = False) -> None:
         """An utterance from the open microphone (swift/wake.py).
@@ -3345,10 +3345,12 @@ class Session:
     async def _send_question(self, q: Question, seconds: float) -> None:
         """``q`` on its card, listening, with ``seconds`` left: a request's question, or a lane's on its own card."""
         again = {"phase": "again", "text": q.reask_text} if q.reask_text else {"phase": "listening"}
+        await self._send_ask(q, seconds=round(seconds, 1), **again)
+
+    async def _send_ask(self, q: Question, **shown: Any) -> None:
         if q.owner is not None:
             with self._as(q.owner):
-                await self._send(outbound("ask", **q.as_message(), run_id=self._run_id(), open=True,
-                                          seconds=round(seconds, 1), **again))
+                await self._send(outbound("ask", **q.as_message(), run_id=self._run_id(), open=True, **shown))
 
     def _replay(self, run: Run) -> list[Message]:
         """``run``'s card again, its question with the time it has left now, not the time it had when
@@ -3785,18 +3787,6 @@ class Session:
                 self.system.scheduler.shown(item.id)
         self._due = kept
 
-    async def _fake_listening(self, transcript: str) -> None:
-        """Synthesize a speech-like mic level and a growing partial transcript."""
-        words = transcript.split()
-        frames = max(1, int(1.8 * 30 * min(self.demo_speed, 1.0))) if self.demo_speed else 1
-        for i in range(frames):
-            phase = i / 30
-            rms = 0.15 + 0.55 * abs(math.sin(phase * 7.0)) * (0.6 + 0.4 * math.sin(phase * 2.3))
-            await self._send(outbound("level", rms=round(max(0.0, min(1.0, rms)), 3)))
-            if i % 6 == 5:
-                shown = words[: min(len(words), (i + 1) // 6 * max(1, len(words) // 8))]
-                await self._send(outbound("transcript", text=" ".join(shown), final=False))
-            await asyncio.sleep(self.demo_speed / 30)
 
     def _agent(self) -> dict[str, str] | None:
         """The provider of the active run as the overlay's ``agent``; None when it is Swift itself."""
@@ -4376,7 +4366,7 @@ class Session:
         assert self._request is not None
         progress = "; ".join(s["text"] for s in record["steps"][-4:] if s.get("activity") != "starting")
         return Parked(thread=record["thread"], request=self._request, reason=reason, at=time.time(), progress=progress,
-                      proposed=_proposal(self._store()), said=self._said or "", keep_s=keep_s)
+                      proposed=last_proposal(self._store()), said=self._said or "", keep_s=keep_s)
 
     def _asked_parked(self, thread: str | None) -> bool:
         if thread is None or self.parked is None:
@@ -4879,7 +4869,7 @@ class Session:
 
     def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
         if result.status in ("done", "rejected"):
-            proposed = _proposal(self._store())
+            proposed = last_proposal(self._store())
             self._last_exchange = Exchange(
                 record["id"], request, result.summary, tuple(self._approved), clock.now(), thread=record.get("thread"),
                 # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".

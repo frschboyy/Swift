@@ -49,6 +49,8 @@ import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, ty
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
+import { endRun, saysReady, startRun } from "./ready";
+import { getVersion } from "@tauri-apps/api/app";
 import { followTheme } from "./theme";
 import * as V from "./views";
 
@@ -1665,6 +1667,14 @@ function renderAlreadyRunning(): void {
   renderNotice("Swift is already running", el("span", {}, "Hold ", pttKeys(), " and speak. Its icon is in the system tray."));
 }
 
+/** D10: "Swift is ready" only on a first start, after an update or after a crash. A launch that ends
+ * (Quit, Restart, Windows closing it) marks itself clean as its page goes. */
+async function sayReadyIfNew(): Promise<void> {
+  const version = await getVersion().catch(() => "dev");
+  window.addEventListener("pagehide", () => endRun(version));
+  if (saysReady(startRun(version), version)) window.setTimeout(renderReady, 400);
+}
+
 function renderReady(): void {
   if (card.classList.contains("card--in") || !presentAnswer("notice", READY_FADE_MS)) return;
   renderNotice("Swift is ready", el("span", {}, "Hold ", pttKeys(), " and speak."));
@@ -1732,7 +1742,8 @@ function renderProblem(p: Problem): void {
     // Failed names a request's failure; a problem with no request is Swift's own notice.
     state: ofRequest && !info ? "failed" : "notice", look: info ? "error card--info" : "error", role: info ? "status" : "alert", onclick: dismissUnlessControl,
     // No request to name: the close button sits in the corner.
-    lead: !ofRequest && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
+    // Sticky problems (reconnecting, restarting, stopped) have no close (board 9 §4).
+    lead: !ofRequest && !p.sticky && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
     origin: ofRequest && headRow(),
     body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), detail],
     foot: toggle || actions.length || p.agent ? [toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null), el("span", { class: "foot-gap" }), ...actions] : undefined,
@@ -2127,7 +2138,7 @@ function onStatus(status: ConnectionStatus): void {
   if (status.phase === "connected") {
     // Clear a connection card, and say hello once per launch.
     if (was === "lost" || was === "failed") setStage("idle");
-    if (!everConnected) window.setTimeout(renderReady, 400);
+    if (!everConnected) void sayReadyIfNew();
     everConnected = true;
     return;
   }
@@ -2231,4 +2242,19 @@ client.start();
   get pres() { return pres; },
   get presence() { return capsuleEl.dataset.p; },
   get speaking() { return speaking; },
+  // Swift's own notices, by name, for the harness's design states (board 9 §4). Draws only.
+  notice(name: string): void {
+    const engine = { title: "Swift's engine stopped", message: "Swift's engine stopped unexpectedly. Nothing you asked was lost.", sticky: true, logs: true, restart: true };
+    const all: Record<string, () => void> = {
+      ready: renderReady,
+      running: renderAlreadyRunning,
+      starting: () => renderProblem({ title: "Swift is still starting", message: "It'll be ready in a moment. Try again in a few seconds.", severity: "info", glyph: "info" }),
+      reconnecting: () => renderProblem({ title: "Reconnecting to Swift…", message: "Your next request will work once it's back.", severity: "info", glyph: "spin", sticky: true }),
+      restarting: () => renderProblem({ title: "Restarting Swift…", message: "It'll be ready in a few seconds.", severity: "info", glyph: "spin", sticky: true }),
+      stopped: () => renderProblem(engine),
+      cantRestart: () => onRestartFailed("The engine didn't start again."),
+      hotkey: () => renderProblem({ title: "Push-to-talk isn't working", message: "Ctrl+Shift+Space is already used by another app.", hint: "Pick another shortcut for hotkeys.push_to_talk in config.yaml, then restart Swift.", sticky: true }),
+    };
+    all[name]?.();
+  },
 };

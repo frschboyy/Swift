@@ -38,7 +38,28 @@ function dress(inner: HTMLElement): void {
     inner.prepend(stateLine("failed", bang, "Failed", clock(), close));
   } else if (state === "done" && head && inner.querySelector(":scope > .answer")) {
     inner.prepend(stateLine("done", icon("check"), "Done", clock(), close));
+  } else if (state === "notice") {
+    notice(inner);
   }
+}
+
+/** Board 9 §4, State · Notice: Swift's own notices and problems lead with their mark and title on the
+ * 40 px state line; the body keeps the lines under it. Red only where Swift's engine stopped. */
+function notice(inner: HTMLElement): void {
+  const fail = inner.querySelector<HTMLElement>(":scope > .fail");
+  const title = fail?.querySelector<HTMLElement>(".fail-title");
+  const mark = fail?.firstElementChild;
+  if (!fail || !title || !mark) return;
+  const close = inner.querySelector<HTMLElement>(":scope > .icon-btn");
+  close?.removeAttribute("style");
+  const kind = mark.classList.contains("ok-dot") ? "ready"
+    : mark.classList.contains("spinner") ? "busy"
+    : mark.classList.contains("bang--info") ? "info" : "bad";
+  const glyph = kind === "ready" ? icon("check") : kind === "busy" ? mark : kind === "info" ? icon("info") : el("span", {}, "!");
+  inner.prepend(stateLine(`notice halo-state--notice-${kind}`, glyph, title.textContent ?? "", null, close));
+  title.remove();
+  if (kind !== "busy") mark.remove();
+  if (!fail.querySelector(".fail-why")) fail.remove();
 }
 
 /** Dresses each card as it's drawn, keeps the tail on the orb and applies the compact rule. */

@@ -1394,6 +1394,18 @@ code {
 #stage .halo-state--failed .bang { width: 18px; height: 18px; margin: 0; font-size: 12px; }
 #stage .halo-state--due .halo-word { color: var(--accent); }
 #stage .halo-state--due .halo-mark { background: var(--accent); color: var(--on-accent); }
+/* Board 9 §4, State · Notice: a solid card, mark 18 on --raise, label 13/600; ready in --ok; red only for
+   an engine that stopped or couldn't restart (border too). */
+#stage .card:has(> .card-in[data-card="notice"]) { background: var(--panel-solid); border-color: var(--rim); backdrop-filter: none; }
+#stage .card:has(> .card-in > .halo-state--notice-bad) { border-color: var(--bad); }
+#stage .halo-state--notice .halo-mark { background: var(--raise); color: var(--muted); }
+#stage .halo-state--notice-ready .halo-mark { background: var(--ok); color: var(--on-ok); }
+#stage .halo-state--notice-ready .halo-word { color: var(--ok); }
+#stage .halo-state--notice-busy .halo-mark { background: none; }
+#stage .halo-state--notice-bad .halo-mark { background: var(--bad); color: var(--on-bad); font: 700 12px/1 var(--font-text); }
+#stage .halo-state--notice-bad .halo-word { color: var(--bad); }
+#stage .card-in[data-card="notice"] > .fail { margin-top: 0; }
+#stage .card-in[data-card="notice"] > .fail > div { padding-left: 0; }
 
 /* ---- 2. the origin line: the owner's words on the right, then how they came ---- */
 

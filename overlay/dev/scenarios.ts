@@ -56,6 +56,8 @@ const run = (): string => `d${++n}`;
 const HERE = { state: "here", reason: "input", listening: true, wake: true, paused: false };
 
 /** Back to rest: no card, no edges, no stack, listening, not speaking. */
+const notice = (name: string): void => (window as unknown as { __overlay: { notice: (n: string) => void } }).__overlay.notice(name);
+
 async function reset(s: Shim): Promise<void> {
   s.inject("speech", { speaking: false });
   s.inject("followup", { open: false, seconds: 0 });
@@ -355,6 +357,17 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   questionWaiting: async (s) => { await question(s, false); },
   // 5. several requests (edges behind the card, as in the app)
   concurrent: async (s) => { await concurrent(s); },
+  // Board 9 §4: Swift's own notices and problems (State · Notice).
+  noticeReady: async () => { notice("ready"); await sleep(150); },
+  noticeRunning: async () => { notice("running"); await sleep(150); },
+  noticeHoldToTalk: async (s) => { s.inject("error", { code: "too_short", title: "Hold to talk", message: "Keep Ctrl+Shift+Space held while you speak, then let go.", hint: "", severity: "info", agent: null }); await sleep(150); },
+  noticeNotCaught: async (s) => { s.inject("error", { code: "no_speech", title: "I didn't catch that", message: "Nothing was heard. Hold the hotkey and speak a little louder.", hint: "", severity: "info", agent: null }); await sleep(150); },
+  problemStarting: async () => { notice("starting"); await sleep(150); },
+  problemReconnecting: async () => { notice("reconnecting"); await sleep(150); },
+  problemRestarting: async () => { notice("restarting"); await sleep(150); },
+  problemStopped: async () => { notice("stopped"); await sleep(150); },
+  problemCantRestart: async () => { notice("cantRestart"); await sleep(150); },
+  problemHotkey: async () => { notice("hotkey"); await sleep(150); },
   // 6. the stack (inline in the harness)
   stackClosed: async (s) => { s.inject("stack", { items: STACK }); await sleep(150); },
   // Board 9 §1: the pile with no OK waiting (neutral), and with one (stackClosed, amber).

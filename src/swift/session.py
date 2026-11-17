@@ -938,6 +938,7 @@ class Session:
         self._confirm_voice: asyncio.Task[None] | None = None
         # The request whose card that push-to-talk was held on.
         self._voice_owner: Run | None = None
+        self._stopped: tuple[Run, float] | None = None  # the last Stopped card, and when (stops.py, F7)
         # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
         self._retry: tuple[str, str] | None = None
 
@@ -4957,6 +4958,7 @@ class Session:
             return
         if result.status == "done":
             self._last_result = (run_id, result, agent)
+        self._stopped = (self._current(), clock.now()) if result.status == "cancelled" else None
         note, self._note = self._note, None
         await self._set_state("result", run_id=run_id, agent=agent)
         await self._send(

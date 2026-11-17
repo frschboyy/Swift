@@ -1617,3 +1617,24 @@ async def test_f6_stop_before_the_run_starts_says_so() -> None:
     assert not agent.requests, "a stopped request was sent anyway"
     assert screen["stage"] == "result" and screen["answerSummary"] in ("Stopped “research the history of tea”.", "Stopped. Nothing was sent."), screen
     await finish_all(session, agent)
+
+
+async def test_f7_stop_with_nothing_running_keeps_the_stopped_card() -> None:
+    """F7 (live run 2026-11-18): a second "stop" closed the card that said the first one stopped it.
+    With nothing running, "stop" (here by the hotkey, whose capsule takes the screen while it listens)
+    leaves the Stopped card to fade on its own."""
+    session, out, _records, agent, stt = make()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, stop")
+    await asyncio.sleep(0.2)
+    first = _screen(out)
+    assert first["stage"] == "result" and first["answerSummary"] == "Cancelled.", first
+    stt.text = "stop"
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0)
+    await session.handle(Message("ptt", {"state": "up"}))
+    await asyncio.sleep(0.5)
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerSummary"] == "Cancelled.", screen
+    await finish_all(session, agent)

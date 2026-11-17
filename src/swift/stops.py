@@ -12,6 +12,11 @@ import asyncio
 import contextlib
 from typing import Any
 
+from swift import clock
+
+# How long after a Stopped card a "stop" with nothing running brings it back instead of clearing it.
+KEEP_S = 10.0
+
 
 def line(words: str | None, short: Any) -> str:
     """The Stopped card's words: the request's, if they were heard."""
@@ -22,6 +27,7 @@ async def at_rest(session: Any, action: str) -> bool:
     """A "stop" (or "cancel") routed as a request of its own. True: handled here."""
     me = session._current()
     starting = [r for r in session._live(besides=me) if r.state in ("listening", "transcribing")]
+    stopped = session._stopped
     if starting:
         for r in starting:
             r.said_stop = True  # it shows its Stopped card as it ends (Session._interaction)
@@ -30,6 +36,8 @@ async def at_rest(session: Any, action: str) -> bool:
                 with contextlib.suppress(asyncio.CancelledError):
                     await r.task
         target = starting[-1]
+    elif action == "stop" and stopped is not None and clock.now() - stopped[1] < KEEP_S and not session._live(besides=me):
+        target = stopped[0]
     else:
         return False
     me.title = ""  # no row of its own

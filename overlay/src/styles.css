@@ -1789,3 +1789,13 @@ code {
 #stage .caveat .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--muted); }
 #stage .caveat p { margin: 0; font-size: 14px; line-height: 20px; color: var(--muted); overflow-wrap: anywhere; }
 #stage .caveat-by { color: var(--faint); }
+
+
+/* Forced colours for Halo B8's new parts: system colours, the OK still told apart by Highlight. */
+@media (forced-colors: active) {
+  #stage .badge, #stage .tm-pill, #stage .fu-pill, #stage .glance, #stage .pinned-edge, #stage .run-link, #stage .caveat,
+  #stage .stack-mark, #stage .voice-hint--again { background: Canvas; color: CanvasText; border: 1px solid CanvasText; forced-color-adjust: none; }
+  #stage .stack--ok .badge, #stage .stack-row--shield .stack-mark, #stage .glance .glance-warn { background: Highlight; color: HighlightText; }
+  #stage .capsule[data-timer]::before, #stage .capsule[data-followup]::before { background: CanvasText; }
+  #stage .tree-row--selected { background: Highlight; color: HighlightText; }
+}

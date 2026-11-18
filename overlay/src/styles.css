@@ -579,8 +579,9 @@ code {
 .compare-table thead th, .compare-table thead td { border-top: none; font-size: 13px; font-weight: 600; }
 .compare-table tbody th { color: var(--muted); font-weight: 500; white-space: nowrap; width: 1%; }
 .compare-table td { font-variant-numeric: tabular-nums; }
-.compare-table .compare-pick { padding-left: 8px; font-weight: 600; box-shadow: inset 2px 0 0 var(--muted); }
-.compare-tag { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+.compare-table .compare-pick { padding-left: 8px; font-weight: 600; box-shadow: inset 2px 0 0 var(--worker-bar); }
+/* Block · Worker's pick: a grey chip, 12/600 --muted, never the accent (B4). */
+.compare-tag { display: table; margin-top: 4px; padding: 1px 8px; border-radius: var(--radius-pill); background: var(--worker-soft); font-size: 12px; font-weight: 600; color: var(--muted); }
 /* B4: a small local document preview; Open is a direct, owner-clicked action. */
 .preview-block { display: grid; gap: 6px; margin-top: 10px; }
 .preview-title { font-weight: 600; overflow-wrap: anywhere; }
@@ -800,7 +801,10 @@ code {
 .facts-note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
 .facts-text { grid-column: 1 / -1; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 140px; overflow-y: auto; scrollbar-width: thin; }
 .facts-text--mono { font: 13px/1.5 var(--mono); }
-.facts-line--agent { border-left: 2px solid var(--muted); padding-left: 8px; }
+/* B4 / ADR-019 §8.1, Block · Worker's content: everything the worker made sits under a 3 px grey bar with a
+   --faint caption ("Compared by the worker, not checked by Swift"); grey, never the accent. */
+.facts-line--agent { border-left: 3px solid var(--worker-bar); padding-left: 12px; }
+.facts-line--agent > .confirm-purpose-by { color: var(--faint); font-weight: 400; }
 .facts-more { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--warn, var(--muted)); }
 .facts-more[hidden] { display: none; }
 /* B1: a command card's lead (the agent's words, under its bar), the command's first line, and the rest folded. */

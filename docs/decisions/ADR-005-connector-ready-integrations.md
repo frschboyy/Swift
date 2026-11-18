@@ -21,5 +21,5 @@ The owner wants Swift to connect to services the way Slack, Claude, or Ollama do
 ## Consequences
 
 - The spec is not rewritten. `docs/architecture.md` will describe the connector boundary.
-- `docs/backlog.md` records: an MCP/plugin connector host, a connector allowlist UI, and candidate connectors (Slack, etc.).
+- `docs/archive/2026-10-mvp-plan/backlog.md` records: an MCP/plugin connector host, a connector allowlist UI, and candidate connectors (Slack, etc.).
 - The `test_architecture.py` layering rules extend to connectors: integrations must not import `tools/`, and only the gateway may execute.

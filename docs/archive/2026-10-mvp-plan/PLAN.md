@@ -4,7 +4,7 @@ Status: **awaiting owner approval.** No code has been written for this MVP yet.
 
 ## 0. Decisions needed before Milestone 1
 
-1. **This MVP replaces the direction in `SWIFT_BUILD_PROMPT.md` v2.0.** That spec calls for:
+1. **This MVP replaces the direction in `docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md` v2.0.** That spec calls for:
    - a tkinter overlay
    - a local LLM through Ollama
    - an `ActionGateway` permission engine
@@ -13,7 +13,7 @@ Status: **awaiting owner approval.** No code has been written for this MVP yet.
 
    The new brief rules all of those out and sends requests to Claude Code, a cloud service. Proposal:
    - Record the switch as `docs/decisions/ADR-006-voice-overlay-mvp.md`.
-   - Add a banner at the top of `SWIFT_BUILD_PROMPT.md` saying it is paused, not deleted.
+   - Add a banner at the top of `docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md` saying it is paused, not deleted.
    - Treat the new brief as the authority for this MVP.
 2. **System-wide installs.** I need your OK for:
    - **Rust (stable, MSVC target) through `rustup`.** This installs into `%USERPROFILE%\.cargo` and `%USERPROFILE%\.rustup` and edits your user PATH.

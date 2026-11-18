@@ -404,7 +404,7 @@ Where the work differs from the plan:
 - **Step 7:** 9 sites, not 11. `signin.py:130` and `lifecycle.py:180` each have a second `except` clause, so one
   `suppress` can't express them.
 - **Step 9:** `docs/architecture/ownership.md` arrived with `main` at `f2dc210` and cited the loader as a live second
-  owner, so it was updated in `d147843`. `SWIFT_BUILD_PROMPT.md` (the original build brief) is left as written.
+  owner, so it was updated in `d147843`. `docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md` (the original build brief) is left as written.
 - **Overlay `tsc` and `npm test`** weren't run, because `overlay/src` isn't touched.
 
 ### QA 1's three notes: findings, not cleanup

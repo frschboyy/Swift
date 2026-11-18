@@ -128,7 +128,7 @@ Chosen:
 
 ## Consequences
 
-- Protocol additions are backward compatible (new optional fields, one new inbound type). `PLAN.md` §3's table still describes the core fields.
+- Protocol additions are backward compatible (new optional fields, one new inbound type). `docs/archive/2026-10-mvp-plan/PLAN.md` §3's table still describes the core fields.
 - `ExecResult` and `ProviderInfo` gain optional fields; executors that don't set them get session-side classification.
 - New Rust commands: `begin_drag`, `get_placement`, `copy_text`, `open_logs`, `set_status`. New windows-sys features: DataExchange, Memory, KeyboardAndMouse.
 - Not verified on hardware yet (REQUIRES-HW, owner-run): dragging the real window across monitors with different DPI; smart flip in Notepad, Word and VS Code (VS Code may not expose a system caret); the clipboard in the release build; tray Position checkmarks.

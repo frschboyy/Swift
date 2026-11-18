@@ -3039,6 +3039,18 @@ everything" item; (2) the Needs your OK card has "Asking because you said: ask m
 (a card that would ask anyway, such as sending an email, has no such line); (3) the status line and the item are gone,
 and typing into Notepad no longer asks.
 
+<a id="check-halo-b8-gaps-6b8791-4"></a>**Check halo-b8-gaps-6b8791-4. "Runs in", a Failed card's steps, "Try again from step N", and the move to the stack (ADR-019 §8.1, §8.3)**
+1. Ask for something that runs a command in your project, e.g. "Hey Swift, run the tests in my site project". Look at
+   the card before answering.
+2. Ask for a task with several steps and make it fail part way (e.g. a copy to a USB drive you pull out). Look at the
+   Failed card; click **Try again from step N** once the drive is back.
+3. Make one fail again and leave the Failed card alone for 10 minutes. Then open the stack and click **Open** on it.
+
+You should see: (1) "Runs in" with the project's folder in Swift's facts box, under the worker's words; (2) the steps
+it did, ✓ each, the last one with "!" where it failed, and the button naming that step; the retry's card shows your
+same words, and the work picks up from that step rather than starting over; (3) after 10 minutes the card leaves and
+the stack's badge counts one more ("Failed · 10 min ago" on its row); Open brings the Failed card back.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

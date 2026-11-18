@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import asking, captions, clock, memory, recent, seen, stops, timers
+from swift import asking, captions, clock, memory, recent, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -1618,7 +1618,7 @@ class Session:
                 if self.on_recordings is not None:
                     await self.on_recordings(msg.data)
             case "retry":
-                await self._start_retry()
+                await self._start_retry(retrying.resume_from(msg.data))  # §8.3: "Try again from step N"
             case "confirm.reply":
                 await self._confirm_reply(msg.data["request_id"], msg.data["decision"] == "approve")
             case "view":
@@ -2928,7 +2928,7 @@ class Session:
                     if resumed is not None:
                         thread = resumed.as_context(time.time())
                     else:
-                        notes.append(self._unclear_note(record))
+                        notes += [self._unclear_note(record), retrying.note(record)]
                         thread = self._thread_context(record)
                     if workflow is None and self.library is not None and self.tools is not None:
                         notes.append(self.library.catalogue())  # the model picks a workflow if one fits
@@ -4927,7 +4927,7 @@ class Session:
         self._speak_reply(f"{failure.title}. {failure.message}", record)
         await self._open_followup()
 
-    async def _start_retry(self) -> None:
+    async def _start_retry(self, from_step: int | None = None) -> None:
         """"Try again" on an error card: the same request, without speaking it again."""
         pending, self._retry = self._retry, None
         if pending is None or self._front_busy() or self._capturing():
@@ -4936,7 +4936,7 @@ class Session:
         if source == "debug.run":
             await self._start_demo(again)
             return
-        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "retry", "retry_of": source}
+        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "retry", "retry_of": source, "resume_from": from_step}
 
         async def capture(rec: dict[str, Any]) -> str:
             return again

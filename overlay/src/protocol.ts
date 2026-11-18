@@ -177,7 +177,8 @@ export type StackEntry = {
   id: string;
   // "recent": an answer from earlier today (A1), listed after what waits; it never counts as waiting.
   // "timer": a timer still counting (B14), made by the overlay from ``timers``: a RUNNING row, never waiting.
-  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent" | "timer";
+  // "failed": a request's Failed card moved here after 10 min (ADR-019 §8.3, the overlay's own); it counts (D9).
+  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent" | "timer" | "failed";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;
@@ -226,7 +227,7 @@ export type Outbound =
   | { type: "hello"; data: { token: string; client: string } }
   | { type: "ptt"; data: { state: "down" | "up" } }
   | { type: "cancel"; data: Record<string, never> }
-  | { type: "retry"; data: Record<string, never> }
+  | { type: "retry"; data: { from_step?: number } }
   | { type: "confirm.reply"; data: { request_id: string; decision: "approve" | "reject" } }
   | { type: "debug.run"; data: { scenario: Scenario } }
   | { type: "debug.ask"; data: { text: string } }

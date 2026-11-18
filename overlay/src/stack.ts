@@ -100,6 +100,7 @@ export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "D
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
 export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" {
   if (item.kind === "timer") return "timer";
+  if (item.kind === "failed") return "alert";
   if (item.kind === "recent") return item.reason === "failed" ? "alert" : "check";
   if (item.kind === "due") return "bell";
   if (item.kind !== "parked") return "shield";

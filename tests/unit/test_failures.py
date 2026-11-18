@@ -137,6 +137,20 @@ async def test_try_again_sends_the_same_transcript_without_speaking() -> None:
     assert rec.states()[-1] == "result"
 
 
+async def test_try_again_from_a_step_keeps_the_owners_words_and_notes_the_step() -> None:
+    """ADR-019 §8.3: "Try again from step 3" repeats the same words (the card's, the transcript's); where to pick
+    up is Swift's note to the worker (retrying.note), kept in the record as a number only."""
+    rec = Recorder()
+    executor = FailsOnce()
+    session = Session(rec, executor, debug_executor=MockExecutor(speed=0), router=None)
+    await session.handle(Message("debug.ask", {"text": "Summarize the README."}))
+    await settled(session)
+    await session.handle(Message("retry", {"from_step": 3}))
+    await settled(session)
+    assert executor.calls == ["Summarize the README.", "Summarize the README."]
+    assert [m.data["text"] for m in rec.messages if m.type == "transcript"][-1] == "Summarize the README."
+
+
 async def test_no_retry_without_a_request_to_repeat() -> None:
     session, rec, _ = make()
     await session.handle(Message("retry", {}))

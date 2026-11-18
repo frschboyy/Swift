@@ -550,6 +550,7 @@ function collapseStack(): void {
 /** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
 function stackAction(id: string, action: "open" | "skip" | "end"): void {
   stack = S.afterAction(stack, action);
+  if (id.startsWith("failed:")) return failedAction(id, action);
   client.send({ type: "stack.action", data: { id, action } });
   void syncEscape();
   void syncPanes();
@@ -592,7 +593,7 @@ function onStackMessage(items: S.Stack["items"]): void {
   const before = new Set(stack.items.map((i) => i.id));
   if (items.some((i) => !before.has(i.id) && S.waits(i))) joinedStackAt = Date.now();
   const now = Date.now();
-  stack = S.onStack(stack, [...timers.filter((t) => t.due_ms > now).map(S.timerEntry), ...items], now);
+  stack = S.onStack(stack, [...timers.filter((t) => t.due_ms > now).map(S.timerEntry), ...items, ...failedStack.map((f) => f.entry)], now);
   void syncEscape();
   void syncPanes();
   drawStackInline();
@@ -1909,6 +1910,34 @@ function renderNotice(title: string, line: HTMLElement): void {
   drawCard({ state: "notice", look: "result", onclick: dismissUnlessControl, body: [Card.failBlock(el("span", { class: "ok-dot" }, icon("check")), title, line)] });
 }
 
+// ADR-019 §8.3: a request's Failed card left in front this long moves to the stack, still Failed, and still counts
+// on the badge (D9). The stack row is the overlay's own (like a timer's): Open shows the card again, End drops it.
+const FAILED_TO_STACK_MS = (location.pathname.includes("/dev/") && Number(new URLSearchParams(location.search).get("failms"))) || 10 * 60_000;
+let failedFront: { problem: Problem; since: number; words: string } | null = null;
+let failedStack: { entry: S.Stack["items"][number]; problem: Problem }[] = [];
+let failedIds = 0;
+
+/** Each second: a Failed card in front for FAILED_TO_STACK_MS moves to the stack. */
+function moveFailed(now: number): void {
+  if (!failedFront || now - failedFront.since < FAILED_TO_STACK_MS) return;
+  const f = failedFront;
+  failedFront = null;
+  if (pres.card.kind !== "error" || !card.classList.contains("card--in")) return;  // something else is in front
+  const entry = { id: `failed:${++failedIds}`, kind: "failed" as const, title: f.words ? clipLine(f.words, 60) : f.problem.title, reason: "failed", since_ms: f.since, thread_id: f.problem.threadId ?? null };
+  failedStack = [...failedStack, { entry, problem: f.problem }];
+  onStackMessage(backendStack);
+  dismiss();
+}
+
+/** Open or End on a Failed row of the stack (the overlay's own: the backend never had it). */
+function failedAction(id: string, action: "open" | "skip" | "end"): void {
+  if (action === "skip") return;
+  const f = failedStack.find((x) => x.entry.id === id);
+  failedStack = failedStack.filter((x) => x.entry.id !== id);
+  onStackMessage(backendStack);
+  if (action === "open" && f) renderProblem(f.problem);
+}
+
 type Problem = {
   title: string;
   message: string;
@@ -1947,8 +1976,10 @@ function renderProblem(p: Problem): void {
   // ADR-019 §8.3: a request's Failed card never fades and has no reading bar; it stays until the owner closes it
   // or the next request takes the front.
   const swiftStarted = p.origin !== undefined && p.origin !== "asked";
-  const failed = (!!(p.runId || p.threadId) || swiftStarted) && !info;
+  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
+  const failed = ofRequest && !info;
   if (!presentAnswer("error", p.sticky || failed ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
+  failedFront = failed ? { problem: p, since: Date.now(), words: request } : null;
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
   const toggle = detail
@@ -1969,18 +2000,26 @@ function renderProblem(p: Problem): void {
       restartSwift();
     } }, "Restart Swift"));
   }
+  // ADR-019 §8.3: a request's Failed card keeps what it did (its steps, the last one where it failed) and tries
+  // again from that step; Swift tells the worker where to pick up (retrying.py), never in the owner's words.
+  const partial = ofRequest && !info && steps.length > 1 ? steps.slice() : null;
   if (p.retry) {
+    const from = partial ? partial.length : 0;
     actions.push(
       el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
         (ev.currentTarget as HTMLButtonElement).disabled = true;
-        if (!client.send({ type: "retry", data: {} })) renderConnection(true);
-      } }, "Try again"),
+        if (!client.send({ type: "retry", data: from ? { from_step: from } : {} })) renderConnection(true);
+      } }, from ? `Try again from step ${from}` : "Try again"),
     );
   }
+  const done = partial
+    ? el("ol", { class: "fail-steps", "aria-label": "What it did before it failed" }, ...partial.map((text, i) =>
+      el("li", { class: i === partial.length - 1 ? "fail-step fail-step--failed" : "fail-step" },
+        el("span", { class: "fail-step-mark", "aria-hidden": "true" }, i === partial.length - 1 ? "!" : "✓"), text)))
+    : null;
   const bang = p.glyph === "spin"
     ? el("span", { class: "spinner", "aria-hidden": "true" })
     : el("span", { class: info ? "bang bang--info" : "bang", "aria-hidden": "true" }, info ? "i" : "!");
-  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
   drawCard({
     // Failed names a request's failure; a problem with no request is Swift's own notice.
     state: ofRequest && !info ? "failed" : "notice", look: info ? "error card--info" : "error", role: info ? "status" : "alert", onclick: dismissUnlessControl,
@@ -1988,7 +2027,7 @@ function renderProblem(p: Problem): void {
     // Sticky problems (reconnecting, restarting, stopped) have no close (board 9 §4).
     lead: !ofRequest && !p.sticky && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
     origin: swiftStarted ? swiftOrigin(p.origin!, p.originDetail) : ofRequest && headRow(),
-    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), detail],
+    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), done, detail],
     foot: toggle || actions.length || p.agent ? [toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null), el("span", { class: "foot-gap" }), ...actions] : undefined,
   });
 }
@@ -2105,6 +2144,7 @@ window.setInterval(() => {
 }, 15_000);
 
 window.setInterval(() => {
+  moveFailed(Date.now());
   const r = P.tick(pres, Date.now());
   pres = r.p;
   if (r.hide) {

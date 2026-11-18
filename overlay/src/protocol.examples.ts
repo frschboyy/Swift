@@ -72,6 +72,7 @@ export const TO_BACKEND = [
   {"type": "ptt", "data": {"state": "down"}},
   {"type": "cancel", "data": {}},
   {"type": "retry", "data": {}},
+  {"type": "retry", "data": {"from_step": 3}},
   {"type": "confirm.reply", "data": {"request_id": "a-1:1", "decision": "approve"}},
   {"type": "debug.run", "data": {"scenario": "confirm"}},
   {"type": "debug.ask", "data": {"text": "what time is it"}},

@@ -440,6 +440,19 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   concurrent: async (s) => { await concurrent(s); },
   // ADR-019 §8.4: a problem with a run nobody asked for is Failed, with Swift's origin on the left.
   failedScheduled: async (s) => { s.inject("error", { code: "service", title: "The backup couldn't finish", message: "The drive D: isn't connected. Nothing was deleted.", hint: "", severity: "error", agent: null, origin: "scheduled", origin_detail: "nightly backup" }); await sleep(150); },
+  // ADR-019 §8.3: a request that failed part way: its steps, where it failed, "Try again from step 3".
+  // With ?failms=3000 it moves to the stack 3 s later (10 min in Swift).
+  failedPartial: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Back up my photos to the D: drive", final: true, typed: false });
+    s.inject("state", { state: "working", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    for (const text of ["Finding your photos", "Counting 2,140 files", "Copying to D:"]) {
+      s.inject("step", { run_id: id, text, kind: "tool", ts: Date.now(), agent: AGENT, thread_id: `t-${id}` });
+    }
+    s.inject("state", { state: "error", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("error", { code: "crashed", title: "The request stopped unexpectedly", message: "The copy stopped part way: the D: drive went away.", hint: "", severity: "error", retry: true, agent: AGENT, thread_id: `t-${id}` });
+    await sleep(250);
+  },
   // Board 9 §4: Swift's own notices and problems (State · Notice).
   noticeReady: async () => { notice("ready"); await sleep(150); },
   noticeRunning: async () => { notice("running"); await sleep(150); },

@@ -1798,6 +1798,12 @@ code {
 /* ADR-019 §8.1: Swift's facts rows on a command card ("Runs in"). */
 #stage .facts--swift { margin: 8px 0 0; }
 #stage .facts--swift .facts-path { font: 12px var(--mono); overflow-wrap: anywhere; }
+/* ADR-019 §8.3: a Failed card keeps its steps: ✓ done (--ok), ! where it failed (--bad, with the word on the card). */
+#stage .fail-steps { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 20px; color: var(--muted); }
+#stage .fail-step { display: flex; gap: 8px; }
+#stage .fail-step-mark { flex: none; width: 12px; color: var(--ok); font-weight: 700; }
+#stage .fail-step--failed { color: var(--text); }
+#stage .fail-step--failed .fail-step-mark { color: var(--bad); }
 #stage .asking-line { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 #stage .asking-line .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
 #stage .pinned-line { flex: 1 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

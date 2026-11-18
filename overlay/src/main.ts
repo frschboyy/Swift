@@ -252,7 +252,9 @@ function drawCapsule(): void {
 }
 
 capsuleEl.addEventListener("click", (ev) => {
-  if (expanded && !(ev.target as HTMLElement).closest("button")) foldExpanded();
+  if ((ev.target as HTMLElement).closest("button")) return;  // Stop / Resume act on their own
+  if (expanded) foldExpanded();
+  else if (!typing) toggleTyping();  // seams decision 4: a click on the capsule opens the text box; the hotkey stays
 });
 
 capBtn.addEventListener("click", () => {

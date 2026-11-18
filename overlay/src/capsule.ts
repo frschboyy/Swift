@@ -66,7 +66,7 @@ export type CapsuleView = {
   sub: string;
   // The one control: Stop while speaking, Resume while paused by the owner.
   button: "stop" | "resume" | null;
-  // Clickable (a hit region): only with a button. Otherwise it is click-through.
+  // Clickable (a hit region): always, since a click opens the text box (seams decision 4); its button acts on its own.
   clickable: boolean;
 };
 
@@ -74,7 +74,7 @@ const QUIET_TEXT = "I can't hear you. Check your microphone.";
 
 /** The words on the capsule. ``transcript``: the live words; ``elapsed``: "0:12" while working. */
 export function view(p: Presence, transcript: string, elapsed: string, paused: CapsuleInput["paused"]): CapsuleView {
-  const plain = (label: string, sub = ""): CapsuleView => ({ label, sub, button: null, clickable: false });
+  const plain = (label: string, sub = ""): CapsuleView => ({ label, sub, button: null, clickable: true });  // a click opens the text box (seams 4)
   switch (p) {
     case "idle":
     case "orb":

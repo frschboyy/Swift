@@ -38,7 +38,7 @@ test("ADR-018: a card open shrinks it to the orb, unless it has something the ca
   assert.equal(presence(at({ cardOpen: true, paused: "mic" })), "paused-mic");
   assert.equal(presence(at({ cardOpen: true, paused: "locked" })), "paused-locked");
   assert.equal(presence(at({ cardOpen: true, paused: "asleep" })), "paused-locked");
-  assert.deepEqual(view("orb", "", "", null), { label: "", sub: "", button: null, clickable: false });
+  assert.deepEqual(view("orb", "", "", null), { label: "", sub: "", button: null, clickable: true });
 });
 
 test("paused only when listening is really off: by the owner, or a locked screen with wake listening", () => {
@@ -51,16 +51,16 @@ test("paused only when listening is really off: by the owner, or a locked screen
   assert.equal(pausedBy({ listening: false, wake: false, reason: "locked" }), null);
 });
 
-test("each state says a word, and only speaking and mic-off are clickable", () => {
-  assert.deepEqual(view("heard", "", "", null), { label: "Listening…", sub: "", button: null, clickable: false });
+test("each state says a word, and every state takes a click (seams decision 4: it opens the text box)", () => {
+  assert.deepEqual(view("heard", "", "", null), { label: "Listening…", sub: "", button: null, clickable: true });
   assert.equal(view("listening", "what's on my", "", null).sub, "what's on my");
   assert.equal(view("cant-hear", "", "", null).sub, "I can't hear you. Check your microphone.");
-  assert.deepEqual(view("working", "", "0:12", null), { label: "Working on it", sub: "0:12", button: null, clickable: false });
+  assert.deepEqual(view("working", "", "0:12", null), { label: "Working on it", sub: "0:12", button: null, clickable: true });
   assert.deepEqual(view("speaking", "", "", null), { label: "Speaking", sub: "", button: "stop", clickable: true });
   assert.deepEqual(view("paused-mic", "", "", "mic"), { label: "Not listening", sub: "Mic off", button: "resume", clickable: true });
-  assert.deepEqual(view("paused-locked", "", "", "locked"), { label: "Not listening", sub: "Screen locked", button: null, clickable: false });
+  assert.deepEqual(view("paused-locked", "", "", "locked"), { label: "Not listening", sub: "Screen locked", button: null, clickable: true });
   assert.equal(view("paused-locked", "", "", "asleep").sub, "PC was asleep");
-  assert.equal(view("idle", "", "", null).clickable, false);
+  assert.equal(view("idle", "", "", null).clickable, true);
   // Status never names the provider.
   for (const p of ["orb", "heard", "listening", "transcribing", "cant-hear", "working", "speaking", "paused-mic", "paused-locked", "idle"] as const) {
     const v = view(p, "", "", null);

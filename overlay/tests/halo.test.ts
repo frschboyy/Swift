@@ -3,7 +3,7 @@
 import { strict as assert } from "node:assert";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
-import { needsCompact, tailX } from "../src/geometry.ts";
+import { needsCompact, needsFold, tailX } from "../src/geometry.ts";
 
 const read = (path: string): string => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -54,4 +54,11 @@ test("with reduced motion the spinner still turns, slowly (A3: Windows' animatio
   const block = reduced.slice(0, reduced.indexOf("\n}\n"));
   assert.match(block, /animation: none !important/);
   assert.match(block, /\.spinner \{ animation: spin [\d.]+s linear infinite !important; \}/);
+});
+
+test("§8.6: a compact confirm still too tall folds the deck, only with more than one edge behind it", () => {
+  assert.equal(needsFold(true, 3, 400, 102, 560), true);
+  assert.equal(needsFold(true, 3, 300, 102, 560), false);
+  assert.equal(needsFold(true, 1, 500, 34, 560), false);  // one edge is already the folded deck
+  assert.equal(needsFold(false, 3, 500, 102, 560), false);
 });

@@ -4,7 +4,7 @@
 // once-a-second tick keep working. Words go through textContent only (dom.ts ``el``).
 
 import { el, icon } from "./dom";
-import { needsCompact, tailX } from "./geometry";
+import { needsCompact, needsFold, tailX } from "./geometry";
 import { ago } from "./times";
 
 const TAIL_PATH = "M0 0C6 0 9 11 12 11C15 11 18 0 24 0";
@@ -89,7 +89,13 @@ export function dressCards(stage: HTMLElement): void {
       const style = getComputedStyle(card);
       const chrome = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
       const edges = deck.querySelectorAll(".edge").length;
-      if (needsCompact(card.classList.contains("card--confirm"), edges, inner.scrollHeight + chrome, deck.offsetHeight, window.innerHeight)) card.dataset.compact = "";
+      const confirm = card.classList.contains("card--confirm");
+      if (needsCompact(confirm, edges, inner.scrollHeight + chrome, deck.offsetHeight, window.innerHeight)) card.dataset.compact = "";
+      // Still too tall once compact: the deck folds to one edge (main.ts drawRows reads this), and stays folded
+      // while the confirm is up, so it doesn't unfold and fold again.
+      const fold = confirm && (stage.hasAttribute("data-fold-deck")
+        || (card.dataset.compact !== undefined && needsFold(confirm, edges, inner.scrollHeight + chrome, deck.offsetHeight, window.innerHeight)));
+      if (fold !== stage.hasAttribute("data-fold-deck")) stage.toggleAttribute("data-fold-deck", fold);
       // Only a card that scrolls needs its footer opaque, over what passes under it.
       card.toggleAttribute("data-scrolls", inner.scrollHeight > inner.clientHeight + 1);
     }

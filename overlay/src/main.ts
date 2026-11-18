@@ -186,6 +186,7 @@ window.setInterval(() => {
 followTheme(stage, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
 // Halo's anatomy on every card, the tail on the orb and the compact rule (ADR-019 Step B).
 dressCards(stage);
+new MutationObserver(() => drawRows()).observe(stage, { attributes: true, attributeFilter: ["data-fold-deck"] });
 
 /** The push-to-talk hotkey for sentences: "Ctrl+Shift+Space". */
 const pttText = (): string => (pttSpec ? hotkeyParts(pttSpec).join("+") : "the push-to-talk hotkey");
@@ -374,7 +375,8 @@ const deckDraw = new DeckDraw({
 
 /** The one way the other requests are drawn: the harness shows what the owner sees. */
 function drawRows(): void {
-  const view = D.deckView(deck, pres.rows, Date.now(), expanded);
+  // Read more folds the deck; so does a compact confirm that still doesn't fit (ADR-019 §8.6, dress.ts).
+  const view = D.deckView(deck, pres.rows, Date.now(), expanded || stage.hasAttribute("data-fold-deck"));
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
   deckDraw.draw(view, D.keyOf(deck, pres.focus));

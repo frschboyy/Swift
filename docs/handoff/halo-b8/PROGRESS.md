@@ -39,6 +39,9 @@ are in the saved file.
 | B13 file lists as a tree | 167dc5a | built (new `tree` shape; no Open / Show in folder / double-click yet) |
 | B6/B11 the watch as a monitor | 97a522f | partial (no step counts "Step 4 of 6", no console line under the paper) |
 | B10 Run link on the card; the card holds while its watch is open; watch clock ticks again | 7ccf5df | partial (no B9 docked/mini placements, no tether, no B12 open-from-record) |
+| Modes §3 "ask me about everything" (+ owner check -9) | 64dd679 | built; **product rule: needs review** (no tray label yet) |
+| A9 micro-feedback | 11abdda | built |
+| A4 Pin an answer as an edge | aa1b6b6 | built (no open-in-reader from the edge) |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
@@ -52,8 +55,11 @@ in at least two ways that survive grayscale (band or tag or row, mark shape, the
 
 ## Where it is now
 
-Every B-item has been taken as far as the overlay and small backend changes allow (partials as marked). Next: the
-modes study, then the A-ideas.
+B-items done or partial; modes study §3 done. **Not built, on purpose:** modes §1 learned trust (it lowers an
+approval level and adds a new offer card) and §2 the plan card (`propose_plan`, grants used in order, a 640 card and
+its seam scenario): both are product-rule work that deserves its own session and review, not a rushed end of this
+one. Now on the A-ideas: A9 and A4 done; next A12 (behind a setting, off by default), then A5, A6, A1, A2, A7, A3,
+A8, A10, A11, A13 as time allows.
 
 ## Left, in the README's order
 
@@ -61,7 +67,7 @@ modes study, then the A-ideas.
 2. **Step B, what's left:** old `styles.css` rules that Halo's later rules override were not removed one by one
    (ADR-019 §10 says so). Section labels in the stack list (RUNNING, EARLIER TODAY) come with B14 and A1.
 3. **B-items:** done or partial (the table says what each partial lacks).
-4. **Modes study** (`01-build-spec.md` §4): not started.
+4. **Modes study** (`01-build-spec.md` §4): §3 built; §1 learned trust and §2 the plan card not built (see above).
 5. **A-ideas:** the nine "Do next" (A5, A6, A9, A4, A1, A2, A7, A3, A8), then A10–A13 behind a setting that is off by
    default, each with an owner check. Not started.
 6. Not done either: owner checks for the new surfaces; ADR-019 §10's before/after captures; the live loop on the
@@ -73,6 +79,8 @@ modes study, then the A-ideas.
 
 - **F1** (a lapsed OK and the front), **F2** (no OK brought forward without the owner), **F6** and **F7** ("stop"
   before a run and with nothing running) change confirm and stop behaviour.
+- **"Ask me about everything"** (64dd679) changes where cards are decided (gateway, system lane, step grants).
+- B14 added `timers`/`due.snooze` frames and `due.snooze` sets timers from Swift's own items: worth a second look.
 - The new capability permission `core:app:allow-version` (read-only, for D10) should be looked at too.
 
 ## Tests at the stopping point

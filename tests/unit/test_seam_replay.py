@@ -1794,20 +1794,59 @@ async def test_a_yes_while_a_lapsed_ok_waits_in_the_stack_approves_nothing(said:
     await finish_all(session, agent)
 
 
-async def test_a_scheduled_run_that_fails_is_a_failed_card_with_swifts_origin() -> None:
-    """§8.4: nobody asked for it, so the card says Swift started it; the cause is plain and names no provider."""
-    from swift.background import guarded
+def _broken_due_text(session: Any) -> None:
+    """Showing a due card fails (``_show_queued_due`` → ``_send_result``, the review's likeliest real failure)."""
+    send_result = session._send_result
 
-    session, out, agent, stt, _control, sched = _lane()
+    async def broken(run_id: str, *args: Any, **kw: Any) -> None:
+        if run_id.startswith("due-"):
+            raise OSError(r"network is unreachable: D:\tea notes")  # a cause the failures table would misname
+        await send_result(run_id, *args, **kw)
 
-    async def broken(item: Any, missed: bool) -> None:
-        raise OSError("drive D: not connected")
+    session._send_result = broken
 
-    with pytest.raises(OSError):  # the scheduler still logs it
-        await guarded(session, broken)(_timer(session, sched), False)
-    errors = [m.data for m in out.messages if m.type == "error"]
-    assert len(errors) == 1
-    assert errors[0]["origin"] == "scheduled" and errors[0]["origin_detail"] == "tea"
-    assert "claude" not in json.dumps(errors[0]).lower() and "drive D" not in json.dumps(errors[0])
+
+def _scheduled_errors(out: Any) -> list[dict[str, Any]]:
+    return [m.data for m in out.messages if m.type == "error" and m.data.get("origin") == "scheduled"]
+
+
+async def test_a_scheduled_run_that_fails_is_a_failed_card_with_swifts_origin(tmp_path: Path) -> None:
+    """§8.4 through the real wiring (``_make_system``) and a real ``notify_due`` failure: the card says Swift
+    started it, its cause is Swift's own fixed sentence (never the failures table's or the exception's words)."""
+    from swift.backend.__main__ import _make_system
+    from swift.settings import Settings
+
+    session, out, agent, stt, _control, _sched = _lane()
+    settings = Settings.model_validate({"debug": True, "logging": {"journal": str(tmp_path / "journal.jsonl")}})
+    system, task = _make_system(settings, session)
+    session.system = system
+    _broken_due_text(session)
+    try:
+        _timer(session, system.scheduler)
+        await until(lambda: _scheduled_errors(out))
+    finally:
+        task.cancel()
+    errors = _scheduled_errors(out)
+    assert len(errors) == 1 and errors[0]["origin_detail"] == "tea" and "thread_id" not in errors[0]
+    text = json.dumps(errors[0]).lower()
+    assert "claude" not in text and "tea notes" not in text and "reach the ai" not in text
     await _shows(out, lambda s: s["stage"] == "error")
     await finish_all(session, agent)
+
+
+async def test_a_scheduled_failure_waits_behind_the_request_in_front_and_is_never_its_card() -> None:
+    """Review item 2 and note 4: shown later (``_wait_due``), outside the scheduler's call, behind the request."""
+    from swift import background
+
+    session, out, agent, stt, _control, sched = _lane()
+    session.speech_replies = "never"  # nothing said at once: the failure happens when the card is shown
+    background.guard(session)
+    rid = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    _broken_due_text(session)
+    await session.notify_due(_timer(session, sched), False)
+    await asyncio.sleep(0.3)
+    assert _scheduled_errors(out) == []  # not over the request in front
+    await finish_all(session, agent)
+    await until(lambda: _scheduled_errors(out), timeout=5)
+    assert all("thread_id" not in e for e in _scheduled_errors(out)), "drawn as the request's own card"
+    assert rid

@@ -1850,3 +1850,17 @@ async def test_a_scheduled_failure_waits_behind_the_request_in_front_and_is_neve
     await until(lambda: _scheduled_errors(out), timeout=5)
     assert all("thread_id" not in e for e in _scheduled_errors(out)), "drawn as the request's own card"
     assert rid
+
+
+async def test_the_weekly_improvement_pass_fails_with_swifts_origin() -> None:
+    """Review item 3: the improvement pass also runs unasked (``start_own``, source "improve"): its Failed card
+    says Swift started it; a request the owner made keeps no origin."""
+    from swift.failures import Failure
+
+    session, out, agent, stt, _control, _sched = _lane()
+    await session._send_failure(Failure("offline", "Can't reach", "m", "h"), {"source": "improve"})
+    assert out.last("error")["origin"] == "scheduled"
+    assert out.last("error")["origin_detail"] == "Improve speech recognition"
+    await session._send_failure(Failure("offline", "Can't reach", "m", "h"), {"source": "voice"})
+    assert "origin" not in out.last("error")
+    await finish_all(session, agent)

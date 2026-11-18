@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import captions, clock, frames, memory, recent, retrying, seen, stops, timers
+from swift import background, captions, clock, frames, memory, recent, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -4917,7 +4917,7 @@ class Session:
             # "Couldn't confirm model" with the internet up is how an expired login often shows (R-11).
             self.on_signin_refused("claude")  # the only provider with a sign-in today
         await self._set_state("error", **({"run_id": run_id, "agent": agent} if run_id else {}))
-        message = failure.as_message() | {"retry": self._retry is not None}
+        message = failure.as_message() | {"retry": self._retry is not None} | background.origin_of(record)  # §8.4
         await self._send(outbound("error", **message, agent=agent))
         self._speak_reply(f"{failure.title}. {failure.message}", record)
         await self._open_followup()

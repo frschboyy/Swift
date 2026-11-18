@@ -2946,7 +2946,10 @@ About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
    the stack.
 
 You should see: nothing is sent or done while the OK is only in the stack, whatever you say; once you open it, it is
-in front with its own buttons again, and only then does a click on them count.
+in front with its own buttons again, and only then does a click on them count. If a click ever reaches an OK (or
+Swift's own yes/no question) that Swift thinks isn't in front, nothing is done: that OK comes to the front with
+"Still waiting: click again to approve.", and a second click there approves it. That happens only in a race between
+the screen and Swift, so you may never see it; tests cover it.
 
 <a id="check-rule-gaps-2"></a>**Check rule-gaps-2. Words that only look like asking to write ask first**
 1. Open Notepad with an empty page and click into it.

@@ -1518,17 +1518,17 @@ async def _set_aside() -> tuple[Any, Any, Any, str, str]:
 
 async def test_an_approval_for_an_ok_not_in_front_is_refused() -> None:
     """CLAUDE.md: nothing approves unless the thing is on screen and in front; enforcement lives in the backend
-    (``intake.approves``). A ``confirm.reply`` for an OK set aside in the stack, off screen, approves nothing; Open
-    brings it back in front, and then the same click approves it."""
+    (``intake.approves``). A ``confirm.reply`` for an OK set aside in the stack, off screen, approves nothing: the
+    screen and the backend disagree, so that OK comes to the front with "Still waiting", and the next click approves."""
+    from swift.session import STILL_WAITING
     session, out, agent, run, rid = await _set_aside()
     await session.handle(Message("confirm.reply", {"request_id": rid, "decision": "approve"}))
     await asyncio.sleep(0.1)
     assert not any(m.data.get("run_id") == run and m.data.get("status") == "done" for m in out.messages if m.type == "result"), \
         "an OK off screen was approved"
-    assert any(i["id"] == f"card:{rid}" for i in out.last("stack")["items"]), "the OK left the stack"
-    await session.handle(Message("stack.action", {"id": f"card:{rid}", "action": "open"}))
-    await asyncio.sleep(0.05)
-    assert agree(session, out)["confirm"] == rid
+    assert agree(session, out)["confirm"] == rid, "the refused OK didn't come to the front"
+    hint = out.last("confirm.voice")
+    assert (hint["request_id"], hint["phase"], hint["text"]) == (rid, "hint", STILL_WAITING)
     await session.handle(Message("confirm.reply", {"request_id": rid, "decision": "approve"}))
     agent.runs[run]["go"].set()
     await until(lambda: any(m.data.get("run_id") == run and m.data.get("status") == "done" for m in out.messages if m.type == "result"))

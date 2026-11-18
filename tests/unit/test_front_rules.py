@@ -377,7 +377,9 @@ async def test_no_recording_starts_for_a_hidden_question_until_it_s_back() -> No
 async def test_a_click_on_a_hidden_approval_question_approves_nothing() -> None:
     """Was "a click on a hidden question's own button still answers it" (c09b046, 2026-11-07). Since the 2026-11-15
     rule (nothing approves unless the thing is on screen and in front; claude/rule-gaps), a click on "Turn off
-    Wi-Fi?" while the backend knows it's hidden behind another request approves nothing: the question still waits."""
+    Wi-Fi?" while the backend knows it's hidden behind another request approves nothing: the question comes back to
+    the front with "Still waiting", and a click there approves it."""
+    from swift.session import STILL_WAITING
     session, out, agent, stt, control, _sched = _lane(30.0)
     research = await _beside(session, out, agent, stt)
     q = session.dialogue.pending
@@ -386,6 +388,10 @@ async def test_a_click_on_a_hidden_approval_question_approves_nothing() -> None:
     assert await session._take_answer("Yes", source="click") is True  # taken by the question, refused there
     await asyncio.sleep(0.1)
     assert control.radio_state["wifi"] is True and session.dialogue.pending is q
+    assert session._focus is q.owner and asks(out)[-1]["text"].startswith(STILL_WAITING)
+    agree(session, out)  # the overlay draws it in front
+    assert await session._take_answer("Yes", source="click") is True
+    await until(lambda: control.radio_state["wifi"] is False)
     await finish_all(session, agent)
 
 

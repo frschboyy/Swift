@@ -288,6 +288,7 @@ SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", 
 # A yes to Swift's own question ("Turn off Wi-Fi?") or offer, typed: never an approval, with or without
 # the name (foundation decision 1); said or clicked, it is. Who may approve what is ``intake.approves``.
 TYPED_YES_HINT = "Typing can't approve: click Yes, or say yes."
+STILL_WAITING = "Still waiting: click again to approve."  # a click the backend saw off the front
 # The lane's question closed without an answer.
 LANE_NO_ANSWER = "No answer, so I've left it as it is."
 FRAGMENT_HINT = "Say the whole request, like “Hey Swift, what's on tomorrow?”"
@@ -3518,8 +3519,9 @@ class Session:
                 if q.approval and turn.action == "answered" and turn.answer.kind in ("yes", "choice") and not (verdict := intake.approves(
                     source, named=named or turn.answer.named, level=1, in_front=self._on_screen(q),
                 )).allowed:
-                    if verdict.reason != "not_in_front":  # off screen: refused quietly, it waits where it is
-                        await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
+                    hint = STILL_WAITING if verdict.reason == "not_in_front" else TYPED_YES_HINT  # off screen: it comes to the front
+                    if hint is TYPED_YES_HINT or (q.owner is not None and await self._bring(q.owner)):
+                        await self._reask(q, f"{hint} {q.text}")  # typed: never a yes
                     return True
                 answer = turn.answer
                 if source != "click" and answer.kind not in ("yes", "no", "cancel"):
@@ -4618,7 +4620,9 @@ class Session:
         # A click (the other doors already asked ``approves`` about the card in front): only on the OK in front.
         in_front = request_id == self._open_confirm() and not (self.attention is not None and self.attention.held)
         if approve and source == "click" and not (verdict := intake.approves(source, named=False, level=intake.CARD, in_front=in_front)).allowed:
-            logger.info("approval refused", reason=verdict.reason, source=source)  # it waits where it is, unanswered
+            logger.info("approval refused", reason=verdict.reason, source=source)  # the screen and the backend disagree:
+            await self._open_card(request_id)  # it comes to the front, unanswered; the next click there approves
+            await self._confirm_phase(request_id)("hint", STILL_WAITING)
             return
         with self._as(run):
             await self._reply_for_run(request_id, approve, source)

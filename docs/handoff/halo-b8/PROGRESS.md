@@ -31,6 +31,12 @@ are in the saved file.
 | §8.5 at right anchors the pill grows leftwards | efb9659 | built |
 | §8.4 a problem with a run nobody asked for is Failed with Swift's origin | 5bac599 | overlay side (nothing sends it yet) |
 | §8.1 confirm and question origin line; Block · Worker's content | 6ef45ea | partial (no "Runs in"/"Removes" rows: not on the frame) |
+| B5 cards grow to a cap; Show all / Show less, Esc, the orb | a37589e | built (no node-boundary cut for diagrams; reading time is given back, not restarted) |
+| B7 motion: grow, fold, edge forward, drain; reduced motion keeps the bar | 19cc84e | built (no tail ordering, no deck move 160 ms after a drain) |
+| Owner check -7 (B7) | 46fbe4a | checks |
+| B14 a running timer on the orb; "+5 min" on its Due card | 1743e23 | built (new `timers` and `due.snooze` frames; no Edge · Timer, stack RUNNING row, voice "5 more") |
+| B4 Worker's content and Worker's pick in grey | 2f138f4 | restyle (shapes were built; no D7: charts carry no pick) |
+| B13 file lists as a tree | 167dc5a | built (new `tree` shape; no Open / Show in folder / double-click yet) |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
@@ -44,14 +50,15 @@ in at least two ways that survive grayscale (band or tag or row, mark shape, the
 
 ## Where it is now
 
-Board 9 §1 and the B3 + ADR-019 §8 items are done (partials as marked). Next: B5.
+Board 9 §1, B3, the ADR-019 §8 items, B5, B7, B14, B13 and B4 are done (partials as marked). Next: B6/B9–B12 (the
+watch), then the modes study, then the A-ideas.
 
 ## Left, in the README's order
 
 1. **F8:** owner check halo-b8-build-4fbdf7-1 written (6bd887e). No `AllowSetForegroundWindow` change unless it fails.
 2. **Step B, what's left:** old `styles.css` rules that Halo's later rules override were not removed one by one
    (ADR-019 §10 says so). Section labels in the stack list (RUNNING, EARLIER TODAY) come with B14 and A1.
-3. **B-items:** B3 and §8 done; next B5 → B7 → B14 → B13 → B4 shapes → B6/B9–B12.
+3. **B-items:** all but B6/B9–B12 done (partials in the table).
 4. **Modes study** (`01-build-spec.md` §4): not started.
 5. **A-ideas:** the nine "Do next" (A5, A6, A9, A4, A1, A2, A7, A3, A8), then A10–A13 behind a setting that is off by
    default, each with an owner check. Not started.

@@ -29,7 +29,7 @@ are in the saved file.
 | §8.3 a request's Failed card never fades | c45efec | partial (no "Try again from step N", no move to the stack) |
 | §8.6 a compact confirm that still doesn't fit folds the deck | 5038d71 | built |
 | §8.5 at right anchors the pill grows leftwards | efb9659 | built |
-| §8.4 a problem with a run nobody asked for is Failed with Swift's origin | 5bac599 | overlay side (nothing sends it yet) |
+| §8.4 a problem with a run nobody asked for is Failed with Swift's origin | 5bac599, background.py (c6e4f2c, from 4454900 without learned trust); review fixes on `claude/84-sender-fixes` (7d72c06, 5db5ce2, 86a79af) | built: a due timer/alarm/reminder that fails to show sends origin "scheduled", detail = its label, with one fixed sentence as the cause; sent as Swift's own (no request's thread), only when a due card could be shown, so it waits behind a card or question in front; a failure when the item is shown later is covered too. The weekly improvement pass's failure card says scheduled, "Improve speech recognition". With the overlay gone the card is dropped (logged); the item was fired, never shown, so it comes back at restart. While it waits it is not in the stack. No owner check: only a fault shows it. **Needs a second review** |
 | §8.1 confirm and question origin line; Block · Worker's content | 6ef45ea | partial (no "Runs in"/"Removes" rows: not on the frame) |
 | B5 cards grow to a cap; Show all / Show less, Esc, the orb | a37589e | built (no node-boundary cut for diagrams; reading time is given back, not restarted) |
 | B7 motion: grow, fold, edge forward, drain; reduced motion keeps the bar | 19cc84e | built (no tail ordering, no deck move 160 ms after a drain) |

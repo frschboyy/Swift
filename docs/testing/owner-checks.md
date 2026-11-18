@@ -3063,6 +3063,13 @@ You should see: the pile counts only what waits ("1 thing needs you"), not the a
 FOR YOU, then EARLIER TODAY with the answers (a green check, "Done · N min ago"; a failed one in red); Open shows
 the tea answer again without running it again. With nothing waiting there's no pile, even with answers today.
 
+<a id="check-halo-b8-build-4fbdf7-14"></a>**Check halo-b8-build-4fbdf7-14. A follow-up on the same card (A2)**
+1. Say "Hey Swift, what time is it?" and, while the reply ring is still on the orb, say "and the date?".
+2. Click **First answer**, then click it again.
+
+You should see: the second answer on the same card, its words line saying 'then “and the date?”', the first
+answer hidden under **First answer**, shown and hidden again by the button.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -1811,3 +1811,8 @@ code {
 #stage .stack-row--check .stack-mark { background: var(--ok); color: var(--on-ok); }
 #stage .stack-row--alert .stack-mark { background: var(--bad); color: var(--on-bad); }
 
+/* A2: the earlier answers of a follow-up fold under a ghost button. */
+#stage .thread-wrap { margin: 4px 0 6px; }
+#stage .thread-wrap .thread { margin-top: 6px; }
+#stage .thread-wrap .thread[hidden] { display: none; }
+

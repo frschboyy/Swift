@@ -846,9 +846,18 @@ void listen<string>("tray-action", ({ payload }) => void trayAction(payload));
 // ---- cards -----------------------------------------------------------------------------------
 
 /** Earlier turns of this conversation, one line each, above the card (ADR-013 §4.2). */
+/** A2: a follow-up keeps the card: the earlier answers fold under a "First answer" ghost, opened by hand. */
 function threadLines(): HTMLElement | null {
   if (!pres.history.length) return null;
-  return el("ul", { class: "thread", "aria-label": "Earlier in this conversation" }, ...pres.history.map((t) => el("li", {}, t.text)));
+  const n = pres.history.length;
+  const list = el("ul", { class: "thread", "aria-label": "Earlier in this conversation", hidden: true }, ...pres.history.map((t) => el("li", {}, t.text)));
+  const toggle = el("button", { class: "btn btn--ghost btn--small thread-toggle", "aria-expanded": "false", onclick: (ev: Event) => {
+    ev.stopPropagation();
+    list.hidden = !list.hidden;
+    toggle.setAttribute("aria-expanded", String(!list.hidden));
+    scheduleRegions();
+  } }, n === 1 ? "First answer" : `Earlier answers · ${n}`);
+  return el("div", { class: "thread-wrap" }, toggle, list);
 }
 
 function setStage(next: UiState, runId: string | null = null, threadId: string | null = null): void {
@@ -973,7 +982,9 @@ function headRow(close: (() => void) | null = dismiss, label = "Close"): HTMLEle
   const flag = F.canFlag(heardClip, stageNow()) && request
     ? Card.iconButton("flag", "Heard that wrong? Correct it: it helps Swift learn your voice", openFix, { class: "icon-btn heard-flag" })
     : null;
-  return el("header", { class: "card-head" }, how, el("p", { class: "words", title: request }, request ? `“${request}”` : ""), flag, close && Card.iconButton("x", label, close));
+  // A2: a follow-up on the same card says so: "then “…”".
+  const said = request ? `${pres.history.length ? "then " : ""}“${request}”` : "";
+  return el("header", { class: "card-head" }, how, el("p", { class: "words", title: request }, said), flag, close && Card.iconButton("x", label, close));
 }
 
 /** The flag on the heard words: the text box in fix mode, the heard words in it (heardfix.ts). A label only. */

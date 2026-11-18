@@ -337,6 +337,16 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     await answer(s, "When did tea reach England?", "Around 1650, through Portuguese and Dutch traders.", null,
       { caveat: "The two sources I read disagree by about ten years." });
   },
+  // A2: a follow-up on the same card: "then “…”", and the first answer under a ghost.
+  followupThread: async (s) => {
+    for (const [i, [q, a]] of [["What time is it?", "It's 19:42."], ["And the date?", "It's Monday, 26 October 2026."]].entries()) {
+      s.inject("transcript", { text: q, final: true });
+      s.inject("state", { state: "working", run_id: `f${i}`, agent: AGENT, thread_id: "tf" });
+      s.inject("state", { state: "result", run_id: `f${i}`, agent: AGENT, thread_id: "tf" });
+      s.inject("result", { run_id: `f${i}`, status: "done", summary: a, details: null, agent: AGENT, note: null, thread_id: "tf" });
+      await sleep(300);
+    }
+  },
   answerLongOpen: async (s) => {
     await answer(s, "Give me a short history of tea", LONG);
     document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();

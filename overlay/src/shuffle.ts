@@ -10,6 +10,8 @@ export const FOLD_MS = 220;
 export const EASE_FOLD = "cubic-bezier(0.4, 0, 1, 1)";
 export const EDGE_MS = 320;
 export const DRAIN_MS = 400;
+/** After a drain, the deck moves up this much later. */
+export const DECK_AFTER_DRAIN_MS = 160;
 /** Done drains toward the orb by this much as it fades. */
 export const DRIFT_PX = 8;
 /** A shape never starts smaller than this share of its own size, so its words don't crush. */

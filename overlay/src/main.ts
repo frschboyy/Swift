@@ -38,7 +38,7 @@ import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
-import { EDGE_MS, leaveTo, moveFrom } from "./shuffle";
+import { DECK_AFTER_DRAIN_MS, EDGE_MS, leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
 import * as F from "./heardfix";
@@ -978,7 +978,8 @@ function hideCard(): void {
     scheduleRegions();
   };
   if (shown) {
-    leaveTo(card, leavingFor(), clear, draining);
+    // B7: after a drain the deck closes up DECK_AFTER_DRAIN_MS later (the gone card holds its place till then).
+    leaveTo(card, leavingFor(), draining ? () => window.setTimeout(clear, DECK_AFTER_DRAIN_MS) : clear, draining);
     // B7: the orb pulses once as a card folds into it.
     capsuleEl.classList.remove("capsule--pulse");
     void capsuleEl.offsetWidth;

@@ -1431,13 +1431,15 @@ code {
   pointer-events: none;
   opacity: 0;
   transform: scaleY(var(--tail-flip, 1)) translateY(-3px);
-  transition: none;
+  /* B7: on a fold the tail retracts first, before the card is half gone. */
+  transition: opacity 80ms linear, transform 80ms var(--ease-fold);
 }
 #stage[data-anchor^="top"] { --tail-flip: -1; }
 #stage .halo-tail[data-on] {
   opacity: 1;
   transform: scaleY(var(--tail-flip, 1));
-  transition: opacity var(--dur-fast) linear 160ms, transform var(--dur-fast) var(--ease) 160ms;
+  /* B7: the tail settles last, in the grow's final --dur-tail. */
+  transition: opacity var(--dur-tail) linear calc(var(--dur-grow) - var(--dur-tail)), transform var(--dur-tail) var(--ease) calc(var(--dur-grow) - var(--dur-tail));
 }
 #stage .halo-tail path { fill: var(--panel); stroke: var(--rim); stroke-width: 1; }
 #stage:has(.card--confirm) .halo-tail path { fill: var(--panel-solid); stroke: var(--warn); stroke-width: 2; }

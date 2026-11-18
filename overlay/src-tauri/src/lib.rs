@@ -15,6 +15,7 @@
 
 mod backend;
 mod cover;
+mod follow;
 mod hit;
 mod panes;
 mod placement;
@@ -52,6 +53,18 @@ struct Panes(Mutex<HashMap<String, (isize, PaneKind)>>);
 /// The bottom edge each pane that grows upwards (the stack) was opened with, physical px.
 #[derive(Default)]
 struct Bottoms(Mutex<HashMap<String, i32>>);
+
+/// B9: watch panes docked as app bars (label -> window handle): their strip is out of the work area until they
+/// leave the edge, close, or Swift quits.
+#[derive(Default)]
+struct AppBars(Mutex<HashMap<String, isize>>);
+
+/// Gives each docked watch's strip back to the work area.
+fn undock_all(app: &AppHandle) {
+    for (_, hwnd) in app.state::<AppBars>().0.lock().unwrap().drain() {
+        win::appbar_remove(hwnd);
+    }
+}
 
 /// When this process started, for the startup-time measurement.
 struct Started(Instant);
@@ -189,6 +202,38 @@ fn place_on_cursor_monitor(app: &AppHandle, window: &WebviewWindow, hwnd: isize,
     eprintln!("[overlay] placed {} at {x},{y} {w}x{h} (scale {scale})", anchor.id());
     hit.0.lock().unwrap().geometry = Geometry { x, y, scale };
     let _ = app.emit("placement", PlacementEvent { anchor: anchor.id(), flipped });
+}
+
+/// A13: where the cursor and the orb are, for `follow::Tracker`; None when either can't be read.
+/// `idle` is what the overlay said (no card or OK up); Swift being busy or dragged also counts against it.
+fn follow_frame(app: &AppHandle, now_ms: u64, idle: bool) -> Option<follow::Frame> {
+    let window = app.get_webview_window("overlay")?;
+    let hwnd = app.try_state::<Overlay>()?.hwnd;
+    let (cx, cy) = win::cursor_pos()?;
+    let (x, y, w, h) = win::window_rect(hwnd)?;
+    let key = |px: i32, py: i32| window.monitor_from_point(px as f64, py as f64).ok().flatten().map(|m| (m.position().x, m.position().y));
+    let busy = {
+        let p = app.state::<Placement>();
+        let p = p.0.lock().unwrap();
+        p.busy || p.dragging
+    };
+    Some(follow::Frame {
+        now_ms,
+        monitors: window.available_monitors().map(|m| m.len()).unwrap_or(1),
+        cursor: key(cx, cy)?,
+        orb: key(x + w / 2, y + h / 2)?,
+        idle: idle && !busy,
+        fullscreen: win::foreground_fullscreen(),
+    })
+}
+
+/// A13: the overlay says whether following is on (`explore.follow_monitor`) and whether nothing is up.
+#[tauri::command]
+async fn set_follow(follow: State<'_, follow::Shared>, on: bool, idle: bool) -> Result<(), String> {
+    let mut s = follow.lock().unwrap();
+    s.on = on;
+    s.idle = idle;
+    Ok(())
 }
 
 fn place_on_main(app: &AppHandle, how: Place) {
@@ -526,8 +571,52 @@ async fn open_pane(
     Ok(())
 }
 
+/// B9: the watch's Dock button (or the last place reused, D3): beside the card, docked on the orb's edge as an app
+/// bar (the orb and card move inside the work area that leaves), or mini in the orb-side corner opposite the orb.
+#[tauri::command]
+async fn place_watch(app: AppHandle, label: String, place: String) -> Result<(), String> {
+    let place = panes::WatchPlace::from_id(&place).ok_or("unknown watch place")?;
+    let Some((hwnd, PaneKind::Live)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
+        return Err("no such watch".into());
+    };
+    let was_docked = app.state::<AppBars>().0.lock().unwrap().remove(&label).is_some();
+    if was_docked {
+        win::appbar_remove(hwnd);
+    }
+    let window = app.get_webview_window(&label).ok_or("no such pane")?;
+    let (area, scale) = area_at(&window, win::window_rect(hwnd).map(|r| (r.0, r.1))).ok_or("no monitor")?;
+    let anchor = app.state::<Placement>().0.lock().unwrap().current;
+    let h = win::window_rect(hwnd).map(|r| r.3).unwrap_or(1);
+    match place {
+        panes::WatchPlace::Docked => {
+            let (x, y, w, h) = win::appbar_dock(hwnd, panes::dock_left(anchor), panes::dock_rect(area, scale, anchor));
+            win::place(hwnd, x, y, w, h);
+            app.state::<AppBars>().0.lock().unwrap().insert(label, hwnd);
+        }
+        panes::WatchPlace::Mini => {
+            let size = ((panes::MINI_W * scale).round() as i32, h);
+            let (x, y) = panes::mini_origin(area, scale, anchor, size);
+            win::place(hwnd, x, y, size.0, size.1);
+        }
+        panes::WatchPlace::Beside => {
+            // panes.ts paneSize("live"): 420 wide; it measures its height again (fit_pane).
+            let size = ((420.0 * scale).round() as i32, h.min(panes::max_height(area)));
+            let (x, y) = panes::default_origin(area, scale, anchor, PaneKind::Live, 0, size);
+            win::place(hwnd, x, y, size.0, size.1);
+        }
+    }
+    if was_docked || place == panes::WatchPlace::Docked {
+        place_on_main(&app, Place::Smart);  // the work area changed: the orb and card to its edge
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn close_pane(app: AppHandle, label: String) -> Result<(), String> {
+    if let Some(hwnd) = app.state::<AppBars>().0.lock().unwrap().remove(&label) {
+        win::appbar_remove(hwnd);
+        place_on_main(&app, Place::Smart);  // the orb back out to the edge it had
+    }
     app.state::<Panes>().0.lock().unwrap().remove(&label);
     app.state::<Bottoms>().0.lock().unwrap().remove(&label);
     if let Some(window) = app.get_webview_window(&label) {
@@ -542,6 +631,9 @@ async fn fit_pane(app: AppHandle, label: String, w: f64, h: f64) -> Result<(), S
     let Some((hwnd, _)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
         return Ok(());
     };
+    if app.state::<AppBars>().0.lock().unwrap().contains_key(&label) {
+        return Ok(());  // a docked watch keeps the strip Windows gave it
+    }
     let window = app.get_webview_window(&label).ok_or("no such pane")?;
     let Some((x, y, _, _)) = win::window_rect(hwnd) else { return Ok(()) };
     let (area, scale) = area_at(&window, Some((x, y))).ok_or("no monitor")?;
@@ -872,6 +964,7 @@ fn restart_swift(app: &AppHandle) {
 }
 
 fn quit(app: &AppHandle) {
+    undock_all(app);
     backend::stop(&app.state::<SharedBackend>());
     app.exit(0);
 }
@@ -900,19 +993,23 @@ pub fn run() {
         .manage(Hotkeys::default())
         .manage(Panes::default())
         .manage(Bottoms::default())
+        .manage(AppBars::default())
         .manage(Placement(Mutex::new({
             let prefs = prefs::load();
             PlacementState { prefs, current: prefs.anchor, ..Default::default() }
         })))
         .manage(started)
         .manage(TrayClick::default())
+        .manage(follow::Shared::default())
         .manage(watchdog::Alive::default())
         .invoke_handler(tauri::generate_handler![
             watchdog::overlay_alive,
+            place_watch,
             backend_info,
             register_hotkeys,
             set_escape,
             set_hit_regions,
+            set_follow,
             overlay_ready,
             diagnostics,
             begin_drag,
@@ -957,6 +1054,7 @@ pub fn run() {
             place_on_cursor_monitor(app.handle(), &window, hwnd, &shared_hit, Place::Smart);
             hit::spawn(window.clone(), hwnd, shared_hit.clone());
             watchdog::spawn(app.handle().clone());
+            follow::spawn(app.handle().clone(), app.state::<follow::Shared>().inner().clone());
 
             // Position: the same choices as dragging a card, for when dragging isn't practical.
             let chosen = app.state::<Placement>().0.lock().unwrap().prefs;

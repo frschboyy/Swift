@@ -28,7 +28,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as Q from "./ask";
-import { copyButton, detailsText, DIAGRAM_WIDE, renderBlocks, renderDetails } from "./blocks";
+import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails, setTreeOpener } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
@@ -38,14 +38,15 @@ import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
-import { EDGE_MS, leaveTo, moveFrom } from "./shuffle";
+import { DECK_AFTER_DRAIN_MS, EDGE_MS, leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
 import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
+import { bump, nextChips, sayLines } from "./learn";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
@@ -181,6 +182,8 @@ let asked: Q.Ask | null = null;
 let pressAt: { x: number; y: number } | null = null;
 
 const client = new BackendClient(onFrame, onStatus);
+// B13: a tree row's Open / Show in folder on a card goes straight to the backend, which checks the path again.
+setTreeOpener((path, how) => client.send({ type: "tree.open", data: { path, how } }));
 // Rust reloads this page if it stops saying so while the backend is up (watchdog.rs).
 window.setInterval(() => {
   if (connection.phase === "connected") void invoke("overlay_alive").catch(() => {});
@@ -403,7 +406,7 @@ function drawRows(): void {
 const wanted = (): Panes.PaneSpec[] => {
   const view = S.stackView(stack, Date.now());
   return Panes.wantedPanes(reader, {
-    stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map(L.view),
+    stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace })),
   });
 };
 
@@ -416,7 +419,9 @@ const paneSync = new Panes.PaneSync(
       const r = spec.kind === "type" && card.classList.contains("card--in") ? card.getBoundingClientRect() : null;
       const edges = rowsEl.hidden ? r : rowsEl.getBoundingClientRect();  // the deck is part of the card
       const at = r && edges && r.height > 0 ? [Math.min(r.top, edges.top), Math.max(r.bottom, edges.bottom)] : null;
-      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h, card: at });
+      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h, card: at })
+        // B9: a new watch opens where the last one was put (D3); beside is open_pane's own place.
+        .then(() => (spec.kind === "live" && watchPlace !== "beside" ? invoke("place_watch", { label: spec.label, place: watchPlace }) : undefined));
     },
     close: (label) => void invoke("close_pane", { label }).catch(() => {}),
     send: (label, view) => sendPane(label, view),
@@ -523,6 +528,7 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
     case "live-app":
     case "live-answer":
     case "live-touch":
+    case "live-dock":
       if (payload.runId) liveAction(payload.action, payload.runId);
       break;
     case "open":
@@ -537,6 +543,9 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
     case "tray":
       void trayAction(payload.value ?? "", payload.text);
       break;
+    case "tree-open":  // B13, from the reader: the backend checks the path against what it verified
+      if (payload.text && (payload.value === "open" || payload.value === "reveal")) client.send({ type: "tree.open", data: { path: payload.text, how: payload.value } });
+      break;
   }
 });
 
@@ -550,6 +559,7 @@ function collapseStack(): void {
 /** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
 function stackAction(id: string, action: "open" | "skip" | "end"): void {
   stack = S.afterAction(stack, action);
+  if (id.startsWith("failed:")) return failedAction(id, action);
   client.send({ type: "stack.action", data: { id, action } });
   void syncEscape();
   void syncPanes();
@@ -585,10 +595,14 @@ function drawStackInline(): void {
   scheduleRegions();
 }
 
+// The backend's stack, before the timers still counting join it as RUNNING rows (B14).
+let backendStack: S.Stack["items"] = [];
 function onStackMessage(items: S.Stack["items"]): void {
+  backendStack = items;
   const before = new Set(stack.items.map((i) => i.id));
-  if (items.some((i) => !before.has(i.id) && i.kind !== "recent")) joinedStackAt = Date.now();
-  stack = S.onStack(stack, items, Date.now());
+  if (items.some((i) => !before.has(i.id) && S.waits(i))) joinedStackAt = Date.now();
+  const now = Date.now();
+  stack = S.onStack(stack, [...timers.filter((t) => t.due_ms > now).map(S.timerEntry), ...items, ...failedStack.map((f) => f.entry)], now);
   void syncEscape();
   void syncPanes();
   drawStackInline();
@@ -699,8 +713,41 @@ function runStart(runId: string): number {
   return runId === pres.runId && runStarted ? runStarted : pres.rows.find((r) => r.runId === runId)?.startedMs ?? 0;
 }
 
+// B9: where the watch sits, the last place chosen (D3).
+let watchPlace: L.WatchPlace = (() => {
+  try {
+    const kept = localStorage.getItem("swift.watchPlace");
+    return kept === "docked" || kept === "mini" ? kept : "beside";
+  } catch {
+    return "beside";
+  }
+})();
+
+// A8, "Watch opens": requests whose watch was opened or closed once; it never opens by itself again for them.
+const watchSeen = new Set<string>();
+// A row still working (not waiting its turn, not on an OK card, not ended).
+const WORKING_ROW = (state: string): boolean => !["queued", "confirm", "listening", "result", "error", "done"].includes(state);
+
+/** A8: each second, a running request's watch opens by itself as the owner chose ("When it writes", "Long
+ * requests"); "When I ask" (the default) never does. */
+function autoWatch(now: number): void {
+  if (display.watch === "ask") return;
+  const running = [
+    ...(pres.runId && stageNow() === "working" ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
+    ...pres.rows.filter((r) => WORKING_ROW(r.state)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
+  ];
+  for (const r of running) {
+    if (r.startedMs && Dsp.watchOpens(display, !!L.find(live, r.runId)?.written, now - r.startedMs, watchSeen.has(r.runId))) openLive(r.runId, r.title, r.words);
+  }
+}
+
+/** A8, "Speak answers": the owner's choice on this PC, or config.yaml's ("default"). The backend keeps config's
+ * own "never" (speech off) whatever this says. */
+const sendSpeak = (): void => void client.send({ type: "speak", data: { replies: display.speak } });
+
 /** Watch: the live view of a request, beside the card. The backend hears of it for the log only. */
 function openLive(runId: string, title: string, words: string): void {
+  watchSeen.add(runId);
   setLive(L.since(L.watch(live, runId, title, words, Date.now()), runId, runStart(runId)));
   client.send({ type: "watch", data: { run_id: runId, open: true } });
 }
@@ -709,6 +756,7 @@ function liveAction(action: string, runId: string): void {
   const r = L.find(live, runId);
   switch (action) {
     case "live-close":
+      watchSeen.add(runId);
       setLive(L.close(live, runId));
       client.send({ type: "watch", data: { run_id: runId, open: false } });
       break;
@@ -720,6 +768,13 @@ function liveAction(action: string, runId: string): void {
       break;
     case "live-touch":
       setLive(L.touch(live, runId, Date.now()));
+      break;
+    case "live-dock":
+      // B9: the next place, kept for the next watch too (D3: reuse the last).
+      watchPlace = L.nextPlace(watchPlace);
+      try { localStorage.setItem("swift.watchPlace", watchPlace); } catch { /* kept until restart */ }
+      void invoke("place_watch", { label: Panes.paneLabel("live", runId), place: watchPlace }).catch(() => {});
+      void syncPanes();
       break;
     case "live-answer":
       // The whole answer when this window has it; else that request forward.
@@ -738,7 +793,7 @@ function liveAction(action: string, runId: string): void {
 const liveEl = document.getElementById("live");
 function drawLiveInline(): void {
   if (!liveEl) return;
-  const views = paneWindows ? [] : L.openRuns(live).map(L.view);
+  const views = paneWindows ? [] : L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace }));
   liveEl.hidden = views.length === 0;
   const tops = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run]")].map((n) => [n.dataset.run, n.querySelector<HTMLElement>(".live-body")?.scrollTop ?? 0]));
   const docs = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run] .live-doc")].map((d) => [d.closest<HTMLElement>("[data-run]")!.dataset.run,
@@ -750,6 +805,7 @@ function drawLiveInline(): void {
       link: (url) => void invoke("open_link", { url }).catch(() => window.open(url, "_blank", "noopener")),
       app: () => liveAction("live-app", v.runId),
       answer: () => liveAction("live-answer", v.runId),
+      dock: () => { liveAction("live-dock", v.runId); drawLiveInline(); },
     }));
     return node;
   }));
@@ -788,7 +844,7 @@ async function openTray(): Promise<void> {
   if (!paneWindows) return;
   try {
     const prefs = await invoke<{ anchor: string; smart: boolean }>("get_prefs");
-    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
+    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, asking: !!presence?.asking, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
   } catch {
     return;  // an older shell: its native menu
   }
@@ -797,7 +853,7 @@ async function openTray(): Promise<void> {
 
 function refreshTray(): void {
   if (!tray) return;
-  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused };
+  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused, asking: !!presence?.asking };
   void syncPanes();
 }
 
@@ -813,6 +869,11 @@ async function trayAction(op: string, value?: string): Promise<void> {
       if (tray) tray = { ...tray, smart: on };
       break;
     }
+    case "stop-asking":
+      // Modes §3: a click turns "ask me about everything" off; presence then says so (the tray shows it now).
+      client.send({ type: "asking", data: { on: false } });
+      if (tray) tray = { ...tray, asking: false };
+      break;
     case "pause":
       client.send({ type: "listen", data: { on: !!presence?.paused } });
       tray = null;
@@ -826,6 +887,7 @@ async function trayAction(op: string, value?: string): Promise<void> {
       display = Dsp.choose(display, value ?? "");
       Dsp.save(display, localStorage);
       applyDisplay();
+      if (value?.startsWith("speak:")) sendSpeak();
       if (tray) tray = { ...tray, display };
       break;
     case "settings":
@@ -978,7 +1040,8 @@ function hideCard(): void {
     scheduleRegions();
   };
   if (shown) {
-    leaveTo(card, leavingFor(), clear, draining);
+    // B7: after a drain the deck closes up DECK_AFTER_DRAIN_MS later (the gone card holds its place till then).
+    leaveTo(card, leavingFor(), draining ? () => window.setTimeout(clear, DECK_AFTER_DRAIN_MS) : clear, draining);
     // B7: the orb pulses once as a card folds into it.
     capsuleEl.classList.remove("capsule--pulse");
     void capsuleEl.offsetWidth;
@@ -1310,7 +1373,10 @@ let followupTotal = 0;
 // A4, Pin: one answer kept as an edge on the far side of the deck; it never fades (D11: one at a time).
 let pinned: { title: string; line: string; text: string } | null = null;
 const pinnedEl = el("div", { class: "pinned-edge", "data-hit": "", hidden: true });
-rowsEl.before(pinnedEl);
+// B14: Edge · Timer (a card in front) and Edge · Got it ("Done: Tea timer"), read-only: nothing to click.
+const timerEdgeEl = el("div", { class: "pinned-edge timer-edge", role: "timer", hidden: true });
+const gotEl = el("div", { class: "pinned-edge got-edge", role: "status", hidden: true });
+rowsEl.before(gotEl, timerEdgeEl, pinnedEl);
 
 function drawPinned(): void {
   pinnedEl.hidden = pinned === null;
@@ -1337,6 +1403,43 @@ let caption = "";
 
 // Halo's Explore ideas (A10-A13), from config.yaml: each off until the owner turns it on.
 let explore: Explore = { orb_glance: false, follow_monitor: false, what_can_i_say: false, next_steps: false };
+// A10/A11: what cards accept and Swift's own verbs, from the backend's real grammar (hints.py).
+let hints: Hints | null = null;
+const learnStore = (): Storage | null => { try { return localStorage; } catch { return null; } };
+const noStore = { getItem: () => null };
+/** A manual Copy or Show, counted on this PC so a verb is offered after 3 (learn.ts). */
+const learnFrom = (action: string): void => { const st = learnStore(); if ((explore.what_can_i_say || explore.next_steps) && st) bump(st, action); };
+
+/** A10: "What can I say?" on a card: its accepted phrases in an --accent-soft block, a mic per line, "· asks for
+ * your OK" where a phrase ends in an OK card. Nothing in it runs anything; it only lists. */
+function sayButton(kind: "confirm" | "done"): HTMLElement | null {
+  if (!explore.what_can_i_say || !hints) return null;
+  const h = hints;
+  return el("button", { class: "btn btn--ghost", "aria-expanded": "false", onclick: (ev: Event) => {
+    ev.stopPropagation();
+    const open = card.querySelector(".say");
+    if (open) { open.remove(); (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "false"); scheduleRegions(); return; }
+    const lines = sayLines(kind, h, learnStore() ?? noStore);
+    const block = el("div", { class: "say", role: "note" }, el("p", { class: "say-title" }, "You can say"),
+      ...lines.map((l) => el("p", { class: "say-line" }, icon("mic"), `“${l.text}”`, l.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
+    (card.querySelector(kind === "done" ? ".card-foot" : ".confirm-actions"))?.before(block);
+    (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "true");
+    scheduleRegions();
+  } }, icon("mic"), "What can I say?");
+}
+
+/** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times. A chip only sends the words as a
+ * request, like typing them: one that needs an OK opens that OK card and runs nothing; it approves nothing. */
+function nextRow(thread: string | null): HTMLElement | null {
+  if (!explore.next_steps || !hints) return null;
+  const chips = nextChips(hints, learnStore() ?? noStore);
+  if (!chips.length) return null;
+  return el("div", { class: "next", role: "group", "aria-label": "Next" }, el("span", { class: "next-label" }, "Next"),
+    ...chips.map((c) => el("button", { class: "chip", title: c.ok ? "Opens a card asking for your OK" : "", onclick: (ev: Event) => {
+      ev.stopPropagation();
+      client.send({ type: "text", data: { text: c.say, thread_id: thread } });
+    } }, c.label, c.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
+}
 
 // A12: the orb glance. The pointer resting 400 ms on the orb shows it; it leaves 200 ms after the pointer. Never
 // while a card shows, never focus, nothing in it to click.
@@ -1356,6 +1459,26 @@ capsuleEl.addEventListener("pointerleave", () => {
   glanceTimer = window.setTimeout(() => { glanceEl.hidden = true; }, 200);
 });
 
+// A13: the orb follows the monitor the owner works on (follow.rs decides and moves it). This side tells Rust
+// when nothing is up (no card, no OK, no typing, no glance), and fades the orb across: 120 ms out, 120 ms in
+// (CSS; none with reduced motion). A fade that never gets its "in" ends by itself.
+let followSent = "";
+function syncFollow(): void {
+  const idle = !card.classList.contains("card--in") && !typing && stageNow() === "idle";
+  const next = `${explore.follow_monitor}:${idle}`;
+  if (next === followSent) return;
+  followSent = next;
+  void invoke("set_follow", { on: explore.follow_monitor, idle }).catch(() => {});
+}
+window.setInterval(syncFollow, 300);
+let followTimer = 0;
+void listen<{ phase: "out" | "in" }>("follow", (ev) => {
+  window.clearTimeout(followTimer);
+  if (!explore.follow_monitor) return;
+  capsuleEl.toggleAttribute("data-follow", ev.payload.phase === "out");
+  if (ev.payload.phase === "out") followTimer = window.setTimeout(() => capsuleEl.removeAttribute("data-follow"), 1500);
+});
+
 // Halo B14: the timers still counting (the backend's ``timers``), soonest first.
 let timers: TimerRow[] = [];
 
@@ -1368,6 +1491,11 @@ function drawTimer(): void {
   capsuleEl.toggleAttribute("data-timer", on);
   let pill = capsuleEl.querySelector<HTMLElement>(".tm-pill");
   if (!on) {
+    capsuleEl.removeAttribute("data-timer-edge");
+    if (!timerEdgeEl.hidden) {
+      timerEdgeEl.hidden = true;
+      scheduleRegions();
+    }
     pill?.remove();
     return;
   }
@@ -1379,6 +1507,27 @@ function drawTimer(): void {
   const text = T.pillText(counting, now);
   pill.title = counting.map((t) => t.title).join(", ");
   if (pill.lastChild?.textContent !== text) pill.replaceChildren(icon("timer"), el("b", {}, text));
+  // With a card in front the pill can't show (the capsule is the card's): Edge · Timer, a draining 64 px bar.
+  const edge = card.classList.contains("card--in") && !card.classList.contains("card--held");
+  capsuleEl.toggleAttribute("data-timer-edge", edge);  // the edge says it: the pill steps aside
+  if (edge !== !timerEdgeEl.hidden) {
+    timerEdgeEl.hidden = !edge;
+    scheduleRegions();
+  }
+  if (edge) {
+    timerEdgeEl.title = pill.title;
+    timerEdgeEl.replaceChildren(icon("timer"), el("b", {}, counting[0].title || "Timer"),
+      el("span", { class: "tm-bar", style: `--tm-left:${T.left(counting, now).toFixed(3)}` }), el("span", { class: "tm-time" }, text));
+  }
+}
+
+/** B14: Edge · Got it for ACK_MS, e.g. "Done: Tea timer" after Done on a timer's Due card. */
+let gotTimer = 0;
+function gotIt(text: string): void {
+  gotEl.replaceChildren(el("span", { class: "edge-mark" }, el("span", { class: "ready-icon" }, icon("check"))), el("b", {}, text));
+  gotEl.hidden = false;
+  window.clearTimeout(gotTimer);
+  gotTimer = window.setTimeout(() => { gotEl.hidden = true; }, D.ACK_MS);
 }
 
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
@@ -1460,7 +1609,11 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     ? el("div", { class: "facts-text facts-text--mono" }, ...cardLines(data.detail).map((line) =>
       el("div", { class: line.agent ? "facts-line--agent" : "facts-line" }, line.text || " ")))
     : el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
-  if (!commandFolded(data.tool, data.purpose)) return el("div", { class: "facts" }, box, moreBelow(box));
+  // ADR-019 §8.1: Swift's facts box, "Runs in" (the run's folder, from Swift, never the worker's words).
+  const runsIn = data.facts?.runs_in
+    ? el("dl", { class: "facts facts--swift" }, el("dt", {}, "Runs in"), el("dd", { class: "facts-path" }, data.facts.runs_in))
+    : null;
+  if (!commandFolded(data.tool, data.purpose)) return el("div", {}, runsIn, el("div", { class: "facts" }, box, moreBelow(box)));
   // B1: the agent's words lead, under its bar (X-17); the command's first line always shows, the rest folds.
   // B2: a step card's commands are each approved, so all of them show, none folded.
   const commands = stepCommands(data.tool, data.purpose, data.step, data.detail);
@@ -1482,6 +1635,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     { class: "confirm-lead" },
     // ADR-019 §8.1, Block · Worker's content: the worker's sentence, marked as the worker's (never Swift's facts).
     el("p", { class: "confirm-purpose facts-line--agent worker-content" }, el("span", { class: "confirm-purpose-by" }, "The worker's words"), data.purpose ?? ""),
+    runsIn,
     commands
       ? el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, "The commands this approves (what will actually run)"), el("div", { class: "facts" }, box, moreBelow(box)))
       : el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, rest ? "What will run, first line" : "What will run"), el("p", {}, head)),
@@ -1529,6 +1683,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     thread: threadLines(),
     body: [
       el("p", { class: "confirm-title" }, data.title),
+      // Modes §3: a card that asks only because the owner said "ask me about everything" says so (Swift's line).
+      data.because ? el("p", { class: "asking-line" }, icon("shield"), data.because) : null,
       since !== null ? el("p", { class: "confirm-since" }, `Held while you were away, since ${clock(since)}`) : null,
       confirmFacts(data, shown),
       el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint()),
@@ -1538,6 +1694,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
         el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), "Reject"),
         // "Change" opens the text box, where Enter sends a change; typing never approves.
         el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
+        sayButton("confirm"),
         el("span", { class: "foot-gap" }),
         approve,
       ),
@@ -1667,9 +1824,13 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
-  // A diagram found too wide to read on the card once drawn (blocks.ts): the answer opens with Read more after all.
-  body.addEventListener(DIAGRAM_WIDE, () => {
-    if (long) return;
+  // A drawn diagram (blocks.ts): too wide to read on the card, the answer opens with Show all after all; its nodes count as steps.
+  let nodes = 0;
+  body.addEventListener(DIAGRAM_DRAWN, (ev: Event) => {
+    const d = (ev as CustomEvent<{ wide: boolean; nodes: number }>).detail;
+    nodes = d.nodes;
+    if (long) return drawFoot();
+    if (!d.wide) return;
     long = true;
     body.classList.add("answer--long");
     body.tabIndex = 0;
@@ -1689,7 +1850,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   };
   const foot = el("footer", { class: "card-foot" });
   const showBtn = artifacts.size > finished.length
-    ? el("button", { class: "btn btn--ghost", onclick: (ev: Event) => { ev.stopPropagation(); askView("show"); } }, icon("external"), "Show")
+    ? el("button", { class: "btn btn--ghost", onclick: (ev: Event) => { ev.stopPropagation(); learnFrom("show"); askView("show"); } }, icon("external"), "Show")
     : null;
   const drawFoot = (): void => {
     if (long) {
@@ -1703,13 +1864,14 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
           if (!expanded) body.scrollTop = 0;  // folds back to the top
           drawBody();
           drawFoot();
-        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.minutesToRead(copyable)}`),
+        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
-        copyButton(copyable),
+        ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
+        copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), pinButton(copyable), copyButton(copyable));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();
@@ -1718,7 +1880,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const caveat = data.caveat
     ? el("div", { class: "caveat", role: "note" }, icon("scale"), el("p", {}, el("span", { class: "caveat-by" }, "The worker says: "), data.caveat))
     : null;
-  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, foot] });
+  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, nextRow(data.thread_id ?? null), foot] });
 }
 
 /** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */
@@ -1806,7 +1968,11 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
       client.send({ type: "due.snooze", data: { run_id: data.run_id } });
       dismiss();
     } }, "+5 min") : null,
-    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done"),
+    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => {
+      ev.stopPropagation();
+      dismiss();
+      if (kind === "timer") gotIt(T.doneLine(data.summary));
+    } }, "Done"),
   ] });
 }
 
@@ -1855,6 +2021,34 @@ function renderNotice(title: string, line: HTMLElement): void {
   drawCard({ state: "notice", look: "result", onclick: dismissUnlessControl, body: [Card.failBlock(el("span", { class: "ok-dot" }, icon("check")), title, line)] });
 }
 
+// ADR-019 §8.3: a request's Failed card left in front this long moves to the stack, still Failed, and still counts
+// on the badge (D9). The stack row is the overlay's own (like a timer's): Open shows the card again, End drops it.
+const FAILED_TO_STACK_MS = (location.pathname.includes("/dev/") && Number(new URLSearchParams(location.search).get("failms"))) || 10 * 60_000;
+let failedFront: { problem: Problem; since: number; words: string } | null = null;
+let failedStack: { entry: S.Stack["items"][number]; problem: Problem }[] = [];
+let failedIds = 0;
+
+/** Each second: a Failed card in front for FAILED_TO_STACK_MS moves to the stack. */
+function moveFailed(now: number): void {
+  if (!failedFront || now - failedFront.since < FAILED_TO_STACK_MS) return;
+  const f = failedFront;
+  failedFront = null;
+  if (pres.card.kind !== "error" || !card.classList.contains("card--in")) return;  // something else is in front
+  const entry = { id: `failed:${++failedIds}`, kind: "failed" as const, title: f.words ? clipLine(f.words, 60) : f.problem.title, reason: "failed", since_ms: f.since, thread_id: f.problem.threadId ?? null };
+  failedStack = [...failedStack, { entry, problem: f.problem }];
+  onStackMessage(backendStack);
+  dismiss();
+}
+
+/** Open or End on a Failed row of the stack (the overlay's own: the backend never had it). */
+function failedAction(id: string, action: "open" | "skip" | "end"): void {
+  if (action === "skip") return;
+  const f = failedStack.find((x) => x.entry.id === id);
+  failedStack = failedStack.filter((x) => x.entry.id !== id);
+  onStackMessage(backendStack);
+  if (action === "open" && f) renderProblem(f.problem);
+}
+
 type Problem = {
   title: string;
   message: string;
@@ -1893,8 +2087,10 @@ function renderProblem(p: Problem): void {
   // ADR-019 §8.3: a request's Failed card never fades and has no reading bar; it stays until the owner closes it
   // or the next request takes the front.
   const swiftStarted = p.origin !== undefined && p.origin !== "asked";
-  const failed = (!!(p.runId || p.threadId) || swiftStarted) && !info;
+  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
+  const failed = ofRequest && !info;
   if (!presentAnswer("error", p.sticky || failed ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
+  failedFront = failed ? { problem: p, since: Date.now(), words: request } : null;
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
   const toggle = detail
@@ -1915,18 +2111,26 @@ function renderProblem(p: Problem): void {
       restartSwift();
     } }, "Restart Swift"));
   }
+  // ADR-019 §8.3: a request's Failed card keeps what it did (its steps, the last one where it failed) and tries
+  // again from that step; Swift tells the worker where to pick up (retrying.py), never in the owner's words.
+  const partial = ofRequest && !info && steps.length > 1 ? steps.slice() : null;
   if (p.retry) {
+    const from = partial ? partial.length : 0;
     actions.push(
       el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
         (ev.currentTarget as HTMLButtonElement).disabled = true;
-        if (!client.send({ type: "retry", data: {} })) renderConnection(true);
-      } }, "Try again"),
+        if (!client.send({ type: "retry", data: from ? { from_step: from } : {} })) renderConnection(true);
+      } }, from ? `Try again from step ${from}` : "Try again"),
     );
   }
+  const done = partial
+    ? el("ol", { class: "fail-steps", "aria-label": "What it did before it failed" }, ...partial.map((text, i) =>
+      el("li", { class: i === partial.length - 1 ? "fail-step fail-step--failed" : "fail-step" },
+        el("span", { class: "fail-step-mark", "aria-hidden": "true" }, i === partial.length - 1 ? "!" : "✓"), text)))
+    : null;
   const bang = p.glyph === "spin"
     ? el("span", { class: "spinner", "aria-hidden": "true" })
     : el("span", { class: info ? "bang bang--info" : "bang", "aria-hidden": "true" }, info ? "i" : "!");
-  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
   drawCard({
     // Failed names a request's failure; a problem with no request is Swift's own notice.
     state: ofRequest && !info ? "failed" : "notice", look: info ? "error card--info" : "error", role: info ? "status" : "alert", onclick: dismissUnlessControl,
@@ -1934,7 +2138,7 @@ function renderProblem(p: Problem): void {
     // Sticky problems (reconnecting, restarting, stopped) have no close (board 9 §4).
     lead: !ofRequest && !p.sticky && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
     origin: swiftStarted ? swiftOrigin(p.origin!, p.originDetail) : ofRequest && headRow(),
-    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), detail],
+    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), done, detail],
     foot: toggle || actions.length || p.agent ? [toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null), el("span", { class: "foot-gap" }), ...actions] : undefined,
   });
 }
@@ -2051,6 +2255,8 @@ window.setInterval(() => {
 }, 15_000);
 
 window.setInterval(() => {
+  moveFailed(Date.now());
+  autoWatch(Date.now());
   const r = P.tick(pres, Date.now());
   pres = r.p;
   if (r.hide) {
@@ -2201,8 +2407,10 @@ function onMessage(msg: Inbound): void {
       debugEnabled = msg.data.debug;
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
       typeSpec = msg.data.hotkeys.type ?? "";
+      sendSpeak();  // A8: this PC's choice, again for each backend
       void registerHotkeys(msg.data.hotkeys);
       if (msg.data.explore) explore = msg.data.explore;
+      hints = msg.data.hints ?? null;
       drawCapsule();
       void invoke("set_status", { text: `Swift: ready. Hold ${pttText()} to talk.` }).catch(() => {});
       break;
@@ -2294,6 +2502,7 @@ function onMessage(msg: Inbound): void {
       break;
     case "timers":
       timers = msg.data.items;
+      onStackMessage(backendStack);
       drawTimer();
       break;
     case "heard":

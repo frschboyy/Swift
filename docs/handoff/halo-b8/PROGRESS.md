@@ -38,7 +38,7 @@ are in the saved file.
 | B4 Worker's content and Worker's pick in grey | 2f138f4 | restyle (shapes were built; no D7: charts carry no pick) |
 | B13 file lists as a tree | 167dc5a | built (new `tree` shape; no Open / Show in folder / double-click yet) |
 | B6/B11 the watch as a monitor | 97a522f | partial (no step counts "Step 4 of 6", no console line under the paper) |
-| B10 Run link on the card; the card holds while its watch is open; watch clock ticks again | 7ccf5df | partial (no B9 docked/mini placements, no tether, no B12 open-from-record) |
+| B10 Run link on the card; the card holds while its watch is open; watch clock ticks again | 7ccf5df | partial (B9 placements in the B9 row below; tether and B12 open-from-record blocked) |
 | Modes §3 "ask me about everything" (+ owner check -9) | 64dd679 | built; **product rule: needs review** (no tray label yet) |
 | A9 micro-feedback | 11abdda | built |
 | A4 Pin an answer as an edge | aa1b6b6 | built (no open-in-reader from the edge) |
@@ -53,9 +53,42 @@ are in the saved file.
 | "Ask me about everything": typed words can't turn it off; the true source is kept; fails closed (owner, 2026-11-18) | b3721d3 | root fix; **product rule: needs review** |
 | Test: a "yes" while a lapsed OK waits in the stack approves nothing | 806a75d | test only |
 | Text box: typed text then Enter never presses the card's button | 373e932 | root fix (found by the A7 test request); **product rule: needs review** |
+| A10 "What can I say?" and A11 next-step chips behind `explore.what_can_i_say` / `explore.next_steps` (one commit: shared files) (+ checks upbeat-poincare-d02e4a-1, -2) | see `git log` | built; phrases from the real grammar (`hints.py`, tested against `rules.route`); learning is counted in the overlay on this PC (3 Copy clicks); a chip only sends its words as a request, so an OK opens its own card |
+| A13 the orb follows the active monitor behind `explore.follow_monitor` (+ check upbeat-poincare-d02e4a-3) | see `git log` | built (`follow.rs`, `cargo test`); **not tried on two monitors**: the owner check is the first real run |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
+
+## The gaps branch (`claude/halo-b8-gaps-6b8791`, from 8587d11)
+
+Builds what the list below left. One commit per item; this table is kept current after each.
+
+| Item | Commit | Kind |
+|---|---|---|
+| B5 diagrams cut at a node boundary; "Show all · 11 rows / 1 item / 5 steps" | 64f1d4b | built (`answer.ts howMuch`, `nodeCut`; harness `cardCappedRows`) |
+| B7 the tail settles last (final 120 ms of the grow) and retracts first (80 ms); the deck moves up 160 ms after a drain | d3e92a4 | built (`shuffle.ts DECK_AFTER_DRAIN_MS`; measured in the harness: fade 400 ms, clear ≈ 600 ms) |
+| B14 Edge · Timer with a card in front; RUNNING row with Cancel; voice "done" / "5 more"; Edge · Got it "Done: Tea timer" (+ check halo-b8-gaps-6b8791-1) | 3de9557 | built (`timers.heard`, `timers.stack_action`, `Drawn.front`; seam test `test_b14_done_and_five_more_*`; harness `timerStack`, `timerGot`; parity 413/423 unchanged). Voice "done" answers with a one-line Done card ("Done: Tea timer."), not the Got-it edge a click shows |
+| B4 D7 (`pick` on charts, a grey dashed outline + "Worker's pick" tag) and the fallback line (+ check halo-b8-gaps-6b8791-2) | 6ee126d | built (`shapes.Chart.pick`, `shapes.fallback`; the line rides the result's existing `note`, so it sits above the words, not under them; harness `answerChartPick`, `answerFallback`) |
+| B6 Watch · Step rows, "Step N" in the meta line, the console line under the paper | 1330b93 | built (`live.ts` steps from the `doing` items). **Not built:** "of 6 · about 1 min left": a run doesn't know its total until a plan says so (§2's plan card can supply it) |
+| "Ask me about everything": the tray's "Asking about everything" status and "Stop asking about everything" item; "Asking because you said…" on the gateway's own cards (+ check halo-b8-gaps-6b8791-3) | 5d872cb | built (`presence.asking`, new inbound `asking` {on: false}, `asking.from_tray`; the gateway passes `because=` to its confirmer only on a card it shows solely because of the setting). **Product rule: needs review** |
+| A2 replace the answer in place while the same run goes on | — | **blocked**: each request is its own run (run records, Stop, the stack and the journal are per run); a follow-up resumes the provider's session in the same thread as a new run. The overlay already keeps the same card for it (52dca0c). Making a follow-up the same run is a backend redesign, not a gap |
+
+| §8.1 "Runs in" on command cards | 5a8f26f | built (`confirm.request.facts.runs_in`: the executor's own folder, never the agent's words; harness `confirmRunsIn`). **"Removes" blocked**: telling what a command removes from its text is the parser two reviews fooled (`claude_mapping.py confirm_card`); it comes with Swift's own delete tool (decision 7, not built), whose paths are known |
+| §8.3 a Failed card keeps its steps (✓, ! where it failed) and offers "Try again from step N"; after 10 min it moves to the stack, still Failed, counted on the badge (D9) (+ check halo-b8-gaps-6b8791-4, with §8.1) | 3ab5fe8 | built (new `retrying.py`: the step goes to the worker as Swift's context note, never into the owner's words; `retry` takes optional `from_step`; the stack row is the overlay's own, like a timer's; harness `failedPartial`, `?failms=` shortens the 10 min) |
+| B13 tree Open / Show in folder / double-click (path from the file system), arrow keys and Enter in the reader (+ check halo-b8-gaps-6b8791-5) | 609d124 | built (new `files.py`: a tree's `root` is kept only if it's an absolute folder in the read folders that exists; each entry gets `found` from the disk; `tree.open` acts only under a folder verified this session and never runs code: .exe/.bat/.ps1/.lnk… are shown in their folder). Structural: new `frames.py` holds the small inbound frames (`due.snooze`, `asking`, `watch`, `tree.open`); session.py 4985 → 4980, ratchet lowered |
+| A1 voice "what did you find about …" (+ check halo-b8-gaps-6b8791-6) | 410c2dd | built (`recent.found`: the best-matching earlier answer of this session, again, as this request's answer; nothing runs; intercepted before routing like B14's "done", so parity is unchanged, 413/423). **"Answers from before a restart" blocked, and so is B12's "Open the answer" after a restart:** no answer is kept on disk (run records are content-free by design; the interaction log keeps the owner's words, not answers). Keeping answers adds a kept-data category to `docs/security/privacy.md`, with no retention built yet (§5): the owner's decision |
+| A6 captions on by themselves when the sound is muted or Windows Live captions runs, until the owner says on or off (+ check halo-b8-gaps-6b8791-7) | 0326562 | built (`captions.refresh` on each lifecycle tick (60 s) and each overlay: `control.get_mute` and `tasklist` for LiveCaptions.exe, read only; "captions off" is now kept as a record, so a muted PC doesn't turn them back on). Up to a minute late after the sound changes |
+| B9 the watch docked (full height, on the orb's edge, a Windows app bar) and mini (300 wide, opposite bottom corner: title bar, progress, the step); the Dock button cycles beside → docked → mini, kept for the next watch (D3) (+ check halo-b8-gaps-6b8791-9) | c5c997d | built (`panes.rs` geometry and its test; `win.rs` `SHAppBarMessage` ABM_NEW/QUERYPOS/SETPOS/REMOVE; `place_watch`; the app bar is removed on close and quit; harness `liveDocked`, `liveMini`). Shortcut: app bar notifications (another bar, full-screen apps) aren't handled. **Tether blocked**: the watch and the card are separate windows, so a 2 px line between them needs a third click-through window spanning both; with D4 (no tether when docked) the Run link chip already joins them. **B12 "Open the answer" after a restart blocked** (no answers kept on disk, see A1) |
+| A8 "Speak answers" (Default / Always / When I talk / Never) and "Watch opens" (When I ask / When it writes / Long requests) in the tray (+ check halo-b8-gaps-6b8791-8) | cd81fed | built (`display.ts` keeps both on this PC; `speak` frame → `frames.py` sets `speech_replies`, "Default" restores config.yaml's, no voice in config stays off; the watch opens once per request from the 1 s tick, `display.watchOpens`) |
+
+Group 1 is done (B5, B7, B14, B4, B6, "ask me about everything"; A2 blocked). Group 2 is done (§8.1, §8.3, B13, A1,
+A6, A8, B9; "Removes", answers after a restart, the tether and B12 after a restart blocked). `session.py` is at its
+ratchet (4980): nothing more goes into it.
+
+Merged here on 2026-11-18 at the owner's word: group 5 (A10, A11, A13 behind switches, `claude/upbeat-poincare-d02e4a`,
+8f8cee0) and group 4 (the A3 call-detector spike, `claude/charming-neumann-94e5d2`, 34da4b1). On the merged tree:
+Python 2421 passed (1 skipped, 31 xfailed), overlay tsc clean and 180 tests, Rust 46, routing parity 413/423. Group 3
+(modes study §1/§2) is not merged: nothing committed on `claude/frosty-rhodes-8ed251` yet.
 
 ## B3 (grayscale)
 
@@ -117,7 +150,7 @@ design states (a stand-in socket); `?explore=1` turns the glance on.
 
 - **F1** (a lapsed OK and the front), **F2** (no OK brought forward without the owner), **F6** and **F7** ("stop"
   before a run and with nothing running) change confirm and stop behaviour.
-- **"Ask me about everything"** (64dd679) changes where cards are decided (gateway, system lane, step grants).
+- **"Ask me about everything"** (64dd679) changes where cards are decided (gateway, system lane, step grants). The gaps branch adds its tray item (turns it off only) and the gateway's `because=` line (display only, never in the digest).
 - B14 added `timers`/`due.snooze` frames and `due.snooze` sets timers from Swift's own items: worth a second look.
 - A5 gives the worker a new tool (`add_caveat`); what it says shows on Done cards, marked as the worker's.
 - A12 makes the idle orb take the pointer, only when `explore.orb_glance` is on.
@@ -160,3 +193,12 @@ full suite at 943d42e passed (2391). No code fix: don't run the suite in a workt
   `dev/harness.html?theme=…`, call `__design(name)`, then `Page.captureScreenshot`. `dev/pane.html?label=…&state=…`
   does the same for panes.
 - `session.py` is at its line ratchet (4985). Put new backend logic in small modules, as `stops.py` does.
+
+## The continue branch (`claude/halo-b8-continue-7f85db`, from d85065b)
+
+| Item | Commit | Kind |
+|---|---|---|
+| Modes §1 learned trust: built in 6a7ff23 and cc236cf, then **removed** (both reverted) after an independent review rejected it; the owner agreed on 2026-11-18. Owner check halo-b8-continue-7f85db-1 withdrawn with it. What would have to change before it comes back: `modes-study.md` §1, "Removed 2026-11-18" | reverted | removed; nothing in the code lowers a level now |
+
+Started as their own sessions (each reports on its own branch): A3 hold during calls (`halo-a3-calls`), the live
+loop and styles cull (`halo-live-cull`), the plan card (`halo-plan-card`), §8.4 sender (`halo-84-sender`).

@@ -96,6 +96,13 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "speech.stop": {},
     # The tray's Pause listening / the capsule's Resume: the open microphone off or on (ADR-017).
     "listen": {"on": (bool, None)},
+    # The tray's "Stop asking about everything" (modes study §3): turns it off. Only ever asks less than now.
+    "asking": {"on": (bool, None)},
+    # A8, "Speak answers" in the tray: "default" is config.yaml's speech.replies (frames.py).
+    "speak": {"replies": (str, ("default", "always", "auto", "never"))},
+    # B13: Open (or a double-click) or Show in folder on a file tree's row; the backend acts only on a path under a
+    # folder it verified (files.py), never the worker's words.
+    "tree.open": {"path": (str, None), "how": (str, ("open", "reveal"))},
     # The live view of a request (ADR-017 §7): opened or closed (for the log), its Stop (that request
     # only), and its "Show in Word" (the app it writes in, to the front).
     "watch": {"run_id": (str, None), "open": (bool, None)},

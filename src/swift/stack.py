@@ -63,9 +63,10 @@ def due_id(item: int) -> str:
 
 
 def split_id(item_id: str) -> tuple[str, str] | None:
-    """("card", request id), ("parked", thread) or ("due", item id); None for anything else."""
+    """("card", request id), ("parked", thread), ("due", item id), ("recent", run) or ("timer", item id: B14's
+    RUNNING row); None for anything else."""
     kind, sep, key = item_id.partition(":")
-    return (kind, key) if sep and key and kind in ("card", "parked", "due", "recent") else None
+    return (kind, key) if sep and key and kind in ("card", "parked", "due", "recent", "timer") else None
 
 
 def order(items: list[StackItem], skipped: dict[str, float]) -> list[StackItem]:

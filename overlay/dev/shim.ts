@@ -9,6 +9,13 @@ export {};
 type Callback = (payload: unknown) => void;
 
 const params = new URLSearchParams(location.search);
+// A13 harness state (?explore=1): window.__shim.emit("follow", {phase: "out"}) fades the orb, {phase: "in"} brings it back.
+// A10/A11 (?explore=1): the backend's hints.py payload; ?learned=1 seeds 3 manual Copy clicks.
+const HARNESS_HINTS = {
+  say: { confirm: [{ text: "approve", ok: false }, { text: "reject", ok: false }, { text: "show me", ok: false }], done: [{ text: "show me again", ok: false }, { text: "undo that", ok: false }] },
+  verbs: [{ learn: "copy", label: "Put it in Word", say: "put that in Word", ok: true }, { learn: "show", label: "Show me again", say: "show me again", ok: false }],
+};
+try { if (params.get("learned") === "1") localStorage.setItem("swift.learned", JSON.stringify({ copy: 3 })); } catch { /* none */ }
 const callbacks = new Map<number, Callback>();
 const listeners = new Map<string, number[]>();
 let nextId = 1;
@@ -108,7 +115,7 @@ if (!params.get("port")) {
       setTimeout(() => this.onopen?.(new Event("open")));
     }
     send(raw: string): void {
-      if (JSON.parse(raw).type === "hello") this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "hello.ok", ts: Date.now(), data: { version: "dev", debug: true, hotkeys: { push_to_talk: "Ctrl+Shift+Space", type: "Ctrl+Alt+Space" }, explore: { orb_glance: params.get("explore") === "1", follow_monitor: false, what_can_i_say: false, next_steps: false } } }) }));
+      if (JSON.parse(raw).type === "hello") this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "hello.ok", ts: Date.now(), data: { version: "dev", debug: true, hotkeys: { push_to_talk: "Ctrl+Shift+Space", type: "Ctrl+Alt+Space" }, explore: { orb_glance: params.get("explore") === "1", follow_monitor: params.get("explore") === "1", what_can_i_say: params.get("explore") === "1", next_steps: params.get("explore") === "1" }, ...(params.get("explore") === "1" ? { hints: HARNESS_HINTS } : {}) } }) }));
     }
     close(): void {}
   } as unknown as typeof WebSocket;

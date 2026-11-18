@@ -5,7 +5,7 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, type StackView } from "./stack";
+import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, waits, type StackView } from "./stack";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
@@ -109,15 +109,16 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
         ? el("span", { class: "stack-mark" }, icon(i.icon))
         : el("span", { class: "stack-mark stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
       el("span", { class: "stack-title" }, i.title),
-      el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, "open") }, i.open),
+      el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, i.kind === "timer" ? "end" : "open") }, i.open),
       el("span", { class: "stack-reason" }, i.line),
       // An answer from earlier today has nothing to skip or end (A1): only Open.
-      i.kind === "recent" ? null : el("span", { class: "stack-actions" },
+      !waits(i) ? null : el("span", { class: "stack-actions" },
         el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => h.item(i.id, "skip") }, "Skip"),
         el("button", { class: "btn btn--ghost btn--small", title: "End it: it won't come back", onclick: () => h.item(i.id, "end") }, "End")),
     );
-  // Board 9 §1: section labels once there is more than one kind of thing (A1: EARLIER TODAY).
-  const waiting = v.items.filter((i) => i.kind !== "recent");
+  // Board 9 §1: section labels once there is more than one kind of thing (B14: RUNNING, A1: EARLIER TODAY).
+  const running = v.items.filter((i) => i.kind === "timer");
+  const waiting = v.items.filter(waits);
   const earlier = v.items.filter((i) => i.kind === "recent");
   const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
   return el(
@@ -128,8 +129,9 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       el("span", {}, `· ${waiting.length}`),
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
     el("ul", { class: "stack-list" },
-      ...(earlier.length ? [label("Waiting for you")] : []), ...waiting.map(row),
-      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, waiting.length + n))] : [])),
+      ...(running.length ? [label("Running"), ...running.map(row)] : []),
+      ...(earlier.length || running.length ? [label("Waiting for you")] : []), ...waiting.map((i, n) => row(i, running.length + n)),
+      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, running.length + waiting.length + n))] : [])),
     el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
   );
 }
@@ -143,7 +145,12 @@ export type LiveHandlers = {
   app: () => void;
   answer: () => void;
   copy?: () => void;
+  // B9: the Dock button (beside → docked → mini).
+  dock?: () => void;
 };
+
+// B9: what the Dock button does next.
+const DOCK_NEXT = { beside: "Dock to the side of the screen", docked: "Make it small", mini: "Back beside the card" } as const;
 
 const SOURCE_STATE: Record<Source["state"], string> = { found: "Found", reading: "Reading", read: "Read", failed: "Couldn't read" };
 
@@ -175,7 +182,21 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
   if (v.written) {
     const doc = el("div", { class: "live-doc", "aria-label": `What Swift wrote in ${v.written.app}` },
       ...v.written.text.split("\n").map((p) => el("p", {}, p)));
-    sections.push(el("section", { class: "live-sec" }, el("h3", { class: "section-title" }, `Writing in ${v.written.app}`), doc));
+    // B6: the paper view keeps one console line under the page: what it's doing now.
+    sections.push(el("section", { class: "live-sec" }, el("h3", { class: "section-title" }, `Writing in ${v.written.app}`), doc,
+      el("p", { class: "paper-console", "aria-hidden": "true" }, `${v.running ? "› " : ""}${v.doing}`)));
+  }
+  if (v.steps.length > 1) {
+    // B6: Watch · Step rows: ✓ done, › the one it's on (while it runs), each with when it started.
+    sections.push(el("section", { class: "live-sec" },
+      el("h3", { class: "section-title" }, "Steps"),
+      el("ol", { class: "watch-steps" }, ...v.steps.map((s, i) => {
+        const now = v.running && i === v.steps.length - 1;
+        return el("li", { class: now ? "watch-step watch-step--now" : "watch-step" },
+          el("span", { class: "watch-step-mark", "aria-hidden": "true" }, now ? "›" : "✓"),
+          el("span", { class: "watch-step-text" }, s.text),
+          el("span", { class: "watch-step-time" }, elapsed(v.startedMs, s.atMs)));
+      }))));
   }
   if (v.sources.length) {
     const read = v.sources.filter((s) => s.state === "read").length;
@@ -212,16 +233,22 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
   // progress line that never goes back (sources read of found), a mono meta line, then the steps.
   const read = v.sources.filter((s) => s.state === "read" || s.state === "failed").length;
   const progress = v.running ? (v.sources.length ? read / v.sources.length : 0) : 1;
+  // "Step 4": the steps it has been on (how many are left isn't known until a plan says so).
+  const meta = [
+    v.steps.length ? (v.running ? `Step ${v.steps.length}` : `${v.steps.length} steps`) : null,
+    v.sources.length ? `${read} of ${v.sources.length} sources read` : null,
+  ].filter((m): m is string => m !== null);
   return el(
     "section",
-    { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""}`, role: "region", "aria-label": `Live: ${v.title}` },
+    { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""} live--${v.place ?? "beside"}`, role: "region", "aria-label": `Live: ${v.title}` },
     el("header", { class: "card-head watch-bar", title: "Drag to move" },
       el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "FINISHED" : "ENDED"),  // a stop isn't done
       el("p", { class: "words" }, v.title),
       el("span", { class: "mon-clock elapsed chip-time" }, elapsed(v.startedMs, now)),
+      h.dock ? el("button", { class: "icon-btn watch-dock", "aria-label": `Dock: ${DOCK_NEXT[v.place ?? "beside"]}`, title: DOCK_NEXT[v.place ?? "beside"], onclick: () => h.dock!() }, icon(v.place === "mini" ? "expand" : "collapse")) : null,
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
     el("div", { class: "watch-progress", style: `--p:${progress.toFixed(3)}`, "aria-hidden": "true" }),
-    v.sources.length ? el("p", { class: "watch-meta" }, `${read} of ${v.sources.length} sources read`) : null,
+    meta.length ? el("p", { class: "watch-meta" }, meta.join(" · ")) : null,
     el("div", { class: "status live-now" }, status,
       el("span", { class: "status-verb live-doing", "aria-live": "polite" }, `${v.running ? "› " : ""}${v.doing}`)),
     v.ended && v.ended.summary ? el("p", { class: "live-summary" }, v.ended.summary) : null,

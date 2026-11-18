@@ -63,7 +63,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift import clock, previews, shapes
+from swift import clock, files, previews, shapes
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
@@ -288,6 +288,7 @@ class _Run:
     # B4: the result's shape as Swift checked it (show_result), drawn only on a Done answer.
     shape: dict[str, Any] | None = None
     preview: previews.PreparedPreview | None = None
+    fallback: str = ""  # B4: why a refused shape reads as words, Swift's one grey line on the Done card
     caveat: str = ""  # A5: the worker's one line on why the answer may be wrong
     approved_reads: set[str] = field(default_factory=set)
     # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
@@ -854,8 +855,10 @@ class ClaudeCodeExecutor:
         request_id = f"{run_id}:{next(run.ids)}"
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         run.pending[request_id] = future
+        # ADR-019 §8.1: Swift's own fact on a command card, where it runs (this run's folder, never the agent's words).
+        facts = {"runs_in": self.cwd} if tool in COMMAND_TOOLS and self.cwd else None
         run.queue.put_nowait(ExecEvent(
-            "confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose, step=step))
+            "confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose, step=step, data=facts))
         run.held += 1  # the owner's turn: the watchdog waits (R-06)
         try:
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
@@ -1051,6 +1054,8 @@ class ClaudeCodeExecutor:
                     caveat=said,
                 )
             status = "done" if outcome.status == "done" else "error"
+            if status == "done" and getattr(run, "fallback", ""):
+                meta["fallback"] = run.fallback  # B4: the session puts it on the card as Swift's note
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure, caveat=said)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
         detail = f" ({lines[0][:160]})" if lines else ""
@@ -1070,9 +1075,12 @@ async def _show_result(run: _Run, args: Any, reads: ReadScope, cwd: str | None) 
     run.shape = None
     run.preview = None
     shape, problems = shapes.check(args)
+    run.fallback = "" if shape is not None else shapes.fallback(args)
     if shape is None:
         logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
         return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))
+    if shape["shape"] == "tree":  # B13: its root only once Swift has found it in the read folders, on disk
+        shape = files.verify_tree(shape, reads.verdict)
     if shape["shape"] != "preview":
         return _accepted_shape(run, shape)
     path = target_path("Read", {"file_path": shape["path"]}, cwd)

@@ -234,7 +234,9 @@ class ActionGateway:
         # "Ask me about everything" (asking.py) only ever adds a card; what's done afterwards follows ``policy``.
         if policy == "confirm" or (action.kind not in asking.EXEMPT and self.ask_everything()):
             await status("waiting_approval")
-            decision = await scope.confirm(action.title, action.detail, action.tool, action.artifact_id)
+            # A card that asks only because of it says so (board 9 §6): Swift's line, never the worker's.
+            because = {"because": asking.NOTE} if policy != "confirm" else {}
+            decision = await scope.confirm(action.title, action.detail, action.tool, action.artifact_id, **because)
             if decision == "revise":
                 logger.info("owner asked for a change", tool=action.tool)
                 return Outcome("revise", scope.feedback)

@@ -85,11 +85,11 @@ areas:
     checks: [400, 402, 403, 404, 405, 406, 407, 408]
   halo:
     paths: [overlay/src/dress.ts, overlay/src/geometry.ts, overlay/src/styles.css, overlay/src/views.ts, overlay/src/pane.ts, overlay/src/ready.ts, overlay/src/shuffle.ts, overlay/src/times.ts, overlay/src/timers.ts, src/swift/timers.py, src/swift/captions.py, src/swift/recent.py, overlay/src/display.ts]
-    checks: [216-221, 417, 418, 419, 420, 421, 424, 425, 426, 427, 428]
+    checks: [216-221, 417, 418, 419, 420, 421, halo-b8-gaps-6b8791-1, halo-b8-gaps-6b8791-2, halo-b8-gaps-6b8791-3, halo-b8-gaps-6b8791-4, halo-b8-gaps-6b8791-5, halo-b8-gaps-6b8791-6, halo-b8-gaps-6b8791-7, halo-b8-gaps-6b8791-8, halo-b8-gaps-6b8791-9, 424, 425, 426, 427, 428]
   explore:
     rule: Halo's Explore ideas are off until the owner turns each on in config.yaml; none takes focus
-    paths: [overlay/src/glance.ts, src/swift/settings.py]
-    checks: [423]
+    paths: [overlay/src/glance.ts, overlay/src/learn.ts, overlay/src-tauri/src/follow.rs, src/swift/hints.py, src/swift/settings.py]
+    checks: [423, upbeat-poincare-d02e4a-1, upbeat-poincare-d02e4a-2, upbeat-poincare-d02e4a-3]
   asking-everything:
     rule: Ask me about everything raises level 0 to 1, except reads in the read folders and volume; it only adds questions
     paths: [src/swift/asking.py, src/swift/security/gateway.py, src/swift/system/lane.py, src/swift/executors/claude_code.py, src/swift/memory.py]

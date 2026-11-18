@@ -23,7 +23,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock, treeBlock,
+  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock, setTreeOpener, treeBlock,
 } from "./blocks";
 import { CHOICES, type Display } from "./display";
 import { enterAction } from "./keyed";
@@ -60,6 +60,9 @@ followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => li
 const act = (action: string, extra: Record<string, unknown> = {}): void => {
   void emitTo("overlay", "pane-action", { label, action, ...extra }).catch(() => {});
 };
+
+// B13: a tree row's Open / Show in folder in the reader goes to the main window, which has the socket.
+setTreeOpener((path, how) => act("tree-open", { text: path, value: how }));
 
 function details(d: ResultDetails | null): HTMLElement | null {
   if (!d) return null;
@@ -234,7 +237,8 @@ function drawTray(v: TrayView): void {
     el(
       "section",
       { class: "tray", role: "menu", "aria-label": "Swift" },
-      el("div", { class: `tray-head${v.paused ? " tray-head--paused" : ""}` }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", { class: "tray-status" }, v.status))),
+      el("div", { class: `tray-head${v.paused ? " tray-head--paused" : ""}` }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", { class: "tray-status" }, v.status),
+        v.asking ? el("span", { class: "tray-status tray-asking" }, "Asking about everything") : null)),
       el("div", { class: "tray-sep" }),
       el("div", { class: "tray-block" },
         el("div", { class: "tray-row" }, "Position", el("span", {}, anchorName(v.anchor))),
@@ -252,12 +256,13 @@ function drawTray(v: TrayView): void {
       v.display ? el("details", { class: "tray-block tray-display", open: displayOpen, ontoggle: (ev: Event) => { displayOpen = (ev.currentTarget as HTMLDetailsElement).open; } },
         el("summary", { class: "tray-row" }, "How Swift shows things"),
         ...(Object.keys(CHOICES) as (keyof Display)[]).map((k) => el("div", { class: "tray-seg-row" },
-          el("span", {}, { reading: "Reading time", text: "Text size", motion: "Motion" }[k]),
+          el("span", {}, { reading: "Reading time", text: "Text size", motion: "Motion", speak: "Speak answers", watch: "Watch opens" }[k]),
           el("div", { class: "seg", role: "radiogroup", "aria-label": k },
             ...CHOICES[k].map((c) => el("button", {
               role: "radio", "aria-checked": String(v.display![k] === c.value), onclick: tray("display", { text: `${k}:${c.value}` }),
             }, c.label)))))) : null,
       el("div", { class: "tray-sep" }),
+      v.asking ? el("button", { class: "tray-item", role: "menuitem", onclick: tray("stop-asking") }, icon("shield"), "Stop asking about everything") : null,
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("pause") }, icon(v.paused ? "play" : "pause"), v.paused ? "Resume listening" : "Pause listening"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("settings") }, icon("settings"), "Settings"),
@@ -285,6 +290,7 @@ function drawLive(v: LiveView): void {
     link: (url) => void invoke("open_link", { url }).catch(() => {}),
     app: () => act("live-app", { runId }),
     answer: () => act("live-answer", { runId }),
+    dock: () => act("live-dock", { runId }),
   }));
   const body = root.querySelector<HTMLElement>(".live-body");
   if (!body) return;

@@ -2,11 +2,13 @@
 
 ``attach`` (each new overlay, from ``Session._resync``) makes every change to the schedule send the overlay the
 timers still counting (``timers``); ``snooze`` is "+5 min" on a timer's Due card (``due.snooze``): the same
-timer again, five minutes from now. Its label comes from the card's own items, never from the overlay.
+timer again, five minutes from now. Its label comes from the card's own items, never from the overlay. ``heard``:
+"done" or "5 more" said while that card is in front; ``stack_action``: Cancel on the stack's RUNNING row.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from swift.ipc.protocol import outbound
@@ -59,3 +61,36 @@ def cleared(session: Any, key: str) -> None:
         if str(item.id) == key and session.system is not None:
             session.system.scheduler.shown(item.id)
     session._due = kept
+
+
+def stack_action(session: Any, kind: str, key: str) -> bool:
+    """Open or End on a due item, or Cancel on a running timer's row (B14, ``timer:<id>``). True: handled."""
+    if kind == "due":
+        cleared(session, key)
+        return True
+    if session.system is not None and key.isdigit():
+        session.system.scheduler.remove(int(key))  # on_change sends the overlay the timers left
+    return False
+
+
+# B14: what the owner may say while a timer's Due card is in front. Whole utterance only.
+_LEAD = re.compile(r"^\s*(?:(?:hey|ok|okay)\s+)?(?:swift\b[\s,.:!-]*)?", re.I)
+_DONE = re.compile(r"(?:ok(?:ay)?[\s,]+)?(?:done|i'?m done|(?:stop|turn off)(?: the)? (?:timer|alarm)|got it|thanks?(?: you)?)", re.I)
+_MORE = re.compile(r"(?:(?:give me|another|add)\s+)?(?:5|five) more(?: minutes?| mins?)?(?: please)?|snooze(?: it)?|\+?5 min(?:utes)?", re.I)
+
+
+def heard(session: Any, text: str) -> tuple[str, None] | None:
+    """"done" or "5 more" said while a timer's Due card is in front: what Swift says back (no details), else None."""
+    run_id = session._drawn.front
+    items = [i for i in _recent.get(run_id or "", []) if i.kind == "timer"]
+    if not items:
+        return None
+    said = _LEAD.sub("", text).strip().rstrip(".!?")
+    if _MORE.fullmatch(said):
+        snooze(session, run_id)
+        return "Okay, 5 more minutes.", None
+    if _DONE.fullmatch(said):
+        _recent.pop(run_id, None)
+        name = f"{items[0].label} timer" if items[0].label else "timer"
+        return f"Done: {name[:1].upper()}{name[1:]}.", None  # the same words as the overlay's Edge · Got it
+    return None

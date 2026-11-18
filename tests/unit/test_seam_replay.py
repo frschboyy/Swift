@@ -1666,6 +1666,43 @@ async def test_b14_a_running_timer_reaches_the_orb_and_plus_five_sets_it_again()
     await finish_all(session, agent)
 
 
+async def test_b14_done_and_five_more_said_on_a_timers_due_card_and_cancel_from_the_stack() -> None:
+    """B14: "5 more" said while a timer's Due card is in front sets it again; "done" ends it with "Done: Tea timer";
+    either word with no Due card in front is an ordinary request. Cancel on the stack's RUNNING row
+    (``timer:<id>``) stops a timer counting."""
+    session, out, agent, stt, _control, sched = _lane()
+    await session.handle(Message("ready", {"startup_ms": 1}))
+
+    async def due_card() -> str:
+        sched.add("timer", sched.clock(), "tea")
+        tea = sched.items[-1]
+        tea.fired = True
+        await session.notify_due(tea, False)
+        await asyncio.sleep(0.1)
+        screen = await _drawn_back(session, out)
+        assert screen["cardRun"].startswith("due-timer-"), screen
+        return screen["cardRun"]
+
+    await due_card()
+    await session.handle(Message("text", {"text": "five more minutes"}))
+    await asyncio.sleep(0.05)
+    assert _screen(out)["timerTitles"] == ["tea"], _screen(out)
+    assert not agent.runs  # Swift's own, never the worker's
+    sched.items.clear()
+    await due_card()
+    await session.handle(Message("text", {"text": "Swift, done"}))
+    await until(lambda: out.last("result") and "Done: Tea timer" in out.last("result")["summary"])
+    assert not agent.runs
+    # Cancel on the RUNNING row.
+    sched.add("timer", sched.clock() + 300, "eggs")
+    await asyncio.sleep(0.05)
+    assert _screen(out)["timerTitles"] == ["eggs"]
+    await session.handle(Message("stack.action", {"id": f"timer:{sched.items[-1].id}", "action": "end"}))
+    await asyncio.sleep(0.05)
+    assert _screen(out)["timerTitles"] == []
+    await finish_all(session, agent)
+
+
 async def test_b13_a_file_tree_reaches_the_done_card_as_one() -> None:
     """B13: a file list the worker gave as a tree, checked by Swift, reaches the answer card as a tree (its
     entries as indented lines in the card's words); more than ten entries open in full."""
@@ -1716,6 +1753,27 @@ async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens
     await asyncio.sleep(0.05)
     screen = agree(session, out)
     assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
+    await finish_all(session, agent)
+
+
+async def test_a1_what_did_you_find_about_shows_that_answer_again_and_runs_nothing() -> None:
+    """A1: "what did you find about tea" shows the tea answer again as this request's answer, with no worker run;
+    something never asked about says so (answers aren't kept across a restart)."""
+    session, out, agent, stt, _control, _sched = _lane()
+    answers = {}
+    for topic in ("tea", "coffee"):
+        run = await started(session, out, agent, stt, f"Hey Swift, research the history of {topic}")
+        agent.runs[run]["go"].set()
+        await until(lambda r=run: out.last("result") and out.last("result")["run_id"] == r)
+        answers[topic] = out.last("result")["summary"]
+    asked = len(agent.requests)
+    await session.handle(Message("text", {"text": "what did you find about tea?"}))
+    await until(lambda: out.last("result") and out.last("result")["run_id"].startswith("local-"))
+    assert len(agent.requests) == asked  # nothing ran again
+    assert answers["tea"] != answers["coffee"] and out.last("result")["summary"] == answers["tea"], (out.last("result"), answers)
+    await session.handle(Message("text", {"text": "what did you find about the moon landing"}))
+    await until(lambda: "since Swift started" in out.last("result")["summary"])
+    assert len(agent.requests) == asked
     await finish_all(session, agent)
 
 

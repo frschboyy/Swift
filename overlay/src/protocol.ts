@@ -66,6 +66,8 @@ export type Preview = {
 export type Chart = {
   kind: "chart"; type: "bar" | "line"; title?: string; x: string[];
   series: { name: string; values: number[] }[]; unit?: string;
+  // D7: the categories the worker points out (indexes into x): a grey outline, never accent.
+  pick?: number[];
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
 
@@ -77,9 +79,11 @@ export type Cards = {
 };
 
 // B13: files and folders as the worker listed them (swift/shapes.py Tree): names only, never a path Swift acts on.
-export type TreeEntry = { name: string; folder?: boolean; meta?: string; open?: boolean; entries?: TreeEntry[] };
+// found: Swift saw it on disk under ``root`` (files.py); only those rows get Open / Show in folder.
+export type TreeEntry = { name: string; folder?: boolean; meta?: string; open?: boolean; entries?: TreeEntry[]; found?: boolean };
 export type Tree = {
-  kind: "tree"; title?: string; entries: TreeEntry[];
+  // root: the folder Swift verified (in the read folders, on disk); without it, the tree has no actions.
+  kind: "tree"; title?: string; entries: TreeEntry[]; root?: string;
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
 
@@ -106,7 +110,7 @@ export type Artifact = { run_id: string; thread_id?: string; id: string; phase: 
 
 export type Inbound =
   // instance: this backend; a new one means what the last one put on screen is gone (seams audit O-02).
-  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string; explore?: Explore } }
+  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string; explore?: Explore; hints?: Hints } }
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
@@ -114,7 +118,7 @@ export type Inbound =
   | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean; clip?: string } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string; because?: string; facts?: { runs_in?: string } } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
@@ -134,7 +138,7 @@ export type Inbound =
   | { type: "followup"; data: { open: boolean; seconds: number; question?: boolean } }
   // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
   // paused: the owner paused listening from the tray (ADR-017): "Not listening · Mic off".
-  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean } }
+  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean; asking?: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
   // held false: they're back, and the card shows again.
   | { type: "confirm.hold"; data: { request_id: string; held: boolean } }
@@ -174,7 +178,9 @@ export type LiveData = { run_id: string } & (
 export type StackEntry = {
   id: string;
   // "recent": an answer from earlier today (A1), listed after what waits; it never counts as waiting.
-  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent";
+  // "timer": a timer still counting (B14), made by the overlay from ``timers``: a RUNNING row, never waiting.
+  // "failed": a request's Failed card moved here after 10 min (ADR-019 §8.3, the overlay's own); it counts (D9).
+  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent" | "timer" | "failed";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;
@@ -202,6 +208,12 @@ export type RunRow = {
 // Halo's Explore ideas (A10-A13), each off by default (config.yaml explore).
 export type Explore = { orb_glance: boolean; follow_monitor: boolean; what_can_i_say: boolean; next_steps: boolean };
 
+// A10/A11: what a card accepts and Swift's own verbs (hints.py, from the real grammar); only while one is on.
+export type Hints = {
+  say: { confirm: { text: string; ok: boolean }[]; done: { text: string; ok: boolean }[] };
+  verbs: { learn: string; label: string; say: string; ok: boolean }[];
+};
+
 export type TimerRow = { id: number; title: string; due_ms: number; set_ms: number };
 
 export type ErrorData = {
@@ -223,7 +235,7 @@ export type Outbound =
   | { type: "hello"; data: { token: string; client: string } }
   | { type: "ptt"; data: { state: "down" | "up" } }
   | { type: "cancel"; data: Record<string, never> }
-  | { type: "retry"; data: Record<string, never> }
+  | { type: "retry"; data: { from_step?: number } }
   | { type: "confirm.reply"; data: { request_id: string; decision: "approve" | "reject" } }
   | { type: "debug.run"; data: { scenario: Scenario } }
   | { type: "debug.ask"; data: { text: string } }
@@ -247,6 +259,12 @@ export type Outbound =
   | { type: "speech.stop"; data: Record<string, never> }
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
   | { type: "listen"; data: { on: boolean } }
+  // The tray's "Stop asking about everything" (modes study §3): only ever false.
+  | { type: "asking"; data: { on: boolean } }
+  // A8, "Speak answers" in the tray: "default" is config.yaml's speech.replies.
+  | { type: "speak"; data: { replies: "default" | "always" | "auto" | "never" } }
+  // B13: Open / a double-click, or Show in folder, on a tree row Swift found; the backend checks the path again.
+  | { type: "tree.open"; data: { path: string; how: "open" | "reveal" } }
   | { type: "recordings"; data: { action: "clear" | "improve" } }
   // The card's flag on the heard words (heardfix.ts): the pane opened, and the correction saved. A label only.
   | { type: "recordings"; data: { action: "fix_open"; clip: string } }

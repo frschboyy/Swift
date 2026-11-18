@@ -11,7 +11,7 @@
 // has a type icon (a shield for a card waiting for an OK, a question mark for Swift's question,
 // a pause for anything unfinished), its whole title (never cut) and why it waits.
 
-import type { StackEntry } from "./protocol";
+import type { StackEntry, TimerRow } from "./protocol";
 
 /** A card that just joined the stack glows this long, so the owner notices it. */
 export const FRESH_MS = 4000;
@@ -24,12 +24,19 @@ export type Stack = {
   freshUntil: number;
 };
 
+/** What waits for the owner: not an answer from earlier today (A1), not a timer still counting (B14). */
+export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "recent" && i.kind !== "timer";
+
+/** B14: a timer still counting, as a RUNNING row of the stack list (its Cancel ends it: ``timer:<id>``). */
+export const timerEntry = (t: TimerRow): StackEntry =>
+  ({ id: `timer:${t.id}`, kind: "timer", title: t.title || "Timer", reason: "timer", since_ms: t.set_ms, thread_id: null, expires_ms: t.due_ms });
+
 export const initialStack: Stack = { items: [], expanded: false, fresh: [], freshUntil: 0 };
 
 /** The backend's ``stack`` message. An empty stack can't stay expanded. */
 export function onStack(s: Stack, items: StackEntry[], now: number): Stack {
   const known = new Set(s.items.map((i) => i.id));
-  const fresh = items.filter((i) => !known.has(i.id) && i.kind !== "recent").map((i) => i.id);  // an answer doesn't glow
+  const fresh = items.filter((i) => !known.has(i.id) && waits(i)).map((i) => i.id);  // an answer doesn't glow
   return {
     items,
     expanded: s.expanded && items.length > 0,
@@ -73,6 +80,11 @@ export function reasonLine(item: StackEntry, now: number): string {
       return `Unanswered question · ${since}`;
     case "due":
       return `Came due · ${since}`;
+    case "timer": {
+      // Whole minutes: the list redraws every 15 s, not every second (the orb's pill counts the seconds).
+      const min = Math.ceil(Math.max(0, (item.expires_ms ?? now) - now) / 60000);
+      return min > 1 ? `Timer · ${min} min left` : "Timer · under a minute left";
+    }
     case "done":
       return `Done · ${since}`;
     case "failed":
@@ -83,10 +95,12 @@ export function reasonLine(item: StackEntry, now: number): string {
 }
 
 /** Every row's first button: open it (a card comes back, a conversation goes on). */
-export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "Done" : "Open");
+export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "Done" : item.kind === "timer" ? "Cancel" : "Open");
 
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
-export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" {
+export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" {
+  if (item.kind === "timer") return "timer";
+  if (item.kind === "failed") return "alert";
   if (item.kind === "recent") return item.reason === "failed" ? "alert" : "check";
   if (item.kind === "due") return "bell";
   if (item.kind !== "parked") return "shield";
@@ -117,7 +131,7 @@ export type StackView = {
 /** The stack pane's view, or null when nothing waits (no window): answers from earlier today alone don't make a
  * pile (A1); they show under the waiting ones once it's open. */
 export function stackView(s: Stack, now: number): StackView | null {
-  if (!s.items.some((i) => i.kind !== "recent")) return null;
+  if (!s.items.some(waits)) return null;
   const glow = now < s.freshUntil ? new Set(s.fresh) : new Set<string>();
   return {
     kind: "stack",
@@ -132,7 +146,7 @@ export function stackView(s: Stack, now: number): StackView | null {
 /** Amber means an OK is waiting, nothing else (ADR-018 §2.6): the badge, and the glow of what just joined. */
 export const needsOk = (v: StackView): boolean => v.items.some((i) => i.icon === "shield");
 /** What waits, without the answers from earlier today (A1): the pile's count and its next line. */
-export const waitingOnly = (v: StackView): StackView => ({ ...v, items: v.items.filter((i) => i.kind !== "recent") });
+export const waitingOnly = (v: StackView): StackView => ({ ...v, items: v.items.filter(waits) });
 export const freshNeedsOk = (v: StackView): boolean => v.items.some((i) => i.fresh && i.icon === "shield");
 
 /** The compressed stack's one line: "3 things need you". */

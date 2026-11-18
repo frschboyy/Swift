@@ -159,6 +159,56 @@ pub fn grown_up(area: Area, x: i32, bottom: i32, size: (i32, i32)) -> (i32, i32)
     clamp(area, (x, bottom - size.1), size)
 }
 
+/// B9: where the watch (a live view) sits, chosen by its Dock button; the last one is reused (D3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WatchPlace {
+    /// Beside the card: the default place (`default_origin`).
+    Beside,
+    /// A full-height strip on the orb's edge, registered as an app bar: Windows shrinks the work area.
+    Docked,
+    /// 300 px wide (title, progress, the current step) in the orb-side corner opposite the orb.
+    Mini,
+}
+
+impl WatchPlace {
+    pub fn from_id(id: &str) -> Option<WatchPlace> {
+        match id {
+            "beside" => Some(WatchPlace::Beside),
+            "docked" => Some(WatchPlace::Docked),
+            "mini" => Some(WatchPlace::Mini),
+            _ => None,
+        }
+    }
+}
+
+/// The docked watch's width, CSS px.
+pub const DOCK_W: f64 = 360.0;
+/// The mini watch's width, CSS px.
+pub const MINI_W: f64 = 300.0;
+
+/// The edge the docked watch takes: the orb's (left for a left anchor; the middle column docks right).
+pub fn dock_left(main: Anchor) -> bool {
+    main.column() < 0
+}
+
+/// The docked watch's rect (physical px): the whole height of the work area on the orb's edge.
+pub fn dock_rect(area: Area, scale: f64, main: Anchor) -> (i32, i32, i32, i32) {
+    let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
+    let w = ((DOCK_W * scale).round() as i32).min(area.w as i32 / 3);
+    let x = if dock_left(main) { area.x } else { area.x + area.w as i32 - w };
+    (x, area.y, w, area.h as i32)
+}
+
+/// The mini watch's origin: the corner on the orb's edge (top or bottom), on the other side from the orb (the
+/// middle column: the left corner), clear of the card.
+pub fn mini_origin(area: Area, scale: f64, main: Anchor, size: (i32, i32)) -> (i32, i32) {
+    let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
+    let m = (MARGIN * scale).round() as i32;
+    let x = if main.column() < 0 { area.x + area.w as i32 - size.0 - m } else { area.x + m };
+    let y = if main.is_top() { area.y + m } else { area.y + area.h as i32 - size.1 - m };
+    clamp(area, (x, y), size)
+}
+
 /// The reader's height at most: 70 % of the work area.
 pub fn max_height(area: Area) -> i32 {
     (area.h as f64 * 0.7).round() as i32
@@ -314,5 +364,25 @@ mod tests {
             assert!(overlaps((x, y, size.0, size.1), zone), "text box away from the cards at {main:?}");
             assert!(x >= 0 && x + size.0 <= FHD.w as i32 && y >= 0 && y + size.1 <= FHD.h as i32);
         }
+    }
+
+    #[test]
+    fn the_docked_watch_takes_the_orbs_edge_full_height_and_mini_the_opposite_corner() {
+        use crate::placement::Anchor::*;
+        let left = dock_rect(FHD, 1.0, BottomLeft);
+        assert_eq!(left, (0, 0, 360, 1040));
+        let right = dock_rect(FHD, 1.5, TopRight);
+        assert_eq!(right, (1920 - 540, 0, 540, 1040));
+        assert!(!dock_left(BottomCenter), "the middle column docks right");
+        let mini = (300, 120);
+        // Orb bottom right: the bottom-left corner; orb top left: the top-right corner.
+        assert_eq!(mini_origin(FHD, 1.0, BottomRight, mini), (12, 1040 - 120 - 12));
+        assert_eq!(mini_origin(FHD, 1.0, TopLeft, mini), (1920 - 300 - 12, 12));
+        for anchor in [TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight] {
+            let (x, y) = mini_origin(FHD, 1.0, anchor, mini);
+            assert!(!overlaps((x, y, mini.0, mini.1), card_zone(FHD, 1.0, anchor)), "mini over the card at {anchor:?}");
+        }
+        assert_eq!(WatchPlace::from_id("docked"), Some(WatchPlace::Docked));
+        assert_eq!(WatchPlace::from_id("sideways"), None);
     }
 }

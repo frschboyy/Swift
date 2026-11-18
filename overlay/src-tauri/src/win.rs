@@ -25,13 +25,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use windows_sys::Win32::Foundation::{GlobalFree, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::DataExchange::{CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData};
 use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetGUIThreadInfo, GetWindowLongPtrW, GetWindowRect, SetWindowDisplayAffinity, SetWindowLongPtrW,
+    GetClassNameW, GetCursorPos, GetForegroundWindow, GetGUIThreadInfo, GetWindowLongPtrW, GetWindowRect, SetWindowDisplayAffinity, SetWindowLongPtrW,
     SetWindowPos, ShowWindow, GUITHREADINFO, GWL_EXSTYLE, HWND_TOPMOST, MA_NOACTIVATE, STYLESTRUCT,
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOWNOACTIVATE,
     WDA_EXCLUDEFROMCAPTURE, WM_MOUSEACTIVATE, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
@@ -191,6 +191,31 @@ pub fn move_to(raw: isize, x: i32, y: i32) {
     }
 }
 
+/// Whether the front window covers its whole monitor (a game, a video, a presentation). The desktop itself
+/// (Progman, WorkerW) doesn't count. Read-only: nothing is activated.
+pub fn foreground_fullscreen() -> bool {
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.is_null() {
+            return false;
+        }
+        let mut class = [0u16; 32];
+        let n = GetClassNameW(fg, class.as_mut_ptr(), class.len() as i32) as usize;
+        let name = String::from_utf16_lossy(&class[..n.min(class.len())]);
+        if name == "Progman" || name == "WorkerW" {
+            return false;
+        }
+        let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        let mut info: MONITORINFO = std::mem::zeroed();
+        info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        if GetWindowRect(fg, &mut r) == 0 || GetMonitorInfoW(MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), &mut info) == 0 {
+            return false;
+        }
+        let m = info.rcMonitor;
+        r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom
+    }
+}
+
 /// Whether the (logical) left mouse button is held right now.
 pub fn left_button_down() -> bool {
     unsafe { GetAsyncKeyState(VK_LBUTTON as i32) as u16 & 0x8000 != 0 }
@@ -242,5 +267,41 @@ pub fn copy_text(text: &str) -> Result<(), String> {
         })();
         CloseClipboard();
         result
+    }
+}
+
+/// B9: the docked watch as an app bar on the `left` or right edge (`rect`, physical px): Windows takes that strip
+/// out of the work area, so other windows (and Swift's own orb) keep clear of it. Returns where Windows put it.
+/// shortcut: no ABN_* notifications are handled (a full-screen app over the bar, another bar on the same edge);
+/// the bar keeps its place until it closes or moves. Upgrade when the live loop shows one of those.
+pub fn appbar_dock(raw: isize, left: bool, (x, y, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
+    use windows_sys::Win32::UI::Shell::{SHAppBarMessage, ABE_LEFT, ABE_RIGHT, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, APPBARDATA};
+    unsafe {
+        let mut data: APPBARDATA = std::mem::zeroed();
+        data.cbSize = std::mem::size_of::<APPBARDATA>() as u32;
+        data.hWnd = hwnd(raw);
+        SHAppBarMessage(ABM_NEW, &mut data); // already one: FALSE, and it stays registered
+        data.uEdge = if left { ABE_LEFT } else { ABE_RIGHT };
+        data.rc = RECT { left: x, top: y, right: x + w, bottom: y + h };
+        SHAppBarMessage(ABM_QUERYPOS, &mut data);
+        // Windows may move the strip off another bar: keep the width from the edge it gave.
+        if left {
+            data.rc.right = data.rc.left + w;
+        } else {
+            data.rc.left = data.rc.right - w;
+        }
+        SHAppBarMessage(ABM_SETPOS, &mut data);
+        (data.rc.left, data.rc.top, data.rc.right - data.rc.left, data.rc.bottom - data.rc.top)
+    }
+}
+
+/// B9: the watch leaves the edge (or closes): Windows gives the strip back to the work area.
+pub fn appbar_remove(raw: isize) {
+    use windows_sys::Win32::UI::Shell::{SHAppBarMessage, ABM_REMOVE, APPBARDATA};
+    unsafe {
+        let mut data: APPBARDATA = std::mem::zeroed();
+        data.cbSize = std::mem::size_of::<APPBARDATA>() as u32;
+        data.hWnd = hwnd(raw);
+        SHAppBarMessage(ABM_REMOVE, &mut data);
     }
 }

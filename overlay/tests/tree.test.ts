@@ -1,6 +1,37 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { middleCut, startOpen, visibleRows } from "../src/tree.ts";
+import { middleCut, pathOf, startOpen, treeKey, visibleRows } from "../src/tree.ts";
+import type { TreeEntry } from "../src/protocol.ts";
+
+const PICS: TreeEntry[] = [
+  { name: "2026", folder: true, found: true, entries: [{ name: "beach.jpg", found: true }, { name: "made-up.jpg", found: false }] },
+  { name: "notes.txt", found: true },
+];
+
+test("B13: a row's path comes from Swift's verified root and the names, only for rows Swift found", () => {
+  assert.equal(pathOf(PICS, "0/0", "C:\\Users\\F\\Pictures"), "C:\\Users\\F\\Pictures\\2026\\beach.jpg");
+  assert.equal(pathOf(PICS, "0/1", "C:\\Users\\F\\Pictures"), null);  // not on disk
+  assert.equal(pathOf(PICS, "1", undefined), null);  // no verified root: no actions at all
+  assert.equal(pathOf(PICS, "9", "C:\\x"), null);
+});
+
+test("B13: arrow keys in the reader walk the rows and open and close folders", () => {
+  let open = new Set<string>();
+  let rows = visibleRows(PICS, open);
+  let r = treeKey(rows, open, null, "ArrowDown");
+  assert.equal(r.selected, "0");
+  r = treeKey(rows, open, "0", "ArrowRight");  // opens the folder
+  open = r.open;
+  rows = visibleRows(PICS, open);
+  assert.deepEqual([...open], ["0"]);
+  r = treeKey(rows, open, "0", "ArrowRight");  // then steps into it
+  assert.equal(r.selected, "0/0");
+  r = treeKey(rows, open, "0/0", "ArrowLeft");  // out to its folder
+  assert.equal(r.selected, "0");
+  r = treeKey(rows, open, "0", "ArrowLeft");  // closes it
+  assert.deepEqual([...r.open], []);
+  assert.equal(treeKey(rows, open, "1", "ArrowDown").selected, "1");  // the last row stays
+});
 
 test("B13: a long name is cut in the middle and keeps its extension", () => {
   assert.equal(middleCut("notes.txt"), "notes.txt");

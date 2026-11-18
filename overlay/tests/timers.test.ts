@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { left, pillText } from "../src/timers.ts";
+import { doneLine, left, pillText } from "../src/timers.ts";
 
 const tea = { id: 7, title: "Tea", due_ms: 300_000, set_ms: 0 };
 
@@ -17,4 +17,9 @@ test("the ring drains from full to empty over the timer's time", () => {
   assert.equal(left([tea], 150_000), 0.5);
   assert.equal(left([tea], 400_000), 0);
   assert.equal(left([], 0), 0);
+});
+
+test("B14: Done on a timer's Due card says Edge · Got it in the timer's own name", () => {
+  assert.equal(doneLine("Your tea timer is up."), "Done: Tea timer");
+  assert.equal(doneLine("Your timer is up."), "Done: Timer");
 });

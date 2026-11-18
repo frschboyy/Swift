@@ -41,6 +41,9 @@ def parse(text: str) -> str | None:
 
 # Sources whose words were spoken (memory.OWNER_WORDS without typed text): only these turn it off.
 SPOKEN = frozenset({"voice", "wake", "followup", "correction", "retry", "beside", "answer"})
+# The tray's own "Stop asking about everything" item: a click on Swift's own button (a gesture), so it may turn it off.
+# No request carries this source: a typed path can never reach it (session.py ``frames.HANDLERS["asking"]``).
+TRAY = "tray"
 TYPED_OFF = "I can only stop asking about everything when you say it. Until then I'll keep asking."
 
 
@@ -54,15 +57,23 @@ def is_on(store: Any) -> bool:
         return True
 
 
+async def from_tray(session: Any) -> None:
+    """The tray's "Stop asking about everything" (``asking`` with on false; a tray never turns it on): off, then the
+    tray's status says so (``presence``)."""
+    answer(session.memories, "ask_less", "", "tray", TRAY)
+    if session.on_ready is not None:
+        await session.on_ready()
+
+
 def answer(store: Any, action: str, words: str, run: str, source: str) -> str:
-    """Turn it on (said or typed) or off (said only) from the owner's words, and say so."""
+    """Turn it on (said or typed) or off (said, or the tray's own item) from the owner's words, and say so."""
     if store is None:
         return "I can't keep that setting here."
     if action == "ask_all":
         if not is_on(store):
             store.write("memory", words.strip()[:300], source="said" if source in SPOKEN else "typed", words=words, run=run, key=KEY)
         return "Okay. I'll ask before I do anything, until you say “stop asking about everything”."
-    if source not in SPOKEN:
+    if source not in SPOKEN and source != TRAY:
         return TYPED_OFF  # it would remove questions: never from typed words
     if is_on(store):
         try:

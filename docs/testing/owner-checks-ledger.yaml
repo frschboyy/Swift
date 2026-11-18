@@ -90,6 +90,10 @@ areas:
     rule: Halo's Explore ideas are off until the owner turns each on in config.yaml; none takes focus
     paths: [overlay/src/glance.ts, overlay/src/learn.ts, overlay/src-tauri/src/follow.rs, src/swift/hints.py, src/swift/settings.py]
     checks: [halo-b8-build-4fbdf7-10, upbeat-poincare-d02e4a-1, upbeat-poincare-d02e4a-2, upbeat-poincare-d02e4a-3]
+  hold-during-calls:
+    rule: Calls hold cards and speech like away and never approve; the hold is off unless explore.hold_during_calls is on
+    paths: [src/swift/calls.py, src/swift/lifecycle.py]
+    checks: [laughing-nightingale-968e04-1]
   asking-everything:
     rule: Ask me about everything raises level 0 to 1, except reads in the read folders and volume; it only adds questions
     paths: [src/swift/asking.py, src/swift/security/gateway.py, src/swift/system/lane.py, src/swift/executors/claude_code.py, src/swift/memory.py]

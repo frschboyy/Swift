@@ -456,6 +456,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-gaps-6b8791-7 captions on by themselves when muted or Live captions runs", LOOK, "check on screen: the pill's words"),
         ("halo-b8-gaps-6b8791-8 speak answers and watch opens in the tray", LOOK, "check on screen: no voice with Never; the watch opening by itself"),
         ("halo-b8-gaps-6b8791-9 the watch docked and mini", LOOK, "check on screen: the docked edge, windows making room, the mini corner"),
+        ("laughing-nightingale-968e04-1 hold during calls (A3, explore.hold_during_calls)", LOOK, "check on a real call: no card or sound while it lasts; back after; apps detected"),
         ("halo-b8-build-4fbdf7-9 'ask me about everything': it asks, volume doesn't, it stays on", LOOK, "check: the question and its line; on after a restart; off again"),
         ("halo-b8-build-4fbdf7-10 the orb glance (A12, explore.orb_glance)", LOOK, "say whether to keep it; it never took the keyboard"),
         ("halo-b8-build-4fbdf7-11 Approve fills, Copied, Pin, a caveat (A9, A4, A5)", LOOK, "check on screen"),

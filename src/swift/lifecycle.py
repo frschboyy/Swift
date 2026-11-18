@@ -9,6 +9,7 @@
 | Away for ``release_after_s`` (30 min) | Warm Claude Code released. The speech model too, unless hands-free listening still needs it (away only because the keyboard was idle) |
 | Here or idle, every few minutes | A warm Claude Code that exited on its own is replaced, so the first request after a quiet spell isn't slow |
 | Away, for any reason (L2) | An open confirm card is held: hidden, its countdown stopped (``Session.hold_cards``). Back: shown again |
+| On a call or presenting (A3, ``explore.hold_during_calls``) | The same hold; freed when the call ends, unless the owner is away |
 
 Each change is also announced to the overlay (``presence``) for the tray tooltip and the capsule.
 
@@ -78,6 +79,7 @@ class Lifecycle:
         self._back: tuple[str, float, dict[str, float]] | None = None
         # The owner paused listening from the tray (ADR-017).
         self.paused = False
+        self.in_call = False  # A3: a call or a presentation is on (calls.py): held like away
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
@@ -92,6 +94,15 @@ class Lifecycle:
             return self.monitor.probe.locked()
         except Exception:  # noqa: BLE001 - as ``PresenceMonitor.poll``: a failed probe changes nothing
             return False
+
+    async def set_call(self, on: bool, seconds: float) -> None:
+        """A call or presentation started or ended (``calls.CallWatch``): hold cards like away; not freed while away."""
+        self.in_call = on
+        logger.info("call hold" if on else "call hold ended", seconds=round(seconds))
+        hold_cards = getattr(self.session, "hold_cards", None)
+        if hold_cards is not None:
+            away = self.monitor is not None and self.monitor.state == "away"
+            await hold_cards(away or on)
 
     # ---- presence changes ---------------------------------------------------------------
 
@@ -109,7 +120,7 @@ class Lifecycle:
             changed()
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
-            await hold_cards(change.new == "away")
+            await hold_cards(change.new == "away" or self.in_call)
         if change.returned:
             # The speech model first: it is the slow part (paged out while locked), and the
             # microphone reopening behind a busy audio thread must not hold it up.

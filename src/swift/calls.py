@@ -1,0 +1,132 @@
+"""Hold during calls (Halo A3, ``explore.hold_during_calls``).
+
+While the owner is on a call or presenting, Swift holds what it would show or say: the same hold as when the owner is
+away (``Session.hold_cards``: confirm cards hidden and their countdowns stopped, speech and due notices kept back). It
+never answers for the owner and loosens nothing: a held card can't be approved, because it isn't on screen. After the
+call it is released, and what came due meanwhile is shown (``notify_due``).
+
+The detector follows the spike (``spikes/calls/REPORT.md``; measured idle only, owner check pending):
+
+- **a call**: a call app (Teams, Zoom, a browser...) that is running has the microphone open
+  (ConsentStore ``LastUsedTimeStop == 0``); Swift's own microphone and apps that aren't call apps don't count, and a
+  key left behind by an app that isn't running doesn't either;
+- **presenting**: Windows' own state (``SHQueryUserNotificationState``) says busy, full screen or presentation mode.
+
+Holding is safe, showing is not, so a doubtful reading holds. Plain window shares are not detected on their own.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import ctypes
+import sys
+import time
+from collections.abc import Awaitable, Callable, Iterable
+from typing import Protocol
+
+from loguru import logger
+
+POLL_S = 2.0
+# The key closes between an app's prompts: a call is over only after this long without it.
+OUT_S = 5.0
+CALL_APPS = ("teams", "zoom", "discord", "slack", "whatsapp", "skype", "webex", "chrome", "msedge", "firefox", "brave")
+# SHQueryUserNotificationState: BUSY, RUNNING_D3D_FULL_SCREEN, PRESENTATION_MODE.
+_PRESENTING = {2, 3, 4}
+_CS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
+
+
+class Probe(Protocol):
+    def in_call(self) -> bool: ...
+
+
+def mic_call(mic_apps: Iterable[str], alive: set[str]) -> bool:
+    """Is a running call app holding the microphone? ``mic_apps`` are the ConsentStore names with the stream open."""
+    for app in mic_apps:
+        exe = app.split(":")[-1].lower()
+        if exe in alive and any(word in exe for word in CALL_APPS):
+            return True
+    return False
+
+
+class WindowsProbe:
+    """Reads the registry, the process list and the shell's notification state. Read only; no admin."""
+
+    def in_call(self) -> bool:
+        if sys.platform != "win32":
+            return False
+        import psutil  # in the project's environment; the process check drops stale keys
+
+        alive = {(p.info["name"] or "").lower() for p in psutil.process_iter(["name"])}
+        return mic_call(self._mic_open(), alive) or self._presenting()
+
+    @staticmethod
+    def _presenting() -> bool:
+        state = ctypes.c_int()
+        ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state))  # type: ignore[attr-defined]
+        return state.value in _PRESENTING
+
+    @staticmethod
+    def _mic_open() -> list[str]:
+        import winreg  # type: ignore[import-not-found,unused-ignore]
+
+        found: list[str] = []
+
+        def scan(path: str, prefix: str = "") -> None:
+            try:
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path)
+            except OSError:
+                return
+            with key:
+                for i in range(winreg.QueryInfoKey(key)[0]):
+                    name = winreg.EnumKey(key, i)
+                    if name == "NonPackaged":
+                        scan(path + "\\" + name, "np:")
+                        continue
+                    try:
+                        with winreg.OpenKey(key, name) as app:
+                            start = winreg.QueryValueEx(app, "LastUsedTimeStart")[0]
+                            stop = winreg.QueryValueEx(app, "LastUsedTimeStop")[0]
+                    except OSError:
+                        continue
+                    if start and stop == 0:
+                        found.append(prefix + name.split("#")[-1])
+
+        scan(_CS)
+        return found
+
+
+class CallWatch:
+    """Polls the probe; tells ``on_change(in_call, seconds)`` when a call starts (0) and when it ends (how long)."""
+
+    def __init__(self, probe: Probe, on_change: Callable[[bool, float], Awaitable[None]], *,
+                 clock: Callable[[], float] = time.time, out_s: float = OUT_S) -> None:
+        self.probe = probe
+        self.on_change = on_change
+        self.clock = clock
+        self.out_s = out_s
+        self.in_call = False
+        self._since = 0.0
+        self._quiet: float | None = None
+
+    async def poll(self) -> None:
+        try:
+            now_on = self.probe.in_call()
+        except Exception as exc:  # noqa: BLE001 - a failed probe keeps the last state
+            logger.warning("call probe failed", error=type(exc).__name__)
+            return
+        now = self.clock()
+        if now_on:
+            self._quiet = None
+            if not self.in_call:
+                self.in_call, self._since = True, now
+                await self.on_change(True, 0.0)
+        elif self.in_call:
+            self._quiet = now if self._quiet is None else self._quiet
+            if now - self._quiet >= self.out_s:
+                self.in_call = False
+                await self.on_change(False, self._quiet - self._since)
+
+    async def run(self, every_s: float = POLL_S) -> None:
+        while True:
+            await self.poll()
+            await asyncio.sleep(every_s)

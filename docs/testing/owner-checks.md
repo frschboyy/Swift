@@ -3100,6 +3100,19 @@ shrink to leave it room; the orb and card move clear of it; (2) a small watch in
 progress and the step it's on, nothing else; windows get their room back; (3) beside the card again, and the next
 watch opens where the last one was left; (4) on close, windows get their room back.
 
+<a id="check-laughing-nightingale-968e04-1"></a>**Check laughing-nightingale-968e04-1. Hold during calls (A3, explore.hold_during_calls)**
+Set `explore: hold_during_calls: true` in config.yaml and restart Swift. In a terminal, run `python spikes/calls/probe.py --watch 120`
+beside a real Teams, Zoom or Meet call to see when the signal flips.
+1. Join a call (mic open). Within about 2 seconds, ask Swift for something that needs an OK (a file edit), or set a 1-minute timer.
+2. Say "yes" with the hotkey held, and click where the card would be.
+3. Leave the call and wait 10 seconds.
+4. Repeat 1 with the setting off.
+
+You should see: (1) no card on the screen while the call lasts, and no spoken line or chime for the timer; (2) nothing
+is approved (no card is there to answer); (3) the card is back with its full time, and the timer's due notice shows;
+(4) with the setting off, the card shows during the call. Say which apps were detected and which weren't (a Meet tab,
+a share with no full screen) and how long the delay was either way: only an idle PC has been measured.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

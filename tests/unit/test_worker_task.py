@@ -103,8 +103,8 @@ async def test_a_task_runs_to_its_answer(worker: Worker) -> None:
 
 
 # Until B2, no executor acts on a grant: one listing the very step still gets its card.
-@pytest.mark.parametrize("grant", [Grant(), Grant("Write the notes", ("Write notes.md", "Edit notes.md"))])
-async def test_a_side_effect_asks_on_a_card_whatever_the_grant(worker: Worker, grant: Grant) -> None:
+@pytest.mark.parametrize("grant", [(), (Grant("Write the notes", ("Write notes.md", "Edit notes.md")),)])
+async def test_a_side_effect_asks_on_a_card_whatever_the_grant(worker: Worker, grant: tuple[Grant, ...]) -> None:
     run_id = await worker.start(WorkerTask("Write the notes", grant=grant), "side_effect")
     events = await drain(worker.ex, run_id, approve=True)
     [confirm] = [e for e in events if e.type == "confirm"]

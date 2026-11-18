@@ -2,7 +2,7 @@
 // without the mark is always Swift's own. The mark becomes a bar down the whole line, because a character
 // marks only the first row: a long line wrapping would put the agent's words at the edge, unmarked.
 
-import type { Person } from "./protocol";
+import type { Person, PlanStep } from "./protocol";
 
 export const QUOTE = "│ ";
 
@@ -35,6 +35,19 @@ export function commandParts(detail: string): { head: string; rest: string } {
 // each of them, so the list starts open: the owner sees what they approve without a click.
 export const stepCommands = (tool: string, purpose: string | undefined, step: boolean | undefined, detail: string): string[] | null =>
   step && commandFolded(tool, purpose) ? detail.split("\n") : null;
+
+// Modes §2: the plan card. Rows are numbered from 1 in the plan's order; Swift's own `covered` decides what the
+// button approves, so the button and the hint come from the same rows the owner reads.
+export function planView(plan: PlanStep[]): { rows: string[]; go: string; hint: string | null } {
+  const joined = (n: number[]): string => (n.length < 3 ? n.join(" and ") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`);
+  const covered = plan.flatMap((s, i) => (s.covered ? [i + 1] : []));
+  const asking = plan.flatMap((s, i) => (s.covered ? [] : [i + 1]));
+  return {
+    rows: plan.map((s, i) => [i + 1, s.step, ...(s.covered ? [...s.commands, "covered"] : ["will ask you", s.asks])].filter(Boolean).join(" · ")),
+    go: `Go ahead with ${joined(covered)}`,
+    hint: asking.length ? `${asking.length === 1 ? "Step" : "Steps"} ${joined(asking)} get${asking.length === 1 ? "s" : ""} their own card` : null,
+  };
+}
 
 // Foundation decision 6: the worker's text a question's yes would write, every line marked as the worker's and
 // none left out, so what the owner approves is exactly what was shown.

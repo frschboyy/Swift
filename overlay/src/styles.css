@@ -1807,3 +1807,17 @@ code {
 .tray-display summary::after { content: "›"; color: var(--faint); margin-left: auto; }
 .tray-display[open] summary::after { content: "⌄"; }
 
+/* Modes §2: the plan card (640 wide via card--open). Rows: number disc, step in words, commands (mono 12, --muted),
+ * then "covered" (--ok check) or "will ask you · why" (shield, --muted): never amber. */
+#stage .plan { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+#stage .plan-row { display: flex; gap: 10px; align-items: flex-start; }
+#stage .plan-n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--raise); color: var(--text); font: 600 12px/22px var(--font, inherit); text-align: center; }
+#stage .plan-main { min-width: 0; flex: 1 1 auto; }
+#stage .plan-main p { margin: 0; }
+#stage .plan-step { font-size: 14px; line-height: 20px; }
+#stage .plan-commands { font: 12px/18px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+#stage .plan-state { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+#stage .plan-state .icon { width: 14px; height: 14px; flex: none; }
+#stage .plan-row:not(.plan-row--asks) .plan-state .icon { color: var(--ok); }
+#stage .plan-hint { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+#stage .plan-hint .icon { width: 14px; height: 14px; flex: none; }

@@ -63,8 +63,9 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift import clock, files, previews, shapes
+from swift import asking, clock, files, previews, shapes
 from swift.attention import Attention, wait_answer
+from swift.executors import plan_card
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
     COMMAND_MAX,
@@ -146,6 +147,23 @@ STEP_PROMPT = (
     "line (no &&, pipes or redirects; forward slashes in paths; git -C for another folder), then run them exactly as listed. The user approves the step once; a "
     "command that isn't listed, or that deletes, sends, publishes or pays, still asks on its own card."
 )
+# Modes §2 (decision 5): a plan for a task of several steps; commands only, and only those Swift knows can be undone.
+PLAN_PROMPT = (
+    " When the request takes several steps (two or more), call propose_plan once, before the first, with every step: "
+    "a plain sentence for each and its commands, one simple command per line as for propose_step. Swift shows one "
+    "card, covers the steps whose commands it knows can be undone, and the others ask on their own cards when they "
+    "come: a delete, a send, a publish and a push always do. List a step even when you don't know its commands "
+    "yet. If the plan changes, call propose_plan again."
+)
+PLAN_APPROVED_MESSAGE = (
+    "The user approved steps {steps} of the plan. Their commands now run without another card, each once, exactly as "
+    "written, in any order: {covered}. Every other step, and any command not listed, asks on its own card."
+)
+PLAN_NOT_A_PLAN_MESSAGE = (
+    "Swift can't show that as a plan: it takes 2 to {most} steps, each with a plain sentence of its own. For one "
+    "step, call propose_step."
+)
+PLAN_REJECTED_MESSAGE = "The user didn't approve this plan. Stop here; don't run its commands or try a workaround."
 STEP_APPROVED_MESSAGE = (
     "The user approved this step. These commands now run without another card, each once, exactly as "
     "written: {covered}. Anything else asks on its own card{others}."
@@ -291,14 +309,41 @@ class _Run:
     fallback: str = ""  # B4: why a refused shape reads as words, Swift's one grey line on the Done card
     caveat: str = ""  # A5: the worker's one line on why the answer may be wrong
     approved_reads: set[str] = field(default_factory=set)
-    # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
-    step_bound: dict[str, Bound] = field(default_factory=dict)
+    # Modes §2: the steps of an approved plan after ``grant``, in order; ``grant`` moves on when its commands are used up.
+    later: tuple[Grant, ...] = ()
+    # The approvals each command of ``grant`` and ``later`` is bound to (OWN-05), one per listing; set together
+    # with them (``_set_grant``).
+    step_bound: dict[str, list[Bound]] = field(default_factory=dict)
+    asking_at: int = 0  # ``asking.turned_on`` when the grant was set: turned on since, the grant is over (PLAN-04)
 
 
-def _set_grant(run: _Run, gateway: ActionGateway, grant: Grant) -> None:
-    """The step the owner approved, each listed command bound to its own one-time approval."""
-    run.grant = grant
-    run.step_bound = {c: gateway.bind(STEP_TOOL, {"command": c}) for c in grant.commands}
+def _set_grant(run: _Run, gateway: ActionGateway, *steps: Grant) -> None:
+    """The step the owner approved (or a plan's steps, in order), each listed command bound to its own one-time approval."""
+    grant, later = (steps[0], steps[1:]) if steps else (Grant(), ())
+    run.grant, run.later = grant, later
+    run.step_bound, run.asking_at = {}, asking.turned_on
+    for c in (c for g in (grant, *later) for c in g.commands):
+        run.step_bound.setdefault(c, []).append(gateway.bind(STEP_TOOL, {"command": c}))
+
+
+def _spend(run: _Run, command: str) -> Bound | None:
+    """Take ``command`` from the current step or a later one of the plan; its binding goes with it. The plan moves on
+    when the current step is used up."""
+    for at, g in enumerate((run.grant, *run.later)):
+        if g.covers(command, irreversible=not reversible(command)) and run.step_bound.get(command):
+            left = list(g.commands)
+            left.remove(command)  # each listed command once: the step ends when its list is used up
+            g = replace(g, commands=tuple(left))
+            steps = [run.grant, *run.later]
+            steps[at] = g
+            while len(steps) > 1 and not steps[0].commands:
+                steps.pop(0)
+            run.grant, run.later = steps[0], tuple(steps[1:])
+            bound = run.step_bound[command].pop(0)
+            if not run.step_bound[command]:
+                del run.step_bound[command]
+            return bound
+    return None
 
 
 @contextlib.asynccontextmanager
@@ -580,6 +625,22 @@ class ClaudeCodeExecutor:
             sdk_tools.append(propose_step)
             system_prompt += STEP_PROMPT
 
+            @tool(
+                "propose_plan",
+                "Ask the user once for a task of several steps. steps: a list of {step: one plain sentence, "
+                "commands: the exact shell commands, one simple command each; empty if not known yet}.",
+                {"type": "object", "properties": {"steps": {"type": "array", "items": {
+                    "type": "object", "properties": {"step": {"type": "string"}, "commands": {"type": "array", "items": {"type": "string"}}},
+                    "required": ["step"]}}}, "required": ["steps"]},
+            )
+            async def propose_plan(args: dict[str, Any]) -> dict[str, Any]:
+                run, run_id = current()
+                text = await self._propose_plan(run, run_id, args)
+                return {"content": [{"type": "text", "text": text}]}
+
+            sdk_tools.append(propose_plan)
+            system_prompt += PLAN_PROMPT
+
         @tool("show_result", shapes.DESCRIPTION, shapes.SCHEMA)
         async def show_result(args: dict[str, Any]) -> dict[str, Any]:
             run, _run_id = current()
@@ -648,7 +709,7 @@ class ClaudeCodeExecutor:
         request, budget = task.prompt, task.budget
         level = OVERRIDE_LEVEL.get(budget.override or "") or (budget.demand if budget.demand in LEVELS else "standard")
         run = _Run(level=level)
-        _set_grant(run, self.gateway, task.grant)
+        _set_grant(run, self.gateway, *task.grant)
         run.web.note_request(request)
         options = self.options(run, run_id)  # raises ExecutorUnavailable before anything starts
         spare = await self._take_spare()
@@ -758,14 +819,12 @@ class ClaudeCodeExecutor:
             # No card: an approval must not be able to read what Read is always refused (owner check 213).
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
             return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
-        if name in COMMAND_TOOLS and run.grant.commands and not self.ask_everything():
+        if run.step_bound and (self.ask_everything() or run.asking_at != asking.turned_on):
+            _set_grant(run, self.gateway)  # PLAN-04: turned on since the approval, even for a moment: it never covers again
+        if name in COMMAND_TOOLS and (run.grant.commands or run.later) and not self.ask_everything():
             command = str(args.get("command", ""))
             # Swift's classification, never the agent's: a delete, a send or anything unknown asks (B2, ADR-019).
-            if run.grant.covers(command, irreversible=not reversible(command)) and command in run.step_bound:
-                bound = run.step_bound.pop(command)
-                left = list(run.grant.commands)
-                left.remove(command)  # each listed command once: the step ends when its list is used up
-                run.grant = replace(run.grant, commands=tuple(left))
+            if (bound := _spend(run, command)) is not None:
                 shown = {"command": command}  # all the step card showed: no other argument rides on it
                 if not self.gateway.allow(bound, STEP_TOOL, shown, how="step"):
                     return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
@@ -818,6 +877,7 @@ class ClaudeCodeExecutor:
         grant; the rest ask on their own cards. A no stops the run, as a rejected command card does."""
         if self.tools is not None and self.tools.in_workflow_for(run_id):
             return NOT_IN_WORKFLOW_MESSAGE.format(tool="propose_step")
+        _set_grant(run, self.gateway)  # PLAN-01: a new proposal ends the earlier approval; only a yes to it grants again
         if self.ask_everything():  # the owner asked to be asked about everything: no card covers several commands
             return STEP_ASK_EVERYTHING_MESSAGE
         said = command_purpose("Bash", {"description": args.get("step")})
@@ -845,11 +905,44 @@ class ClaudeCodeExecutor:
                 await interrupt()
         return STEP_REJECTED_MESSAGE
 
+    async def _propose_plan(self, run: _Run, run_id: str, args: dict[str, Any]) -> str:
+        """Modes §2: one card for a task's steps. Swift covers a step only when every command on it is reversible
+        (``plan_card``); the others ask on their own cards. A changed plan is a new card, and a yes replaces any grant."""
+        if self.tools is not None and self.tools.in_workflow_for(run_id):
+            return NOT_IN_WORKFLOW_MESSAGE.format(tool="propose_plan")
+        _set_grant(run, self.gateway)  # PLAN-01: a new proposal ends the earlier approval, card or not; only a yes grants
+        if self.ask_everything():  # no plan covers anything while the owner wants to be asked about everything
+            return STEP_ASK_EVERYTHING_MESSAGE
+        built = plan_card.build(args.get("steps"), lambda c: len(c) <= COMMAND_MAX and not self.reads.in_command(c, self.cwd), reversible)
+        if built is None:
+            return PLAN_NOT_A_PLAN_MESSAGE.format(most=plan_card.MAX_STEPS)
+        rows, grants = built
+        if not grants:
+            return STEP_NOTHING_AHEAD_MESSAGE
+        title = f"A plan in {len(rows)} steps"
+        covered = [c for g in grants for c in g.commands]
+        decision = await self._decide(run, run_id, title, "\n".join(covered), "Bash", step=True, plan=rows)
+        if decision == "approve":
+            _set_grant(run, self.gateway, *grants)  # replaces the last step's or plan's
+            run.grant_counts["steps"] += len(grants)
+            nums = [str(i + 1) for i, r in enumerate(rows) if r["covered"]]
+            return PLAN_APPROVED_MESSAGE.format(steps=", ".join(nums), covered="; ".join(covered))
+        if isinstance(decision, tuple):
+            return CHANGE_MESSAGE.format(text=decision[1])
+        if run.stopped_by is None and not run.cancelled:
+            run.stopped_by = (decision, title)
+        interrupt = getattr(run.client, "interrupt", None)
+        if interrupt is not None:
+            with contextlib.suppress(Exception):
+                await interrupt()
+        return PLAN_REJECTED_MESSAGE
+
     async def _confirm(self, run: _Run, run_id: str, title: str, detail: str, tool: str) -> bool:
         return await self._decide(run, run_id, title, detail, tool) == "approve"
 
     async def _decide(
         self, run: _Run, run_id: str, title: str, detail: str, tool: str, purpose: str = "", step: bool = False,
+        plan: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Show a confirm card and wait: "approve", "reject", "no_answer", or ("change", the owner's words)."""
         request_id = f"{run_id}:{next(run.ids)}"
@@ -857,12 +950,15 @@ class ClaudeCodeExecutor:
         run.pending[request_id] = future
         # ADR-019 §8.1: Swift's own fact on a command card, where it runs (this run's folder, never the agent's words).
         facts = {"runs_in": self.cwd} if tool in COMMAND_TOOLS and self.cwd else None
+        if plan:  # Modes §2: Swift's own rows (covered or asks), never the agent's words about what is covered
+            facts = {**(facts or {}), "plan": plan}
         run.queue.put_nowait(ExecEvent(
             "confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose, step=step, data=facts))
         run.held += 1  # the owner's turn: the watchdog waits (R-06)
         try:
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)
             if isinstance(answer, str):
+                _set_grant(run, self.gateway)  # asking for something else on any card ends the plan, as a redirect does
                 return ("change", answer)
             return "approve" if answer else "reject"
         except TimeoutError:

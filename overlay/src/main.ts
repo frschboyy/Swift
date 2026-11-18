@@ -33,7 +33,7 @@ import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
-import { cardLines, commandFolded, commandParts, hasMarkedLines, quoteLines, recipientText, stepCommands } from "./cardtext";
+import { cardLines, commandFolded, commandParts, hasMarkedLines, planView, quoteLines, recipientText, stepCommands } from "./cardtext";
 import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
@@ -46,7 +46,7 @@ import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
 import { bump, nextChips, sayLines } from "./learn";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
@@ -1604,6 +1604,10 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     );
   }
   if (shown) return el("div", { class: "facts" }, el("div", { class: "facts-text" }, artifactView(shown, 0, false)));
+  if (data.facts?.plan) {
+    const runsIn = data.facts.runs_in ? el("dl", { class: "facts facts--swift" }, el("dt", {}, "Runs in"), el("dd", { class: "facts-path" }, data.facts.runs_in)) : null;
+    return el("div", {}, runsIn, planRows(data.facts.plan));
+  }
   // A request's own detail (a command, a file): all of it, exactly as it will run (audit A-12).
   if (!data.detail) return null;
   const mono = /[\\/`$|;]|\s--?\w/.test(data.detail);
@@ -1645,6 +1649,17 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
   );
 }
 
+/** Modes §2: the plan, a row a step: its number, the step in words, the commands it covers (Swift's own list,
+ * mono) and "covered" or "will ask you · why". Never amber: the card's own band is the one that needs the OK. */
+function planRows(plan: PlanStep[]): HTMLElement {
+  return el("ol", { class: "plan" }, ...plan.map((s, i) => el("li", { class: `plan-row${s.covered ? "" : " plan-row--asks"}` },
+    el("span", { class: "plan-n", "aria-hidden": "true" }, String(i + 1)),
+    el("div", { class: "plan-main" },
+      el("p", { class: "plan-step facts-line--agent" }, s.step),
+      s.covered ? el("p", { class: "plan-commands" }, s.commands.join(" · ")) : null,
+      el("p", { class: "plan-state" }, icon(s.covered ? "check" : "shield"), s.covered ? "covered" : `will ask you · ${s.asks}`)))));
+}
+
 /** Says there's more until the end has been reached: what's out of view must not look like the end (X-17).
  * Shown from the start, so a card that can't measure itself still says it. */
 function moreBelow(box: HTMLElement): HTMLElement {
@@ -1675,10 +1690,11 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   // Swift's own card (send_email, calendar) shows what it will do (ADR-010 §4).
   const shown = data.artifact_id ? artifacts.get(data.artifact_id) : undefined;
   const email = shown?.kind === "email_draft";
+  const plan = data.facts?.plan;
   // Tab from the text box reaches Approve first, then Reject (decision 2).
-  const approve = el("button", { class: "btn btn--warn btn--big", "data-key": `${data.request_id}:approve`, "data-tab": "0", onclick: reply("approve") }, icon("check"), email ? "Send" : "Approve");
+  const approve = el("button", { class: "btn btn--warn btn--big", "data-key": `${data.request_id}:approve`, "data-tab": "0", onclick: reply("approve") }, icon("check"), plan ? planView(plan).go : email ? "Send" : "Approve");
   drawCard({
-    state: "ok", look: `confirm${pres.away ? " card--away" : ""}`, role: "alert",
+    state: "ok", look: `confirm${plan ? " card--open" : ""}${pres.away ? " card--away" : ""}`, role: "alert",
     lead: el("div", { class: "band", role: "heading", "aria-level": "2" }, icon("shield"), "Needs your OK", el("span", { class: "band-time", "aria-live": "off" })),
     // ADR-019 §8.1: every confirm card has an origin line, the owner's words (no close: a card never answers itself).
     origin: request ? headRow(null) : null,
@@ -1689,11 +1705,12 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
       data.because ? el("p", { class: "asking-line" }, icon("shield"), data.because) : null,
       since !== null ? el("p", { class: "confirm-since" }, `Held while you were away, since ${clock(since)}`) : null,
       confirmFacts(data, shown),
+      plan && planView(plan).hint ? el("p", { class: "plan-hint" }, icon("shield"), planView(plan).hint) : null,
       el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint()),
       el(
         "div",
         { class: "confirm-actions" },
-        el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), "Reject"),
+        el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), plan ? "Stop" : "Reject"),
         // "Change" opens the text box, where Enter sends a change; typing never approves.
         el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
         sayButton("confirm"),

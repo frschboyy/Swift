@@ -404,6 +404,31 @@ async def test_a_step_card_lists_the_commands_it_approves() -> None:
     await finish_all(session, agent)
 
 
+async def test_a_plan_card_says_which_steps_are_covered_and_which_will_ask() -> None:
+    """Modes §2: one card for the whole task. Each step in words with its commands and "covered", or "will ask you"
+    and why; the button approves only the covered steps, and the hint names the steps that get their own card."""
+    session, out, agent, stt, _control, _sched = _lane()
+    run = await started(session, out, agent, stt, "Hey Swift, make a GitHub repository for tea-timer and pull it down")
+    plan = [
+        {"step": "Create the folder and start a repository", "commands": ["mkdir tea-timer", "git init"], "covered": True, "asks": ""},
+        {"step": "Write the README and first commit", "commands": ["git add README.md"], "covered": True, "asks": ""},
+        {"step": "Create the repository on GitHub", "commands": [], "covered": False, "asks": "it publishes"},
+        {"step": "Push the first commit", "commands": [], "covered": False, "asks": "it sends"},
+    ]
+    agent.runs[run]["queue"].put_nowait(ExecEvent(
+        "confirm", "A plan in 4 steps", request_id=f"{run}:9", detail="", tool="Bash", step=True, data={"runs_in": "C:/p", "plan": plan}))
+    await until(lambda: out.last("confirm.request"))
+    screen = agree(session, out)
+    assert screen["confirm"] == f"{run}:9"
+    assert screen["confirmPlan"] == {
+        "rows": ["1 · Create the folder and start a repository · mkdir tea-timer · git init · covered",
+                 "2 · Write the README and first commit · git add README.md · covered",
+                 "3 · Create the repository on GitHub · will ask you · it publishes",
+                 "4 · Push the first commit · will ask you · it sends"],
+        "go": "Go ahead with 1 and 2", "hint": "Steps 3 and 4 get their own card"}
+    await finish_all(session, agent)
+
+
 async def test_an_agent_s_answer_is_signed_swift_alone() -> None:
     """FD-13 (owner, 2026-11-15): Swift speaks as itself. The worker's answer reaches the card with its agent,
     and the footer the card draws says "Swift", never "via" the provider."""

@@ -154,7 +154,7 @@ class WorkerTask:
 
     request: str
     context: ContextPack = ContextPack()
-    grant: Grant = Grant()
+    grant: tuple[Grant, ...] = ()  # one step, or a plan's steps in order (Modes §2)
     budget: Budget = Budget()
     privacy: Privacy = "cloud"
 

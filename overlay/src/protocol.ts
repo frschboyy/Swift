@@ -196,6 +196,9 @@ export type ErrorData = {
   severity?: "error" | "info";
   agent?: Agent | null;
   thread_id?: string;
+  // ADR-019 §8.4: a problem with a run nobody asked for (scheduled, watching…) is Failed with Swift's origin.
+  origin?: Origin;
+  origin_detail?: string;
 };
 
 export type Outbound =

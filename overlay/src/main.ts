@@ -45,7 +45,7 @@ import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Scenario, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Origin, type Scenario, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
@@ -1713,13 +1713,29 @@ type Problem = {
   glyph?: string;
   runId?: string;
   threadId?: string;
+  // A run Swift started (ADR-019 §8.4): Failed, with Swift's origin on the left ("Scheduled · nightly backup").
+  origin?: Origin;
+  originDetail?: string;
 };
+
+const ORIGIN_LABEL: Record<Origin, string> = {
+  asked: "You asked", scheduled: "Scheduled", watching: "Watching", reminder: "Reminder", noticed: "Noticed", learned: "Learned", away: "While you were away",
+};
+
+/** SPEC §3 slot 2, Swift started: a 20 px disc with its mark, the label, "· detail". */
+function swiftOrigin(origin: Origin, detail?: string): HTMLElement {
+  return el("header", { class: "card-head origin--swift" },
+    el("span", { class: "origin-mark" }, icon(origin === "scheduled" ? "timer" : origin === "reminder" ? "bell" : "info")),
+    el("b", {}, ORIGIN_LABEL[origin]), detail ? el("span", { class: "origin-detail" }, `· ${detail}`) : null,
+    Card.iconButton("x", "Close", dismiss));
+}
 
 function renderProblem(p: Problem): void {
   const info = p.severity === "info";
   // ADR-019 §8.3: a request's Failed card never fades and has no reading bar; it stays until the owner closes it
   // or the next request takes the front.
-  const failed = !!(p.runId || p.threadId) && !info;
+  const swiftStarted = p.origin !== undefined && p.origin !== "asked";
+  const failed = (!!(p.runId || p.threadId) || swiftStarted) && !info;
   if (!presentAnswer("error", p.sticky || failed ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
@@ -1752,14 +1768,14 @@ function renderProblem(p: Problem): void {
   const bang = p.glyph === "spin"
     ? el("span", { class: "spinner", "aria-hidden": "true" })
     : el("span", { class: info ? "bang bang--info" : "bang", "aria-hidden": "true" }, info ? "i" : "!");
-  const ofRequest = !!(p.runId || p.threadId);
+  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
   drawCard({
     // Failed names a request's failure; a problem with no request is Swift's own notice.
     state: ofRequest && !info ? "failed" : "notice", look: info ? "error card--info" : "error", role: info ? "status" : "alert", onclick: dismissUnlessControl,
     // No request to name: the close button sits in the corner.
     // Sticky problems (reconnecting, restarting, stopped) have no close (board 9 §4).
     lead: !ofRequest && !p.sticky && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
-    origin: ofRequest && headRow(),
+    origin: swiftStarted ? swiftOrigin(p.origin!, p.originDetail) : ofRequest && headRow(),
     body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), detail],
     foot: toggle || actions.length || p.agent ? [toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null), el("span", { class: "foot-gap" }), ...actions] : undefined,
   });
@@ -1776,6 +1792,8 @@ function renderError(data: ErrorData): void {
     logs: LOGGED.has(data.code),
     agent: data.agent ?? null,
     threadId: data.thread_id,
+    origin: data.origin,
+    originDetail: data.origin_detail,
   });
 }
 

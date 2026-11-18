@@ -1419,6 +1419,12 @@ code {
 #stage .halo-state--failed .bang { width: 18px; height: 18px; margin: 0; font-size: 12px; }
 #stage .halo-state--due .halo-word { color: var(--accent); }
 #stage .halo-state--due .halo-mark { background: var(--accent); color: var(--on-accent); }
+/* SPEC §3 slot 2, Swift started (ADR-019 §8.4): on the left, a 20 px disc, the label 13/600, "· detail". */
+#stage .origin--swift { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+#stage .origin--swift b { font-weight: 600; }
+#stage .origin-detail { color: var(--faint); margin-right: auto; }
+#stage .origin-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--raise); color: var(--muted); }
+#stage .origin-mark .icon { width: 13px; height: 13px; }
 /* Board 9 §4, State · Notice: a solid card, mark 18 on --raise, label 13/600; ready in --ok; red only for
    an engine that stopped or couldn't restart (border too). */
 #stage .card:has(> .card-in[data-card="notice"]) { background: var(--panel-solid); border-color: var(--rim); backdrop-filter: none; }

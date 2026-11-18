@@ -366,6 +366,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   questionWaiting: async (s) => { await question(s, false); },
   // 5. several requests (edges behind the card, as in the app)
   concurrent: async (s) => { await concurrent(s); },
+  // ADR-019 §8.4: a problem with a run nobody asked for is Failed, with Swift's origin on the left.
+  failedScheduled: async (s) => { s.inject("error", { code: "service", title: "The backup couldn't finish", message: "The drive D: isn't connected. Nothing was deleted.", hint: "", severity: "error", agent: null, origin: "scheduled", origin_detail: "nightly backup" }); await sleep(150); },
   // Board 9 §4: Swift's own notices and problems (State · Notice).
   noticeReady: async () => { notice("ready"); await sleep(150); },
   noticeRunning: async () => { notice("running"); await sleep(150); },

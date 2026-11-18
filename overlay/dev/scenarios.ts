@@ -312,6 +312,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // B5 (03-verify.md names): a long answer at its cap, and expanded by hand.
   cardCapped: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   cardExpanded: async (s) => { await DESIGN.answerLongOpen(s); },
+  // B5: "Show all · 11 rows" under a table that doesn't fit.
+  cardCappedRows: async (s) => { await answer(s, "Which trains leave for Leeds today?", "Eleven trains leave for Leeds today.", { kind: "table", columns: ["Leaves", "Arrives", "Changes"], rows: Array.from({ length: 11 }, (_, i) => [`${7 + i}:15`, `${9 + i}:40`, i % 3 ? "none" : "1"]) }); },
   // B13: a file list as a tree.
   treeCard: async (s) => {
     await answer(s, "Where are my holiday photos?", "They're in Pictures, under 2026.", { kind: "tree", title: "Pictures", by: "worker", size: "card", entries: [

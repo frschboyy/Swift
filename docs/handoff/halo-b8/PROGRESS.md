@@ -54,6 +54,14 @@ are in the saved file.
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
 
+## The gaps branch (`claude/halo-b8-gaps-6b8791`, from 8587d11)
+
+Builds what the list below left. One commit per item; this table is kept current after each.
+
+| Item | Commit | Kind |
+|---|---|---|
+| B5 diagrams cut at a node boundary; "Show all · 11 rows / 1 item / 5 steps" | (B5 commit) | built (`answer.ts howMuch`, `nodeCut`; harness `cardCappedRows`) |
+
 ## B3 (grayscale)
 
 Captured in headless Edge with `grayscale(1)`: OK (light band, shield, "Needs your OK"), Waiting (tag pill, 5 px

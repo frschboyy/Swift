@@ -30,8 +30,9 @@ export function compareBlock(c: Compare, full: boolean): HTMLElement {
 }
 
 const DIAGRAM_BY = "Drawn from the worker's outline, not checked by Swift";
-/** Fired (bubbling) by a card's diagram too wide to read there: the answer then opens with Read more (main.ts). */
-export const DIAGRAM_WIDE = "swift-diagram-wide";
+/** Fired (bubbling) once a diagram is drawn, ``detail`` {wide, nodes}: too wide to read on the card, the answer
+ *  opens with Show all (main.ts), which counts its nodes as steps (B5). */
+export const DIAGRAM_DRAWN = "swift-diagram-drawn";
 
 /** A worker's diagram, drawn by Mermaid once it has loaded (only now: it's 2.8 MB). Until then it says so; if it
  *  doesn't draw, the words below it stand alone. ``full``: the reader's size, not the card's. */
@@ -60,7 +61,20 @@ export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
     // The cut edge fades: the right one when the width is what doesn't fit, else the bottom one.
     block.style.setProperty("--diagram-fade", stage.clientWidth / w < A.DIAGRAM_CARD_PX / h ? "to right" : "to bottom");
     note.hidden = !wide;
-    if (wide) block.dispatchEvent(new CustomEvent(DIAGRAM_WIDE, { bubbles: true }));
+    // B5: the cut goes at a node boundary on the cut axis, never through a node.
+    stage.style.maxHeight = stage.style.maxWidth = "";
+    const nodes = [...svg.querySelectorAll<SVGGElement>("g.node")];
+    if (wide && nodes.length && stage.clientWidth > 0) {  // not laid out yet (a first draw): the CSS clip stands
+      const across = block.style.getPropertyValue("--diagram-fade") === "to right";
+      const s = stage.getBoundingClientRect();
+      const spans = nodes.map((g): [number, number] => {
+        const r = g.getBoundingClientRect();
+        return across ? [r.left - s.left, r.right - s.left] : [r.top - s.top, r.bottom - s.top];
+      });
+      const cut = A.nodeCut(spans, across ? stage.clientWidth : A.DIAGRAM_CARD_PX);
+      if (cut > 0) stage.style[across ? "maxWidth" : "maxHeight"] = `${Math.ceil(cut) + 8}px`;
+    }
+    block.dispatchEvent(new CustomEvent(DIAGRAM_DRAWN, { bubbles: true, detail: { wide, nodes: nodes.length } }));
   };
   // Mermaid bakes the colours into its SVG, so a theme change (data-theme on the window's root) draws it again.
   const themed = new MutationObserver(() => (block.isConnected ? paint() : themed.disconnect()));

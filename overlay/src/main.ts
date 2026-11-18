@@ -28,7 +28,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as Q from "./ask";
-import { copyButton, detailsText, DIAGRAM_WIDE, renderBlocks, renderDetails } from "./blocks";
+import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
@@ -1667,9 +1667,13 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
-  // A diagram found too wide to read on the card once drawn (blocks.ts): the answer opens with Read more after all.
-  body.addEventListener(DIAGRAM_WIDE, () => {
-    if (long) return;
+  // A drawn diagram (blocks.ts): too wide to read on the card, the answer opens with Show all after all; its nodes count as steps.
+  let nodes = 0;
+  body.addEventListener(DIAGRAM_DRAWN, (ev: Event) => {
+    const d = (ev as CustomEvent<{ wide: boolean; nodes: number }>).detail;
+    nodes = d.nodes;
+    if (long) return drawFoot();
+    if (!d.wide) return;
     long = true;
     body.classList.add("answer--long");
     body.tabIndex = 0;
@@ -1703,7 +1707,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
           if (!expanded) body.scrollTop = 0;  // folds back to the top
           drawBody();
           drawFoot();
-        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.minutesToRead(copyable)}`),
+        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         copyButton(copyable),

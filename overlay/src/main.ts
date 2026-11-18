@@ -2362,10 +2362,10 @@ function liveHovered(): Set<string> {
   return new Set([...(liveEl?.querySelectorAll<HTMLElement>("[data-run]:hover") ?? [])].map((n) => n.dataset.run ?? ""));
 }
 
-// ---- Esc: only grabbed while Swift is active, speaking, or the stack is open -----------
+// ---- Esc: only grabbed while a card waits, Swift types into an app or talks, or something folds (HA-UI-01) ----
 
 async function syncEscape(): Promise<void> {
-  const want = (ACTIVE.has(stageNow()) || speaking || stack.expanded || expanded) && !typing;
+  const want = C.grabsEscape({ stage: stageNow(), writing: current?.activity === "writing", speaking, folds: stack.expanded || expanded, typing: !!typing });
   if (want === escapeActive) return;
   escapeActive = want;
   try {
@@ -2439,6 +2439,7 @@ function onMessage(msg: Inbound): void {
       quiet = false;
       current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false, app: msg.data.app };
       if (stageNow() === "working") renderWorking();
+      void syncEscape();  // writing into an app takes Esc; other steps give it back (HA-UI-01)
       break;
     case "confirm.request":
       pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id, Date.now());

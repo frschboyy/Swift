@@ -99,3 +99,13 @@ export function view(p: Presence, transcript: string, elapsed: string, paused: C
       return plain("Not listening", paused === "asleep" ? "PC was asleep" : "Screen locked");
   }
 }
+
+/** Is Esc taken from every app now (``set_escape``, RegisterHotKey)? HA-UI-01, answered 2026-11-18: during work only
+ *  while Swift types into an app (Esc stops it, ADR-012) or a card waits, so a long background run can't be
+ *  cancelled by an Esc meant for the app in front. Also while the owner talks to Swift, Swift talks, or something
+ *  folds; never while the text box has it. */
+export function grabsEscape(i: { stage: string; writing: boolean; speaking: boolean; folds: boolean; typing: boolean }): boolean {
+  if (i.typing) return false;
+  const talking = i.stage === "listening" || i.stage === "transcribing";
+  return talking || i.stage === "confirm" || (i.stage === "working" && i.writing) || i.speaking || i.folds;
+}

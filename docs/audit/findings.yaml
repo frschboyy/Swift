@@ -363,13 +363,13 @@
   area: actions
   severity: high
   product_rule: false
-  status: open
+  status: fixed
   confidence: design-concern
   evidence: main.ts:1979 syncEscape grabs Esc whenever ACTIVE.has(stageNow()) (listening, transcribing, working,
     confirm); lib.rs:285-296 set_escape uses RegisterHotKey, which takes the key from every app; main.ts:1990-1992
     onEscape then sends {type:"cancel"} while active.
-  test: null
-  note: 'Owner decides. ADR-017 §2 grabs Esc on purpose while Swift works, and ADR-012 relies on Esc to stop Swift
+  test: 'overlay/tests/health-UI.test.ts::"HA-UI-01: a long background run doesn''t take Esc from other apps"'
+  note: 'Answered 2026-11-18: grab it during work only while Swift types into an app or a card waits (capsule.grabsEscape). Was: owner decides. ADR-017 §2 grabs Esc on purpose while Swift works, and ADR-012 relies on Esc to stop Swift
     typing into an app. Options: keep it; or grab it during work only while Swift types into an app or a card waits,
     so a long background run can''t be cancelled by an Esc meant for another app.'
 - id: OCT-10

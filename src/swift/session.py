@@ -2795,8 +2795,8 @@ class Session:
                         answer = NO_TARGET_HINT
                     await self._answer_here(answer)
                     return
-                if (said := timers.heard(self, transcript)) is not None:  # "done", "5 more" on a timer's Due card (B14)
-                    return await self._answer_here(said, record=record)
+                if (said := timers.heard(self, transcript) or recent.found(self, transcript)) is not None:  # B14; A1
+                    return await self._answer_here(*said, record=record)
                 answered = self._answer_fix(decision, fix, record, run, transcript)
                 if answered is not None:
                     decision, workflow = answered

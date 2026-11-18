@@ -79,8 +79,8 @@ _DONE = re.compile(r"(?:ok(?:ay)?[\s,]+)?(?:done|i'?m done|(?:stop|turn off)(?: 
 _MORE = re.compile(r"(?:(?:give me|another|add)\s+)?(?:5|five) more(?: minutes?| mins?)?(?: please)?|snooze(?: it)?|\+?5 min(?:utes)?", re.I)
 
 
-def heard(session: Any, text: str) -> str | None:
-    """"done" or "5 more" said while a timer's Due card is in front: what Swift says back, else None."""
+def heard(session: Any, text: str) -> tuple[str, None] | None:
+    """"done" or "5 more" said while a timer's Due card is in front: what Swift says back (no details), else None."""
     run_id = session._drawn.front
     items = [i for i in _recent.get(run_id or "", []) if i.kind == "timer"]
     if not items:
@@ -88,9 +88,9 @@ def heard(session: Any, text: str) -> str | None:
     said = _LEAD.sub("", text).strip().rstrip(".!?")
     if _MORE.fullmatch(said):
         snooze(session, run_id)
-        return "Okay, 5 more minutes."
+        return "Okay, 5 more minutes.", None
     if _DONE.fullmatch(said):
         _recent.pop(run_id, None)
         name = f"{items[0].label} timer" if items[0].label else "timer"
-        return f"Done: {name[:1].upper()}{name[1:]}."  # the same words as the overlay's Edge · Got it
+        return f"Done: {name[:1].upper()}{name[1:]}.", None  # the same words as the overlay's Edge · Got it
     return None

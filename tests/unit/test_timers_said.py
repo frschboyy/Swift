@@ -15,7 +15,7 @@ def test_done_needs_a_timers_due_card_in_front() -> None:
     assert timers.heard(_session(None), "done") is None  # nothing in front: an ordinary request
     assert timers.heard(_session("a-run"), "done") is None
     assert timers.heard(_session("due-timer-1"), "what's the weather") is None
-    assert timers.heard(_session("due-timer-1"), "Hey Swift, done.") == "Done: Tea timer."
+    assert timers.heard(_session("due-timer-1"), "Hey Swift, done.") == ("Done: Tea timer.", None)
     assert timers.heard(_session("due-timer-1"), "done") is None  # answered: the card's items are gone
 
 

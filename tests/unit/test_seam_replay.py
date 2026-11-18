@@ -1756,6 +1756,27 @@ async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens
     await finish_all(session, agent)
 
 
+async def test_a1_what_did_you_find_about_shows_that_answer_again_and_runs_nothing() -> None:
+    """A1: "what did you find about tea" shows the tea answer again as this request's answer, with no worker run;
+    something never asked about says so (answers aren't kept across a restart)."""
+    session, out, agent, stt, _control, _sched = _lane()
+    answers = {}
+    for topic in ("tea", "coffee"):
+        run = await started(session, out, agent, stt, f"Hey Swift, research the history of {topic}")
+        agent.runs[run]["go"].set()
+        await until(lambda r=run: out.last("result") and out.last("result")["run_id"] == r)
+        answers[topic] = out.last("result")["summary"]
+    asked = len(agent.requests)
+    await session.handle(Message("text", {"text": "what did you find about tea?"}))
+    await until(lambda: out.last("result") and out.last("result")["run_id"].startswith("local-"))
+    assert len(agent.requests) == asked  # nothing ran again
+    assert answers["tea"] != answers["coffee"] and out.last("result")["summary"] == answers["tea"], (out.last("result"), answers)
+    await session.handle(Message("text", {"text": "what did you find about the moon landing"}))
+    await until(lambda: "since Swift started" in out.last("result")["summary"])
+    assert len(agent.requests) == asked
+    await finish_all(session, agent)
+
+
 @pytest.mark.parametrize("said", ["Swift, yes", "Swift, approve", "yes", "approve it"])
 async def test_a_yes_while_a_lapsed_ok_waits_in_the_stack_approves_nothing(said: str) -> None:
     """F1 follow-up (orchestrator, 2026-11-18): once an OK ran out into the stack, nothing is on screen to

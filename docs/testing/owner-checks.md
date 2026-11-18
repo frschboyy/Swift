@@ -3062,6 +3062,13 @@ double-click open the file in its usual app; a program or script (.exe, .bat, .p
 folder, never run; a row the worker named that isn't on disk has no strip. In the reader, Up/Down move, Right opens a
 folder (then steps in), Left closes it (or steps out), Enter opens. There is never a delete.
 
+<a id="check-halo-b8-gaps-6b8791-6"></a>**Check halo-b8-gaps-6b8791-6. "What did you find about …" (A1)**
+1. Ask two research questions, e.g. "Hey Swift, what's the history of tea?", then one about coffee.
+2. Say "Hey Swift, what did you find about tea?". Then "Hey Swift, what did you find about the moon landing?"
+
+You should see: the tea answer again as a Done card, at once (no Working card, nothing runs again); for the moon
+landing, "I haven't found anything about “the moon landing” since Swift started." (answers aren't kept after a restart).
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

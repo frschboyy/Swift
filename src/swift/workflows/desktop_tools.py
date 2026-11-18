@@ -74,14 +74,23 @@ MAX_OPEN = 5
 OPENED = "opened"
 EMAIL_APPS = ("gmail", "outlook")
 
-# The owner asked to put words somewhere: a writing verb, or a place to write ("here", "into Word").
-_WRITE_WORDS = re.compile(
-    r"\b(?:write|type|put|paste|insert|enter|jot|dictate|fill|draft|compose|template"
-    r"|replace|rewrite|re-write|reword|rephrase|redo|proofread|correct|edit)\b"
-    r"|\bhere\b|\b(?:in|into|to) (?:the |this |that |my |a |a new )?(?:word|document|doc|notepad|text box|field)\b"
-    r"|\badd (?:it|this|that|them|these) (?:to|in|into)\b",
+# Decision 6 / D4: the owner's words clearly ask to put words somewhere (level 0) only when a writing verb leads the
+# request (after "hey Swift", "please", "can you", ...), or a writing word comes with a place to write ("here", "into
+# Word"). A writing word alone ("what type of tea is this", "is this correct") or a place alone ("what's here on my
+# screen?") is not a clear ask: Swift asks first (level 1), never a silent write.
+_VERBS = (r"write|type|put|paste|insert|enter|jot|dictate|fill|draft|compose"
+          r"|replace|rewrite|re-write|reword|rephrase|redo|proofread|correct|edit|add")
+_LEADS_WITH_VERB = re.compile(
+    r"^\s*(?:(?:hey|ok|okay)\s+)?(?:swift\b[\s,.:!-]*)?(?:(?:and|so|now|also|then|please|just|can you|could you"
+    rf"|would you|will you)\s+)*(?:{_VERBS})\b",
     re.IGNORECASE,
 )
+_WRITING = re.compile(rf"\b(?:{_VERBS}|template)\b", re.IGNORECASE)
+_PLACE = re.compile(
+    r"\bhere\b|\b(?:in|into|to) (?:the |this |that |my |a |a new )?(?:word|document|doc|notepad|text box|field)\b",
+    re.IGNORECASE,
+)
+_NOT_WRITING = re.compile(r"\bfill (?:me|us|them|him|her) in\b", re.IGNORECASE)
 _EMAIL_WORDS = re.compile(r"\b(?:e-?mail|mail|gmail|outlook|draft|fill (?:it|this|that) in)\b", re.IGNORECASE)
 NOT_ASKED = ("The owner didn't ask for writing in their apps in this request, so Swift didn't write anything. "
              "Only text the owner asked to be written can be; tell them what you would write instead.")
@@ -90,8 +99,11 @@ INTEGRATED_TERMINALS = frozenset({"code.exe", "code - insiders.exe"})
 
 
 def owner_asked_to_write(said: str) -> bool:
-    """The owner's words for this request ask for text in their apps."""
-    return bool(_WRITE_WORDS.search(said))
+    """The owner's words for this request clearly ask for text in their apps (level 0). False sends the write to
+    Swift's question first (``_ask_to_write``, level 1): an unclear match never writes silently."""
+    if _NOT_WRITING.search(said):
+        return False
+    return bool(_LEADS_WITH_VERB.search(said) or (_WRITING.search(said) and _PLACE.search(said)))
 
 
 def owner_asked_for_email(said: str) -> bool:

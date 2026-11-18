@@ -108,9 +108,12 @@ code toward these rules, never away.
   it as a contact; calendar invites still take only contacts. Owner check 395; not run.
 - **6:** built: a write into an app (or filling in an email) the owner's words
   didn't clearly ask for is asked about, level 1 (FD-04), showing every character a yes writes, marked as the
-  worker's (FD-05). Still a pattern: `owner_asked_to_write`
-  decides between level 0 and 1, so its false matches write with no question (D4). Owner check
-  396; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
+  worker's (FD-05). `owner_asked_to_write` still decides between level 0 and 1 by pattern, but since
+  claude/rule-gaps (2026-11-18; built, not reviewed) only a clear ask stays at level 0: a writing verb leading the
+  request, or a writing word with a place to write ("here", "into Word"). A writing word or a place alone ("what's
+  here on my screen?", "is this sentence correct") now asks first instead of writing silently (D4). A pattern can
+  still miss a clear ask (then Swift asks once) but no longer turns these questions into silent writes. Owner checks
+  396 and rule-gaps-2; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
   can't be told from its editor), has its own card showing every character (level 3) instead of being refused.
   After its card ("Run this in …? Swift types it and presses Enter.") the real Windows writer types the command
   into a terminal and runs it (the owner's decision of 2026-11-15): only for a write approved as a terminal write

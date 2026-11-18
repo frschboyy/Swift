@@ -2948,6 +2948,14 @@ About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
 You should see: nothing is sent or done while the OK is only in the stack, whatever you say; once you open it, it is
 in front with its own buttons again, and only then does a click on them count.
 
+<a id="check-rule-gaps-2"></a>**Check rule-gaps-2. Words that only look like asking to write ask first**
+1. Open Notepad with an empty page and click into it.
+2. Say "Hey Swift, what's here on my screen?".
+3. Say "Hey Swift, write a short note about tea here".
+
+You should see: in step 2, if Swift wants to write anything into Notepad it asks first ("Write this in Notepad?"),
+showing what it would write; say "no" and nothing is written. In step 3 it writes the note without asking.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

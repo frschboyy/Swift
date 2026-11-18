@@ -119,3 +119,14 @@ async def test_through_the_session_a_typed_yes_never_writes_and_a_spoken_one_doe
     await answer(session, "spoken")
     await settled(session)
     assert [t for _, t in desktop.writes] == [PAGE_SAYS]
+
+
+async def test_words_that_only_looked_like_asking_to_write_now_ask_first() -> None:
+    """Decision 6, D4: "what's here on my screen?" matched the old pattern ("here"), so a worker's write went into
+    the app with no question. It is not a clear ask: Swift asks first, and a no writes nothing."""
+    for said in ("what's here on my screen?", "is this sentence correct"):
+        host, desktop, _, journal = make(FakeApp("notepad.exe", "edit", route="keys"), said=said)
+        questions = _answering(host, "no")
+        result = await host.call("desktop_write", {"text": PAGE_SAYS})
+        assert questions == [("Write this in Notepad?", True, PAGE_SAYS)], said
+        assert not result.ok and desktop.writes == [] and journal.entries == [], said

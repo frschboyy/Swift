@@ -225,3 +225,35 @@ async def test_a_due_card_the_overlay_did_not_draw_waits_in_the_stack() -> None:
     # The screen comes to rest: it is shown again, and this time drawn.
     await session.handle(Message("screen", {"n": n + 1, "stage": "idle", "run_id": "", "confirm": "", "ask_id": ""}))
     assert len(_results(rec)) == sent + 1 and run_id in session._drawn.due
+
+
+@pytest.mark.parametrize("said", [
+    "what's here on my screen?",
+    "is anyone here",
+    "here's my question: when does the bank open",
+    "what type of tea is this",
+    "is this sentence correct",
+    "fill me in on the news",
+    "who will enter the race",
+    "what did the editor say",
+])
+def test_words_that_only_look_like_writing_are_not_a_clear_ask(said: str) -> None:
+    """Decision 6, D4: these matched the pattern and wrote into an app with no question. Not a clear ask: Swift
+    asks first (level 1), never a silent write."""
+    from swift.workflows.desktop_tools import owner_asked_to_write
+
+    assert not owner_asked_to_write(said)
+
+
+@pytest.mark.parametrize("said", [
+    "Hey Swift, write a haiku about tea here",
+    "Swift, can you type my address",
+    "please put this in Word",
+    "now paste the summary into the document",
+    "could you rewrite this more formally",
+    "jot down a list of what we need",
+])
+def test_a_clear_ask_after_swifts_name_or_please_still_writes(said: str) -> None:
+    from swift.workflows.desktop_tools import owner_asked_to_write
+
+    assert owner_asked_to_write(said)

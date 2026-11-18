@@ -3089,6 +3089,17 @@ You should see: (1) the answer on the card and no voice; Default speaks again as
 as soon as it starts writing; (3) the watch opens by itself after about 30 seconds, once; closing it keeps it closed;
 (4) both choices kept. With "When I ask" (the default) the watch opens only when you say "show me" or click Watch.
 
+<a id="check-halo-b8-gaps-6b8791-9"></a>**Check halo-b8-gaps-6b8791-9. The watch docked and mini (B9)**
+1. Ask for some research and say "show me". Click the watch's Dock button (beside Close) once.
+2. Click it again.
+3. Click it a third time. Ask for something else and say "show me".
+4. Dock it again (one click), then close the watch.
+
+You should see: (1) the watch takes the full height of the screen edge on the orb's side, and maximised windows
+shrink to leave it room; the orb and card move clear of it; (2) a small watch in the opposite bottom corner: title bar,
+progress and the step it's on, nothing else; windows get their room back; (3) beside the card again, and the next
+watch opens where the last one was left; (4) on close, windows get their room back.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

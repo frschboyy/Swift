@@ -405,7 +405,7 @@ function drawRows(): void {
 const wanted = (): Panes.PaneSpec[] => {
   const view = S.stackView(stack, Date.now());
   return Panes.wantedPanes(reader, {
-    stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map(L.view),
+    stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace })),
   });
 };
 
@@ -418,7 +418,9 @@ const paneSync = new Panes.PaneSync(
       const r = spec.kind === "type" && card.classList.contains("card--in") ? card.getBoundingClientRect() : null;
       const edges = rowsEl.hidden ? r : rowsEl.getBoundingClientRect();  // the deck is part of the card
       const at = r && edges && r.height > 0 ? [Math.min(r.top, edges.top), Math.max(r.bottom, edges.bottom)] : null;
-      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h, card: at });
+      return invoke("open_pane", { label: spec.label, kind: spec.kind, index: spec.index, w, h, card: at })
+        // B9: a new watch opens where the last one was put (D3); beside is open_pane's own place.
+        .then(() => (spec.kind === "live" && watchPlace !== "beside" ? invoke("place_watch", { label: spec.label, place: watchPlace }) : undefined));
     },
     close: (label) => void invoke("close_pane", { label }).catch(() => {}),
     send: (label, view) => sendPane(label, view),
@@ -525,6 +527,7 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
     case "live-app":
     case "live-answer":
     case "live-touch":
+    case "live-dock":
       if (payload.runId) liveAction(payload.action, payload.runId);
       break;
     case "open":
@@ -709,6 +712,16 @@ function runStart(runId: string): number {
   return runId === pres.runId && runStarted ? runStarted : pres.rows.find((r) => r.runId === runId)?.startedMs ?? 0;
 }
 
+// B9: where the watch sits, the last place chosen (D3).
+let watchPlace: L.WatchPlace = (() => {
+  try {
+    const kept = localStorage.getItem("swift.watchPlace");
+    return kept === "docked" || kept === "mini" ? kept : "beside";
+  } catch {
+    return "beside";
+  }
+})();
+
 // A8, "Watch opens": requests whose watch was opened or closed once; it never opens by itself again for them.
 const watchSeen = new Set<string>();
 // A row still working (not waiting its turn, not on an OK card, not ended).
@@ -755,6 +768,13 @@ function liveAction(action: string, runId: string): void {
     case "live-touch":
       setLive(L.touch(live, runId, Date.now()));
       break;
+    case "live-dock":
+      // B9: the next place, kept for the next watch too (D3: reuse the last).
+      watchPlace = L.nextPlace(watchPlace);
+      try { localStorage.setItem("swift.watchPlace", watchPlace); } catch { /* kept until restart */ }
+      void invoke("place_watch", { label: Panes.paneLabel("live", runId), place: watchPlace }).catch(() => {});
+      void syncPanes();
+      break;
     case "live-answer":
       // The whole answer when this window has it; else that request forward.
       if (r?.ended && L.answerOpens(r, runId === pres.runId, pres.rows.some((row) => row.runId === runId)) === "reader") {
@@ -772,7 +792,7 @@ function liveAction(action: string, runId: string): void {
 const liveEl = document.getElementById("live");
 function drawLiveInline(): void {
   if (!liveEl) return;
-  const views = paneWindows ? [] : L.openRuns(live).map(L.view);
+  const views = paneWindows ? [] : L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace }));
   liveEl.hidden = views.length === 0;
   const tops = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run]")].map((n) => [n.dataset.run, n.querySelector<HTMLElement>(".live-body")?.scrollTop ?? 0]));
   const docs = new Map([...liveEl.querySelectorAll<HTMLElement>("[data-run] .live-doc")].map((d) => [d.closest<HTMLElement>("[data-run]")!.dataset.run,
@@ -784,6 +804,7 @@ function drawLiveInline(): void {
       link: (url) => void invoke("open_link", { url }).catch(() => window.open(url, "_blank", "noopener")),
       app: () => liveAction("live-app", v.runId),
       answer: () => liveAction("live-answer", v.runId),
+      dock: () => { liveAction("live-dock", v.runId); drawLiveInline(); },
     }));
     return node;
   }));

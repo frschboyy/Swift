@@ -563,7 +563,17 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // 11. the live view of a running request (ADR-017 §7): research, then writing it into Word
   liveResearch: async (s) => { await liveResearch(s, false); },
   liveDone: async (s) => { await liveResearch(s, true); },
+  // B9: the watch's Dock button: beside → docked (the whole height) → mini (title, progress, the step).
+  liveDocked: async (s) => { await liveResearch(s, false); await dockTo("docked"); },
+  liveMini: async (s) => { await liveResearch(s, false); await dockTo("mini"); },
 };
+
+async function dockTo(place: string): Promise<void> {
+  for (let i = 0; i < 3 && !document.querySelector(`#live .live--${place}`); i++) {
+    document.querySelector<HTMLButtonElement>("#live .watch-dock")?.click();
+    await sleep(50);
+  }
+}
 
 async function liveResearch(s: Shim, end: boolean): Promise<void> {
   const id = run();

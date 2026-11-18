@@ -244,3 +244,39 @@ pub fn copy_text(text: &str) -> Result<(), String> {
         result
     }
 }
+
+/// B9: the docked watch as an app bar on the `left` or right edge (`rect`, physical px): Windows takes that strip
+/// out of the work area, so other windows (and Swift's own orb) keep clear of it. Returns where Windows put it.
+/// shortcut: no ABN_* notifications are handled (a full-screen app over the bar, another bar on the same edge);
+/// the bar keeps its place until it closes or moves. Upgrade when the live loop shows one of those.
+pub fn appbar_dock(raw: isize, left: bool, (x, y, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
+    use windows_sys::Win32::UI::Shell::{SHAppBarMessage, ABE_LEFT, ABE_RIGHT, ABM_NEW, ABM_QUERYPOS, ABM_SETPOS, APPBARDATA};
+    unsafe {
+        let mut data: APPBARDATA = std::mem::zeroed();
+        data.cbSize = std::mem::size_of::<APPBARDATA>() as u32;
+        data.hWnd = hwnd(raw);
+        SHAppBarMessage(ABM_NEW, &mut data); // already one: FALSE, and it stays registered
+        data.uEdge = if left { ABE_LEFT } else { ABE_RIGHT };
+        data.rc = RECT { left: x, top: y, right: x + w, bottom: y + h };
+        SHAppBarMessage(ABM_QUERYPOS, &mut data);
+        // Windows may move the strip off another bar: keep the width from the edge it gave.
+        if left {
+            data.rc.right = data.rc.left + w;
+        } else {
+            data.rc.left = data.rc.right - w;
+        }
+        SHAppBarMessage(ABM_SETPOS, &mut data);
+        (data.rc.left, data.rc.top, data.rc.right - data.rc.left, data.rc.bottom - data.rc.top)
+    }
+}
+
+/// B9: the watch leaves the edge (or closes): Windows gives the strip back to the work area.
+pub fn appbar_remove(raw: isize) {
+    use windows_sys::Win32::UI::Shell::{SHAppBarMessage, ABM_REMOVE, APPBARDATA};
+    unsafe {
+        let mut data: APPBARDATA = std::mem::zeroed();
+        data.cbSize = std::mem::size_of::<APPBARDATA>() as u32;
+        data.hWnd = hwnd(raw);
+        SHAppBarMessage(ABM_REMOVE, &mut data);
+    }
+}

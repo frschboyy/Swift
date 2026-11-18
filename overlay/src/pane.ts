@@ -290,6 +290,7 @@ function drawLive(v: LiveView): void {
     link: (url) => void invoke("open_link", { url }).catch(() => {}),
     app: () => act("live-app", { runId }),
     answer: () => act("live-answer", { runId }),
+    dock: () => act("live-dock", { runId }),
   }));
   const body = root.querySelector<HTMLElement>(".live-body");
   if (!body) return;

@@ -1743,6 +1743,11 @@ code {
 #stage .watch-step-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #stage .watch-step-time { flex: none; color: var(--mon-faint); }
 #stage .paper-console { margin: 6px 0 0; color: var(--mon-live); font: 11px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* B9: the mini watch keeps the title bar, progress and the step it's on; the docked one takes the whole height. */
+#stage .live--mini { width: 300px; }
+#stage .live--mini :is(.watch-meta, .live-summary, .live-body, .live-hint, .card-foot) { display: none; }
+#stage .live--docked { height: 100vh; display: flex; flex-direction: column; border-radius: 0; }
+#stage .live--docked .live-body { flex: 1 1 auto; max-height: none; }
 #stage .watch-meta { margin: 8px 0 0; color: var(--mon-faint); font: 11px var(--mono); }
 #stage .live .live-doing { font: 700 12px var(--mono); color: var(--mon-live); }
 #stage .live--ended .live-doing { color: var(--mon-muted); font-weight: 400; }

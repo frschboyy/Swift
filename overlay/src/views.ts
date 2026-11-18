@@ -145,7 +145,12 @@ export type LiveHandlers = {
   app: () => void;
   answer: () => void;
   copy?: () => void;
+  // B9: the Dock button (beside → docked → mini).
+  dock?: () => void;
 };
+
+// B9: what the Dock button does next.
+const DOCK_NEXT = { beside: "Dock to the side of the screen", docked: "Make it small", mini: "Back beside the card" } as const;
 
 const SOURCE_STATE: Record<Source["state"], string> = { found: "Found", reading: "Reading", read: "Read", failed: "Couldn't read" };
 
@@ -235,11 +240,12 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
   ].filter((m): m is string => m !== null);
   return el(
     "section",
-    { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""}`, role: "region", "aria-label": `Live: ${v.title}` },
+    { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""} live--${v.place ?? "beside"}`, role: "region", "aria-label": `Live: ${v.title}` },
     el("header", { class: "card-head watch-bar", title: "Drag to move" },
       el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "FINISHED" : "ENDED"),  // a stop isn't done
       el("p", { class: "words" }, v.title),
       el("span", { class: "mon-clock elapsed chip-time" }, elapsed(v.startedMs, now)),
+      h.dock ? el("button", { class: "icon-btn watch-dock", "aria-label": `Dock: ${DOCK_NEXT[v.place ?? "beside"]}`, title: DOCK_NEXT[v.place ?? "beside"], onclick: () => h.dock!() }, icon(v.place === "mini" ? "expand" : "collapse")) : null,
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
     el("div", { class: "watch-progress", style: `--p:${progress.toFixed(3)}`, "aria-hidden": "true" }),
     meta.length ? el("p", { class: "watch-meta" }, meta.join(" · ")) : null,

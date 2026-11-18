@@ -41,6 +41,9 @@ export type Live = { runs: LiveRun[] };
 
 /** What a live pane draws. */
 export type Step = { text: string; atMs: number };
+export type WatchPlace = "beside" | "docked" | "mini";
+/** B9: the Dock button's next place: beside the card → docked on the orb's edge → mini → beside. */
+export const nextPlace = (p: WatchPlace): WatchPlace => (p === "beside" ? "docked" : p === "docked" ? "mini" : "beside");
 /** Steps kept per request (the watch shows the last ones). */
 export const MAX_STEPS = 30;
 
@@ -55,6 +58,8 @@ export type LiveView = {
   written: { app: string; text: string } | null;
   // B6: the steps so far ("Step 4"), the last the one it's on while it runs.
   steps: Step[];
+  // B9: where the watch sits (its Dock button cycles it; the last one is reused, D3).
+  place?: WatchPlace;
   hint: string | null;
   running: boolean;
   ended: { status: string; summary: string; answer: boolean } | null;

@@ -193,3 +193,55 @@ full suite at 943d42e passed (2391). No code fix: don't run the suite in a workt
   `dev/harness.html?theme=…`, call `__design(name)`, then `Page.captureScreenshot`. `dev/pane.html?label=…&state=…`
   does the same for panes.
 - `session.py` is at its line ratchet (4985). Put new backend logic in small modules, as `stops.py` does.
+
+## Live loop on the real window (2026-11-18, branch claude/optimistic-mahavira-48764b)
+
+Run per `docs/testing/live-ui-loop.md`: a fresh isolated test build (own identifier, `C:\st\t2`, UI from `vite` on
+**1432** because a leftover vite from the b4-compare worktree held 1431; the owner's 1420 was never touched), the
+debug backend with fakes and test hotkeys, `seq.mjs messy,conflict,repeat,timeout,hotkeys,engine`.
+`live.mjs` now reads `SWIFT_UI_PORT` and `SWIFT_TEST_EXE` (defaults unchanged).
+
+- **Result:** 27 of 28 steps ok. Messy, conflict (one `confirm.reply` from a real double click), repeat (three same
+  questions fold to one "×3" row), timeout (the lapsed OK frees the front, a new question answers), hotkeys (taps over
+  a card never approve; the overlay never took focus). No page errors.
+- **Not ok:** `repeat · real click: Close, twice` ("no Close on screen"): a "stop" said while the scripted run was in
+  *listening* left no Stopped card (LL-01, open, unproven for a real request; not a blocker).
+- **Engine step:** only meaningful when the backend runs with the config path `%TEMP%\swift-test\config.yaml`
+  (the step kills by that path). Done that way, the overlay shows "Reconnecting to Swift…" and stays there: the test
+  copy has no backend supervisor (LL-02, a doc/driver gap, not a product bug).
+- **Not walked on the real window:** the per-state B8 list in `03-verify.md` §3 (stack, tray, timer, watch, reader...)
+  was seen only in the harness (the cull captures below, 107 views a theme). B5 expand, B14 timer-due and the grayscale,
+  reduced-motion, forced-colours and 150% passes were not run. Real speech stays an owner check.
+
+## Step B cull of `overlay/src/styles.css`
+
+One batch, one commit: **115 declarations removed** (about 97 lines), plus the rules they left empty. The rule that
+picks them is static, so the cascade can't change. A declaration goes only when every selector in its rule is set,
+for the same property and in the same `@media` context, by one of two later rules: an identical one, or the same
+selector prefixed with `#stage`. The `#stage` form has higher specificity, and every overlay element sits inside
+`main#stage` in `index.html` and `pane.html`. `!important` on the old declaration keeps it.
+
+The pre-Halo `.btn`, `.card`, `.capsule[data-p=…]`, confirm, `.band`, `.facts`, `.mail-body`, `.q-pill`, `.edge`
+and `.live` sizes and borders went this way. The script is outside the repo (`cull.mjs` in the session scratchpad).
+A further cull, of rules that only partly overlap, needs someone's judgement.
+
+- `tests/layout.test.ts` asserted the old, overridden capsule sizes (orb 36 px plus `margin: 4px 0`, idle 12 px).
+  It now asserts the rules that win: `--orb: 36px` with the orb rule's margin, and Halo's 14 px idle dot with
+  `margin: 15px`. The tokens test (`styles.css` carries `tokens.css`) is unchanged and passes.
+- **Captures:** headless Edge, with the HEAD tree on 1433 and this tree on 1432, each state driven on both at once.
+  That is every `__design` state (90) and every `dev/pane.html` view (17), in dark and light: 214 views.
+  - All 34 pane views are pixel-identical.
+  - Harness states are pixel-identical in at least one run, or differ only in the 3 px time bar or the working
+    spinner's 18 px box. The time bar (y 590, a few to a few hundred pixels) drains between the two shots.
+  - Seven states differ more in every run: `answerProjects`, `answerDiagramLong`, `capsuleCantHear`, `capsuleIdle`,
+    `deckBehindSpeaking`, `liveResearch` and `liveMini`. A control run with the **same** CSS in both browsers
+    (HEAD vs HEAD) shows the same differences: `capsuleCantHear` is 20622 px either way. That is how far each page
+    got through a timed scenario, not CSS. `liveMini` also had near-identical pairs (405 px, the spinner) in another
+    run. The harness has no frozen clock: under virtual time the scenarios don't run, and every frame comes out blank.
+- **Not covered:**
+  - The six anchors: only the default anchor was captured.
+  - Reduced motion and forced colours: those `@media` blocks were only culled against rules in the same block.
+  - The real overlay window after the cull.
+  - A whitespace-only tidy after the captures (collapsed spaces after `{`).
+- **After the cull:** `tsc --noEmit` is clean, and `npm test` runs 182 tests: 180 pass, 0 fail, 2 todo.
+  Label: **root** (dead-code removal, no behaviour change intended).

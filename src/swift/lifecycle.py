@@ -116,7 +116,7 @@ class Lifecycle:
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
             away = self.monitor is not None and self.monitor.state == "away"
-            await hold_cards(away or self.holding_call)
+            await hold_cards(away or self.holding_call, "away" if away else "call")
         await self.announce()  # the tray and capsule say why Swift is holding (review 7ab2b70 finding 3)
 
     # ---- presence changes ---------------------------------------------------------------
@@ -135,7 +135,7 @@ class Lifecycle:
             changed()
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
-            await hold_cards(change.new == "away" or self.holding_call)
+            await hold_cards(change.new == "away" or self.holding_call, "away" if change.new == "away" else "call")
         if change.returned:
             # The speech model first: it is the slow part (paged out while locked), and the
             # microphone reopening behind a busy audio thread must not hold it up.

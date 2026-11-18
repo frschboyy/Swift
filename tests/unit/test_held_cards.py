@@ -95,7 +95,7 @@ def test_touch_does_not_unlock() -> None:
 async def test_the_lifecycle_holds_cards_while_away() -> None:
     held: list[bool] = []
 
-    async def hold_cards(h: bool) -> None:
+    async def hold_cards(h: bool, why: str = "away") -> None:
         held.append(h)
 
     session = types.SimpleNamespace(listening_paused=False, hold_cards=hold_cards)

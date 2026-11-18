@@ -4315,7 +4315,7 @@ class Session:
         if self.on_owner is not None:
             self.on_owner()
 
-    async def hold_cards(self, held: bool) -> None:
+    async def hold_cards(self, held: bool, why: str = "away") -> None:
         """The owner left (hide open confirm cards, stop their countdown) or came back (show them again,
         and what came due meanwhile: ``notify_due``)."""
         began, self._away = held and not self._away, held  # held again mid-call: nothing new to forget
@@ -4336,8 +4336,8 @@ class Session:
                 # Hidden: back, it counts down again only once the overlay says it drew it.
                 self.attention.set_seen(request_id, False)
             if (entry := self._approval(request_id)) is not None and held:
-                entry["held_away"] = entry.get("held_away", 0) + 1
-            logger.info("confirm card held while away" if held else "confirm card back")
+                entry[f"held_{why}"] = entry.get(f"held_{why}", 0) + 1  # held_away, or held_call (A3)
+            logger.info("confirm card held" if held else "confirm card back", why=why)
             if not held and (run := self._owner_of(request_id)) is not None and run is self._focus:
                 # Draw it again from the start: the overlay may have moved on while it was hidden
                 # (owner check 18, 2026-10-27: back was logged, nothing was redrawn).

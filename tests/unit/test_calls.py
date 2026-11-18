@@ -91,7 +91,7 @@ async def test_a_failed_probe_changes_nothing() -> None:
 
 
 async def _life(held: list[bool], away: bool = False) -> Lifecycle:
-    async def hold_cards(h: bool) -> None:
+    async def hold_cards(h: bool, why: str = "away") -> None:
         held.append(h)
 
     async def send(msg: object) -> None:
@@ -167,7 +167,7 @@ async def test_a_call_hold_is_announced_and_its_end_too() -> None:
     async def send(msg: Message) -> None:
         sent.append(msg)
 
-    async def hold_cards(h: bool) -> None:
+    async def hold_cards(h: bool, why: str = "away") -> None:
         pass
 
     life = Lifecycle(types.SimpleNamespace(listening_paused=False, hold_cards=hold_cards), send)
@@ -320,3 +320,23 @@ async def test_a_failing_probe_logs_once_per_error_until_it_works() -> None:
     finally:
         logger.remove(sink)
     assert logged == ["call probe failed", "call probe failed"]
+
+
+# ---- review 7ab2b70 finding 10: a call hold is recorded as a call, not as away -------------------------
+
+
+async def test_the_lifecycle_says_a_call_hold_is_for_a_call() -> None:
+    whys: list[str] = []
+
+    async def hold_cards(h: bool, why: str = "away") -> None:
+        whys.append(why)
+
+    async def send(msg: object) -> None:
+        pass
+
+    life = Lifecycle(types.SimpleNamespace(listening_paused=False, hold_cards=hold_cards), send)
+    life.monitor = types.SimpleNamespace(state="here", listening_allowed=True, reason="input")  # type: ignore[assignment]
+    await life.set_call(True, 0)
+    life.monitor.state = "away"  # type: ignore[misc]
+    await life.set_call(False, 60)
+    assert whys == ["call", "away"]

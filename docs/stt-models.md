@@ -1,5 +1,7 @@
 # Is a better local speech model worth it? (2026-10-27)
 
+> **2026-11-18:** word fixes (`spikes/stt/learn_fixes.py`, `src/swift/stt/fixes.py`) were removed on 2026-11-17 at the owner's request (rigid, context-free rewrites); where this note mentions them, it is history.
+
 The owner checks at 17:00 needed shouting and careful pronunciation, and several hotkey requests
 were refused as unclear. This note covers two questions. Would a different local model do better?
 And what did the evidence say about the microphone?

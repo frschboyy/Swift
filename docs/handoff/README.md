@@ -1,18 +1,18 @@
-# Swift: handoff (2026-11-10)
+# Swift: handoff (updated 2026-11-18)
 
-Read this first when picking Swift up in a new session or account. It holds everything still open: what's built, what's left, what the owner must run and decide, and in what order. The working rules are in [`CLAUDE.md`](../../CLAUDE.md).
+Read this first when picking Swift up in a new session or account. The map of every other document is [`docs/README.md`](../README.md); decisions already taken are listed in [`docs/decisions/log.md`](../decisions/log.md). It holds everything still open: what's built, what's left, what the owner must run and decide, and in what order. The working rules are in [`CLAUDE.md`](../../CLAUDE.md).
 
 ## In one minute
 
 - **Swift works in tests, and has barely been used for real.** Since 2026-10-29 it was used on 4 days, and 119 of the 150 requests were one testing day. The roadmap was meant to be decided by two weeks of daily use, which hasn't happened yet.
 - **Reliability work is the current focus.** Nearly all commits since 2026-11-04 went on it. The review's items 1 to 8 are committed, and the latest ones reach real causes. Most of them have no real-PC evidence yet.
-- **The product roadmap has started, in its groundwork.** Run records (`runs.py`), the memory store (`memory.py`), `WorkerTask` and the step grant are built (§4, step 3); the rest is open. The full check of every decision against the code is [`status-review-2026-11-14.md`](status-review-2026-11-14.md).
+- **The product roadmap has started, in its groundwork.** Run records (`runs.py`), the memory store (`memory.py`), `WorkerTask` and the step grant are built (§4, step 3); the rest is open. The full check of every decision against the code is [`status-review-2026-11-14.md`](../archive/2026-11-14-sessions/status-review-2026-11-14.md).
 - **The Deck's Step 1 is on `main` (merged 2026-11-07) and hasn't been run on the real PC** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). The owner asked for it before the short checks. Two things wait on them: whether to keep it (it adds more lines than it removes, and undoing it now means reverting it on `main`), and what the review of its backend change left for them (ADR-018 §4.1): a request said beside a working card now stays behind it, which changes what a plain "stop" reaches.
 - **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
 - **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is fixed, so the cards you approve show the whole change.
 
 - **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), merged to `main` and not run on the real PC. Swift's replies are off by default, apart from "Hello". Why checks 191–197 still failed is in [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md), which led to [ADR-020](../decisions/ADR-020-one-record-per-conversation.md). A branch is trialling whether Swift gets a dedicated wake model (§6).
-- **§6 lists the work that isn't on `main` yet, and the next free owner check number (233).** Every session reads §6 before it starts, and adds its own branch there.
+- **§6 lists the work that isn't on `main` yet.** Every session reads §6 before it starts, and adds its own branch there. `plan.py --next-id` gives a new owner check its id.
 
 - **Three workstreams** (owner, 2026-11-13): task orchestration and state, adaptive UI and UX, agent autonomy. Every item from the owner's run, with its checks and what's known, is in [`workstreams.md`](workstreams.md); `roadmap.md` tracks them.
 - **The owner's plan for the coming weeks** is [`roadmap.md`](roadmap.md). Its live version, with where each step stands and the problems in the logs, is `ROADMAP.md` at the top of the Swift folder, written by `spikes/owner_checks/roadmap.py`.
@@ -28,8 +28,8 @@ Read this first when picking Swift up in a new session or account. It holds ever
 | Actions | Gateway with confirm cards and undo; calendar (look, change, cancel, Meet links); Gmail drafts written as the owner; Google Contacts | ADR-010, ADR-011 |
 | Attention | Up to 3 requests at once, presence, held cards, the waiting stack, typing to Swift | ADR-013, ADR-014, ADR-015 |
 | Overlay | Capsule redesign (dark and light, tray panel, pause listening, speaking state), live view | ADR-017, `docs/design/swift-overlay/` |
-| Dialogue | Swift asks for what's missing, the question card, carry-over, end of speech | ADR-016 §16, `phase-c-status.md` |
-| Recordings | Saved recordings that improve hearing (7-day loop) | `recordings-status.md` |
+| Dialogue | Swift asks for what's missing, the question card, carry-over, end of speech | ADR-016 §16 |
+| Recordings | Saved recordings that improve hearing (7-day loop) | `src/swift/stt/recordings.py`, [`privacy.md`](../security/privacy.md) |
 | Sign-ins | Google's and Claude Code's sign-ins checked at start-up, daily and when refused, with a card to sign in again | `swift/signin.py`, owner checks 120–123 |
 | Confirming | Swift's own "Turn off Wi-Fi?" is a Yes/No card; a plain "yes" or a click works only while it's on screen | §5, owner checks 128–131, 163–164 |
 | Offline | An agent request is answered at once with what still works; "turn it back on" follows the last switch | `swift/network.py`, owner checks 132–134, 150–153 |
@@ -91,80 +91,19 @@ The X-05 entry in the audit lists what that fix left: `workflow skipped` can quo
 - The generic card for other tools still shows 60–300 characters. The default `confirm_tools` don't reach it.
 - Not seen on the real PC: the mouse wheel on the card and the "More below" sign hiding itself as you scroll. The Claude browser pane was hidden, so it drew no frames. Owner check 183 covers both.
 
-### The owner's run of 2026-11-13 (10:05 to 11:05)
+### The owner's runs of 2026-11-13
 
-Recorded with `plan.py`. Passed by the owner: 191 (8 of 10), 193–196, 214, 233, 234, 237, 240, 241. What it found, most serious first; none is fixed yet:
-
-- **Check 213 failed, cause proven: the never-read rule covers Read, Glob and Grep only.** The agent used Bash (`cd "$LOCALAPPDATA/Swift" && grep … interactions.jsonl`), each command came on an approval card, the owner clicked Approve six times, and yesterday's requests were read back. `claude_code.py` sends Bash straight to `confirm_card`; `ReadScope.verdict` is only called from `_ask_read`. The same path reaches `.ssh`, `.env` and the other never-read places. **Safeguard merged 2026-11-13 (X-20):** a Bash or PowerShell command that names a never-read place is refused with no card (`ReadScope.in_command`). Of the 15 commands in the owner's log, it refuses the three that read the log and no other. It reads the command's text, so a path built in pieces, by a wildcard or inside a script still gets a card; the root fix is a shell that can't open those folders. Check 213 needs running again.
-- **A card stayed "working" for a request that had ended (10:48 to 10:52).** The backend stopped `cc-6` at 10:49:50 and parked it; at 10:51 the owner opened its live view and pressed Stop four times ("stop from the live view ignored | known=True"). So the backend knew it was over and the overlay still showed it. Why the overlay kept it is unproven (two stops 220 ms apart, then a `ProcessError`, came just before). **Cause proven and fixed (merged 2026-11-13):** the second Stop cancelled the request's task again while it was still telling the agent to stop, inside its own clean-up, so "Cancelled" was never sent (the log shows "parked" 3 ms after the second stop). `swift/cleanup.py` runs that clean-up to its end; the seam scenario `test_a_second_stop_while_the_first_cleans_up_still_ends_the_card` fails without it. Owner check 242. Not done: when the overlay asks about a request that is over for any other reason, the backend still only logs it.
-- **Check 197 failed, cause proven for the duplicate cards:** `_same_request` compares the words exactly, so "…history of T" and "…history of tea" are two requests. "Yes, tea the drink" answered with "Still on it" is not reproduced yet.
-- **Check 215 wasn't reached the normal way:** `fill_in_email` failed 3 times of 4 (`connector_failed`; the log doesn't say why, as before). The one send that reached the 5-second window was stopped about 8 s after it went, so the window itself is still untested.
-- **Two emails were really sent during the run,** both approved by a click: 10:36:27 and 10:45:11.
-- **The report's FAILs:** 31–36 (a calendar request at 10:08 went to the agent, not the workflow), 49 (an email thread's follow-ups left the workflow after the fill failed), 239 (the daily reminder: Swift said it only does one-off reminders).
-- **Asked for by the owner:** cards behind the main card shouldn't leave before they've been read; "remember that…" isn't built (the memory store, §4 groundwork); a repeating reminder (a small leftover in §4).
-
-### The owner's run of 2026-11-13 (13:37 to 15:20)
-
-Recorded with `plan.py`. Passed by the owner: 202, 207, 209, 210, 213 (refused as designed), 216, 217, 219, 220, 236, 242.
-Failed: 201, 203, 204, 205, 206, 208, 218, 235, 239; 211 couldn't be done. Sorted by what they are; none is fixed yet.
-
-**Defects, cause proven:**
-
-- **"Turn off the wafer" can't succeed (201, 206, 239: 14:13:51, 14:14:37, 14:16:35, 14:25:35).** A chain of three, from
-  the interaction log and `system_tools.py`. (1) The local lane doesn't parse "wafer", so it goes to the agent, which calls
-  `system_action`; that refuses it as "not asked for". (2) The refusal (`NOT_ASKED`, `system_tools.py:104`) tells the agent
-  to ask a choice and gives the literal example `'Did you mean the Wi-Fi or Bluetooth?', options ['Wi-Fi', 'Bluetooth']`;
-  the agent copies it. That is where Bluetooth comes from. (3) The answer can't unlock it: a "yes" to the agent's own
-  question never counts, a click on an option never counts (by design), and spoken "WiFi" in one word, as speech
-  recognition often writes it, matches no option (`dialogue._choose` splits "Wi-Fi" into "wi" + "fi" and needs those exact;
-  "WiFi", "the WiFi", "I meant WiFi" all resolve `unclear`, measured). So the flow the tool asks for ends in
-  "I couldn't turn Wi-Fi off" whichever way the owner answers. Root fix: the local lane offers "Did you mean Wi-Fi?"
-  itself (Swift's own question about a reversible change, where a plain yes works), and the matcher treats "wifi" and
-  "wi fi" as one word. Whether the owner's two spoken answers at 14:14 were "WiFi" is likely, unproven (answers aren't saved).
-  **Fixed, merged 2026-11-13 (reviewed by a session other than the author, pass with notes; its main note fixed in
-  `541ea7c`):** in a switch-off command, a way speech recognition has
-  written Wi-Fi (`HEARD_AS_WIFI`: wafer, Wofo, waffle, why fi and close spellings; a new one is added from a saved clip)
-  is read as Wi-Fi off, so it gets "Turn off Wi-Fi?" and never the agent (`225ca9b`; a guessed "on" stays unparsed:
-  it has no question); and an option said as one word ("WiFi") is that option (`106b6dd`). Owner check 243.
-  Not changed: `NOT_ASKED`'s example still names "Wi-Fi or Bluetooth" for other misheard words; a click on an option
-  still never counts.
-- **"Play some music" says "Playing." and nothing plays (235).** The `media` intent presses the Play/Pause key and
-  answers "Playing." without checking (`system/lane.py:385`). With no player open the key does nothing.
-
-**Defects, cause unproven:**
-
-- **A question shown as "Working on it" (206, 211, 218: lunch at 13:51:57).** The backend asked "Which day and time next
-  week for lunch?" on screen (`waiting=False`, nothing else running) and sent the `ask` frame; the owner saw "Working on
-  it" with no question, and it ran out. Nothing on the overlay side is logged, so whether the presenter refused or
-  mis-drew it is unproven (see "the overlay can still refuse a frame silently" below). Next: replay it in the harness.
-  The spinner beside "Working" not turning is the same screen and not looked at.
-- **Cards behind the main one vanish before they're seen (208, 219), and one reopened from the stack seemed to restart
-  or stay "Working on it".** Not investigated. The owner's rule: a card never seen doesn't run out; a card waiting for
-  them pauses while out of sight.
-- **Two requests for one ask (204, 205: 14:21:03 to 14:22:02), and an agent approval card for a radio (204 FAIL in the
-  report; 14:44:20).** Not investigated.
-- **Swift stayed behind an always-on-top Task Manager (203).** Not investigated.
-- **Gmail: the email isn't written unless the cursor is already in the body (seen during 242).** Known since before,
-  from the focus check in `desktop/windows.py`; not investigated.
-- **Opening a website failed (15:07:03).** Not investigated.
-
-**Design, for the owner to decide (Halo step B and the interaction layer):** approval cards lead with a plain sentence
-of what the command does and why, with the command folded underneath; fewer approvals per task, grouped where one
-grant could cover them; a distinct look for working, waiting for an answer, waiting for an OK, doing, and failed;
-results laid out to fit them (tables, cards, diagrams) rather than one text card; cards that grow when the content needs
-it and can be expanded by hand; each card's lifetime fitted to the request (210); the orb animation's timing (221,
-unsure).
-
-**Capabilities not built (the roadmap's later steps):** repeating reminders (239, 237), location (the distance to CBD
-was guessed at 4 km with no location: it should ask; this one is a defect in the answer, not only a missing feature),
-booking (Uber, flights) by working through the site with the owner watching and approving, finding and installing a
-tool it needs (diagrams), choosing how to play music.
+Two runs (10:05–11:05 and 13:37–15:20) found most of what is now tracked as the three workstreams. Each item's
+current state is in [`workstreams.md`](workstreams.md); the day's diagnosis, with times and causes as first proven, is
+[`2026-11-13-owner-runs.md`](../archive/2026-11-13-owner-runs.md). Two things from it to keep in mind: two emails were
+really sent during the 10:05 run (both approved by a click), and check 213 showed the never-read rule covered Read,
+Glob and Grep only (X-20, safeguard merged; the root fix is a shell that can't open those folders).
 
 ### Root causes still open
 
 - **The overlay can still refuse a frame silently.** `presenter.ts:273–277` declines frames and the backend isn't told. Only due cards have an acknowledgement. Frames also go out through two doors (`_send`, `_raw_send`) and fire-and-forget tasks, and each countdown runs on both sides (T-08). The planned fix is review item 9, in §4.
 - **Speech acceptance is tuned incident by incident.** The review's M4 counts eight commits with no proven cause. The improvement pass now reports a sentence that was right and went wrong (W-03, merged 2026-11-13), on the owner's own test set. The read and noisy corpora are checked by `eval/stt/gate.py` (merged 2026-11-13), to run before and after any change to speech recognition. Unsafe word fixes can still be proposed (W-01, W-02). Saying "no" over Swift's voice has four failing tests (V-02). A misheard single word reaches the agent again until a bar is scored on saved clips (item 5).
-- **`session.py` is 4,824 lines**, up from 4,401 when the split was agreed. New work goes in small modules.
+- **`session.py` is 4,975 lines** (2026-11-18), up from 4,401 when the split was agreed. New work goes in small modules.
 
 ### Not understood yet
 
@@ -232,7 +171,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - **g. Review item 9: one versioned screen snapshot** (first half merged: the acknowledgement of what was drawn, `6aadae9`, and one clock for a card's countdown, `f0970e6`; the versioned snapshot itself is not built), derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.
 - **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is on `main` (merged 2026-11-07).** It's overlay only apart from what takes the front (ADR-018 §4.1), and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
-- **Halo ([ADR-019](../decisions/ADR-019-halo-design-system.md)),** the owner's chosen look and design system (2026-11-07), replacing the Capsule's look and keeping the Deck. Design only so far: [`docs/design/halo-system/`](../design/halo-system/). The task is [`brief-halo.md`](brief-halo.md). **Step A** (a dev-only look switch, so the owner can check Halo on the real PC) is on `main` (merged 2026-11-10) and not yet seen on the real PC: start it with `$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev`, or `?look=halo` in the harness. The release bundle is byte-identical to `main`'s. Owner checks 216–221 are waiting; what they find goes in ADR-019 §8. **Step B** (one card renderer, no new features) is on `main` (merged 2026-11-14, checks 305–306; `overlay/src/card.ts`). N2 (`origin` in the protocol) is built with run records (`abc1f1f`). ADR-019 §8's six items are not built. ADR-019 also added a product rule to `CLAUDE.md`: deleting a file always asks.
+- **Halo ([ADR-019](../decisions/ADR-019-halo-design-system.md)),** the owner's chosen look and design system (2026-11-07), replacing the Capsule's look and keeping the Deck. Design: [`docs/design/halo-system/`](../design/halo-system/); the finished Step A/B brief is archived ([`brief-halo.md`](../archive/briefs/brief-halo.md)). **Step A** (a dev-only look switch, so the owner can check Halo on the real PC) is on `main` (merged 2026-11-10) and not yet seen on the real PC: start it with `$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev`, or `?look=halo` in the harness. The release bundle is byte-identical to `main`'s. Owner checks 216–221 are waiting; what they find goes in ADR-019 §8. **Step B** (one card renderer, no new features) is on `main` (merged 2026-11-14, checks 305–306; `overlay/src/card.ts`). N2 (`origin` in the protocol) is built with run records (`abc1f1f`). ADR-019 §8's six items are not built. ADR-019 also added a product rule to `CLAUDE.md`: deleting a file always asks.
 - **The interaction layer** ([`interaction-layer.md`](../explorations/interaction-layer.md), 2026-11-10): an exploration, not decided, of Swift as several surfaces beside Windows rather than one overlay. It has nine decisions for the owner before an ADR, and nothing in it should be built before g and d. Its spikes S1 and S2 are mostly answered in [`desktop-choreography.md`](../explorations/desktop-choreography.md) (spikes: `spikes/desktop/card_origin.py`, `spikes/desktop/card_overlay/`).
 - **i. After g:** the timer widget and the Deck's Step 2. **Last:** the owner-checks rewrite, as a fresh baseline.
 
@@ -260,7 +199,7 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 - Suggestions from patterns (ADR-011 L1): after a month of real data.
 - A Chrome extension for Gmail web (ADR-012 D3): if daily use shows it.
 
-**Deferred** (not started without the owner's OK): screen awareness and the vision fallback (ADR-016 F, ADR-012 D4/D5, decision 26), offline with a local model (G, decision 19), voice ID and the phone companion (H, decisions 20, 21), smart home and messaging connectors (decisions 16, 17), Apple Calendar.
+**Deferred** (not started without the owner's OK): an out-of-process MCP/plugin connector host with an allowlist, and a tray UI to manage connectors (ADR-005, from the old backlog); screen awareness and the vision fallback (ADR-016 F, ADR-012 D4/D5, decision 26), offline with a local model (G, decision 19), voice ID and the phone companion (H, decisions 20, 21), smart home and messaging connectors (decisions 16, 17), Apple Calendar.
 
 **Small leftovers, only on request:** timers that pause and resume, a stopwatch, repeating reminders (ADR-016 §14.4); the redesign's timer card details (decision 5).
 
@@ -366,13 +305,19 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 ## 6. Branches, sessions and folders
 
-**Checked 2026-11-15.** Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
+**Checked 2026-11-18** against `git branch --no-merged main`. Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
 
 | Branch | What | State |
 |---|---|---|
-| `claude/b4-diagram-902ffc` | B4 step 4: charts and project cards | B4 implementation and automated checks are in; owner checks 404 through -7 are pending |
-| `claude/byline-no-provider` | Do not name the provider in status text | Waiting for the second review, owner approval and real-PC check |
+| `claude/halo-b8` | Halo B8 handoff: build spec, fixes, verify plan, tokens, boards 1–9, the live UI loop (`docs/testing/live-ui-loop.md`) | Open (2026-11-18) |
+| `claude/halo-b8-build-4fbdf7` | Halo B8 build | Open (2026-11-18); changes `owner-checks.md` and the ledger |
+| `claude/halo-b8-gaps-6b8791` | Halo B8 gaps, B7 motion | Open (2026-11-18); changes `owner-checks.md` and the ledger |
+| `claude/typed-enter-fix` | Text box: typed text then Enter never presses the card's button | Open (2026-11-18) |
+| `claude/a12-c9-followup` | Docs: the follow-up order for A12 and C9 | Open (2026-11-16) |
+| `claude/docs-consolidation` | This documentation clean-up (`docs/audit/2026-11-18-docs-audit.md`) | Waiting for the owner |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
+
+Merged since the last check, rows removed: `claude/b4-diagram-902ffc` (B4 step 4; owner checks 404–407 still pending) and `claude/byline-no-provider`. Several worktrees under `.claude/worktrees/` still hold branches that are already merged; they can be removed with the owner's OK.
 
 **Cleaned up on 2026-11-15 (owner's OK):** every other local branch and worktree.
 - `claude/audit-fixes-google-calendar` and `claude/audit-fixes-recipients` (the second is inside the first) were
@@ -393,7 +338,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 - [`2026-11-10-workflow-lifecycle-audit.md`](../audit/2026-11-10-workflow-lifecycle-audit.md). It recommends run records first, which matches the groundwork in §4.
 - The voice listening test script, `spikes/tts/voice_test.py` (decision 10).
 
-**Moved out of the repo:** the old pen-dev pack from `b9ca8c3` is now in `C:\Users\frchi\Documents\Swift-design-screens\pen-dev-handoff-b9ca8c3`. The current pack is `docs/design/pen-dev-handoff/`.
+**Moved out of the repo:** the old pen-dev pack from `b9ca8c3` is now in `C:\Users\frchi\Documents\Swift-design-screens\pen-dev-handoff-b9ca8c3`. The current pack is `docs/archive/design/pen-dev-handoff/`.
 Cleaned up on 2026-11-06 with the owner's OK: every `claude/*` branch and its worktree. `claude/reliability-audit-review` was force-deleted. Its two commits, ending at `43b1273`, added only the review document, which is on `main` unchanged.
 
 Removed on 2026-11-10 with the owner's OK: every merged worktree and branch.

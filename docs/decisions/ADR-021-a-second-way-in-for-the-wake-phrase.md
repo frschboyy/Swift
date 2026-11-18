@@ -1,7 +1,7 @@
 # ADR-021: A second way in for "Hey Swift": an acoustic detector, checked by Parakeet
 
 - **Status:** Accepted for building (2026-11-11): the owner said "start step 1". Steps 1 to 6 are done: it's wired into Swift behind `wake.acoustic`, which is off by default, and rescored through the live listener (38.8% → 29.0% misses). The lock rule was reviewed by a session other than the author on 2026-11-12; its two findings are fixed (`29a48dc`, `ff0dc47`) and re-reviewed. Merged into `main` on 2026-11-12, still off by default. Waiting on: owner checks 228–232 with `wake.acoustic: true`.
-- **Decided by:** Owner (pending)
+- **Decided by:** Owner (2026-11-11: "start step 1")
 - **Date:** 2026-11-11
 - **From:** [`docs/spikes/wake-model-trial.md`](../spikes/wake-model-trial.md), round 3, and ADR-020 §6 decision 2 ("try a dedicated wake-word model, kept only if it beats speech-to-text matching on both").
 - **Touches:** `swift/wake.py` (matching), wake listening in `backend/__main__.py`, `session.py` (one call site), settings `wake.*`. Product rules in `CLAUDE.md` are kept as they are.

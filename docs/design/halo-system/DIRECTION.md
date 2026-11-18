@@ -1,6 +1,6 @@
 # Halo as a system: assessment and direction (2026-11-07)
 
-*Companions: [`SPEC.md`](SPEC.md) (the build reference), [`tokens.css`](tokens.css), [`halo.pen`](halo.pen) and [`boards/`](boards/), and the decision record [ADR-019](../../decisions/ADR-019-halo-design-system.md) (proposed).*
+*Companions: [`SPEC.md`](SPEC.md) (the build reference), [`tokens.css`](tokens.css), [`halo.pen`](halo.pen) and [`boards/`](boards/), and the decision record [ADR-019](../../decisions/ADR-019-halo-design-system.md) (accepted 2026-11-07).*
 
 The owner chose Halo as the design baseline and asked for a step back: is the design robust, adaptable and fluid enough for where Swift is going, not only for what it does today? This document answers from the code on `main` (`b78c5a4`), the ADRs and the product direction, the handoff pack, and outside research. It does not redesign anything yet. It proposes the structure the next designs should be drawn in.
 

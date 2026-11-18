@@ -2,7 +2,7 @@
 
 A voice overlay for Windows 11. Hold a hotkey, speak, and Swift sends the request to an existing agent (Claude Code, headless), showing progress and results in a transparent overlay that never takes keyboard focus.
 
-**Status:** MVP Milestone 1 (overlay shell driven by a mock executor). The plan is [`PLAN.md`](PLAN.md); the change of direction is recorded in [ADR-006](docs/decisions/ADR-006-voice-overlay-mvp.md). The original v2.0 spec, [`SWIFT_BUILD_PROMPT.md`](SWIFT_BUILD_PROMPT.md), is paused.
+**Status:** in daily use on the owner's PC; reliability work and the three workstreams are under way. Where things stand and what's next: [`docs/handoff/README.md`](docs/handoff/README.md). The map of all documentation: [`docs/README.md`](docs/README.md). Working rules for Claude Code sessions: [`CLAUDE.md`](CLAUDE.md).
 
 ## Requirements (Windows 11)
 
@@ -51,20 +51,20 @@ The overlay's console prints `[overlay] …` diagnostics (placement, hotkeys, cl
 
 ```powershell
 .venv\Scripts\python.exe -m swift.backend --config config.yaml --port 8765 --token devharness-token-0123456789abcdef --console
-npm --prefix overlay run dev
-# open http://localhost:1420/dev/harness.html?port=8765&token=devharness-token-0123456789abcdef
+npm --prefix overlay exec -- vite overlay --port 1431
+# open http://localhost:1431/dev/harness.html?port=8765&token=devharness-token-0123456789abcdef
 # in the browser console: __shim.emit("hotkey", {name: "debug", state: "down"})
 ```
 
 **Email workflow and "show me" (ADR-010), no microphone or Google account:** start the backend from the `backend-harness` entry in `.claude/launch.json` (or `--config overlay/dev/harness-config.yaml`: debug on, the fake email connector, logs in `%TEMP%\swift-harness`). The harness then shows buttons: **Email demo** runs find_contact → draft_email → send_email through Swift's real tools and gateway; **Say “show me”**, **“hide that”**, **“approve”** and **“stop”** send typed text as if spoken mid-run (`debug.say`). Nothing is ever sent: debug mode always uses the fake connector.
 
-It tests rendering and the protocol only. Window behavior (focus, click-through, capture exclusion, dragging) needs the real Tauri build. Add `&anchor=top-right` (or any other anchor) to the URL to check a placement, or call `__shim.emit("placement", {anchor: "top-left"})`.
+Port 1420 belongs to the running Swift (`npm run tauri dev`); the harness uses 1431 ([`docs/testing/strategy.md`](docs/testing/strategy.md) §3). It tests rendering and the protocol only. Window behavior (focus, click-through, capture exclusion, dragging) needs the real Tauri build. Add `&anchor=top-right` (or any other anchor) to the URL to check a placement, or call `__shim.emit("placement", {anchor: "top-left"})`.
 
 ### Moving the overlay
 
 Drag any card by its header: the overlay snaps to the nearest of six spots (top or bottom; left, centre or right) and remembers it. The tray menu's **Position** submenu offers the same choices. With **Move away from where I'm typing** on (the default), Swift opens at the opposite edge when its cards would cover the text caret of the app you're typing in. The choice is saved in `%LOCALAPPDATA%\Swift\overlay.json`. See [ADR-009](docs/decisions/ADR-009-overlay-ux.md).
 
-## Push-to-talk (Milestone 2)
+## Push-to-talk
 
 Hold **Ctrl+Shift+Space** (configurable: `hotkeys.push_to_talk`), speak, and release. The orb reacts to your voice. After release Swift transcribes on this PC and shows what it heard. Until Claude Code is wired in (Milestone 3), the default `executor.kind: "echo"` only displays the transcript; nothing leaves the machine.
 
@@ -148,7 +148,7 @@ uv run python spikes/routing/learn_demand.py          # review proposed examples
 uv run python spikes/routing/learn_demand.py --list   # show the ones you kept
 ```
 
-### Approving actions (Milestone 5)
+### Approving actions
 
 When Claude Code wants to use one of the `confirm_tools`, the overlay shows a card saying exactly what will happen. For example, "Create or overwrite notes.md: 3 lines into docs\notes.md", "Edit a.py: replace … with …", or "Run a command: git commit -m …".
 
@@ -273,7 +273,7 @@ Only one copy of Swift runs at a time. Launching it again while it's running sho
 - **Open logs folder:** opens `%LOCALAPPDATA%\Swift`, where the interaction log and the app log live.
 - **Quit Swift:** closes the overlay and the backend, and any Claude Code run with them.
 
-## Milestone 1: what to try
+## Debug scenarios (no microphone)
 
 With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays the next scenario: `happy` → `confirm` → `error` → `long` → `email`. Each one shows the listening orb with a fake mic level, then the transcript and the working steps, and ends on a result or error card.
 
@@ -283,6 +283,8 @@ With `debug: true` in `config.yaml`, press **Ctrl+Alt+F12**. Each press plays th
 - **Quit:** tray icon → *Quit Swift*.
 
 ## Tests
+
+Which test layers a change needs, and the commands to run from a worktree: [`docs/testing/strategy.md`](docs/testing/strategy.md).
 
 ```powershell
 uv run pytest                     # Python: protocol, executors and the approval bridge, session, server, settings, push-to-talk, log
@@ -313,15 +315,16 @@ Everything stays on this machine:
 overlay/             Tauri v2 shell (Rust in src-tauri/, TypeScript in src/)
 src/swift/           Python backend: ipc/, audio/, stt/, executors/, session.py, runlog.py, settings.py
 tests/unit/          Python unit tests
-spikes/              Phase 0 measurements (reference only)
-docs/decisions/      Architecture decision records
+eval/                Routing parity and speech evaluation sets
+spikes/              Measurements and probes, plus the owner-check tooling (spikes/owner_checks)
+docs/                Documentation; start at docs/README.md
 ```
 
 ## Wake phrase (hands-free)
 
 Set `wake.enabled: true` in `config.yaml` and say "hey Swift", "hello Swift" or "good afternoon Swift" (also "hi", "ok", "good morning/evening", and sound-alikes such as "hey swiff"). Say the request in the same breath ("hey Swift, what time is it") or wait for the listening card and say it after; it ends when you stop talking. The hotkey keeps working.
 
-There is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Speech the model was unsure of (`wake.min_p`) is ignored, except a wake phrase heard while nothing runs, which only needs `wake.phrase_min_p`: the model is often unsure of the name itself. Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`.
+By default there is no wake-word model: the open microphone is cut into short utterances, each is transcribed locally by the speech model Swift already uses, and anything that doesn't start with a greeting plus "Swift" is dropped unlogged (`src/swift/wake.py`). Speech the model was unsure of (`wake.min_p`) is ignored, except a wake phrase heard while nothing runs, which only needs `wake.phrase_min_p`: the model is often unsure of the name itself. Costs: Windows' mic-in-use indicator stays on while Swift runs, and the speech model runs on every short utterance in earshot. Add greetings with `wake.greetings`. A second way in, an acoustic wake detector checked by the speech model, is built behind `wake.acoustic` (off by default; ADR-021).
 
 With wake listening on, you don't need the hotkey or the wake phrase to answer Swift:
 - **During a run:** say "show me", "hide that" or "stop".

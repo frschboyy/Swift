@@ -22,9 +22,9 @@ once a report from that day on is recorded. A step with none of these is ticked 
 - [ ] The fixes from your checks of 2026-11-09 (ADR-020 keeps them once these pass). <!-- checks: 201-211 -->
 - [ ] The Deck: run these, then say whether to keep Step 1 (ADR-018 §4.1). <!-- checks: 168, 173, 179, 181 -->
 - [ ] Requests in your own words, to show where Swift is rigid. <!-- checks: 233-239 -->
-- [ ] Say whether to merge the branch with three fixes to follow-ups, calendar titles and workflow choice. <!-- branch: claude/harness-takeaways -->
-- [ ] Say whether to merge the audit's fixes to reading rules, "open this" and contacts (owner checks 222–227). <!-- branch: claude/audit-fixes-google-calendar -->
-- [ ] Say whether to merge the audit's recipient fixes ("Last, First" contacts, only the contact you picked). <!-- branch: claude/audit-fixes-recipients -->
+- [x] Say whether to merge the branch with three fixes to follow-ups, calendar titles and workflow choice. Merged (`8082af7`).
+- [x] The audit's fixes to reading rules, "open this" and contacts (owner checks 222–227): every fix is on `main` or replaced by a stricter one; branch deleted 2026-11-15 (handoff §6).
+- [x] The audit's recipient fixes ("Last, First" contacts, only the contact you picked): replaced by X-02's stricter fix; branch deleted 2026-11-15 (handoff §6).
 
 ## The three workstreams (from your run of 2026-11-13)
 

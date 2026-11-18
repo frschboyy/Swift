@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import types
+from pathlib import Path
 
-import pytest
 
 from swift.calls import CallWatch, mic_call
 from swift.ipc.protocol import Message
@@ -127,9 +127,9 @@ async def test_coming_back_from_away_mid_call_keeps_the_hold() -> None:
     assert held == [True, True]
 
 
-@pytest.mark.parametrize("n", [1])
-def test_example_config_documents_the_switch(n: int) -> None:
-    assert "hold_during_calls" in open("config.example.yaml", encoding="utf-8").read()
+def test_example_config_documents_the_switch() -> None:
+    root = Path(__file__).resolve().parents[2]
+    assert "hold_during_calls" in (root / "config.example.yaml").read_text(encoding="utf-8")
 
 
 # ---- review 7ab2b70 finding 1: a card that arrives during a call is held too ------------------------

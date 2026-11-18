@@ -294,7 +294,7 @@ Each has a recommendation and what changes in code if agreed. 1–3 settle check
     `PYTHONPATH=src` forms as the worktree way, and the owner sets `user.name`/`user.email` once in the repository's
     config. Code: none; `CLAUDE.md`.
 
-The proposed rewrite of `CLAUDE.md`'s rules is in [`claude-md-proposed.md`](claude-md-proposed.md). It assumes the
+The proposed rewrite of `CLAUDE.md`'s rules is in [`claude-md-proposed.md`](../archive/adopted-proposals/claude-md-proposed.md). It assumes the
 recommendations above; each line that depends on a decision names it.
 
 ## Appendix: the proof script

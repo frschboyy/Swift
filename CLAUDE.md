@@ -2,7 +2,7 @@
 
 Swift is a voice-first Windows assistant: a Python asyncio backend in `src/swift`, Claude Code through claude-agent-sdk, and a Tauri v2 overlay in `overlay/` (Rust in `src-tauri`, TypeScript in `src`). The owner is Francis.
 
-**Start with [`docs/handoff/README.md`](docs/handoff/README.md).** It has the current state, work in progress, the owner checks to run, the agreed order, and the open decisions.
+**Start with [`docs/handoff/README.md`](docs/handoff/README.md).** It has the current state, work in progress, the owner checks to run, the agreed order, and the open decisions. The map of every other document is [`docs/README.md`](docs/README.md).
 
 Owner's principle: **"Swift adapts to the user, not the user to Swift."**
 

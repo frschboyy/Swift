@@ -1,7 +1,7 @@
 # Proposed rewrite of `CLAUDE.md`'s rules (for the owner to decide)
 
 This replaces the **Rules** section of `CLAUDE.md` only, if the owner agrees. It assumes the recommendations in
-[`foundation-rules-review.md`](foundation-rules-review.md) §7; a line that depends on one names it as *(decision N)*.
+[`foundation-rules-review.md`](../../explorations/foundation-rules-review.md) §7; a line that depends on one names it as *(decision N)*.
 "Fixing things" stays as it is. "Commands" changes only where decision 14 says. `CLAUDE.md` itself isn't edited.
 
 ---

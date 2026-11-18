@@ -8,7 +8,7 @@
 
 ## 1. Why
 
-The owner asked for 3–4 visual directions on the pen.dev brief (`docs/design/pen-dev-handoff/`), then for a step back: is the design robust and adaptable enough for where Swift is going (watchers, recipes, memory, the Swift window, several workers), not only for today?
+The owner asked for 3–4 visual directions on the pen.dev brief (`docs/archive/design/pen-dev-handoff/`), then for a step back: is the design robust and adaptable enough for where Swift is going (watchers, recipes, memory, the Swift window, several workers), not only for today?
 
 Three directions were drawn on the eight brief states and nine system checks: Paper, Halo and Rail. The owner took the recommendation: **Halo**, with Rail's named state line folded in. The assessment (`DIRECTION.md` §5) found that the interaction model holds, but the card layer won't scale: every card assumes the owner just asked for something, and every capability has had its own card.
 

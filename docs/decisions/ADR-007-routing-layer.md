@@ -121,7 +121,7 @@ The owner asked whether a framework such as **Hermes Agent** (Nous Research, ope
 
 **Decided:** A now. Claude Code (C) stays the main destination, and its subagents cover "make an agent for this task" within a request.
 
-**Owner decision 5:** Hermes gets a viability spike later, not now (`docs/backlog.md`). The spike should check:
+**Owner decision 5:** Hermes gets a viability spike later, not now (`docs/archive/2026-10-mvp-plan/backlog.md`). The spike should check:
 - headless use on Windows
 - time to first step
 - whether its tool calls can be intercepted for the confirm card

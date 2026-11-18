@@ -6,13 +6,13 @@
 
 ## Context
 
-`SWIFT_BUILD_PROMPT.md` v2.0 describes a self-contained agent: a tkinter overlay, a local LLM through Ollama, a Swift-owned `ActionGateway` permission engine, Gmail/Calendar integrations, and cloud LLM use off by default. Phase 0 spikes were run against that spec.
+`docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md` v2.0 describes a self-contained agent: a tkinter overlay, a local LLM through Ollama, a Swift-owned `ActionGateway` permission engine, Gmail/Calendar integrations, and cloud LLM use off by default. Phase 0 spikes were run against that spec.
 
 The owner has replaced that direction for the MVP with a "mostly face, very little brain" design: Swift captures voice, transcribes locally, hands the request to an existing agent (Claude Code, headless), and shows progress and results in a transparent overlay.
 
 ## Decision
 
-1. `PLAN.md` (approved 2026-10-22) is the authority for the MVP. `SWIFT_BUILD_PROMPT.md` is **paused, not deleted**; it carries a banner saying so.
+1. `docs/archive/2026-10-mvp-plan/PLAN.md` (approved 2026-10-22) is the authority for the MVP. `docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md` is **paused, not deleted**; it carries a banner saying so.
 2. Overlay shell: Tauri v2 with a vanilla TypeScript frontend (replaces tkinter).
 3. Backend: Python, under `src/swift`, talking to the overlay over a token-protected WebSocket on 127.0.0.1. Tauri starts it as a child process in a kill-on-close Job Object (not a frozen sidecar).
 4. Execution goes to Claude Code. **This sends transcripts to a cloud service**, which reverses the v2.0 "cloud LLM off by default" rule for this executor. Transcription stays local.

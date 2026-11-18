@@ -1,6 +1,6 @@
 # Halo: system spec (N5)
 
-The build reference for the Halo design system. It covers the overlay and the future Swift window, so both are drawn from the same parts. The reasoning is in [`DIRECTION.md`](DIRECTION.md); the decision record is [ADR-019](../../decisions/ADR-019-halo-design-system.md) (proposed). Values are in [`tokens.css`](tokens.css). The source design is [`halo.pen`](halo.pen) (open in pen.dev); exports are in [`boards/`](boards/).
+The build reference for the Halo design system. It covers the overlay and the future Swift window, so both are drawn from the same parts. The reasoning is in [`DIRECTION.md`](DIRECTION.md); the decision record is [ADR-019](../../decisions/ADR-019-halo-design-system.md) (accepted 2026-11-07). Values are in [`tokens.css`](tokens.css). The source design is [`halo.pen`](halo.pen) (open in pen.dev); exports are in [`boards/`](boards/).
 
 | Board | What |
 |---|---|

@@ -6,7 +6,7 @@
 
 ## Context
 
-Per §19 of `SWIFT_BUILD_PROMPT.md`, the Phase 0 plan (scaffold + spikes S1–S4) was presented in §16 format together with open questions. The owner approved the plan. ADR-001…004 stay reserved for the spike outcomes listed in §17.
+Per §19 of `docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md`, the Phase 0 plan (scaffold + spikes S1–S4) was presented in §16 format together with open questions. The owner approved the plan. ADR-001…004 stay reserved for the spike outcomes listed in §17. *(2026-11-18: they were never written. ADR-006 replaced the plan the spikes served; the one spike report kept is `spikes/google/REPORT.md` (S4).)*
 
 ## Decisions
 

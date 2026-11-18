@@ -2451,7 +2451,7 @@ The report checks: nothing to judge from the log; tell us what you saw in each.
 
 ### What only your PC can show (end-to-end pass on `main`, 2026-11-14)
 
-About 20 minutes. The QA pass of 2026-11-14 (`docs/handoff/notes-2026-11-14/qa-e2e-proof.md`) drove these flows in the
+About 20 minutes. The QA pass of 2026-11-14 (`docs/archive/2026-11-14-sessions/notes/qa-e2e-proof.md`) drove these flows in the
 dev harness, with fakes. The harness has no Chrome, no Task Manager, no microphone and no pane windows, and runs at 100%.
 These checks are the same flows on your PC. Unless a step says otherwise, **reject** every card that would send or
 change something.

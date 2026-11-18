@@ -1,4 +1,4 @@
-> **Paused (2026-10-22).** The MVP now follows [`PLAN.md`](PLAN.md): a voice overlay that sends requests to Claude Code. See [ADR-006](docs/decisions/ADR-006-voice-overlay-mvp.md). This document is kept for reference and is not the current authority.
+> **Paused (2026-10-22).** The MVP now follows [`docs/archive/2026-10-mvp-plan/PLAN.md`](PLAN.md): a voice overlay that sends requests to Claude Code. See [ADR-006](../../decisions/ADR-006-voice-overlay-mvp.md). This document is kept for reference and is not the current authority.
 
 # Swift — Build Specification (v2.0)
 
@@ -27,7 +27,7 @@ This document is the authoritative specification for building Swift. Re-read it 
    - No audio, transcript, or content leaves the machine unless the owner has explicitly enabled it for that data class (§11).
    - Cloud LLM use is **off** by default.
 8. **Target:** Windows 11, Python **3.12** (64-bit), 24 GB RAM, 8-core CPU, no dedicated GPU. Design so that weaker or stronger hardware is handled by configuration (§7.4), not by code changes.
-9. **No scope creep.** Do not add features beyond the current phase. Record ideas in `docs/backlog.md`.
+9. **No scope creep.** Do not add features beyond the current phase. Record ideas in `docs/archive/2026-10-mvp-plan/backlog.md`.
 
 ---
 

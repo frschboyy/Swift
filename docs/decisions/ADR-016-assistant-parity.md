@@ -1,6 +1,6 @@
 # ADR-016: Closing the gap with a built-in assistant (proposal)
 
-- **Status:** Proposed; **Phases A, B and C are built** (A1 §13, A2 §14, B §15, C §16; approved 2026-10-28). The rest needs the owner's go-ahead per phase and the decisions in §11.
+- **Status:** Accepted for Phases A to C, proposed beyond them; **Phases A, B and C are built** (A1 §13, A2 §14, B §15, C §16; approved 2026-10-28). The rest needs the owner's go-ahead per phase and the decisions in §11.
 - **Date:** 2026-10-27
 - **Builds on:** ADR-007 (lanes), ADR-010 (gateway, artifacts), ADR-011 (workflows, connectors), ADR-012 (desktop), ADR-013 (attention), ADR-014 (presence)
 

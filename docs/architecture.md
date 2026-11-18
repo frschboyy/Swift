@@ -1,37 +1,23 @@
 # Architecture
 
-This document summarises §4 of the spec and the decisions recorded since. The spec remains authoritative.
+How Swift is put together today. **Rewritten 2026-11-18:** the earlier first half described the Phase 0 plan
+(a Tk overlay, pystray, Ollama, Piper workers, a named mutex, availability states); none of that was built, and that
+text is in `docs/archive/2026-10-mvp-plan/SWIFT_BUILD_PROMPT.md` §4. Who owns each responsibility, module by module,
+is [`architecture/ownership.md`](architecture/ownership.md); a request's full path as audited in October is
+[`audit/architecture-as-built.md`](audit/architecture-as-built.md).
 
-## Process model
+## Processes
 
-- **One Swift process** (`pythonw -m swift`). A named mutex `Local\Swift-<user SID>` enforces a single instance: a second launch logs a message and exits.
-- **Child processes** (project tasks, IDE launch helpers) run inside a Job Object with kill-on-close.
-  - Exception: user-facing apps launched for the user (IDE, Notepad) are deliberately **outside** the job, so they outlive Swift.
-- **Ollama** is an external local service. Swift refuses any LLM endpoint that is not loopback while cloud mode is off.
-
-## Threads
-
-| Thread | Owns | Talks to the core via |
+| Process | What it is | Started by |
 |---|---|---|
-| Main | Tk overlay mainloop only. No business logic | Reads `StatusEvent`s from a `queue.Queue`, polled with `root.after()` |
-| Core | One asyncio loop: SessionManager, Executor, ActionGateway, integrations, scheduler, storage. **All state mutation happens here** | n/a |
-| PortAudio callback | Copies samples into the RingBuffer and counts overflows. Never blocks or logs | RingBuffer (lock-free single writer) |
-| Wake | Reads 1280-sample frames and scores them | `loop.call_soon_threadsafe(WakeDetected)` |
-| Tray (pystray) | Icon and menu | `UserCommand` into the core |
-| Platform (pywin32) | Hidden message window: power, lock/unlock, hotkeys | `PlatformEvent` into the core |
-| Worker pool (2–3) | STT, Piper synthesis, text extraction | Futures. Each job takes a cancellation token checked between chunks |
+| Overlay | Tauri v2 (`overlay/src-tauri`, Rust) with a TypeScript UI (`overlay/src`). One main window draws the card in front and the requests behind it (the Deck, ADR-018), plus pane windows for the stack and the reader, and the text box. Click-through outside cards; never takes focus. One copy at a time (`tauri_plugin_single_instance`) | The owner (`npm run tauri dev`) |
+| Backend | `python -m swift.backend` (`backend/__main__.py`): one asyncio loop holding the session, executors, gateway, scheduler, and the IPC server on a loopback WebSocket with a per-launch token | The overlay (`backend.rs`), inside a kill-on-close Job Object |
+| Claude Code CLIs | One `claude` process per run, plus a warm spare, through claude-agent-sdk | The backend (`executors/claude_code.py`) |
+| Speech in and out | Local speech-to-text (Parakeet, `stt/`), wake listening (`wake.py`, `wake_acoustic.py`), Windows voices through SAPI (`speech.py`) on their own threads | The backend |
 
-Rules:
-- Messages into the core go only through `call_soon_threadsafe` or `asyncio.Queue`.
-- Messages out of the core go only as immutable `StatusEvent` objects.
-
-## State
-
-There are two independent dimensions (§5):
-- **Availability:** `ACTIVE`, `MUTED`, `SUSPENDED_LOCKED`, `SUSPENDED_SLEEP`, `DND`, `MIC_UNAVAILABLE`.
-- **Interaction:** `STANDBY` → … → `STANDBY`, validated against an explicit transition table.
-
-Wake detection runs, and actions execute, only while availability is `ACTIVE`.
+Rules that hold across them: all state changes happen on the backend's loop; the overlay draws what the backend
+sends (`ipc/protocol.py`, `overlay/src/protocol.ts`) and owns no request state of its own; user-facing apps Swift
+opens are outside the Job Object, so they outlive it.
 
 ## Trust boundary
 

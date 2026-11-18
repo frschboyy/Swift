@@ -16,11 +16,11 @@ weaken.
 | Document | Holds | Status |
 |---|---|---|
 | `CLAUDE.md` | the principle, the hard limits, the product rules and the approval table (all kept word for word), how to work, where to look | proposed in §3 |
-| [`docs/product/action-authority.md`](../product/action-authority.md) | the full approval model: inputs, levels, rules across levels, where code enforces each, what isn't built | drafted |
-| [`docs/engineering/reliability.md`](../engineering/reliability.md) | specified vs implemented vs verified, how to fix, scope and ownership, the findings register | drafted |
-| [`docs/testing/strategy.md`](../testing/strategy.md) | the layers (unit, integration, seam, overlay and Rust, evaluation gates, owner acceptance, structure), which layers each change needs, the commands, owner checks | drafted |
-| [`docs/security/privacy.md`](../security/privacy.md) | what stays, what's sent, retention, deletion, tokens, scopes, reports | drafted (part 2) |
-| [`docs/architecture/ownership.md`](../architecture/ownership.md) | the one owner of each responsibility, and the second owners found | drafted (part 1) |
+| [`docs/product/action-authority.md`](../../product/action-authority.md) | the full approval model: inputs, levels, rules across levels, where code enforces each, what isn't built | drafted |
+| [`docs/engineering/reliability.md`](../../engineering/reliability.md) | specified vs implemented vs verified, how to fix, scope and ownership, the findings register | drafted |
+| [`docs/testing/strategy.md`](../../testing/strategy.md) | the layers (unit, integration, seam, overlay and Rust, evaluation gates, owner acceptance, structure), which layers each change needs, the commands, owner checks | drafted |
+| [`docs/security/privacy.md`](../../security/privacy.md) | what stays, what's sent, retention, deletion, tokens, scopes, reports | drafted (part 2) |
+| [`docs/architecture/ownership.md`](../../architecture/ownership.md) | the one owner of each responsibility, and the second owners found | drafted (part 1) |
 
 **What stays in `CLAUDE.md` and why:** anything whose breaking is a critical bug stays word for word, because
 `CLAUDE.md` is the one file every session is sure to load. Only explanation, procedure and fast-changing lists move.

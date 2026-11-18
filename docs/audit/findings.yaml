@@ -1890,7 +1890,7 @@
 - id: X-20
   title: A shell command could read Swift's own data and the other never-read places on an approval card (owner
     check 213, 2026-11-13).
-  source: owner's run of 2026-11-13, docs/handoff/README.md §2
+  source: owner's run of 2026-11-13, docs/archive/2026-11-13-owner-runs.md
   module: src/swift/executors/read_scope.py, src/swift/executors/claude_code.py
   area: privacy
   severity: critical

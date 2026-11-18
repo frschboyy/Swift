@@ -2,11 +2,11 @@
 
 The task for the session that builds Halo. Read this whole brief first, then, in order:
 
-1. [`docs/design/halo-system/SPEC.md`](../design/halo-system/SPEC.md): the build reference. Every measurement, colour and rule is there.
-2. [ADR-019](../decisions/ADR-019-halo-design-system.md): what the owner decided, what's proposal only, and the order.
-3. [`docs/design/halo-system/tokens.css`](../design/halo-system/tokens.css): the values, on the existing token names.
-4. [`boards/`](../design/halo-system/boards/): what it should look like (`3-baseline.png` for today's states, `2-system.png` for the anatomy and states, `1-components.png` for the parts). The source is `halo.pen` (pen.dev).
-5. [`DIRECTION.md`](../design/halo-system/DIRECTION.md): why, if a choice in the spec seems odd.
+1. [`docs/design/halo-system/SPEC.md`](../../design/halo-system/SPEC.md): the build reference. Every measurement, colour and rule is there.
+2. [ADR-019](../../decisions/ADR-019-halo-design-system.md): what the owner decided, what's proposal only, and the order.
+3. [`docs/design/halo-system/tokens.css`](../../design/halo-system/tokens.css): the values, on the existing token names.
+4. [`boards/`](../../design/halo-system/boards): what it should look like (`3-baseline.png` for today's states, `2-system.png` for the anatomy and states, `1-components.png` for the parts). The source is `halo.pen` (pen.dev).
+5. [`DIRECTION.md`](../../design/halo-system/DIRECTION.md): why, if a choice in the spec seems odd.
 
 The working rules are `CLAUDE.md`: a worktree, one finding per commit, a seam test for any fix to what's on screen, the product rules (now including "deleting a file always asks"), never push, merge only when the owner says so.
 
@@ -25,7 +25,7 @@ ADR-019 §5 and handoff §4: Halo doesn't go ahead of the reliability work, the 
 - **What's out:** every item marked "proposal" in the spec or ADR. That includes the plan card, run permission, standing rules, the attention policy, "while you were away", watcher cards, "Working in your app", partial-results failure, hints, and the waiting badge and orbit ring (they need state the overlay doesn't have yet). No protocol or backend change.
 
 **Done when:**
-- The harness shows every state above in Halo, dark and light, at all six anchors, and the default look is pixel-identical to before (compare the pen-dev handoff screenshots, `docs/design/pen-dev-handoff/screens/`).
+- The harness shows every state above in Halo, dark and light, at all six anchors, and the default look is pixel-identical to before (compare the pen-dev handoff screenshots, `docs/archive/design/pen-dev-handoff/screens/`).
 - A debug build on the owner's PC can switch to Halo.
 - Owner checks for `SPEC.md` §15's six items are numbered in `docs/testing/owner-checks.md`, with report lines in `spikes/owner_checks/report.py`.
 - `tsc --noEmit`, `npm test` and the Python suite pass.

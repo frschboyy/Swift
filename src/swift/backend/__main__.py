@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import dataclasses
+import faulthandler
 import functools
 import os
 import shutil
@@ -605,6 +606,20 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         logger.info("backend stopped")
 
 
+_crash_file = None  # faulthandler needs the file kept open for the life of the process
+
+
+def _trace_native_crashes(logs_dir: Path) -> None:
+    """A native crash (access violation) kills Python before it can log; faulthandler writes the
+    Python stack to crash.log instead. Frames are code locations only, no content."""
+    global _crash_file
+    try:
+        _crash_file = open(logs_dir / "crash.log", "a", buffering=1, encoding="utf-8")  # noqa: SIM115
+        faulthandler.enable(file=_crash_file, all_threads=True)
+    except OSError:
+        logger.warning("crash trace unavailable")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
     try:
@@ -615,6 +630,7 @@ def main(argv: list[str] | None = None) -> int:
 
     paths = dataclasses.replace(app_paths(), logs_dir=Path(settings.logging.app_log_dir))
     setup_logging(paths, settings.logging.level, console=args.console)
+    _trace_native_crashes(paths.logs_dir)
 
     token = args.token or os.environ.pop("SWIFT_SESSION_TOKEN", None)
     if not token:

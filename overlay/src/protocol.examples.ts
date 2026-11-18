@@ -89,6 +89,7 @@ export const TO_BACKEND = [
   {"type": "speech.stop", "data": {}},
   {"type": "listen", "data": {"on": false}},
   {"type": "asking", "data": {"on": false}},
+  {"type": "speak", "data": {"replies": "never"}},
   {"type": "tree.open", "data": {"path": "C:\\Users\\Francis\\Pictures\\2026\\beach.jpg", "how": "open"}},
   {"type": "recordings", "data": {"action": "improve"}},
   {"type": "recordings", "data": {"action": "fix_open", "clip": "a1b2"}},

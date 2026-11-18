@@ -60,3 +60,4 @@ async def test_nothing_is_opened_before_swift_has_verified_a_folder(tmp_path: Pa
     (tmp_path / "a.txt").write_text("x")
     await frames.HANDLERS["tree.open"](None, {"path": str(tmp_path / "a.txt"), "how": "open"})
     assert opened == []
+

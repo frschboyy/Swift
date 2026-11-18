@@ -256,7 +256,7 @@ function drawTray(v: TrayView): void {
       v.display ? el("details", { class: "tray-block tray-display", open: displayOpen, ontoggle: (ev: Event) => { displayOpen = (ev.currentTarget as HTMLDetailsElement).open; } },
         el("summary", { class: "tray-row" }, "How Swift shows things"),
         ...(Object.keys(CHOICES) as (keyof Display)[]).map((k) => el("div", { class: "tray-seg-row" },
-          el("span", {}, { reading: "Reading time", text: "Text size", motion: "Motion" }[k]),
+          el("span", {}, { reading: "Reading time", text: "Text size", motion: "Motion", speak: "Speak answers", watch: "Watch opens" }[k]),
           el("div", { class: "seg", role: "radiogroup", "aria-label": k },
             ...CHOICES[k].map((c) => el("button", {
               role: "radio", "aria-checked": String(v.display![k] === c.value), onclick: tray("display", { text: `${k}:${c.value}` }),

@@ -709,8 +709,31 @@ function runStart(runId: string): number {
   return runId === pres.runId && runStarted ? runStarted : pres.rows.find((r) => r.runId === runId)?.startedMs ?? 0;
 }
 
+// A8, "Watch opens": requests whose watch was opened or closed once; it never opens by itself again for them.
+const watchSeen = new Set<string>();
+// A row still working (not waiting its turn, not on an OK card, not ended).
+const WORKING_ROW = (state: string): boolean => !["queued", "confirm", "listening", "result", "error", "done"].includes(state);
+
+/** A8: each second, a running request's watch opens by itself as the owner chose ("When it writes", "Long
+ * requests"); "When I ask" (the default) never does. */
+function autoWatch(now: number): void {
+  if (display.watch === "ask") return;
+  const running = [
+    ...(pres.runId && stageNow() === "working" ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
+    ...pres.rows.filter((r) => WORKING_ROW(r.state)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
+  ];
+  for (const r of running) {
+    if (r.startedMs && Dsp.watchOpens(display, !!L.find(live, r.runId)?.written, now - r.startedMs, watchSeen.has(r.runId))) openLive(r.runId, r.title, r.words);
+  }
+}
+
+/** A8, "Speak answers": the owner's choice on this PC, or config.yaml's ("default"). The backend keeps config's
+ * own "never" (speech off) whatever this says. */
+const sendSpeak = (): void => void client.send({ type: "speak", data: { replies: display.speak } });
+
 /** Watch: the live view of a request, beside the card. The backend hears of it for the log only. */
 function openLive(runId: string, title: string, words: string): void {
+  watchSeen.add(runId);
   setLive(L.since(L.watch(live, runId, title, words, Date.now()), runId, runStart(runId)));
   client.send({ type: "watch", data: { run_id: runId, open: true } });
 }
@@ -719,6 +742,7 @@ function liveAction(action: string, runId: string): void {
   const r = L.find(live, runId);
   switch (action) {
     case "live-close":
+      watchSeen.add(runId);
       setLive(L.close(live, runId));
       client.send({ type: "watch", data: { run_id: runId, open: false } });
       break;
@@ -841,6 +865,7 @@ async function trayAction(op: string, value?: string): Promise<void> {
       display = Dsp.choose(display, value ?? "");
       Dsp.save(display, localStorage);
       applyDisplay();
+      if (value?.startsWith("speak:")) sendSpeak();
       if (tray) tray = { ...tray, display };
       break;
     case "settings":
@@ -2150,6 +2175,7 @@ window.setInterval(() => {
 
 window.setInterval(() => {
   moveFailed(Date.now());
+  autoWatch(Date.now());
   const r = P.tick(pres, Date.now());
   pres = r.p;
   if (r.hide) {
@@ -2300,6 +2326,7 @@ function onMessage(msg: Inbound): void {
       debugEnabled = msg.data.debug;
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
       typeSpec = msg.data.hotkeys.type ?? "";
+      sendSpeak();  // A8: this PC's choice, again for each backend
       void registerHotkeys(msg.data.hotkeys);
       if (msg.data.explore) explore = msg.data.explore;
       drawCapsule();

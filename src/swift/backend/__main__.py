@@ -265,6 +265,8 @@ def _make_speaker(settings: Settings, session: Session, loop: asyncio.AbstractEv
 
     cfg = settings.speech
     session.speech_replies = cfg.replies if cfg.enabled else "never"
+    # A8: what the tray's "Speak answers: Default" puts back; None when there's no voice to speak with.
+    session.speech_config = cfg.replies if cfg.enabled and (cfg.replies != "never" or cfg.greeting) else None
     session.read_confirms = cfg.read_confirms
     if not cfg.enabled or (cfg.replies == "never" and not cfg.greeting):
         return

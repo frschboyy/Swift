@@ -3079,6 +3079,16 @@ landing, "I haven't found anything about “the moon landing” since Swift star
 You should see: (2) and (3) the speaking pill widens and shows the words; with neither, no captions; (4) no captions
 while muted, because you said off.
 
+<a id="check-halo-b8-gaps-6b8791-8"></a>**Check halo-b8-gaps-6b8791-8. "Speak answers" and "Watch opens" in the tray (A8)**
+1. Tray menu → How Swift shows things → Speak answers: **Never**. Say "Hey Swift, what time is it?". Then **Default**.
+2. Watch opens: **When it writes**. Say "Hey Swift, write a short note about tea in Notepad" (Notepad open).
+3. Watch opens: **Long requests**. Ask for some research that takes over half a minute.
+4. Restart Swift and look at both rows.
+
+You should see: (1) the answer on the card and no voice; Default speaks again as before; (2) the watch opens by itself
+as soon as it starts writing; (3) the watch opens by itself after about 30 seconds, once; closing it keeps it closed;
+(4) both choices kept. With "When I ask" (the default) the watch opens only when you say "show me" or click Watch.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

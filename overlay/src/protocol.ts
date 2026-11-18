@@ -255,6 +255,8 @@ export type Outbound =
   | { type: "listen"; data: { on: boolean } }
   // The tray's "Stop asking about everything" (modes study §3): only ever false.
   | { type: "asking"; data: { on: boolean } }
+  // A8, "Speak answers" in the tray: "default" is config.yaml's speech.replies.
+  | { type: "speak"; data: { replies: "default" | "always" | "auto" | "never" } }
   // B13: Open / a double-click, or Show in folder, on a tree row Swift found; the backend checks the path again.
   | { type: "tree.open"; data: { path: string; how: "open" | "reveal" } }
   | { type: "recordings"; data: { action: "clear" | "improve" } }

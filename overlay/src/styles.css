@@ -800,6 +800,9 @@ code {
 /* B1: a command card's lead (the agent's words, under its bar), the command's first line, and the rest folded. */
 .confirm-purpose { margin: 6px 0 0; font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
 .confirm-purpose-by { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+/* ADR-019 §8.1, Block · Worker's content: a 3 px --worker-bar on the left and a --faint caption; grey, never the accent. */
+.worker-content { padding-left: 12px; border-left: 3px solid var(--worker-bar); }
+.worker-content .confirm-purpose-by { color: var(--faint); font-weight: 400; margin-bottom: 2px; }
 .command-head { margin-top: 8px; }
 .command-head > p { margin: 2px 0 0; font: 13px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .command-fold { margin-top: 6px; }

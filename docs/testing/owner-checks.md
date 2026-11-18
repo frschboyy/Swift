@@ -1685,7 +1685,7 @@ at the bottom right does it go to the bottom left, so it isn't on the card.
 1. Say "Hey Swift, run the tests in my project". Click **Reject**.
 
 You should see: the card's title says **"Run a command on your PC"**. The command's first line is always in view; any
-further lines are under **Show the rest of the command**. When the agent didn't say what it does, the whole command shows
+further lines are under **N more lines**. When the agent didn't say what it does, the whole command shows
 open under the title (check 263).
 
 <a id="check-200"></a>**Check 200**
@@ -2225,9 +2225,9 @@ B1. Reject every card.
 1. Say "Hey Swift, make a folder called B1 test in my Documents, using the terminal".
 2. When the card **Run a command on your PC** comes, read it before anything else.
 
-You should see: under the title, with a bar at its left edge, **What it says this does** and one plain sentence (what the
+You should see: under the title, with a bar at its left edge, **The worker's words** and one plain sentence (what the
 command does, why, and what will change). Under it, always in view, **What will run** with the command's first line. A
-command of several lines says **What will run, first line**, and under it **Show the rest of the command (N more lines)**,
+command of several lines says **What will run, first line**, and under it **N more lines**,
 closed: click it, the rest opens, and "More below" shows if it doesn't fit. A one-line command has nothing folded. Click
 **Reject**.
 
@@ -2293,7 +2293,7 @@ Swift doesn't recognise still asks on its own card.
 2. When the card **Run 2 commands on your PC** (or 3) comes, read it.
 3. Say "Swift, approve".
 
-You should see: under the title, with a bar at its left edge, **What it says this does** and one plain sentence for
+You should see: under the title, with a bar at its left edge, **The worker's words** and one plain sentence for
 the whole step. Under it, **The commands this approves (what will actually run)**, every command in view, one a line, none folded.
 After step 3, no more cards for those commands; the answer says the folder is a repository. (If the agent ran a
 command one at a time instead, each asks on its own card as before: tell us.)

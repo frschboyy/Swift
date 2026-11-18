@@ -1337,7 +1337,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
   const restBox = el("p", { class: "facts-text facts-text--mono" }, rest);
   const fold = rest
     ? el("details", { class: "command-fold", open: commandShown },
-      el("summary", {}, `Show the rest of the command (${more} more line${more === 1 ? "" : "s"})`),
+      el("summary", {}, `${more} more line${more === 1 ? "" : "s"}`),
       el("div", { class: "facts" }, restBox, moreBelow(restBox)))
     : null;
   fold?.addEventListener("toggle", () => {
@@ -1348,7 +1348,8 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
   return el(
     "div",
     { class: "confirm-lead" },
-    el("p", { class: "confirm-purpose facts-line--agent" }, el("span", { class: "confirm-purpose-by" }, "What it says this does"), data.purpose ?? ""),
+    // ADR-019 §8.1, Block · Worker's content: the worker's sentence, marked as the worker's (never Swift's facts).
+    el("p", { class: "confirm-purpose facts-line--agent worker-content" }, el("span", { class: "confirm-purpose-by" }, "The worker's words"), data.purpose ?? ""),
     commands
       ? el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, "The commands this approves (what will actually run)"), el("div", { class: "facts" }, box, moreBelow(box)))
       : el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, rest ? "What will run, first line" : "What will run"), el("p", {}, head)),
@@ -1391,6 +1392,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
   drawCard({
     state: "ok", look: `confirm${pres.away ? " card--away" : ""}`, role: "alert",
     lead: el("div", { class: "band", role: "heading", "aria-level": "2" }, icon("shield"), "Needs your OK", el("span", { class: "band-time", "aria-live": "off" })),
+    // ADR-019 §8.1: every confirm card has an origin line, the owner's words (no close: a card never answers itself).
+    origin: request ? headRow(null) : null,
     thread: threadLines(),
     body: [
       el("p", { class: "confirm-title" }, data.title),
@@ -1593,10 +1596,11 @@ function renderQuestion(): void {
     dismiss();
   };
   drawCard({ state: speaking ? "asking" : "waiting", look: `result card--question${speaking ? "" : " card--waiting"}`, ...Card.questionParts({
-    asking: speaking, about: q.words ? `about “${clipLine(q.words, 48)}”` : "", title: A.plainText(q.data.summary),
+    // ADR-019 §8.1: the owner's words are the origin line, not an "about …" beside the tag.
+    asking: speaking, about: "", title: A.plainText(q.data.summary),
     pill: speaking ? "Speaking… I'll listen when I'm done" : "Listening for your answer", secs: Math.ceil(left / 1000), barMs: left,
     foot: [typeHint(true), el("button", { class: "btn btn--ghost", onclick: leave("skip") }, "Answer later"), el("button", { class: "btn btn--ghost", onclick: leave("end") }, "Cancel request")],
-  }) });
+  }), origin: q.words && request ? headRow(null) : null });
 }
 
 /** "Or type Ctrl+…" at a question's footer: it can be answered in the text box too. */
@@ -1615,12 +1619,12 @@ function renderAsk(a: Q.Ask): void {
   };
   drawCard({ state: asking ? "asking" : "waiting", look: `working card--question${asking ? "" : " card--waiting"}`, ...Card.questionParts({
     // Swift's own question says what it's about; ``request`` may be another request's words.
-    asking, about: request && !own ? `about “${clipLine(request, 48)}”` : "", title: a.question, note: a.note,
+    asking, about: "", title: a.question, note: a.note,
     quote: questionQuote(a.quote),
     pill: Q.askPill(a, speaking), live: true, secs: left || null, barMs: left * 1000,
     options: Q.askButtons(a).map((o) => el("button", { class: "btn", "data-key": `${a.id}:${o}`, onclick: (ev: Event) => send(ev, { type: "ask.reply", data: { ask_id: a.id, text: o } }) }, o)),
     foot: [typeHint(!own), own ? null : el("button", { class: "btn btn--ghost", onclick: (ev: Event) => send(ev, { type: "run.stop", data: { run_id: a.runId, from: "question" } }) }, "Stop request")],
-  }) });
+  }), origin: request && !own ? headRow(null) : null });
 }
 
 /** What a question's yes would write, all of it, under the worker's bar; a long one scrolls (decision 6). */

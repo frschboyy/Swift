@@ -1,7 +1,7 @@
-# Halo B8: progress (branch `claude/halo-b8-build-4fbdf7`, stopped 2026-11-18)
+# Halo B8: progress (branch `claude/halo-b8-build-4fbdf7`)
 
-Stopped early at the orchestrator's request (the owner's credits were running out). Every commit below passed
-its tests when it was made. Nothing is half-done, and there is no WIP commit. Not pushed, not merged.
+Stopped once for the owner's credits (at 6b4a5a1) and resumed on the owner's "Yes, resume". Every commit below
+passed its tests when it was made. Nothing is half-done, and there is no WIP commit. Not pushed, not merged.
 
 `halo.pen` check: board 9 (every surface, with the stack pile → list redraw and §6 modes) and A12/A13 (board 8)
 are in the saved file.
@@ -22,22 +22,36 @@ are in the saved file.
 | §1.2 text box, §1.3 tray | 1b8bd21 | restyle |
 | §1.4 notices and problems (State · Notice); D10 "ready" after update/crash only | 982b154 | restyle + D10 (`ready.ts`; `core:app:allow-version` added to the capability) |
 | §1.5 the reply window on the orb, §1.6 "say approve again" | 7ef03b9 | restyle |
+| Owner checks halo-b8-build-4fbdf7-1..5 (F8, F1-F4, F6-F7, board 9, D10) | 6bd887e | checks |
+| Harness: design states draw without a backend; Due states carry origin | b85f980 | harness fix |
+| B3: verified in grayscale (no code change; see below) | (this file) | verify |
+| §8.2 relative times ("just now", "N min ago") | cb1074d | built |
+| §8.3 a request's Failed card never fades | c45efec | partial (no "Try again from step N", no move to the stack) |
+| §8.6 a compact confirm that still doesn't fit folds the deck | 5038d71 | built |
+| §8.5 at right anchors the pill grows leftwards | efb9659 | built |
+| §8.4 a problem with a run nobody asked for is Failed with Swift's origin | 5bac599 | overlay side (nothing sends it yet) |
+| §8.1 confirm and question origin line; Block · Worker's content | 6ef45ea | partial (no "Runs in"/"Removes" rows: not on the frame) |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
 
-## Where it stopped
+## B3 (grayscale)
 
-Board 9 §1 ("every surface", part of Step B) is done: §1.1–§1.6. Nothing after it has been started.
+Captured in headless Edge with `grayscale(1)`: OK (light band, shield, "Needs your OK"), Waiting (tag pill, 5 px
+ring), Working (spinner, "Working", m:ss, steps), Stopped (one-line row, square mark), Failed ("!" disc, "Failed",
+full card), Due (bell, "Due · now", 1 px accent border and 5 px ring: D8's default). Each pair the spec names differs
+in at least two ways that survive grayscale (band or tag or row, mark shape, the word). No change needed.
+
+## Where it is now
+
+Board 9 §1 and the B3 + ADR-019 §8 items are done (partials as marked). Next: B5.
 
 ## Left, in the README's order
 
-1. **F8** (the text box didn't get the keyboard): **not done.** It still needs its owner check in
-   `docs/testing/owner-checks.md` (`plan.py --next-id` gives `halo-b8-build-4fbdf7-1`) and a `report.py` line. No
-   `AllowSetForegroundWindow` change unless it recurs.
+1. **F8:** owner check halo-b8-build-4fbdf7-1 written (6bd887e). No `AllowSetForegroundWindow` change unless it fails.
 2. **Step B, what's left:** old `styles.css` rules that Halo's later rules override were not removed one by one
    (ADR-019 §10 says so). Section labels in the stack list (RUNNING, EARLIER TODAY) come with B14 and A1.
-3. **B-items:** B3 → ADR-019 §8 open items → B5 → B7 → B14 → B13 → B4 shapes → B6/B9–B12. None started.
+3. **B-items:** B3 and §8 done; next B5 → B7 → B14 → B13 → B4 shapes → B6/B9–B12.
 4. **Modes study** (`01-build-spec.md` §4): not started.
 5. **A-ideas:** the nine "Do next" (A5, A6, A9, A4, A1, A2, A7, A3, A8), then A10–A13 behind a setting that is off by
    default, each with an owner check. Not started.
@@ -57,7 +71,7 @@ Board 9 §1 ("every surface", part of Step B) is done: §1.1–§1.6. Nothing af
 - Python: 2378 passed, 1 skipped, 31 xfailed (full suite, after F7; nothing in `src/` changed since).
 - Overlay: `tsc --noEmit` clean; `npm test` 158 tests, 158 pass, 0 fail (plus 2 known "todo" findings).
 - Vite production build: OK (after Step B).
-- Rust (`cargo test`): **not run** at the stop. The capability JSON changed in 982b154, so run it before merging.
+- Rust (`cargo test`): 41 passed (after the resume, with the capability change of 982b154).
 - `grep -rE "data-look|VITE_SWIFT_LOOK|look=halo" overlay` (excluding `node_modules`): clean except the git-ignored,
   stale `overlay/dist` (mermaid's own `data-look`, from 2026-11-15).
 

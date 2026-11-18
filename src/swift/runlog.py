@@ -50,7 +50,7 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
     "duration_ms", "ended", "endpoint_waits", "error", "executor", "first_audio_ms", "fix",
     "follows_local", "fragment", "heard_back_ms", "improve", "intents", "interaction_ms", "live", "midrun",
     "models", "moved_on", "noise_db", "offer", "offered", "offered_resume", "override", "parked", "paused",
-    "bare_busy", "confirmed_unclear", "duplicate", "greeted", "named",
+    "bare_busy", "confirmed_unclear", "duplicate", "greeted", "named", "resume_from",
     "peak_db", "preroll_ms", "provider", "queued", "queued_behind", "reason", "redirected", "redirects",
     "resumed", "retries", "retry_of", "route", "run_ms", "scenario", "since_back_ms", "skipped",
     "source", "spoken_chars", "start_model", "status", "step_grant", "stopped_by", "stt_confidence", "stt_ms",
@@ -60,7 +60,8 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
 # ``continues``, which is taken off the record before it finishes, and ``transcript_raw``, which only
 # older records have (word fixes, removed 2026-11-17).
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
-    "addressed_as", "answers", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "id", "steps", "target",
+    # fallback: B4's line on a refused shape (Swift's words, kept locally like the card's text).
+    "addressed_as", "answers", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "fallback", "id", "steps", "target",
     "transcript", "transcript_heard", "transcript_raw", "ts", "unclear",
 })
 _ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request

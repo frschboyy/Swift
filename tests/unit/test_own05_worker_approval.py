@@ -119,3 +119,14 @@ async def test_a_change_of_mind_drops_the_step_s_bindings(tmp_path: Any) -> None
     _set_grant(run, ex.gateway, Grant(STEP, ("git init",)))
     await ex.redirect("cc-1", "actually, don't")
     assert run.grant == Grant() and run.step_bound == {}
+
+
+async def test_a_command_card_says_where_it_runs_from_swift_never_the_agent(tmp_path: Any) -> None:
+    """ADR-019 §8.1: "Runs in" is the run's own folder, Swift's fact; a file card has no such row."""
+    ex, run = _executor(tmp_path)
+    asking, card = await _card(ex, run, "Bash", {"command": "dir", "description": "Runs in another folder"})
+    assert card.data == {"runs_in": str(tmp_path)}
+    asking.cancel()
+    asking, card = await _card(ex, run, "Write", {"file_path": str(tmp_path / "a.txt"), "content": "x"})
+    assert card.data is None
+    asking.cancel()

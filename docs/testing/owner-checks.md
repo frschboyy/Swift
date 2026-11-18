@@ -3007,8 +3007,87 @@ feels slow, jumpy or distracting.
 4. When the tea timer is due, click **+5 min** on its card. Then let it come due again and click **Done**.
 
 You should see: no card while a timer counts; the orb full size in a ring that empties, and a small pill with the
-time left ("1:58", then "1:40 · 2" with two timers); the pill stays beside the orb while the answer card is up; the
-Due card has **+5 min** and **Done**; +5 min puts the tea timer back on the orb at 5:00.
+time left ("1:58", then "1:40 · 2" with two timers); while the answer card is up the pill becomes a timer edge
+above the card (title, a short draining bar, the time); the Due card has **+5 min** and **Done**; +5 min puts the tea
+timer back on the orb at 5:00.
+
+<a id="check-halo-b8-gaps-6b8791-1"></a>**Check halo-b8-gaps-6b8791-1. A timer in the stack, Cancel, and "done" / "5 more" said (B14)**
+1. Say "Hey Swift, set a timer for 3 minutes for the eggs". Click the stack (or say "what's waiting?") while it counts.
+2. Click **Cancel** on its row.
+3. Set a 1-minute tea timer. When its Due card shows, say "five more".
+4. When it is due again, say "done". Set one more 1-minute timer and click **Done** on its Due card.
+
+You should see: the stack list has a RUNNING section with "Eggs · Timer · 3 min left" and **Cancel**, never counted
+in "Waiting for you"; Cancel ends it (the orb's ring goes); "five more" puts the tea timer back at 5:00 with no
+worker run; "done" answers "Done: Tea timer."; clicking Done shows a "Done: Tea timer" edge for about 2.5 s.
+
+<a id="check-halo-b8-gaps-6b8791-2"></a>**Check halo-b8-gaps-6b8791-2. The worker's pick on a chart; a shape Swift refused (B4)**
+1. Say "Hey Swift, make a bar chart of rainfall by month for London last year, and point out the wettest months".
+2. Ask for something Swift can't draw as asked, e.g. "Hey Swift, show me a pie chart of my week".
+
+You should see: (1) bars of equal weight, the months the worker picked inside a grey dashed outline (never blue or
+amber), and a grey "Worker's pick: …" tag under the legend; (2) plain words, with one grey line above them, "Shown as
+words: Swift couldn't check this as a chart." (if the worker answers in words without trying a shape, there is no line).
+
+<a id="check-halo-b8-gaps-6b8791-3"></a>**Check halo-b8-gaps-6b8791-3. "Ask me about everything" in the tray and on Swift's own cards (modes §3)**
+1. Say "Hey Swift, ask me about everything". Right-click the tray icon.
+2. Say "Hey Swift, type hello into Notepad" (with Notepad open). Look at the card, then click Reject.
+3. Right-click the tray icon and click **Stop asking about everything**. Right-click it again.
+
+You should see: (1) under "Listening…" the tray says "Asking about everything" in blue, with a "Stop asking about
+everything" item; (2) the Needs your OK card has "Asking because you said: ask me about everything." under its title
+(a card that would ask anyway, such as sending an email, has no such line); (3) the status line and the item are gone,
+and typing into Notepad no longer asks.
+
+<a id="check-halo-b8-gaps-6b8791-4"></a>**Check halo-b8-gaps-6b8791-4. "Runs in", a Failed card's steps, "Try again from step N", and the move to the stack (ADR-019 §8.1, §8.3)**
+1. Ask for something that runs a command in your project, e.g. "Hey Swift, run the tests in my site project". Look at
+   the card before answering.
+2. Ask for a task with several steps and make it fail part way (e.g. a copy to a USB drive you pull out). Look at the
+   Failed card; click **Try again from step N** once the drive is back.
+3. Make one fail again and leave the Failed card alone for 10 minutes. Then open the stack and click **Open** on it.
+
+You should see: (1) "Runs in" with the project's folder in Swift's facts box, under the worker's words; (2) the steps
+it did, ✓ each, the last one with "!" where it failed, and the button naming that step; the retry's card shows your
+same words, and the work picks up from that step rather than starting over; (3) after 10 minutes the card leaves and
+the stack's badge counts one more ("Failed · 10 min ago" on its row); Open brings the Failed card back.
+
+<a id="check-halo-b8-gaps-6b8791-5"></a>**Check halo-b8-gaps-6b8791-5. A file tree's Open, Show in folder, double-click, and arrow keys (B13)**
+1. Say "Hey Swift, where are my holiday photos?" (any folder in your read folders with a few files).
+2. Click a photo's row: look at the strip under the tree. Click **Show in folder**, then **Open**. Double-click another.
+3. Click **Show all** (or open it in the reader), click into the tree, and use the arrow keys and Enter.
+
+You should see: the caption "Listed by the worker; Swift opens only what it found on disk"; a selected row shows its
+full path with **Open** and **Show in folder**; Show in folder opens Explorer with that file selected; Open and a
+double-click open the file in its usual app; a program or script (.exe, .bat, .ps1, a shortcut) is only shown in its
+folder, never run; a row the worker named that isn't on disk has no strip. In the reader, Up/Down move, Right opens a
+folder (then steps in), Left closes it (or steps out), Enter opens. There is never a delete.
+
+<a id="check-halo-b8-gaps-6b8791-6"></a>**Check halo-b8-gaps-6b8791-6. "What did you find about …" (A1)**
+1. Ask two research questions, e.g. "Hey Swift, what's the history of tea?", then one about coffee.
+2. Say "Hey Swift, what did you find about tea?". Then "Hey Swift, what did you find about the moon landing?"
+
+You should see: the tea answer again as a Done card, at once (no Working card, nothing runs again); for the moon
+landing, "I haven't found anything about “the moon landing” since Swift started." (answers aren't kept after a restart).
+
+<a id="check-halo-b8-gaps-6b8791-7"></a>**Check halo-b8-gaps-6b8791-7. Captions turn on by themselves when the sound is muted or Live captions runs (A6)**
+1. If you ever said "captions on" or "captions off", note it: your words win, so this check needs neither said.
+   (Say "captions off" now and the PC no longer decides; this check then shows step 4 only.)
+2. Mute the PC's sound. Wait a minute, then ask "Hey Swift, what time is it?" (the reply is spoken).
+3. Unmute. Start Windows Live captions (Win+Ctrl+L). Wait a minute and ask again. Close Live captions.
+4. Say "captions off" while muted, and ask again.
+
+You should see: (2) and (3) the speaking pill widens and shows the words; with neither, no captions; (4) no captions
+while muted, because you said off.
+
+<a id="check-halo-b8-gaps-6b8791-8"></a>**Check halo-b8-gaps-6b8791-8. "Speak answers" and "Watch opens" in the tray (A8)**
+1. Tray menu → How Swift shows things → Speak answers: **Never**. Say "Hey Swift, what time is it?". Then **Default**.
+2. Watch opens: **When it writes**. Say "Hey Swift, write a short note about tea in Notepad" (Notepad open).
+3. Watch opens: **Long requests**. Ask for some research that takes over half a minute.
+4. Restart Swift and look at both rows.
+
+You should see: (1) the answer on the card and no voice; Default speaks again as before; (2) the watch opens by itself
+as soon as it starts writing; (3) the watch opens by itself after about 30 seconds, once; closing it keeps it closed;
+(4) both choices kept. With "When I ask" (the default) the watch opens only when you say "show me" or click Watch.
 
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".

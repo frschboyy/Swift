@@ -197,11 +197,15 @@ class Chart(_Strict):
     x: list[_words(CHART_LABEL_MAX)] = Field(min_length=2, max_length=CHART_POINTS)
     series: list[ChartSeries] = Field(min_length=1, max_length=CHART_SERIES)
     unit: _words(16) | None = None
+    # D7: the categories the worker points out (indexes into x), drawn as the worker's, in a grey outline.
+    pick: list[int] | None = Field(default=None, max_length=CHART_POINTS)
 
     @model_validator(mode="after")
     def _fits(self) -> Chart:
         if any(len(s.values) != len(self.x) for s in self.series):
             raise ValueError("each series needs one value per category")
+        if self.pick is not None and (len(set(self.pick)) != len(self.pick) or any(not 0 <= i < len(self.x) for i in self.pick)):
+            raise ValueError("pick holds distinct indexes of categories")
         if any(abs(value) > CHART_VALUE_MAX for s in self.series for value in s.values):
             raise ValueError("chart values are out of range")
         if len({s.name.casefold() for s in self.series}) != len(self.series):
@@ -243,6 +247,8 @@ class Tree(_Strict):
     shape: Literal["tree"]
     title: _words(TITLE_MAX) | None = None
     entries: list[TreeEntry] = Field(min_length=1, max_length=TREE_ITEMS)
+    # B13: the folder the tree lists, as the worker says; Swift checks it (files.verify_tree) before any row acts.
+    root: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32767)] | None = None
 
     @model_validator(mode="after")
     def _fits(self) -> Tree:
@@ -335,15 +341,25 @@ DESCRIPTION = (
     "60 characters of plain text. Use it for ideas grouped under a theme. shape 'preview': a local path to a "
     "PDF, DOCX, PPTX or XLSX file the user asked about and you have read; Swift makes the preview from the file. "
     "shape 'chart': a simple bar or line chart; x has 2-8 short category labels and series has 1-4 named sets "
-    "of finite numbers, one per category. An optional unit labels the values. shape 'cards': 1-8 project cards, "
+    "of finite numbers, one per category. An optional unit labels the values; pick: the indexes of the "
+    "categories you point out, if any. shape 'cards': 1-8 project cards, "
     "each with a short title and optional detail and meta. Use cards for a small set of projects, not a long list. "
     "shape 'tree': files and folders as a tree; entries, each {name, folder, meta, open, entries}, at most 4 levels "
-    "and 60 entries; meta is a short size or date; open: true only on the folder that answers the question. Use it "
+    "and 60 entries; meta is a short size or date; open: true only on the folder that answers the question; root: the "
+    "absolute folder the entries are in, if they are all in one. Use it "
     "when the answer is where files are. "
     "Keep "
     "the data out of your final answer: that answer is said aloud, so make it the conclusion in one or two "
     "sentences. Call it at most once, before your final answer; if it's refused, answer in words."
 )
+
+
+def fallback(args: Any) -> str:
+    """B4: the one grey line on a Done card whose shape Swift refused: why it reads as words. Swift's words."""
+    name = args.get("shape") if isinstance(args, dict) else None
+    kind = {"compare": "comparison", "mindmap": "mind map", "cards": "set of project cards", "tree": "file tree"}.get(
+        name, name if name in MODELS else "picture")
+    return f"Shown as words: Swift couldn't check this as a {kind}."
 
 
 def check(args: Any) -> tuple[dict[str, Any] | None, list[str]]:

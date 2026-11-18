@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import captions, clock, memory, recent, seen, stops, timers
+from swift import captions, clock, frames, memory, recent, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -1368,10 +1368,8 @@ class Session:
         logger.info("stack action", kind=kind, action=action)
         if kind == "recent":
             return await recent.open_(self, key, action)  # A1: an answer from earlier today
-        if kind == "due" and action != "skip":
-            timers.cleared(self, key)
-            await self._send_stack()
-            return
+        if kind in ("due", "timer") and action != "skip":
+            return await self._send_stack() if timers.stack_action(self, kind, key) else None
         if action == "skip":
             self._stack_skipped[item_id] = clock.now()
             if kind == "card":
@@ -1618,7 +1616,7 @@ class Session:
                 if self.on_recordings is not None:
                     await self.on_recordings(msg.data)
             case "retry":
-                await self._start_retry()
+                await self._start_retry(retrying.resume_from(msg.data))  # §8.3: "Try again from step N"
             case "confirm.reply":
                 await self._confirm_reply(msg.data["request_id"], msg.data["decision"] == "approve")
             case "view":
@@ -1627,11 +1625,6 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
-            case "due.snooze":
-                timers.snooze(self, msg.data["run_id"])  # "+5 min" on a timer's Due card (B14)
-            case "watch":
-                # The live view opened (a click on Watch) or closed: content-free, for the log.
-                logger.info("live view", run_id=msg.data["run_id"], open=msg.data["open"])
             case "run.stop":
                 await self._stop_run(msg.data["run_id"], "question" if msg.data.get("from") == "question" else "live")
             case "live.app":
@@ -1661,6 +1654,8 @@ class Session:
                 self._talking(clock.now() + 1.0)
                 if self._released is not None:
                     self._released.set()
+            case _ if (handler := frames.HANDLERS.get(msg.type)) is not None:  # small frames (frames.py)
+                await handler(self, msg.data)
             case _:
                 logger.warning("unhandled message", kind=msg.type)
 
@@ -2800,6 +2795,8 @@ class Session:
                         answer = NO_TARGET_HINT
                     await self._answer_here(answer)
                     return
+                if (said := timers.heard(self, transcript) or recent.found(self, transcript)) is not None:  # B14; A1
+                    return await self._answer_here(*said, record=record)
                 answered = self._answer_fix(decision, fix, record, run, transcript)
                 if answered is not None:
                     decision, workflow = answered
@@ -2926,7 +2923,7 @@ class Session:
                     if resumed is not None:
                         thread = resumed.as_context(time.time())
                     else:
-                        notes.append(self._unclear_note(record))
+                        notes += [self._unclear_note(record), retrying.note(record)]
                         thread = self._thread_context(record)
                     if workflow is None and self.library is not None and self.tools is not None:
                         notes.append(self.library.catalogue())  # the model picks a workflow if one fits
@@ -3887,7 +3884,7 @@ class Session:
                     outbound(
                         "confirm.request", request_id=event.request_id, run_id=run_id, title=event.text,
                         detail=event.detail or "", tool=event.tool or "",
-                        purpose=event.purpose or "",  # the agent's words on what a command is for (B1)
+                        purpose=event.purpose or "", **({"facts": event.data} if event.data else {}),  # B1; §8.1
                         step=event.step,  # B2: the detail lists a step's commands, shown open
                         agent=agent,
                     )
@@ -4222,7 +4219,7 @@ class Session:
         self._artifacts_run = self._run_id()
         await self._send(outbound("artifact", **artifact.as_message(self._artifacts_run)))
 
-    async def _swift_confirm(self, title: str, detail: str, tool: str, artifact_id: str | None) -> Decision:
+    async def _swift_confirm(self, title: str, detail: str, tool: str, artifact_id: str | None, because: str = "") -> Decision:
         """The gateway's confirm card: shown, answered and timed out like a provider's."""
         request_id = f"swift:{next(self._swift_ids)}"
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
@@ -4240,7 +4237,7 @@ class Session:
             outbound(
                 "confirm.request", request_id=request_id, run_id=run_id, title=title, detail=detail, tool=tool,
                 # Swift is asking, not the provider.
-                agent=None, artifact_id=artifact_id,
+                agent=None, artifact_id=artifact_id, **({"because": because} if because else {}),
             )
         )
         if on_screen:
@@ -4925,7 +4922,7 @@ class Session:
         self._speak_reply(f"{failure.title}. {failure.message}", record)
         await self._open_followup()
 
-    async def _start_retry(self) -> None:
+    async def _start_retry(self, from_step: int | None = None) -> None:
         """"Try again" on an error card: the same request, without speaking it again."""
         pending, self._retry = self._retry, None
         if pending is None or self._front_busy() or self._capturing():
@@ -4934,7 +4931,7 @@ class Session:
         if source == "debug.run":
             await self._start_demo(again)
             return
-        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "retry", "retry_of": source}
+        record: dict[str, Any] = {"executor": getattr(self.executor, "name", "?"), "source": "retry", "retry_of": source, "resume_from": from_step}
 
         async def capture(rec: dict[str, Any]) -> str:
             return again
@@ -4957,7 +4954,7 @@ class Session:
         if result.status == "done":
             self._last_result = (run_id, result, agent)
         self._stopped = (self._current(), clock.now()) if result.status == "cancelled" else None
-        note, self._note = self._note, None
+        note, self._note = self._note or result.meta.get("fallback"), None  # B4: a refused shape's grey line
         await self._set_state("result", run_id=run_id, agent=agent)
         await self._send(
             outbound(

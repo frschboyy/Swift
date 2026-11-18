@@ -304,6 +304,15 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerPdfPreview: async (s) => { await answer(s, "Preview this PDF", "The first page is a project summary.", PDF_PREVIEW); },
   answerOfficePreview: async (s) => { await answer(s, "Preview this Word document", "It opens with the rollout proposal.", OFFICE_PREVIEW); },
   answerChart: async (s) => { await answer(s, "Show quarterly active users", "Activity grew in the north and south.", CHART); },
+  answerChartPick: async (s) => { await answer(s, "Which quarters stood out?", "Q2 and Q4 stood out in the north.", { ...CHART, pick: [1, 3] }); },
+  // B4: a shape Swift refused: plain words, and Swift's one grey line on why (the result's note).
+  answerFallback: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Chart my sales by region", final: true });
+    s.inject("state", { state: "result", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("result", { run_id: id, status: "done", summary: "North sold the most: 45 units, then South with 40.", details: null, agent: AGENT, note: "Shown as words: Swift couldn't check this as a chart.", thread_id: `t-${id}` });
+    await sleep(220);
+  },
   answerChartLong: async (s) => { await answer(s, "Show weekly active users", "The trend rises overall.", CHART_LONG); },
   answerProjects: async (s) => { await answer(s, "List my current projects", "Three active projects.", PROJECTS); },
   answerProjectsLong: async (s) => { await answer(s, "List all my current projects", "Five projects are in progress.", PROJECTS_LONG); },
@@ -312,6 +321,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // B5 (03-verify.md names): a long answer at its cap, and expanded by hand.
   cardCapped: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   cardExpanded: async (s) => { await DESIGN.answerLongOpen(s); },
+  // B5: "Show all · 11 rows" under a table that doesn't fit.
+  cardCappedRows: async (s) => { await answer(s, "Which trains leave for Leeds today?", "Eleven trains leave for Leeds today.", { kind: "table", columns: ["Leaves", "Arrives", "Changes"], rows: Array.from({ length: 11 }, (_, i) => [`${7 + i}:15`, `${9 + i}:40`, i % 3 ? "none" : "1"]) }); },
   // B13: a file list as a tree.
   treeCard: async (s) => {
     await answer(s, "Where are my holiday photos?", "They're in Pictures, under 2026.", { kind: "tree", title: "Pictures", by: "worker", size: "card", entries: [
@@ -324,6 +335,18 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
       { name: "Screenshots", folder: true, meta: "1,204 items", entries: [{ name: "a.png" }] },
       { name: "wallpaper.png", meta: "3.0 MB" },
     ] });
+  },
+  // B13: the same tree once Swift found its folder: beach.jpg selected, with its path, Open and Show in folder.
+  treeFound: async (s) => {
+    await answer(s, "Where are my holiday photos?", "They're in Pictures, under 2026.", { kind: "tree", title: "Pictures", by: "worker", size: "card",
+      root: "C:\\Users\\Francis\\Pictures", entries: [
+        { name: "2025", folder: true, found: true, meta: "214 items", entries: [{ name: "winter.jpg", found: true }] },
+        { name: "2026", folder: true, found: true, open: true, meta: "38 items", entries: [
+          { name: "beach.jpg", found: true, meta: "2.4 MB" }, { name: "made-up.jpg", found: false },
+        ] },
+      ] });
+    [...document.querySelectorAll<HTMLElement>("#card .tree-row")].find((r) => r.textContent?.includes("beach.jpg"))?.click();
+    await sleep(150);
   },
   // A4: an answer pinned as an edge, with the next answer in front.
   pinned: async (s) => {
@@ -400,6 +423,22 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("confirm.voice", { request_id: id, phase: "again", text: "Heard “approve”, but it's noisy here. Say “approve” again to go ahead, or click." });
     await sleep(150);
   },
+  // Modes §3: Swift's own card that asks only because the owner said "ask me about everything".
+  confirmAsking: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Type hello into Notepad", final: true, typed: false });
+    s.inject("state", { state: "confirm", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("confirm.request", { request_id: `swift:${id}`, run_id: id, title: "Type into Notepad", detail: "hello", tool: "desktop_write", agent: null, artifact_id: null, thread_id: `t-${id}`, because: "Asking because you said: ask me about everything." });
+    await sleep(600);
+  },
+  // B1 + ADR-019 §8.1: the worker's words, Swift's "Runs in", the command's first line and the rest folded.
+  confirmRunsIn: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Build the site", final: true, typed: false });
+    s.inject("state", { state: "confirm", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("confirm.request", { request_id: `${id}:1`, run_id: id, title: "Run a command on your PC", detail: "npm run build -- --mode production\nnpm run test", tool: "Bash", purpose: "Builds the site, then runs its tests.", step: false, agent: AGENT, thread_id: `t-${id}`, facts: { runs_in: String.raw`C:\Users\Francis\Projects\site` } });
+    await sleep(600);
+  },
   confirmCommand: async (s) => { await confirm(s, "Run a command in your project", null, "npm run build -- --mode production", "Build the site"); },
   confirmAway: async (s) => {
     await DESIGN.confirmChange(s);
@@ -413,6 +452,19 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   concurrent: async (s) => { await concurrent(s); },
   // ADR-019 §8.4: a problem with a run nobody asked for is Failed, with Swift's origin on the left.
   failedScheduled: async (s) => { s.inject("error", { code: "service", title: "The backup couldn't finish", message: "The drive D: isn't connected. Nothing was deleted.", hint: "", severity: "error", agent: null, origin: "scheduled", origin_detail: "nightly backup" }); await sleep(150); },
+  // ADR-019 §8.3: a request that failed part way: its steps, where it failed, "Try again from step 3".
+  // With ?failms=3000 it moves to the stack 3 s later (10 min in Swift).
+  failedPartial: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Back up my photos to the D: drive", final: true, typed: false });
+    s.inject("state", { state: "working", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    for (const text of ["Finding your photos", "Counting 2,140 files", "Copying to D:"]) {
+      s.inject("step", { run_id: id, text, kind: "tool", ts: Date.now(), agent: AGENT, thread_id: `t-${id}` });
+    }
+    s.inject("state", { state: "error", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("error", { code: "crashed", title: "The request stopped unexpectedly", message: "The copy stopped part way: the D: drive went away.", hint: "", severity: "error", retry: true, agent: AGENT, thread_id: `t-${id}` });
+    await sleep(250);
+  },
   // Board 9 §4: Swift's own notices and problems (State · Notice).
   noticeReady: async () => { notice("ready"); await sleep(150); },
   noticeRunning: async () => { notice("running"); await sleep(150); },
@@ -453,6 +505,19 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("state", { state: "result", run_id: "due-timer-7", agent: null });
     s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null, origin: "reminder" });
     await sleep(200);
+  },
+  // B14: the stack list with a RUNNING row (Cancel), and Edge · Got it after Done on a timer's Due card.
+  timerStack: async (s) => {
+    s.inject("timers", { items: [{ id: 7, title: "Tea", due_ms: Date.now() + 252_000, set_ms: Date.now() - 48_000 }] });
+    s.inject("stack", { items: STACK.slice(1) });
+    await sleep(100);
+    document.querySelector<HTMLElement>("#stack .stack")?.click();
+    await sleep(250);
+  },
+  timerGot: async (s) => {
+    await DESIGN.timerDue(s);
+    [...document.querySelectorAll<HTMLButtonElement>("#card button")].find((b) => b.textContent === "Done")?.click();
+    await sleep(300);
   },
   reminderDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-reminder-3", agent: null });

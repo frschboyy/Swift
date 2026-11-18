@@ -9,6 +9,12 @@ export function pillText(items: TimerRow[], now: number): string {
   return items.length > 1 ? `${time} · ${items.length}` : time;
 }
 
+/** Edge · Got it after Done on a timer's Due card: "Your tea timer is up." → "Done: Tea timer". */
+export function doneLine(summary: string): string {
+  const name = /^Your (.+?) is up\./.exec(summary)?.[1] ?? "timer";
+  return `Done: ${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+}
+
 /** How much of the soonest timer is left, 1 to 0: the ring's arc. */
 export function left(items: TimerRow[], now: number): number {
   if (!items.length) return 0;

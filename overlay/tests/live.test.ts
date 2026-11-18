@@ -167,3 +167,12 @@ test("a request stopped while reading a page leaves no spinner in its view", () 
   l = ended(l, "cc-1", "cancelled", "Cancelled.", null, T + 7);
   assert.ok(!view(l.runs[0]).sources.some((s) => s.state === "reading"));
 });
+
+test("B6: each new thing it does is a step; the same one again isn't", () => {
+  let l = onItem(initialLive, "r", { kind: "doing", text: "Searching the web" }, T);
+  l = onItem(l, "r", { kind: "doing", text: "Searching the web" }, T + 1000);
+  l = onItem(l, "r", { kind: "doing", text: "Reading britannica.com" }, T + 5000);
+  const v = view(l.runs[0]);
+  assert.equal(v.steps.length, 2);
+  assert.equal(v.steps[1].atMs, T + 5000);
+});

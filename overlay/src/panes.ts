@@ -41,6 +41,8 @@ export type TrayView = {
   typeKey: string | null;
   // A8: how Swift shows things (display.ts).
   display?: Display;
+  // Modes §3: "ask me about everything" is on: the status says so and "Stop asking about everything" shows.
+  asking?: boolean;
 };
 
 /** What a pane window draws. */

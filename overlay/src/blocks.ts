@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
 import type { Cards, Chart, Compare, Diagram, Idea, MindMap, Preview, ResultDetails, Tree } from "./protocol";
-import { middleCut, startOpen, visibleRows } from "./tree";
+import { middleCut, pathOf, startOpen, treeKey, visibleRows, type TreeKey } from "./tree";
 
 export { detailsText } from "./answer";
 
@@ -30,8 +30,9 @@ export function compareBlock(c: Compare, full: boolean): HTMLElement {
 }
 
 const DIAGRAM_BY = "Drawn from the worker's outline, not checked by Swift";
-/** Fired (bubbling) by a card's diagram too wide to read there: the answer then opens with Read more (main.ts). */
-export const DIAGRAM_WIDE = "swift-diagram-wide";
+/** Fired (bubbling) once a diagram is drawn, ``detail`` {wide, nodes}: too wide to read on the card, the answer
+ *  opens with Show all (main.ts), which counts its nodes as steps (B5). */
+export const DIAGRAM_DRAWN = "swift-diagram-drawn";
 
 /** A worker's diagram, drawn by Mermaid once it has loaded (only now: it's 2.8 MB). Until then it says so; if it
  *  doesn't draw, the words below it stand alone. ``full``: the reader's size, not the card's. */
@@ -60,7 +61,20 @@ export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
     // The cut edge fades: the right one when the width is what doesn't fit, else the bottom one.
     block.style.setProperty("--diagram-fade", stage.clientWidth / w < A.DIAGRAM_CARD_PX / h ? "to right" : "to bottom");
     note.hidden = !wide;
-    if (wide) block.dispatchEvent(new CustomEvent(DIAGRAM_WIDE, { bubbles: true }));
+    // B5: the cut goes at a node boundary on the cut axis, never through a node.
+    stage.style.maxHeight = stage.style.maxWidth = "";
+    const nodes = [...svg.querySelectorAll<SVGGElement>("g.node")];
+    if (wide && nodes.length && stage.clientWidth > 0) {  // not laid out yet (a first draw): the CSS clip stands
+      const across = block.style.getPropertyValue("--diagram-fade") === "to right";
+      const s = stage.getBoundingClientRect();
+      const spans = nodes.map((g): [number, number] => {
+        const r = g.getBoundingClientRect();
+        return across ? [r.left - s.left, r.right - s.left] : [r.top - s.top, r.bottom - s.top];
+      });
+      const cut = A.nodeCut(spans, across ? stage.clientWidth : A.DIAGRAM_CARD_PX);
+      if (cut > 0) stage.style[across ? "maxWidth" : "maxHeight"] = `${Math.ceil(cut) + 8}px`;
+    }
+    block.dispatchEvent(new CustomEvent(DIAGRAM_DRAWN, { bubbles: true, detail: { wide, nodes: nodes.length } }));
   };
   // Mermaid bakes the colours into its SVG, so a theme change (data-theme on the window's root) draws it again.
   const themed = new MutationObserver(() => (block.isConnected ? paint() : themed.disconnect()));
@@ -199,6 +213,13 @@ export function chartBlock(c: Chart, full: boolean): HTMLElement {
     }, label));
   }
 
+  // D7: the worker's pick is a grey outline round its categories; the bars keep their equal weight.
+  for (const i of (c.pick ?? []).filter((i) => i < shown)) {
+    svg.append(svgNode("rect", {
+      x: String(plot.left + i * groupWidth + 2), y: String(plot.top), width: String(groupWidth - 4), height: String(plot.height + 30),
+      rx: "6", class: "chart-pick",
+    }));
+  }
   if (c.type === "bar") {
     const base = y(0);
     const slot = groupWidth / c.series.length;
@@ -232,6 +253,7 @@ export function chartBlock(c: Chart, full: boolean): HTMLElement {
       ...c.series.map((s, i) => el("li", {},
         el("span", { class: `chart-legend-swatch chart-series-${i}${c.type === "line" ? " chart-legend-swatch--line" : ""}`, "aria-hidden": "true" }),
         el("span", {}, s.name)))),
+    c.pick?.length ? el("span", { class: "compare-tag chart-pick-tag" }, `${A.PICK}: ${c.pick.map((i) => c.x[i]).join(", ")}`) : null,
     shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Show all shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
@@ -240,26 +262,66 @@ const PROJECTS_BY = "Project cards from the worker, not checked by Swift";
 const CARD_PROJECTS = 3;
 
 const TREE_BY = "Listed by the worker, not checked by Swift";
+const TREE_FOUND_BY = "Listed by the worker; Swift opens only what it found on disk";
 const CARD_TREE_ROWS = 10;  // swift/shapes.py CARD_TREE_ROWS
 
-/** B13: files and folders as a tree, read-only: folders open and close in place, a row is selected by a click.
- * No action from it (never a delete; opening a file is for later, from the file system, never the worker's text). */
+// B13: how a tree row's Open / Show in folder reaches the backend (main.ts: the socket; pane.ts: the main window).
+let treeOpener: (path: string, how: "open" | "reveal") => void = () => {};
+export const setTreeOpener = (open: typeof treeOpener): void => { treeOpener = open; };
+
+/** B13: files and folders as a tree: folders open and close in place, a row is selected by a click. A row Swift found
+ * on disk under the folder it verified (``t.root``) gets Open / Show in folder in the strip under the tree, and opens
+ * on a double-click; its path is built from Swift's root, and the backend checks it again. Never a delete. Keys
+ * (arrows, Enter) only in the reader (``full``), where the tree takes focus when clicked into (D5). */
 export function treeBlock(t: Tree, full: boolean): HTMLElement {
   const open = new Set(startOpen(t.entries));
   let all = full;
   let selected: string | null = null;
-  const list = el("ul", { class: "tree", role: "tree" });
+  const list = el("ul", { class: "tree", role: "tree", ...(full ? { tabindex: "0" } : {}) });
+  const strip = el("div", { class: "tree-strip", hidden: true });
+  const act = (key: string | null, how: "open" | "reveal"): void => {
+    const path = key === null ? null : pathOf(t.entries, key, t.root);
+    if (path) treeOpener(path, how);
+  };
+  const drawStrip = (): void => {
+    const path = selected === null ? null : pathOf(t.entries, selected, t.root);
+    strip.hidden = !path;
+    strip.replaceChildren(...(path ? [
+      el("span", { class: "tree-path", title: path }, path),
+      el("button", { class: "btn btn--ghost btn--small", onclick: (ev: Event) => { ev.stopPropagation(); act(selected, "reveal"); } }, "Show in folder"),
+      el("button", { class: "btn btn--primary btn--small", onclick: (ev: Event) => { ev.stopPropagation(); act(selected, "open"); } }, "Open"),
+    ] : []));
+  };
+  if (full) {
+    list.addEventListener("keydown", (ev: KeyboardEvent) => {
+      if (ev.key === "Enter") {
+        act(selected, "open");
+      } else if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(ev.key)) {
+        const r = treeKey(visibleRows(t.entries, open), open, selected, ev.key as TreeKey);
+        open.clear();
+        r.open.forEach((k) => open.add(k));
+        selected = r.selected;
+        draw();
+        list.querySelector(".tree-row--selected")?.scrollIntoView({ block: "nearest" });
+      } else return;
+      ev.preventDefault();
+    });
+  }
   const draw = (): void => {
     const rows = visibleRows(t.entries, open);
     const shown = all ? rows : rows.slice(0, CARD_TREE_ROWS);
     list.replaceChildren(...shown.map((r) => el("li", {
-      class: `tree-row${r.key === selected ? " tree-row--selected" : ""}`, role: "treeitem", style: `--depth:${r.depth}`,
-      title: r.entry.name, ...(r.entry.folder ? { "aria-expanded": String(open.has(r.key)) } : {}),
+      class: `tree-row${r.key === selected ? " tree-row--selected" : ""}${r.entry.found ? " tree-row--found" : ""}`, role: "treeitem", style: `--depth:${r.depth}`,
+      title: r.entry.name, "aria-selected": String(r.key === selected), ...(r.entry.folder ? { "aria-expanded": String(open.has(r.key)) } : {}),
       onclick: (ev: Event) => {
         ev.stopPropagation();
         if (r.entry.folder) open.has(r.key) ? open.delete(r.key) : open.add(r.key);
         selected = r.key;
         draw();
+      },
+      ondblclick: (ev: Event) => {
+        ev.stopPropagation();
+        act(r.key, "open");
       },
     },
     el("span", { class: "tree-chev" }, r.entry.folder ? icon(open.has(r.key) ? "expand" : "chevron") : null),
@@ -268,12 +330,14 @@ export function treeBlock(t: Tree, full: boolean): HTMLElement {
     r.entry.meta ? el("span", { class: "tree-meta" }, r.entry.meta) : null)),
     ...(rows.length > shown.length ? [el("li", { class: "tree-row tree-more", onclick: (ev: Event) => { ev.stopPropagation(); all = true; draw(); } },
       `+ ${rows.length - shown.length} more`)] : []));
+    drawStrip();
   };
   draw();
   return el("div", { class: "tree-block facts-line--agent" },
-    el("span", { class: "confirm-purpose-by" }, TREE_BY),
+    el("span", { class: "confirm-purpose-by" }, t.root ? TREE_FOUND_BY : TREE_BY),
     t.title ? el("p", { class: "compare-title" }, t.title) : null,
     list,
+    strip,
     ...(t.text ? renderBlocks(t.text) : []));
 }
 

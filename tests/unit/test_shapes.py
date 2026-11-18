@@ -77,6 +77,10 @@ async def test_a_refused_shape_leaves_the_words() -> None:
     assert "Answer in words" in await _show_result(run, LAPTOPS | {"pick": 9}, READS, None)  # the earlier one goes too
     outcome = Outcome("done", "Zenbook.", {"kind": "list", "items": ["light"]}, {})
     assert ClaudeCodeExecutor._final(run, outcome, None).details == {"kind": "list", "items": ["light"]}
+    # B4 fallback: Swift's one line on why it reads as words, for the session to put on the card as its note.
+    assert ClaudeCodeExecutor._final(run, outcome, None).meta["fallback"] == "Shown as words: Swift couldn't check this as a comparison."
+    await _show_result(run, LAPTOPS, READS, None)  # a later shape that's kept: no line
+    assert "fallback" not in ClaudeCodeExecutor._final(run, outcome, None).meta
 
 
 async def test_a_shape_never_reaches_an_answer_that_isnt_done() -> None:
@@ -255,10 +259,26 @@ def test_a_chart_is_kept_as_sent_and_sized_by_swift() -> None:
     {"x": ["Q1", "<b>Q2</b>", "Q3"]},
     {"series": [{"name": "North", "values": [12, 18, 15], "color": "red"}]},
     {"by": "swift"},
+    {"pick": [3]},  # D7: a pick is an index of a category
+    {"pick": [0, 0]},
+    {"pick": "Q1"},
 ])
 def test_a_chart_out_of_shape_is_refused_whole(change: dict[str, Any]) -> None:
     shape, problems = shapes.check(SALES | change)
     assert shape is None and problems
+
+
+def test_a_chart_keeps_the_workers_pick() -> None:
+    """D7: the worker may point out categories; Swift keeps them as indexes, drawn as the worker's."""
+    shape, problems = shapes.check(SALES | {"pick": [2]})
+    assert problems == [] and shapes.details(shape)["pick"] == [2]
+
+
+def test_a_refused_shape_leaves_one_line_saying_why() -> None:
+    """B4 fallback: plain words, and Swift's one line on why (never the worker's words)."""
+    assert shapes.fallback(SALES | {"type": "pie"}) == "Shown as words: Swift couldn't check this as a chart."
+    assert shapes.fallback({"shape": "mindmap"}) == "Shown as words: Swift couldn't check this as a mind map."
+    assert shapes.fallback({"shape": "<script>"}) == "Shown as words: Swift couldn't check this as a picture."
 
 
 def test_a_chart_refuses_more_than_eight_categories_or_four_series() -> None:

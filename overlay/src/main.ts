@@ -28,7 +28,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as Q from "./ask";
-import { copyButton, detailsText, DIAGRAM_WIDE, renderBlocks, renderDetails } from "./blocks";
+import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails, setTreeOpener } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
@@ -38,7 +38,7 @@ import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
-import { EDGE_MS, leaveTo, moveFrom } from "./shuffle";
+import { DECK_AFTER_DRAIN_MS, EDGE_MS, leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
 import * as F from "./heardfix";
@@ -182,6 +182,8 @@ let asked: Q.Ask | null = null;
 let pressAt: { x: number; y: number } | null = null;
 
 const client = new BackendClient(onFrame, onStatus);
+// B13: a tree row's Open / Show in folder on a card goes straight to the backend, which checks the path again.
+setTreeOpener((path, how) => client.send({ type: "tree.open", data: { path, how } }));
 // Rust reloads this page if it stops saying so while the backend is up (watchdog.rs).
 window.setInterval(() => {
   if (connection.phase === "connected") void invoke("overlay_alive").catch(() => {});
@@ -538,6 +540,9 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
     case "tray":
       void trayAction(payload.value ?? "", payload.text);
       break;
+    case "tree-open":  // B13, from the reader: the backend checks the path against what it verified
+      if (payload.text && (payload.value === "open" || payload.value === "reveal")) client.send({ type: "tree.open", data: { path: payload.text, how: payload.value } });
+      break;
   }
 });
 
@@ -551,6 +556,7 @@ function collapseStack(): void {
 /** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
 function stackAction(id: string, action: "open" | "skip" | "end"): void {
   stack = S.afterAction(stack, action);
+  if (id.startsWith("failed:")) return failedAction(id, action);
   client.send({ type: "stack.action", data: { id, action } });
   void syncEscape();
   void syncPanes();
@@ -586,10 +592,14 @@ function drawStackInline(): void {
   scheduleRegions();
 }
 
+// The backend's stack, before the timers still counting join it as RUNNING rows (B14).
+let backendStack: S.Stack["items"] = [];
 function onStackMessage(items: S.Stack["items"]): void {
+  backendStack = items;
   const before = new Set(stack.items.map((i) => i.id));
-  if (items.some((i) => !before.has(i.id) && i.kind !== "recent")) joinedStackAt = Date.now();
-  stack = S.onStack(stack, items, Date.now());
+  if (items.some((i) => !before.has(i.id) && S.waits(i))) joinedStackAt = Date.now();
+  const now = Date.now();
+  stack = S.onStack(stack, [...timers.filter((t) => t.due_ms > now).map(S.timerEntry), ...items, ...failedStack.map((f) => f.entry)], now);
   void syncEscape();
   void syncPanes();
   drawStackInline();
@@ -700,8 +710,31 @@ function runStart(runId: string): number {
   return runId === pres.runId && runStarted ? runStarted : pres.rows.find((r) => r.runId === runId)?.startedMs ?? 0;
 }
 
+// A8, "Watch opens": requests whose watch was opened or closed once; it never opens by itself again for them.
+const watchSeen = new Set<string>();
+// A row still working (not waiting its turn, not on an OK card, not ended).
+const WORKING_ROW = (state: string): boolean => !["queued", "confirm", "listening", "result", "error", "done"].includes(state);
+
+/** A8: each second, a running request's watch opens by itself as the owner chose ("When it writes", "Long
+ * requests"); "When I ask" (the default) never does. */
+function autoWatch(now: number): void {
+  if (display.watch === "ask") return;
+  const running = [
+    ...(pres.runId && stageNow() === "working" ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
+    ...pres.rows.filter((r) => WORKING_ROW(r.state)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
+  ];
+  for (const r of running) {
+    if (r.startedMs && Dsp.watchOpens(display, !!L.find(live, r.runId)?.written, now - r.startedMs, watchSeen.has(r.runId))) openLive(r.runId, r.title, r.words);
+  }
+}
+
+/** A8, "Speak answers": the owner's choice on this PC, or config.yaml's ("default"). The backend keeps config's
+ * own "never" (speech off) whatever this says. */
+const sendSpeak = (): void => void client.send({ type: "speak", data: { replies: display.speak } });
+
 /** Watch: the live view of a request, beside the card. The backend hears of it for the log only. */
 function openLive(runId: string, title: string, words: string): void {
+  watchSeen.add(runId);
   setLive(L.since(L.watch(live, runId, title, words, Date.now()), runId, runStart(runId)));
   client.send({ type: "watch", data: { run_id: runId, open: true } });
 }
@@ -710,6 +743,7 @@ function liveAction(action: string, runId: string): void {
   const r = L.find(live, runId);
   switch (action) {
     case "live-close":
+      watchSeen.add(runId);
       setLive(L.close(live, runId));
       client.send({ type: "watch", data: { run_id: runId, open: false } });
       break;
@@ -789,7 +823,7 @@ async function openTray(): Promise<void> {
   if (!paneWindows) return;
   try {
     const prefs = await invoke<{ anchor: string; smart: boolean }>("get_prefs");
-    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
+    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, asking: !!presence?.asking, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
   } catch {
     return;  // an older shell: its native menu
   }
@@ -798,7 +832,7 @@ async function openTray(): Promise<void> {
 
 function refreshTray(): void {
   if (!tray) return;
-  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused };
+  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused, asking: !!presence?.asking };
   void syncPanes();
 }
 
@@ -814,6 +848,11 @@ async function trayAction(op: string, value?: string): Promise<void> {
       if (tray) tray = { ...tray, smart: on };
       break;
     }
+    case "stop-asking":
+      // Modes §3: a click turns "ask me about everything" off; presence then says so (the tray shows it now).
+      client.send({ type: "asking", data: { on: false } });
+      if (tray) tray = { ...tray, asking: false };
+      break;
     case "pause":
       client.send({ type: "listen", data: { on: !!presence?.paused } });
       tray = null;
@@ -827,6 +866,7 @@ async function trayAction(op: string, value?: string): Promise<void> {
       display = Dsp.choose(display, value ?? "");
       Dsp.save(display, localStorage);
       applyDisplay();
+      if (value?.startsWith("speak:")) sendSpeak();
       if (tray) tray = { ...tray, display };
       break;
     case "settings":
@@ -979,7 +1019,8 @@ function hideCard(): void {
     scheduleRegions();
   };
   if (shown) {
-    leaveTo(card, leavingFor(), clear, draining);
+    // B7: after a drain the deck closes up DECK_AFTER_DRAIN_MS later (the gone card holds its place till then).
+    leaveTo(card, leavingFor(), draining ? () => window.setTimeout(clear, DECK_AFTER_DRAIN_MS) : clear, draining);
     // B7: the orb pulses once as a card folds into it.
     capsuleEl.classList.remove("capsule--pulse");
     void capsuleEl.offsetWidth;
@@ -1311,7 +1352,10 @@ let followupTotal = 0;
 // A4, Pin: one answer kept as an edge on the far side of the deck; it never fades (D11: one at a time).
 let pinned: { title: string; line: string; text: string } | null = null;
 const pinnedEl = el("div", { class: "pinned-edge", "data-hit": "", hidden: true });
-rowsEl.before(pinnedEl);
+// B14: Edge · Timer (a card in front) and Edge · Got it ("Done: Tea timer"), read-only: nothing to click.
+const timerEdgeEl = el("div", { class: "pinned-edge timer-edge", role: "timer", hidden: true });
+const gotEl = el("div", { class: "pinned-edge got-edge", role: "status", hidden: true });
+rowsEl.before(gotEl, timerEdgeEl, pinnedEl);
 
 function drawPinned(): void {
   pinnedEl.hidden = pinned === null;
@@ -1426,6 +1470,11 @@ function drawTimer(): void {
   capsuleEl.toggleAttribute("data-timer", on);
   let pill = capsuleEl.querySelector<HTMLElement>(".tm-pill");
   if (!on) {
+    capsuleEl.removeAttribute("data-timer-edge");
+    if (!timerEdgeEl.hidden) {
+      timerEdgeEl.hidden = true;
+      scheduleRegions();
+    }
     pill?.remove();
     return;
   }
@@ -1437,6 +1486,27 @@ function drawTimer(): void {
   const text = T.pillText(counting, now);
   pill.title = counting.map((t) => t.title).join(", ");
   if (pill.lastChild?.textContent !== text) pill.replaceChildren(icon("timer"), el("b", {}, text));
+  // With a card in front the pill can't show (the capsule is the card's): Edge · Timer, a draining 64 px bar.
+  const edge = card.classList.contains("card--in") && !card.classList.contains("card--held");
+  capsuleEl.toggleAttribute("data-timer-edge", edge);  // the edge says it: the pill steps aside
+  if (edge !== !timerEdgeEl.hidden) {
+    timerEdgeEl.hidden = !edge;
+    scheduleRegions();
+  }
+  if (edge) {
+    timerEdgeEl.title = pill.title;
+    timerEdgeEl.replaceChildren(icon("timer"), el("b", {}, counting[0].title || "Timer"),
+      el("span", { class: "tm-bar", style: `--tm-left:${T.left(counting, now).toFixed(3)}` }), el("span", { class: "tm-time" }, text));
+  }
+}
+
+/** B14: Edge · Got it for ACK_MS, e.g. "Done: Tea timer" after Done on a timer's Due card. */
+let gotTimer = 0;
+function gotIt(text: string): void {
+  gotEl.replaceChildren(el("span", { class: "edge-mark" }, el("span", { class: "ready-icon" }, icon("check"))), el("b", {}, text));
+  gotEl.hidden = false;
+  window.clearTimeout(gotTimer);
+  gotTimer = window.setTimeout(() => { gotEl.hidden = true; }, D.ACK_MS);
 }
 
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
@@ -1518,7 +1588,11 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     ? el("div", { class: "facts-text facts-text--mono" }, ...cardLines(data.detail).map((line) =>
       el("div", { class: line.agent ? "facts-line--agent" : "facts-line" }, line.text || " ")))
     : el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
-  if (!commandFolded(data.tool, data.purpose)) return el("div", { class: "facts" }, box, moreBelow(box));
+  // ADR-019 §8.1: Swift's facts box, "Runs in" (the run's folder, from Swift, never the worker's words).
+  const runsIn = data.facts?.runs_in
+    ? el("dl", { class: "facts facts--swift" }, el("dt", {}, "Runs in"), el("dd", { class: "facts-path" }, data.facts.runs_in))
+    : null;
+  if (!commandFolded(data.tool, data.purpose)) return el("div", {}, runsIn, el("div", { class: "facts" }, box, moreBelow(box)));
   // B1: the agent's words lead, under its bar (X-17); the command's first line always shows, the rest folds.
   // B2: a step card's commands are each approved, so all of them show, none folded.
   const commands = stepCommands(data.tool, data.purpose, data.step, data.detail);
@@ -1540,6 +1614,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     { class: "confirm-lead" },
     // ADR-019 §8.1, Block · Worker's content: the worker's sentence, marked as the worker's (never Swift's facts).
     el("p", { class: "confirm-purpose facts-line--agent worker-content" }, el("span", { class: "confirm-purpose-by" }, "The worker's words"), data.purpose ?? ""),
+    runsIn,
     commands
       ? el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, "The commands this approves (what will actually run)"), el("div", { class: "facts" }, box, moreBelow(box)))
       : el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, rest ? "What will run, first line" : "What will run"), el("p", {}, head)),
@@ -1587,6 +1662,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     thread: threadLines(),
     body: [
       el("p", { class: "confirm-title" }, data.title),
+      // Modes §3: a card that asks only because the owner said "ask me about everything" says so (Swift's line).
+      data.because ? el("p", { class: "asking-line" }, icon("shield"), data.because) : null,
       since !== null ? el("p", { class: "confirm-since" }, `Held while you were away, since ${clock(since)}`) : null,
       confirmFacts(data, shown),
       el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint()),
@@ -1726,9 +1803,13 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
-  // A diagram found too wide to read on the card once drawn (blocks.ts): the answer opens with Read more after all.
-  body.addEventListener(DIAGRAM_WIDE, () => {
-    if (long) return;
+  // A drawn diagram (blocks.ts): too wide to read on the card, the answer opens with Show all after all; its nodes count as steps.
+  let nodes = 0;
+  body.addEventListener(DIAGRAM_DRAWN, (ev: Event) => {
+    const d = (ev as CustomEvent<{ wide: boolean; nodes: number }>).detail;
+    nodes = d.nodes;
+    if (long) return drawFoot();
+    if (!d.wide) return;
     long = true;
     body.classList.add("answer--long");
     body.tabIndex = 0;
@@ -1762,7 +1843,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
           if (!expanded) body.scrollTop = 0;  // folds back to the top
           drawBody();
           drawFoot();
-        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.minutesToRead(copyable)}`),
+        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
@@ -1866,7 +1947,11 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
       client.send({ type: "due.snooze", data: { run_id: data.run_id } });
       dismiss();
     } }, "+5 min") : null,
-    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done"),
+    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => {
+      ev.stopPropagation();
+      dismiss();
+      if (kind === "timer") gotIt(T.doneLine(data.summary));
+    } }, "Done"),
   ] });
 }
 
@@ -1915,6 +2000,34 @@ function renderNotice(title: string, line: HTMLElement): void {
   drawCard({ state: "notice", look: "result", onclick: dismissUnlessControl, body: [Card.failBlock(el("span", { class: "ok-dot" }, icon("check")), title, line)] });
 }
 
+// ADR-019 §8.3: a request's Failed card left in front this long moves to the stack, still Failed, and still counts
+// on the badge (D9). The stack row is the overlay's own (like a timer's): Open shows the card again, End drops it.
+const FAILED_TO_STACK_MS = (location.pathname.includes("/dev/") && Number(new URLSearchParams(location.search).get("failms"))) || 10 * 60_000;
+let failedFront: { problem: Problem; since: number; words: string } | null = null;
+let failedStack: { entry: S.Stack["items"][number]; problem: Problem }[] = [];
+let failedIds = 0;
+
+/** Each second: a Failed card in front for FAILED_TO_STACK_MS moves to the stack. */
+function moveFailed(now: number): void {
+  if (!failedFront || now - failedFront.since < FAILED_TO_STACK_MS) return;
+  const f = failedFront;
+  failedFront = null;
+  if (pres.card.kind !== "error" || !card.classList.contains("card--in")) return;  // something else is in front
+  const entry = { id: `failed:${++failedIds}`, kind: "failed" as const, title: f.words ? clipLine(f.words, 60) : f.problem.title, reason: "failed", since_ms: f.since, thread_id: f.problem.threadId ?? null };
+  failedStack = [...failedStack, { entry, problem: f.problem }];
+  onStackMessage(backendStack);
+  dismiss();
+}
+
+/** Open or End on a Failed row of the stack (the overlay's own: the backend never had it). */
+function failedAction(id: string, action: "open" | "skip" | "end"): void {
+  if (action === "skip") return;
+  const f = failedStack.find((x) => x.entry.id === id);
+  failedStack = failedStack.filter((x) => x.entry.id !== id);
+  onStackMessage(backendStack);
+  if (action === "open" && f) renderProblem(f.problem);
+}
+
 type Problem = {
   title: string;
   message: string;
@@ -1953,8 +2066,10 @@ function renderProblem(p: Problem): void {
   // ADR-019 §8.3: a request's Failed card never fades and has no reading bar; it stays until the owner closes it
   // or the next request takes the front.
   const swiftStarted = p.origin !== undefined && p.origin !== "asked";
-  const failed = (!!(p.runId || p.threadId) || swiftStarted) && !info;
+  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
+  const failed = ofRequest && !info;
   if (!presentAnswer("error", p.sticky || failed ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
+  failedFront = failed ? { problem: p, since: Date.now(), words: request } : null;
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
   const toggle = detail
@@ -1975,18 +2090,26 @@ function renderProblem(p: Problem): void {
       restartSwift();
     } }, "Restart Swift"));
   }
+  // ADR-019 §8.3: a request's Failed card keeps what it did (its steps, the last one where it failed) and tries
+  // again from that step; Swift tells the worker where to pick up (retrying.py), never in the owner's words.
+  const partial = ofRequest && !info && steps.length > 1 ? steps.slice() : null;
   if (p.retry) {
+    const from = partial ? partial.length : 0;
     actions.push(
       el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
         (ev.currentTarget as HTMLButtonElement).disabled = true;
-        if (!client.send({ type: "retry", data: {} })) renderConnection(true);
-      } }, "Try again"),
+        if (!client.send({ type: "retry", data: from ? { from_step: from } : {} })) renderConnection(true);
+      } }, from ? `Try again from step ${from}` : "Try again"),
     );
   }
+  const done = partial
+    ? el("ol", { class: "fail-steps", "aria-label": "What it did before it failed" }, ...partial.map((text, i) =>
+      el("li", { class: i === partial.length - 1 ? "fail-step fail-step--failed" : "fail-step" },
+        el("span", { class: "fail-step-mark", "aria-hidden": "true" }, i === partial.length - 1 ? "!" : "✓"), text)))
+    : null;
   const bang = p.glyph === "spin"
     ? el("span", { class: "spinner", "aria-hidden": "true" })
     : el("span", { class: info ? "bang bang--info" : "bang", "aria-hidden": "true" }, info ? "i" : "!");
-  const ofRequest = !!(p.runId || p.threadId) || swiftStarted;
   drawCard({
     // Failed names a request's failure; a problem with no request is Swift's own notice.
     state: ofRequest && !info ? "failed" : "notice", look: info ? "error card--info" : "error", role: info ? "status" : "alert", onclick: dismissUnlessControl,
@@ -1994,7 +2117,7 @@ function renderProblem(p: Problem): void {
     // Sticky problems (reconnecting, restarting, stopped) have no close (board 9 §4).
     lead: !ofRequest && !p.sticky && Card.iconButton("x", "Close", dismiss, { style: "position:absolute;top:8px;right:8px" }),
     origin: swiftStarted ? swiftOrigin(p.origin!, p.originDetail) : ofRequest && headRow(),
-    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), detail],
+    body: [Card.failBlock(bang, p.title, withKeys(p.message, pttSpec), p.hint && withKeys(p.hint, pttSpec)), done, detail],
     foot: toggle || actions.length || p.agent ? [toggle ?? (p.agent ? el("span", { class: "byline" }, byline(p.agent)) : null), el("span", { class: "foot-gap" }), ...actions] : undefined,
   });
 }
@@ -2111,6 +2234,8 @@ window.setInterval(() => {
 }, 15_000);
 
 window.setInterval(() => {
+  moveFailed(Date.now());
+  autoWatch(Date.now());
   const r = P.tick(pres, Date.now());
   pres = r.p;
   if (r.hide) {
@@ -2261,6 +2386,7 @@ function onMessage(msg: Inbound): void {
       debugEnabled = msg.data.debug;
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
       typeSpec = msg.data.hotkeys.type ?? "";
+      sendSpeak();  // A8: this PC's choice, again for each backend
       void registerHotkeys(msg.data.hotkeys);
       if (msg.data.explore) explore = msg.data.explore;
       hints = msg.data.hints ?? null;
@@ -2355,6 +2481,7 @@ function onMessage(msg: Inbound): void {
       break;
     case "timers":
       timers = msg.data.items;
+      onStackMessage(backendStack);
       drawTimer();
       break;
     case "heard":

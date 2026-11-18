@@ -37,6 +37,8 @@ are in the saved file.
 | B14 a running timer on the orb; "+5 min" on its Due card | 1743e23 | built (new `timers` and `due.snooze` frames; no Edge · Timer, stack RUNNING row, voice "5 more") |
 | B4 Worker's content and Worker's pick in grey | 2f138f4 | restyle (shapes were built; no D7: charts carry no pick) |
 | B13 file lists as a tree | 167dc5a | built (new `tree` shape; no Open / Show in folder / double-click yet) |
+| B6/B11 the watch as a monitor | 97a522f | partial (no step counts "Step 4 of 6", no console line under the paper) |
+| B10 Run link on the card; the card holds while its watch is open; watch clock ticks again | 7ccf5df | partial (no B9 docked/mini placements, no tether, no B12 open-from-record) |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
@@ -50,15 +52,15 @@ in at least two ways that survive grayscale (band or tag or row, mark shape, the
 
 ## Where it is now
 
-Board 9 §1, B3, the ADR-019 §8 items, B5, B7, B14, B13 and B4 are done (partials as marked). Next: B6/B9–B12 (the
-watch), then the modes study, then the A-ideas.
+Every B-item has been taken as far as the overlay and small backend changes allow (partials as marked). Next: the
+modes study, then the A-ideas.
 
 ## Left, in the README's order
 
 1. **F8:** owner check halo-b8-build-4fbdf7-1 written (6bd887e). No `AllowSetForegroundWindow` change unless it fails.
 2. **Step B, what's left:** old `styles.css` rules that Halo's later rules override were not removed one by one
    (ADR-019 §10 says so). Section labels in the stack list (RUNNING, EARLIER TODAY) come with B14 and A1.
-3. **B-items:** all but B6/B9–B12 done (partials in the table).
+3. **B-items:** done or partial (the table says what each partial lacks).
 4. **Modes study** (`01-build-spec.md` §4): not started.
 5. **A-ideas:** the nine "Do next" (A5, A6, A9, A4, A1, A2, A7, A3, A8), then A10–A13 behind a setting that is off by
    default, each with an owner check. Not started.

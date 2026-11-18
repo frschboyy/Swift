@@ -10,3 +10,12 @@ export function step(keys: string[], at: string | null, dir: 1 | -1): string | n
   if (i < 0) return keys.length ? (dir === 1 ? keys[0] : keys[keys.length - 1]) : null;
   return keys[i + dir] ?? null;
 }
+
+/** What Enter does in the text box. A button reached by Tab is pressed only if nothing was typed since: typed words
+ * never press a card's button, even when Enter comes before the main window has heard of the typing (the pane
+ * decides locally). Otherwise it sends the text, if there is any. */
+export function enterAction(onCard: string | null, typedSinceReach: boolean, text: string): "press" | "send" | null {
+  if (onCard && !typedSinceReach) return "press";
+  return text.trim() ? "send" : null;
+}
+

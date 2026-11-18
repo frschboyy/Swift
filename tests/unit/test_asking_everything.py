@@ -119,3 +119,33 @@ async def test_the_tray_shows_it_and_its_click_only_turns_it_off(tmp_path: Path)
     assert not asking.is_on(store) and announced == [False]
     await asking.from_tray(session)  # again: still off, never turned on by the tray
     assert not asking.is_on(store)
+    # The tray's source is its own: no typed request carries it, and typed "off" stays refused.
+    memory.answer(store, "ask me about everything", "typed", "r2")
+    assert memory.answer(store, "stop asking about everything", "typed", "r3")[0] == asking.TYPED_OFF and asking.is_on(store)
+
+
+def test_typed_words_turn_it_on_but_never_off_and_the_true_source_is_kept(tmp_path: Path) -> None:
+    """Owner, 2026-11-18 ("Yes, not typed"): turning it off removes questions, so typed words can't; spoken can."""
+    store = Store(tmp_path)
+    memory.answer(store, "ask me about everything", "typed", "r1")
+    assert asking.is_on(store) and store.get("memory", asking.KEY).source == "typed"  # its true source, not "said"
+    said, _ = memory.answer(store, "stop asking about everything", "typed", "r2")
+    assert said == asking.TYPED_OFF and asking.is_on(store)  # refused: still on
+    memory.answer(store, "stop asking about everything", "debug.ask", "r3")  # the harness's typed requests too
+    assert asking.is_on(store)
+    memory.answer(store, "stop asking about everything", "voice", "r4")
+    assert not asking.is_on(store)
+    memory.answer(store, "Swift, ask me before you do anything", "wake", "r5")
+    assert store.get("memory", asking.KEY).source == "said"
+
+
+def test_a_setting_that_cant_be_read_counts_as_on(tmp_path: Path) -> None:
+    """Fails closed: a damaged record keeps Swift asking, and a spoken "off" then says it couldn't change it."""
+    store = Store(tmp_path)
+    memory.answer(store, "ask me about everything", "voice", "r1")
+    (tmp_path / f"{asking.KEY}.md").write_text("not a record", encoding="utf-8")
+    assert asking.is_on(store)
+    gateway = ActionGateway()
+    gateway.ask_everything = lambda: asking.is_on(store)
+    said, _ = memory.answer(store, "stop asking about everything", "voice", "r2")
+    assert "keep asking" in said and asking.is_on(store)

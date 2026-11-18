@@ -397,6 +397,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             "version": __version__,
             "debug": settings.debug,
             "hotkeys": settings.hotkeys.model_dump(),
+            "explore": settings.explore.model_dump(),  # A10-A13, each off by default
             # This backend: an overlay that sees a new one forgets what the last one put on screen (O-02).
             "instance": uuid.uuid4().hex[:12],
         },

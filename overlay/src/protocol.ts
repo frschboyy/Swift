@@ -106,7 +106,7 @@ export type Artifact = { run_id: string; thread_id?: string; id: string; phase: 
 
 export type Inbound =
   // instance: this backend; a new one means what the last one put on screen is gone (seams audit O-02).
-  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string } }
+  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string; explore?: Explore } }
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
@@ -195,6 +195,9 @@ export type RunRow = {
   words?: string;
   origin?: Origin;
 };
+
+// Halo's Explore ideas (A10-A13), each off by default (config.yaml explore).
+export type Explore = { orb_glance: boolean; follow_monitor: boolean; what_can_i_say: boolean; next_steps: boolean };
 
 export type TimerRow = { id: number; title: string; due_ms: number; set_ms: number };
 

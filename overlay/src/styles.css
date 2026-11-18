@@ -1774,3 +1774,13 @@ code {
 #stage .pinned-edge b { font-weight: 600; white-space: nowrap; }
 #stage .pinned-line { flex: 1 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ==== A12, the orb glance (Explore, off by default): 280 wide, solid, read-only ==== */
+#stage .glance { position: absolute; bottom: 60px; width: 280px; padding: 10px 14px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--rim); box-shadow: var(--shadow); font-size: 13px; pointer-events: none; z-index: 5; }
+#stage[data-anchor^="top"] .glance { bottom: auto; top: 60px; }
+#stage[data-anchor$="left"] .glance { left: 16px; }
+#stage[data-anchor$="right"] .glance { right: 16px; }
+#stage[data-anchor$="center"] .glance { left: calc(50% - 140px); }
+#stage .glance[hidden] { display: none; }
+#stage .glance p { margin: 2px 0; color: var(--text); }
+#stage .glance .glance-warn { color: var(--warn-text); font-weight: 600; }
+

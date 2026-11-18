@@ -3022,6 +3022,17 @@ You should see: step 2 asks "Set the timer?" with "Asking because you said: ask 
 the timer is set after the yes; step 3 just changes the volume; step 4 shows a card before anything is written;
 step 5 still asks (it stays on after a restart) and "no" sets nothing; step 6 sets the timer without asking.
 
+<a id="check-halo-b8-build-4fbdf7-10"></a>**Check halo-b8-build-4fbdf7-10. The orb glance, an idea to try (A12; off unless you turn it on)**
+1. In `config.yaml`, set `explore:` `orb_glance: true`, and restart Swift.
+2. Set a timer ("Hey Swift, set a timer for 5 minutes"), then rest the mouse on the orb for a moment.
+3. Leave something waiting (let an OK card run out), then rest the mouse on the orb again. Move away.
+4. Click where the orb is while you're typing in another app.
+5. Say whether you'd keep it, then set `orb_glance: false` again (or leave it on).
+
+You should see: after a short moment a small box above the orb with the timer and what's waiting ("1 waiting ·
+1 needs your OK" in amber); it goes as you move away; it never takes the keyboard from your app. With
+`orb_glance: false` the orb lets clicks through to what's under it, as before.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

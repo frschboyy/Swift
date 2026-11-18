@@ -45,12 +45,13 @@ import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
 import { endRun, saysReady, startRun } from "./ready";
 import * as T from "./timers";
+import { glanceLines } from "./glance";
 import { getVersion } from "@tauri-apps/api/app";
 import { followTheme } from "./theme";
 import * as V from "./views";
@@ -232,7 +233,12 @@ function drawCapsule(): void {
     else if (v.button === "resume") capBtn.replaceChildren(icon("play"), "Resume");
     capBtn.hidden = v.button === null;
     capBtn.dataset.action = v.button ?? "";
-    capsuleEl.toggleAttribute("data-hit", v.clickable);
+    scheduleRegions();
+  }
+  // A12: the glance needs the pointer on the orb; otherwise only a capsule with a button takes it.
+  const hit = v.clickable || explore.orb_glance;
+  if (hit !== capsuleEl.hasAttribute("data-hit")) {
+    capsuleEl.toggleAttribute("data-hit", hit);
     scheduleRegions();
   }
 }
@@ -1283,6 +1289,27 @@ function drawPinned(): void {
   scheduleRegions();
 }
 
+// Halo's Explore ideas (A10-A13), from config.yaml: each off until the owner turns it on.
+let explore: Explore = { orb_glance: false, follow_monitor: false, what_can_i_say: false, next_steps: false };
+
+// A12: the orb glance. The pointer resting 400 ms on the orb shows it; it leaves 200 ms after the pointer. Never
+// while a card shows, never focus, nothing in it to click.
+const glanceEl = el("div", { class: "glance", hidden: true, role: "status" });
+capsuleEl.after(glanceEl);
+let glanceTimer = 0;
+capsuleEl.addEventListener("pointerenter", () => {
+  window.clearTimeout(glanceTimer);
+  if (!explore.orb_glance || card.classList.contains("card--in")) return;
+  glanceTimer = window.setTimeout(() => {
+    glanceEl.replaceChildren(...glanceLines(timers, stack.items, Date.now()).map((l) => el("p", { class: l.warn ? "glance-warn" : "" }, l.text)));
+    glanceEl.hidden = false;
+  }, 400);
+});
+capsuleEl.addEventListener("pointerleave", () => {
+  window.clearTimeout(glanceTimer);
+  glanceTimer = window.setTimeout(() => { glanceEl.hidden = true; }, 200);
+});
+
 // Halo B14: the timers still counting (the backend's ``timers``), soonest first.
 let timers: TimerRow[] = [];
 
@@ -2125,6 +2152,8 @@ function onMessage(msg: Inbound): void {
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
       typeSpec = msg.data.hotkeys.type ?? "";
       void registerHotkeys(msg.data.hotkeys);
+      if (msg.data.explore) explore = msg.data.explore;
+      drawCapsule();
       void invoke("set_status", { text: `Swift: ready. Hold ${pttText()} to talk.` }).catch(() => {});
       break;
     case "state":

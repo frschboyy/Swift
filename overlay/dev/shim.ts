@@ -108,7 +108,7 @@ if (!params.get("port")) {
       setTimeout(() => this.onopen?.(new Event("open")));
     }
     send(raw: string): void {
-      if (JSON.parse(raw).type === "hello") this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "hello.ok", ts: Date.now(), data: { version: "dev", debug: true, hotkeys: { push_to_talk: "Ctrl+Shift+Space", type: "Ctrl+Alt+Space" } } }) }));
+      if (JSON.parse(raw).type === "hello") this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "hello.ok", ts: Date.now(), data: { version: "dev", debug: true, hotkeys: { push_to_talk: "Ctrl+Shift+Space", type: "Ctrl+Alt+Space" }, explore: { orb_glance: params.get("explore") === "1", follow_monitor: false, what_can_i_say: false, next_steps: false } } }) }));
     }
     close(): void {}
   } as unknown as typeof WebSocket;

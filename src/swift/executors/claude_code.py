@@ -63,7 +63,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift import clock, files, previews, shapes
+from swift import asking, clock, files, previews, shapes
 from swift.attention import Attention, wait_answer
 from swift.executors import plan_card
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
@@ -314,13 +314,14 @@ class _Run:
     # The approvals each command of ``grant`` and ``later`` is bound to (OWN-05), one per listing; set together
     # with them (``_set_grant``).
     step_bound: dict[str, list[Bound]] = field(default_factory=dict)
+    asking_at: int = 0  # ``asking.turned_on`` when the grant was set: turned on since, the grant is over (PLAN-04)
 
 
 def _set_grant(run: _Run, gateway: ActionGateway, *steps: Grant) -> None:
     """The step the owner approved (or a plan's steps, in order), each listed command bound to its own one-time approval."""
     grant, later = (steps[0], steps[1:]) if steps else (Grant(), ())
     run.grant, run.later = grant, later
-    run.step_bound = {}
+    run.step_bound, run.asking_at = {}, asking.turned_on
     for c in (c for g in (grant, *later) for c in g.commands):
         run.step_bound.setdefault(c, []).append(gateway.bind(STEP_TOOL, {"command": c}))
 
@@ -818,8 +819,8 @@ class ClaudeCodeExecutor:
             # No card: an approval must not be able to read what Read is always refused (owner check 213).
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
             return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
-        if run.step_bound and self.ask_everything():  # a plan approved earlier must not come back when the setting goes off
-            _set_grant(run, self.gateway)
+        if run.step_bound and (self.ask_everything() or run.asking_at != asking.turned_on):
+            _set_grant(run, self.gateway)  # PLAN-04: turned on since the approval, even for a moment: it never covers again
         if name in COMMAND_TOOLS and (run.grant.commands or run.later) and not self.ask_everything():
             command = str(args.get("command", ""))
             # Swift's classification, never the agent's: a delete, a send or anything unknown asks (B2, ADR-019).

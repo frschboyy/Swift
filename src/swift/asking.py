@@ -47,6 +47,11 @@ TRAY = "tray"
 TYPED_OFF = "I can only stop asking about everything when you say it. Until then I'll keep asking."
 
 
+# How many times it was turned on since Swift started: a step or plan approved before that never covers again
+# (PLAN-04, answered 2026-11-18), even if it was turned off before the agent's next command.
+turned_on = 0
+
+
 def is_on(store: Any) -> bool:
     """On while its record is there; a record that can't be read counts as on (fails closed: Swift keeps asking)."""
     if store is None:
@@ -71,6 +76,8 @@ def answer(store: Any, action: str, words: str, run: str, source: str) -> str:
         return "I can't keep that setting here."
     if action == "ask_all":
         if not is_on(store):
+            global turned_on
+            turned_on += 1
             store.write("memory", words.strip()[:300], source="said" if source in SPOKEN else "typed", words=words, run=run, key=KEY)
         return "Okay. I'll ask before I do anything, until you say “stop asking about everything”."
     if source not in SPOKEN and source != TRAY:

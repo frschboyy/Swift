@@ -215,3 +215,19 @@ async def test_a_no_on_a_step_card_ends_the_earlier_plan_even_if_the_run_isnt_in
     await ex.reply(card.request_id, False)
     await asyncio.wait_for(proposing, 5)
     assert await _asks(ex, run, "mkdir tea-timer")
+
+
+# ---- the owner's answers of 2026-11-18 (the reviewer's recommendation, safe direction) ----------------------
+
+
+async def test_turning_ask_me_about_everything_on_ends_every_earlier_plan_at_once(tmp_path: Any) -> None:
+    """PLAN-04: on, even for a moment with nothing asked in between, then off: the old plan covers nothing."""
+    from swift import asking
+    from swift.memory import Store
+
+    store = Store(tmp_path / "memory")
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    asking.answer(store, "ask_all", "ask me about everything", "r-1", "voice")
+    asking.answer(store, "ask_less", "stop asking about everything", "r-2", "voice")
+    assert await _asks(ex, run, "mkdir tea-timer")

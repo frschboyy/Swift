@@ -31,6 +31,9 @@ from swift.ipc.protocol import outbound
 POLL_S = 2.0
 # The key closes between an app's prompts: a call is over only after this long without it.
 OUT_S = 5.0
+# A key opened longer ago than this is left behind by a crash, not a call (review 7ab2b70 finding 3).
+STALE_S = 4 * 3600
+_EPOCH_1601 = 11644473600  # seconds from FILETIME's 1601 to Unix time
 CALL_APPS = ("teams", "zoom", "discord", "slack", "whatsapp", "skype", "webex", "chrome", "msedge", "firefox", "brave")
 # SHQueryUserNotificationState: BUSY, RUNNING_D3D_FULL_SCREEN, PRESENTATION_MODE.
 _PRESENTING = {2, 3, 4}
@@ -46,6 +49,11 @@ async def hold_new(session: Any, request_id: str) -> bool:
     await session._send_stack()
     await session._send(outbound("confirm.hold", request_id=request_id, held=True))
     return True
+
+
+def opened_recently(start: int, now: float) -> bool:
+    """Was the microphone opened (ConsentStore ``LastUsedTimeStart``, a FILETIME) within ``STALE_S``?"""
+    return now - (start / 10_000_000 - _EPOCH_1601) < STALE_S
 
 
 class Probe(Protocol):
@@ -113,7 +121,7 @@ class WindowsProbe:
                             stop = winreg.QueryValueEx(app, "LastUsedTimeStop")[0]
                     except OSError:
                         continue
-                    if start and stop == 0:
+                    if start and stop == 0 and opened_recently(start, time.time()):
                         found.append(prefix + name.split("#")[-1])
 
         scan(_CS)

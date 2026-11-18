@@ -138,7 +138,7 @@ export type Inbound =
   | { type: "followup"; data: { open: boolean; seconds: number; question?: boolean } }
   // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
   // paused: the owner paused listening from the tray (ADR-017): "Not listening · Mic off".
-  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean; asking?: boolean } }
+  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean; asking?: boolean; call?: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
   // held false: they're back, and the card shows again.
   | { type: "confirm.hold"; data: { request_id: string; held: boolean } }

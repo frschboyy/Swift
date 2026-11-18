@@ -156,3 +156,31 @@ async def test_a_card_arriving_during_a_call_is_held_not_drawn() -> None:
     await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "reject"}))
     await finish(session)
     assert calendar.created == []
+
+
+# ---- review 7ab2b70 finding 3: a hold says so, and a key left open for hours doesn't hold ---------------
+
+
+async def test_a_call_hold_is_announced_and_its_end_too() -> None:
+    sent: list[Message] = []
+
+    async def send(msg: Message) -> None:
+        sent.append(msg)
+
+    async def hold_cards(h: bool) -> None:
+        pass
+
+    life = Lifecycle(types.SimpleNamespace(listening_paused=False, hold_cards=hold_cards), send)
+    await life.set_call(True, 0)
+    assert sent[-1].type == "presence" and sent[-1].data["call"] is True
+    await life.set_call(False, 600)
+    assert sent[-1].type == "presence" and "call" not in sent[-1].data
+
+
+def test_a_key_opened_hours_ago_is_stale() -> None:
+    from swift.calls import STALE_S, opened_recently
+
+    now = 1_800_000_000.0
+    ticks = 10_000_000  # Windows' FILETIME: 100 ns ticks since 1601
+    assert opened_recently(int((now - 60 + 11644473600) * ticks), now) is True
+    assert opened_recently(int((now - STALE_S - 1 + 11644473600) * ticks), now) is False

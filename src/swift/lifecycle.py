@@ -103,6 +103,7 @@ class Lifecycle:
         if hold_cards is not None:
             away = self.monitor is not None and self.monitor.state == "away"
             await hold_cards(away or on)
+        await self.announce()  # the tray and capsule say why Swift is holding (review 7ab2b70 finding 3)
 
     # ---- presence changes ---------------------------------------------------------------
 
@@ -264,6 +265,7 @@ class Lifecycle:
                 paused=self.paused,
                 # Modes §3: the tray says so (sent only while on).
                 **({"asking": True} if asking.is_on(getattr(self.session, "memories", None)) else {}),
+                **({"call": True} if self.in_call else {}),  # A3: holding while on a call (sent only while on)
             )
         )
 

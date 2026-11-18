@@ -1823,6 +1823,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   let long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
   const shape = A.shape(data.summary, fuller, long);
   if (!presentAnswer("result", Dsp.readingMs(display, A.readingMs(copyable)), data.run_id, data.thread_id, clipLine(data.summary))) return;
+  if (long) pres = P.stays(pres);  // seams decision 6: with Show all, it stays until dismissed
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
@@ -1834,6 +1835,8 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
     if (long) return drawFoot();
     if (!d.wide) return;
     long = true;
+    pres = P.stays(pres);  // Show all after all: it stays until dismissed (seams decision 6)
+    showDeadline();
     body.classList.add("answer--long");
     body.tabIndex = 0;
     drawFoot();

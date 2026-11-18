@@ -1167,11 +1167,12 @@
   area: screen
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: design-concern
-  evidence: answer.ts:17 READ_MAX_MS = 20000, used at :33
-  test: null
-  note: Waits on decision 6.
+  evidence: 'presenter.stays: an answer with Show all (Read more) has no fade time, from the start or once a drawn
+    diagram turns out too wide; other answers keep READ_MAX_MS.'
+  test: 'overlay/tests/presenter.test.ts::"seams decision 6: an answer with Read more (Show all) stays until dismissed"'
+  note: Decision 6 answered 2026-11-18, stay until dismissed. Harness cardCappedRows still on screen after 26 s.
 - id: O-13
   title: Two overlay clients replace each other about twice a second, forever.
   source: docs/audit/2026-11-seams-audit.md §3.3

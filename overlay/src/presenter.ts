@@ -298,6 +298,11 @@ export function onHold(p: Presenter, holding: boolean, now: number, restore = fa
   return { ...p, pausedLeft: null, card: { ...p.card, fadeAt: Math.max(now + more, listening) } };
 }
 
+/** Seams decision 6 (answered 2026-11-18): an answer with Read more (Show all) stays until it is dismissed. */
+export function stays(p: Presenter): Presenter {
+  return { ...p, pausedLeft: null, card: { ...p.card, fadeAt: null } };
+}
+
 /** The owner closed the card. Only an answer or notice can be closed: a request goes on. */
 export function onDismiss(p: Presenter): { p: Presenter; hide: boolean } {
   if (isActive(p) || p.card.kind === "none") return { p, hide: false };

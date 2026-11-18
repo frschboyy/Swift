@@ -504,3 +504,13 @@ test("F2: an OK waiting behind never comes forward by itself when the card in fr
   assert.equal(o.p.card.kind, "none");
   assert.equal(promotion(o.p), null);
 });
+
+test("seams decision 6: an answer with Read more (Show all) stays until dismissed, also after hover", () => {
+  let p = P.onAnswer(initial, { kind: "result", runId: "a-1", summary: "x", ms: 4000 }, 0).p;
+  p = P.stays(p);
+  assert.equal(P.tick(p, 60 * 60 * 1000).hide, false);
+  p = P.onHold(p, true, 10);
+  p = P.onHold(p, false, 20);  // the pointer left: still no clock
+  assert.equal(P.tick(p, 60 * 60 * 1000).hide, false);
+  assert.equal(P.onDismiss(p).hide, true);
+});

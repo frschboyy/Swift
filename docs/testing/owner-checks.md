@@ -2928,6 +2928,56 @@ didn't take your typing, or a card with a flag answered when you pressed Enter, 
 
 The report checks: a correction was kept, and its kind.
 
+### Halo B8: the confirm and stop fixes, every surface, the keyboard (2026-11-18)
+
+About 15 minutes. Halo is now Swift's only look. Nothing here sends anything: click **Reject** on any card that
+asks for your OK.
+
+<a id="check-halo-b8-build-4fbdf7-1"></a>**Check halo-b8-build-4fbdf7-1. The text box gets the keyboard from another app (F8)**
+1. Click into VS Code (or Word) and type a few letters there, so it has the keyboard.
+2. Press the typing hotkey. Without clicking anything, type "what time is it" and press Enter.
+3. Do it three more times, from VS Code, Word and a browser.
+
+You should see: each time the box opens with a blue border and your typing goes into it, never into the other
+app. If even once the letters went into the other app, note the time and which app: the fix
+(`AllowSetForegroundWindow` before `set_focus`) is only built if this fails.
+
+<a id="check-halo-b8-build-4fbdf7-2"></a>**Check halo-b8-build-4fbdf7-2. An OK that runs out waits in the stack and frees Swift (F1-F4)**
+1. Say "Hey Swift, email Priya the tea report" (or any request that asks for your OK). Don't answer it: let the
+   countdown run out.
+2. Within 20 seconds, say "Hey Swift, what time is it?".
+3. Press push-to-talk and let go without speaking (an "I didn't catch that" notice).
+4. Quit the overlay window only (not the engine) if you know how; otherwise skip this step.
+
+You should see: after step 1, no card in front, and an amber pile "1 thing needs you · Needs your OK · …".
+Step 2 is answered at once. After step 3 the OK does **not** come back to the front by itself. Clicking the pile
+and Open brings it back with a fresh countdown; then Reject.
+
+<a id="check-halo-b8-build-4fbdf7-3"></a>**Check halo-b8-build-4fbdf7-3. "Stop" before a request starts, and "stop" twice (F6, F7)**
+1. Hold push-to-talk and say "research the history of tea", let go, and at once press push-to-talk again and say
+   "stop".
+2. With nothing running, press push-to-talk and say "stop" again.
+
+You should see: after step 1 a Stopped card for the tea request, and no research starts. After step 2 the
+Stopped card stays and fades on its own.
+
+<a id="check-halo-b8-build-4fbdf7-4"></a>**Check halo-b8-build-4fbdf7-4. Every surface in Halo (board 9)**
+1. Leave two things waiting (a lapsed OK and a question you put off): look at the pile, then click it once.
+2. Open the text box while an OK card is up, then press Tab until a card button has the ring.
+3. Open the tray menu, pause listening, open it again, resume.
+4. After an answer, look at the orb while Swift listens for a reply.
+
+You should see: the pile and list as on board 9 §1 (amber only for the OK); the text box amber over the OK card,
+saying typing can't approve, and blue saying what Enter presses once Tab reached the card; the tray with a dimmed
+orb while paused; a ring draining round the orb with "Reply without “Hey Swift” · N s". Note anything that
+looks wrong or hard to read.
+
+<a id="check-halo-b8-build-4fbdf7-5"></a>**Check halo-b8-build-4fbdf7-5. "Swift is ready" only after an update or a crash (D10)**
+1. Quit Swift from the tray and start it again.
+2. Start it once more after the next update.
+
+You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

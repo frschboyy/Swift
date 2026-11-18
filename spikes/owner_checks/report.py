@@ -438,6 +438,12 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("115 the improvement pass ran", bool(improve_runs),
          f"{len(improve_runs)} pass(es)"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
+        # Halo B8 (2026-11-18): what only the screen shows.
+        ("halo-b8-build-4fbdf7-1 the text box got the keyboard from another app", LOOK, "check: typing went into the box every time"),
+        ("halo-b8-build-4fbdf7-2 a lapsed OK waited in the stack and freed Swift", LOOK, "check: the next request answered at once, the OK never came back by itself"),
+        ("halo-b8-build-4fbdf7-3 'stop' before the start and 'stop' twice", LOOK, "check: a Stopped card each time, no research started"),
+        ("halo-b8-build-4fbdf7-4 every surface in Halo (board 9)", LOOK, "check on screen: pile, list, text box, tray, reply ring"),
+        ("halo-b8-build-4fbdf7-5 'Swift is ready' only after an update or a crash", LOOK, "check: none after a plain restart"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

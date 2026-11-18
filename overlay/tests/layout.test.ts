@@ -9,8 +9,9 @@ const read = (path: string): string => readFileSync(new URL(path, import.meta.ur
 test("the capsule's slot is 44 px in every state, so the card above it never moves when it changes", () => {
   const css = read("../src/styles.css");
   assert.match(css, /\.capsule \{[^}]*height: 44px;/);
-  assert.match(css, /\.capsule\[data-p="orb"\] \{[^}]*height: 36px;[^}]*margin: 4px 0;/);
-  assert.match(css, /\.capsule\[data-p="idle"\] \{[^}]*height: 12px;[^}]*margin: 16px;/);
+  assert.match(css, /--orb: 36px;/);
+  assert.match(css, /\.capsule\[data-p="orb"\] \{[^}]*margin: 4px 0;/);
+  assert.match(css, /#stage \.capsule\[data-p="idle"\] \{ width: 14px; height: 14px; margin: 15px; \}/);
 });
 
 test("a card's scroller never scrolls sideways, and spans the padding its children reach into", () => {

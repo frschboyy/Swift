@@ -3844,3 +3844,37 @@
     dropped, deaf until a pause or 30 s (the same bar lost 2–4 of the owner''s wake takes over babble, so it
     wasn''t applied); (2) "hey Swift" misheard in noise ("It''s Wift", "They swift"), a speech model limit; (3)
     the bar waits for one sure request after each start to learn the owner''s voice.'
+- id: LL-01
+  title: 'Live loop 2026-11-18 (Halo B8, real window) - "stop" said while a scripted run is still in "listening" leaves
+    no Stopped card and no trace; the seq.mjs step "real click: Close" then has nothing to click.'
+  source: spikes/live_ui/seq.mjs repeat, run 2026-11-18 on claude/optimistic-mahavira-48764b
+  module: src/swift/session.py, overlay/src/presenter.ts
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: 'repeat step 2 (debug.run research, 2.5 s, then three "stop" frames): capsule idle, #stage idle, no card,
+    the stack pile unchanged. This is live-ui-loop.md §4 row 2 again; docs/handoff/halo-b8/03-verify.md says F6 fixed
+    "stop before the run starts says so". The scripted debug.run (a demo path, not a spoken request) may not take the
+    F6 path, so unproven for a real request. Step 4 of the same sequence reports BAD only because no Close exists.'
+  test: null
+  note: Reproduce with a real push-to-talk (owner check) or a debug.ask followed by say "stop" while transcribing.
+    Not fixed here (not blocking; src/swift is out of this session's scope).
+- id: LL-02
+  title: 'Live loop driver assumptions that no longer hold - the engine step kills a backend by its config path, and the
+    test copy has no backend supervisor.'
+  source: spikes/live_ui/seq.mjs engine, run 2026-11-18
+  module: spikes/live_ui/seq.mjs, spikes/live_ui/live.mjs
+  area: tests
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'The kill matches "swift-test[/\]config.yaml" (a backend must be started with that exact path, else the step
+    kills nothing and "8 s later" proves nothing). With the path right, the overlay shows "Reconnecting to Swift..."
+    and stays there for 8 s and longer: the test copy gets SWIFT_BACKEND_PORT, so no Rust supervisor restarts the
+    backend; the doc''s "reconnects by itself" needs the backend started again by hand. live.mjs also hard-coded
+    port 1431, which another session''s vite held (now SWIFT_UI_PORT, SWIFT_TEST_EXE).'
+  test: null
+  note: Update live-ui-loop.md section 4 row 11, or restart the backend inside the step.

@@ -15,7 +15,7 @@ export function desk(...args) {
 }
 
 let app = null;
-export async function launch(exe = "C:/st/t/debug/swift-overlay.exe") {
+export async function launch(exe = process.env.SWIFT_TEST_EXE ?? "C:/st/t/debug/swift-overlay.exe") {
   const lad = `${process.env.TEMP}\\swift-test\\lad`;
   mkdirSync(lad, { recursive: true });
   app = spawn(exe, [], {
@@ -50,7 +50,7 @@ const TAP = `(() => { if (window.__tap) return; const W = window.WebSocket; wind
 export let ov = null;
 export const errors = [];
 export async function connect() {
-  const t = (await targets()).find((x) => !/pane/.test(x.url) && /localhost:1431\/?(\?|$|index)/.test(x.url)) ?? (await targets())[0];
+  const t = (await targets()).find((x) => !/pane/.test(x.url) && /localhost:143\d\/?(\?|$|index)/.test(x.url)) ?? (await targets())[0];
   ov = await attach(t);
   await ov.send("Runtime.enable"); await ov.send("Page.enable"); await ov.send("Log.enable");
   ov.on.push((d) => {

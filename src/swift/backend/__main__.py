@@ -551,7 +551,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         session.on_owner = monitor.touch
         presence_tasks = (asyncio.create_task(monitor.run()), asyncio.create_task(lifecycle.run()))  # noqa: F841
     if settings.explore.hold_during_calls:  # A3 (calls.py): off unless the owner turns it on
-        call_task = asyncio.create_task(CallWatch(WindowsCallProbe(), lifecycle.set_call).run())  # noqa: F841
+        lifecycle.call_watch = asyncio.create_task(CallWatch(WindowsCallProbe(), lifecycle.set_call).run())
         session.on_open_held = lifecycle.lift_call  # the owner opened the held card: shown for this call
     if classifier is not None:
         classifier.start_loading()

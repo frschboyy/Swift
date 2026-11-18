@@ -81,6 +81,7 @@ class Lifecycle:
         self.paused = False
         self.in_call = False  # A3: a call or a presentation is on (calls.py): held like away
         self.call_lifted = False  # the owner opened the held card during this call: no hold until the next one
+        self.call_watch: asyncio.Task[None] | None = None  # the running calls.CallWatch, kept from collection
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor

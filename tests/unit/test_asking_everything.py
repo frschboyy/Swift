@@ -108,6 +108,7 @@ async def test_the_tray_shows_it_and_its_click_only_turns_it_off(tmp_path: Path)
     session = SimpleNamespace(memories=store, on_ready=ready)
     lifecycle = Lifecycle.__new__(Lifecycle)
     lifecycle.session, lifecycle.monitor, lifecycle.wake_enabled, lifecycle.paused = session, None, True, False
+    lifecycle.in_call = lifecycle.call_lifted = False  # A3's call hold, off
 
     async def send(msg: Any) -> None:
         sent.append(msg)

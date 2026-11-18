@@ -252,7 +252,9 @@ function drawCapsule(): void {
 }
 
 capsuleEl.addEventListener("click", (ev) => {
-  if (expanded && !(ev.target as HTMLElement).closest("button")) foldExpanded();
+  if ((ev.target as HTMLElement).closest("button")) return;  // Stop / Resume act on their own
+  if (expanded) foldExpanded();
+  else if (!typing) toggleTyping();  // seams decision 4: a click on the capsule opens the text box; the hotkey stays
 });
 
 capBtn.addEventListener("click", () => {
@@ -1840,6 +1842,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   let long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
   const shape = A.shape(data.summary, fuller, long);
   if (!presentAnswer("result", Dsp.readingMs(display, A.readingMs(copyable)), data.run_id, data.thread_id, clipLine(data.summary))) return;
+  if (long) pres = P.stays(pres);  // seams decision 6: with Show all, it stays until dismissed
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });
@@ -1851,6 +1854,8 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
     if (long) return drawFoot();
     if (!d.wide) return;
     long = true;
+    pres = P.stays(pres);  // Show all after all: it stays until dismissed (seams decision 6)
+    showDeadline();
     body.classList.add("answer--long");
     body.tabIndex = 0;
     drawFoot();
@@ -2381,10 +2386,10 @@ function liveHovered(): Set<string> {
   return new Set([...(liveEl?.querySelectorAll<HTMLElement>("[data-run]:hover") ?? [])].map((n) => n.dataset.run ?? ""));
 }
 
-// ---- Esc: only grabbed while Swift is active, speaking, or the stack is open -----------
+// ---- Esc: only grabbed while a card waits, Swift types into an app or talks, or something folds (HA-UI-01) ----
 
 async function syncEscape(): Promise<void> {
-  const want = (ACTIVE.has(stageNow()) || speaking || stack.expanded || expanded) && !typing;
+  const want = C.grabsEscape({ stage: stageNow(), writing: current?.activity === "writing", speaking, folds: stack.expanded || expanded, typing: !!typing });
   if (want === escapeActive) return;
   escapeActive = want;
   try {
@@ -2458,6 +2463,7 @@ function onMessage(msg: Inbound): void {
       quiet = false;
       current = { activity: msg.data.activity, agent: msg.data.agent ?? agent, subagent: msg.data.subagent ?? false, app: msg.data.app };
       if (stageNow() === "working") renderWorking();
+      void syncEscape();  // writing into an app takes Esc; other steps give it back (HA-UI-01)
       break;
     case "confirm.request":
       pres = P.onConfirm(pres, msg.data.request_id, msg.data.run_id, Date.now());

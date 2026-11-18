@@ -15,11 +15,12 @@ test("only the text box's window takes the keyboard (Rust)", () => {
   assert.match(rust, /if typing \{\s*\/\/[^\n]*\n\s*let _ = window\.set_focus\(\);/);
 });
 
-test("A7: keyboard entry opens only from its hotkey; the text box only from a hotkey, the tray or Change", () => {
+test("A7: keyboard entry opens only from its hotkey; the text box only from a hotkey, the tray, Change or a click on the capsule", () => {
   const main = read("../src/main.ts");
   assert.deepEqual(lines(main, /enterCard\(\);/), ["enterCard();"]);
   assert.match(main, /payload\.name === "card" && payload\.state === "down"\) \{\s*enterCard\(\);/);
   const opens = lines(main, /toggleTyping\(\)/).filter((l) => !l.startsWith("function") && !l.startsWith("/**"));
-  assert.equal(opens.length, 4, opens.join("\n"));  // the type hotkey, the tray, Change, and A7's enterCard
+  assert.equal(opens.length, 5, opens.join("\n"));  // the type hotkey, the tray, Change, A7's enterCard, the capsule (seams 4)
+  assert.ok(opens.some((l) => l.includes("seams decision 4")));
   assert.ok(opens.some((l) => l.includes('"Change"')) && opens.some((l) => l.startsWith("if (!typing) toggleTyping();")));
 });

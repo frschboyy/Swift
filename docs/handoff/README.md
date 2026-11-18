@@ -268,34 +268,6 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 ## 5. Decisions waiting on the owner
 
-**Open from the seams audit** (§9 there; its decisions 1 and 9 are taken). Recommendations are the audit's.
-
-| # | Decision | Recommendation |
-|---|---|---|
-| Seams 2 | The light lane: retarget it at thread questions, "try again" and small talk, or turn it off and drop its warm CLI? | Turn it off until retargeted |
-| Seams 4 | One gesture to open the text box: click the capsule, or double-tap the push-to-talk key? | Click the capsule, keep the hotkey |
-| Seams 5 | Try Windows' communications microphone path (echo cancellation) behind a setting, accepting it may change how the mic sounds? | Yes, as a trial |
-| Seams 6 | Answers with "Read more": stay until dismissed, or go to the stack as unread? | Stay until dismissed |
-| Seams 7 | A weekly labelling card for misheard clips, where typing the right words is allowed (it labels, never approves)? | Yes |
-| Seams 8 | Daily use runs the Vite dev server, so every merge reloads the overlay. Keep that, or use a built app? | Keep it |
-
-**Open from X-17:**
-
-| Decision | Why it's open | Default until you choose |
-|---|---|---|
-| The 12,000-character limit on a file change's card | Longer changes are refused and the agent goes on in pieces, each on its own card. A long document means several cards | 12,000 |
-| Must you scroll to the end before Approve works? | The card says "More below", but Approve works anyway, and "Swift, yes" can't scroll | No, the sign only |
-| Countdown on a long card | A full card can't be read in the 45 s it allows. It goes to the stack, which is safe | Unchanged |
-
-**Open from the health audit** ([`2026-11-12-health-audit.md`](../audit/2026-11-12-health-audit.md); each is an entry in `findings.yaml`):
-
-| Finding | Decision | Recommendation |
-|---|---|---|
-| HA-HEAR-01 | Typing "Swift, yes" answers Swift's own "Turn off Wi-Fi?". The intake table allows it; the rule says typing never approves | Typing never answers it |
-| HA-UI-01 | Esc is taken from every app while Swift works (ADR-017 §2), so an Esc meant for another app can cancel a long run | Grab it during work only while Swift types into an app or a card waits |
-| OCT-01 | VS Code's terminal isn't recognised as a terminal. A real fix needs testing on VS Code; the alternative is never typing into VS Code | Test on VS Code first |
-| B-10 | The handoff step between providers names them, shown only with a second provider | Make it generic |
-
 **Open from the Deck's Step 1** (ADR-018 §4.1):
 
 | Decision | Why it's open | Recommendation |
@@ -312,6 +284,24 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 **Still open from the checks of 2026-11-04:** when Swift speaks and how much; local models for offline questions; the Watch window shrinking (#10, seams O-09); a held card not coming back on screen (#14: fixes landed in S1, so confirm it's gone).
 
 **Answered:**
+
+- **2026-11-18, the owner took each recommendation** (relayed by the orchestrator; code work queued on its own branches,
+  one finding per commit):
+  - Seams 2: the light lane is turned off until it is retargeted at thread questions, "try again" and small talk, and
+    its warm CLI is dropped while it is off (the audit's own fix for R-07).
+  - Seams 4: clicking the capsule opens the text box; the hotkey stays.
+  - Seams 5: Windows' communications microphone path (echo cancellation) as a trial behind a setting, off by default.
+  - Seams 6: answers with "Read more" stay on screen until dismissed.
+  - Seams 7: a weekly labelling card for misheard clips; typing the right words labels, never approves.
+  - Seams 8: daily use keeps the Vite dev server.
+  - X-17: the file-change card limit stays 12,000 characters; Approve works without scrolling to the end (the "More
+    below" sign only); a long card's countdown is unchanged.
+  - HA-HEAR-01: typing never answers Swift's own "Turn off Wi-Fi?" (typed words never approve). The intake table
+    changes to match: a product-rule change, with a failing test first and a review by someone other than its author.
+  - HA-UI-01: Esc is taken from other apps only while Swift types into an app or a card waits.
+  - OCT-01: test on VS Code first, before choosing a fix.
+  - B-10: the provider handoff step becomes generic (names no provider).
+  - Halo B8 D1 to D12: the README defaults, exactly.
 
 - A stop during "Sending…" (seams decision 3): an approved email waits 5 seconds, when a stop keeps it; after that it goes, and a stop lets it finish (2026-11-10, X-08).
 - Saved recordings: keep 7 days, and only if they serve a purpose.

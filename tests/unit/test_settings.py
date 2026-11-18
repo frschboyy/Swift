@@ -127,3 +127,10 @@ def test_workflow_and_desktop_settings(tmp_path: Path, monkeypatch: pytest.Monke
     f.write_text("desktop:\n  never_read_titles: [payroll]\nconnectors:\n  calendar: google\n", encoding="utf-8")
     loaded = load_settings(f)
     assert loaded.desktop.never_read_titles == ["payroll"] and loaded.connectors.calendar == "google"
+
+
+def test_the_light_lane_is_off_until_retargeted() -> None:
+    """Seams decision 2 (answered 2026-11-18): off, and with it its warm CLI (R-07: it answered none of 463 requests)."""
+    from swift.settings import Settings
+
+    assert Settings().executor.quick_answers is False

@@ -363,13 +363,13 @@
   area: actions
   severity: high
   product_rule: false
-  status: open
+  status: fixed
   confidence: design-concern
   evidence: main.ts:1979 syncEscape grabs Esc whenever ACTIVE.has(stageNow()) (listening, transcribing, working,
     confirm); lib.rs:285-296 set_escape uses RegisterHotKey, which takes the key from every app; main.ts:1990-1992
     onEscape then sends {type:"cancel"} while active.
-  test: null
-  note: 'Owner decides. ADR-017 §2 grabs Esc on purpose while Swift works, and ADR-012 relies on Esc to stop Swift
+  test: 'overlay/tests/health-UI.test.ts::"HA-UI-01: a long background run doesn''t take Esc from other apps"'
+  note: 'Answered 2026-11-18: grab it during work only while Swift types into an app or a card waits (capsule.grabsEscape). Was: owner decides. ADR-017 §2 grabs Esc on purpose while Swift works, and ADR-012 relies on Esc to stop Swift
     typing into an app. Options: keep it; or grab it during work only while Swift types into an app or a card waits,
     so a long background run can''t be cancelled by an Esc meant for another app.'
 - id: PLAN-01
@@ -547,12 +547,14 @@
   area: perf
   severity: medium
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
-  evidence: backend/__main__.py:534-535 still builds QuickModel with prewarm; config.example.yaml:70 quick_answers
-    true
-  test: null
-  note: Waits on owner decision 2 (retire or retarget).
+  evidence: 'settings.ExecutorSettings.quick_answers defaults to false and config.example.yaml says false, so no
+    QuickModel and no warm CLI is built; quick-lane routes go to the agent (session._quick_answer).'
+  test: tests/unit/test_settings.py::test_the_light_lane_is_off_until_retargeted
+  note: 'Owner decision 2 answered 2026-11-18: off until retargeted. Partial: retargeting it is not done, and a
+    config.yaml that says quick_answers true still turns it on.'
+
 - id: R-08
   title: The agent-time metric includes the owner's own speaking and card waits.
   source: docs/audit/2026-11-seams-audit.md §3.6
@@ -1222,11 +1224,12 @@
   area: screen
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: design-concern
-  evidence: answer.ts:17 READ_MAX_MS = 20000, used at :33
-  test: null
-  note: Waits on decision 6.
+  evidence: 'presenter.stays: an answer with Show all (Read more) has no fade time, from the start or once a drawn
+    diagram turns out too wide; other answers keep READ_MAX_MS.'
+  test: 'overlay/tests/presenter.test.ts::"seams decision 6: an answer with Read more (Show all) stays until dismissed"'
+  note: Decision 6 answered 2026-11-18, stay until dismissed. Harness cardCappedRows still on screen after 26 s.
 - id: O-13
   title: Two overlay clients replace each other about twice a second, forever.
   source: docs/audit/2026-11-seams-audit.md §3.3

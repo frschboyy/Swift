@@ -179,7 +179,9 @@ class ExecutorSettings(_Section):
     # Tool-using steps on one model before Swift moves the run up.
     turn_limits: dict[Literal["light", "standard"], int] = Field(default_factory=lambda: {"light": 8, "standard": 25})
     # Quick facts and everyday language: one tool-free call to the light model, no agent run (ADR-007 §10).
-    quick_answers: bool = True
+    # Off, with its warm CLI, until it is retargeted at thread questions, "try again" and small talk (seams decision 2,
+    # answered 2026-11-18; R-07: it answered none of the owner's 463 requests). Off, those go to the agent.
+    quick_answers: bool = False
 
 
 class LocalSettings(_Section):

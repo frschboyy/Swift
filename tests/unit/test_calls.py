@@ -222,3 +222,27 @@ async def test_the_stack_open_of_the_held_card_asks_the_lifecycle_to_lift_the_ho
     assert lifted == [True] and out.last("confirm.hold") == {"request_id": card["request_id"], "held": False}
     await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "reject"}))
     await finish(session)
+
+
+# ---- review 7ab2b70 finding 5: an error while holding doesn't end call detection -------------------------
+
+
+async def test_a_failing_hold_keeps_the_watch_polling() -> None:
+    import asyncio
+
+    probe, calls = FakeProbe(), []
+
+    async def on_change(on: bool, seconds: float) -> None:
+        calls.append(on)
+        raise RuntimeError("hold_cards broke")
+
+    watch = CallWatch(probe, on_change, out_s=0)
+    probe.on = True
+    task = asyncio.create_task(watch.run(every_s=0))
+    for _ in range(5):
+        await asyncio.sleep(0)
+    probe.on = False
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert not task.done() and calls == [True, False]
+    task.cancel()

@@ -152,7 +152,7 @@ class CallWatch:
     async def poll(self) -> None:
         try:
             now_on = self.probe.in_call()
-        except Exception as exc:  # noqa: BLE001 - a failed probe keeps the last state
+        except Exception as exc:  # a failed probe keeps the last state
             logger.warning("call probe failed", error=type(exc).__name__)
             return
         now = self.clock()
@@ -169,5 +169,8 @@ class CallWatch:
 
     async def run(self, every_s: float = POLL_S) -> None:
         while True:
-            await self.poll()
+            try:
+                await self.poll()
+            except Exception as exc:  # a failed hold must not end call detection (review 7ab2b70 finding 5)
+                logger.error("call hold change failed", error=type(exc).__name__)
             await asyncio.sleep(every_s)

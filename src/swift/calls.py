@@ -52,11 +52,22 @@ class Probe(Protocol):
     def in_call(self) -> bool: ...
 
 
-def mic_call(mic_apps: Iterable[str], alive: set[str]) -> bool:
-    """Is a running call app holding the microphone? ``mic_apps`` are the ConsentStore names with the stream open."""
+def mic_call(mic_apps: Iterable[str], alive: set[str], paths: Iterable[str] = ()) -> bool:
+    """Is a running call app holding the microphone? ``mic_apps`` are the ConsentStore names with the stream open:
+    ``np:<exe>`` for a desktop app, the package family (``MSTeams_8wekyb3d8bbwe``) for a Store app, which is running
+    when a process runs from its folder (``WindowsApps\\MSTeams_<version>_<arch>__8wekyb3d8bbwe``). ``paths``: the
+    running processes' exe paths."""
+    folders = {p.lower().replace("/", "\\").split("\\windowsapps\\", 1)[1].split("\\")[0] for p in paths
+               if "\\windowsapps\\" in p.lower().replace("/", "\\")}
     for app in mic_apps:
-        exe = app.split(":")[-1].lower()
-        if exe in alive and any(word in exe for word in CALL_APPS):
+        if app.startswith("np:"):
+            exe = app[3:].lower()
+            running = exe in alive
+        else:
+            name, _, publisher = app.lower().rpartition("_")
+            exe = name
+            running = any(f.startswith(name + "_") and f.endswith("__" + publisher) for f in folders)
+        if running and any(word in exe for word in CALL_APPS):
             return True
     return False
 
@@ -69,8 +80,9 @@ class WindowsProbe:
             return False
         import psutil  # in the project's environment; the process check drops stale keys
 
-        alive = {(p.info["name"] or "").lower() for p in psutil.process_iter(["name"])}
-        return mic_call(self._mic_open(), alive) or self._presenting()
+        procs = [p.info for p in psutil.process_iter(["name", "exe"])]  # exe: None where access is denied
+        alive = {(p["name"] or "").lower() for p in procs}
+        return mic_call(self._mic_open(), alive, [p["exe"] for p in procs if p["exe"]]) or self._presenting()
 
     @staticmethod
     def _presenting() -> bool:

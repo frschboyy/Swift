@@ -32,13 +32,21 @@ def test_off_by_default() -> None:
 
 
 def test_mic_call_ignores_swift_stale_and_non_call_apps() -> None:
-    live = {"msteams.exe": 1}  # alive, mic open
-    assert mic_call(["Zoom.exe"], {"zoom.exe"}) is True
-    assert mic_call(["Zoom.exe"], set()) is False  # a stale key: Zoom isn't running
-    assert mic_call(["python.exe"], {"python.exe"}) is False  # Swift's own mic
-    assert mic_call(["recorder.exe"], {"recorder.exe"}) is False  # not a call app
+    assert mic_call(["np:Zoom.exe"], {"zoom.exe"}) is True
+    assert mic_call(["np:Zoom.exe"], set()) is False  # a stale key: Zoom isn't running
+    assert mic_call(["np:python.exe"], {"python.exe"}) is False  # Swift's own mic
+    assert mic_call(["np:recorder.exe"], {"recorder.exe"}) is False  # not a call app
     assert mic_call(["np:chrome.exe"], {"chrome.exe"}) is True
-    assert live
+
+
+def test_store_call_apps_count_by_their_running_package_folder() -> None:
+    # Review 7ab2b70 finding 2: the ConsentStore key of a Store app is its package family, never an exe name.
+    teams = r"c:\program files\windowsapps\msteams_25275.2601.4002.2815_x64__8wekyb3d8bbwe\ms-teams.exe"
+    assert mic_call(["MSTeams_8wekyb3d8bbwe"], {"ms-teams.exe"}, {teams}) is True
+    assert mic_call(["MSTeams_8wekyb3d8bbwe"], set(), set()) is False  # not running: a stale key
+    assert mic_call(["MSTeams_8wekyb3d8bbwe"], {"ms-teams.exe"}, {teams.replace("8wekyb3d8bbwe", "otherpub")}) is False
+    sound = r"c:\program files\windowsapps\microsoft.windowssoundrecorder_1.0_x64__8wekyb3d8bbwe\soundrec.exe"
+    assert mic_call(["Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe"], set(), {sound}) is False  # not a call app
 
 
 async def test_watch_holds_on_the_first_poll_and_releases_after_the_hysteresis() -> None:

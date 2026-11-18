@@ -84,8 +84,20 @@ areas:
     paths: [src/swift/shapes.py, src/swift/previews.py, src/swift/pdf_page.ps1, src/swift/executors/claude_code.py, src/swift/executors/read_scope.py, overlay/src/blocks.ts, overlay/src/answer.ts, overlay/src/pane.ts, overlay/src/panes.ts, overlay/src/protocol.ts, overlay/src/styles.css, overlay/src-tauri/src/lib.rs]
     checks: [400, 402, 403, 404, 405, 406, 407, 408]
   halo:
-    paths: [overlay/src/look/*]
-    checks: [216-221]
+    paths: [overlay/src/dress.ts, overlay/src/geometry.ts, overlay/src/styles.css, overlay/src/views.ts, overlay/src/pane.ts, overlay/src/ready.ts, overlay/src/shuffle.ts, overlay/src/times.ts, overlay/src/timers.ts, src/swift/timers.py, src/swift/captions.py, src/swift/recent.py, overlay/src/display.ts]
+    checks: [216-221, 417, 418, 419, 420, 421, 424, 425, 426, 427, 428]
+  explore:
+    rule: Halo's Explore ideas are off until the owner turns each on in config.yaml; none takes focus
+    paths: [overlay/src/glance.ts, src/swift/settings.py]
+    checks: [423]
+  asking-everything:
+    rule: Ask me about everything raises level 0 to 1, except reads in the read folders and volume; it only adds questions
+    paths: [src/swift/asking.py, src/swift/security/gateway.py, src/swift/system/lane.py, src/swift/executors/claude_code.py, src/swift/memory.py]
+    checks: [422]
+  halo-b8-fixes:
+    rule: an OK that lapses waits in the stack and only the owner brings it back; "stop" always says what it stopped
+    paths: [src/swift/session.py, src/swift/stops.py, overlay/src/presenter.ts, overlay/src/deck.ts, overlay/src/pane.ts, overlay/src-tauri/src/lib.rs]
+    checks: [414, 415, 416, 429]
   live-view:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
     checks: [10, 90-95, 126, 127]

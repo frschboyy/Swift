@@ -1,14 +1,16 @@
-// Dev only (ADR-019 Step A): today's cards in Halo's anatomy, without touching how they behave. The card
+// Halo's anatomy on every card (ADR-019, Step B: the only look). The card
 // renderer (card.ts) draws a card as always, marked with its state; this then moves its parts into a state
 // line and an origin line. The buttons and the live time are the same elements, so their handlers and the
 // once-a-second tick keep working. Words go through textContent only (dom.ts ``el``).
 
-import { el, icon } from "../dom";
-import { needsCompact, tailX } from "./geometry";
+import { el, icon } from "./dom";
+import { needsCompact, needsFold, tailX } from "./geometry";
+import { ago } from "./times";
 
 const TAIL_PATH = "M0 0C6 0 9 11 12 11C15 11 18 0 24 0";
 
-const clock = (): string => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+/** "just now", kept current by ``dressCards`` (ADR-019 §8.2: no clock times on cards). */
+const sinceNow = (): HTMLElement => el("span", { class: "halo-time", "data-at": String(Date.now()) }, ago(Date.now(), Date.now()));
 
 function stateLine(state: string, mark: Node, word: string, time: Node | string | null, close: Element | null): HTMLElement {
   return el("div", { class: `halo-state halo-state--${state}` },
@@ -35,10 +37,31 @@ function dress(inner: HTMLElement): void {
     time?.classList.add("halo-time");
     if (spinner) inner.prepend(stateLine("working", spinner, "Working", time, close));
   } else if (state === "failed" && bang) {
-    inner.prepend(stateLine("failed", bang, "Failed", clock(), close));
+    inner.prepend(stateLine("failed", bang, "Failed", sinceNow(), close));
   } else if (state === "done" && head && inner.querySelector(":scope > .answer")) {
-    inner.prepend(stateLine("done", icon("check"), "Done", clock(), close));
+    inner.prepend(stateLine("done", icon("check"), "Done", sinceNow(), close));
+  } else if (state === "notice") {
+    notice(inner);
   }
+}
+
+/** Board 9 §4, State · Notice: Swift's own notices and problems lead with their mark and title on the
+ * 40 px state line; the body keeps the lines under it. Red only where Swift's engine stopped. */
+function notice(inner: HTMLElement): void {
+  const fail = inner.querySelector<HTMLElement>(":scope > .fail");
+  const title = fail?.querySelector<HTMLElement>(".fail-title");
+  const mark = fail?.firstElementChild;
+  if (!fail || !title || !mark) return;
+  const close = inner.querySelector<HTMLElement>(":scope > .icon-btn");
+  close?.removeAttribute("style");
+  const kind = mark.classList.contains("ok-dot") ? "ready"
+    : mark.classList.contains("spinner") ? "busy"
+    : mark.classList.contains("bang--info") ? "info" : "bad";
+  const glyph = kind === "ready" ? icon("check") : kind === "busy" ? mark : kind === "info" ? icon("info") : el("span", {}, "!");
+  inner.prepend(stateLine(`notice halo-state--notice-${kind}`, glyph, title.textContent ?? "", null, close));
+  title.remove();
+  if (kind !== "busy") mark.remove();
+  if (!fail.querySelector(".fail-why")) fail.remove();
 }
 
 /** Dresses each card as it's drawn, keeps the tail on the orb and applies the compact rule. */
@@ -66,7 +89,13 @@ export function dressCards(stage: HTMLElement): void {
       const style = getComputedStyle(card);
       const chrome = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
       const edges = deck.querySelectorAll(".edge").length;
-      if (needsCompact(card.classList.contains("card--confirm"), edges, inner.scrollHeight + chrome, deck.offsetHeight, window.innerHeight)) card.dataset.compact = "";
+      const confirm = card.classList.contains("card--confirm");
+      if (needsCompact(confirm, edges, inner.scrollHeight + chrome, deck.offsetHeight, window.innerHeight)) card.dataset.compact = "";
+      // Still too tall once compact: the deck folds to one edge (main.ts drawRows reads this), and stays folded
+      // while the confirm is up, so it doesn't unfold and fold again.
+      const fold = confirm && (stage.hasAttribute("data-fold-deck")
+        || (card.dataset.compact !== undefined && needsFold(confirm, edges, inner.scrollHeight + chrome, deck.offsetHeight, window.innerHeight)));
+      if (fold !== stage.hasAttribute("data-fold-deck")) stage.toggleAttribute("data-fold-deck", fold);
       // Only a card that scrolls needs its footer opaque, over what passes under it.
       card.toggleAttribute("data-scrolls", inner.scrollHeight > inner.clientHeight + 1);
     }
@@ -99,4 +128,10 @@ export function dressCards(stage: HTMLElement): void {
   sized.observe(card);
   sized.observe(capsule);
   window.addEventListener("resize", fit);
+  window.setInterval(() => {
+    for (const t of card.querySelectorAll<HTMLElement>(".halo-time[data-at]")) {
+      const text = ago(Number(t.dataset.at), Date.now());
+      if (t.textContent !== text) t.textContent = text;
+    }
+  }, 15_000);
 }

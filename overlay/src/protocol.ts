@@ -35,7 +35,8 @@ export type ResultDetails =
   | MindMap
   | Preview
   | Chart
-  | Cards;
+  | Cards
+  | Tree;
 
 // B4: options side by side, as the worker proposed them and Swift checked them (swift/shapes.py). by and size are
 // Swift's: who made it (always the worker's here, marked on the card) and whether it fits a card. text: the
@@ -75,6 +76,13 @@ export type Cards = {
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
 
+// B13: files and folders as the worker listed them (swift/shapes.py Tree): names only, never a path Swift acts on.
+export type TreeEntry = { name: string; folder?: boolean; meta?: string; open?: boolean; entries?: TreeEntry[] };
+export type Tree = {
+  kind: "tree"; title?: string; entries: TreeEntry[];
+  by: "worker"; size: "card" | "expanded"; text?: string;
+};
+
 // ADR-010: what a run is working on, as typed, versioned snapshots (swift/workflows/artifacts.py).
 export type Phase = "resolving" | "drafting" | "confirming" | "sending" | "done" | "failed";
 // said: an address in the owner's own words, not a contact (foundation decision 5); the send card marks it.
@@ -98,7 +106,7 @@ export type Artifact = { run_id: string; thread_id?: string; id: string; phase: 
 
 export type Inbound =
   // instance: this backend; a new one means what the last one put on screen is gone (seams audit O-02).
-  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string } }
+  | { type: "hello.ok"; data: { version: string; debug: boolean; hotkeys: Record<string, string>; instance?: string; explore?: Explore } }
   | { type: "state"; data: { state: UiState; run_id?: string; agent?: Agent | null; thread_id?: string } }
   | { type: "level"; data: { rms: number } }
   // typed: the request was typed into the text box (the card's keyboard icon), not said (ADR-017).
@@ -110,9 +118,11 @@ export type Inbound =
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
-  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin } }
+  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin; caveat?: string } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.
   // retry: "Try again" re-runs the request. severity "info": a nudge, not a failure.
+  // Halo B14: the timers still counting, soonest first (none: an empty list). No card while one counts.
+  | { type: "timers"; data: { items: TimerRow[] } }
   | { type: "error"; data: ErrorData }
   | { type: "artifact"; data: Artifact }
   // Open the detail view on an artifact (null: the steps), or close it. Swift decides which (ADR-010 §7).
@@ -136,11 +146,13 @@ export type Inbound =
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
   | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } }
   // ADR-015 §9: what waits for the owner (the waiting stack), in the order to show it.
-  | { type: "stack"; data: { items: StackEntry[] } }
+  // recent: answers from earlier today (A1), listed after what waits; never waiting.
+  | { type: "stack"; data: { items: StackEntry[]; recent?: StackEntry[] } }
   // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
   | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } }
   // ADR-017: Swift started or stopped talking (the capsule's Speaking state, the question card).
-  | { type: "speech"; data: { speaking: boolean } }
+  // text: what Swift is saying, only while the owner has captions on (A6).
+  | { type: "speech"; data: { speaking: boolean; text?: string } }
   // ADR-017 §7: one item of a request's live view, for every request (in front or not); and
   // "show me" while it runs: open its live view.
   | { type: "live"; data: LiveData }
@@ -161,7 +173,8 @@ export type LiveData = { run_id: string } & (
 // card whose countdown ran out has reason "expired" (ADR-017).
 export type StackEntry = {
   id: string;
-  kind: "waiting" | "later" | "held" | "parked" | "due";
+  // "recent": an answer from earlier today (A1), listed after what waits; it never counts as waiting.
+  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;
@@ -186,6 +199,11 @@ export type RunRow = {
   origin?: Origin;
 };
 
+// Halo's Explore ideas (A10-A13), each off by default (config.yaml explore).
+export type Explore = { orb_glance: boolean; follow_monitor: boolean; what_can_i_say: boolean; next_steps: boolean };
+
+export type TimerRow = { id: number; title: string; due_ms: number; set_ms: number };
+
 export type ErrorData = {
   code: string;
   message: string;
@@ -196,6 +214,9 @@ export type ErrorData = {
   severity?: "error" | "info";
   agent?: Agent | null;
   thread_id?: string;
+  // ADR-019 §8.4: a problem with a run nobody asked for (scheduled, watching…) is Failed with Swift's origin.
+  origin?: Origin;
+  origin_detail?: string;
 };
 
 export type Outbound =
@@ -211,6 +232,8 @@ export type Outbound =
   | { type: "view"; data: { action: "show" | "hide" } }
   // A background request to the front: a row clicked, or the card in front gone while it runs.
   | { type: "focus"; data: { run_id: string } }
+  // "+5 min" on a timer's Due card (B14): the backend sets the card's timers again from its own items.
+  | { type: "due.snooze"; data: { run_id: string } }
   // What is drawn, as of the backend's frame n (review item 9): the stage, the card's request, the confirm
   // card and question the owner can see ("": none). A confirm card counts down only while seen (ADR-015
   // §4.2); a due card leaves the schedule once it is the card here (O-08).

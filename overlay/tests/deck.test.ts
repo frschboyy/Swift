@@ -172,3 +172,14 @@ test("the folded edge says how many, and that an OK waits", () => {
   assert.equal(foldLine({ count: 2, running: 2, needOk: 1 }), "2 more running · 1 needs your OK");
   assert.equal(foldLine({ count: 3, running: 3, needOk: 2 }), "3 more running · 2 need your OK");
 });
+
+test("F5: the same words ended the same way within a minute fold into one edge with a count", () => {
+  const t = (id: string, startedMs: number, state = "result"): Row => ({ ...row(id, state, startedMs), title: "what time is it", words: "What time is it" });
+  const rows = [t("a", 0), t("b", 20_000), t("c", 50_000), t("d", 200_000), row("e")];
+  const v = deckView(go(initialDeck, "x", rows), rows, 300_000);
+  assert.deepEqual(v.edges.map((e) => [e.row.runId, e.times]), [["a", 3], ["d", 1], ["e", 1]]);
+  assert.equal(v.edges[2].more, 0);
+  // Running requests never fold: the backend already keeps one when the same words come again.
+  const running = [t("a", 0, "working"), t("b", 1000, "working")];
+  assert.equal(deckView(go(initialDeck, "x", running), running, 300_000).edges.length, 2);
+});

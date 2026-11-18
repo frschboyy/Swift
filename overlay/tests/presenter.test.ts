@@ -495,3 +495,12 @@ test("a question's card ending clears only that card, so the next answer is show
   assert.equal(a.shown, true);
   assert.equal(P.stageOf(a.p), "result");
 });
+
+test("F2: an OK waiting behind never comes forward by itself when the card in front fades", () => {
+  const o = new Overlay();
+  o.runs(null, [{ ...row("cc-1"), state: "confirm" }]);
+  o.answer("error", 1000, null, null, "I didn't catch that.");
+  o.wait(1250);
+  assert.equal(o.p.card.kind, "none");
+  assert.equal(promotion(o.p), null);
+});

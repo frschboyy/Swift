@@ -93,6 +93,27 @@ window.WebSocket = class extends NativeWebSocket {
   }
 };
 
+// No ?port= (design states only): a stand-in socket that says hello back and never drops, so injected frames
+// draw and no connection card covers them.
+if (!params.get("port")) {
+  window.WebSocket = class extends EventTarget {
+    readyState = NativeWebSocket.OPEN;
+    onopen: ((ev: Event) => void) | null = null;
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    onclose: ((ev: CloseEvent) => void) | null = null;
+    constructor() {
+      super();
+      socket = this as unknown as WebSocket;
+      this.addEventListener("message", (ev) => this.onmessage?.(ev as MessageEvent));
+      setTimeout(() => this.onopen?.(new Event("open")));
+    }
+    send(raw: string): void {
+      if (JSON.parse(raw).type === "hello") this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ v: 1, type: "hello.ok", ts: Date.now(), data: { version: "dev", debug: true, hotkeys: { push_to_talk: "Ctrl+Shift+Space", type: "Ctrl+Alt+Space" }, explore: { orb_glance: params.get("explore") === "1", follow_monitor: false, what_can_i_say: false, next_steps: false } } }) }));
+    }
+    close(): void {}
+  } as unknown as typeof WebSocket;
+}
+
 (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = internals;
 (window as unknown as Record<string, unknown>).__shim = {
   log,

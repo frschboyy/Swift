@@ -82,6 +82,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "debug.say": {"text": (str, None)},
     # A background request to the front (ADR-013 §3.1).
     "focus": {"run_id": (str, None)},
+    "due.snooze": {"run_id": (str, None)},
     # What the overlay has drawn, as of outbound frame ``n``: its stage, the card's request, and the
     # confirm card and question the owner can see ("": none). The only acknowledgement (review item 9).
     "screen": {"n": (int, None), "stage": (str, STATES), "run_id": (str, None), "confirm": (str, None), "ask_id": (str, None)},
@@ -112,7 +113,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard", "speech", "live", "watch", "ask", "countdown"}
+     "runs", "stack", "heard", "speech", "live", "watch", "ask", "countdown", "timers"}
 )
 
 

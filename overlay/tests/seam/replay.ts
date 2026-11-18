@@ -11,6 +11,7 @@ import * as D from "../../src/deck.ts";
 import { canFlag } from "../../src/heardfix.ts";
 import { needsReader } from "../../src/panes.ts";
 import * as P from "../../src/presenter.ts";
+import { pillText } from "../../src/timers.ts";
 
 type Frame = { type: string; data: Record<string, any>; n?: number };
 
@@ -30,6 +31,8 @@ const lost: string[] = [];
 const broken = new Set<string>();
 // What main.ts tells the backend it drew (``screen``), for the test to hand back to the session.
 const acks: ReturnType<typeof P.drawn>[] = [];
+// B14: the running timers, as main.ts keeps them.
+let timerRows: { id: number; title: string; due_ms: number; set_ms: number }[] = [];
 
 function answer(kind: "result" | "error", d: Record<string, any>, ms: number | null): void {
   const r = P.onAnswer(pres, { kind, runId: d.run_id, threadId: d.thread_id, summary: d.summary, ms }, now);
@@ -70,6 +73,9 @@ for (const { type, data: d, n } of frames) {
     case "countdown":
       pres = P.onCountdown(pres, d.request_id, d.left_s, d.running, now);
       break;
+    case "timers":
+      timerRows = d.items;
+      break;
     case "presence":
       pres = P.onPresent(pres, d.state === "here");
       break;
@@ -99,6 +105,8 @@ const settled = D.deckView(deck, pres.rows, Number.MAX_SAFE_INTEGER);
 process.stdout.write(JSON.stringify({
   behind: settled.edges.map((e) => e.row.runId),
   behindStates: settled.edges.map((e) => e.row.state),
+  // F5: how many identical requests each edge stands for ("×3").
+  behindTimes: settled.edges.map((e) => e.times),
   more: settled.edges.reduce((n, e) => n + e.more, 0),
   stage: P.stageOf(pres),
   cardRun: pres.card.runId,
@@ -126,7 +134,16 @@ process.stdout.write(JSON.stringify({
   answerText: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? detailsText(resultData!.details) : null,
   answerLong: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? needsReader(resultData!.summary, resultData!.details) : null,
   // The answer card's footer, as renderResult draws it (FD-13: never the provider's name).
+  // A5: the worker's caveat under a Done answer.
+  answerCaveat: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.caveat ?? null : null,
+  // The answer card's one line (F6/F7: "Stopped “…”").
+  answerSummary: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.summary ?? null : null,
   answerBy: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? byline(resultData!.agent) : null,
+  // B14: what the orb's time pill says, against the soonest timer's own clock (the replay has none).
+  timerPill: timerRows.length ? pillText(timerRows, timerRows[0].set_ms) : null,
+  timerTitles: timerRows.map((t) => t.title),
+  // What main.ts would ask to bring forward by itself once the card in front fades (P.promotion, F2).
+  promoted: P.promotion(P.tick(pres, Number.MAX_SAFE_INTEGER).p),
   lost,
   broken: [...broken],
   acks,

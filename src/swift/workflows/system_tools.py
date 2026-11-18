@@ -161,6 +161,7 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             digest=lambda token=token: hashlib.sha256(token.encode()).hexdigest(),
             perform=perform,
             targets_required=False,
+            kind=intent.name,  # "ask me about everything" leaves volume alone (asking.EXEMPT)
         )
         outcome = await host.gateway.execute(scope, action)
         if outcome.status != "done":

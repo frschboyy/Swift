@@ -5,7 +5,7 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, freshNeedsOk, needsOk, nextLine, type StackView } from "./stack";
+import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, type StackView } from "./stack";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
@@ -17,6 +17,8 @@ export type EdgeView = {
   title: string; words: string; label: string; startedMs: number; running: boolean; state: string; more: number;
   // Just arrived: it says "Got it: …" in the owner's words.
   saying: boolean;
+  // Asked this many times, folded into this edge (F5).
+  times?: number;
 };
 
 function edgeMark(v: EdgeView): HTMLElement {
@@ -41,6 +43,7 @@ export function edgeContent(v: EdgeView, watch: () => void): HTMLElement[] {
   return [
     edgeMark(v),
     el("span", { class: "edge-title" }, v.title),
+    v.times && v.times > 1 ? el("span", { class: "edge-times", title: `Asked ${v.times} times` }, `×${v.times}`) : null,
     el("span", { class: "edge-sub" }, v.label),
     v.more ? el("span", { class: "edge-time edge-more" }, `+${v.more}`) : v.running ? el("span", { class: "edge-time", "aria-hidden": "true", "data-started": String(v.startedMs) }, elapsed(v.startedMs)) : null,
     watchable
@@ -60,7 +63,7 @@ export function edgeTimes(list: HTMLElement, now = Date.now()): void {
 
 /** The closed stack: two layers behind the top one, the count and what comes next. */
 export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}): HTMLElement {
-  const n = v.items.length;
+  const n = waitingOnly(v).items.length;  // answers from earlier today aren't waiting (A1)
   const look = [
     needsOk(v) ? " stack--ok" : "",
     v.items.some((i) => i.fresh) ? " stack--fresh" : "",
@@ -70,12 +73,13 @@ export function stackClosed(v: StackView, attrs: Record<string, string | boolean
     "div",
     {
       class: `stack${look}`, role: "button",
-      title: "Double-click to see what needs you", "aria-label": `${countLine(n)}. ${nextLine(v)}`, ...attrs,
+      title: "Click to see what needs you", "aria-label": `${countLine(n)}. ${nextLine(v)}`, ...attrs,
     },
-    n > 2 ? el("span", { class: "stack-layer stack-layer--1" }) : null,
-    n > 1 ? el("span", { class: "stack-layer stack-layer--2" }) : null,
+    // Board 9 §1, Stack · Pile: three offset sheets, whatever the count.
+    el("span", { class: "stack-layer stack-layer--1" }),
+    el("span", { class: "stack-layer stack-layer--2" }),
     el("div", { class: "stack-top" },
-      el("span", { class: "badge" }, String(n)),
+      el("span", { class: "badge" }, needsOk(v) ? icon("shield") : null, String(n)),
       el("span", { class: "stack-text" }, el("span", { class: "stack-count" }, countLine(n)), el("span", { class: "stack-next" }, nextLine(v)))),
   );
 }
@@ -100,25 +104,33 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
         class: `stack-row stack-row--${i.icon}${i.fresh ? " stack-row--fresh" : ""}`, "data-id": i.id, style: `--i:${at}`,
         "aria-selected": String(i.id === selected), onpointerenter: () => h.select?.(i.id),
       },
-      // A subtle ring around the icon: the time left before it leaves the stack (owner, 2026-11-09).
+      // Its mark (board 9 §1, Stack · Row); a subtle ring round it is the time left before it leaves (2026-11-09).
       i.left === null || i.left === undefined
-        ? icon(i.icon)
-        : el("span", { class: "stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
+        ? el("span", { class: "stack-mark" }, icon(i.icon))
+        : el("span", { class: "stack-mark stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
       el("span", { class: "stack-title" }, i.title),
+      el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, "open") }, i.open),
       el("span", { class: "stack-reason" }, i.line),
-      el("span", { class: "stack-actions" },
-        el("button", { class: "btn btn--primary btn--small", onclick: () => h.item(i.id, "open") }, i.open),
+      // An answer from earlier today has nothing to skip or end (A1): only Open.
+      i.kind === "recent" ? null : el("span", { class: "stack-actions" },
         el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => h.item(i.id, "skip") }, "Skip"),
         el("button", { class: "btn btn--ghost btn--small", title: "End it: it won't come back", onclick: () => h.item(i.id, "end") }, "End")),
     );
+  // Board 9 §1: section labels once there is more than one kind of thing (A1: EARLIER TODAY).
+  const waiting = v.items.filter((i) => i.kind !== "recent");
+  const earlier = v.items.filter((i) => i.kind === "recent");
+  const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
   return el(
     "section",
-    { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Needs you" },
+    { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Waiting for you" },
     el("header", { class: "stack-head", title: "Drag to move" },
-      el("b", {}, "Needs you"),
-      el("span", {}, String(v.items.length)),
+      el("b", {}, "Waiting for you"),
+      el("span", {}, `· ${waiting.length}`),
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
-    el("ul", { class: "stack-list" }, ...v.items.map(row)),
+    el("ul", { class: "stack-list" },
+      ...(earlier.length ? [label("Waiting for you")] : []), ...waiting.map(row),
+      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, waiting.length + n))] : [])),
+    el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
   );
 }
 
@@ -184,27 +196,34 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
     : v.ended?.status === "done"
       ? el("span", { class: "ok-dot" }, icon("check"))
       : el("span", { class: "ended-icon" });
+  // B6: Stop first, then what the run made.
   const foot: (HTMLElement | null)[] = v.running
     ? [
-        el("span", { class: "hint foot-gap" }, "Live"),
-        v.written ? el("button", { class: "btn btn--ghost", title: `Bring ${v.written.app} to the front`, onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
         el("button", { class: "btn btn--ghost", title: "Stop this request only", onclick: () => h.stop() }, icon("stop"), "Stop"),
+        el("span", { class: "foot-gap" }),
+        v.written ? el("button", { class: "btn btn--ghost", title: `Bring ${v.written.app} to the front`, onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
       ]
     : [
         el("span", { class: "hint foot-gap" }, "Closes by itself"),
         v.written ? el("button", { class: "btn btn--ghost", onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
         v.ended?.answer ? el("button", { class: "btn btn--primary", onclick: () => h.answer() }, "Open the answer") : null,
       ];
+  // B6, the watch as a monitor: Watch · Title bar (LIVE / FINISHED / ENDED, the title, the clock, ×), a 2 px
+  // progress line that never goes back (sources read of found), a mono meta line, then the steps.
+  const read = v.sources.filter((s) => s.state === "read" || s.state === "failed").length;
+  const progress = v.running ? (v.sources.length ? read / v.sources.length : 0) : 1;
   return el(
     "section",
-    { class: `live${v.running ? " live--running" : " live--ended"}`, role: "region", "aria-label": `Live: ${v.title}` },
-    el("header", { class: "card-head", title: "Drag to move" },
-      el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "DONE" : "ENDED"),  // a stop isn't done
+    { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""}`, role: "region", "aria-label": `Live: ${v.title}` },
+    el("header", { class: "card-head watch-bar", title: "Drag to move" },
+      el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "FINISHED" : "ENDED"),  // a stop isn't done
       el("p", { class: "words" }, v.title),
+      el("span", { class: "mon-clock elapsed chip-time" }, elapsed(v.startedMs, now)),
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
+    el("div", { class: "watch-progress", style: `--p:${progress.toFixed(3)}`, "aria-hidden": "true" }),
+    v.sources.length ? el("p", { class: "watch-meta" }, `${read} of ${v.sources.length} sources read`) : null,
     el("div", { class: "status live-now" }, status,
-      el("span", { class: "status-verb live-doing", "aria-live": "polite" }, v.doing),
-      v.running ? el("span", { class: "elapsed chip-time" }, elapsed(v.startedMs, now)) : null),
+      el("span", { class: "status-verb live-doing", "aria-live": "polite" }, `${v.running ? "› " : ""}${v.doing}`)),
     v.ended && v.ended.summary ? el("p", { class: "live-summary" }, v.ended.summary) : null,
     el("div", { class: "live-body", tabindex: "0" }, ...sections),
     v.hint ? el("p", { class: "voice-hint live-hint", "data-phase": "hint", "aria-live": "polite" }, v.hint) : null,

@@ -97,8 +97,9 @@ def test_options_split_auto_and_confirm_tools_and_ignore_settings(tmp_path: Path
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), confirm_tools=("Edit", "Write", "Bash", "Read"), claude="claude.exe")
     opts = ex.options(_Run(), "cc-1")
     escalate, step, shape = "mcp__swift__request_stronger_model", "mcp__swift__propose_step", "mcp__swift__show_result"
-    assert opts.tools == ["Read", "Glob", "Grep", "Edit", "Write", "Bash", escalate, step, shape]  # Read not duplicated
-    assert opts.allowed_tools == [escalate, step, shape]  # reads are decided per path in _ask (audit B-01)
+    caveat = "mcp__swift__add_caveat"  # A5: the worker's one line on why an answer may be wrong
+    assert opts.tools == ["Read", "Glob", "Grep", "Edit", "Write", "Bash", escalate, step, shape, caveat]  # Read not duplicated
+    assert opts.allowed_tools == [escalate, step, shape, caveat]  # reads are decided per path in _ask (audit B-01)
     assert opts.permission_mode == "default" and opts.can_use_tool is not None
     assert opts.setting_sources == [] and opts.strict_mcp_config is True
     assert list(opts.mcp_servers) == ["swift"] and "request_stronger_model" in opts.system_prompt
@@ -106,7 +107,7 @@ def test_options_split_auto_and_confirm_tools_and_ignore_settings(tmp_path: Path
     assert escalate not in plain.tools and "transcribed" in plain.system_prompt
     # B2: no shell, no step card; B4: show_result is always there
     bare = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", escalation=False, confirm_tools=("Edit",))
-    assert bare.options(_Run(), "cc-1").allowed_tools == [shape]
+    assert bare.options(_Run(), "cc-1").allowed_tools == [shape, caveat]
     assert opts.extra_args == {"no-session-persistence": None}
     assert opts.max_budget_usd == 1.0 and opts.cwd == str(tmp_path)
 

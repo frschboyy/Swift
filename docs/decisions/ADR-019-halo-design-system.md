@@ -1,6 +1,6 @@
 # ADR-019: Halo, and a design system that grows with Swift
 
-- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Step A's look spike (§8) and Step B's one card renderer (§9) are built and on `main`, Halo still behind a dev-only switch; §8's six items are not built, nor are the proposals of §5 step 5. N2 (`origin`) is built (`ORIGINS` in `ipc/protocol.py`).
+- **Status:** Accepted as the design direction (2026-11-07). The owner chose Halo as the baseline and accepted the recommended answers to the open questions (§7). The decisions in §3 stand unless the real-PC checks (§5 step 2) say otherwise. Step A's look spike (§8) and Step B's one card renderer (§9) are built and on `main`; since 2026-11-18 Halo is the only look, with no switch (§10, owner's go-ahead); §8's six items are not built, nor are the proposals of §5 step 5. N2 (`origin`) is built (`ORIGINS` in `ipc/protocol.py`).
 - **Decided by:** Owner
 - **Date:** 2026-11-07
 - **Amends:** ADR-017 (the Capsule's look: Halo replaces it, keeping the capsule as Swift's body and cards growing out of it). ADR-018 (the Deck) is kept as the attention model; this ADR only changes how its parts are drawn and adds origins.
@@ -92,3 +92,23 @@ Every card in the main window is now put together by one renderer, `overlay/src/
 **Where the next steps plug in** (named, nothing behind them yet): B3's state looks style `data-card`; B4's result shapes are new shapes in `answer.ts` and new blocks in `blocks.ts`; B5's growth is `CardSpec.size` (only `"fit"` today); B7's motion is `showCard` and `hideCard` in `main.ts`, a card's only way in and out.
 
 **The owner's answers on what Step B left (2026-11-14):** the §8 items (folding the deck when a compact confirm doesn't fit, the confirm and question's origin line, "just now" times, Failed not fading, a problem with no request saying Failed, the orb moving at a right anchor) are built on a separate branch after Step B merges, one commit each, with owner checks. Both looks stay for now: a small branch makes Halo the default and deletes the old look only after the owner has seen Halo on the real PC (checks 216–221). Edges and stack rows, a run's other sizes (SPEC §7), stay in `views.ts` and are revisited with B5.
+
+## 10. Halo, the only look (owner's go-ahead 2026-11-18, branch `claude/halo-b8-build-4fbdf7`)
+
+**Approved:** on 2026-11-18 the owner confirmed that their request to build the B8 handoff
+(`docs/handoff/halo-b8/`) includes this step: **Halo becomes Swift's only look, in debug and release builds,
+with no switch, and the old look is deleted.** §9's "both looks stay" and "after checks 216–221" are superseded
+by that decision; checks 216–221 still run, now on the only look.
+
+**What changed:** the switch is gone (`look/index.ts`, `?look=`, `VITE_SWIFT_LOOK`, the `import.meta.env.DEV`
+imports in `main.ts` and `pane.ts`, `tests/look.test.ts`). `styles.css` carries `tokens.css`'s values (now with
+the B8 tokens of `docs/handoff/halo-b8/tokens-b8.css`) on `#stage` itself, and Step A's `look/halo.css` rules
+follow it unscoped; `dress.ts` and `geometry.ts` moved up into `overlay/src/`, and `main.ts` dresses every card.
+Panes take the same tokens with nothing to switch. `tests/halo.test.ts` keeps `styles.css` equal to
+`tokens.css` and checks no switch is left. The boards (`docs/design/halo-system/boards/`) are the reference;
+the old screenshots in `docs/design/pen-dev-handoff/screens/` are not.
+
+**Not done in this step:** old rules that Halo's later rules override were not each deleted from `styles.css`
+(Halo's rules win by specificity; a rule-by-rule cull needs before-and-after captures of every state). Nothing
+has been seen on the real PC.
+

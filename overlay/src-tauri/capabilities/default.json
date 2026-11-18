@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "The overlay and its pane windows (ADR-015) may listen to app events and call Swift's own commands. No shell, fs or opener access.",
   "windows": ["overlay", "pane-*"],
-  "permissions": ["core:event:default"]
+  "permissions": ["core:event:default", "core:app:allow-version"]
 }

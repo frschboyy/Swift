@@ -50,6 +50,9 @@ class Hotkeys(_Section):
     debug: str = "Ctrl+Alt+F12"
     # Opens the overlay's text box: type a request instead of saying it (ADR-015 §10). "" turns it off.
     type: str = "Ctrl+Alt+Space"
+    # A7, keyboard entry: opens the text box on the front card's own buttons (Tab walks them, Enter presses one,
+    # Esc goes back to your app). Only this hotkey does it, never a card appearing. "" turns it off.
+    card: str = "Ctrl+Alt+Enter"
 
 
 class SttSettings(_Section):
@@ -294,6 +297,15 @@ class SpeechSettings(_Section):
     read_confirms: bool = False
 
 
+class ExploreSettings(_Section):
+    """Halo's "Explore" ideas (A10–A13, handoff halo-b8 §3): each off until the owner turns it on."""
+
+    orb_glance: bool = False  # A12: resting the pointer on the orb shows what's waiting and running
+    follow_monitor: bool = False  # A13: the orb follows the monitor you're working on
+    what_can_i_say: bool = False  # A10: "What can I say?" on a card
+    next_steps: bool = False  # A11: up to two next-step chips
+
+
 class LoggingSettings(_Section):
     interactions: Expanded = "%LOCALAPPDATA%/Swift/interactions.jsonl"
     app_log_dir: Expanded = "%LOCALAPPDATA%/Swift/logs"
@@ -324,6 +336,7 @@ class Settings(_Section):
     desktop: DesktopSettings = Field(default_factory=DesktopSettings)
     system: SystemSettings = Field(default_factory=SystemSettings)
     speech: SpeechSettings = Field(default_factory=SpeechSettings)
+    explore: ExploreSettings = Field(default_factory=ExploreSettings)
     # The only people Swift resolves besides your Google contacts (ADR-010 §4: addresses never
     # come from the model or from speech alone).
     contacts: list[ContactSettings] = Field(default_factory=list)

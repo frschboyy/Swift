@@ -128,7 +128,7 @@ export class DeckDraw {
     const r = edge.row;
     const v: EdgeView = {
       title: r.title, words: r.words ?? r.title, label: this.host.label(r), startedMs: r.startedMs,
-      running: !ENDED.has(r.state), state: r.state, more: edge.more, saying: edge.landing,
+      running: !ENDED.has(r.state), state: r.state, more: edge.more, saying: edge.landing, times: edge.times,
     };
     this.place(node, edge.depth, edge.inset, edge.offset, edge.peek);
     node.dataset.run = r.runId;

@@ -65,19 +65,19 @@ def due_id(item: int) -> str:
 def split_id(item_id: str) -> tuple[str, str] | None:
     """("card", request id), ("parked", thread) or ("due", item id); None for anything else."""
     kind, sep, key = item_id.partition(":")
-    return (kind, key) if sep and key and kind in ("card", "parked", "due") else None
+    return (kind, key) if sep and key and kind in ("card", "parked", "due", "recent") else None
 
 
 def order(items: list[StackItem], skipped: dict[str, float]) -> list[StackItem]:
     """Cards first (in the order they were asked), then conversations, newest first. Skipped
     items go last, in the order they were skipped. ``skipped``: item id -> when (any clock)."""
-    rank = {"due": 0, "held": 0, "waiting": 1, "later": 1, "parked": 2}
+    rank = {"due": 0, "held": 0, "waiting": 1, "later": 1, "parked": 2, "recent": 3}
 
     def key(i: tuple[int, StackItem]) -> tuple[float, ...]:
         n, item = i
         if item.id in skipped:
             return (1, skipped[item.id], 0, 0)
-        when = item.since_ms if item.kind != "parked" else -item.since_ms
+        when = item.since_ms if item.kind not in ("parked", "recent") else -item.since_ms
         return (0, rank.get(item.kind, 3), when, n)
 
     return [item for _, item in sorted(enumerate(items), key=key)]

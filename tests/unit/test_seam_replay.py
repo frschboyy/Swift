@@ -1497,6 +1497,245 @@ async def test_heard_words_with_a_kept_clip_get_the_flag_and_a_confirm_card_or_t
     await finish_all(session, agent)
 
 
+async def _lapsed() -> tuple[Any, Any, Any, Any, str]:
+    """An OK whose countdown ran out: Attention's ``on_expire`` sets it aside into the stack."""
+    from swift.attention import Attention
+    from test_runs import sent_for
+    from test_seams_audit_ipc import seen
+
+    attention = Attention(require_seen=True)
+    session, out, _records, agent, stt = make(attention=attention)
+    agent.attention = attention
+    first = await started(session, out, agent, stt, "Hey Swift, tidy the readme with a card")
+    agent.runs[first]["ask"].set()
+    await until(lambda: sent_for(out, first, "confirm.request"))
+    request_id = sent_for(out, first, "confirm.request")[-1]["request_id"]
+    await session.handle(seen(request_id))
+    assert session._expire_card(request_id)
+    await asyncio.sleep(0.05)
+    return session, out, agent, stt, request_id
+
+
+async def test_f1_an_ok_that_ran_out_into_the_stack_frees_the_front() -> None:
+    """F1 (live run 2026-11-18): after "card expired into the stack", debug.run said "busy |
+    state='confirm'". The lapsed OK waits in the stack; nothing is in front, so a new request starts."""
+    session, out, agent, stt, rid = await _lapsed()
+    assert not session._front_busy(), "a lapsed OK keeps the front busy"
+    assert session.state != "confirm", session.state
+    screen = _screen(out)
+    assert screen["stage"] != "confirm" and screen["confirm"] is None, screen  # F4: the stage follows
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["cardRun"] == tea, "the new request didn't take the free front"
+    # Opened from the stack, the OK is back in front.
+    await session.handle(Message("stack.action", {"id": f"card:{rid}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["confirm"] == rid
+    await finish_all(session, agent)
+
+
+async def test_f2_a_lapsed_ok_never_comes_back_to_the_front_by_itself() -> None:
+    """F2 (live run 2026-11-18): after a lapse, an "I didn't catch that" card faded and the overlay sent
+    ``focus`` for the lapsed OK's row: it came back with a fresh countdown, unasked. Only the owner brings
+    a stacked item back (Open, or "what's waiting?"); the overlay never promotes it on its own."""
+    session, out, agent, _stt, rid = await _lapsed()
+    await session.handle(Message("error", {"code": "no_speech", "message": "I didn't catch that."}))
+    screen = _screen(out)
+    owner = session._owner_of(rid)
+    assert screen["promoted"] != owner.ui_id, f"the overlay would bring the lapsed OK back: {screen}"
+    await finish_all(session, agent)
+
+
+async def test_f3_after_an_overlay_restart_a_lapsed_ok_is_in_the_pile_not_the_front() -> None:
+    """F3 (live run 2026-11-18): an overlay restarted after a lapse drew the lapsed OK as the front card,
+    without its countdown. A new overlay gets the stack with the OK in it, and no card in front."""
+    session, out, agent, _stt, rid = await _lapsed()
+    n = len(out.messages)
+    await session.handle(Message("ready", {"startup_ms": 1}))
+    await asyncio.sleep(0.05)
+    fresh = out.messages[n:]
+    assert not [m for m in fresh if m.type == "confirm.request"], "the lapsed OK drawn in front again"
+    stacks = [m for m in fresh if m.type == "stack"]
+    assert stacks and any(i["id"] == f"card:{rid}" for i in stacks[-1].data["items"]), stacks
+    await finish_all(session, agent)
+
+
+async def test_f4_the_stage_follows_the_presenter_after_a_lapse() -> None:
+    """F4 (live run 2026-11-18): ``#stage[data-state]`` stayed ``confirm`` with no card after a lapse, so
+    Esc and the hit regions still acted for a card. The stage is ``P.stageOf`` (main.ts syncStage); the
+    backend now says the front is idle, so nothing still claims a confirm card."""
+    session, out, agent, _stt, _rid = await _lapsed()
+    screen = agree(session, out)
+    assert screen["stage"] == "idle" and screen["confirm"] is None and screen["cardRun"] is None, screen
+    await finish_all(session, agent)
+
+
+async def test_f5_the_same_question_asked_three_times_is_one_edge_with_a_count() -> None:
+    """F5 (live run 2026-11-18): "what time is it" three times gave three identical "Ready to read" edges
+    ("+2"). The same words ended the same way within a minute fold into one edge, "×3"."""
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    for _ in range(4):
+        await say(session, stt, "Swift, what time is it")
+        await asyncio.sleep(0.15)
+    await session.handle(Message("focus", {"run_id": first}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == first and len(screen["behind"]) == 1 and screen["behindTimes"] == [4], screen
+    await finish_all(session, agent)
+
+
+async def test_f6_stop_before_the_run_starts_says_so() -> None:
+    """F6 (live run 2026-11-18): "stop" during a working run shows a Stopped card; said while the request
+    was still being transcribed, it was recorded as a request of its own that ended in silence, and the
+    first went on. It stops the request being heard, which says so. (Esc there stays a silent discard.)"""
+    from test_voice import FakeTranscriber
+
+    class Slow(FakeTranscriber):
+        """The first recording takes a second to transcribe; the next is quick."""
+
+        def __init__(self, items: list[tuple[str, float]]) -> None:
+            super().__init__()
+            self.items = items
+
+        async def transcribe(self, audio: Any) -> Any:
+            text, delay = self.items.pop(0)
+            await asyncio.sleep(delay)
+            self.text, self.delay = text, 0.0
+            return await super().transcribe(audio)
+
+    session, out, _records, agent, _stt = make()
+    session.transcriber = Slow([("research the history of tea", 1.0), ("stop", 0.0)])
+    for _ in range(2):
+        await session.handle(Message("ptt", {"state": "down"}))
+        await asyncio.sleep(0.01)
+        await session.handle(Message("ptt", {"state": "up"}))
+        await asyncio.sleep(0.2)
+    await asyncio.sleep(1.5)
+    screen = agree(session, out)
+    assert not agent.requests, "a stopped request was sent anyway"
+    assert screen["stage"] == "result" and screen["answerSummary"] in ("Stopped “research the history of tea”.", "Stopped. Nothing was sent."), screen
+    await finish_all(session, agent)
+
+
+async def test_f7_stop_with_nothing_running_keeps_the_stopped_card() -> None:
+    """F7 (live run 2026-11-18): a second "stop" closed the card that said the first one stopped it.
+    With nothing running, "stop" (here by the hotkey, whose capsule takes the screen while it listens)
+    leaves the Stopped card to fade on its own."""
+    session, out, _records, agent, stt = make()
+    await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    await say(session, stt, "Swift, stop")
+    await asyncio.sleep(0.2)
+    first = _screen(out)
+    assert first["stage"] == "result" and first["answerSummary"] == "Cancelled.", first
+    stt.text = "stop"
+    await session.handle(Message("ptt", {"state": "down"}))
+    await asyncio.sleep(0)
+    await session.handle(Message("ptt", {"state": "up"}))
+    await asyncio.sleep(0.5)
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerSummary"] == "Cancelled.", screen
+    await finish_all(session, agent)
+
+
+async def test_b14_a_running_timer_reaches_the_orb_and_plus_five_sets_it_again() -> None:
+    """Halo B14: no card while a timer counts; the overlay hears the timers still counting (``timers``) on
+    every change, and "+5 min" on a timer's Due card sets it again from Swift's own items."""
+    session, out, agent, stt, _control, sched = _lane()
+    await session.handle(Message("ready", {"startup_ms": 1}))
+    sched.add("timer", sched.clock() + 300, "tea")
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["timerTitles"] == ["tea"] and screen["timerPill"] == "5:00", screen
+    assert screen["stage"] == "idle" and screen["cardRun"] is None  # no card while it counts
+    # It comes due: its card, then "+5 min" puts it back on the orb, five minutes from now.
+    sched.items[-1].due = sched.clock()
+    tea = sched.items[-1]
+    tea.fired = True
+    await session.notify_due(tea, False)
+    await asyncio.sleep(0.1)
+    screen = await _drawn_back(session, out)
+    due = screen["cardRun"]
+    assert due.startswith("due-timer-"), screen
+    await session.handle(Message("due.snooze", {"run_id": due}))
+    await asyncio.sleep(0.05)
+    again = _screen(out)
+    assert again["timerTitles"] == ["tea"] and again["timerPill"] == "5:00", again
+    await finish_all(session, agent)
+
+
+async def test_b13_a_file_tree_reaches_the_done_card_as_one() -> None:
+    """B13: a file list the worker gave as a tree, checked by Swift, reaches the answer card as a tree (its
+    entries as indented lines in the card's words); more than ten entries open in full."""
+    few = [{"name": "2026", "folder": True, "open": True, "entries": [{"name": "beach.jpg", "meta": "2 MB"}]}, {"name": "notes.txt"}]
+    many = [{"name": f"photo {i}.jpg"} for i in range(12)]
+    for entries, long in [(few, False), (many, True)]:
+        session, out, agent, stt, _control, _sched = _lane()
+        shape, problems = shapes.check({"shape": "tree", "title": "Pictures", "entries": entries})
+        assert not problems
+        agent.details = shapes.details(shape)
+        run = await started(session, out, agent, stt, "Hey Swift, where are my holiday photos")
+        agent.runs[run]["go"].set()
+        await until(lambda: out.last("result"))
+        screen = agree(session, out)
+        assert screen["stage"] == "result" and screen["answerKind"] == "tree" and screen["answerLong"] is long, screen
+        if not long:
+            assert screen["answerText"] == "Pictures\n2026/\n  beach.jpg  2 MB\nnotes.txt", screen["answerText"]
+        await finish_all(session, agent)
+
+
+async def test_a5_the_workers_caveat_reaches_the_done_card_and_nothing_else() -> None:
+    """A5: the worker's one line on why its answer may be wrong shows under a Done answer, marked as its own."""
+    session, out, agent, stt, _control, _sched = _lane()
+    agent.caveat = "The two sources disagree on the date."
+    run = await started(session, out, agent, stt, "Hey Swift, when did tea reach England")
+    agent.runs[run]["go"].set()
+    await until(lambda: out.last("result"))
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerCaveat"] == "The two sources disagree on the date.", screen
+    await finish_all(session, agent)
+
+
+async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens_again() -> None:
+    """A1: once another request has the front, an earlier answer is a ``recent`` stack item (never counted as
+    waiting); Open brings that same request back with its answer, and nothing runs again."""
+    session, out, agent, stt, _control, _sched = _lane()
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[tea]["go"].set()
+    await until(lambda: out.last("result"))
+    coffee = await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    agent.runs[coffee]["go"].set()
+    await until(lambda: out.last("result") and out.last("result")["run_id"] == coffee)
+    await session._send_stack()
+    stack = out.last("stack")
+    assert stack["items"] == [] and [i["id"] for i in stack["recent"]] == [f"recent:{tea}"], stack  # never waiting
+    asked = len(agent.requests)
+    await session.handle(Message("stack.action", {"id": f"recent:{tea}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
+    await finish_all(session, agent)
+
+
+@pytest.mark.parametrize("said", ["Swift, yes", "Swift, approve", "yes", "approve it"])
+async def test_a_yes_while_a_lapsed_ok_waits_in_the_stack_approves_nothing(said: str) -> None:
+    """F1 follow-up (orchestrator, 2026-11-18): once an OK ran out into the stack, nothing is on screen to
+    approve. A "yes" or "approve", with Swift's name or without, approves nothing; the OK stays in the stack and
+    only the owner's Open brings it back."""
+    session, out, agent, stt, rid = await _lapsed()
+    replies = [m for m in out.messages if m.type == "result"]
+    await say(session, stt, said)
+    await asyncio.sleep(0.1)
+    assert session._open_confirm() is None, "a lapsed OK came back to be approved"
+    assert not any(m.data.get("run_id") == rid.split(":")[0] and m.data.get("status") == "done"
+                   for m in out.messages[len(replies):] if m.type == "result"), "the lapsed OK's run went on"
+    assert any(i["id"] == f"card:{rid}" for i in out.last("stack")["items"]), "the OK left the stack"
+    agree(session, out)
+    await finish_all(session, agent)
+
+
 async def _set_aside() -> tuple[Any, Any, Any, str, str]:
     """An OK whose countdown ran out: set aside into the stack, off screen."""
     from swift.attention import Attention
@@ -1520,7 +1759,7 @@ async def test_an_approval_for_an_ok_not_in_front_is_refused() -> None:
     """CLAUDE.md: nothing approves unless the thing is on screen and in front; enforcement lives in the backend
     (``intake.approves``). A ``confirm.reply`` for an OK set aside in the stack, off screen, approves nothing: the
     screen and the backend disagree, so that OK comes to the front with "Still waiting", and the next click approves."""
-    from swift.session import STILL_WAITING
+    from swift.refused import STILL_WAITING
     session, out, agent, run, rid = await _set_aside()
     await session.handle(Message("confirm.reply", {"request_id": rid, "decision": "approve"}))
     await asyncio.sleep(0.1)

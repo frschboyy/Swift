@@ -23,8 +23,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock,
+  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock, treeBlock,
 } from "./blocks";
+import { CHOICES, type Display } from "./display";
 import { enterAction } from "./keyed";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
@@ -39,9 +40,6 @@ const label = getCurrentWindow().label;
 const root = document.getElementById("stage")!;
 let view: PaneView | null = null;
 let lastTouch = 0;
-// Two clicks this close make a double click (the press goes to Rust first, so no dblclick event).
-const DOUBLE_MS = 450;
-let lastClick = 0;
 // Waiting for a click outside the expanded stack (or the tray menu).
 let watching = false;
 // The open stack's row the owner last pointed at.
@@ -58,8 +56,6 @@ root.style.setProperty("--pane-max", `${Math.round(screen.availHeight * 0.7)}px`
 root.style.setProperty("--live-max", `${Math.max(200, Math.min(380, Math.round(screen.availHeight * 0.7) - 200))}px`);
 root.replaceChildren();
 followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => listen(event, handler) });
-// The Halo look spike (ADR-019 Step A): dev builds only; the bundler drops this from a release build.
-if (import.meta.env.DEV) void import("./look").then((look) => look.applyLook(root));
 
 const act = (action: string, extra: Record<string, unknown> = {}): void => {
   void emitTo("overlay", "pane-action", { label, action, ...extra }).catch(() => {});
@@ -86,6 +82,8 @@ function details(d: ResultDetails | null): HTMLElement | null {
       return chartBlock(d, true);
     case "cards":
       return cardsBlock(d, true);
+    case "tree":
+      return treeBlock(d, true);
   }
 }
 
@@ -117,18 +115,18 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
     drawFix(v.fix);
     return;
   }
+  // Board 9 §2: a note strip only when the mode changes what Enter does.
   const notices = (): HTMLElement[] => ([
-    v.confirm
-      ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"),
-          el("span", {}, el("b", {}, "Typing can't approve."), " Click Approve (or Tab to it, Enter), or say “approve”."))
-      : null,
-    v.follows ? el("p", { class: "type-note type-note--follow" }, icon("info"), `Following up: ${v.follows}`) : null,
+    v.onCard
+      ? el("p", { class: "type-note type-note--follow", role: "note" }, icon("keyboard"), `Enter presses “${v.onCard}” on the card · Tab for the next`)
+      : v.confirm
+        ? el("p", { class: "type-note type-note--warn", role: "note" }, icon("shield"), "Typing can't approve. Enter sends this as a change.")
+        : v.follows ? el("p", { class: "type-note type-note--follow" }, icon("info"), `Follows “${v.follows}”`) : null,
   ] as (HTMLElement | null)[]).filter((n): n is HTMLElement => n !== null);
+  // The key, then what it does now.
   const hint = (): HTMLElement =>
-    el("span", { class: "hint" }, ...(
-      v.onCard ? [el("kbd", {}, "Enter"), `= ${v.onCard} ·`, el("kbd", {}, "Tab"), "next"]
-      : v.reach ? [el("kbd", {}, "Tab"), "card ·", el("kbd", {}, "Enter"), v.confirm ? "= Change" : "sends"]
-      : v.confirm ? [el("kbd", {}, "Enter"), "= Change"] : [el("kbd", {}, "Enter"), "sends ·", el("kbd", {}, "Esc"), "closes"]));
+    el("span", { class: "hint" }, el("kbd", {}, "Enter"), v.onCard ? `presses ${v.onCard}` : v.confirm ? "sends a change" : "sends");
+  const warn = (): void => void root.querySelector(".type-box")?.classList.toggle("type-box--warn", Boolean(v.confirm && !v.onCard));
   const known = root.querySelector<HTMLInputElement>(".type-input");
   if (known) {
     // An update while typing must not wipe what's being typed: only the notice and the hint change.
@@ -136,6 +134,7 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
     box.querySelectorAll(".type-note").forEach((n) => n.remove());
     box.prepend(...notices());
     box.querySelector(".hint")?.replaceWith(hint());
+    warn();
     return;
   }
   const input = el("input", {
@@ -174,6 +173,7 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
       el("div", { class: "type-row" }, icon("keyboard"), input, hint()),
     ),
   );
+  warn();
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
 }
@@ -224,6 +224,9 @@ const anchorName = (a: string): string =>
   a.replace("top", "Top").replace("bottom", "Bottom").replace("-left", " left").replace("-center", " centre").replace("-right", " right");
 
 /** The tray menu: Swift and its status, where it sits, smart placement, then the actions. */
+// A8's fold in the tray: open once the owner opened it, while this window lasts.
+let displayOpen = false;
+
 function drawTray(v: TrayView): void {
   const tray = (value: string, extra: Record<string, unknown> = {}) => () => act("tray", { value, ...extra });
   const typeKeys = v.typeKey ? keys(v.typeKey) : null;
@@ -231,7 +234,7 @@ function drawTray(v: TrayView): void {
     el(
       "section",
       { class: "tray", role: "menu", "aria-label": "Swift" },
-      el("div", { class: "tray-head" }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", {}, v.status))),
+      el("div", { class: `tray-head${v.paused ? " tray-head--paused" : ""}` }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", { class: "tray-status" }, v.status))),
       el("div", { class: "tray-sep" }),
       el("div", { class: "tray-block" },
         el("div", { class: "tray-row" }, "Position", el("span", {}, anchorName(v.anchor))),
@@ -244,6 +247,16 @@ function drawTray(v: TrayView): void {
         el("div", { class: "tray-row" }, "Smart placement",
           el("button", { class: "switch", role: "switch", "aria-checked": String(v.smart), "aria-label": "Smart placement", onclick: tray("smart") })),
         el("p", { class: "tray-help" }, "Moves away from the text cursor and full-screen apps.")),
+      // A8: how Swift shows things, until the Swift window exists.
+      // Folded until opened, so the menu fits a short screen at 150%.
+      v.display ? el("details", { class: "tray-block tray-display", open: displayOpen, ontoggle: (ev: Event) => { displayOpen = (ev.currentTarget as HTMLDetailsElement).open; } },
+        el("summary", { class: "tray-row" }, "How Swift shows things"),
+        ...(Object.keys(CHOICES) as (keyof Display)[]).map((k) => el("div", { class: "tray-seg-row" },
+          el("span", {}, { reading: "Reading time", text: "Text size", motion: "Motion" }[k]),
+          el("div", { class: "seg", role: "radiogroup", "aria-label": k },
+            ...CHOICES[k].map((c) => el("button", {
+              role: "radio", "aria-checked": String(v.display![k] === c.value), onclick: tray("display", { text: `${k}:${c.value}` }),
+            }, c.label)))))) : null,
       el("div", { class: "tray-sep" }),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("pause") }, icon(v.paused ? "play" : "pause"), v.paused ? "Resume listening" : "Pause listening"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),
@@ -392,9 +405,7 @@ root.addEventListener("pointerdown", async (ev) => {
   reportPlace();
   if (moved || !click) return;
   if (click === "stack") {
-    const now = Date.now();
-    if (now - lastClick < DOUBLE_MS) act("stack-expand");
-    lastClick = now;
+    act("stack-expand");  // one click opens the pile (board 9 §1); a drag only moves it
   } else if (click === "item" && clicked?.dataset.id) {
     // A click on a row selects it (its buttons show); Open is one of them.
     selected = clicked.dataset.id;

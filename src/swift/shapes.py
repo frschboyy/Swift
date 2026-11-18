@@ -58,6 +58,12 @@ CARD_PROJECT_CARDS = 3
 PROJECT_TITLE_MAX = 80
 PROJECT_DETAIL_MAX = 120
 PROJECT_META_MAX = 48
+# B13: a file list as a tree (names as the worker gave them; never a path to act on, never a delete).
+TREE_ITEMS = 60
+TREE_DEPTH = 4
+CARD_TREE_ROWS = 10
+TREE_NAME_MAX = 120
+TREE_META_MAX = 40
 PROJECT_TEXT_UNITS = 240
 # What Mermaid can be told to do besides draw: clicks, links, callbacks, directives and front matter, styles (the
 # colours are Swift's, and url() fetches), and images or icons on nodes (``A@{ img: ... }``). Refused whole.
@@ -215,8 +221,59 @@ class Cards(_Strict):
     cards: list[ProjectCard] = Field(min_length=1, max_length=PROJECT_CARDS)
 
 
+class TreeEntry(_Strict):
+    name: _words(TREE_NAME_MAX)
+    folder: bool = False
+    meta: _words(TREE_META_MAX) | None = None
+    # The folder that answers the question starts open; the rest start closed.
+    open: bool = False
+    entries: list[TreeEntry] = Field(default_factory=list, max_length=TREE_ITEMS)
+
+
+def _entries(entries: list[TreeEntry], depth: int = 1) -> int:
+    """How many entries the tree holds; too deep, or a file with entries, is refused."""
+    if entries and depth > TREE_DEPTH:
+        raise ValueError("at most four levels")
+    if any(e.entries and not e.folder for e in entries):
+        raise ValueError("only a folder holds entries")
+    return sum(1 + _entries(e.entries, depth + 1) for e in entries)
+
+
+class Tree(_Strict):
+    shape: Literal["tree"]
+    title: _words(TITLE_MAX) | None = None
+    entries: list[TreeEntry] = Field(min_length=1, max_length=TREE_ITEMS)
+
+    @model_validator(mode="after")
+    def _fits(self) -> Tree:
+        if _entries(self.entries) > TREE_ITEMS:
+            raise ValueError("at most sixty entries")
+        return self
+
+
+CAVEAT_MAX = 160
+CAVEAT_DESCRIPTION = (
+    "If your answer may be wrong, say why in one short plain sentence (the sources disagree, the data is old, or "
+    "it's a guess); it shows under the answer as yours. Call it at most once, and only when it's true."
+)
+CAVEAT_SCHEMA: dict[str, Any] = {"type": "object", "properties": {"why": {"type": "string", "maxLength": CAVEAT_MAX}},
+                                 "required": ["why"]}
+
+
+def caveat(args: Any) -> str | None:
+    """A5: the worker's caveat as Swift will show it, or None: plain text only, one short line."""
+    why = args.get("why") if isinstance(args, dict) else None
+    if not isinstance(why, str) or not why.strip() or len(why) > CAVEAT_MAX or chr(10) in why.strip():
+        return None
+    try:
+        return _plain(why.strip())
+    except ValueError:
+        return None
+
+
 MODELS: dict[str, type[_Strict]] = {
     "compare": Compare, "diagram": Diagram, "mindmap": MindMap, "preview": Preview, "chart": Chart, "cards": Cards,
+    "tree": Tree,
 }
 
 
@@ -250,6 +307,13 @@ SCHEMA: dict[str, Any] = {
                 }, "minItems": 2, "maxItems": CHART_POINTS},
             }, "required": ["name", "values"]}},
         "unit": {"type": "string", "minLength": 1, "maxLength": 16},
+        "entries": {"type": "array", "minItems": 1, "maxItems": TREE_ITEMS, "items": {
+            "type": "object", "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": TREE_NAME_MAX},
+                "folder": {"type": "boolean"}, "open": {"type": "boolean"},
+                "meta": {"type": "string", "minLength": 1, "maxLength": TREE_META_MAX},
+                "entries": {"type": "array", "items": {"type": "object"}},
+            }, "required": ["name"]}},
         "cards": {"type": "array", "minItems": 1, "maxItems": PROJECT_CARDS, "items": {
             "type": "object", "properties": {
                 "title": {"type": "string", "minLength": 1, "maxLength": PROJECT_TITLE_MAX},
@@ -273,6 +337,9 @@ DESCRIPTION = (
     "shape 'chart': a simple bar or line chart; x has 2-8 short category labels and series has 1-4 named sets "
     "of finite numbers, one per category. An optional unit labels the values. shape 'cards': 1-8 project cards, "
     "each with a short title and optional detail and meta. Use cards for a small set of projects, not a long list. "
+    "shape 'tree': files and folders as a tree; entries, each {name, folder, meta, open, entries}, at most 4 levels "
+    "and 60 entries; meta is a short size or date; open: true only on the folder that answers the question. Use it "
+    "when the answer is where files are. "
     "Keep "
     "the data out of your final answer: that answer is said aloud, so make it the conclusion in one or two "
     "sentences. Call it at most once, before your final answer; if it's refused, answer in words."
@@ -305,6 +372,8 @@ def extent(shape: dict[str, Any]) -> tuple[int, int]:
         return _ideas([Idea.model_validate(i) for i in shape["children"]]), CARD_IDEAS
     if shape["shape"] == "chart":
         return len(shape["x"]), CARD_CHART_POINTS
+    if shape["shape"] == "tree":
+        return _entries([TreeEntry.model_validate(e) for e in shape["entries"]]), CARD_TREE_ROWS
     if shape["shape"] == "cards":
         text_units = len(shape.get("title", "")) + sum(
             len(card["title"]) + len(card.get("detail", "")) + len(card.get("meta", "")) for card in shape["cards"]

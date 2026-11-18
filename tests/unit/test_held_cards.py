@@ -166,7 +166,8 @@ async def test_a_countdown_that_runs_out_sets_the_card_aside_in_the_stack() -> N
     card = out.last("confirm.request")
     await session.handle(seen(card["request_id"]))
     await asyncio.sleep(0.4)
-    assert session.state == "confirm" and records == [] and calendar.created == []
+    # In the stack, nothing is in front (F1): the front is free for the next request.
+    assert session.state == "idle" and records == [] and calendar.created == []
     assert out.last("confirm.hold") == {"request_id": card["request_id"], "held": True}
     assert out.last("countdown") == {"request_id": card["request_id"], "left_s": pytest.approx(0.2, abs=0.01), "running": False}
     item = out.last("stack")["items"][0]

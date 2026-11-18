@@ -99,7 +99,13 @@ code toward these rules, never away.
 - **2:** built (`overlay/src/keyed.ts`): while the text box is open, Tab reaches the card's own Approve/Reject or
   Yes/No (or a short list of choices), ringed on the card, and Enter presses it as a click (`confirm.reply` /
   `ask.reply`, source click). The overlay window never takes focus, so the text box holds the keyboard and tells
-  the card which button is reached. Owner check 394 not run yet. The backend's typed-yes
+  the card which button is reached. Owner check 394 not run yet. **A7, keyboard entry** (Halo B8, owner approved
+  2026-11-18 via the orchestrating session; not reviewed yet): its own hotkey (`hotkeys.card`, Ctrl+Alt+Enter) opens
+  the text box already on the front card's first button, never when a card appears; Tab walks only the card's
+  buttons, Enter presses the one reached as its own click (Approve keeps its 400 ms guard, typed words still never
+  approve), and the box closes after the press or on Esc, giving the keyboard back to the app. It is the text box's
+  exception, not a new one; `overlay/tests/focus.test.ts` checks the only `set_focus` is the text box's and that only
+  the owner's hotkeys, the tray or Change open it. Owner check 429. The backend's typed-yes
   hints (`TYPED_YES_HINT`, `TYPED_APPROVE_HINT`) still say only "click … or say"; the text box shows the Tab way.
 - **4:** built: an address not in this request's words is asked about
   ("Open usiu.ac.ke?", level 1, typing never answers it), offering only the owner's own earlier or remembered
@@ -131,6 +137,16 @@ code toward these rules, never away.
   keeps `answers` (local only). Owner check not run. Not covered: a desktop write stopped mid-way (`_changed`) and
   the A9 UIA state.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
+- **"Ask me about everything"** (modes study §3): built on `claude/halo-b8-build-4fbdf7` (2026-11-18), not reviewed
+  or checked yet. `swift/asking.py`: one record in the memory store, from the owner's words, on until they turn it off.
+  Typed words may turn it on (kept as `typed`); only spoken words turn it off (owner, 2026-11-18: "Yes, not
+  typed"); a record that can't be read counts as on. The gateway adds a card to `reversible` actions, except volume (its
+  `Action.kind`); the system lane asks before its own changes (level 1, Swift's own question; volume and reads
+  excepted), with "Asking because you said: ask me about everything." under it; no step card is offered or used, so
+  every command asks. It only adds questions: `confirm` is never lowered. Rule tests in
+  `tests/unit/test_asking_everything.py`, each failing with its guard removed; owner check 422.
+  Not built: the tray's "Asking about everything" status and its "Stop asking" item, the line on the gateway's
+  cards, and learned trust (kept but not used: there is none yet).
 - Found by the ownership map, not in the decisions: worker tool cards weren't bound to a digest (OWN-05, fixed; a
   review by another author is pending).
 

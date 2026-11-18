@@ -27,7 +27,7 @@
       const label = new URLSearchParams(location.search).get("label") ?? "pane-type";
       const now = Date.now();
       const STACK = [
-        { id: "card:swift:1", kind: "later", title: "Add lunch with Sam Okafor at Café Nord on Thursday at half past twelve", line: "Waiting for your OK · held, no answer in time · 4 min ago", open: "Open", fresh: false, icon: "shield" },
+        { id: "card:swift:1", kind: "later", title: "Add lunch with Sam Okafor at Café Nord on Thursday at half past twelve", line: "Needs your OK · held, no answer in time · 4 min ago", open: "Open", fresh: false, icon: "shield" },
         { id: "parked:t2", kind: "parked", title: "Which day and time works for you for the design review?", line: "Unanswered question · 12 min ago", open: "Open", fresh: false, icon: "question" },
         { id: "parked:t3", kind: "parked", title: "Draft an email to Priya about the tea report", line: "Unfinished · stopped before it was done · 1 h 05 min ago", open: "Open", fresh: false, icon: "pause" },
       ];
@@ -42,7 +42,13 @@
         typeTyped: { kind: "type", draft: "Remind me to call mum at 6", follows: null, confirm: false },
         typeConfirm: { kind: "type", draft: "make it 5 pm instead", follows: null, confirm: true },
         typeFollows: { kind: "type", draft: "", follows: "It's 3:42 pm", confirm: false },
+        // Board 9 §2 (Halo B8): the names 03-verify.md uses.
+        typeFollow: { kind: "type", draft: "and tomorrow?", follows: "It's 3:42 pm", confirm: false },
+        typeKeyed: { kind: "type", draft: "", follows: null, confirm: false, reach: true, onCard: "Copy" },
+        typeFix: { kind: "type", draft: "", follows: null, confirm: false, fix: { clip: "c-1", heard: "what time is it in the cooler" } },
         trayMenu: { kind: "tray", status: "Listening for “Hey Swift”", paused: false, anchor: "bottom-center", smart: true, typeKey: "ctrl+space" },
+        trayListening: { kind: "tray", status: "Listening · hold Ctrl+Shift+Space", paused: false, anchor: "bottom-right", smart: true, typeKey: "ctrl+alt+space" },
+        trayDisplay: { kind: "tray", status: "Listening · hold Ctrl+Shift+Space", paused: false, anchor: "bottom-right", smart: true, typeKey: "ctrl+alt+space", display: { reading: "1.5", text: "default", motion: "windows" } },
         trayPaused: { kind: "tray", status: "Not listening · Mic off", paused: true, anchor: "bottom-right", smart: false, typeKey: "ctrl+space" },
         stackClosed: { kind: "stack", expanded: false, items: STACK },
         stackOpen: { kind: "stack", expanded: true, items: STACK },

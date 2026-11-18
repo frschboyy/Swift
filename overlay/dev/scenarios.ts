@@ -56,24 +56,27 @@ const run = (): string => `d${++n}`;
 const HERE = { state: "here", reason: "input", listening: true, wake: true, paused: false };
 
 /** Back to rest: no card, no edges, no stack, listening, not speaking. */
+const notice = (name: string): void => (window as unknown as { __overlay: { notice: (n: string) => void } }).__overlay.notice(name);
+
 async function reset(s: Shim): Promise<void> {
   s.inject("speech", { speaking: false });
   s.inject("followup", { open: false, seconds: 0 });
   s.inject("presence", HERE);
   s.inject("runs", { focus: null, rows: [], waiting: 0 });
   s.inject("stack", { items: [] });
+  s.inject("timers", { items: [] });
   s.inject("state", { state: "idle" });
   await sleep(260);
 }
 
 /** A request said and answered: transcript, working, then the result. */
-async function answer(s: Shim, words: string, summary: string, details: unknown = null, opts: { typed?: boolean; agent?: unknown; artifacts?: unknown[] } = {}): Promise<string> {
+async function answer(s: Shim, words: string, summary: string, details: unknown = null, opts: { typed?: boolean; agent?: unknown; artifacts?: unknown[]; caveat?: string } = {}): Promise<string> {
   const id = run();
   s.inject("transcript", { text: words, final: true, typed: !!opts.typed });
   s.inject("state", { state: "working", run_id: id, agent: opts.agent ?? AGENT, thread_id: `t-${id}` });
   for (const a of opts.artifacts ?? []) s.inject("artifact", { ...(a as object), run_id: id });
   s.inject("state", { state: "result", run_id: id, agent: opts.agent ?? AGENT, thread_id: `t-${id}` });
-  s.inject("result", { run_id: id, status: "done", summary, details, agent: opts.agent ?? AGENT, note: null, thread_id: `t-${id}` });
+  s.inject("result", { run_id: id, status: "done", summary, details, agent: opts.agent ?? AGENT, note: null, thread_id: `t-${id}`, ...(opts.caveat ? { caveat: opts.caveat } : {}) });
   await sleep(220);
   return id;
 }
@@ -263,6 +266,12 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     await sleep(150);
   },
   capsuleSpeaking: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); s.inject("speech", { speaking: true }); await sleep(150); },
+  // A6: captions on, the speaking pill shows the words being said.
+  capsuleCaptions: async (s) => {
+    await answer(s, "What's the weather like?", "Light rain until four, then dry and 14 degrees.");
+    s.inject("speech", { speaking: true, text: "Light rain until four, then dry and fourteen degrees." });
+    await sleep(150);
+  },
   pausedMic: async (s) => { s.inject("presence", { ...HERE, listening: false, paused: true }); await sleep(150); },
   pausedLocked: async (s) => { s.inject("presence", { state: "here", reason: "locked", listening: false, wake: true, paused: false }); await sleep(150); },
   // 2. the main card
@@ -276,6 +285,8 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     await sleep(3400);  // elapsed shows after 3 s
   },
   answerLine: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); },
+  // Board 9 §5: the reply window after an answer, on the orb.
+  followup: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); s.inject("followup", { open: true, seconds: 8 }); await sleep(1600); },
   answerText: async (s) => { await answer(s, "Is it going to rain this afternoon?", "Probably not. There's a 20% chance of a light shower around 4 pm, then it clears. 14 °C at the warmest."); },
   answerTable: async (s) => { await answer(s, "What's on my calendar tomorrow?", "Three things on Thursday, 29 October. Free after 3 pm.", CALENDAR); },
   answerCompare: async (s) => { await answer(s, "Compare laptops for travel", "The Zenbook fits travel best: lightest, longest battery, mid-priced.", LAPTOPS); },
@@ -298,9 +309,47 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerProjectsLong: async (s) => { await answer(s, "List all my current projects", "Five projects are in progress.", PROJECTS_LONG); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
+  // B5 (03-verify.md names): a long answer at its cap, and expanded by hand.
+  cardCapped: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
+  cardExpanded: async (s) => { await DESIGN.answerLongOpen(s); },
+  // B13: a file list as a tree.
+  treeCard: async (s) => {
+    await answer(s, "Where are my holiday photos?", "They're in Pictures, under 2026.", { kind: "tree", title: "Pictures", by: "worker", size: "card", entries: [
+      { name: "2025", folder: true, meta: "214 items", entries: [{ name: "winter.jpg" }] },
+      { name: "2026", folder: true, open: true, meta: "38 items", entries: [
+        { name: "Lisbon - first evening by the river with everyone, panorama.jpg", meta: "6.1 MB" },
+        { name: "beach.jpg", meta: "2.4 MB" }, { name: "trip notes.docx", meta: "18 KB" },
+        { name: "Videos", folder: true, entries: [{ name: "waves.mp4" }] },
+      ] },
+      { name: "Screenshots", folder: true, meta: "1,204 items", entries: [{ name: "a.png" }] },
+      { name: "wallpaper.png", meta: "3.0 MB" },
+    ] });
+  },
+  // A4: an answer pinned as an edge, with the next answer in front.
+  pinned: async (s) => {
+    await answer(s, "What's the Wi-Fi password at the office?", "The guest network is Contoso-Guest; the password is on the card by reception.");
+    [...document.querySelectorAll<HTMLButtonElement>("#card .card-foot .btn")].find((b) => b.textContent === "Pin")?.click();
+    await sleep(300);
+    await answer(s, "What time is it?", "It's 3:42 pm");
+  },
+  // A5: a Done answer with the worker's caveat.
+  caveat: async (s) => {
+    await answer(s, "When did tea reach England?", "Around 1650, through Portuguese and Dutch traders.", null,
+      { caveat: "The two sources I read disagree by about ten years." });
+  },
+  // A2: a follow-up on the same card: "then “…”", and the first answer under a ghost.
+  followupThread: async (s) => {
+    for (const [i, [q, a]] of [["What time is it?", "It's 19:42."], ["And the date?", "It's Monday, 26 October 2026."]].entries()) {
+      s.inject("transcript", { text: q, final: true });
+      s.inject("state", { state: "working", run_id: `f${i}`, agent: AGENT, thread_id: "tf" });
+      s.inject("state", { state: "result", run_id: `f${i}`, agent: AGENT, thread_id: "tf" });
+      s.inject("result", { run_id: `f${i}`, status: "done", summary: a, details: null, agent: AGENT, note: null, thread_id: "tf" });
+      await sleep(300);
+    }
+  },
   answerLongOpen: async (s) => {
     await answer(s, "Give me a short history of tea", LONG);
-    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();
     await sleep(250);
   },
   failed: async (s) => {
@@ -344,6 +393,13 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
       body: "Hi Priya, here's the first draft of the tea report. The history section is done; I'd love your notes on the trade figures before Friday.\n\nThanks,\nFrancis",
     } }, "", "Email Priya the tea report");
   },
+  // Board 9 §5: a spoken approve held back for noise asks once more, on the same card.
+  confirmAgain: async (s) => {
+    await DESIGN.confirmEmail(s);
+    const id = document.querySelector<HTMLElement>("#card .voice-hint[data-request]")?.dataset.request ?? "";
+    s.inject("confirm.voice", { request_id: id, phase: "again", text: "Heard “approve”, but it's noisy here. Say “approve” again to go ahead, or click." });
+    await sleep(150);
+  },
   confirmCommand: async (s) => { await confirm(s, "Run a command in your project", null, "npm run build -- --mode production", "Build the site"); },
   confirmAway: async (s) => {
     await DESIGN.confirmChange(s);
@@ -355,25 +411,52 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   questionWaiting: async (s) => { await question(s, false); },
   // 5. several requests (edges behind the card, as in the app)
   concurrent: async (s) => { await concurrent(s); },
+  // ADR-019 §8.4: a problem with a run nobody asked for is Failed, with Swift's origin on the left.
+  failedScheduled: async (s) => { s.inject("error", { code: "service", title: "The backup couldn't finish", message: "The drive D: isn't connected. Nothing was deleted.", hint: "", severity: "error", agent: null, origin: "scheduled", origin_detail: "nightly backup" }); await sleep(150); },
+  // Board 9 §4: Swift's own notices and problems (State · Notice).
+  noticeReady: async () => { notice("ready"); await sleep(150); },
+  noticeRunning: async () => { notice("running"); await sleep(150); },
+  noticeHoldToTalk: async (s) => { s.inject("error", { code: "too_short", title: "Hold to talk", message: "Keep Ctrl+Shift+Space held while you speak, then let go.", hint: "", severity: "info", agent: null }); await sleep(150); },
+  noticeNotCaught: async (s) => { s.inject("error", { code: "no_speech", title: "I didn't catch that", message: "Nothing was heard. Hold the hotkey and speak a little louder.", hint: "", severity: "info", agent: null }); await sleep(150); },
+  problemStarting: async () => { notice("starting"); await sleep(150); },
+  problemReconnecting: async () => { notice("reconnecting"); await sleep(150); },
+  problemRestarting: async () => { notice("restarting"); await sleep(150); },
+  problemStopped: async () => { notice("stopped"); await sleep(150); },
+  problemCantRestart: async () => { notice("cantRestart"); await sleep(150); },
+  problemHotkey: async () => { notice("hotkey"); await sleep(150); },
   // 6. the stack (inline in the harness)
   stackClosed: async (s) => { s.inject("stack", { items: STACK }); await sleep(150); },
+  // Board 9 §1: the pile with no OK waiting (neutral), and with one (stackClosed, amber).
+  stackPile: async (s) => { s.inject("stack", { items: STACK.slice(1) }); await sleep(150); },
+  // A1: earlier today, under what waits.
+  stackRecent: async (s) => {
+    s.inject("stack", { items: [...STACK.slice(1), { id: "recent:a-9", kind: "recent", title: "Green tea and sleep", reason: "done", since_ms: Date.now() - 50 * 60_000, thread_id: "t9" },
+      { id: "recent:a-8", kind: "recent", title: "Back up photos", reason: "failed", since_ms: Date.now() - 4 * 3_600_000, thread_id: "t8" }] });
+    await sleep(100);
+    document.querySelector<HTMLElement>("#stack .stack")?.click();
+    await sleep(250);
+  },
   stackOpen: async (s) => {
     s.inject("stack", { items: STACK });
     await sleep(100);
-    const top = document.querySelector<HTMLElement>("#stack .stack");
-    top?.click();
-    top?.click();
+    document.querySelector<HTMLElement>("#stack .stack")?.click();  // one click opens it (board 9 §1)
     await sleep(250);
   },
   // 8. timers and reminders
+  // Halo B14: a timer counting on the orb, alone, and with an answer card in front.
+  timerOrb: async (s) => { s.inject("timers", { items: [{ id: 7, title: "Tea", due_ms: Date.now() + 252_000, set_ms: Date.now() - 48_000 }] }); await sleep(400); },
+  timerTwo: async (s) => {
+    s.inject("timers", { items: [{ id: 7, title: "Tea", due_ms: Date.now() + 252_000, set_ms: Date.now() - 48_000 }, { id: 8, title: "Pasta", due_ms: Date.now() + 600_000, set_ms: Date.now() }] });
+    await answer(s, "What time is it?", "It's 3:42 pm");
+  },
   timerDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-timer-7", agent: null });
-    s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null });
+    s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null, origin: "reminder" });
     await sleep(200);
   },
   reminderDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-reminder-3", agent: null });
-    s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null });
+    s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null, origin: "reminder" });
     await sleep(200);
   },
   // 12. the shrunk working card, and the Deck's tightest cases (ADR-019 Step A's states)
@@ -386,14 +469,14 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     const id = await answer(s, "Give me a short history of tea", LONG);
     s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 2).map((r) => ({ ...r, state: "working", activity: "reading", agent: AGENT })) });
     await sleep(SETTLED_MS);
-    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();
     await sleep(320);
   },
   deckFoldedOk: async (s) => {
     const id = await answer(s, "Give me a short history of tea", LONG);
     s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 2) });
     await sleep(SETTLED_MS);
-    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();
     await sleep(320);
   },
   deckConfirmTight: async (s) => {

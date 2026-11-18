@@ -379,7 +379,7 @@ async def test_a_click_on_a_hidden_approval_question_approves_nothing() -> None:
     rule (nothing approves unless the thing is on screen and in front; claude/rule-gaps), a click on "Turn off
     Wi-Fi?" while the backend knows it's hidden behind another request approves nothing: the question comes back to
     the front with "Still waiting", and a click there approves it."""
-    from swift.session import STILL_WAITING
+    from swift.refused import STILL_WAITING
     session, out, agent, stt, control, _sched = _lane(30.0)
     research = await _beside(session, out, agent, stt)
     q = session.dialogue.pending

@@ -144,7 +144,8 @@ export function onRuns(p: Presenter, focus: string | null, rows: Row[], waiting:
 /** Nothing in front any more but a row still runs: the newest one should come forward. */
 export function promotion(p: Presenter): string | null {
   if (p.card.kind !== "none") return null;
-  const running = p.rows.filter((r) => RUNNING.has(r.state) && r.state !== "queued");
+  // An OK behind waits for the owner (set aside, or lapsed into the stack): only the owner brings it back (F2).
+  const running = p.rows.filter((r) => RUNNING.has(r.state) && r.state !== "queued" && r.state !== "confirm");
   return running.length ? running[running.length - 1].runId : null;
 }
 

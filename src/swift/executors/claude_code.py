@@ -150,6 +150,10 @@ STEP_APPROVED_MESSAGE = (
     "The user approved this step. These commands now run without another card, each once, exactly as "
     "written: {covered}. Anything else asks on its own card{others}."
 )
+STEP_ASK_EVERYTHING_MESSAGE = (
+    "The owner asked to be asked about everything, so each command gets its own card. Run them one at a time; "
+    "nothing was approved."
+)
 STEP_NOTHING_AHEAD_MESSAGE = (
     "Swift can't approve any of these ahead: each asks on its own card when you run it. Go on one at a time."
 )
@@ -284,6 +288,7 @@ class _Run:
     # B4: the result's shape as Swift checked it (show_result), drawn only on a Done answer.
     shape: dict[str, Any] | None = None
     preview: previews.PreparedPreview | None = None
+    caveat: str = ""  # A5: the worker's one line on why the answer may be wrong
     approved_reads: set[str] = field(default_factory=set)
     # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
     step_bound: dict[str, Bound] = field(default_factory=dict)
@@ -395,6 +400,8 @@ class ClaudeCodeExecutor:
         self.tools = tools
         # Binds and journals the approvals of the agent's own tools (OWN-05): the same one as Swift's actions.
         self.gateway = tools.gateway if tools is not None else ActionGateway()
+        # "Ask me about everything" (asking.py): no step card is offered or used while it says yes.
+        self.ask_everything: Callable[[], bool] = lambda: False
         # Holds confirm cards while the owner is away (set by the backend); None: plain timeout.
         self.attention: Attention | None = None
         self._spare: asyncio.Task[_Spare | None] | None = None
@@ -578,6 +585,15 @@ class ClaudeCodeExecutor:
             return {"content": [{"type": "text", "text": await _show_result(run, args, self.reads, self.cwd)}]}
 
         sdk_tools.append(show_result)
+
+        @tool("add_caveat", shapes.CAVEAT_DESCRIPTION, shapes.CAVEAT_SCHEMA)
+        async def add_caveat(args: dict[str, Any]) -> dict[str, Any]:
+            run, _run_id = current()
+            said = shapes.caveat(args)
+            run.caveat = said or ""
+            return {"content": [{"type": "text", "text": "Noted under your answer." if said else "Not shown: one short plain sentence."}]}
+
+        sdk_tools.append(add_caveat)
         if self.tools is not None:
             sdk_tools += [self._sdk_tool(tool, spec, current) for spec in self.tools.tools.values()]
             system_prompt += WORKFLOW_PROMPT
@@ -741,7 +757,7 @@ class ClaudeCodeExecutor:
             # No card: an approval must not be able to read what Read is always refused (owner check 213).
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
             return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
-        if name in COMMAND_TOOLS and run.grant.commands:
+        if name in COMMAND_TOOLS and run.grant.commands and not self.ask_everything():
             command = str(args.get("command", ""))
             # Swift's classification, never the agent's: a delete, a send or anything unknown asks (B2, ADR-019).
             if run.grant.covers(command, irreversible=not reversible(command)) and command in run.step_bound:
@@ -801,6 +817,8 @@ class ClaudeCodeExecutor:
         grant; the rest ask on their own cards. A no stops the run, as a rejected command card does."""
         if self.tools is not None and self.tools.in_workflow_for(run_id):
             return NOT_IN_WORKFLOW_MESSAGE.format(tool="propose_step")
+        if self.ask_everything():  # the owner asked to be asked about everything: no card covers several commands
+            return STEP_ASK_EVERYTHING_MESSAGE
         said = command_purpose("Bash", {"description": args.get("step")})
         listed = args.get("commands")
         commands = list(dict.fromkeys(c for c in listed if isinstance(c, str))) if isinstance(listed, list) else []
@@ -1026,12 +1044,14 @@ class ClaudeCodeExecutor:
             why = "No answer in time" if decision == "no_answer" else "Rejected"
             return ExecResult("rejected", f"{why}: {title}. Swift stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
+            said = getattr(run, "caveat", "") if outcome.status == "done" else ""  # A5: Done answers only
             if outcome.status == "done" and getattr(run, "shape", None) is not None:  # B4: shapes on Done answers only (§7.6)
                 return ExecResult(
-                    "done", outcome.summary, shapes.details(run.shape, _words(outcome.details), getattr(run, "preview", None)), meta
+                    "done", outcome.summary, shapes.details(run.shape, _words(outcome.details), getattr(run, "preview", None)), meta,
+                    caveat=said,
                 )
             status = "done" if outcome.status == "done" else "error"
-            return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
+            return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure, caveat=said)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
         detail = f" ({lines[0][:160]})" if lines else ""
         summary = f"Stopped without an answer{detail}."

@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock, memory, seen
+from swift import captions, clock, memory, recent, refused, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -288,7 +288,6 @@ SPOKEN_SOURCES = frozenset({"voice", "wake", "followup", "correction", "retry", 
 # A yes to Swift's own question ("Turn off Wi-Fi?") or offer, typed: never an approval, with or without
 # the name (foundation decision 1); said or clicked, it is. Who may approve what is ``intake.approves``.
 TYPED_YES_HINT = "Typing can't approve: click Yes, or say yes."
-STILL_WAITING = "Still waiting: click again to approve."  # a click the backend saw off the front
 # The lane's question closed without an answer.
 LANE_NO_ANSWER = "No answer, so I've left it as it is."
 FRAGMENT_HINT = "Say the whole request, like “Hey Swift, what's on tomorrow?”"
@@ -488,6 +487,7 @@ class Run:
     # Its tool scope, kept after it closed: "Show in Word" from the live view after the run ended.
     last_scope: RunScope | None = None
     thread: str | None = None
+    said_stop: bool = False  # stops.py (F6)
     confirm_ids: set[str] = field(default_factory=set)
     # Confirm card titles by request id, and the ones approved in this run.
     confirm_titles: dict[str, str] = field(default_factory=dict)
@@ -744,7 +744,7 @@ class Session:
         self._card_since: dict[str, int] = {}
         self._stack_skipped: dict[str, float] = {}
         # The last ``stack`` message sent (None: none yet).
-        self._stack_sent: list[dict[str, Any]] | None = []
+        self._stack_sent: list[Any] | None = [[], []]  # [waiting, recent] as last sent
         # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
         self._rows_sent: dict[str, Any] | None = None
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
@@ -938,6 +938,7 @@ class Session:
         self._confirm_voice: asyncio.Task[None] | None = None
         # The request whose card that push-to-talk was held on.
         self._voice_owner: Run | None = None
+        self._stopped: tuple[Run, float] | None = None  # the last Stopped card, and when (stops.py, F7)
         # What "Try again" re-runs: the failed record's source and its transcript (or demo scenario).
         self._retry: tuple[str, str] | None = None
 
@@ -1351,10 +1352,11 @@ class Session:
     async def _send_stack(self) -> None:
         """The ``stack`` message, whenever what waits changes (never while it stays empty)."""
         items = [item.as_message() for item in self._stack_items()]
-        if items == self._stack_sent:
+        earlier = [item.as_message() for item in recent.items(self)]  # A1: answers from earlier today, never waiting
+        if [items, earlier] == self._stack_sent:
             return
-        self._stack_sent = items
-        await self._raw_send(outbound("stack", items=items))
+        self._stack_sent = [items, earlier]
+        await self._raw_send(outbound("stack", items=items, **({"recent": earlier} if earlier else {})))
 
     async def _stack_action(self, item_id: str, action: str) -> None:
         """Open, skip or end something in the stack (or the card on screen, by its own buttons)."""
@@ -1364,8 +1366,10 @@ class Session:
             return
         kind, key = parts
         logger.info("stack action", kind=kind, action=action)
+        if kind == "recent":
+            return await recent.open_(self, key, action)  # A1: an answer from earlier today
         if kind == "due" and action != "skip":
-            self._due_cleared(key)
+            timers.cleared(self, key)
             await self._send_stack()
             return
         if action == "skip":
@@ -1446,6 +1450,9 @@ class Session:
         elif others := self._live(besides=run):
             await self._bring(others[-1])
         else:
+            if self._focus is run:  # F1/F4: its card waits in the stack (its run for the answer): the front is free
+                self._focus, self.state = None, "idle"
+                await self._raw_send(outbound("state", state="idle"))
             await self._send_rows()
 
     async def _open_card(self, request_id: str) -> None:
@@ -1620,6 +1627,8 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
+            case "due.snooze":
+                timers.snooze(self, msg.data["run_id"])  # "+5 min" on a timer's Due card (B14)
             case "watch":
                 # The live view opened (a click on Watch) or closed: content-free, for the log.
                 logger.info("live view", run_id=msg.data["run_id"], open=msg.data["open"])
@@ -2945,6 +2954,8 @@ class Session:
                 active_executor, run_id = self._active
                 said = ExecResult("cancelled", PAUSED_HINT if record.get("paused") else "Cancelled.")
                 await to_the_end(in_turn(active_executor.cancel(run_id), self._send_result(run_id, said, self._agent())))
+            elif run.said_stop:  # stopped before it started (F6): a Stopped card, never a silent idle
+                await to_the_end(self._send_result(f"local-{next(self._local_ids)}", ExecResult("cancelled", stops.line(record.get("transcript"), _short_title))))
             else:
                 await to_the_end(self._set_state("idle"))
             raise
@@ -3041,6 +3052,8 @@ class Session:
             return
         if action in ("stop", "cancel", "mute"):
             record["status"] = "cancelled"
+            if await stops.at_rest(self, action):
+                return
             await self._set_state("idle")
             return
         if action == "not_now":
@@ -3519,9 +3532,7 @@ class Session:
                 if q.approval and turn.action == "answered" and turn.answer.kind in ("yes", "choice") and not (verdict := intake.approves(
                     source, named=named or turn.answer.named, level=1, in_front=self._on_screen(q),
                 )).allowed:
-                    hint = STILL_WAITING if verdict.reason == "not_in_front" else TYPED_YES_HINT  # off screen: it comes to the front
-                    if hint is TYPED_YES_HINT or (q.owner is not None and await self._bring(q.owner)):
-                        await self._reask(q, f"{hint} {q.text}")  # typed: never a yes
+                    await refused.question(self, q, verdict, TYPED_YES_HINT)  # typed hint, or it comes to the front
                     return True
                 answer = turn.answer
                 if source != "click" and answer.kind not in ("yes", "no", "cancel"):
@@ -3672,7 +3683,7 @@ class Session:
     def _speech_news(self, speaking: bool) -> None:
         """Tell the overlay Swift started or stopped talking (the capsule, the question card)."""
         with contextlib.suppress(RuntimeError):  # no running loop: nothing to tell
-            self._background(self._raw_send(outbound("speech", speaking=speaking)))
+            self._background(self._raw_send(outbound("speech", speaking=speaking, **captions.spoken(self.memories, self._said_aloud if speaking else ""))))
         if speaking:
             self._sync_answer_capture()
 
@@ -3759,6 +3770,7 @@ class Session:
         # Off the schedule only once the overlay says it drew it (``screen``, O-08); not drawn, or the overlay
         # gone first, it's back in line.
         self._drawn.due[run_id] = (0, queued)
+        timers.remember(run_id, [i for i, _, _ in queued])
         await self._send_stack()
         await self._send_result(run_id, ExecResult("done", text), origin="away" if away else "reminder")
         logger.info("due sent", items=len(queued))
@@ -3781,15 +3793,6 @@ class Session:
             await self._send_stack()  # it waits there, never sent again into a refusal, till the screen rests
         elif rest and self._due:
             await self._kick_due()
-
-    def _due_cleared(self, key: str) -> None:
-        """Cleared from the stack: the owner has seen it, so it won't come up as a card too."""
-        kept = [entry for entry in self._due if str(entry[0].id) != key]
-        for item, _, _ in self._due:
-            if str(item.id) == key and self.system is not None:
-                self.system.scheduler.shown(item.id)
-        self._due = kept
-
 
     def _agent(self) -> dict[str, str] | None:
         """The provider of the active run as the overlay's ``agent``; None when it is Swift itself."""
@@ -4292,6 +4295,7 @@ class Session:
         The card on screen counts down again only once the new overlay says it drew it."""
         self.overlay_gone()
         self._rows_sent = None
+        timers.attach(self)  # its running timers, now and on every change (B14)
         await self._send_rows()
         if self.speaker.speaking:
             await self._raw_send(outbound("speech", speaking=True))
@@ -4617,12 +4621,7 @@ class Session:
         if run is None or run.active is None:
             logger.warning("confirm.reply for an unknown request ignored")
             return
-        # A click (the other doors already asked ``approves`` about the card in front): only on the OK in front.
-        in_front = request_id == self._open_confirm() and not (self.attention is not None and self.attention.held)
-        if approve and source == "click" and not (verdict := intake.approves(source, named=False, level=intake.CARD, in_front=in_front)).allowed:
-            logger.info("approval refused", reason=verdict.reason, source=source)  # the screen and the backend disagree:
-            await self._open_card(request_id)  # it comes to the front, unanswered; the next click there approves
-            await self._confirm_phase(request_id)("hint", STILL_WAITING)
+        if await refused.click(self, request_id, approve, source):  # only on the OK in front (refused.py)
             return
         with self._as(run):
             await self._reply_for_run(request_id, approve, source)
@@ -4959,12 +4958,13 @@ class Session:
             return
         if result.status == "done":
             self._last_result = (run_id, result, agent)
+        self._stopped = (self._current(), clock.now()) if result.status == "cancelled" else None
         note, self._note = self._note, None
         await self._set_state("result", run_id=run_id, agent=agent)
         await self._send(
             outbound(
                 "result", run_id=run_id, status=result.status, summary=result.summary, details=result.details,
-                agent=agent, note=note, origin=origin,
+                agent=agent, note=note, origin=origin, **({"caveat": result.caveat} if result.caveat else {}),
             )
         )
         if result.status in ("done", "rejected"):

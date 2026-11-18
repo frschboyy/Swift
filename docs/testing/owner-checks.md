@@ -60,7 +60,7 @@ The list of what to run first, worked out from every result so far and what chan
 <a id="check-1"></a>**Check 1**
 1. Say "Hey Swift, what time is it".
 
-You should see: an answer, then "Listening for a reply · 8 s" under it.
+You should see: an answer, then a ring draining round the orb and a pill "Reply without “Hey Swift” · 8 s" beside it.
 
 The report checks: a wake request; how many wake phrases the model was unsure of but still took (`unsure_wake`).
 
@@ -110,7 +110,7 @@ You should see: a hint telling you to say "Swift, approve". The card stays. Leav
 <a id="check-7"></a>**Check 7**
 1. On the same card, say "no".
 
-You should see: "Not approved", then "Listening for a reply…".
+You should see: "Not approved", then the reply ring and pill on the orb.
 
 The report checks: a rejection by voice.
 
@@ -199,7 +199,7 @@ The report checks: two stopped requests kept; one skipped, one ended from the st
 5. When it has gone into the stack, double-click the stack and click **Open** on it, then click **Reject**.
 
 You should see: lunch picks up on the card where it stopped. The Saturday card counts down in its amber band
-(0:45 … 0:00), then **goes into the stack** ("Waiting for your OK · held, no answer in time"); it is **not** refused.
+(0:45 … 0:00), then **goes into the stack** ("Needs your OK · held, no answer in time"); it is **not** refused.
 Opened from the stack it's back with a fresh 0:45. (Saying "continue" also picks up the last one.)
 
 The report checks: a conversation picked up from the stack; a card that ran out went to the stack, then was answered.
@@ -212,7 +212,7 @@ The report checks: a conversation picked up from the stack; a card that ran out 
 5. Type "reject" and press Enter.
 
 You should see: a text box with a blue edge where the cards appear, the cursor in it (Esc closes it and keeps what you typed).
-The second time it says "Following up: …". The time, then the date **on the same card**, with a keyboard icon by your words.
+The second time it says "Follows “…”". The time, then the date **on the same card**, with a keyboard icon by your words.
 With the meeting card open, the box has an amber line "**Typing can't approve.** Click Approve, or say "approve"."
 The card stays after "approve"; "reject" rejects it.
 
@@ -220,7 +220,7 @@ The report checks: a typed request; a typed follow-up in the same conversation; 
 
 ### Other requests behind the card, cards that wait their turn (ADR-015, ADR-018)
 
-Other requests are labelled edges behind the card, a long answer opens in place on its card (Read more / Read less),
+Other requests are labelled edges behind the card, a long answer opens in place on its card (Show all / Show less),
 and you can drag the card anywhere, with its edges. A card only counts down while it's on screen and you're there.
 
 <a id="check-17"></a>**Check 17**
@@ -234,11 +234,11 @@ The report checks: two requests running at the same time.
 
 <a id="check-18"></a>**Check 18**
 1. After check 17, let the time answer fade, and wait for the research to finish. Don't click anything.
-2. When the answer shows, click **Read more**, scroll, then click **Read less**.
+2. When the answer shows, click **Show all**, scroll, then click **Show less**.
 
 You should see: the research comes back to the main card **by itself**. Its answer scrolls inside the card, nothing cut off.
-The text stops after six lines; **Read more** opens the **same card** to the whole answer, and it stays while open,
-even with the mouse elsewhere. **Read less** closes it, and it fades a few seconds later.
+The text stops at the card's height, with a fade; **Show all** opens the **same card** to the whole answer, and it stays while open,
+even with the mouse elsewhere. **Show less** closes it, and it fades a few seconds later.
 
 <a id="check-19"></a>**Check 19**
 1. Say "Hey Swift, what's the capital of Peru".
@@ -691,10 +691,10 @@ The report checks: listening paused and resumed from the tray.
 1. Say "Hey Swift, what time is it".
 2. Say "Hey Swift, is it going to rain this afternoon".
 3. Say "Hey Swift, what's on my calendar tomorrow".
-4. Say "Hey Swift, give me a short history of tea", and click **Read more** on its card.
+4. Say "Hey Swift, give me a short history of tea", and click **Show all** on its card.
 
 You should see: a one-line answer in **large** text; a paragraph answer; a calendar **table** (nothing cut off sideways);
-the history clipped at six lines with **Read more ⌄ · N min read**. Read more grows it in place with a blue border and
+the history cut at the card's height with **Show all · N min read**. Show all grows it in place with a blue border and
 "Stays while open"; only the text scrolls (the mouse wheel works without clicking first). Each card has a mic icon and your
 words in quotes at the top, "Swift · via Claude" at the bottom, and a thin blue bar draining while it's up; pointing stops the bar.
 
@@ -1121,7 +1121,7 @@ You should see: the chime and the request start, just as with a pause.
 The report checks: "Hey Swift" said without a pause started requests.
 
 <a id="check-126"></a>**Check 126**
-1. Let the research from check 125 finish. Read the card, then click **Read more**.
+1. Let the research from check 125 finish. Read the card, then click **Show all**.
 
 You should see: every point whole, never cut off with "…", and no "…and 5 more" that can't be opened. No "(Blocked: WebFetch.)";
 a page Swift refused shows as "Skipped a page whose address wasn't from a search" among the steps.
@@ -1517,8 +1517,8 @@ You should see: the approval card takes the front at once, with the research as 
 cross-fading. After Reject the research comes back. (Approving still needs "Swift, yes" or a click.)
 
 <a id="check-173"></a>**Check 173**
-1. With two other requests running, say "Hey Swift, give me a detailed history of tea", and click **Read more** on its answer.
-2. Click the folded edge. Then do it again with **Read less**.
+1. With two other requests running, say "Hey Swift, give me a detailed history of tea", and click **Show all** on its answer.
+2. Click the folded edge. Then do it again with **Show less**.
 
 You should see: the edges **fold to one**, "2 more running" (amber, "1 needs your OK", if one does), and the answer isn't squeezed.
 Clicking that edge closes the answer and the edges come back. Read less does the same.
@@ -1685,7 +1685,7 @@ at the bottom right does it go to the bottom left, so it isn't on the card.
 1. Say "Hey Swift, run the tests in my project". Click **Reject**.
 
 You should see: the card's title says **"Run a command on your PC"**. The command's first line is always in view; any
-further lines are under **Show the rest of the command**. When the agent didn't say what it does, the whole command shows
+further lines are under **N more lines**. When the agent didn't say what it does, the whole command shows
 open under the title (check 263).
 
 <a id="check-200"></a>**Check 200**
@@ -1808,13 +1808,7 @@ The report checks: a yes went ahead with what it sounded like.
 
 About 15 minutes. Nothing here has been seen on your screen: these checks decide whether Halo goes ahead as drawn. Say what you think, not only whether it passes, and click **Reject** on any card. Only the look changes: Swift behaves as it does today, and a release build never shows it.
 
-Quit Swift (Tray → Quit Swift), then in `overlay`:
-
-```powershell
-$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev
-```
-
-To go back to today's look, quit Swift and run `Remove-Item Env:VITE_SWIFT_LOOK` in that terminal before starting it again.
+Halo has been Swift's only look since Step B (2026-11-18): start Swift as usual, no setting needed.
 
 <a id="check-216"></a>**Check 216. Halo's glass is readable over your real screen**
 1. Say "Hey Swift, is it going to rain this afternoon?", then "hey Swift, research the history of tea".
@@ -2231,9 +2225,9 @@ B1. Reject every card.
 1. Say "Hey Swift, make a folder called B1 test in my Documents, using the terminal".
 2. When the card **Run a command on your PC** comes, read it before anything else.
 
-You should see: under the title, with a bar at its left edge, **What it says this does** and one plain sentence (what the
+You should see: under the title, with a bar at its left edge, **The worker's words** and one plain sentence (what the
 command does, why, and what will change). Under it, always in view, **What will run** with the command's first line. A
-command of several lines says **What will run, first line**, and under it **Show the rest of the command (N more lines)**,
+command of several lines says **What will run, first line**, and under it **N more lines**,
 closed: click it, the rest opens, and "More below" shows if it doesn't fit. A one-line command has nothing folded. Click
 **Reject**.
 
@@ -2299,7 +2293,7 @@ Swift doesn't recognise still asks on its own card.
 2. When the card **Run 2 commands on your PC** (or 3) comes, read it.
 3. Say "Swift, approve".
 
-You should see: under the title, with a bar at its left edge, **What it says this does** and one plain sentence for
+You should see: under the title, with a bar at its left edge, **The worker's words** and one plain sentence for
 the whole step. Under it, **The commands this approves (what will actually run)**, every command in view, one a line, none folded.
 After step 3, no more cards for those commands; the answer says the folder is a repository. (If the agent ran a
 command one at a time instead, each asks on its own card as before: tell us.)
@@ -2353,7 +2347,7 @@ fades, so the bar said something untrue; the owner's decision, 2026-11-14). Thes
 
 <a id="check-305"></a>**Check 305. Cards look and work as before**
 1. Say "Hey Swift, what time is it?": a one-line answer. Click it: it goes.
-2. Say "Hey Swift, give me a short history of tea": a long answer. Click **Read more**, then **Read less**, then **Copy**.
+2. Say "Hey Swift, give me a short history of tea": a long answer. Click **Show all**, then **Show less**, then **Copy**.
 3. Say "Hey Swift, add lunch with Test Me tomorrow at noon to my calendar": the amber approval card, its countdown
    running. Click **Reject**: a "Not done" line, gone in a few seconds.
 4. Say "Hey Swift, using the terminal, list the files in my Documents": a command card with **What it says this
@@ -2411,17 +2405,17 @@ Notepad kept the cursor.
 ### A long answer, read to the end (2026-11-14)
 
 About 2 minutes. In check 305 the tea answer showed its opening paragraph cut off with "…", then the whole paragraph
-again, and **Read more** kept both. Fixed: the card starts with the opening's first sentences and goes on from there.
+again, and **Show all** kept both. Fixed: the card starts with the opening's first sentences and goes on from there.
 
 <a id="check-340"></a>**Check 340. A long answer says its opening once and reads to the end**
 1. Say "Hey Swift, research the history of tea". Wait for the answer.
 2. Read the first lines on the card: no sentence ends in "…" there.
-3. Click **Read more**. Scroll to the end of the answer.
+3. Click **Show all**. Scroll to the end of the answer.
 
 You should see: the opening paragraph once (its first sentence or two, then the rest of it just below), no "…"
-anywhere, and the answer's last line at the bottom. Then **Read less** and **Copy** work as before.
+anywhere, and the answer's last line at the bottom. Then **Show less** and **Copy** work as before.
 
-The report checks: nothing to judge from the log; tell us whether the opening showed twice, and whether Read more
+The report checks: nothing to judge from the log; tell us whether the opening showed twice, and whether Show all
 showed the end with no "…".
 ### Fixes from the repo audit of 2026-11-11 (2026-11-14)
 
@@ -2485,9 +2479,9 @@ You should see: the card at another place on the screen, not behind Task Manager
 letter goes into Notepad. Click **Reject**, close Task Manager, and say "Hey Swift, what time is it": the card is back
 where you put Swift.
 
-<a id="check-383"></a>**Check 383. At 150%: a long answer, Read more and the stack**
+<a id="check-383"></a>**Check 383. At 150%: a long answer, Show all and the stack**
 1. Set **Settings > System > Display > Scale** to 150% (put it back afterwards).
-2. Say "Hey Swift, research the history of tea". When the answer comes, click **Read more** and scroll to the end.
+2. Say "Hey Swift, research the history of tea". When the answer comes, click **Show all** and scroll to the end.
 3. Say "Hey Swift, set a timer for 20 seconds", then "Hey Swift, turn off Wi-Fi", and leave the question unanswered
    until the timer comes due.
 
@@ -2580,9 +2574,9 @@ stays empty. Tell us which window got which field if they were split.
 <a id="check-373"></a>**Check 373. A long bold opening shows no stars on the card**
 1. Type in the text box: "Answer in one paragraph whose first sentence is over 350 characters long and has a long
    bold phrase in the middle of it, then a second paragraph."
-2. Read the first lines on the card, then click **Read more**.
+2. Read the first lines on the card, then click **Show all**.
 
-You should see: no "**" anywhere, on the card or after Read more, and no words said twice.
+You should see: no "**" anywhere, on the card or after Show all, and no words said twice.
 
 <a id="check-374"></a>**Check 374. Two radios said again in the other order turn both off**
 1. Make sure Wi-Fi and Bluetooth are on. Say "Hey Swift, turn off the wifi and turn off the bluetooth".
@@ -2743,7 +2737,7 @@ About 4 minutes, on the branch with B4's second slice. Nothing here sends anythi
 
 <a id="check-402"></a>**Check 402. A diagram shows as a drawing, marked as the worker's**
 1. Say "Hey Swift, draw me a diagram of how making a cup of tea works, from boiling the kettle to drinking it".
-2. When the answer shows, look at the card. If it has **Read more**, press it. Then press **Copy** and paste into
+2. When the answer shows, look at the card. If it has **Show all**, press it. Then press **Copy** and paste into
    Notepad.
 3. Say "Hey Swift, draw a sequence diagram of me ordering a pizza by phone, with every step".
 
@@ -2751,31 +2745,31 @@ You should see: step 1 says one or two sentences aloud, not the diagram. A momen
 appears under a grey bar that says "Drawn from the worker's outline, not checked by Swift", in grey and white (or
 grey and black in light mode), never Swift's blue, amber or red. Nothing on the card names the provider. The first
 diagram takes up to a second longer than later ones. Step 2 pastes the diagram's outline as text. Step 3's diagram
-is taller than a card: the card shows its top and **Read more** opens all of it. If a card says "Swift couldn't draw
+is taller than a card: the card shows its top and **Show all** opens all of it. If a card says "Swift couldn't draw
 this diagram", or step 1 shows only words, say so.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
 <a id="check-403"></a>**Check 403. A mind map shows as branches, marked as the worker's**
 1. Say "Hey Swift, make me a mind map of ideas for a birthday party for a ten-year-old".
-2. When the answer shows, look at the card, press **Read more** if it's there, then press **Copy** and paste into
+2. When the answer shows, look at the card, press **Show all** if it's there, then press **Copy** and paste into
    Notepad.
 
 You should see: the card shows the theme on the left and its branches to the right, each branch's ideas beside it,
 under a grey bar that says "Mapped by the worker, not checked by Swift", in neutral colours. Long labels wrap; none
-is cut. With more than 12 ideas, the card shows the first ones and "and N more ideas (Read more shows them)", and
-Read more shows them all. Step 2 pastes the map as indented lines, one idea per line.
+is cut. With more than 12 ideas, the card shows the first ones and "and N more ideas (Show all shows them)", and
+Show all shows them all. Step 2 pastes the map as indented lines, one idea per line.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
 <a id="check-404"></a>**Check 404. A large mind map shows every branch before deeper ideas**
 1. Say "Hey Swift, make me a birthday-party mind map with lots of games, plus branches for food, invites, music and decorations".
 2. Look at the card; scroll inside the map only if its preview is shorter than the branches.
-3. Press **Read more**, then **Copy** and paste into Notepad.
+3. Press **Show all**, then **Copy** and paste into Notepad.
 
 You should see: Games, Food, Invites, Music and Decorations all appear before deeper game ideas, under the neutral
 "Mapped by the worker, not checked by Swift" label. The preview has no six-line fade; if the screen is short, its
-map can scroll. Read more shows the whole map, and Copy includes every idea. If the worker returns only words, say so.
+map can scroll. Show all shows the whole map, and Copy includes every idea. If the worker returns only words, say so.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
@@ -2810,7 +2804,7 @@ About 5 minutes. Use sample numbers; no files or accounts are needed.
 1. Ask Swift: "Make a bar chart of North and South sales for Q1, Q2 and Q3: North 12, 18, 15; South 9, 14, 17."
 2. Check that the labels, values, units and two series are visible, and that the chart is marked as the worker's.
 3. Ask Swift: "Make a line chart for North's weekly values: W1 10, W2 11, W3 13, W4 12, W5 15, W6 16, W7 18."
-4. Check that the card says two categories are in Read more. Open Read more and confirm W7 is shown; Copy the answer and check that all seven labels and values are present.
+4. Check that the card says two categories are in Show all. Open Show all and confirm W7 is shown; Copy the answer and check that all seven labels and values are present.
 
 You should see neutral bar and line charts, not a coloured recommendation. If a number, label or series is missing,
 or the full line chart can't be copied, say which one.
@@ -2823,7 +2817,7 @@ About 3 minutes. Use sample text only; no files or accounts are needed.
 
 <a id="check-408"></a>**Check 408. Project cards are readable and copy completely**
 1. Ask Swift: "Show four projects as cards: Website refresh, planning, update the homepage; Data migration, in progress, move the archive; Mobile app, next quarter, improve offline access; Reporting, planned, combine project metrics."
-2. Look at the first three cards and their worker mark. Press **Read more** and check that Reporting appears.
+2. Look at the first three cards and their worker mark. Press **Show all** and check that Reporting appears.
 3. Press **Copy** and check that all four titles, details and statuses are included.
 
 You should see a small set of neutral, read-only project cards, with no action buttons. If a project or its status is
@@ -2933,6 +2927,174 @@ what each word was heard as. Nothing happened besides saving: no request was sen
 didn't take your typing, or a card with a flag answered when you pressed Enter, note the time.
 
 The report checks: a correction was kept, and its kind.
+
+### Halo B8: the confirm and stop fixes, every surface, the keyboard (2026-11-18)
+
+About 15 minutes. Halo is now Swift's only look. Nothing here sends anything: click **Reject** on any card that
+asks for your OK.
+
+<a id="check-414"></a>**Check 414. The text box gets the keyboard from another app (F8)**
+1. Click into VS Code (or Word) and type a few letters there, so it has the keyboard.
+2. Press the typing hotkey. Without clicking anything, type "what time is it" and press Enter.
+3. Do it three more times, from VS Code, Word and a browser.
+
+You should see: each time the box opens with a blue border and your typing goes into it, never into the other
+app. If even once the letters went into the other app, note the time and which app: the fix
+(`AllowSetForegroundWindow` before `set_focus`) is only built if this fails.
+
+<a id="check-415"></a>**Check 415. An OK that runs out waits in the stack and frees Swift (F1-F4)**
+1. Say "Hey Swift, email Priya the tea report" (or any request that asks for your OK). Don't answer it: let the
+   countdown run out.
+2. Within 20 seconds, say "Hey Swift, what time is it?".
+3. Press push-to-talk and let go without speaking (an "I didn't catch that" notice).
+4. Quit the overlay window only (not the engine) if you know how; otherwise skip this step.
+
+You should see: after step 1, no card in front, and an amber pile "1 thing needs you · Needs your OK · …".
+Step 2 is answered at once. After step 3 the OK does **not** come back to the front by itself. Clicking the pile
+and Open brings it back with a fresh countdown; then Reject.
+
+<a id="check-416"></a>**Check 416. "Stop" before a request starts, and "stop" twice (F6, F7)**
+1. Hold push-to-talk and say "research the history of tea", let go, and at once press push-to-talk again and say
+   "stop".
+2. With nothing running, press push-to-talk and say "stop" again.
+
+You should see: after step 1 a Stopped card for the tea request, and no research starts. After step 2 the
+Stopped card stays and fades on its own.
+
+<a id="check-417"></a>**Check 417. Every surface in Halo (board 9)**
+1. Leave two things waiting (a lapsed OK and a question you put off): look at the pile, then click it once.
+2. Open the text box while an OK card is up, then press Tab until a card button has the ring.
+3. Open the tray menu, pause listening, open it again, resume.
+4. After an answer, look at the orb while Swift listens for a reply.
+
+You should see: the pile and list as on board 9 §1 (amber only for the OK); the text box amber over the OK card,
+saying typing can't approve, and blue saying what Enter presses once Tab reached the card; the tray with a dimmed
+orb while paused; a ring draining round the orb with "Reply without “Hey Swift” · N s". Note anything that
+looks wrong or hard to read.
+
+<a id="check-418"></a>**Check 418. "Swift is ready" only after an update or a crash (D10)**
+1. Quit Swift from the tray and start it again.
+2. Start it once more after the next update.
+
+You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
+
+<a id="check-419"></a>**Check 419. A long answer grows, then Show all and Show less (B5)**
+1. Say "Hey Swift, give me a detailed history of tea" and wait for the answer.
+2. Click **Show all**, scroll to the end, then press Esc.
+3. Click **Show all** again, then click the orb.
+4. With two other requests running, do step 2 again, and while it's open say "Hey Swift, email Priya the tea report".
+
+You should see: the answer fills most of the window before it's cut, with a fade and "Show all · N min read";
+open, the card is wider and only its text scrolls; Esc and a click on the orb fold it back to the top; while open
+the other requests are one edge, and the OK shows on it in amber. Click **Reject**.
+
+<a id="check-420"></a>**Check 420. How cards move (B7)**
+1. Say "Hey Swift, what time is it?" and watch the card come out of the orb, then let it fade by itself.
+2. Ask again and close the card with its ×.
+3. With a request running behind (an edge), click the edge.
+4. Turn Windows' "Animation effects" off (Settings → Accessibility → Visual effects) and repeat step 1, then turn it
+   back on.
+
+You should see: the card grows out of the orb and its words appear just after; fading by itself it drifts a
+little toward the orb; closed, it folds into the orb, which pulses once; the edge grows into the card. With
+animation effects off, each is a short fade, and the bar under the answer still runs down. Say whether any of it
+feels slow, jumpy or distracting.
+
+<a id="check-421"></a>**Check 421. A timer counts on the orb, then +5 min (B14)**
+1. Say "Hey Swift, set a timer for 2 minutes for the tea". Look at the orb.
+2. Say "Hey Swift, set another timer for 5 minutes".
+3. While both count, ask "Hey Swift, what time is it?".
+4. When the tea timer is due, click **+5 min** on its card. Then let it come due again and click **Done**.
+
+You should see: no card while a timer counts; the orb full size in a ring that empties, and a small pill with the
+time left ("1:58", then "1:40 · 2" with two timers); the pill stays beside the orb while the answer card is up; the
+Due card has **+5 min** and **Done**; +5 min puts the tea timer back on the orb at 5:00.
+
+<a id="check-422"></a>**Check 422. "Ask me about everything" (modes study §3)**
+1. Say "Hey Swift, ask me about everything".
+2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".
+3. Say "Hey Swift, turn the volume down a bit".
+4. Say "Hey Swift, write a short note about tea in Word" with Word open on an empty document; Reject its card.
+5. Restart Swift, then say "Hey Swift, set a timer for 1 minute", and answer "no".
+6. Type "stop asking about everything" in the text box; then say "Hey Swift, stop asking about everything", and set
+   a 1-minute timer again.
+
+You should see: step 2 asks "Set the timer?" with "Asking because you said: ask me about everything." under it, and
+the timer is set after the yes; step 3 just changes the volume; step 4 shows a card before anything is written;
+step 5 still asks (it stays on after a restart) and "no" sets nothing; in step 6 the typed words are answered "I can
+only stop asking about everything when you say it" and change nothing, and after the spoken words the timer is set
+without asking.
+
+<a id="check-423"></a>**Check 423. The orb glance, an idea to try (A12; off unless you turn it on)**
+1. In `config.yaml`, set `explore:` `orb_glance: true`, and restart Swift.
+2. Set a timer ("Hey Swift, set a timer for 5 minutes"), then rest the mouse on the orb for a moment.
+3. Leave something waiting (let an OK card run out), then rest the mouse on the orb again. Move away.
+4. Click where the orb is while you're typing in another app.
+5. Say whether you'd keep it, then set `orb_glance: false` again (or leave it on).
+
+You should see: after a short moment a small box above the orb with the timer and what's waiting ("1 waiting ·
+1 needs your OK" in amber); it goes as you move away; it never takes the keyboard from your app. With
+`orb_glance: false` the orb lets clicks through to what's under it, as before.
+
+<a id="check-424"></a>**Check 424. Small touches: Approve fills, Copied, Pin, a caveat (A9, A4, A5)**
+1. Ask for something that needs your OK and watch the Approve button as the card appears; then Reject.
+2. Ask "Hey Swift, what time is it?", hover the card, then click **Copy**.
+3. Ask another question, click **Pin**, then ask something else.
+4. Ask "Hey Swift, when did tea first reach England? Check two sources."
+
+You should see: Approve fills from left to right in under half a second; hovering says "Paused while you read";
+Copy turns into "Copied" with a green check for a moment; the pinned answer stays as a strip above the cards until
+you close it; if the sources disagree, a grey box under the answer says why ("The worker says: …"). Step 4 depends on
+what the worker finds: no box is fine when the sources agree.
+
+<a id="check-425"></a>**Check 425. Captions (A6)**
+1. With spoken replies on (`speech: replies: auto`), say "Hey Swift, captions on".
+2. Ask "Hey Swift, what's the weather like?" and watch the orb while Swift answers aloud.
+3. Restart Swift and ask again.
+4. Say "Hey Swift, captions off" and ask once more.
+
+You should see: while Swift speaks, the pill by the orb shows the words it's saying (at most two lines) and
+"Captions · say “captions off” to hide"; still on after the restart; after "captions off", only "Speaking" again.
+Captions don't turn on by themselves when the sound is muted (not built yet).
+
+<a id="check-426"></a>**Check 426. Earlier today in the stack (A1)**
+1. Ask two questions in a row ("Hey Swift, research the history of tea", then "Hey Swift, what time is it?").
+2. Leave something waiting (let an OK card run out), then click the pile.
+3. Click **Open** on the tea answer under EARLIER TODAY.
+
+You should see: the pile counts only what waits ("1 thing needs you"), not the answers; open, the list has WAITING
+FOR YOU, then EARLIER TODAY with the answers (a green check, "Done · N min ago"; a failed one in red); Open shows
+the tea answer again without running it again. With nothing waiting there's no pile, even with answers today.
+
+<a id="check-427"></a>**Check 427. A follow-up on the same card (A2)**
+1. Say "Hey Swift, what time is it?" and, while the reply ring is still on the orb, say "and the date?".
+2. Click **First answer**, then click it again.
+
+You should see: the second answer on the same card, its words line saying 'then “and the date?”', the first
+answer hidden under **First answer**, shown and hidden again by the button.
+
+<a id="check-428"></a>**Check 428. How Swift shows things (A8, in the tray menu for now)**
+1. Open the tray menu and open **How Swift shows things**.
+2. Set Reading time to **2×**, ask "Hey Swift, what time is it?" and time how long the answer stays.
+3. Set **Until I close**, ask again: the answer stays until you close it.
+4. Set Text size **Large** and Motion **Less**, ask again; restart Swift and check they're kept.
+5. Put them back (1×, Default, Like Windows).
+
+You should see: each choice takes effect on the next card; Large makes the cards and the pill bigger without
+cutting anything; Less turns card movements into short fades; the choices survive a restart. Not in it yet:
+"speak answers" and "watch opens" (they're in `config.yaml`).
+
+<a id="check-429"></a>**Check 429. Keyboard entry on the card's buttons (A7)**
+1. Type in Notepad. Ask "Hey Swift, email Priya the tea report" so a Needs your OK card appears; keep typing in
+   Notepad for a moment.
+2. Press Ctrl+Alt+Enter. Press Tab twice, then Shift+Tab, then Esc. Type a word.
+3. Press Ctrl+Alt+Enter again, Tab to **Reject**, press Enter. Type a word.
+4. Ask for another card, press Ctrl+Alt+Enter, and with Approve reached press Enter at once.
+
+You should see: in step 1 your typing stays in Notepad (the card never takes the keyboard by itself). Ctrl+Alt+Enter
+opens the text box saying what Enter presses, with a ring on that card button; Tab moves only between the card's
+buttons; after Esc, and after Enter on Reject, your typing goes into Notepad again. In step 4 the card is approved
+only after its short guard (a press in the first moment does nothing); Reject the next one.
 
 ### Product-rule gaps (claude/rule-gaps, 2026-11-18)
 

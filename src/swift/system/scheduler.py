@@ -68,6 +68,8 @@ class Scheduler:
         self._next_id = 1
         self._handed: set[int] = set()  # fired in this run of Swift
         self._wake = asyncio.Event()
+        # Called on every change to the list (timers.attach: the overlay's running timers).
+        self.on_change: Callable[[], None] | None = None
         self._load()
 
     # ---- the list ----------------------------------------------------------------------
@@ -107,6 +109,8 @@ class Scheduler:
                 self.items.remove(item)
                 self._handed.discard(item_id)
                 self._save()
+                if self.on_change is not None:
+                    self.on_change()
                 return
 
     def find(self, kind: Kind | None = None, label: str = "") -> list[Item]:
@@ -145,6 +149,8 @@ class Scheduler:
     def _changed(self) -> None:
         self._save()
         self._wake.set()
+        if self.on_change is not None:
+            self.on_change()
 
     # ---- the file ----------------------------------------------------------------------
 

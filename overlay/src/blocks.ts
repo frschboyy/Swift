@@ -4,7 +4,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
-import type { Cards, Chart, Compare, Diagram, Idea, MindMap, Preview, ResultDetails } from "./protocol";
+import type { Cards, Chart, Compare, Diagram, Idea, MindMap, Preview, ResultDetails, Tree } from "./protocol";
+import { middleCut, startOpen, visibleRows } from "./tree";
 
 export { detailsText } from "./answer";
 
@@ -24,7 +25,7 @@ export function compareBlock(c: Compare, full: boolean): HTMLElement {
         el("th", { scope: "col", class: mark(i) }, item, i === c.pick ? el("span", { class: "compare-tag" }, A.PICK) : null)))),
       el("tbody", {}, ...shown.map((r) => el("tr", {}, el("th", { scope: "row" }, r.label),
         ...r.values.map((v, i) => el("td", { class: mark(i) }, v)))))),
-    shown.length < c.rows.length ? el("p", { class: "answer-more" }, `and ${c.rows.length - shown.length} more rows (Read more shows them)`) : null,
+    shown.length < c.rows.length ? el("p", { class: "answer-more" }, `and ${c.rows.length - shown.length} more rows (Show all shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
 
@@ -36,7 +37,7 @@ export const DIAGRAM_WIDE = "swift-diagram-wide";
  *  doesn't draw, the words below it stand alone. ``full``: the reader's size, not the card's. */
 export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
   const stage = el("div", { class: "diagram-stage", role: "img", "aria-label": d.title ?? "Diagram" }, el("p", { class: "answer-more" }, "Drawing the diagram…"));
-  const note = el("p", { class: "answer-more" }, "Too wide to read on the card (Read more shows all of it)");
+  const note = el("p", { class: "answer-more" }, "Too wide to read on the card (Show all shows all of it)");
   note.hidden = true;
   const block = el("div", { class: `diagram facts-line--agent${full ? " diagram--full" : ""}` },
     el("span", { class: "confirm-purpose-by" }, DIAGRAM_BY),
@@ -92,7 +93,7 @@ export function mindmapBlock(m: MindMap, full: boolean): HTMLElement {
     el("span", { class: "confirm-purpose-by" }, MINDMAP_BY),
     m.title ? el("p", { class: "compare-title" }, m.title) : null,
     el("div", { class: "mind" }, el("span", { class: "mind-root" }, m.root), tree),
-    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more ideas (Read more shows them)`) : null,
+    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more ideas (Show all shows them)`) : null,
     ...(m.text ? renderBlocks(m.text) : []));
 }
 
@@ -231,12 +232,50 @@ export function chartBlock(c: Chart, full: boolean): HTMLElement {
       ...c.series.map((s, i) => el("li", {},
         el("span", { class: `chart-legend-swatch chart-series-${i}${c.type === "line" ? " chart-legend-swatch--line" : ""}`, "aria-hidden": "true" }),
         el("span", {}, s.name)))),
-    shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Read more shows them)`) : null,
+    shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Show all shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
 
 const PROJECTS_BY = "Project cards from the worker, not checked by Swift";
 const CARD_PROJECTS = 3;
+
+const TREE_BY = "Listed by the worker, not checked by Swift";
+const CARD_TREE_ROWS = 10;  // swift/shapes.py CARD_TREE_ROWS
+
+/** B13: files and folders as a tree, read-only: folders open and close in place, a row is selected by a click.
+ * No action from it (never a delete; opening a file is for later, from the file system, never the worker's text). */
+export function treeBlock(t: Tree, full: boolean): HTMLElement {
+  const open = new Set(startOpen(t.entries));
+  let all = full;
+  let selected: string | null = null;
+  const list = el("ul", { class: "tree", role: "tree" });
+  const draw = (): void => {
+    const rows = visibleRows(t.entries, open);
+    const shown = all ? rows : rows.slice(0, CARD_TREE_ROWS);
+    list.replaceChildren(...shown.map((r) => el("li", {
+      class: `tree-row${r.key === selected ? " tree-row--selected" : ""}`, role: "treeitem", style: `--depth:${r.depth}`,
+      title: r.entry.name, ...(r.entry.folder ? { "aria-expanded": String(open.has(r.key)) } : {}),
+      onclick: (ev: Event) => {
+        ev.stopPropagation();
+        if (r.entry.folder) open.has(r.key) ? open.delete(r.key) : open.add(r.key);
+        selected = r.key;
+        draw();
+      },
+    },
+    el("span", { class: "tree-chev" }, r.entry.folder ? icon(open.has(r.key) ? "expand" : "chevron") : null),
+    el("span", { class: `tree-icon${r.entry.folder ? " tree-icon--folder" : ""}` }, icon(r.entry.folder ? "folder" : "file")),
+    el("span", { class: "tree-name" }, middleCut(r.entry.name)),
+    r.entry.meta ? el("span", { class: "tree-meta" }, r.entry.meta) : null)),
+    ...(rows.length > shown.length ? [el("li", { class: "tree-row tree-more", onclick: (ev: Event) => { ev.stopPropagation(); all = true; draw(); } },
+      `+ ${rows.length - shown.length} more`)] : []));
+  };
+  draw();
+  return el("div", { class: "tree-block facts-line--agent" },
+    el("span", { class: "confirm-purpose-by" }, TREE_BY),
+    t.title ? el("p", { class: "compare-title" }, t.title) : null,
+    list,
+    ...(t.text ? renderBlocks(t.text) : []));
+}
 
 /** A read-only project overview. Larger sets or text-heavy summaries open in the reader. */
 export function cardsBlock(c: Cards, full: boolean): HTMLElement {
@@ -251,7 +290,7 @@ export function cardsBlock(c: Cards, full: boolean): HTMLElement {
     el("span", { class: "confirm-purpose-by" }, PROJECTS_BY),
     c.title ? el("p", { class: "project-cards-title" }, c.title) : null,
     el("div", { class: "project-cards" }, ...cards),
-    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more projects (Read more shows them)`)
+    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more projects (Show all shows them)`)
       : !full && c.size === "expanded" ? el("p", { class: "answer-more" }, "Read more shows all project details") : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
@@ -287,7 +326,7 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
         "div",
         {},
         el("ul", {}, ...details.items.slice(0, shown).map((item) => el("li", {}, item))),
-        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more (Read more shows them)`) : null,
+        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more (Show all shows them)`) : null,
       );
     }
     case "table": {
@@ -296,7 +335,7 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
         "div",
         {},
         answerTable(details.columns, details.rows.slice(0, shown)),
-        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more rows (Read more shows them)`) : null,
+        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more rows (Show all shows them)`) : null,
       );
     }
     case "compare":
@@ -311,6 +350,8 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
       return chartBlock(details, full);
     case "cards":
       return cardsBlock(details, full);
+    case "tree":
+      return treeBlock(details, full);
   }
 }
 
@@ -322,10 +363,11 @@ export function copyButton(text: string): HTMLElement {
     try {
       await invoke("copy_text", { text });
       button.replaceChildren(icon("check"), "Copied");
+      button.classList.add("btn--copied");  // A9: --ok check for 1.5 s
     } catch {
       button.replaceChildren("Couldn't copy");
     }
-    window.setTimeout(() => button.replaceChildren(icon("copy"), "Copy"), 1600);
+    window.setTimeout(() => { button.replaceChildren(icon("copy"), "Copy"); button.classList.remove("btn--copied"); }, 1500);
   });
   return button;
 }

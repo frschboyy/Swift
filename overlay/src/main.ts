@@ -221,6 +221,10 @@ function drawCapsule(): void {
   const p = C.presence({ state: stageNow(), heard: H.heardVisible(heardNow, stageNow(), Date.now()), quiet: quietNow, speaking, paused, cardOpen, asking: asked !== null });
   const elapsed = stageNow() === "working" && runStarted && Date.now() - runStarted > ELAPSED_AFTER_MS ? V.elapsed(runStarted) : "";
   const v = C.view(p, transcriptText, elapsed, paused);
+  // A6: with captions on, the speaking pill shows the words being said, and how to hide them.
+  const captioned = p === "speaking" && caption !== "";
+  if (captioned) Object.assign(v, { label: caption, sub: "Captions · say “captions off” to hide" });
+  capsuleEl.toggleAttribute("data-captions", captioned);
   const was = capsuleEl.dataset.p;
   capsuleEl.dataset.p = p;
   stage.dataset.presence = p;
@@ -582,7 +586,7 @@ function drawStackInline(): void {
 
 function onStackMessage(items: S.Stack["items"]): void {
   const before = new Set(stack.items.map((i) => i.id));
-  if (items.some((i) => !before.has(i.id))) joinedStackAt = Date.now();
+  if (items.some((i) => !before.has(i.id) && i.kind !== "recent")) joinedStackAt = Date.now();
   stack = S.onStack(stack, items, Date.now());
   void syncEscape();
   void syncPanes();
@@ -1288,6 +1292,9 @@ function drawPinned(): void {
   }
   scheduleRegions();
 }
+
+// A6: what Swift is saying, while the owner has captions on ("" otherwise).
+let caption = "";
 
 // Halo's Explore ideas (A10-A13), from config.yaml: each off until the owner turns it on.
 let explore: Explore = { orb_glance: false, follow_monitor: false, what_can_i_say: false, next_steps: false };
@@ -2244,7 +2251,7 @@ function onMessage(msg: Inbound): void {
       onRuns(msg.data);
       break;
     case "stack":
-      onStackMessage(msg.data.items);
+      onStackMessage([...msg.data.items, ...(msg.data.recent ?? [])]);  // A1: earlier today after what waits
       break;
     case "timers":
       timers = msg.data.items;
@@ -2254,6 +2261,7 @@ function onMessage(msg: Inbound): void {
       onHeard(msg.data);
       break;
     case "speech":
+      caption = msg.data.speaking ? msg.data.text ?? "" : "";
       onSpeech(msg.data.speaking);
       break;
     case "ask":

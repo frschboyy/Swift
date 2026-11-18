@@ -266,6 +266,12 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     await sleep(150);
   },
   capsuleSpeaking: async (s) => { await answer(s, "What time is it?", "It's 3:42 pm"); s.inject("speech", { speaking: true }); await sleep(150); },
+  // A6: captions on, the speaking pill shows the words being said.
+  capsuleCaptions: async (s) => {
+    await answer(s, "What's the weather like?", "Light rain until four, then dry and 14 degrees.");
+    s.inject("speech", { speaking: true, text: "Light rain until four, then dry and fourteen degrees." });
+    await sleep(150);
+  },
   pausedMic: async (s) => { s.inject("presence", { ...HERE, listening: false, paused: true }); await sleep(150); },
   pausedLocked: async (s) => { s.inject("presence", { state: "here", reason: "locked", listening: false, wake: true, paused: false }); await sleep(150); },
   // 2. the main card
@@ -412,6 +418,14 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   stackClosed: async (s) => { s.inject("stack", { items: STACK }); await sleep(150); },
   // Board 9 §1: the pile with no OK waiting (neutral), and with one (stackClosed, amber).
   stackPile: async (s) => { s.inject("stack", { items: STACK.slice(1) }); await sleep(150); },
+  // A1: earlier today, under what waits.
+  stackRecent: async (s) => {
+    s.inject("stack", { items: [...STACK.slice(1), { id: "recent:a-9", kind: "recent", title: "Green tea and sleep", reason: "done", since_ms: Date.now() - 50 * 60_000, thread_id: "t9" },
+      { id: "recent:a-8", kind: "recent", title: "Back up photos", reason: "failed", since_ms: Date.now() - 4 * 3_600_000, thread_id: "t8" }] });
+    await sleep(100);
+    document.querySelector<HTMLElement>("#stack .stack")?.click();
+    await sleep(250);
+  },
   stackOpen: async (s) => {
     s.inject("stack", { items: STACK });
     await sleep(100);

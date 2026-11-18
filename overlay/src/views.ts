@@ -5,7 +5,7 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, freshNeedsOk, needsOk, nextLine, type StackView } from "./stack";
+import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, type StackView } from "./stack";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
@@ -63,7 +63,7 @@ export function edgeTimes(list: HTMLElement, now = Date.now()): void {
 
 /** The closed stack: two layers behind the top one, the count and what comes next. */
 export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}): HTMLElement {
-  const n = v.items.length;
+  const n = waitingOnly(v).items.length;  // answers from earlier today aren't waiting (A1)
   const look = [
     needsOk(v) ? " stack--ok" : "",
     v.items.some((i) => i.fresh) ? " stack--fresh" : "",
@@ -111,18 +111,25 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       el("span", { class: "stack-title" }, i.title),
       el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, "open") }, i.open),
       el("span", { class: "stack-reason" }, i.line),
-      el("span", { class: "stack-actions" },
+      // An answer from earlier today has nothing to skip or end (A1): only Open.
+      i.kind === "recent" ? null : el("span", { class: "stack-actions" },
         el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => h.item(i.id, "skip") }, "Skip"),
         el("button", { class: "btn btn--ghost btn--small", title: "End it: it won't come back", onclick: () => h.item(i.id, "end") }, "End")),
     );
+  // Board 9 §1: section labels once there is more than one kind of thing (A1: EARLIER TODAY).
+  const waiting = v.items.filter((i) => i.kind !== "recent");
+  const earlier = v.items.filter((i) => i.kind === "recent");
+  const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
   return el(
     "section",
     { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Waiting for you" },
     el("header", { class: "stack-head", title: "Drag to move" },
       el("b", {}, "Waiting for you"),
-      el("span", {}, `· ${v.items.length}`),
+      el("span", {}, `· ${waiting.length}`),
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
-    el("ul", { class: "stack-list" }, ...v.items.map(row)),
+    el("ul", { class: "stack-list" },
+      ...(earlier.length ? [label("Waiting for you")] : []), ...waiting.map(row),
+      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, waiting.length + n))] : [])),
     el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
   );
 }

@@ -29,7 +29,7 @@ export const initialStack: Stack = { items: [], expanded: false, fresh: [], fres
 /** The backend's ``stack`` message. An empty stack can't stay expanded. */
 export function onStack(s: Stack, items: StackEntry[], now: number): Stack {
   const known = new Set(s.items.map((i) => i.id));
-  const fresh = items.filter((i) => !known.has(i.id)).map((i) => i.id);
+  const fresh = items.filter((i) => !known.has(i.id) && i.kind !== "recent").map((i) => i.id);  // an answer doesn't glow
   return {
     items,
     expanded: s.expanded && items.length > 0,
@@ -73,6 +73,10 @@ export function reasonLine(item: StackEntry, now: number): string {
       return `Unanswered question · ${since}`;
     case "due":
       return `Came due · ${since}`;
+    case "done":
+      return `Done · ${since}`;
+    case "failed":
+      return `Failed · ${since}`;
     default:
       return since;
   }
@@ -82,7 +86,8 @@ export function reasonLine(item: StackEntry, now: number): string {
 export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "Done" : "Open");
 
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
-export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" {
+export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" {
+  if (item.kind === "recent") return item.reason === "failed" ? "alert" : "check";
   if (item.kind === "due") return "bell";
   if (item.kind !== "parked") return "shield";
   return item.reason === "asked" ? "question" : "pause";
@@ -109,9 +114,10 @@ export type StackView = {
   mainX?: number;
 };
 
-/** The stack pane's view, or null when nothing waits (no window). */
+/** The stack pane's view, or null when nothing waits (no window): answers from earlier today alone don't make a
+ * pile (A1); they show under the waiting ones once it's open. */
 export function stackView(s: Stack, now: number): StackView | null {
-  if (!s.items.length) return null;
+  if (!s.items.some((i) => i.kind !== "recent")) return null;
   const glow = now < s.freshUntil ? new Set(s.fresh) : new Set<string>();
   return {
     kind: "stack",
@@ -125,13 +131,16 @@ export function stackView(s: Stack, now: number): StackView | null {
 
 /** Amber means an OK is waiting, nothing else (ADR-018 §2.6): the badge, and the glow of what just joined. */
 export const needsOk = (v: StackView): boolean => v.items.some((i) => i.icon === "shield");
+/** What waits, without the answers from earlier today (A1): the pile's count and its next line. */
+export const waitingOnly = (v: StackView): StackView => ({ ...v, items: v.items.filter((i) => i.kind !== "recent") });
 export const freshNeedsOk = (v: StackView): boolean => v.items.some((i) => i.fresh && i.icon === "shield");
 
 /** The compressed stack's one line: "3 things need you". */
 export const countLine = (n: number): string => (n === 1 ? "1 thing needs you" : `${n} things need you`);
 
 /** Under it: the one that comes next; an OK waiting always leads, in amber (board 9 §1). */
-export function nextLine(v: StackView): string {
+export function nextLine(all: StackView): string {
+  const v = waitingOnly(all);
   const ok = v.items.find((i) => i.icon === "shield");
   if (ok) return `Needs your OK · ${ok.title}`;
   return v.items.length ? `Next: ${v.items[0].title}` : "";

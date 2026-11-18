@@ -1696,3 +1696,24 @@ async def test_a5_the_workers_caveat_reaches_the_done_card_and_nothing_else() ->
     screen = agree(session, out)
     assert screen["stage"] == "result" and screen["answerCaveat"] == "The two sources disagree on the date.", screen
     await finish_all(session, agent)
+
+
+async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens_again() -> None:
+    """A1: once another request has the front, an earlier answer is a ``recent`` stack item (never counted as
+    waiting); Open brings that same request back with its answer, and nothing runs again."""
+    session, out, agent, stt, _control, _sched = _lane()
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[tea]["go"].set()
+    await until(lambda: out.last("result"))
+    coffee = await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    agent.runs[coffee]["go"].set()
+    await until(lambda: out.last("result") and out.last("result")["run_id"] == coffee)
+    await session._send_stack()
+    stack = out.last("stack")
+    assert stack["items"] == [] and [i["id"] for i in stack["recent"]] == [f"recent:{tea}"], stack  # never waiting
+    asked = len(agent.requests)
+    await session.handle(Message("stack.action", {"id": f"recent:{tea}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
+    await finish_all(session, agent)

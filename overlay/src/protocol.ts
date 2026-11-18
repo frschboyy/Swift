@@ -146,11 +146,13 @@ export type Inbound =
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
   | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } }
   // ADR-015 §9: what waits for the owner (the waiting stack), in the order to show it.
-  | { type: "stack"; data: { items: StackEntry[] } }
+  // recent: answers from earlier today (A1), listed after what waits; never waiting.
+  | { type: "stack"; data: { items: StackEntry[]; recent?: StackEntry[] } }
   // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
   | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } }
   // ADR-017: Swift started or stopped talking (the capsule's Speaking state, the question card).
-  | { type: "speech"; data: { speaking: boolean } }
+  // text: what Swift is saying, only while the owner has captions on (A6).
+  | { type: "speech"; data: { speaking: boolean; text?: string } }
   // ADR-017 §7: one item of a request's live view, for every request (in front or not); and
   // "show me" while it runs: open its live view.
   | { type: "live"; data: LiveData }
@@ -171,7 +173,8 @@ export type LiveData = { run_id: string } & (
 // card whose countdown ran out has reason "expired" (ADR-017).
 export type StackEntry = {
   id: string;
-  kind: "waiting" | "later" | "held" | "parked" | "due";
+  // "recent": an answer from earlier today (A1), listed after what waits; it never counts as waiting.
+  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;

@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock, memory, seen, stops, timers
+from swift import captions, clock, memory, recent, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -744,7 +744,7 @@ class Session:
         self._card_since: dict[str, int] = {}
         self._stack_skipped: dict[str, float] = {}
         # The last ``stack`` message sent (None: none yet).
-        self._stack_sent: list[dict[str, Any]] | None = []
+        self._stack_sent: list[Any] | None = [[], []]  # [waiting, recent] as last sent
         # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
         self._rows_sent: dict[str, Any] | None = None
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
@@ -1352,10 +1352,11 @@ class Session:
     async def _send_stack(self) -> None:
         """The ``stack`` message, whenever what waits changes (never while it stays empty)."""
         items = [item.as_message() for item in self._stack_items()]
-        if items == self._stack_sent:
+        earlier = [item.as_message() for item in recent.items(self)]  # A1: answers from earlier today, never waiting
+        if [items, earlier] == self._stack_sent:
             return
-        self._stack_sent = items
-        await self._raw_send(outbound("stack", items=items))
+        self._stack_sent = [items, earlier]
+        await self._raw_send(outbound("stack", items=items, **({"recent": earlier} if earlier else {})))
 
     async def _stack_action(self, item_id: str, action: str) -> None:
         """Open, skip or end something in the stack (or the card on screen, by its own buttons)."""
@@ -1365,6 +1366,8 @@ class Session:
             return
         kind, key = parts
         logger.info("stack action", kind=kind, action=action)
+        if kind == "recent":
+            return await recent.open_(self, key, action)  # A1: an answer from earlier today
         if kind == "due" and action != "skip":
             timers.cleared(self, key)
             await self._send_stack()
@@ -3680,7 +3683,7 @@ class Session:
     def _speech_news(self, speaking: bool) -> None:
         """Tell the overlay Swift started or stopped talking (the capsule, the question card)."""
         with contextlib.suppress(RuntimeError):  # no running loop: nothing to tell
-            self._background(self._raw_send(outbound("speech", speaking=speaking)))
+            self._background(self._raw_send(outbound("speech", speaking=speaking, **captions.spoken(self.memories, self._said_aloud if speaking else ""))))
         if speaking:
             self._sync_answer_capture()
 

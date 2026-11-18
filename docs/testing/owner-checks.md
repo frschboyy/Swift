@@ -3044,6 +3044,25 @@ Copy turns into "Copied" with a green check for a moment; the pinned answer stay
 you close it; if the sources disagree, a grey box under the answer says why ("The worker says: …"). Step 4 depends on
 what the worker finds: no box is fine when the sources agree.
 
+<a id="check-halo-b8-build-4fbdf7-12"></a>**Check halo-b8-build-4fbdf7-12. Captions (A6)**
+1. With spoken replies on (`speech: replies: auto`), say "Hey Swift, captions on".
+2. Ask "Hey Swift, what's the weather like?" and watch the orb while Swift answers aloud.
+3. Restart Swift and ask again.
+4. Say "Hey Swift, captions off" and ask once more.
+
+You should see: while Swift speaks, the pill by the orb shows the words it's saying (at most two lines) and
+"Captions · say “captions off” to hide"; still on after the restart; after "captions off", only "Speaking" again.
+Captions don't turn on by themselves when the sound is muted (not built yet).
+
+<a id="check-halo-b8-build-4fbdf7-13"></a>**Check halo-b8-build-4fbdf7-13. Earlier today in the stack (A1)**
+1. Ask two questions in a row ("Hey Swift, research the history of tea", then "Hey Swift, what time is it?").
+2. Leave something waiting (let an OK card run out), then click the pile.
+3. Click **Open** on the tea answer under EARLIER TODAY.
+
+You should see: the pile counts only what waits ("1 thing needs you"), not the answers; open, the list has WAITING
+FOR YOU, then EARLIER TODAY with the answers (a green check, "Done · N min ago"; a failed one in red); Open shows
+the tea answer again without running it again. With nothing waiting there's no pile, even with answers today.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

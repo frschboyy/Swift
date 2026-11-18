@@ -1799,3 +1799,15 @@ code {
   #stage .capsule[data-timer]::before, #stage .capsule[data-followup]::before { background: CanvasText; }
   #stage .tree-row--selected { background: Highlight; color: HighlightText; }
 }
+
+/* ==== A6, captions: the speaking pill widens to the words being said (16 px, at most 2 lines) ==== */
+#stage .capsule[data-captions] { height: auto; min-height: 44px; padding-block: 8px; border-radius: 18px; align-items: center; }
+#stage .capsule[data-captions] .cap-text { display: flex; flex-direction: column; min-width: 0; }
+#stage .capsule[data-captions] .cap-label { font-size: 16px; font-weight: 500; line-height: 22px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 0 1 auto; }
+#stage .capsule[data-captions] .cap-sub { font-size: 12px; color: var(--faint); }
+
+/* A1: section labels in the stack list (11/700 caps --faint), and answers from earlier today. */
+#stage .stack-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); list-style: none; }
+#stage .stack-row--check .stack-mark { background: var(--ok); color: var(--on-ok); }
+#stage .stack-row--alert .stack-mark { background: var(--bad); color: var(--on-bad); }
+

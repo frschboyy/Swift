@@ -31,7 +31,7 @@ from loguru import logger
 
 Kind = Literal["memory"]
 Source = Literal["said", "approved", "inferred"]
-ACTIONS = ("remember", "forget", "recall", "ask_all", "ask_less")
+ACTIONS = ("remember", "forget", "recall", "ask_all", "ask_less", "captions_on", "captions_off")
 # Record sources whose transcript is the owner's own words, said or typed. Not "click": a button's words may be a worker's.
 OWNER_WORDS = frozenset({"voice", "wake", "followup", "correction", "retry", "beside", "answer", "typed", "debug.ask"})
 MAX_TEXT = 300
@@ -154,9 +154,9 @@ _VAGUE = {"this", "that", "it", "these", "those", "this one", "that one", "what 
 def parse(text: str) -> tuple[str, str] | None:
     """("remember", the fact) | ("forget", what) | ("recall", "") | ("ask_all" / "ask_less", "") for the owner's
     words, else None (asking.py: "ask me about everything")."""
-    from swift import asking
+    from swift import asking, captions
 
-    if (mode := asking.parse(text)) is not None:
+    if (mode := asking.parse(text) or captions.parse(text)) is not None:
         return mode, ""
     said = _LEAD.sub("", text).strip().rstrip(".!?")
     if _RECALL.fullmatch(said):
@@ -180,6 +180,11 @@ def answer(store: Store | None, words: str, source: str, run: str) -> tuple[str,
     if store is None or found is None:
         return "I can't keep memories here.", None
     action, x = found
+    if action in ("captions_on", "captions_off"):
+        from swift import captions
+
+        return (captions.answer(store, action, run) if source in OWNER_WORDS
+                else "I only change captions when you tell me yourself."), None
     if action in ("ask_all", "ask_less"):
         from swift import asking
 
@@ -187,7 +192,7 @@ def answer(store: Store | None, words: str, source: str, run: str) -> tuple[str,
         return (asking.answer(store, action, words, run) if source in OWNER_WORDS
                 else "I only change how often I ask when you tell me yourself."), None
     if action == "recall":
-        known = [r for r in store.all("memory") if r.key != "asking-everything"]
+        known = [r for r in store.all("memory") if r.key not in ("asking-everything", "captions-on")]  # settings, not facts
         if not known:
             return "You haven't asked me to remember anything yet.", None
         items = [f"{_to_you(r.text)} ({'you said' if r.source == 'said' else 'you approved'}, {_day(r.when)})" for r in known]

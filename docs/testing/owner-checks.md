@@ -3011,7 +3011,7 @@ time left ("1:58", then "1:40 · 2" with two timers); while the answer card is u
 above the card (title, a short draining bar, the time); the Due card has **+5 min** and **Done**; +5 min puts the tea
 timer back on the orb at 5:00.
 
-<a id="check-halo-b8-gaps-6b8791-1"></a>**Check halo-b8-gaps-6b8791-1. A timer in the stack, Cancel, and "done" / "5 more" said (B14)**
+<a id="check-432"></a>**Check 432. A timer in the stack, Cancel, and "done" / "5 more" said (B14)**
 1. Say "Hey Swift, set a timer for 3 minutes for the eggs". Click the stack (or say "what's waiting?") while it counts.
 2. Click **Cancel** on its row.
 3. Set a 1-minute tea timer. When its Due card shows, say "five more".
@@ -3021,7 +3021,7 @@ You should see: the stack list has a RUNNING section with "Eggs · Timer · 3 mi
 in "Waiting for you"; Cancel ends it (the orb's ring goes); "five more" puts the tea timer back at 5:00 with no
 worker run; "done" answers "Done: Tea timer."; clicking Done shows a "Done: Tea timer" edge for about 2.5 s.
 
-<a id="check-halo-b8-gaps-6b8791-2"></a>**Check halo-b8-gaps-6b8791-2. The worker's pick on a chart; a shape Swift refused (B4)**
+<a id="check-433"></a>**Check 433. The worker's pick on a chart; a shape Swift refused (B4)**
 1. Say "Hey Swift, make a bar chart of rainfall by month for London last year, and point out the wettest months".
 2. Ask for something Swift can't draw as asked, e.g. "Hey Swift, show me a pie chart of my week".
 
@@ -3029,7 +3029,7 @@ You should see: (1) bars of equal weight, the months the worker picked inside a 
 amber), and a grey "Worker's pick: …" tag under the legend; (2) plain words, with one grey line above them, "Shown as
 words: Swift couldn't check this as a chart." (if the worker answers in words without trying a shape, there is no line).
 
-<a id="check-halo-b8-gaps-6b8791-3"></a>**Check halo-b8-gaps-6b8791-3. "Ask me about everything" in the tray and on Swift's own cards (modes §3)**
+<a id="check-434"></a>**Check 434. "Ask me about everything" in the tray and on Swift's own cards (modes §3)**
 1. Say "Hey Swift, ask me about everything". Right-click the tray icon.
 2. Say "Hey Swift, type hello into Notepad" (with Notepad open). Look at the card, then click Reject.
 3. Right-click the tray icon and click **Stop asking about everything**. Right-click it again.
@@ -3039,7 +3039,7 @@ everything" item; (2) the Needs your OK card has "Asking because you said: ask m
 (a card that would ask anyway, such as sending an email, has no such line); (3) the status line and the item are gone,
 and typing into Notepad no longer asks.
 
-<a id="check-halo-b8-gaps-6b8791-4"></a>**Check halo-b8-gaps-6b8791-4. "Runs in", a Failed card's steps, "Try again from step N", and the move to the stack (ADR-019 §8.1, §8.3)**
+<a id="check-435"></a>**Check 435. "Runs in", a Failed card's steps, "Try again from step N", and the move to the stack (ADR-019 §8.1, §8.3)**
 1. Ask for something that runs a command in your project, e.g. "Hey Swift, run the tests in my site project". Look at
    the card before answering.
 2. Ask for a task with several steps and make it fail part way (e.g. a copy to a USB drive you pull out). Look at the
@@ -3051,7 +3051,7 @@ it did, ✓ each, the last one with "!" where it failed, and the button naming t
 same words, and the work picks up from that step rather than starting over; (3) after 10 minutes the card leaves and
 the stack's badge counts one more ("Failed · 10 min ago" on its row); Open brings the Failed card back.
 
-<a id="check-halo-b8-gaps-6b8791-5"></a>**Check halo-b8-gaps-6b8791-5. A file tree's Open, Show in folder, double-click, and arrow keys (B13)**
+<a id="check-436"></a>**Check 436. A file tree's Open, Show in folder, double-click, and arrow keys (B13)**
 1. Say "Hey Swift, where are my holiday photos?" (any folder in your read folders with a few files).
 2. Click a photo's row: look at the strip under the tree. Click **Show in folder**, then **Open**. Double-click another.
 3. Click **Show all** (or open it in the reader), click into the tree, and use the arrow keys and Enter.
@@ -3062,14 +3062,14 @@ double-click open the file in its usual app; a program or script (.exe, .bat, .p
 folder, never run; a row the worker named that isn't on disk has no strip. In the reader, Up/Down move, Right opens a
 folder (then steps in), Left closes it (or steps out), Enter opens. There is never a delete.
 
-<a id="check-halo-b8-gaps-6b8791-6"></a>**Check halo-b8-gaps-6b8791-6. "What did you find about …" (A1)**
+<a id="check-437"></a>**Check 437. "What did you find about …" (A1)**
 1. Ask two research questions, e.g. "Hey Swift, what's the history of tea?", then one about coffee.
 2. Say "Hey Swift, what did you find about tea?". Then "Hey Swift, what did you find about the moon landing?"
 
 You should see: the tea answer again as a Done card, at once (no Working card, nothing runs again); for the moon
 landing, "I haven't found anything about “the moon landing” since Swift started." (answers aren't kept after a restart).
 
-<a id="check-halo-b8-gaps-6b8791-7"></a>**Check halo-b8-gaps-6b8791-7. Captions turn on by themselves when the sound is muted or Live captions runs (A6)**
+<a id="check-438"></a>**Check 438. Captions turn on by themselves when the sound is muted or Live captions runs (A6)**
 1. If you ever said "captions on" or "captions off", note it: your words win, so this check needs neither said.
    (Say "captions off" now and the PC no longer decides; this check then shows step 4 only.)
 2. Mute the PC's sound. Wait a minute, then ask "Hey Swift, what time is it?" (the reply is spoken).
@@ -3079,7 +3079,7 @@ landing, "I haven't found anything about “the moon landing” since Swift star
 You should see: (2) and (3) the speaking pill widens and shows the words; with neither, no captions; (4) no captions
 while muted, because you said off.
 
-<a id="check-halo-b8-gaps-6b8791-8"></a>**Check halo-b8-gaps-6b8791-8. "Speak answers" and "Watch opens" in the tray (A8)**
+<a id="check-439"></a>**Check 439. "Speak answers" and "Watch opens" in the tray (A8)**
 1. Tray menu → How Swift shows things → Speak answers: **Never**. Say "Hey Swift, what time is it?". Then **Default**.
 2. Watch opens: **When it writes**. Say "Hey Swift, write a short note about tea in Notepad" (Notepad open).
 3. Watch opens: **Long requests**. Ask for some research that takes over half a minute.
@@ -3089,7 +3089,7 @@ You should see: (1) the answer on the card and no voice; Default speaks again as
 as soon as it starts writing; (3) the watch opens by itself after about 30 seconds, once; closing it keeps it closed;
 (4) both choices kept. With "When I ask" (the default) the watch opens only when you say "show me" or click Watch.
 
-<a id="check-halo-b8-gaps-6b8791-9"></a>**Check halo-b8-gaps-6b8791-9. The watch docked and mini (B9)**
+<a id="check-440"></a>**Check 440. The watch docked and mini (B9)**
 1. Ask for some research and say "show me". Click the watch's Dock button (beside Close) once.
 2. Click it again.
 3. Click it a third time. Ask for something else and say "show me".
@@ -3100,7 +3100,7 @@ shrink to leave it room; the orb and card move clear of it; (2) a small watch in
 progress and the step it's on, nothing else; windows get their room back; (3) beside the card again, and the next
 watch opens where the last one was left; (4) on close, windows get their room back.
 
-<a id="check-laughing-nightingale-968e04-1"></a>**Check laughing-nightingale-968e04-1. Hold during calls (A3, explore.hold_during_calls)**
+<a id="check-441"></a>**Check 441. Hold during calls (A3, explore.hold_during_calls)**
 Set `explore: hold_during_calls: true` in config.yaml and restart Swift. In a terminal, run `python spikes/calls/probe.py --watch 120`
 beside a real Teams, Zoom or Meet call to see when the signal flips.
 1. Join a call (mic open). Within about 2 seconds, ask Swift for something that needs an OK (a file edit), or set a 1-minute timer.
@@ -3225,7 +3225,7 @@ the screen and Swift, so you may never see it; tests cover it.
 You should see: in steps 2 and 3, if Swift wants to write anything into Notepad it asks first ("Write this in
 Notepad?"), showing what it would write; say "no" each time and nothing is written. In step 4 it writes the note
 without asking.
-<a id="check-upbeat-poincare-d02e4a-1"></a>**Check upbeat-poincare-d02e4a-1. "What can I say?" on a card, an idea to try (A10; off unless you turn it on)**
+<a id="check-442"></a>**Check 442. "What can I say?" on a card, an idea to try (A10; off unless you turn it on)**
 1. In `config.yaml`, set `explore:` `what_can_i_say: true`, and restart Swift.
 2. Ask for something that needs your OK, and click **What can I say?** on its card. Click it again.
 3. Ask "Hey Swift, what time is it?" and click **What can I say?** on the answer.
@@ -3236,7 +3236,7 @@ You should see: a blue-tinted box with a mic by each phrase, and nothing runs or
 card it lists "approve", "reject" and "show me", and each works when said with the hotkey held; after three Copy clicks the
 answer's list adds "put that in Word · asks for your OK". With it off there is no such button.
 
-<a id="check-upbeat-poincare-d02e4a-2"></a>**Check upbeat-poincare-d02e4a-2. Next-step chips, an idea to try (A11; off unless you turn it on)**
+<a id="check-443"></a>**Check 443. Next-step chips, an idea to try (A11; off unless you turn it on)**
 1. In `config.yaml`, set `explore:` `next_steps: true`, and restart Swift.
 2. Click **Copy** on three answers. Ask a fourth question.
 3. Click the chip "Put it in Word" under the fourth answer.
@@ -3245,7 +3245,7 @@ You should see: no chips at first; after three Copy clicks, one "Next" chip, "Pu
 under the answers (never more than two chips). Clicking it asks for it like a request: an OK card appears, and nothing is
 written until you press Approve yourself. With `next_steps: false` there are no chips.
 
-<a id="check-upbeat-poincare-d02e4a-3"></a>**Check upbeat-poincare-d02e4a-3. The orb follows the monitor you work on, an idea to try (A13; off unless you turn it on; needs two monitors)**
+<a id="check-444"></a>**Check 444. The orb follows the monitor you work on, an idea to try (A13; off unless you turn it on; needs two monitors)**
 1. In `config.yaml`, set `explore:` `follow_monitor: true`, and restart Swift.
 2. Move the mouse to your other monitor and leave it there for two seconds, with nothing on screen from Swift.
 3. Ask Swift something so a card shows, then move the mouse to the first monitor and wait.
@@ -3277,7 +3277,7 @@ Each check gets one word:
 
 Note the check number and the time. That's enough: the logs have the rest.
 
-<a id="check-infallible-spence-760d64-1"></a>**Check infallible-spence-760d64-1. The plan card (Modes §2)**
+<a id="check-445"></a>**Check 445. The plan card (Modes §2)**
 1. Say "Hey Swift, make a GitHub repository called tea-timer and pull it down" (a real request: nothing is sent until you approve each card).
 2. A card "A plan in N steps" appears, 640 wide: each step in words; the folder and commit steps list their commands and say "covered"; the GitHub and push steps say "will ask you · it publishes" / "· it sends". Read the footer hint and the buttons.
 3. Press **Go ahead with 1 and 2**. Watch the run: the listed commands run without a card; creating the repository and pushing each get their own card. Reject those.

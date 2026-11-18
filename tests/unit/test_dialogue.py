@@ -475,7 +475,7 @@ class Asker(Agent):
                 queue.put_nowait(ExecEvent("confirm", f"Edit for {run_id}", request_id=request_id, detail="", tool="Edit"))
                 self.answers[request_id] = await future
             await run["go"].wait()
-            return ExecResult("done", f"Done {run_id}.", self.details)
+            return ExecResult("done", f"Done {run_id}.", self.details, caveat=getattr(self, "caveat", ""))
         finally:
             queue.put_nowait(None)
 

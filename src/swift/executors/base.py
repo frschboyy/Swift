@@ -98,6 +98,8 @@ class ExecResult:
     # Status "error" only: the provider's own reading of what went wrong. When None,
     # the session classifies ``summary`` (``swift.failures.classify``).
     failure: Failure | None = None
+    # A5: the worker's one line on why a Done answer may be wrong (sources disagree, old data, a guess).
+    caveat: str = ""
 
 
 # "local": data that must stay on this PC (a file the owner marked); cloud workers refuse it

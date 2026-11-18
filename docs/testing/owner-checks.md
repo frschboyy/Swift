@@ -3033,6 +3033,17 @@ You should see: after a short moment a small box above the orb with the timer an
 1 needs your OK" in amber); it goes as you move away; it never takes the keyboard from your app. With
 `orb_glance: false` the orb lets clicks through to what's under it, as before.
 
+<a id="check-halo-b8-build-4fbdf7-11"></a>**Check halo-b8-build-4fbdf7-11. Small touches: Approve fills, Copied, Pin, a caveat (A9, A4, A5)**
+1. Ask for something that needs your OK and watch the Approve button as the card appears; then Reject.
+2. Ask "Hey Swift, what time is it?", hover the card, then click **Copy**.
+3. Ask another question, click **Pin**, then ask something else.
+4. Ask "Hey Swift, when did tea first reach England? Check two sources."
+
+You should see: Approve fills from left to right in under half a second; hovering says "Paused while you read";
+Copy turns into "Copied" with a green check for a moment; the pinned answer stays as a strip above the cards until
+you close it; if the sources disagree, a grey box under the answer says why ("The worker says: …"). Step 4 depends on
+what the worker finds: no box is fine when the sources agree.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

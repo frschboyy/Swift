@@ -4959,7 +4959,7 @@ class Session:
         await self._send(
             outbound(
                 "result", run_id=run_id, status=result.status, summary=result.summary, details=result.details,
-                agent=agent, note=note, origin=origin,
+                agent=agent, note=note, origin=origin, **({"caveat": result.caveat} if result.caveat else {}),
             )
         )
         if result.status in ("done", "rejected"):

@@ -251,6 +251,26 @@ class Tree(_Strict):
         return self
 
 
+CAVEAT_MAX = 160
+CAVEAT_DESCRIPTION = (
+    "If your answer may be wrong, say why in one short plain sentence (the sources disagree, the data is old, or "
+    "it's a guess); it shows under the answer as yours. Call it at most once, and only when it's true."
+)
+CAVEAT_SCHEMA: dict[str, Any] = {"type": "object", "properties": {"why": {"type": "string", "maxLength": CAVEAT_MAX}},
+                                 "required": ["why"]}
+
+
+def caveat(args: Any) -> str | None:
+    """A5: the worker's caveat as Swift will show it, or None: plain text only, one short line."""
+    why = args.get("why") if isinstance(args, dict) else None
+    if not isinstance(why, str) or not why.strip() or len(why) > CAVEAT_MAX or chr(10) in why.strip():
+        return None
+    try:
+        return _plain(why.strip())
+    except ValueError:
+        return None
+
+
 MODELS: dict[str, type[_Strict]] = {
     "compare": Compare, "diagram": Diagram, "mindmap": MindMap, "preview": Preview, "chart": Chart, "cards": Cards,
     "tree": Tree,

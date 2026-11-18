@@ -70,13 +70,13 @@ async function reset(s: Shim): Promise<void> {
 }
 
 /** A request said and answered: transcript, working, then the result. */
-async function answer(s: Shim, words: string, summary: string, details: unknown = null, opts: { typed?: boolean; agent?: unknown; artifacts?: unknown[] } = {}): Promise<string> {
+async function answer(s: Shim, words: string, summary: string, details: unknown = null, opts: { typed?: boolean; agent?: unknown; artifacts?: unknown[]; caveat?: string } = {}): Promise<string> {
   const id = run();
   s.inject("transcript", { text: words, final: true, typed: !!opts.typed });
   s.inject("state", { state: "working", run_id: id, agent: opts.agent ?? AGENT, thread_id: `t-${id}` });
   for (const a of opts.artifacts ?? []) s.inject("artifact", { ...(a as object), run_id: id });
   s.inject("state", { state: "result", run_id: id, agent: opts.agent ?? AGENT, thread_id: `t-${id}` });
-  s.inject("result", { run_id: id, status: "done", summary, details, agent: opts.agent ?? AGENT, note: null, thread_id: `t-${id}` });
+  s.inject("result", { run_id: id, status: "done", summary, details, agent: opts.agent ?? AGENT, note: null, thread_id: `t-${id}`, ...(opts.caveat ? { caveat: opts.caveat } : {}) });
   await sleep(220);
   return id;
 }
@@ -325,6 +325,11 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     [...document.querySelectorAll<HTMLButtonElement>("#card .card-foot .btn")].find((b) => b.textContent === "Pin")?.click();
     await sleep(300);
     await answer(s, "What time is it?", "It's 3:42 pm");
+  },
+  // A5: a Done answer with the worker's caveat.
+  caveat: async (s) => {
+    await answer(s, "When did tea reach England?", "Around 1650, through Portuguese and Dutch traders.", null,
+      { caveat: "The two sources I read disagree by about ten years." });
   },
   answerLongOpen: async (s) => {
     await answer(s, "Give me a short history of tea", LONG);

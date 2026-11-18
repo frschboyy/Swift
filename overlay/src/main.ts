@@ -1668,7 +1668,11 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   };
   drawBody();
   drawFoot();
-  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, foot] });
+  // A5, Block · Caveat: the worker's one line on why the answer may be wrong, on Done cards only.
+  const caveat = data.caveat
+    ? el("div", { class: "caveat", role: "note" }, icon("scale"), el("p", {}, el("span", { class: "caveat-by" }, "The worker says: "), data.caveat))
+    : null;
+  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, foot] });
 }
 
 /** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */

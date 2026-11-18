@@ -134,6 +134,8 @@ process.stdout.write(JSON.stringify({
   answerText: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? detailsText(resultData!.details) : null,
   answerLong: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? needsReader(resultData!.summary, resultData!.details) : null,
   // The answer card's footer, as renderResult draws it (FD-13: never the provider's name).
+  // A5: the worker's caveat under a Done answer.
+  answerCaveat: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.caveat ?? null : null,
   // The answer card's one line (F6/F7: "Stopped “…”").
   answerSummary: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.summary ?? null : null,
   answerBy: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? byline(resultData!.agent) : null,

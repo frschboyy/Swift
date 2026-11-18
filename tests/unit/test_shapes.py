@@ -329,3 +329,12 @@ def test_b13_a_file_tree_is_kept_and_bounded() -> None:
     assert shapes.check({"shape": "tree", "entries": [deep]})[0] is None
     many = [{"name": f"{i}.txt"} for i in range(shapes.TREE_ITEMS + 1)]
     assert shapes.check({"shape": "tree", "entries": many})[0] is None
+
+
+def test_a5_a_caveat_is_one_short_plain_line() -> None:
+    assert shapes.caveat({"why": "The two sources disagree on the date."}) == "The two sources disagree on the date."
+    assert shapes.caveat({"why": ""}) is None
+    assert shapes.caveat({"why": "x" * (shapes.CAVEAT_MAX + 1)}) is None
+    assert shapes.caveat({"why": "<b>trust me</b>"}) is None
+    assert shapes.caveat({"why": "one" + chr(10) + "two"}) is None
+    assert shapes.caveat("nope") is None

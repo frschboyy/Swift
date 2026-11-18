@@ -1784,3 +1784,8 @@ code {
 #stage .glance p { margin: 2px 0; color: var(--text); }
 #stage .glance .glance-warn { color: var(--warn-text); font-weight: 600; }
 
+/* ==== A5, Block · Caveat: --raise box, radius 12, scale icon --muted, one line 14 --muted ==== */
+#stage .caveat { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--raise); }
+#stage .caveat .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--muted); }
+#stage .caveat p { margin: 0; font-size: 14px; line-height: 20px; color: var(--muted); overflow-wrap: anywhere; }
+#stage .caveat-by { color: var(--faint); }

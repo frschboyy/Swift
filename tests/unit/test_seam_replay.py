@@ -1684,3 +1684,15 @@ async def test_b13_a_file_tree_reaches_the_done_card_as_one() -> None:
         if not long:
             assert screen["answerText"] == "Pictures\n2026/\n  beach.jpg  2 MB\nnotes.txt", screen["answerText"]
         await finish_all(session, agent)
+
+
+async def test_a5_the_workers_caveat_reaches_the_done_card_and_nothing_else() -> None:
+    """A5: the worker's one line on why its answer may be wrong shows under a Done answer, marked as its own."""
+    session, out, agent, stt, _control, _sched = _lane()
+    agent.caveat = "The two sources disagree on the date."
+    run = await started(session, out, agent, stt, "Hey Swift, when did tea reach England")
+    agent.runs[run]["go"].set()
+    await until(lambda: out.last("result"))
+    screen = agree(session, out)
+    assert screen["stage"] == "result" and screen["answerCaveat"] == "The two sources disagree on the date.", screen
+    await finish_all(session, agent)

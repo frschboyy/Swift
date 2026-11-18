@@ -288,6 +288,7 @@ class _Run:
     # B4: the result's shape as Swift checked it (show_result), drawn only on a Done answer.
     shape: dict[str, Any] | None = None
     preview: previews.PreparedPreview | None = None
+    caveat: str = ""  # A5: the worker's one line on why the answer may be wrong
     approved_reads: set[str] = field(default_factory=set)
     # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
     step_bound: dict[str, Bound] = field(default_factory=dict)
@@ -584,6 +585,15 @@ class ClaudeCodeExecutor:
             return {"content": [{"type": "text", "text": await _show_result(run, args, self.reads, self.cwd)}]}
 
         sdk_tools.append(show_result)
+
+        @tool("add_caveat", shapes.CAVEAT_DESCRIPTION, shapes.CAVEAT_SCHEMA)
+        async def add_caveat(args: dict[str, Any]) -> dict[str, Any]:
+            run, _run_id = current()
+            said = shapes.caveat(args)
+            run.caveat = said or ""
+            return {"content": [{"type": "text", "text": "Noted under your answer." if said else "Not shown: one short plain sentence."}]}
+
+        sdk_tools.append(add_caveat)
         if self.tools is not None:
             sdk_tools += [self._sdk_tool(tool, spec, current) for spec in self.tools.tools.values()]
             system_prompt += WORKFLOW_PROMPT
@@ -1034,12 +1044,14 @@ class ClaudeCodeExecutor:
             why = "No answer in time" if decision == "no_answer" else "Rejected"
             return ExecResult("rejected", f"{why}: {title}. Swift stopped there.", meta=meta | {"stopped_by": decision})
         if outcome is not None:
+            said = getattr(run, "caveat", "") if outcome.status == "done" else ""  # A5: Done answers only
             if outcome.status == "done" and getattr(run, "shape", None) is not None:  # B4: shapes on Done answers only (§7.6)
                 return ExecResult(
-                    "done", outcome.summary, shapes.details(run.shape, _words(outcome.details), getattr(run, "preview", None)), meta
+                    "done", outcome.summary, shapes.details(run.shape, _words(outcome.details), getattr(run, "preview", None)), meta,
+                    caveat=said,
                 )
             status = "done" if outcome.status == "done" else "error"
-            return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure)
+            return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure, caveat=said)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
         detail = f" ({lines[0][:160]})" if lines else ""
         summary = f"Stopped without an answer{detail}."

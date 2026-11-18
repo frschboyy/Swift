@@ -51,6 +51,7 @@ class Agent:
         self.answers: dict[str, bool] = {}
         # What a Done answer carries besides its words (B4: a checked shape).
         self.details: dict[str, Any] | None = None
+        self.caveat = ""  # A5: the worker's caveat on its Done answer
         # Like Claude Code: its cards' countdown pauses while they wait (set by the test).
         self.attention: Attention | None = None
         self._ids = itertools.count(1)
@@ -85,7 +86,7 @@ class Agent:
                 queue.put_nowait(ExecEvent("confirm", f"Edit for {run_id}", request_id=request_id, detail="", tool="Edit"))
                 self.answers[request_id] = await wait_answer(self.attention, request_id, future, 120.0)
             await run["go"].wait()
-            return ExecResult("done", f"Done {run_id}.", self.details)
+            return ExecResult("done", f"Done {run_id}.", self.details, caveat=self.caveat)
         finally:
             queue.put_nowait(None)
 

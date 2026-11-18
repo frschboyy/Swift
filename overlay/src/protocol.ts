@@ -118,7 +118,7 @@ export type Inbound =
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
-  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin } }
+  | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin; caveat?: string } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.
   // retry: "Try again" re-runs the request. severity "info": a nudge, not a failure.
   // Halo B14: the timers still counting, soonest first (none: an empty list). No card while one counts.

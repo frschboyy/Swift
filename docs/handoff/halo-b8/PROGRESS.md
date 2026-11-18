@@ -22,7 +22,7 @@ are in the saved file.
 | §1.2 text box, §1.3 tray | 1b8bd21 | restyle |
 | §1.4 notices and problems (State · Notice); D10 "ready" after update/crash only | 982b154 | restyle + D10 (`ready.ts`; `core:app:allow-version` added to the capability) |
 | §1.5 the reply window on the orb, §1.6 "say approve again" | 7ef03b9 | restyle |
-| Owner checks halo-b8-build-4fbdf7-1..5 (F8, F1-F4, F6-F7, board 9, D10) | 6bd887e | checks |
+| Owner checks 414..5 (F8, F1-F4, F6-F7, board 9, D10) | 6bd887e | checks |
 | Harness: design states draw without a backend; Due states carry origin | b85f980 | harness fix |
 | B3: verified in grayscale (no code change; see below) | (this file) | verify |
 | §8.2 relative times ("just now", "N min ago") | cb1074d | built |
@@ -70,7 +70,7 @@ Stopped here (a natural end, not a credit stop): everything below is not built a
 
 ## Left, in the README's order
 
-1. **F8:** owner check halo-b8-build-4fbdf7-1 written. No `AllowSetForegroundWindow` change unless it fails.
+1. **F8:** owner check 414 written. No `AllowSetForegroundWindow` change unless it fails.
 2. **Step B, what's left:** a rule-by-rule cull of old `styles.css` rules Halo's later rules override (needs before
    and after captures of every state). Stack section labels (RUNNING, EARLIER TODAY) wait for A1.
 3. **B-items, partial parts** (each commit says what it lacks): §8.1 "Runs in"/"Removes" rows (not on the confirm
@@ -99,7 +99,7 @@ Stopped here (a natural end, not a credit stop): everything below is not built a
 
 ## New owner checks (provisional ids, `plan.py --renumber` at merge)
 
-halo-b8-build-4fbdf7-1 F8 the text box gets the keyboard · -2 F1-F4 a lapsed OK · -3 F6/F7 "stop" · -4 every surface
+414 F8 the text box gets the keyboard · -2 F1-F4 a lapsed OK · -3 F6/F7 "stop" · -4 every surface
 (board 9) · -5 D10 "Swift is ready" · -6 B5 grow and Show all · -7 B7 motion · -8 B14 timer on the orb, +5 min · -9
 "ask me about everything" · -10 A12 orb glance · -11 A9, A4, A5 · -12 A6 captions · -13 A1 earlier today · -14 A2 follow-up · -15 A8 how
 Swift shows things · -16 A7 keyboard entry. Report lines (LOOK) and ledger areas are in.

@@ -99,7 +99,7 @@ code toward these rules, never away.
   buttons, Enter presses the one reached as its own click (Approve keeps its 400 ms guard, typed words still never
   approve), and the box closes after the press or on Esc, giving the keyboard back to the app. It is the text box's
   exception, not a new one; `overlay/tests/focus.test.ts` checks the only `set_focus` is the text box's and that only
-  the owner's hotkeys, the tray or Change open it. Owner check halo-b8-build-4fbdf7-16. The backend's typed-yes
+  the owner's hotkeys, the tray or Change open it. Owner check 429. The backend's typed-yes
   hints (`TYPED_YES_HINT`, `TYPED_APPROVE_HINT`) still say only "click … or say"; the text box shows the Tab way.
 - **4:** built: an address not in this request's words is asked about
   ("Open usiu.ac.ke?", level 1, typing never answers it), offering only the owner's own earlier or remembered
@@ -133,7 +133,7 @@ code toward these rules, never away.
   `Action.kind`); the system lane asks before its own changes (level 1, Swift's own question; volume and reads
   excepted), with "Asking because you said: ask me about everything." under it; no step card is offered or used, so
   every command asks. It only adds questions: `confirm` is never lowered. Rule tests in
-  `tests/unit/test_asking_everything.py`, each failing with its guard removed; owner check halo-b8-build-4fbdf7-9.
+  `tests/unit/test_asking_everything.py`, each failing with its guard removed; owner check 422.
   Not built: the tray's "Asking about everything" status and its "Stop asking" item, the line on the gateway's
   cards, and learned trust (kept but not used: there is none yet).
 - Found by the ownership map, not in the decisions: worker tool cards weren't bound to a digest (OWN-05, fixed; a

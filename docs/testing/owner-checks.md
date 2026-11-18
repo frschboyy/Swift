@@ -2933,7 +2933,7 @@ The report checks: a correction was kept, and its kind.
 About 15 minutes. Halo is now Swift's only look. Nothing here sends anything: click **Reject** on any card that
 asks for your OK.
 
-<a id="check-halo-b8-build-4fbdf7-1"></a>**Check halo-b8-build-4fbdf7-1. The text box gets the keyboard from another app (F8)**
+<a id="check-414"></a>**Check 414. The text box gets the keyboard from another app (F8)**
 1. Click into VS Code (or Word) and type a few letters there, so it has the keyboard.
 2. Press the typing hotkey. Without clicking anything, type "what time is it" and press Enter.
 3. Do it three more times, from VS Code, Word and a browser.
@@ -2942,7 +2942,7 @@ You should see: each time the box opens with a blue border and your typing goes 
 app. If even once the letters went into the other app, note the time and which app: the fix
 (`AllowSetForegroundWindow` before `set_focus`) is only built if this fails.
 
-<a id="check-halo-b8-build-4fbdf7-2"></a>**Check halo-b8-build-4fbdf7-2. An OK that runs out waits in the stack and frees Swift (F1-F4)**
+<a id="check-415"></a>**Check 415. An OK that runs out waits in the stack and frees Swift (F1-F4)**
 1. Say "Hey Swift, email Priya the tea report" (or any request that asks for your OK). Don't answer it: let the
    countdown run out.
 2. Within 20 seconds, say "Hey Swift, what time is it?".
@@ -2953,7 +2953,7 @@ You should see: after step 1, no card in front, and an amber pile "1 thing needs
 Step 2 is answered at once. After step 3 the OK does **not** come back to the front by itself. Clicking the pile
 and Open brings it back with a fresh countdown; then Reject.
 
-<a id="check-halo-b8-build-4fbdf7-3"></a>**Check halo-b8-build-4fbdf7-3. "Stop" before a request starts, and "stop" twice (F6, F7)**
+<a id="check-416"></a>**Check 416. "Stop" before a request starts, and "stop" twice (F6, F7)**
 1. Hold push-to-talk and say "research the history of tea", let go, and at once press push-to-talk again and say
    "stop".
 2. With nothing running, press push-to-talk and say "stop" again.
@@ -2961,7 +2961,7 @@ and Open brings it back with a fresh countdown; then Reject.
 You should see: after step 1 a Stopped card for the tea request, and no research starts. After step 2 the
 Stopped card stays and fades on its own.
 
-<a id="check-halo-b8-build-4fbdf7-4"></a>**Check halo-b8-build-4fbdf7-4. Every surface in Halo (board 9)**
+<a id="check-417"></a>**Check 417. Every surface in Halo (board 9)**
 1. Leave two things waiting (a lapsed OK and a question you put off): look at the pile, then click it once.
 2. Open the text box while an OK card is up, then press Tab until a card button has the ring.
 3. Open the tray menu, pause listening, open it again, resume.
@@ -2972,13 +2972,13 @@ saying typing can't approve, and blue saying what Enter presses once Tab reached
 orb while paused; a ring draining round the orb with "Reply without “Hey Swift” · N s". Note anything that
 looks wrong or hard to read.
 
-<a id="check-halo-b8-build-4fbdf7-5"></a>**Check halo-b8-build-4fbdf7-5. "Swift is ready" only after an update or a crash (D10)**
+<a id="check-418"></a>**Check 418. "Swift is ready" only after an update or a crash (D10)**
 1. Quit Swift from the tray and start it again.
 2. Start it once more after the next update.
 
 You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
 
-<a id="check-halo-b8-build-4fbdf7-6"></a>**Check halo-b8-build-4fbdf7-6. A long answer grows, then Show all and Show less (B5)**
+<a id="check-419"></a>**Check 419. A long answer grows, then Show all and Show less (B5)**
 1. Say "Hey Swift, give me a detailed history of tea" and wait for the answer.
 2. Click **Show all**, scroll to the end, then press Esc.
 3. Click **Show all** again, then click the orb.
@@ -2988,7 +2988,7 @@ You should see: the answer fills most of the window before it's cut, with a fade
 open, the card is wider and only its text scrolls; Esc and a click on the orb fold it back to the top; while open
 the other requests are one edge, and the OK shows on it in amber. Click **Reject**.
 
-<a id="check-halo-b8-build-4fbdf7-7"></a>**Check halo-b8-build-4fbdf7-7. How cards move (B7)**
+<a id="check-420"></a>**Check 420. How cards move (B7)**
 1. Say "Hey Swift, what time is it?" and watch the card come out of the orb, then let it fade by itself.
 2. Ask again and close the card with its ×.
 3. With a request running behind (an edge), click the edge.
@@ -3000,7 +3000,7 @@ little toward the orb; closed, it folds into the orb, which pulses once; the edg
 animation effects off, each is a short fade, and the bar under the answer still runs down. Say whether any of it
 feels slow, jumpy or distracting.
 
-<a id="check-halo-b8-build-4fbdf7-8"></a>**Check halo-b8-build-4fbdf7-8. A timer counts on the orb, then +5 min (B14)**
+<a id="check-421"></a>**Check 421. A timer counts on the orb, then +5 min (B14)**
 1. Say "Hey Swift, set a timer for 2 minutes for the tea". Look at the orb.
 2. Say "Hey Swift, set another timer for 5 minutes".
 3. While both count, ask "Hey Swift, what time is it?".
@@ -3010,7 +3010,7 @@ You should see: no card while a timer counts; the orb full size in a ring that e
 time left ("1:58", then "1:40 · 2" with two timers); the pill stays beside the orb while the answer card is up; the
 Due card has **+5 min** and **Done**; +5 min puts the tea timer back on the orb at 5:00.
 
-<a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
+<a id="check-422"></a>**Check 422. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".
 3. Say "Hey Swift, turn the volume down a bit".
@@ -3025,7 +3025,7 @@ step 5 still asks (it stays on after a restart) and "no" sets nothing; in step 6
 only stop asking about everything when you say it" and change nothing, and after the spoken words the timer is set
 without asking.
 
-<a id="check-halo-b8-build-4fbdf7-10"></a>**Check halo-b8-build-4fbdf7-10. The orb glance, an idea to try (A12; off unless you turn it on)**
+<a id="check-423"></a>**Check 423. The orb glance, an idea to try (A12; off unless you turn it on)**
 1. In `config.yaml`, set `explore:` `orb_glance: true`, and restart Swift.
 2. Set a timer ("Hey Swift, set a timer for 5 minutes"), then rest the mouse on the orb for a moment.
 3. Leave something waiting (let an OK card run out), then rest the mouse on the orb again. Move away.
@@ -3036,7 +3036,7 @@ You should see: after a short moment a small box above the orb with the timer an
 1 needs your OK" in amber); it goes as you move away; it never takes the keyboard from your app. With
 `orb_glance: false` the orb lets clicks through to what's under it, as before.
 
-<a id="check-halo-b8-build-4fbdf7-11"></a>**Check halo-b8-build-4fbdf7-11. Small touches: Approve fills, Copied, Pin, a caveat (A9, A4, A5)**
+<a id="check-424"></a>**Check 424. Small touches: Approve fills, Copied, Pin, a caveat (A9, A4, A5)**
 1. Ask for something that needs your OK and watch the Approve button as the card appears; then Reject.
 2. Ask "Hey Swift, what time is it?", hover the card, then click **Copy**.
 3. Ask another question, click **Pin**, then ask something else.
@@ -3047,7 +3047,7 @@ Copy turns into "Copied" with a green check for a moment; the pinned answer stay
 you close it; if the sources disagree, a grey box under the answer says why ("The worker says: …"). Step 4 depends on
 what the worker finds: no box is fine when the sources agree.
 
-<a id="check-halo-b8-build-4fbdf7-12"></a>**Check halo-b8-build-4fbdf7-12. Captions (A6)**
+<a id="check-425"></a>**Check 425. Captions (A6)**
 1. With spoken replies on (`speech: replies: auto`), say "Hey Swift, captions on".
 2. Ask "Hey Swift, what's the weather like?" and watch the orb while Swift answers aloud.
 3. Restart Swift and ask again.
@@ -3057,7 +3057,7 @@ You should see: while Swift speaks, the pill by the orb shows the words it's say
 "Captions · say “captions off” to hide"; still on after the restart; after "captions off", only "Speaking" again.
 Captions don't turn on by themselves when the sound is muted (not built yet).
 
-<a id="check-halo-b8-build-4fbdf7-13"></a>**Check halo-b8-build-4fbdf7-13. Earlier today in the stack (A1)**
+<a id="check-426"></a>**Check 426. Earlier today in the stack (A1)**
 1. Ask two questions in a row ("Hey Swift, research the history of tea", then "Hey Swift, what time is it?").
 2. Leave something waiting (let an OK card run out), then click the pile.
 3. Click **Open** on the tea answer under EARLIER TODAY.
@@ -3066,14 +3066,14 @@ You should see: the pile counts only what waits ("1 thing needs you"), not the a
 FOR YOU, then EARLIER TODAY with the answers (a green check, "Done · N min ago"; a failed one in red); Open shows
 the tea answer again without running it again. With nothing waiting there's no pile, even with answers today.
 
-<a id="check-halo-b8-build-4fbdf7-14"></a>**Check halo-b8-build-4fbdf7-14. A follow-up on the same card (A2)**
+<a id="check-427"></a>**Check 427. A follow-up on the same card (A2)**
 1. Say "Hey Swift, what time is it?" and, while the reply ring is still on the orb, say "and the date?".
 2. Click **First answer**, then click it again.
 
 You should see: the second answer on the same card, its words line saying 'then “and the date?”', the first
 answer hidden under **First answer**, shown and hidden again by the button.
 
-<a id="check-halo-b8-build-4fbdf7-15"></a>**Check halo-b8-build-4fbdf7-15. How Swift shows things (A8, in the tray menu for now)**
+<a id="check-428"></a>**Check 428. How Swift shows things (A8, in the tray menu for now)**
 1. Open the tray menu and open **How Swift shows things**.
 2. Set Reading time to **2×**, ask "Hey Swift, what time is it?" and time how long the answer stays.
 3. Set **Until I close**, ask again: the answer stays until you close it.
@@ -3084,7 +3084,7 @@ You should see: each choice takes effect on the next card; Large makes the cards
 cutting anything; Less turns card movements into short fades; the choices survive a restart. Not in it yet:
 "speak answers" and "watch opens" (they're in `config.yaml`).
 
-<a id="check-halo-b8-build-4fbdf7-16"></a>**Check halo-b8-build-4fbdf7-16. Keyboard entry on the card's buttons (A7)**
+<a id="check-429"></a>**Check 429. Keyboard entry on the card's buttons (A7)**
 1. Type in Notepad. Ask "Hey Swift, email Priya the tea report" so a Needs your OK card appears; keep typing in
    Notepad for a moment.
 2. Press Ctrl+Alt+Enter. Press Tab twice, then Shift+Tab, then Esc. Type a word.

@@ -372,6 +372,24 @@
   note: 'Owner decides. ADR-017 §2 grabs Esc on purpose while Swift works, and ADR-012 relies on Esc to stop Swift
     typing into an app. Options: keep it; or grab it during work only while Swift types into an app or a card waits,
     so a long background run can''t be cancelled by an Esc meant for another app.'
+- id: PLAN-01
+  title: A "Change" on a plan or step card leaves the previous step's or plan's grant in force, so its covered
+    commands still run without a card after the owner asked for something else.
+  source: Review of dcac4c8 (Modes §2 plan card), 2026-11-18
+  module: src/swift/executors/claude_code.py _propose_plan, _propose_step, change
+  area: actions
+  severity: medium
+  product_rule: true
+  status: open
+  confidence: confirmed
+  evidence: 'Read in code: _propose_plan and _propose_step return CHANGE_MESSAGE on ("change", text) without
+    _set_grant; their early returns (ask everything, not a plan, nothing covered) also keep it. change() sets the
+    card''s future and leaves run.grant/run.later; only redirect() (_set_grant(Grant())) and a yes replace them. A
+    no interrupts the run, so only change and the early returns are open. The kept commands were shown on an
+    earlier approved card, so nothing unseen runs. Already in _propose_step before Modes §2.'
+  test: null
+  note: 'Likely fix is one line, clearing the grant in change() (as redirect does) or on each non-yes return. A
+    product-rule fix: another author reviews it. Not reproduced with a test.'
 - id: OCT-10
   title: Weather, news and "is it open now" go to the full agent (10-17 s); no web lane.
   source: docs/audit/2026-10-audit.md §1; performance.md
@@ -1022,6 +1040,45 @@
   note: 'Left open: no dependency scan (pip-audit, npm audit, cargo audit), no TypeScript or Rust lint in the hook,
     and the hook is inactive until `git config core.hooksPath .githooks` is run once per PC (the owner''s step at
     merge). A local hook, not hosted CI, fits decision 13 (never push).'
+- id: PLAN-02
+  title: The plan card leaves out "Runs in", the folder its commands run in, which every other command card shows.
+  source: Review of dcac4c8 (Modes §2 plan card), 2026-11-18
+  module: overlay/src/main.ts confirmFacts
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: confirmFacts returns planRows(data.facts.plan) before the runsIn block is built, though the backend
+    still sends facts.runs_in on the plan card (_decide).
+  test: null
+  note: ADR-019 §8.1 asks for Swift's own "Runs in" on a command card. Not checked on screen.
+- id: PLAN-03
+  title: A long plan card has no "more below" marker; only the step count is capped (8), not the commands per step.
+  source: Review of dcac4c8 (Modes §2 plan card), 2026-11-18
+  module: overlay/src/main.ts planRows; src/swift/executors/plan_card.py
+  area: screen
+  severity: low
+  product_rule: false
+  status: open
+  confidence: suspected
+  evidence: planRows is a plain ol, not in a scroll box with moreBelow (X-17), unlike the other command lists;
+    plan_card.build caps steps at MAX_STEPS but not commands in a step.
+  test: null
+  note: Whether the card actually overflows its window was not checked in the harness.
+- id: PLAN-04
+  title: A step or plan approved, then masked by "Ask me about everything", covers again once that is turned off.
+  source: Review of dcac4c8 (Modes §2 plan card), 2026-11-18
+  module: src/swift/executors/claude_code.py _ask
+  area: actions
+  severity: low
+  product_rule: true
+  status: open
+  confidence: design-concern
+  evidence: _ask checks ask_everything() at use, so nothing is covered while it is on (held), but run.grant and
+    run.later are never cleared by it; the same holds for B2's step grant.
+  test: null
+  note: Owner's call whether turning "ask me about everything" on should end a run's grants for good.
 - id: B-08
   title: An "unknown" outcome is not remembered, so it can't be undone and the same action can be approved and done
     again.

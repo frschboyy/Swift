@@ -61,7 +61,8 @@ Builds what the list below left. One commit per item; this table is kept current
 | Item | Commit | Kind |
 |---|---|---|
 | B5 diagrams cut at a node boundary; "Show all · 11 rows / 1 item / 5 steps" | 64f1d4b | built (`answer.ts howMuch`, `nodeCut`; harness `cardCappedRows`) |
-| B7 the tail settles last (final 120 ms of the grow) and retracts first (80 ms); the deck moves up 160 ms after a drain | (B7) | built (`shuffle.ts DECK_AFTER_DRAIN_MS`; measured in the harness: fade 400 ms, clear ≈ 600 ms) |
+| B7 the tail settles last (final 120 ms of the grow) and retracts first (80 ms); the deck moves up 160 ms after a drain | d3e92a4 | built (`shuffle.ts DECK_AFTER_DRAIN_MS`; measured in the harness: fade 400 ms, clear ≈ 600 ms) |
+| B14 Edge · Timer with a card in front; RUNNING row with Cancel; voice "done" / "5 more"; Edge · Got it "Done: Tea timer" (+ check halo-b8-gaps-6b8791-1) | (B14) | built (`timers.heard`, `timers.stack_action`, `Drawn.front`; seam test `test_b14_done_and_five_more_*`; harness `timerStack`, `timerGot`; parity 413/423 unchanged). Voice "done" answers with a one-line Done card ("Done: Tea timer."), not the Got-it edge a click shows |
 
 ## B3 (grayscale)
 

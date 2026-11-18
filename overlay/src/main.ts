@@ -585,10 +585,14 @@ function drawStackInline(): void {
   scheduleRegions();
 }
 
+// The backend's stack, before the timers still counting join it as RUNNING rows (B14).
+let backendStack: S.Stack["items"] = [];
 function onStackMessage(items: S.Stack["items"]): void {
+  backendStack = items;
   const before = new Set(stack.items.map((i) => i.id));
-  if (items.some((i) => !before.has(i.id) && i.kind !== "recent")) joinedStackAt = Date.now();
-  stack = S.onStack(stack, items, Date.now());
+  if (items.some((i) => !before.has(i.id) && S.waits(i))) joinedStackAt = Date.now();
+  const now = Date.now();
+  stack = S.onStack(stack, [...timers.filter((t) => t.due_ms > now).map(S.timerEntry), ...items], now);
   void syncEscape();
   void syncPanes();
   drawStackInline();
@@ -1311,7 +1315,10 @@ let followupTotal = 0;
 // A4, Pin: one answer kept as an edge on the far side of the deck; it never fades (D11: one at a time).
 let pinned: { title: string; line: string; text: string } | null = null;
 const pinnedEl = el("div", { class: "pinned-edge", "data-hit": "", hidden: true });
-rowsEl.before(pinnedEl);
+// B14: Edge · Timer (a card in front) and Edge · Got it ("Done: Tea timer"), read-only: nothing to click.
+const timerEdgeEl = el("div", { class: "pinned-edge timer-edge", role: "timer", hidden: true });
+const gotEl = el("div", { class: "pinned-edge got-edge", role: "status", hidden: true });
+rowsEl.before(gotEl, timerEdgeEl, pinnedEl);
 
 function drawPinned(): void {
   pinnedEl.hidden = pinned === null;
@@ -1369,6 +1376,11 @@ function drawTimer(): void {
   capsuleEl.toggleAttribute("data-timer", on);
   let pill = capsuleEl.querySelector<HTMLElement>(".tm-pill");
   if (!on) {
+    capsuleEl.removeAttribute("data-timer-edge");
+    if (!timerEdgeEl.hidden) {
+      timerEdgeEl.hidden = true;
+      scheduleRegions();
+    }
     pill?.remove();
     return;
   }
@@ -1380,6 +1392,27 @@ function drawTimer(): void {
   const text = T.pillText(counting, now);
   pill.title = counting.map((t) => t.title).join(", ");
   if (pill.lastChild?.textContent !== text) pill.replaceChildren(icon("timer"), el("b", {}, text));
+  // With a card in front the pill can't show (the capsule is the card's): Edge · Timer, a draining 64 px bar.
+  const edge = card.classList.contains("card--in") && !card.classList.contains("card--held");
+  capsuleEl.toggleAttribute("data-timer-edge", edge);  // the edge says it: the pill steps aside
+  if (edge !== !timerEdgeEl.hidden) {
+    timerEdgeEl.hidden = !edge;
+    scheduleRegions();
+  }
+  if (edge) {
+    timerEdgeEl.title = pill.title;
+    timerEdgeEl.replaceChildren(icon("timer"), el("b", {}, counting[0].title || "Timer"),
+      el("span", { class: "tm-bar", style: `--tm-left:${T.left(counting, now).toFixed(3)}` }), el("span", { class: "tm-time" }, text));
+  }
+}
+
+/** B14: Edge · Got it for ACK_MS, e.g. "Done: Tea timer" after Done on a timer's Due card. */
+let gotTimer = 0;
+function gotIt(text: string): void {
+  gotEl.replaceChildren(el("span", { class: "edge-mark" }, el("span", { class: "ready-icon" }, icon("check"))), el("b", {}, text));
+  gotEl.hidden = false;
+  window.clearTimeout(gotTimer);
+  gotTimer = window.setTimeout(() => { gotEl.hidden = true; }, D.ACK_MS);
 }
 
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
@@ -1811,7 +1844,11 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
       client.send({ type: "due.snooze", data: { run_id: data.run_id } });
       dismiss();
     } }, "+5 min") : null,
-    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done"),
+    el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => {
+      ev.stopPropagation();
+      dismiss();
+      if (kind === "timer") gotIt(T.doneLine(data.summary));
+    } }, "Done"),
   ] });
 }
 
@@ -2299,6 +2336,7 @@ function onMessage(msg: Inbound): void {
       break;
     case "timers":
       timers = msg.data.items;
+      onStackMessage(backendStack);
       drawTimer();
       break;
     case "heard":

@@ -26,6 +26,8 @@ class Drawn:
         self.seen: str | None = None
         # The question the overlay last said it drew in front: the one owner of a question on screen (OWN-04).
         self.ask: str | None = None
+        # The card the overlay last said it drew in front, if any (B14: "done" on a timer's Due card).
+        self.front: str | None = None
         # Due cards sent and not yet drawn, by their card's run id: the number of their result frame
         # (0 until it goes out) and their items.
         self.due: dict[str, tuple[int, list[Any]]] = {}
@@ -52,9 +54,10 @@ class Drawn:
             logger.info("due card not drawn", items=len(refused), stage=screen["stage"])
         rest = screen["stage"] == "idle" and self.stage != "idle"
         self.seen, self.stage, self.ask = seen, screen["stage"], screen.get("ask_id") or None
+        self.front = screen["run_id"] if screen["stage"] != "idle" and screen["run_id"] else None
         return changes, drawn, refused, rest
 
     def gone(self) -> list[Any]:
         """The overlay went: nothing is seen, and due cards sent and not drawn go back in line."""
-        sent, self.due, self.seen, self.stage, self.ask = self.due, {}, None, "idle", None
+        sent, self.due, self.seen, self.stage, self.ask, self.front = self.due, {}, None, "idle", None, None
         return [item for _, items in sent.values() for item in items]

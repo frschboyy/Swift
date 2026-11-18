@@ -1368,10 +1368,8 @@ class Session:
         logger.info("stack action", kind=kind, action=action)
         if kind == "recent":
             return await recent.open_(self, key, action)  # A1: an answer from earlier today
-        if kind == "due" and action != "skip":
-            timers.cleared(self, key)
-            await self._send_stack()
-            return
+        if kind in ("due", "timer") and action != "skip":
+            return await self._send_stack() if timers.stack_action(self, kind, key) else None
         if action == "skip":
             self._stack_skipped[item_id] = clock.now()
             if kind == "card":
@@ -2800,6 +2798,8 @@ class Session:
                         answer = NO_TARGET_HINT
                     await self._answer_here(answer)
                     return
+                if (said := timers.heard(self, transcript)) is not None:  # "done", "5 more" on a timer's Due card (B14)
+                    return await self._answer_here(said, record=record)
                 answered = self._answer_fix(decision, fix, record, run, transcript)
                 if answered is not None:
                     decision, workflow = answered

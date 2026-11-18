@@ -456,6 +456,19 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null, origin: "reminder" });
     await sleep(200);
   },
+  // B14: the stack list with a RUNNING row (Cancel), and Edge · Got it after Done on a timer's Due card.
+  timerStack: async (s) => {
+    s.inject("timers", { items: [{ id: 7, title: "Tea", due_ms: Date.now() + 252_000, set_ms: Date.now() - 48_000 }] });
+    s.inject("stack", { items: STACK.slice(1) });
+    await sleep(100);
+    document.querySelector<HTMLElement>("#stack .stack")?.click();
+    await sleep(250);
+  },
+  timerGot: async (s) => {
+    await DESIGN.timerDue(s);
+    [...document.querySelectorAll<HTMLButtonElement>("#card button")].find((b) => b.textContent === "Done")?.click();
+    await sleep(300);
+  },
   reminderDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-reminder-3", agent: null });
     s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null, origin: "reminder" });

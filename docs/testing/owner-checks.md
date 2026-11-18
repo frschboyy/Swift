@@ -3007,8 +3007,19 @@ feels slow, jumpy or distracting.
 4. When the tea timer is due, click **+5 min** on its card. Then let it come due again and click **Done**.
 
 You should see: no card while a timer counts; the orb full size in a ring that empties, and a small pill with the
-time left ("1:58", then "1:40 · 2" with two timers); the pill stays beside the orb while the answer card is up; the
-Due card has **+5 min** and **Done**; +5 min puts the tea timer back on the orb at 5:00.
+time left ("1:58", then "1:40 · 2" with two timers); while the answer card is up the pill becomes a timer edge
+above the card (title, a short draining bar, the time); the Due card has **+5 min** and **Done**; +5 min puts the tea
+timer back on the orb at 5:00.
+
+<a id="check-halo-b8-gaps-6b8791-1"></a>**Check halo-b8-gaps-6b8791-1. A timer in the stack, Cancel, and "done" / "5 more" said (B14)**
+1. Say "Hey Swift, set a timer for 3 minutes for the eggs". Click the stack (or say "what's waiting?") while it counts.
+2. Click **Cancel** on its row.
+3. Set a 1-minute tea timer. When its Due card shows, say "five more".
+4. When it is due again, say "done". Set one more 1-minute timer and click **Done** on its Due card.
+
+You should see: the stack list has a RUNNING section with "Eggs · Timer · 3 min left" and **Cancel**, never counted
+in "Waiting for you"; Cancel ends it (the orb's ring goes); "five more" puts the tea timer back at 5:00 with no
+worker run; "done" answers "Done: Tea timer."; clicking Done shows a "Done: Tea timer" edge for about 2.5 s.
 
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".

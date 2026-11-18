@@ -5,7 +5,7 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, type StackView } from "./stack";
+import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, waits, type StackView } from "./stack";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
@@ -109,15 +109,16 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
         ? el("span", { class: "stack-mark" }, icon(i.icon))
         : el("span", { class: "stack-mark stack-ring", style: `--left:${i.left.toFixed(3)}`, title: i.leftText ?? "", "aria-label": i.leftText ?? "" }, icon(i.icon)),
       el("span", { class: "stack-title" }, i.title),
-      el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, "open") }, i.open),
+      el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, i.kind === "timer" ? "end" : "open") }, i.open),
       el("span", { class: "stack-reason" }, i.line),
       // An answer from earlier today has nothing to skip or end (A1): only Open.
-      i.kind === "recent" ? null : el("span", { class: "stack-actions" },
+      !waits(i) ? null : el("span", { class: "stack-actions" },
         el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => h.item(i.id, "skip") }, "Skip"),
         el("button", { class: "btn btn--ghost btn--small", title: "End it: it won't come back", onclick: () => h.item(i.id, "end") }, "End")),
     );
-  // Board 9 §1: section labels once there is more than one kind of thing (A1: EARLIER TODAY).
-  const waiting = v.items.filter((i) => i.kind !== "recent");
+  // Board 9 §1: section labels once there is more than one kind of thing (B14: RUNNING, A1: EARLIER TODAY).
+  const running = v.items.filter((i) => i.kind === "timer");
+  const waiting = v.items.filter(waits);
   const earlier = v.items.filter((i) => i.kind === "recent");
   const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
   return el(
@@ -128,8 +129,9 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       el("span", {}, `· ${waiting.length}`),
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
     el("ul", { class: "stack-list" },
-      ...(earlier.length ? [label("Waiting for you")] : []), ...waiting.map(row),
-      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, waiting.length + n))] : [])),
+      ...(running.length ? [label("Running"), ...running.map(row)] : []),
+      ...(earlier.length || running.length ? [label("Waiting for you")] : []), ...waiting.map((i, n) => row(i, running.length + n)),
+      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, running.length + waiting.length + n))] : [])),
     el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
   );
 }

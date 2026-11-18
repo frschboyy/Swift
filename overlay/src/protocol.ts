@@ -174,7 +174,8 @@ export type LiveData = { run_id: string } & (
 export type StackEntry = {
   id: string;
   // "recent": an answer from earlier today (A1), listed after what waits; it never counts as waiting.
-  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent";
+  // "timer": a timer still counting (B14), made by the overlay from ``timers``: a RUNNING row, never waiting.
+  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent" | "timer";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;

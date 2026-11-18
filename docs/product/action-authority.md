@@ -92,7 +92,7 @@ code toward these rules, never away.
   the stack, or on a card held while the owner is away, approves nothing (`Session._confirm_reply`), and so does a
   click on Swift's own approval question off screen. A click was on the thing, so a refused click means the screen and
   the backend disagree: that OK or question comes to the front (`_open_card` / `_bring`) with "Still waiting: click
-  again to approve.", and the next click there approves. Owner check rule-gaps-1.
+  again to approve.", and the next click there approves. Owner check 430.
   Their owner checks are not run yet. The correction offer is level 1, so a plain spoken "yes" takes it while it's
   on screen (owner, 2026-11-15). Open: the hint leaves out "press Enter on Yes" until decision 2 is built.
   Speech with the hotkey held can't answer Swift's own question yet (FD-01).
@@ -123,7 +123,7 @@ code toward these rules, never away.
   request phrased as a question ("what can I write here?", "can I write here?") unless a writing verb leads it
   ("can you write this here"). A pattern can
   still miss a clear ask (then Swift asks once) but no longer turns these questions into silent writes. Owner checks
-  396 and rule-gaps-2; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
+  396 and 431; not run. Typing into a terminal, or anywhere in VS Code (OCT-01, a safeguard: its terminal
   can't be told from its editor), has its own card showing every character (level 3) instead of being refused.
   After its card ("Run this in …? Swift types it and presses Enter.") the real Windows writer types the command
   into a terminal and runs it (the owner's decision of 2026-11-15): only for a write approved as a terminal write

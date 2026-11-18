@@ -3100,7 +3100,7 @@ only after its short guard (a press in the first moment does nothing); Reject th
 
 About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
 
-<a id="check-rule-gaps-1"></a>**Check rule-gaps-1. An OK set aside can't be approved until it's in front again**
+<a id="check-430"></a>**Check 430. An OK set aside can't be approved until it's in front again**
 1. Ask for something that needs your OK ("Hey Swift, email Priya the tea report"). Don't answer it: let its
    countdown run out, so it waits in the stack.
 2. Open the stack and click **Open** on it; click **Reject**.
@@ -3113,7 +3113,7 @@ Swift's own yes/no question) that Swift thinks isn't in front, nothing is done: 
 "Still waiting: click again to approve.", and a second click there approves it. That happens only in a race between
 the screen and Swift, so you may never see it; tests cover it.
 
-<a id="check-rule-gaps-2"></a>**Check rule-gaps-2. Words that only look like asking to write ask first**
+<a id="check-431"></a>**Check 431. Words that only look like asking to write ask first**
 1. Open Notepad with an empty page and click into it.
 2. Say "Hey Swift, what's here on my screen?".
 3. Say "Hey Swift, what can I write here?".

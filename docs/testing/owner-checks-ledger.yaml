@@ -40,7 +40,7 @@ areas:
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
     paths: [src/swift/security/*, src/swift/restated.py, src/swift/intake.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
-    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385, 390, 391, 392, 393, rule-gaps-1]
+    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385, 390, 391, 392, 393, 430]
   typing:
     rule: typing never approves
     paths: [overlay/src/entry.ts, overlay/src/keyed.ts, src/swift/intake.py]
@@ -104,7 +104,7 @@ areas:
   apps:
     rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
-    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372, 396, 397, 399, rule-gaps-2]
+    checks: [10, 38, 39, 49, 50, 51, 75, 76, 92, 95, 252, 255, 310, 311, 330, 352, 389, 370-372, 396, 397, 399, 431]
   agent:
     paths: [src/swift/executors/claude_code.py, src/swift/executors/claude_mapping.py, src/swift/executors/step_grant.py, src/swift/executors/quick.py, src/swift/executors/providers.py, src/swift/failures.py, src/swift/runlog.py]
     checks: [19, 19b, 23-25, 28, 52, 56, 57, 59, 60, 148, 153-155, 159, 162, 183, 184, 193, 195, 199, 233, 234, 237-239, 259-261, 263, 264, 300-302, 340, 373, 405, 406]

@@ -1266,6 +1266,23 @@ function drawFollowup(left: number): void {
 // How long the reply window was open for, for its ring.
 let followupTotal = 0;
 
+// A4, Pin: one answer kept as an edge on the far side of the deck; it never fades (D11: one at a time).
+let pinned: { title: string; line: string; text: string } | null = null;
+const pinnedEl = el("div", { class: "pinned-edge", "data-hit": "", hidden: true });
+rowsEl.before(pinnedEl);
+
+function drawPinned(): void {
+  pinnedEl.hidden = pinned === null;
+  if (pinned === null) {
+    pinnedEl.replaceChildren();
+  } else {
+    pinnedEl.title = pinned.text;
+    pinnedEl.replaceChildren(icon("pin"), el("b", {}, pinned.title), el("span", { class: "pinned-line" }, pinned.line),
+      Card.iconButton("x", "Unpin", () => { pinned = null; drawPinned(); }));
+  }
+  scheduleRegions();
+}
+
 // Halo B14: the timers still counting (the backend's ``timers``), soonest first.
 let timers: TimerRow[] = [];
 
@@ -1619,12 +1636,22 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         copyButton(copyable),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), copyButton(copyable));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), pinButton(copyable), copyButton(copyable));
     }
   };
   drawBody();
   drawFoot();
   drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, foot] });
+}
+
+/** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */
+function pinButton(text: string): HTMLElement {
+  return el("button", { class: "btn btn--ghost", title: "Keep this answer as an edge until you close it", onclick: (ev: Event) => {
+    ev.stopPropagation();
+    pinned = { title: request ? clipLine(request, 40) : "Pinned answer", line: clipLine(text, 80), text };
+    drawPinned();
+    dismiss();
+  } }, icon("pin"), "Pin");
 }
 
 /** Swift's question (ADR-017): asking while it speaks, then waiting for the answer for the

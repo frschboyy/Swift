@@ -25,6 +25,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 const ICONS: Record<string, string> = {
   check: "M5 12.5l4.2 4.2L19 7",
   chevron: "M9 6l6 6-6 6",
+  pin: "M9 4h6l-1 6 4 4H6l4-4zM12 14v7",
   folder: "M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z",
   file: "M6 3h8l4 4v14H6zM14 3v4h4",
   x: "M6 6l12 12M18 6L6 18",

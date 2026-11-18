@@ -319,6 +319,13 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
       { name: "wallpaper.png", meta: "3.0 MB" },
     ] });
   },
+  // A4: an answer pinned as an edge, with the next answer in front.
+  pinned: async (s) => {
+    await answer(s, "What's the Wi-Fi password at the office?", "The guest network is Contoso-Guest; the password is on the card by reception.");
+    [...document.querySelectorAll<HTMLButtonElement>("#card .card-foot .btn")].find((b) => b.textContent === "Pin")?.click();
+    await sleep(300);
+    await answer(s, "What time is it?", "It's 3:42 pm");
+  },
   answerLongOpen: async (s) => {
     await answer(s, "Give me a short history of tea", LONG);
     document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();

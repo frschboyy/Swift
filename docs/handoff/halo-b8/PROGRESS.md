@@ -193,3 +193,12 @@ full suite at 943d42e passed (2391). No code fix: don't run the suite in a workt
   `dev/harness.html?theme=…`, call `__design(name)`, then `Page.captureScreenshot`. `dev/pane.html?label=…&state=…`
   does the same for panes.
 - `session.py` is at its line ratchet (4985). Put new backend logic in small modules, as `stops.py` does.
+
+## The continue branch (`claude/halo-b8-continue-7f85db`, from d85065b)
+
+| Item | Commit | Kind |
+|---|---|---|
+| Modes §1 learned trust: `trust.py` (table: Wi-Fi off, Bluetooth off, airplane on), said/approved grant (typed and config can't), count over the journal (3 approvals, 3 runs, 14 days, none rejected, once), lane and gateway skip the question, "always … without asking" / "ask me again about …", "And N things I do without asking" | 6a7ff23 | partial; **product rule: needs review** (tests `test_learned_trust.py`). **Not built:** the offer card itself (Always / Not now), "You said not to ask" as a Done-card row with Undo, the list card, "stop doing that without asking" |
+
+Started as their own sessions (each reports on its own branch): A3 hold during calls (`halo-a3-calls`), the live
+loop and styles cull (`halo-live-cull`), the plan card (`halo-plan-card`), §8.4 sender (`halo-84-sender`).

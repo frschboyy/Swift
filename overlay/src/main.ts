@@ -833,6 +833,7 @@ function trayStatus(): string {
   if (connection.phase === "lost") return "Reconnecting…";
   if (connection.phase === "failed") return "Stopped. The logs say why.";
   const paused = C.pausedBy(presence);
+  if (presence?.call) return "Holding · You're on a call";  // A3: cards and speech wait until it ends
   if (paused === "mic") return "Not listening · Mic off";
   if (paused === "locked") return "Not listening · Screen locked";
   if (paused === "asleep") return "Not listening · PC was asleep";
@@ -1316,7 +1317,8 @@ function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
   presence = p;
   const hold = `Hold ${pttText()} to talk.`;
   let text = `Swift: ready. ${hold}`;
-  if (p.paused) text = `Swift: not listening (paused from the tray). ${hold}`;
+  if (p.call) text = "Swift: holding cards and speech while you're on a call.";
+  else if (p.paused) text = `Swift: not listening (paused from the tray). ${hold}`;
   else if (p.wake && p.listening) text = `Swift: listening for “hey Swift”. Or ${hold.toLowerCase()}`;
   else if (p.wake && p.reason === "locked") text = "Swift: paused while the screen is locked.";
   else if (p.wake && p.reason === "asleep") text = "Swift: paused (the PC was asleep).";

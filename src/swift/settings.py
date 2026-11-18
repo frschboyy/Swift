@@ -304,6 +304,7 @@ class ExploreSettings(_Section):
     follow_monitor: bool = False  # A13: the orb follows the monitor you're working on
     what_can_i_say: bool = False  # A10: "What can I say?" on a card
     next_steps: bool = False  # A11: up to two next-step chips
+    hold_during_calls: bool = False  # A3: cards and speech wait while you're on a call or presenting
 
 
 class LoggingSettings(_Section):

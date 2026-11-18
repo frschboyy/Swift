@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import captions, clock, frames, memory, recent, refused, retrying, seen, stops, timers
+from swift import calls, captions, clock, frames, memory, recent, refused, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -875,6 +875,7 @@ class Session:
         self._last_shown_write: Any = None
         # Called when the owner talks to Swift (the hotkey, the wake phrase): they're here.
         self.on_owner: Callable[[], None] | None = None
+        self.on_open_held: Callable[[], Awaitable[None]] | None = None  # A3: lifts a call hold (Lifecycle.lift_call)
         # The "Unfinished: …" line shown last: (thread, when).
         self._offered: tuple[str, float] | None = None
         # An answer that asked something, parked if nothing is said before its timer fires.
@@ -1464,8 +1465,7 @@ class Session:
             if index is None:
                 return
             if index == 0:
-                self._owner_here()  # held while away: the owner is here, so it comes back
-                return
+                return await calls.open_held(self)  # held while away or on a call: the owner chose it, it comes back
             entry = self._cards.pop(index)
         if self._cards and self.attention is not None:
             before = self._cards[0][1]
@@ -3626,7 +3626,7 @@ class Session:
         """A confirm card on screen for a spoken request is read aloud (ADR-016 §15.4): its title and
         key facts, so the owner can approve eyes-free. Approving still needs "Swift, yes" or the hotkey."""
         card = run.card
-        if card is None or card.data.get("request_id") != request_id:
+        if await calls.hold_new(self, request_id) or card is None or card.data.get("request_id") != request_id:
             return
         record = run.record or {}
         if record.get("source") not in SPOKEN_SOURCES and self.speech_replies != "always":
@@ -4315,13 +4315,13 @@ class Session:
         if self.on_owner is not None:
             self.on_owner()
 
-    async def hold_cards(self, held: bool) -> None:
+    async def hold_cards(self, held: bool, why: str = "away") -> None:
         """The owner left (hide open confirm cards, stop their countdown) or came back (show them again,
         and what came due meanwhile: ``notify_due``)."""
-        self._away = held
+        began, self._away = held and not self._away, held  # held again mid-call: nothing new to forget
         if held and self._deaf():
             self._drop_heard()  # locked, not merely idle: the owner may be talking hands-free while idle
-        if held:
+        if began:
             self.dialogue.forget()  # nothing said before carries over to what is said after (§5.1)
             self._away_questions()
         if not held and self._due:
@@ -4336,8 +4336,8 @@ class Session:
                 # Hidden: back, it counts down again only once the overlay says it drew it.
                 self.attention.set_seen(request_id, False)
             if (entry := self._approval(request_id)) is not None and held:
-                entry["held_away"] = entry.get("held_away", 0) + 1
-            logger.info("confirm card held while away" if held else "confirm card back")
+                entry[f"held_{why}"] = entry.get(f"held_{why}", 0) + 1  # held_away, or held_call (A3)
+            logger.info("confirm card held" if held else "confirm card back", why=why)
             if not held and (run := self._owner_of(request_id)) is not None and run is self._focus:
                 # Draw it again from the start: the overlay may have moved on while it was hidden
                 # (owner check 18, 2026-10-27: back was logged, nothing was redrawn).

@@ -9,6 +9,7 @@
 | Away for ``release_after_s`` (30 min) | Warm Claude Code released. The speech model too, unless hands-free listening still needs it (away only because the keyboard was idle) |
 | Here or idle, every few minutes | A warm Claude Code that exited on its own is replaced, so the first request after a quiet spell isn't slow |
 | Away, for any reason (L2) | An open confirm card is held: hidden, its countdown stopped (``Session.hold_cards``). Back: shown again |
+| On a call or presenting (A3, ``explore.hold_during_calls``) | The same hold; freed when the call ends, unless the owner is away |
 
 Each change is also announced to the overlay (``presence``) for the tray tooltip and the capsule.
 
@@ -78,6 +79,9 @@ class Lifecycle:
         self._back: tuple[str, float, dict[str, float]] | None = None
         # The owner paused listening from the tray (ADR-017).
         self.paused = False
+        self.in_call = False  # A3: a call or a presentation is on (calls.py): held like away
+        self.call_lifted = False  # the owner opened the held card during this call: no hold until the next one
+        self.call_watch: asyncio.Task[None] | None = None  # the running calls.CallWatch, kept from collection
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
@@ -92,6 +96,29 @@ class Lifecycle:
             return self.monitor.probe.locked()
         except Exception:  # noqa: BLE001 - as ``PresenceMonitor.poll``: a failed probe changes nothing
             return False
+
+    async def set_call(self, on: bool, seconds: float) -> None:
+        """A call or presentation started or ended (``calls.CallWatch``): hold cards like away; not freed while away."""
+        self.in_call, self.call_lifted = on, False
+        logger.info("call hold" if on else "call hold ended", seconds=round(seconds))
+        await self._call_hold()
+
+    async def lift_call(self) -> None:
+        """The owner opened the held card during a call (``calls.open_held``): shown until the next call."""
+        if self.in_call:
+            self.call_lifted = True
+            await self._call_hold()
+
+    @property
+    def holding_call(self) -> bool:
+        return self.in_call and not self.call_lifted
+
+    async def _call_hold(self) -> None:
+        hold_cards = getattr(self.session, "hold_cards", None)
+        if hold_cards is not None:
+            away = self.monitor is not None and self.monitor.state == "away"
+            await hold_cards(away or self.holding_call, "away" if away else "call")
+        await self.announce()  # the tray and capsule say why Swift is holding (review 7ab2b70 finding 3)
 
     # ---- presence changes ---------------------------------------------------------------
 
@@ -109,7 +136,7 @@ class Lifecycle:
             changed()
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
-            await hold_cards(change.new == "away")
+            await hold_cards(change.new == "away" or self.holding_call, "away" if change.new == "away" else "call")
         if change.returned:
             # The speech model first: it is the slow part (paged out while locked), and the
             # microphone reopening behind a busy audio thread must not hold it up.
@@ -253,6 +280,7 @@ class Lifecycle:
                 paused=self.paused,
                 # Modes §3: the tray says so (sent only while on).
                 **({"asking": True} if asking.is_on(getattr(self.session, "memories", None)) else {}),
+                **({"call": True} if self.holding_call else {}),  # A3: holding while on a call (sent only while on)
             )
         )
 

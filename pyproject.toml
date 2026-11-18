@@ -101,6 +101,7 @@ ignore = [
 "src/swift/session.py" = ["F401"]
 "src/swift/signin.py" = ["S603"]
 "src/swift/captions.py" = ["S603"]  # A6: tasklist.exe from System32, fixed arguments (is Live captions running?)
+"src/swift/calls.py" = ["BLE001"]  # A3: the call watcher outlives a failed probe or hold, logging the error class
 "src/swift/files.py" = ["S603", "S606", "S607"]  # B13: os.startfile and Explorer on a path Swift verified
 "src/swift/stt/transcriber.py" = ["RUF021"]
 "src/swift/system/control.py" = ["S603", "S607"]

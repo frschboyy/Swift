@@ -1717,3 +1717,20 @@ async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens
     screen = agree(session, out)
     assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
     await finish_all(session, agent)
+
+
+@pytest.mark.parametrize("said", ["Swift, yes", "Swift, approve", "yes", "approve it"])
+async def test_a_yes_while_a_lapsed_ok_waits_in_the_stack_approves_nothing(said: str) -> None:
+    """F1 follow-up (orchestrator, 2026-11-18): once an OK ran out into the stack, nothing is on screen to
+    approve. A "yes" or "approve", with Swift's name or without, approves nothing; the OK stays in the stack and
+    only the owner's Open brings it back."""
+    session, out, agent, stt, rid = await _lapsed()
+    replies = [m for m in out.messages if m.type == "result"]
+    await say(session, stt, said)
+    await asyncio.sleep(0.1)
+    assert session._open_confirm() is None, "a lapsed OK came back to be approved"
+    assert not any(m.data.get("run_id") == rid.split(":")[0] and m.data.get("status") == "done"
+                   for m in out.messages[len(replies):] if m.type == "result"), "the lapsed OK's run went on"
+    assert any(i["id"] == f"card:{rid}" for i in out.last("stack")["items"]), "the OK left the stack"
+    agree(session, out)
+    await finish_all(session, agent)

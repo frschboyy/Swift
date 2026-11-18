@@ -85,7 +85,7 @@ areas:
     checks: [400, 402, 403, 404, 405, 406, 407, 408]
   halo:
     paths: [overlay/src/dress.ts, overlay/src/geometry.ts, overlay/src/styles.css, overlay/src/views.ts, overlay/src/pane.ts, overlay/src/ready.ts]
-    checks: [216-221, halo-b8-build-4fbdf7-4, halo-b8-build-4fbdf7-5]
+    checks: [216-221, halo-b8-build-4fbdf7-4, halo-b8-build-4fbdf7-5, halo-b8-build-4fbdf7-6]
   halo-b8-fixes:
     rule: an OK that lapses waits in the stack and only the owner brings it back; "stop" always says what it stopped
     paths: [src/swift/session.py, src/swift/stops.py, overlay/src/presenter.ts, overlay/src/deck.ts, overlay/src/pane.ts, overlay/src-tauri/src/lib.rs]

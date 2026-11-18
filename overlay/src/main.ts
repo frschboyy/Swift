@@ -236,6 +236,10 @@ function drawCapsule(): void {
   }
 }
 
+capsuleEl.addEventListener("click", (ev) => {
+  if (expanded && !(ev.target as HTMLElement).closest("button")) foldExpanded();
+});
+
 capBtn.addEventListener("click", () => {
   if (capBtn.dataset.action === "stop") stopSpeaking();
   else if (capBtn.dataset.action === "resume") client.send({ type: "listen", data: { on: true } });
@@ -369,7 +373,7 @@ const deckDraw = new DeckDraw({
   label: rowLabel,
   focus: askFocus,
   watch: (r) => openLive(r.runId, r.title, r.words ?? ""),
-  unfold: () => card.querySelector<HTMLElement>('.link[aria-expanded="true"]')?.click(),
+  unfold: () => card.querySelector<HTMLElement>('.show-all[aria-expanded="true"]')?.click(),
   landingFrom: () => capsuleEl.getBoundingClientRect(),
 });
 
@@ -1562,15 +1566,17 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const drawFoot = (): void => {
     if (long) {
       foot.replaceChildren(
-        el("button", { class: "link", "aria-expanded": String(expanded), onclick: (ev: Event) => {
+        // B5: "Show all · <how much>" under the fade at the cap; open, "Show less" (also Esc or a click on the orb).
+        el("button", { class: "btn btn--ghost show-all", "aria-expanded": String(expanded), onclick: (ev: Event) => {
           ev.stopPropagation();
           setExpanded(!expanded);
           body.classList.toggle("answer--open", expanded);
           card.classList.toggle("card--open", expanded);
+          if (!expanded) body.scrollTop = 0;  // folds back to the top
           drawBody();
           drawFoot();
-        } }, expanded ? "Read less" : "Read more", icon(expanded ? "collapse" : "expand")),
-        el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : `· ${A.minutesToRead(copyable)}`),
+        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.minutesToRead(copyable)}`),
+        el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         copyButton(copyable),
       );
@@ -1840,8 +1846,15 @@ function setExpanded(open: boolean): void {
   if (open === expanded) return;
   expanded = open;
   setHold(!open);
-  drawRows();  // the deck folds to one edge, so a long answer isn't squeezed (ADR-018)
+  // The deck folds to one edge at once, so a long answer isn't squeezed (ADR-018); it unfolds 160 ms after
+  // the card folds back (B5).
+  if (open) drawRows();
+  else window.setTimeout(drawRows, 160);
+  void syncEscape();
 }
+
+/** B5: an expanded card folds back with Show less, Esc or a click on the orb. */
+const foldExpanded = (): void => card.querySelector<HTMLElement>('.show-all[aria-expanded="true"]')?.click();
 
 // Scrolling a long answer holds it too, until a moment after the last scroll.
 let scrollHold = 0;
@@ -1992,7 +2005,7 @@ function liveHovered(): Set<string> {
 // ---- Esc: only grabbed while Swift is active, speaking, or the stack is open -----------
 
 async function syncEscape(): Promise<void> {
-  const want = (ACTIVE.has(stageNow()) || speaking || stack.expanded) && !typing;
+  const want = (ACTIVE.has(stageNow()) || speaking || stack.expanded || expanded) && !typing;
   if (want === escapeActive) return;
   escapeActive = want;
   try {
@@ -2007,6 +2020,7 @@ function onEscape(): void {
   if (speaking) stopSpeaking();
   else if (ACTIVE.has(stageNow())) client.send({ type: "cancel", data: {} });
   else if (stack.expanded) collapseStack();
+  else if (expanded) foldExpanded();
 }
 
 // ---- backend messages ----------------------------------------------------------

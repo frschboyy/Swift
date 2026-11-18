@@ -220,7 +220,7 @@ The report checks: a typed request; a typed follow-up in the same conversation; 
 
 ### Other requests behind the card, cards that wait their turn (ADR-015, ADR-018)
 
-Other requests are labelled edges behind the card, a long answer opens in place on its card (Read more / Read less),
+Other requests are labelled edges behind the card, a long answer opens in place on its card (Show all / Show less),
 and you can drag the card anywhere, with its edges. A card only counts down while it's on screen and you're there.
 
 <a id="check-17"></a>**Check 17**
@@ -234,11 +234,11 @@ The report checks: two requests running at the same time.
 
 <a id="check-18"></a>**Check 18**
 1. After check 17, let the time answer fade, and wait for the research to finish. Don't click anything.
-2. When the answer shows, click **Read more**, scroll, then click **Read less**.
+2. When the answer shows, click **Show all**, scroll, then click **Show less**.
 
 You should see: the research comes back to the main card **by itself**. Its answer scrolls inside the card, nothing cut off.
-The text stops after six lines; **Read more** opens the **same card** to the whole answer, and it stays while open,
-even with the mouse elsewhere. **Read less** closes it, and it fades a few seconds later.
+The text stops at the card's height, with a fade; **Show all** opens the **same card** to the whole answer, and it stays while open,
+even with the mouse elsewhere. **Show less** closes it, and it fades a few seconds later.
 
 <a id="check-19"></a>**Check 19**
 1. Say "Hey Swift, what's the capital of Peru".
@@ -691,10 +691,10 @@ The report checks: listening paused and resumed from the tray.
 1. Say "Hey Swift, what time is it".
 2. Say "Hey Swift, is it going to rain this afternoon".
 3. Say "Hey Swift, what's on my calendar tomorrow".
-4. Say "Hey Swift, give me a short history of tea", and click **Read more** on its card.
+4. Say "Hey Swift, give me a short history of tea", and click **Show all** on its card.
 
 You should see: a one-line answer in **large** text; a paragraph answer; a calendar **table** (nothing cut off sideways);
-the history clipped at six lines with **Read more ⌄ · N min read**. Read more grows it in place with a blue border and
+the history cut at the card's height with **Show all · N min read**. Show all grows it in place with a blue border and
 "Stays while open"; only the text scrolls (the mouse wheel works without clicking first). Each card has a mic icon and your
 words in quotes at the top, "Swift · via Claude" at the bottom, and a thin blue bar draining while it's up; pointing stops the bar.
 
@@ -1121,7 +1121,7 @@ You should see: the chime and the request start, just as with a pause.
 The report checks: "Hey Swift" said without a pause started requests.
 
 <a id="check-126"></a>**Check 126**
-1. Let the research from check 125 finish. Read the card, then click **Read more**.
+1. Let the research from check 125 finish. Read the card, then click **Show all**.
 
 You should see: every point whole, never cut off with "…", and no "…and 5 more" that can't be opened. No "(Blocked: WebFetch.)";
 a page Swift refused shows as "Skipped a page whose address wasn't from a search" among the steps.
@@ -1517,8 +1517,8 @@ You should see: the approval card takes the front at once, with the research as 
 cross-fading. After Reject the research comes back. (Approving still needs "Swift, yes" or a click.)
 
 <a id="check-173"></a>**Check 173**
-1. With two other requests running, say "Hey Swift, give me a detailed history of tea", and click **Read more** on its answer.
-2. Click the folded edge. Then do it again with **Read less**.
+1. With two other requests running, say "Hey Swift, give me a detailed history of tea", and click **Show all** on its answer.
+2. Click the folded edge. Then do it again with **Show less**.
 
 You should see: the edges **fold to one**, "2 more running" (amber, "1 needs your OK", if one does), and the answer isn't squeezed.
 Clicking that edge closes the answer and the edges come back. Read less does the same.
@@ -2347,7 +2347,7 @@ fades, so the bar said something untrue; the owner's decision, 2026-11-14). Thes
 
 <a id="check-305"></a>**Check 305. Cards look and work as before**
 1. Say "Hey Swift, what time is it?": a one-line answer. Click it: it goes.
-2. Say "Hey Swift, give me a short history of tea": a long answer. Click **Read more**, then **Read less**, then **Copy**.
+2. Say "Hey Swift, give me a short history of tea": a long answer. Click **Show all**, then **Show less**, then **Copy**.
 3. Say "Hey Swift, add lunch with Test Me tomorrow at noon to my calendar": the amber approval card, its countdown
    running. Click **Reject**: a "Not done" line, gone in a few seconds.
 4. Say "Hey Swift, using the terminal, list the files in my Documents": a command card with **What it says this
@@ -2405,17 +2405,17 @@ Notepad kept the cursor.
 ### A long answer, read to the end (2026-11-14)
 
 About 2 minutes. In check 305 the tea answer showed its opening paragraph cut off with "…", then the whole paragraph
-again, and **Read more** kept both. Fixed: the card starts with the opening's first sentences and goes on from there.
+again, and **Show all** kept both. Fixed: the card starts with the opening's first sentences and goes on from there.
 
 <a id="check-340"></a>**Check 340. A long answer says its opening once and reads to the end**
 1. Say "Hey Swift, research the history of tea". Wait for the answer.
 2. Read the first lines on the card: no sentence ends in "…" there.
-3. Click **Read more**. Scroll to the end of the answer.
+3. Click **Show all**. Scroll to the end of the answer.
 
 You should see: the opening paragraph once (its first sentence or two, then the rest of it just below), no "…"
-anywhere, and the answer's last line at the bottom. Then **Read less** and **Copy** work as before.
+anywhere, and the answer's last line at the bottom. Then **Show less** and **Copy** work as before.
 
-The report checks: nothing to judge from the log; tell us whether the opening showed twice, and whether Read more
+The report checks: nothing to judge from the log; tell us whether the opening showed twice, and whether Show all
 showed the end with no "…".
 ### Fixes from the repo audit of 2026-11-11 (2026-11-14)
 
@@ -2479,9 +2479,9 @@ You should see: the card at another place on the screen, not behind Task Manager
 letter goes into Notepad. Click **Reject**, close Task Manager, and say "Hey Swift, what time is it": the card is back
 where you put Swift.
 
-<a id="check-383"></a>**Check 383. At 150%: a long answer, Read more and the stack**
+<a id="check-383"></a>**Check 383. At 150%: a long answer, Show all and the stack**
 1. Set **Settings > System > Display > Scale** to 150% (put it back afterwards).
-2. Say "Hey Swift, research the history of tea". When the answer comes, click **Read more** and scroll to the end.
+2. Say "Hey Swift, research the history of tea". When the answer comes, click **Show all** and scroll to the end.
 3. Say "Hey Swift, set a timer for 20 seconds", then "Hey Swift, turn off Wi-Fi", and leave the question unanswered
    until the timer comes due.
 
@@ -2574,9 +2574,9 @@ stays empty. Tell us which window got which field if they were split.
 <a id="check-373"></a>**Check 373. A long bold opening shows no stars on the card**
 1. Type in the text box: "Answer in one paragraph whose first sentence is over 350 characters long and has a long
    bold phrase in the middle of it, then a second paragraph."
-2. Read the first lines on the card, then click **Read more**.
+2. Read the first lines on the card, then click **Show all**.
 
-You should see: no "**" anywhere, on the card or after Read more, and no words said twice.
+You should see: no "**" anywhere, on the card or after Show all, and no words said twice.
 
 <a id="check-374"></a>**Check 374. Two radios said again in the other order turn both off**
 1. Make sure Wi-Fi and Bluetooth are on. Say "Hey Swift, turn off the wifi and turn off the bluetooth".
@@ -2737,7 +2737,7 @@ About 4 minutes, on the branch with B4's second slice. Nothing here sends anythi
 
 <a id="check-402"></a>**Check 402. A diagram shows as a drawing, marked as the worker's**
 1. Say "Hey Swift, draw me a diagram of how making a cup of tea works, from boiling the kettle to drinking it".
-2. When the answer shows, look at the card. If it has **Read more**, press it. Then press **Copy** and paste into
+2. When the answer shows, look at the card. If it has **Show all**, press it. Then press **Copy** and paste into
    Notepad.
 3. Say "Hey Swift, draw a sequence diagram of me ordering a pizza by phone, with every step".
 
@@ -2745,31 +2745,31 @@ You should see: step 1 says one or two sentences aloud, not the diagram. A momen
 appears under a grey bar that says "Drawn from the worker's outline, not checked by Swift", in grey and white (or
 grey and black in light mode), never Swift's blue, amber or red. Nothing on the card names the provider. The first
 diagram takes up to a second longer than later ones. Step 2 pastes the diagram's outline as text. Step 3's diagram
-is taller than a card: the card shows its top and **Read more** opens all of it. If a card says "Swift couldn't draw
+is taller than a card: the card shows its top and **Show all** opens all of it. If a card says "Swift couldn't draw
 this diagram", or step 1 shows only words, say so.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
 <a id="check-403"></a>**Check 403. A mind map shows as branches, marked as the worker's**
 1. Say "Hey Swift, make me a mind map of ideas for a birthday party for a ten-year-old".
-2. When the answer shows, look at the card, press **Read more** if it's there, then press **Copy** and paste into
+2. When the answer shows, look at the card, press **Show all** if it's there, then press **Copy** and paste into
    Notepad.
 
 You should see: the card shows the theme on the left and its branches to the right, each branch's ideas beside it,
 under a grey bar that says "Mapped by the worker, not checked by Swift", in neutral colours. Long labels wrap; none
-is cut. With more than 12 ideas, the card shows the first ones and "and N more ideas (Read more shows them)", and
-Read more shows them all. Step 2 pastes the map as indented lines, one idea per line.
+is cut. With more than 12 ideas, the card shows the first ones and "and N more ideas (Show all shows them)", and
+Show all shows them all. Step 2 pastes the map as indented lines, one idea per line.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
 <a id="check-404"></a>**Check 404. A large mind map shows every branch before deeper ideas**
 1. Say "Hey Swift, make me a birthday-party mind map with lots of games, plus branches for food, invites, music and decorations".
 2. Look at the card; scroll inside the map only if its preview is shorter than the branches.
-3. Press **Read more**, then **Copy** and paste into Notepad.
+3. Press **Show all**, then **Copy** and paste into Notepad.
 
 You should see: Games, Food, Invites, Music and Decorations all appear before deeper game ideas, under the neutral
 "Mapped by the worker, not checked by Swift" label. The preview has no six-line fade; if the screen is short, its
-map can scroll. Read more shows the whole map, and Copy includes every idea. If the worker returns only words, say so.
+map can scroll. Show all shows the whole map, and Copy includes every idea. If the worker returns only words, say so.
 
 The report checks: nothing to judge from the log yet; tell us what you saw.
 
@@ -2804,7 +2804,7 @@ About 5 minutes. Use sample numbers; no files or accounts are needed.
 1. Ask Swift: "Make a bar chart of North and South sales for Q1, Q2 and Q3: North 12, 18, 15; South 9, 14, 17."
 2. Check that the labels, values, units and two series are visible, and that the chart is marked as the worker's.
 3. Ask Swift: "Make a line chart for North's weekly values: W1 10, W2 11, W3 13, W4 12, W5 15, W6 16, W7 18."
-4. Check that the card says two categories are in Read more. Open Read more and confirm W7 is shown; Copy the answer and check that all seven labels and values are present.
+4. Check that the card says two categories are in Show all. Open Show all and confirm W7 is shown; Copy the answer and check that all seven labels and values are present.
 
 You should see neutral bar and line charts, not a coloured recommendation. If a number, label or series is missing,
 or the full line chart can't be copied, say which one.
@@ -2817,7 +2817,7 @@ About 3 minutes. Use sample text only; no files or accounts are needed.
 
 <a id="check-408"></a>**Check 408. Project cards are readable and copy completely**
 1. Ask Swift: "Show four projects as cards: Website refresh, planning, update the homepage; Data migration, in progress, move the archive; Mobile app, next quarter, improve offline access; Reporting, planned, combine project metrics."
-2. Look at the first three cards and their worker mark. Press **Read more** and check that Reporting appears.
+2. Look at the first three cards and their worker mark. Press **Show all** and check that Reporting appears.
 3. Press **Copy** and check that all four titles, details and statuses are included.
 
 You should see a small set of neutral, read-only project cards, with no action buttons. If a project or its status is
@@ -2977,6 +2977,16 @@ looks wrong or hard to read.
 2. Start it once more after the next update.
 
 You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
+
+<a id="check-halo-b8-build-4fbdf7-6"></a>**Check halo-b8-build-4fbdf7-6. A long answer grows, then Show all and Show less (B5)**
+1. Say "Hey Swift, give me a detailed history of tea" and wait for the answer.
+2. Click **Show all**, scroll to the end, then press Esc.
+3. Click **Show all** again, then click the orb.
+4. With two other requests running, do step 2 again, and while it's open say "Hey Swift, email Priya the tea report".
+
+You should see: the answer fills most of the window before it's cut, with a fade and "Show all · N min read";
+open, the card is wider and only its text scrolls; Esc and a click on the orb fold it back to the top; while open
+the other requests are one edge, and the OK shows on it in amber. Click **Reject**.
 
 ## After the checks: the report
 

@@ -302,9 +302,12 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerProjectsLong: async (s) => { await answer(s, "List all my current projects", "Five projects are in progress.", PROJECTS_LONG); },
   answerTyped: async (s) => { await answer(s, "convert 12 miles to km", "12 miles is **19.3 km**.", null, { typed: true }); },
   answerLong: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
+  // B5 (03-verify.md names): a long answer at its cap, and expanded by hand.
+  cardCapped: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
+  cardExpanded: async (s) => { await DESIGN.answerLongOpen(s); },
   answerLongOpen: async (s) => {
     await answer(s, "Give me a short history of tea", LONG);
-    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();
     await sleep(250);
   },
   failed: async (s) => {
@@ -410,14 +413,14 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     const id = await answer(s, "Give me a short history of tea", LONG);
     s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 2).map((r) => ({ ...r, state: "working", activity: "reading", agent: AGENT })) });
     await sleep(SETTLED_MS);
-    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();
     await sleep(320);
   },
   deckFoldedOk: async (s) => {
     const id = await answer(s, "Give me a short history of tea", LONG);
     s.inject("runs", { focus: id, waiting: 0, rows: behind().slice(0, 2) });
     await sleep(SETTLED_MS);
-    document.querySelector<HTMLButtonElement>("#card .card-foot .link")?.click();
+    document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();
     await sleep(320);
   },
   deckConfirmTight: async (s) => {

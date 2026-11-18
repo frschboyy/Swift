@@ -655,8 +655,14 @@ code {
 .project-card-meta { color: var(--faint); font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
 .project-card-detail { color: var(--muted); font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 
-/* a long answer: six lines, faded; open, it grows in place and only its body scrolls */
-.answer--long { max-height: 156px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+/* B5: a long answer grows to the cap (the window's free height, less 34 px an edge shown, less the card's own
+   chrome), and a 56 px fade marks the cut; open (by hand only), the card is 640 wide and only its body scrolls. */
+.answer--long {
+  max-height: max(156px, calc(100vh - 78px - var(--deck-h, 0px) - 190px));
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - var(--cap-fade-h)), transparent);
+  mask-image: linear-gradient(#000 calc(100% - var(--cap-fade-h)), transparent);
+}
 /* Mind maps choose their own card preview; on short screens, scroll instead of clipping the selected branches. */
 #stage .answer--long:not(.answer--open):has(> .mindmap) {
   max-height: calc(min(70vh, 720px) - 150px);
@@ -696,7 +702,7 @@ code {
   mask-image: none;
 }
 .answer--open {
-  max-height: calc(min(70vh, 720px) - 150px);
+  max-height: calc(100vh - 78px - var(--deck-h, 0px) - 190px);
   overflow-y: auto;
   -webkit-mask-image: none;
   mask-image: none;
@@ -1473,7 +1479,7 @@ code {
 #stage .step--now::before { background: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
 #stage .answer { margin-top: 8px; line-height: 1.45; }
 #stage .answer--line { line-height: 34px; }
-#stage .answer--long { max-height: 148px; }
+#stage .card--open { --card-w: var(--card-w-expanded); }
 #stage .answer-table td { border-top-color: var(--rim); }
 #stage .fail { margin-top: 8px; }
 #stage .card-in:not(:has(> .halo-state)) > .fail { margin-top: 14px; }

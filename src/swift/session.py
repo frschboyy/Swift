@@ -875,6 +875,7 @@ class Session:
         self._last_shown_write: Any = None
         # Called when the owner talks to Swift (the hotkey, the wake phrase): they're here.
         self.on_owner: Callable[[], None] | None = None
+        self.on_open_held: Callable[[], Awaitable[None]] | None = None  # A3: lifts a call hold (Lifecycle.lift_call)
         # The "Unfinished: …" line shown last: (thread, when).
         self._offered: tuple[str, float] | None = None
         # An answer that asked something, parked if nothing is said before its timer fires.
@@ -1464,8 +1465,7 @@ class Session:
             if index is None:
                 return
             if index == 0:
-                self._owner_here()  # held while away: the owner is here, so it comes back
-                return
+                return await calls.open_held(self)  # held while away or on a call: the owner chose it, it comes back
             entry = self._cards.pop(index)
         if self._cards and self.attention is not None:
             before = self._cards[0][1]

@@ -184,3 +184,41 @@ def test_a_key_opened_hours_ago_is_stale() -> None:
     ticks = 10_000_000  # Windows' FILETIME: 100 ns ticks since 1601
     assert opened_recently(int((now - 60 + 11644473600) * ticks), now) is True
     assert opened_recently(int((now - STALE_S - 1 + 11644473600) * ticks), now) is False
+
+
+# ---- review 7ab2b70 finding 4: the owner can bring a held card back during a call ----------------------
+
+
+async def test_opening_the_held_card_lifts_the_call_hold_until_the_next_call() -> None:
+    held: list[bool] = []
+    life = await _life(held)
+    await life.set_call(True, 0)
+    await life.lift_call()  # the owner opened the held card from the stack: they chose to show it
+    change = types.SimpleNamespace(new="idle", locked_or_asleep=False, returned=False, reason="input")
+    await life.handle(change)  # type: ignore[arg-type]
+    assert held == [True, False, False]
+    await life.set_call(False, 60)
+    await life.set_call(True, 0)  # a new call holds again
+    assert held[-1] is True
+
+
+async def test_the_stack_open_of_the_held_card_asks_the_lifecycle_to_lift_the_hold() -> None:
+    from swift.attention import Attention
+    from swift.parked import ParkedThreads
+    from test_corrections import finish, make, start
+
+    session, out, records, calendar, agent, stt = make(attention=Attention(), parked=ParkedThreads(None))
+    lifted: list[bool] = []
+
+    async def lift() -> None:
+        lifted.append(True)
+        await session.hold_cards(False)
+
+    session.on_open_held = lift
+    await session.hold_cards(True)
+    await start(session, out, stt)
+    card = out.last("confirm.request")
+    await session.handle(Message("stack.action", {"id": f"card:{card['request_id']}", "action": "open"}))
+    assert lifted == [True] and out.last("confirm.hold") == {"request_id": card["request_id"], "held": False}
+    await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "reject"}))
+    await finish(session)

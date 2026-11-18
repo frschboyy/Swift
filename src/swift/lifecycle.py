@@ -80,6 +80,7 @@ class Lifecycle:
         # The owner paused listening from the tray (ADR-017).
         self.paused = False
         self.in_call = False  # A3: a call or a presentation is on (calls.py): held like away
+        self.call_lifted = False  # the owner opened the held card during this call: no hold until the next one
 
     def attach(self, monitor: PresenceMonitor) -> None:
         self.monitor = monitor
@@ -97,12 +98,25 @@ class Lifecycle:
 
     async def set_call(self, on: bool, seconds: float) -> None:
         """A call or presentation started or ended (``calls.CallWatch``): hold cards like away; not freed while away."""
-        self.in_call = on
+        self.in_call, self.call_lifted = on, False
         logger.info("call hold" if on else "call hold ended", seconds=round(seconds))
+        await self._call_hold()
+
+    async def lift_call(self) -> None:
+        """The owner opened the held card during a call (``calls.open_held``): shown until the next call."""
+        if self.in_call:
+            self.call_lifted = True
+            await self._call_hold()
+
+    @property
+    def holding_call(self) -> bool:
+        return self.in_call and not self.call_lifted
+
+    async def _call_hold(self) -> None:
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
             away = self.monitor is not None and self.monitor.state == "away"
-            await hold_cards(away or on)
+            await hold_cards(away or self.holding_call)
         await self.announce()  # the tray and capsule say why Swift is holding (review 7ab2b70 finding 3)
 
     # ---- presence changes ---------------------------------------------------------------
@@ -121,7 +135,7 @@ class Lifecycle:
             changed()
         hold_cards = getattr(self.session, "hold_cards", None)
         if hold_cards is not None:
-            await hold_cards(change.new == "away" or self.in_call)
+            await hold_cards(change.new == "away" or self.holding_call)
         if change.returned:
             # The speech model first: it is the slow part (paged out while locked), and the
             # microphone reopening behind a busy audio thread must not hold it up.
@@ -265,7 +279,7 @@ class Lifecycle:
                 paused=self.paused,
                 # Modes §3: the tray says so (sent only while on).
                 **({"asking": True} if asking.is_on(getattr(self.session, "memories", None)) else {}),
-                **({"call": True} if self.in_call else {}),  # A3: holding while on a call (sent only while on)
+                **({"call": True} if self.holding_call else {}),  # A3: holding while on a call (sent only while on)
             )
         )
 

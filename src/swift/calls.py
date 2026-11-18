@@ -56,6 +56,14 @@ def opened_recently(start: int, now: float) -> bool:
     return now - (start / 10_000_000 - _EPOCH_1601) < STALE_S
 
 
+async def open_held(session: Any) -> None:
+    """The owner opened the held card from the stack: they're here, and on a call they chose to show it, so the
+    call hold is lifted until the next call (``Lifecycle.lift_call``; review 7ab2b70 finding 4)."""
+    session._owner_here()
+    if session.on_open_held is not None:
+        await session.on_open_held()
+
+
 class Probe(Protocol):
     def in_call(self) -> bool: ...
 

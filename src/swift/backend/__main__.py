@@ -560,7 +560,9 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     # What the owner asked Swift to remember (swift/memory.py); debug mode never touches the owner's.
     session.memories = Store(Path(tempfile.mkdtemp(prefix="swift-memory-")) if settings.debug else Path(settings.memory_dir))
     # "Ask me about everything" (asking.py): one setting in the store, read where each card is decided.
-    asks_all = lambda: asking.is_on(session.memories)  # noqa: E731
+    def asks_all() -> bool:
+        return asking.is_on(session.memories)
+
     if session.tools is not None:
         session.tools.gateway.ask_everything = asks_all
     if isinstance(session.executor, ClaudeCodeExecutor):

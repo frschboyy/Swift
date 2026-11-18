@@ -63,7 +63,7 @@ from typing import Any
 import psutil
 from loguru import logger
 
-from swift import clock, previews, shapes
+from swift import clock, files, previews, shapes
 from swift.attention import Attention, wait_answer
 from swift.executors.base import ExecEvent, ExecResult, ExecutorUnavailable, Grant, UnknownRun, WorkerTask
 from swift.executors.claude_mapping import (
@@ -1079,6 +1079,8 @@ async def _show_result(run: _Run, args: Any, reads: ReadScope, cwd: str | None) 
     if shape is None:
         logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
         return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))
+    if shape["shape"] == "tree":  # B13: its root only once Swift has found it in the read folders, on disk
+        shape = files.verify_tree(shape, reads.verdict)
     if shape["shape"] != "preview":
         return _accepted_shape(run, shape)
     path = target_path("Read", {"file_path": shape["path"]}, cwd)

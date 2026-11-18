@@ -1804,6 +1804,11 @@ code {
 #stage .fail-step-mark { flex: none; width: 12px; color: var(--ok); font-weight: 700; }
 #stage .fail-step--failed { color: var(--text); }
 #stage .fail-step--failed .fail-step-mark { color: var(--bad); }
+/* B13: the selected row's path, with Open (primary) and Show in folder; a row Swift didn't find has none. */
+.tree-strip { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px; border-radius: 10px; background: var(--raise); }
+.tree-strip[hidden] { display: none; }
+.tree-path { flex: 1 1 auto; min-width: 0; font: 12px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.tree:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 #stage .asking-line { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 #stage .asking-line .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
 #stage .pinned-line { flex: 1 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

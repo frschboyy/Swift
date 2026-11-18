@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import * as A from "./answer";
 import { el, icon } from "./dom";
 import type { Cards, Chart, Compare, Diagram, Idea, MindMap, Preview, ResultDetails, Tree } from "./protocol";
-import { middleCut, startOpen, visibleRows } from "./tree";
+import { middleCut, pathOf, startOpen, treeKey, visibleRows, type TreeKey } from "./tree";
 
 export { detailsText } from "./answer";
 
@@ -262,26 +262,66 @@ const PROJECTS_BY = "Project cards from the worker, not checked by Swift";
 const CARD_PROJECTS = 3;
 
 const TREE_BY = "Listed by the worker, not checked by Swift";
+const TREE_FOUND_BY = "Listed by the worker; Swift opens only what it found on disk";
 const CARD_TREE_ROWS = 10;  // swift/shapes.py CARD_TREE_ROWS
 
-/** B13: files and folders as a tree, read-only: folders open and close in place, a row is selected by a click.
- * No action from it (never a delete; opening a file is for later, from the file system, never the worker's text). */
+// B13: how a tree row's Open / Show in folder reaches the backend (main.ts: the socket; pane.ts: the main window).
+let treeOpener: (path: string, how: "open" | "reveal") => void = () => {};
+export const setTreeOpener = (open: typeof treeOpener): void => { treeOpener = open; };
+
+/** B13: files and folders as a tree: folders open and close in place, a row is selected by a click. A row Swift found
+ * on disk under the folder it verified (``t.root``) gets Open / Show in folder in the strip under the tree, and opens
+ * on a double-click; its path is built from Swift's root, and the backend checks it again. Never a delete. Keys
+ * (arrows, Enter) only in the reader (``full``), where the tree takes focus when clicked into (D5). */
 export function treeBlock(t: Tree, full: boolean): HTMLElement {
   const open = new Set(startOpen(t.entries));
   let all = full;
   let selected: string | null = null;
-  const list = el("ul", { class: "tree", role: "tree" });
+  const list = el("ul", { class: "tree", role: "tree", ...(full ? { tabindex: "0" } : {}) });
+  const strip = el("div", { class: "tree-strip", hidden: true });
+  const act = (key: string | null, how: "open" | "reveal"): void => {
+    const path = key === null ? null : pathOf(t.entries, key, t.root);
+    if (path) treeOpener(path, how);
+  };
+  const drawStrip = (): void => {
+    const path = selected === null ? null : pathOf(t.entries, selected, t.root);
+    strip.hidden = !path;
+    strip.replaceChildren(...(path ? [
+      el("span", { class: "tree-path", title: path }, path),
+      el("button", { class: "btn btn--ghost btn--small", onclick: (ev: Event) => { ev.stopPropagation(); act(selected, "reveal"); } }, "Show in folder"),
+      el("button", { class: "btn btn--primary btn--small", onclick: (ev: Event) => { ev.stopPropagation(); act(selected, "open"); } }, "Open"),
+    ] : []));
+  };
+  if (full) {
+    list.addEventListener("keydown", (ev: KeyboardEvent) => {
+      if (ev.key === "Enter") {
+        act(selected, "open");
+      } else if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(ev.key)) {
+        const r = treeKey(visibleRows(t.entries, open), open, selected, ev.key as TreeKey);
+        open.clear();
+        r.open.forEach((k) => open.add(k));
+        selected = r.selected;
+        draw();
+        list.querySelector(".tree-row--selected")?.scrollIntoView({ block: "nearest" });
+      } else return;
+      ev.preventDefault();
+    });
+  }
   const draw = (): void => {
     const rows = visibleRows(t.entries, open);
     const shown = all ? rows : rows.slice(0, CARD_TREE_ROWS);
     list.replaceChildren(...shown.map((r) => el("li", {
-      class: `tree-row${r.key === selected ? " tree-row--selected" : ""}`, role: "treeitem", style: `--depth:${r.depth}`,
-      title: r.entry.name, ...(r.entry.folder ? { "aria-expanded": String(open.has(r.key)) } : {}),
+      class: `tree-row${r.key === selected ? " tree-row--selected" : ""}${r.entry.found ? " tree-row--found" : ""}`, role: "treeitem", style: `--depth:${r.depth}`,
+      title: r.entry.name, "aria-selected": String(r.key === selected), ...(r.entry.folder ? { "aria-expanded": String(open.has(r.key)) } : {}),
       onclick: (ev: Event) => {
         ev.stopPropagation();
         if (r.entry.folder) open.has(r.key) ? open.delete(r.key) : open.add(r.key);
         selected = r.key;
         draw();
+      },
+      ondblclick: (ev: Event) => {
+        ev.stopPropagation();
+        act(r.key, "open");
       },
     },
     el("span", { class: "tree-chev" }, r.entry.folder ? icon(open.has(r.key) ? "expand" : "chevron") : null),
@@ -290,12 +330,14 @@ export function treeBlock(t: Tree, full: boolean): HTMLElement {
     r.entry.meta ? el("span", { class: "tree-meta" }, r.entry.meta) : null)),
     ...(rows.length > shown.length ? [el("li", { class: "tree-row tree-more", onclick: (ev: Event) => { ev.stopPropagation(); all = true; draw(); } },
       `+ ${rows.length - shown.length} more`)] : []));
+    drawStrip();
   };
   draw();
   return el("div", { class: "tree-block facts-line--agent" },
-    el("span", { class: "confirm-purpose-by" }, TREE_BY),
+    el("span", { class: "confirm-purpose-by" }, t.root ? TREE_FOUND_BY : TREE_BY),
     t.title ? el("p", { class: "compare-title" }, t.title) : null,
     list,
+    strip,
     ...(t.text ? renderBlocks(t.text) : []));
 }
 

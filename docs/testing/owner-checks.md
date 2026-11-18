@@ -3051,6 +3051,17 @@ it did, ✓ each, the last one with "!" where it failed, and the button naming t
 same words, and the work picks up from that step rather than starting over; (3) after 10 minutes the card leaves and
 the stack's badge counts one more ("Failed · 10 min ago" on its row); Open brings the Failed card back.
 
+<a id="check-halo-b8-gaps-6b8791-5"></a>**Check halo-b8-gaps-6b8791-5. A file tree's Open, Show in folder, double-click, and arrow keys (B13)**
+1. Say "Hey Swift, where are my holiday photos?" (any folder in your read folders with a few files).
+2. Click a photo's row: look at the strip under the tree. Click **Show in folder**, then **Open**. Double-click another.
+3. Click **Show all** (or open it in the reader), click into the tree, and use the arrow keys and Enter.
+
+You should see: the caption "Listed by the worker; Swift opens only what it found on disk"; a selected row shows its
+full path with **Open** and **Show in folder**; Show in folder opens Explorer with that file selected; Open and a
+double-click open the file in its usual app; a program or script (.exe, .bat, .ps1, a shortcut) is only shown in its
+folder, never run; a row the worker named that isn't on disk has no strip. In the reader, Up/Down move, Right opens a
+folder (then steps in), Left closes it (or steps out), Enter opens. There is never a delete.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

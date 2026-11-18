@@ -28,7 +28,7 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import { activityLabel, byline, handoffLabel } from "./agents";
 import * as A from "./answer";
 import * as Q from "./ask";
-import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails } from "./blocks";
+import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails, setTreeOpener } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
 import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
@@ -181,6 +181,8 @@ let asked: Q.Ask | null = null;
 let pressAt: { x: number; y: number } | null = null;
 
 const client = new BackendClient(onFrame, onStatus);
+// B13: a tree row's Open / Show in folder on a card goes straight to the backend, which checks the path again.
+setTreeOpener((path, how) => client.send({ type: "tree.open", data: { path, how } }));
 // Rust reloads this page if it stops saying so while the backend is up (watchdog.rs).
 window.setInterval(() => {
   if (connection.phase === "connected") void invoke("overlay_alive").catch(() => {});
@@ -536,6 +538,9 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       break;
     case "tray":
       void trayAction(payload.value ?? "", payload.text);
+      break;
+    case "tree-open":  // B13, from the reader: the backend checks the path against what it verified
+      if (payload.text && (payload.value === "open" || payload.value === "reveal")) client.send({ type: "tree.open", data: { path: payload.text, how: payload.value } });
       break;
   }
 });

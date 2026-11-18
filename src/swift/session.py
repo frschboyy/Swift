@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import asking, captions, clock, memory, recent, retrying, seen, stops, timers
+from swift import captions, clock, frames, memory, recent, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -1608,8 +1608,6 @@ class Session:
             case "speech.stop":
                 logger.info("speech stopped by the owner")
                 self.speaker.stop()  # only the voice: the card and the run stay (ADR-017)
-            case "asking":  # the tray's "Stop asking about everything" (modes §3): a click, it only asks less
-                await asking.from_tray(self)
             case "listen":
                 logger.info("listening", on=msg.data["on"])
                 if self.on_listen is not None:
@@ -1627,11 +1625,6 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
-            case "due.snooze":
-                timers.snooze(self, msg.data["run_id"])  # "+5 min" on a timer's Due card (B14)
-            case "watch":
-                # The live view opened (a click on Watch) or closed: content-free, for the log.
-                logger.info("live view", run_id=msg.data["run_id"], open=msg.data["open"])
             case "run.stop":
                 await self._stop_run(msg.data["run_id"], "question" if msg.data.get("from") == "question" else "live")
             case "live.app":
@@ -1661,6 +1654,8 @@ class Session:
                 self._talking(clock.now() + 1.0)
                 if self._released is not None:
                     self._released.set()
+            case _ if (handler := frames.HANDLERS.get(msg.type)) is not None:  # small frames (frames.py)
+                await handler(self, msg.data)
             case _:
                 logger.warning("unhandled message", kind=msg.type)
 

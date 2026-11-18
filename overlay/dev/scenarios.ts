@@ -336,6 +336,18 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
       { name: "wallpaper.png", meta: "3.0 MB" },
     ] });
   },
+  // B13: the same tree once Swift found its folder: beach.jpg selected, with its path, Open and Show in folder.
+  treeFound: async (s) => {
+    await answer(s, "Where are my holiday photos?", "They're in Pictures, under 2026.", { kind: "tree", title: "Pictures", by: "worker", size: "card",
+      root: "C:\\Users\\Francis\\Pictures", entries: [
+        { name: "2025", folder: true, found: true, meta: "214 items", entries: [{ name: "winter.jpg", found: true }] },
+        { name: "2026", folder: true, found: true, open: true, meta: "38 items", entries: [
+          { name: "beach.jpg", found: true, meta: "2.4 MB" }, { name: "made-up.jpg", found: false },
+        ] },
+      ] });
+    [...document.querySelectorAll<HTMLElement>("#card .tree-row")].find((r) => r.textContent?.includes("beach.jpg"))?.click();
+    await sleep(150);
+  },
   // A4: an answer pinned as an edge, with the next answer in front.
   pinned: async (s) => {
     await answer(s, "What's the Wi-Fi password at the office?", "The guest network is Contoso-Guest; the password is on the card by reception.");

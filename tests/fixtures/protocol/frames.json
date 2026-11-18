@@ -85,6 +85,7 @@
     {"type": "speech.stop", "data": {}},
     {"type": "listen", "data": {"on": false}},
     {"type": "asking", "data": {"on": false}},
+    {"type": "tree.open", "data": {"path": "C:\\Users\\Francis\\Pictures\\2026\\beach.jpg", "how": "open"}},
     {"type": "recordings", "data": {"action": "improve"}},
     {"type": "recordings", "data": {"action": "fix_open", "clip": "a1b2"}},
     {"type": "recordings", "data": {"action": "fix", "clip": "a1b2", "heard": "hey christy", "said": "hey Swift", "kind": "name"}},

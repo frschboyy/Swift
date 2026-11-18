@@ -247,6 +247,8 @@ class Tree(_Strict):
     shape: Literal["tree"]
     title: _words(TITLE_MAX) | None = None
     entries: list[TreeEntry] = Field(min_length=1, max_length=TREE_ITEMS)
+    # B13: the folder the tree lists, as the worker says; Swift checks it (files.verify_tree) before any row acts.
+    root: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=32767)] | None = None
 
     @model_validator(mode="after")
     def _fits(self) -> Tree:
@@ -343,7 +345,8 @@ DESCRIPTION = (
     "categories you point out, if any. shape 'cards': 1-8 project cards, "
     "each with a short title and optional detail and meta. Use cards for a small set of projects, not a long list. "
     "shape 'tree': files and folders as a tree; entries, each {name, folder, meta, open, entries}, at most 4 levels "
-    "and 60 entries; meta is a short size or date; open: true only on the folder that answers the question. Use it "
+    "and 60 entries; meta is a short size or date; open: true only on the folder that answers the question; root: the "
+    "absolute folder the entries are in, if they are all in one. Use it "
     "when the answer is where files are. "
     "Keep "
     "the data out of your final answer: that answer is said aloud, so make it the conclusion in one or two "

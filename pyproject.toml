@@ -100,6 +100,7 @@ ignore = [
 "src/swift/routing/local.py" = ["S603", "S606"]
 "src/swift/session.py" = ["F401"]
 "src/swift/signin.py" = ["S603"]
+"src/swift/files.py" = ["S603", "S606", "S607"]  # B13: os.startfile and Explorer on a path Swift verified
 "src/swift/stt/transcriber.py" = ["RUF021"]
 "src/swift/system/control.py" = ["S603", "S607"]
 "src/swift/system/intents.py" = ["F541", "RUF046"]

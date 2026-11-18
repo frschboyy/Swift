@@ -79,9 +79,11 @@ export type Cards = {
 };
 
 // B13: files and folders as the worker listed them (swift/shapes.py Tree): names only, never a path Swift acts on.
-export type TreeEntry = { name: string; folder?: boolean; meta?: string; open?: boolean; entries?: TreeEntry[] };
+// found: Swift saw it on disk under ``root`` (files.py); only those rows get Open / Show in folder.
+export type TreeEntry = { name: string; folder?: boolean; meta?: string; open?: boolean; entries?: TreeEntry[]; found?: boolean };
 export type Tree = {
-  kind: "tree"; title?: string; entries: TreeEntry[];
+  // root: the folder Swift verified (in the read folders, on disk); without it, the tree has no actions.
+  kind: "tree"; title?: string; entries: TreeEntry[]; root?: string;
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
 
@@ -253,6 +255,8 @@ export type Outbound =
   | { type: "listen"; data: { on: boolean } }
   // The tray's "Stop asking about everything" (modes study §3): only ever false.
   | { type: "asking"; data: { on: boolean } }
+  // B13: Open / a double-click, or Show in folder, on a tree row Swift found; the backend checks the path again.
+  | { type: "tree.open"; data: { path: string; how: "open" | "reveal" } }
   | { type: "recordings"; data: { action: "clear" | "improve" } }
   // The card's flag on the heard words (heardfix.ts): the pane opened, and the correction saved. A label only.
   | { type: "recordings"; data: { action: "fix_open"; clip: string } }

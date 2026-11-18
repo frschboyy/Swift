@@ -23,7 +23,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
-  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock, treeBlock,
+  answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock, setTreeOpener, treeBlock,
 } from "./blocks";
 import { CHOICES, type Display } from "./display";
 import { enterAction } from "./keyed";
@@ -60,6 +60,9 @@ followTheme(root, { invoke: (cmd) => invoke(cmd), listen: (event, handler) => li
 const act = (action: string, extra: Record<string, unknown> = {}): void => {
   void emitTo("overlay", "pane-action", { label, action, ...extra }).catch(() => {});
 };
+
+// B13: a tree row's Open / Show in folder in the reader goes to the main window, which has the socket.
+setTreeOpener((path, how) => act("tree-open", { text: path, value: how }));
 
 function details(d: ResultDetails | null): HTMLElement | null {
   if (!d) return null;

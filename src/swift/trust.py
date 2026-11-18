@@ -27,6 +27,8 @@ Store = Any
 TABLE: dict[str, str] = {"wifi_off": "Wi-Fi off", "bluetooth_off": "Bluetooth off", "airplane_on": "airplane mode on"}
 PREFIX = "trust-"
 YOU_SAID = it.YOU_SAID
+NEED_NAME = "Say “Swift, always”, or click Always."
+HINT = "You've done this 3 times lately. Say it or click · typing can't create a trust."
 TYPED = "To make that a habit, say it with your voice, or wait for me to offer."
 # Offered after this many approvals, in this many different runs, within this many days, none rejected.
 APPROVALS, DAYS = 3, 14
@@ -156,3 +158,26 @@ def offer_due(journal: Any, kind: str, now: datetime) -> bool:
 def note_offered(journal: Any, kind: str) -> None:
     """Once per kind, ever (the journal remembers; "Not now" doesn't ask again either)."""
     journal.write(f"offer-{kind}", "OFFERED", kind=kind)
+
+
+async def offer(session: Any, outcome: Any) -> tuple[str, bool]:
+    """After a system request was done: if its kind has been approved often enough, offer the trust on its own card
+    (level 2: a click, or Swift's name; a plain "yes" and typing never make one). Returns what to say and whether it
+    worked, as the lane's outcome did. "Not now", or no answer, is final for that kind too."""
+    said, ok = outcome.said, outcome.ok
+    store, system = session.memories, session.system
+    if not ok or store is None or system is None or system.ask_everything():
+        return said, ok
+    for intent in outcome.done:
+        kind = it.trust_kind(intent)
+        if kind is None or is_trusted(store, kind) or not offer_due(system.journal, kind, datetime.now().astimezone()):
+            continue
+        note_offered(system.journal, kind)
+        ask = f"Turn {TABLE[kind]} without asking from now on?"
+        answer = await session._ask_owner(ask, "yes_no", (), own=True, note=HINT, approval=True, level=2)
+        if answer is not None and answer.kind == "yes":
+            card = f"offer-{kind}"
+            if grant(store, kind, source="approved", run=card, card=card):
+                said += f" Okay, from now on I'll do that without asking. Say “ask me again about {TABLE[kind].split(' ')[0]}” to change it."
+        break
+    return said, ok

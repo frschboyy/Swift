@@ -450,6 +450,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-gaps-6b8791-1 a timer in the stack with Cancel; \"done\" / \"5 more\" said; Done: Tea timer", LOOK, "check on screen: RUNNING row, Cancel, the voice words, the Got it edge"),
         ("halo-b8-gaps-6b8791-2 the worker's pick on a chart; a refused shape's grey line", LOOK, "check on screen: grey outline, the tag, the line"),
         ("halo-b8-gaps-6b8791-3 ask me about everything: the tray's status and Stop item; the card's line", LOOK, "check on screen: the tray, the line, off from the tray"),
+        ("halo-b8-continue-7f85db-1 learned trust: the offer needs a click or Swift's name; used with \"You said not to ask\"; ask me again", LOOK, "check on screen: the offer card, no plain yes, the question back"),
         ("halo-b8-gaps-6b8791-4 Runs in; a Failed card's steps and Try again from step N; to the stack after 10 min", LOOK, "check on screen: the row, the steps, the button, the stack"),
         ("halo-b8-gaps-6b8791-5 a file tree's Open, Show in folder, double-click, arrow keys", LOOK, "check on screen: the strip, Explorer, no program run"),
         ("halo-b8-gaps-6b8791-6 what did you find about …", LOOK, "check on screen: the earlier answer, nothing runs"),

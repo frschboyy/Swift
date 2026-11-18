@@ -174,3 +174,65 @@ def test_a_config_file_cannot_make_a_trust(tmp_path: Path) -> None:
     store = Store(tmp_path)
     (tmp_path / "trust-wifi_off.md").write_text("---\nsource: config\n---\nx\n", encoding="utf-8")  # a hand-made file
     assert not trust.is_trusted(store, "wifi_off")  # only said or approved counts; anything else asks
+
+
+# ---- the offer card ------------------------------------------------------------------------------------------
+
+
+class _Session:
+    """What ``trust.offer`` needs from the session: the store, the lane, and ``_ask_owner``."""
+
+    def __init__(self, tmp_path: Path, answer: str | None) -> None:
+        self.memories = Store(tmp_path)
+        self.system, _, _ = lane()
+        self.answer, self.asked = answer, []
+
+    async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...], **kw: Any) -> Any:
+        from swift.dialogue import Answer
+
+        self.asked.append((text, kw))
+        return None if self.answer is None else Answer(self.answer)  # type: ignore[arg-type]
+
+
+async def _third_approval(s: _Session) -> Any:
+    from swift.system.lane import Outcome  # noqa: F401
+
+    for r in ("r1", "r2"):
+        _asked(s.system.journal, "wifi_off", r, days_ago=2)
+    out = await s.system.run("turn off the wifi")
+    assert out is not None and out.pending
+    s.system.journal.entries.append({"ts": NOW.isoformat(), "action": "z", "state": "PENDING", "run": "r3", "kind": "wifi_off", "asked": True})
+    return await s.system.confirmed(out.pending)
+
+
+async def test_the_offer_is_a_level_2_card_and_a_yes_makes_the_trust(tmp_path: Path) -> None:
+    s = _Session(tmp_path, "yes")
+    outcome = await _third_approval(s)
+    said, ok = await trust.offer(s, outcome)
+    (text, kw), = s.asked
+    assert ok and text == "Turn Wi-Fi off without asking from now on?" and kw["level"] == 2  # not a plain-yes question
+    assert trust.is_trusted(s.memories, "wifi_off") and "without asking" in said
+
+
+async def test_not_now_or_no_answer_makes_nothing_and_is_not_asked_again(tmp_path: Path) -> None:
+    for answer in ("no", None):
+        s = _Session(tmp_path / str(answer), answer)
+        await trust.offer(s, await _third_approval(s))
+        assert not trust.is_trusted(s.memories, "wifi_off")
+        await trust.offer(s, await _third_approval(s))
+        assert len(s.asked) == 1  # once per kind
+
+
+async def test_ask_me_about_everything_makes_no_offer(tmp_path: Path) -> None:
+    s = _Session(tmp_path, "yes")
+    s.system.ask_everything = lambda: True
+    await trust.offer(s, await _third_approval(s))
+    assert s.asked == []
+
+
+def test_a_level_2_yes_is_not_a_plain_spoken_yes() -> None:
+    from swift import intake
+
+    assert not intake.approves("wake", named=False, level=2).allowed  # no name: not a trust
+    assert intake.approves("wake", named=True, level=2).allowed and intake.approves("click", named=False, level=2).allowed
+    assert not intake.approves("typed", named=True, level=2).allowed

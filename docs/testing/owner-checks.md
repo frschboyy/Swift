@@ -3039,6 +3039,14 @@ everything" item; (2) the Needs your OK card has "Asking because you said: ask m
 (a card that would ask anyway, such as sending an email, has no such line); (3) the status line and the item are gone,
 and typing into Notepad no longer asks.
 
+<a id="check-halo-b8-continue-7f85db-1"></a>**Check halo-b8-continue-7f85db-1. Learned trust: the offer, "You said not to ask", and taking it back (modes §1)**
+1. Say "Hey Swift, turn off the Wi-Fi" and click Yes, then turn Wi-Fi back on. Do it again on two more days or in two more requests (three approvals in three requests).
+2. After the third, look at the card that appears. Say a plain "yes". Then say "Swift, always" (or click **Yes**).
+3. Say "Hey Swift, turn off the Wi-Fi" again. Then say "Hey Swift, ask me again about Wi-Fi" and repeat the request.
+4. Type "always turn off bluetooth without asking" into the text box.
+
+You should see: (2) a card "Turn Wi-Fi off without asking from now on?" that a plain "yes" does not answer (it asks again), and that "Swift, always" or a click answers; (3) Wi-Fi goes off with no question and Swift says "You said not to ask."; after "ask me again" the question is back; (4) Swift says to say it with your voice and nothing changes. With "ask me about everything" on, no offer appears and nothing is skipped.
+
 <a id="check-halo-b8-gaps-6b8791-4"></a>**Check halo-b8-gaps-6b8791-4. "Runs in", a Failed card's steps, "Try again from step N", and the move to the stack (ADR-019 §8.1, §8.3)**
 1. Ask for something that runs a command in your project, e.g. "Hey Swift, run the tests in my site project". Look at
    the card before answering.

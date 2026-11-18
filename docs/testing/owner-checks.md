@@ -3237,3 +3237,11 @@ Each check gets one word:
 ## If something goes wrong
 
 Note the check number and the time. That's enough: the logs have the rest.
+
+<a id="check-infallible-spence-760d64-1"></a>**Check infallible-spence-760d64-1. The plan card (Modes §2)**
+1. Say "Hey Swift, make a GitHub repository called tea-timer and pull it down" (a real request: nothing is sent until you approve each card).
+2. A card "A plan in N steps" appears, 640 wide: each step in words; the folder and commit steps list their commands and say "covered"; the GitHub and push steps say "will ask you · it publishes" / "· it sends". Read the footer hint and the buttons.
+3. Press **Go ahead with 1 and 2**. Watch the run: the listed commands run without a card; creating the repository and pushing each get their own card. Reject those.
+4. Say "ask me about everything", repeat step 1.
+
+You should see: (2) the buttons Stop, Change and "Go ahead with 1 and 2", the hint "Steps 3 and 4 get their own card", no amber on the asking rows; (3) nothing that publishes or sends ran without its own card; (4) no plan card: every command asks.

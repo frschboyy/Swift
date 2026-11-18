@@ -439,6 +439,18 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("confirm.request", { request_id: `${id}:1`, run_id: id, title: "Run a command on your PC", detail: "npm run build -- --mode production\nnpm run test", tool: "Bash", purpose: "Builds the site, then runs its tests.", step: false, agent: AGENT, thread_id: `t-${id}`, facts: { runs_in: String.raw`C:\Users\Francis\Projects\site` } });
     await sleep(600);
   },
+  // Modes §2: the plan card, two steps covered and two that ask.
+  confirmPlan: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Make a GitHub repository for tea-timer and pull it down", final: true, typed: false });
+    s.inject("state", { state: "confirm", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("confirm.request", { request_id: `${id}:1`, run_id: id, title: "A plan in 4 steps", detail: "", tool: "Bash", purpose: "", step: true, agent: AGENT, thread_id: `t-${id}`, facts: { plan: [
+      { step: "Create the folder and start a repository", commands: ["mkdir tea-timer", "git init"], covered: true, asks: "" },
+      { step: "Write the README and first commit", commands: ["git add README.md", "git commit -m First"], covered: true, asks: "" },
+      { step: "Create the repository on GitHub", commands: [], covered: false, asks: "it publishes" },
+      { step: "Push the first commit", commands: [], covered: false, asks: "it sends" }] } });
+    await sleep(600);
+  },
   confirmCommand: async (s) => { await confirm(s, "Run a command in your project", null, "npm run build -- --mode production", "Build the site"); },
   confirmAway: async (s) => {
     await DESIGN.confirmChange(s);

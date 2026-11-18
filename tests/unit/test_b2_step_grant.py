@@ -192,7 +192,7 @@ def test_the_task_s_grant_seeds_the_run(tmp_path: Any) -> None:
     from swift.executors.claude_code import _Run
 
     grant = Grant(STEP, ("git init",))
-    assert _Run(grant=WorkerTask("x", grant=grant).grant).grant == grant
+    assert _Run(grant=WorkerTask("x", grant=(grant,)).grant[0]).grant == grant
 
 
 def test_the_agent_is_asked_to_propose_a_step() -> None:

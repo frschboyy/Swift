@@ -454,6 +454,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-gaps-6b8791-5 a file tree's Open, Show in folder, double-click, arrow keys", LOOK, "check on screen: the strip, Explorer, no program run"),
         ("halo-b8-gaps-6b8791-6 what did you find about …", LOOK, "check on screen: the earlier answer, nothing runs"),
         ("halo-b8-gaps-6b8791-7 captions on by themselves when muted or Live captions runs", LOOK, "check on screen: the pill's words"),
+        ("infallible-spence-760d64-1 the plan card: covered steps run, the rest ask", LOOK, "check on screen: the plan card"),
         ("halo-b8-gaps-6b8791-8 speak answers and watch opens in the tray", LOOK, "check on screen: no voice with Never; the watch opening by itself"),
         ("halo-b8-gaps-6b8791-9 the watch docked and mini", LOOK, "check on screen: the docked edge, windows making room, the mini corner"),
         ("halo-b8-build-4fbdf7-9 'ask me about everything': it asks, volume doesn't, it stays on", LOOK, "check: the question and its line; on after a restart; off again"),

@@ -118,7 +118,7 @@ export type Inbound =
   | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean; clip?: string } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string; because?: string; facts?: { runs_in?: string } } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string; because?: string; facts?: { runs_in?: string; plan?: PlanStep[] } } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
@@ -206,6 +206,8 @@ export type RunRow = {
 };
 
 // Halo's Explore ideas (A10-A13), each off by default (config.yaml explore).
+/** Modes §2: one step of a plan card. Swift decides `covered` (only reversible commands), never the worker. */
+export type PlanStep = { step: string; commands: string[]; covered: boolean; asks: string };
 export type Explore = { orb_glance: boolean; follow_monitor: boolean; what_can_i_say: boolean; next_steps: boolean };
 
 // A10/A11: what a card accepts and Swift's own verbs (hints.py, from the real grammar); only while one is on.

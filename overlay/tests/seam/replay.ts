@@ -6,7 +6,7 @@
 import { byline } from "../../src/agents.ts";
 import * as Q from "../../src/ask.ts";
 import { detailsText } from "../../src/answer.ts";
-import { commandFolded, commandParts, quoteLines, stepCommands } from "../../src/cardtext.ts";
+import { commandFolded, commandParts, planView, quoteLines, stepCommands } from "../../src/cardtext.ts";
 import * as D from "../../src/deck.ts";
 import { canFlag } from "../../src/heardfix.ts";
 import { needsReader } from "../../src/panes.ts";
@@ -128,6 +128,9 @@ process.stdout.write(JSON.stringify({
   commandFolded: led && !confirmData!.step ? commandParts(confirmData!.detail).rest : null,
   // B2: the commands a step card approves, all listed in view, none folded; null on any other card.
   confirmStep: led ? stepCommands(confirmData!.tool, confirmData!.purpose, confirmData!.step, confirmData!.detail) : null,
+  // Modes §2: the plan card's rows, the button and the hint, as main.ts draws them; null on any other card.
+  confirmPlan: P.confirmVisible(pres) && confirmData?.request_id === pres.pendingConfirm && confirmData.facts?.plan
+    ? planView(confirmData.facts.plan) : null,
   // B4: the answer card on screen, as its blocks give it in words (answer.ts detailsText), the kind of block,
   // and whether it opens in full (Read more): what renderResult draws from the same frame.
   answerKind: P.stageOf(pres) === "result" && resultData?.run_id === pres.card.runId ? resultData!.details?.kind ?? null : null,

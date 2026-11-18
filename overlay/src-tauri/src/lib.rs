@@ -15,6 +15,7 @@
 
 mod backend;
 mod cover;
+mod follow;
 mod hit;
 mod panes;
 mod placement;
@@ -201,6 +202,38 @@ fn place_on_cursor_monitor(app: &AppHandle, window: &WebviewWindow, hwnd: isize,
     eprintln!("[overlay] placed {} at {x},{y} {w}x{h} (scale {scale})", anchor.id());
     hit.0.lock().unwrap().geometry = Geometry { x, y, scale };
     let _ = app.emit("placement", PlacementEvent { anchor: anchor.id(), flipped });
+}
+
+/// A13: where the cursor and the orb are, for `follow::Tracker`; None when either can't be read.
+/// `idle` is what the overlay said (no card or OK up); Swift being busy or dragged also counts against it.
+fn follow_frame(app: &AppHandle, now_ms: u64, idle: bool) -> Option<follow::Frame> {
+    let window = app.get_webview_window("overlay")?;
+    let hwnd = app.try_state::<Overlay>()?.hwnd;
+    let (cx, cy) = win::cursor_pos()?;
+    let (x, y, w, h) = win::window_rect(hwnd)?;
+    let key = |px: i32, py: i32| window.monitor_from_point(px as f64, py as f64).ok().flatten().map(|m| (m.position().x, m.position().y));
+    let busy = {
+        let p = app.state::<Placement>();
+        let p = p.0.lock().unwrap();
+        p.busy || p.dragging
+    };
+    Some(follow::Frame {
+        now_ms,
+        monitors: window.available_monitors().map(|m| m.len()).unwrap_or(1),
+        cursor: key(cx, cy)?,
+        orb: key(x + w / 2, y + h / 2)?,
+        idle: idle && !busy,
+        fullscreen: win::foreground_fullscreen(),
+    })
+}
+
+/// A13: the overlay says whether following is on (`explore.follow_monitor`) and whether nothing is up.
+#[tauri::command]
+async fn set_follow(follow: State<'_, follow::Shared>, on: bool, idle: bool) -> Result<(), String> {
+    let mut s = follow.lock().unwrap();
+    s.on = on;
+    s.idle = idle;
+    Ok(())
 }
 
 fn place_on_main(app: &AppHandle, how: Place) {
@@ -967,6 +1000,7 @@ pub fn run() {
         })))
         .manage(started)
         .manage(TrayClick::default())
+        .manage(follow::Shared::default())
         .manage(watchdog::Alive::default())
         .invoke_handler(tauri::generate_handler![
             watchdog::overlay_alive,
@@ -975,6 +1009,7 @@ pub fn run() {
             register_hotkeys,
             set_escape,
             set_hit_regions,
+            set_follow,
             overlay_ready,
             diagnostics,
             begin_drag,
@@ -1019,6 +1054,7 @@ pub fn run() {
             place_on_cursor_monitor(app.handle(), &window, hwnd, &shared_hit, Place::Smart);
             hit::spawn(window.clone(), hwnd, shared_hit.clone());
             watchdog::spawn(app.handle().clone());
+            follow::spawn(app.handle().clone(), app.state::<follow::Shared>().inner().clone());
 
             // Position: the same choices as dragging a card, for when dragging isn't practical.
             let chosen = app.state::<Placement>().0.lock().unwrap().prefs;

@@ -464,6 +464,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-build-4fbdf7-14 a follow-up on the same card, First answer (A2)", LOOK, "check on screen"),
         ("halo-b8-build-4fbdf7-15 how Swift shows things: reading time, text size, motion (A8)", LOOK, "check on screen; kept after a restart"),
         ("halo-b8-build-4fbdf7-16 keyboard entry on the card's buttons; the keyboard goes back (A7)", LOOK, "check: never by itself, Esc and a press give it back"),
+        ("upbeat-poincare-d02e4a-1 'What can I say?' on a card (A10, explore.what_can_i_say)", LOOK, "check on screen: the phrases, 'asks for your OK', the learned line after 3 Copy clicks"),
+        ("upbeat-poincare-d02e4a-2 next-step chips (A11, explore.next_steps)", LOOK, "check on screen: a chip after 3 Copy clicks; it opens an OK, never runs"),
+        ("upbeat-poincare-d02e4a-3 the orb follows the active monitor (A13, explore.follow_monitor)", LOOK, "check on screen with two monitors: after 1.5 s, never over a card, never full screen"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

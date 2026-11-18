@@ -3186,6 +3186,35 @@ opens the text box saying what Enter presses, with a ring on that card button; T
 buttons; after Esc, and after Enter on Reject, your typing goes into Notepad again. In step 4 the card is approved
 only after its short guard (a press in the first moment does nothing); Reject the next one.
 
+<a id="check-upbeat-poincare-d02e4a-1"></a>**Check upbeat-poincare-d02e4a-1. "What can I say?" on a card, an idea to try (A10; off unless you turn it on)**
+1. In `config.yaml`, set `explore:` `what_can_i_say: true`, and restart Swift.
+2. Ask for something that needs your OK, and click **What can I say?** on its card. Click it again.
+3. Ask "Hey Swift, what time is it?" and click **What can I say?** on the answer.
+4. Click **Copy** on three answers, then look at **What can I say?** on a fourth.
+5. Say whether you'd keep it, then set `what_can_i_say: false` again (or leave it on).
+
+You should see: a blue-tinted box with a mic by each phrase, and nothing runs or approves when you click; on the OK
+card it lists "approve", "reject" and "show me", and each works when said with the hotkey held; after three Copy clicks the
+answer's list adds "put that in Word · asks for your OK". With it off there is no such button.
+
+<a id="check-upbeat-poincare-d02e4a-2"></a>**Check upbeat-poincare-d02e4a-2. Next-step chips, an idea to try (A11; off unless you turn it on)**
+1. In `config.yaml`, set `explore:` `next_steps: true`, and restart Swift.
+2. Click **Copy** on three answers. Ask a fourth question.
+3. Click the chip "Put it in Word" under the fourth answer.
+
+You should see: no chips at first; after three Copy clicks, one "Next" chip, "Put it in Word · asks for your OK",
+under the answers (never more than two chips). Clicking it asks for it like a request: an OK card appears, and nothing is
+written until you press Approve yourself. With `next_steps: false` there are no chips.
+
+<a id="check-upbeat-poincare-d02e4a-3"></a>**Check upbeat-poincare-d02e4a-3. The orb follows the monitor you work on, an idea to try (A13; off unless you turn it on; needs two monitors)**
+1. In `config.yaml`, set `explore:` `follow_monitor: true`, and restart Swift.
+2. Move the mouse to your other monitor and leave it there for two seconds, with nothing on screen from Swift.
+3. Ask Swift something so a card shows, then move the mouse to the first monitor and wait.
+4. Put a video or game in full screen on one monitor, and move the mouse to the other for two seconds.
+5. Turn on "Less" motion in the tray (or Windows' animation effects off), and repeat step 2.
+
+You should see: in step 2 the orb fades out and back in at the same spot on that monitor after about 1.5 s; in step 3 the card stays where it is until it's gone; in step 4 the orb stays put; in step 5 it still moves, without a long fade. It never takes the keyboard or a click from your app. With `follow_monitor: false`, or one monitor, it never moves by itself.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -23,7 +23,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import __version__, asking
+from swift import __version__, asking, hints
 from swift.audio.chime import Chime
 from swift.audio.recorder import MicRecorder, level_from_block
 from swift.config.paths import app_paths
@@ -400,6 +400,8 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
             "debug": settings.debug,
             "hotkeys": settings.hotkeys.model_dump(),
             "explore": settings.explore.model_dump(),  # A10-A13, each off by default
+            # A10/A11: what a card accepts, from the real grammar; sent only when one of them is on.
+            **({"hints": hints.for_overlay()} if settings.explore.what_can_i_say or settings.explore.next_steps else {}),
             # This backend: an overlay that sees a new one forgets what the last one put on screen (O-02).
             "instance": uuid.uuid4().hex[:12],
         },

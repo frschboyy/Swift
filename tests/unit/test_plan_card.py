@@ -220,6 +220,17 @@ async def test_a_no_on_a_step_card_ends_the_earlier_plan_even_if_the_run_isnt_in
 # ---- the owner's answers of 2026-11-18 (the reviewer's recommendation, safe direction) ----------------------
 
 
+async def test_a_change_on_a_plain_command_card_ends_the_earlier_plan(tmp_path: Any) -> None:
+    """Review finding 3: asking for something else on any card ends the plan, as a redirect does."""
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    asking_card = asyncio.create_task(ex._ask(run, "cc-1", "Bash", {"command": "npm install", "description": "x"}))
+    card = await asyncio.wait_for(run.queue.get(), 5)
+    await ex.reply(card.request_id, "use a different folder")
+    await asyncio.wait_for(asking_card, 5)
+    assert await _asks(ex, run, "mkdir tea-timer")
+
+
 async def test_turning_ask_me_about_everything_on_ends_every_earlier_plan_at_once(tmp_path: Any) -> None:
     """PLAN-04: on, even for a moment with nothing asked in between, then off: the old plan covers nothing."""
     from swift import asking

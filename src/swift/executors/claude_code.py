@@ -842,6 +842,7 @@ class ClaudeCodeExecutor:
             _smaller_call_approved(run, name)
             return PermissionResultAllow(updated_input=args)
         if isinstance(decision, tuple):  # ("change", the owner's words): declined, but the run goes on
+            _set_grant(run, self.gateway)  # review finding 3: asking for something else ends the plan, as a redirect does
             return PermissionResultDeny(message=CHANGE_MESSAGE.format(text=decision[1]), interrupt=False)
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)

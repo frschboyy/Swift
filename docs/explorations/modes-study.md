@@ -47,6 +47,56 @@ learned trust's.
 
 ## 1. Learned trust
 
+### Removed 2026-11-18, and what would make it allowable
+
+It was built (commits 6a7ff23 and cc236cf on `claude/halo-b8-continue-7f85db`) and then reverted. The owner removed it
+after an independent review rejected it. The review's main finding was that a trust removed the one card standing
+between Swift and words it hadn't been sure were the owner's. The design below is kept as the record. Before learned
+trust comes back, each of these must hold, with a rule test that fails when its guard is removed:
+
+1. **Only the owner's request itself may be trusted, never an answer.** `system_action` accepts a disruptive radio
+   change named in an *answer* to a worker's question (`owner_intents(said, answers)`, `from_answer`). That was
+   allowed only because such a change "always has its card": an answer is heard on the open microphone, where a TV
+   can speak. A trust has to skip the card only for an intent found in `owner_intents(scope.said)` alone, with no
+   answers. An intent that only an answer named keeps its card, trusted or not. (Review: Wi-Fi went off with no card
+   from "Turn off the wire" plus an answer "turn off the wifi".)
+2. **A trust record has to prove where it came from.** The memory store trusts the `source:` line of any `.md` in its
+   folder. A worker can't *read* Swift's data folder (`read_scope._HOME_NEVER`), but an approved command card can
+   *write* there, so a hand-made `trust-wifi_off.md` with `source: approved` counted. One of these is needed:
+   - a record Swift can verify, for example signed with a key kept outside the folder (keyring), or bound to the
+     journal entry of the approved offer card;
+   - the folder made unwritable by workers, enforced the way reads are;
+   - the owner explicitly accepting the risk, recorded as a decision.
+
+   The config-file test must use a complete, loadable file. The one built failed to load, so it passed for the wrong
+   reason.
+3. **Every way of saying yes reads the question's level.** `restated.py` hard-codes `level=1`, so a level-2 question
+   that carries the request would take a plain, unnamed "turn off the wifi" as its yes. It must use `q.level`. Any
+   other path that settles a question with a yes must too: the click, the restatement, a retry.
+4. **The offer card's words match its buttons.** The built hint said "Say “Swift, always”, or click Always". No Always
+   button existed, and "always" isn't a yes. Either add the button and teach the dialogue the word, or say "Swift, yes".
+5. **Spoken means spoken.** The sources that may create a trust by voice included `correction` and `retry`. Both can
+   carry typed words (a change typed on a card; "Try again" on a typed request). Only sources that can't hold typed
+   text may write one, or the record must say how the words arrived.
+6. **The count counts what was done.** An approval was counted when it was journaled as `PENDING`, before it ran, so a
+   change that failed still counted. Count `DONE` only.
+7. **Tests at the session seam, not only the module.** The review removed one guard at a time. Each of these still
+   left the learned-trust tests passing:
+   - the level the session passes to `intake.approves`;
+   - the offer's `approval` flag;
+   - the session calling `offer`;
+   - the session calling `declined`;
+   - the lane's every-intent-trusted check;
+   - both rejection journal writes;
+   - `system_tools` setting the kind.
+
+   A scenario test through `Session` is needed: offer shown; plain unnamed yes refused; named yes and click accepted;
+   typed refused; trusted run done with "You said not to ask" and Undo working.
+8. **A second review by another author, then the owner check**, as for any product-rule change (CLAUDE.md).
+
+Until then nothing lowers a level: the radio switches always ask, and "always turn off Wi-Fi without asking" isn't
+understood. The table, the 3/3/14 count and "once per kind" below were not the problem, and can be reused as they are.
+
 ### What "the same kind" is, and who decides
 
 A **kind** is a key from a closed table in Swift, next to `POLICY`, never the agent's words:

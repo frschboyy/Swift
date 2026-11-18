@@ -27,7 +27,6 @@ from typing import Any
 
 from loguru import logger
 
-from swift import trust
 from swift.connectors.base import ConnectorError
 from swift.security.gateway import Action
 from swift.system import intents as it
@@ -162,7 +161,6 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
             digest=lambda token=token: hashlib.sha256(token.encode()).hexdigest(),
             perform=perform,
             targets_required=False,
-            trust=(trust.kind_of(intent) or "") if disruptive else "",
             kind=intent.name,  # "ask me about everything" leaves volume alone (asking.EXEMPT)
         )
         outcome = await host.gateway.execute(scope, action)

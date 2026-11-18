@@ -198,7 +198,7 @@ full suite at 943d42e passed (2391). No code fix: don't run the suite in a workt
 
 | Item | Commit | Kind |
 |---|---|---|
-| Modes §1 learned trust: `trust.py` (table: Wi-Fi off, Bluetooth off, airplane on), said/approved grant (typed and config can't), count over the journal (3 approvals, 3 runs, 14 days, none rejected, once), lane and gateway skip the question, "always … without asking" / "ask me again about …", "And N things I do without asking" | 6a7ff23 | partial; **product rule: needs review** (tests `test_learned_trust.py`). **Offer card built** (next commit): a level-2 question (`Question.level`; a click or Swift's name, never a plain yes or typing), once per kind (check halo-b8-continue-7f85db-1). **Not built:** the card's buttons read Yes/No, not Always/Not now; "You said not to ask" is in the spoken line, not a Done-card row with Undo; the list card; "stop doing that without asking" |
+| Modes §1 learned trust: built in 6a7ff23 and cc236cf, then **removed** (both reverted) after an independent review rejected it; the owner agreed on 2026-11-18. Owner check halo-b8-continue-7f85db-1 withdrawn with it. What would have to change before it comes back: `modes-study.md` §1, "Removed 2026-11-18" | reverted | removed; nothing in the code lowers a level now |
 
 Started as their own sessions (each reports on its own branch): A3 hold during calls (`halo-a3-calls`), the live
 loop and styles cull (`halo-live-cull`), the plan card (`halo-plan-card`), §8.4 sender (`halo-84-sender`).

@@ -657,17 +657,6 @@ def disruptive(intent: Intent) -> bool:
     return (intent.name == "radio" and not intent["on"]) or (intent.name == "airplane" and intent["on"])
 
 
-# Learned trust (swift/trust.py) names a kind from the intent; the lane and the tool both need it.
-YOU_SAID = "You said not to ask."
-
-
-def trust_kind(intent: Intent) -> str | None:
-    """The learned-trust kind of ``intent`` ("wifi_off", "bluetooth_off", "airplane_on"), or None: not disruptive."""
-    if not disruptive(intent):
-        return None
-    return "airplane_on" if intent.name == "airplane" else f"{intent['kind']}_off"
-
-
 def parse_one(text: str) -> Intent | None:
     """One intent from the whole of ``text``, or None."""
     t = normalize(text)

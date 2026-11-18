@@ -99,8 +99,6 @@ class Action:
     undoes: str = ""
     # What kind of change it is, Swift's own name for it (a system action's intent: "timer.set").
     kind: str = ""
-    # Its learned-trust kind (``trust.TABLE``), set by Swift from the owner's intent; "" for anything else.
-    trust: str = ""
 
 
 @dataclass
@@ -156,8 +154,6 @@ class ActionGateway:
     def __init__(self, journal: Journal | None = None, send_grace_s: float = 0.0) -> None:
         # "Ask me about everything" (asking.py): while it says yes, reversible asks too (volume excepted).
         self.ask_everything: Callable[[], bool] = lambda: False
-        # Learned trust (trust.py): whether a kind on its table is trusted. Only a disruptive system action may use it.
-        self.trusted: Callable[[str], bool] = lambda kind: False
         self.journal = journal or Journal(None)
         # How long an approved send waits for a "stop" before it goes (X-08); the app sets SEND_GRACE_S.
         self.send_grace_s = send_grace_s
@@ -236,11 +232,7 @@ class ActionGateway:
         # 4. confirm
         approved_digest = action.digest()
         # "Ask me about everything" (asking.py) only ever adds a card; what's done afterwards follows ``policy``.
-        # Learned trust lowers one kind of level 1 to 0: only this tool, only a kind on the table, never "ask everything".
-        trusted = (action.tool == "system_action_disruptive" and bool(action.trust) and not self.ask_everything()
-                   and self.trusted(action.trust))
-        asked = not trusted and (policy == "confirm" or (action.kind not in asking.EXEMPT and self.ask_everything()))
-        if asked:
+        if policy == "confirm" or (action.kind not in asking.EXEMPT and self.ask_everything()):
             await status("waiting_approval")
             # A card that asks only because of it says so (board 9 §6): Swift's line, never the worker's.
             because = {"because": asking.NOTE} if policy != "confirm" else {}
@@ -250,8 +242,6 @@ class ActionGateway:
                 return Outcome("revise", scope.feedback)
             if decision != "approve":
                 await status("rejected")
-                if action.trust:
-                    self.journal.write(uuid.uuid4().hex[:12], "CANCELLED", reason="rejected", kind=action.trust)
                 why = "The owner didn't answer in time" if decision == "no_answer" else "The owner rejected it"
                 logger.info("action not approved", tool=action.tool, decision=decision)
                 return Outcome("rejected", why)
@@ -263,8 +253,7 @@ class ActionGateway:
         domains = sorted({t.email.rsplit("@", 1)[-1].lower() for t in action.targets})
         extra = {"undoes": action.undoes} if action.undoes else {}
         self.journal.write(action_id, "PENDING", run=scope.run or None, tool=action.tool, digest=approved_digest[:16],
-                           domains=domains, **extra,
-                           **({"kind": action.trust, "asked": asked, **({"trusted": action.trust} if trusted else {})} if action.trust else {}))
+                           domains=domains, **extra)
         # 6. execute
         if action.digest() != approved_digest:
             self.journal.write(action_id, "FAILED", reason="changed_after_approval")

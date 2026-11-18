@@ -67,8 +67,6 @@ class Question:
     # A yes to this one approves a change the owner just asked for ("Turn off Wi-Fi?"): level 1, so said
     # or clicked a plain yes does it, typed never (``intake.approves``; foundation decisions 1 and 10).
     approval: bool = False
-    # What approves the yes (CLAUDE.md's table): 1 a plain spoken yes, 2 a gesture or Swift's name (a learned-trust offer).
-    level: int = 1
     # Who asked: the session's request object, so only that request's end drops it (audit A-08).
     owner: Any = None
     id: str = field(default_factory=lambda: f"ask-{uuid.uuid4().hex[:8]}")

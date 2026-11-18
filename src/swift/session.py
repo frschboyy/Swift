@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import captions, clock, frames, memory, recent, retrying, seen, stops, timers, trust
+from swift import captions, clock, frames, memory, recent, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -3179,7 +3179,7 @@ class Session:
                 outcome = await self.system.confirmed(intents)
             elif kind == "yes_no":
                 record["confirmed"], record["action"] = False, "system_no"
-                return self.system.declined(intents), True
+                return "Okay, I've left it as it is.", True
             elif answer.kind == "cancel":
                 return "Okay, I won't.", True
             else:
@@ -3187,7 +3187,7 @@ class Session:
                 record["intents"] = list(outcome.intents)
         if outcome.done:
             self._carry_system(record, outcome.done)
-        return await trust.offer(self, outcome)
+        return outcome.said, outcome.ok
 
     # ---- the dialogue (ADR-016 §5.1, swift/dialogue.py) -----------------------------------------
 
@@ -3252,7 +3252,7 @@ class Session:
         self._question_done(q)
 
     async def _ask_owner(self, text: str, kind: str, options: tuple[str, ...], *, own: bool = False,
-                         note: str = "", slot: str | None = None, payload: Any = None, approval: bool = False, quote: str = "", level: int = 1) -> Answer | None:
+                         note: str = "", slot: str | None = None, payload: Any = None, approval: bool = False, quote: str = "") -> Answer | None:
         """A run asks the owner something (``ask_owner``): on its card, said aloud for a spoken request, then the
         microphone opens for the answer. None: no answer (away, or none in time); it waits in the stack with its conversation."""
         run = self._current()
@@ -3260,7 +3260,7 @@ class Session:
         q = Question(_clip(text, 300), kind, options, source="run", thread=run.thread, owner=run,
                      future=asyncio.get_running_loop().create_future(),
                      request=self._said or str((record or {}).get("transcript") or ""),
-                     note=note, quote=quote, approval=approval or (own and kind == "yes_no"), own=own, slot=slot, level=level,
+                     note=note, quote=quote, approval=approval or (own and kind == "yes_no"), own=own, slot=slot,
                      payload=payload)
         entry: dict[str, Any] = {"kind": kind, "options": len(options)}
         if record is not None:
@@ -3527,9 +3527,9 @@ class Session:
         match turn.action:
             case "answered" | "cancelled":
                 if q.approval and turn.action == "answered" and turn.answer.kind in ("yes", "choice") and not intake.approves(
-                    source, named=named or turn.answer.named, level=q.level,  # type: ignore[arg-type]
+                    source, named=named or turn.answer.named, level=1,
                 ).allowed:
-                    await self._reask(q, f"{TYPED_YES_HINT if q.level == 1 else trust.NEED_NAME} {q.text}")  # typed: never a yes
+                    await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
                     return True
                 answer = turn.answer
                 if source != "click" and answer.kind not in ("yes", "no", "cancel"):

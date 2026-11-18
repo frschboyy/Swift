@@ -85,6 +85,11 @@ Group 1 is done (B5, B7, B14, B4, B6, "ask me about everything"; A2 blocked). Gr
 A6, A8, B9; "Removes", answers after a restart, the tether and B12 after a restart blocked). `session.py` is at its
 ratchet (4980): nothing more goes into it.
 
+Merged here on 2026-11-18 at the owner's word: group 5 (A10, A11, A13 behind switches, `claude/upbeat-poincare-d02e4a`,
+8f8cee0) and group 4 (the A3 call-detector spike, `claude/charming-neumann-94e5d2`, 34da4b1). On the merged tree:
+Python 2421 passed (1 skipped, 31 xfailed), overlay tsc clean and 180 tests, Rust 46, routing parity 413/423. Group 3
+(modes study §1/§2) is not merged: nothing committed on `claude/frosty-rhodes-8ed251` yet.
+
 ## B3 (grayscale)
 
 Captured in headless Edge with `grayscale(1)`: OK (light band, shield, "Needs your OK"), Waiting (tag pill, 5 px

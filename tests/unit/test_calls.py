@@ -7,6 +7,7 @@ import types
 import pytest
 
 from swift.calls import CallWatch, mic_call
+from swift.ipc.protocol import Message
 from swift.lifecycle import Lifecycle
 from swift.settings import Settings
 
@@ -121,3 +122,29 @@ async def test_coming_back_from_away_mid_call_keeps_the_hold() -> None:
 @pytest.mark.parametrize("n", [1])
 def test_example_config_documents_the_switch(n: int) -> None:
     assert "hold_during_calls" in open("config.example.yaml", encoding="utf-8").read()
+
+
+# ---- review 7ab2b70 finding 1: a card that arrives during a call is held too ------------------------
+
+
+async def test_a_card_arriving_during_a_call_is_held_not_drawn() -> None:
+    import asyncio
+
+    from swift.attention import Attention
+    from swift.parked import ParkedThreads
+    from test_corrections import finish, make, start
+
+    session, out, records, calendar, agent, stt = make(attention=Attention(), parked=ParkedThreads(None))
+    await session.hold_cards(True)  # the call started before the card (Lifecycle.set_call)
+    await start(session, out, stt)
+    card = out.last("confirm.request")
+    after = [m for m in out.messages[out.messages.index(next(m for m in out.messages if m.type == "confirm.request")):]]
+    assert {"request_id": card["request_id"], "held": True} in [m.data for m in after if m.type == "confirm.hold"]
+    assert any(i["id"] == f"card:{card['request_id']}" and i["reason"] == "held" for i in out.last("stack")["items"])
+    await asyncio.sleep(0.01)
+    assert session.state == "confirm" and records == []  # frozen, never answered for the owner
+    await session.hold_cards(False)
+    assert out.last("confirm.hold") == {"request_id": card["request_id"], "held": False}
+    await session.handle(Message("confirm.reply", {"request_id": card["request_id"], "decision": "reject"}))
+    await finish(session)
+    assert calendar.created == []

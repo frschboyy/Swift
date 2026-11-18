@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import captions, clock, frames, memory, recent, retrying, seen, stops, timers
+from swift import calls, captions, clock, frames, memory, recent, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -3626,7 +3626,7 @@ class Session:
         """A confirm card on screen for a spoken request is read aloud (ADR-016 §15.4): its title and
         key facts, so the owner can approve eyes-free. Approving still needs "Swift, yes" or the hotkey."""
         card = run.card
-        if card is None or card.data.get("request_id") != request_id:
+        if await calls.hold_new(self, request_id) or card is None or card.data.get("request_id") != request_id:
             return
         record = run.record or {}
         if record.get("source") not in SPOKEN_SOURCES and self.speech_replies != "always":

@@ -22,9 +22,11 @@ import ctypes
 import sys
 import time
 from collections.abc import Awaitable, Callable, Iterable
-from typing import Protocol
+from typing import Any, Protocol
 
 from loguru import logger
+
+from swift.ipc.protocol import outbound
 
 POLL_S = 2.0
 # The key closes between an app's prompts: a call is over only after this long without it.
@@ -33,6 +35,17 @@ CALL_APPS = ("teams", "zoom", "discord", "slack", "whatsapp", "skype", "webex", 
 # SHQueryUserNotificationState: BUSY, RUNNING_D3D_FULL_SCREEN, PRESENTATION_MODE.
 _PRESENTING = {2, 3, 4}
 _CS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
+
+
+async def hold_new(session: Any, request_id: str) -> bool:
+    """A card that came to the front while the hold is on (a call, or away) is hidden at once, like the one on
+    screen when the hold began (``Session.hold_cards``), and waits in the stack. True: held, so not read aloud."""
+    attention = session.attention
+    if attention is None or not attention.held:
+        return False
+    await session._send_stack()
+    await session._send(outbound("confirm.hold", request_id=request_id, held=True))
+    return True
 
 
 class Probe(Protocol):

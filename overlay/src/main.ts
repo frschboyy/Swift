@@ -792,7 +792,7 @@ async function openTray(): Promise<void> {
   if (!paneWindows) return;
   try {
     const prefs = await invoke<{ anchor: string; smart: boolean }>("get_prefs");
-    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
+    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, asking: !!presence?.asking, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
   } catch {
     return;  // an older shell: its native menu
   }
@@ -801,7 +801,7 @@ async function openTray(): Promise<void> {
 
 function refreshTray(): void {
   if (!tray) return;
-  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused };
+  tray = { ...tray, status: trayStatus(), paused: !!presence?.paused, asking: !!presence?.asking };
   void syncPanes();
 }
 
@@ -817,6 +817,11 @@ async function trayAction(op: string, value?: string): Promise<void> {
       if (tray) tray = { ...tray, smart: on };
       break;
     }
+    case "stop-asking":
+      // Modes §3: a click turns "ask me about everything" off; presence then says so (the tray shows it now).
+      client.send({ type: "asking", data: { on: false } });
+      if (tray) tray = { ...tray, asking: false };
+      break;
     case "pause":
       client.send({ type: "listen", data: { on: !!presence?.paused } });
       tray = null;
@@ -1563,6 +1568,8 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
     thread: threadLines(),
     body: [
       el("p", { class: "confirm-title" }, data.title),
+      // Modes §3: a card that asks only because the owner said "ask me about everything" says so (Swift's line).
+      data.because ? el("p", { class: "asking-line" }, icon("shield"), data.because) : null,
       since !== null ? el("p", { class: "confirm-since" }, `Held while you were away, since ${clock(since)}`) : null,
       confirmFacts(data, shown),
       el("p", { class: "voice-hint", "data-request": data.request_id }, ...voiceHint()),

@@ -64,7 +64,8 @@ Builds what the list below left. One commit per item; this table is kept current
 | B7 the tail settles last (final 120 ms of the grow) and retracts first (80 ms); the deck moves up 160 ms after a drain | d3e92a4 | built (`shuffle.ts DECK_AFTER_DRAIN_MS`; measured in the harness: fade 400 ms, clear ≈ 600 ms) |
 | B14 Edge · Timer with a card in front; RUNNING row with Cancel; voice "done" / "5 more"; Edge · Got it "Done: Tea timer" (+ check halo-b8-gaps-6b8791-1) | 3de9557 | built (`timers.heard`, `timers.stack_action`, `Drawn.front`; seam test `test_b14_done_and_five_more_*`; harness `timerStack`, `timerGot`; parity 413/423 unchanged). Voice "done" answers with a one-line Done card ("Done: Tea timer."), not the Got-it edge a click shows |
 | B4 D7 (`pick` on charts, a grey dashed outline + "Worker's pick" tag) and the fallback line (+ check halo-b8-gaps-6b8791-2) | 6ee126d | built (`shapes.Chart.pick`, `shapes.fallback`; the line rides the result's existing `note`, so it sits above the words, not under them; harness `answerChartPick`, `answerFallback`) |
-| B6 Watch · Step rows, "Step N" in the meta line, the console line under the paper | (B6) | built (`live.ts` steps from the `doing` items). **Not built:** "of 6 · about 1 min left": a run doesn't know its total until a plan says so (§2's plan card can supply it) |
+| B6 Watch · Step rows, "Step N" in the meta line, the console line under the paper | 1330b93 | built (`live.ts` steps from the `doing` items). **Not built:** "of 6 · about 1 min left": a run doesn't know its total until a plan says so (§2's plan card can supply it) |
+| "Ask me about everything": the tray's "Asking about everything" status and "Stop asking about everything" item; "Asking because you said…" on the gateway's own cards (+ check halo-b8-gaps-6b8791-3) | (ASK) | built (`presence.asking`, new inbound `asking` {on: false}, `asking.from_tray`; the gateway passes `because=` to its confirmer only on a card it shows solely because of the setting). **Product rule: needs review** |
 
 ## B3 (grayscale)
 
@@ -126,7 +127,7 @@ design states (a stand-in socket); `?explore=1` turns the glance on.
 
 - **F1** (a lapsed OK and the front), **F2** (no OK brought forward without the owner), **F6** and **F7** ("stop"
   before a run and with nothing running) change confirm and stop behaviour.
-- **"Ask me about everything"** (64dd679) changes where cards are decided (gateway, system lane, step grants).
+- **"Ask me about everything"** (64dd679) changes where cards are decided (gateway, system lane, step grants). The gaps branch adds its tray item (turns it off only) and the gateway's `because=` line (display only, never in the digest).
 - B14 added `timers`/`due.snooze` frames and `due.snooze` sets timers from Swift's own items: worth a second look.
 - A5 gives the worker a new tool (`add_caveat`); what it says shows on Done cards, marked as the worker's.
 - A12 makes the idle orb take the pointer, only when `explore.orb_glance` is on.

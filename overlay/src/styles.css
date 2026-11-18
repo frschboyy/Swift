@@ -1793,6 +1793,10 @@ code {
 #stage .tm-bar { position: relative; flex: none; width: 64px; height: 4px; border-radius: 2px; background: var(--raise-hover); overflow: hidden; }
 #stage .tm-bar::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--tm-left, 0) * 100%); background: var(--accent); }
 #stage .tm-time { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; padding-right: 8px; }
+/* Modes §3: "Asking because you said: ask me about everything." on a card that asks only because of it. */
+.tray-head .tray-asking { display: block; color: var(--accent); font-weight: 600; }
+#stage .asking-line { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+#stage .asking-line .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
 #stage .pinned-line { flex: 1 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ==== A12, the orb glance (Explore, off by default): 280 wide, solid, read-only ==== */

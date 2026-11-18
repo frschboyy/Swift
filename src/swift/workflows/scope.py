@@ -23,8 +23,9 @@ from swift.workflows.artifacts import Artifact, ArtifactStore, Kind, Phase
 
 # "revise": the owner asked for a change on the card; their words are in ``RunScope.feedback``.
 Decision = Literal["approve", "reject", "no_answer", "revise"]
-# (title, detail, tool, artifact_id) -> the owner's answer on the confirm card.
-Confirmer = Callable[[str, str, str, str | None], Awaitable[Decision]]
+# (title, detail, tool, artifact_id) -> the owner's answer on the confirm card. The gateway adds ``because=`` (Swift's
+# line on why it asks) on a card it shows only because the owner said "ask me about everything" (asking.py).
+Confirmer = Callable[..., Awaitable[Decision]]
 Publisher = Callable[[Artifact], Awaitable[None]]
 # (text, activity, app) -> a step on the working card, from Swift itself.
 Stepper = Callable[[str, str, str | None], Awaitable[None]]

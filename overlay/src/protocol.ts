@@ -116,7 +116,7 @@ export type Inbound =
   | { type: "transcript"; data: { text: string; final: boolean; typed?: boolean; clip?: string } }
   | { type: "step"; data: { run_id: string; text: string; kind: string; ts: number; activity?: Activity; agent?: Agent | null; subagent?: boolean; thread_id?: string; app?: string | null } }
   // artifact_id: the card shows that artifact (the draft for Swift's send_email card; agent is then null).
-  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string } }
+  | { type: "confirm.request"; data: { request_id: string; run_id: string; title: string; detail: string; tool: string; purpose?: string; step?: boolean; agent?: Agent | null; artifact_id?: string | null; thread_id?: string; because?: string } }
   // Push-to-talk on an open confirm card; the state stays "confirm".
   | { type: "confirm.voice"; data: { request_id: string; phase: "listening" | "transcribing" | "idle" | "hint" | "again"; text: string } }
   // note: Swift's own aside above the answer ("No, I'm Swift. ...").
@@ -136,7 +136,7 @@ export type Inbound =
   | { type: "followup"; data: { open: boolean; seconds: number; question?: boolean } }
   // Whether the owner is here and whether hands-free listening is on, and why not (ADR-014 §8).
   // paused: the owner paused listening from the tray (ADR-017): "Not listening · Mic off".
-  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean } }
+  | { type: "presence"; data: { state: "here" | "idle" | "away"; reason: string; listening: boolean; wake: boolean; paused?: boolean; asking?: boolean } }
   // ADR-014 §4: the owner is away, so the confirm card is put aside (hidden, its countdown stopped);
   // held false: they're back, and the card shows again.
   | { type: "confirm.hold"; data: { request_id: string; held: boolean } }
@@ -250,6 +250,8 @@ export type Outbound =
   | { type: "speech.stop"; data: Record<string, never> }
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
   | { type: "listen"; data: { on: boolean } }
+  // The tray's "Stop asking about everything" (modes study §3): only ever false.
+  | { type: "asking"; data: { on: boolean } }
   | { type: "recordings"; data: { action: "clear" | "improve" } }
   // The card's flag on the heard words (heardfix.ts): the pane opened, and the correction saved. A label only.
   | { type: "recordings"; data: { action: "fix_open"; clip: string } }

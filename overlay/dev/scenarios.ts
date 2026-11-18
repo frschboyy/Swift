@@ -411,6 +411,14 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("confirm.voice", { request_id: id, phase: "again", text: "Heard “approve”, but it's noisy here. Say “approve” again to go ahead, or click." });
     await sleep(150);
   },
+  // Modes §3: Swift's own card that asks only because the owner said "ask me about everything".
+  confirmAsking: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Type hello into Notepad", final: true, typed: false });
+    s.inject("state", { state: "confirm", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("confirm.request", { request_id: `swift:${id}`, run_id: id, title: "Type into Notepad", detail: "hello", tool: "desktop_write", agent: null, artifact_id: null, thread_id: `t-${id}`, because: "Asking because you said: ask me about everything." });
+    await sleep(600);
+  },
   confirmCommand: async (s) => { await confirm(s, "Run a command in your project", null, "npm run build -- --mode production", "Build the site"); },
   confirmAway: async (s) => {
     await DESIGN.confirmChange(s);

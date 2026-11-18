@@ -30,6 +30,7 @@ from typing import Any
 
 from loguru import logger
 
+from swift import asking
 from swift.ipc.protocol import Message, outbound
 from swift.presence import Change, PresenceMonitor
 
@@ -248,6 +249,8 @@ class Lifecycle:
                 listening=self.wake_enabled and self.listening,
                 wake=self.wake_enabled,
                 paused=self.paused,
+                # Modes §3: the tray says so (sent only while on).
+                **({"asking": True} if asking.is_on(getattr(self.session, "memories", None)) else {}),
             )
         )
 

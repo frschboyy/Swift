@@ -39,6 +39,14 @@ def is_on(store: Any) -> bool:
     return store is not None and store.get("memory", KEY) is not None
 
 
+async def from_tray(session: Any) -> None:
+    """The tray's "Stop asking about everything" (``asking`` with on false; a tray never turns it on): off, then the
+    tray's status says so (``presence``)."""
+    answer(session.memories, "ask_less", "", "tray")
+    if session.on_ready is not None:
+        await session.on_ready()
+
+
 def answer(store: Any, action: str, words: str, run: str) -> str:
     """Turn it on or off from the owner's words, and say so."""
     if store is None:

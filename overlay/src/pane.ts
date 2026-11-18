@@ -226,7 +226,8 @@ function drawTray(v: TrayView): void {
     el(
       "section",
       { class: "tray", role: "menu", "aria-label": "Swift" },
-      el("div", { class: `tray-head${v.paused ? " tray-head--paused" : ""}` }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", { class: "tray-status" }, v.status))),
+      el("div", { class: `tray-head${v.paused ? " tray-head--paused" : ""}` }, el("span", { class: "orb", "aria-hidden": "true" }), el("span", {}, el("b", {}, "Swift"), el("span", { class: "tray-status" }, v.status),
+        v.asking ? el("span", { class: "tray-status tray-asking" }, "Asking about everything") : null)),
       el("div", { class: "tray-sep" }),
       el("div", { class: "tray-block" },
         el("div", { class: "tray-row" }, "Position", el("span", {}, anchorName(v.anchor))),
@@ -250,6 +251,7 @@ function drawTray(v: TrayView): void {
               role: "radio", "aria-checked": String(v.display![k] === c.value), onclick: tray("display", { text: `${k}:${c.value}` }),
             }, c.label)))))) : null,
       el("div", { class: "tray-sep" }),
+      v.asking ? el("button", { class: "tray-item", role: "menuitem", onclick: tray("stop-asking") }, icon("shield"), "Stop asking about everything") : null,
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("pause") }, icon(v.paused ? "play" : "pause"), v.paused ? "Resume listening" : "Pause listening"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("settings") }, icon("settings"), "Settings"),

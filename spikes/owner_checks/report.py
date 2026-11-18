@@ -449,6 +449,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-build-4fbdf7-8 a timer counts on the orb; +5 min sets it again", LOOK, "check on screen: the ring, the pill, +5 min back at 5:00"),
         ("halo-b8-gaps-6b8791-1 a timer in the stack with Cancel; \"done\" / \"5 more\" said; Done: Tea timer", LOOK, "check on screen: RUNNING row, Cancel, the voice words, the Got it edge"),
         ("halo-b8-gaps-6b8791-2 the worker's pick on a chart; a refused shape's grey line", LOOK, "check on screen: grey outline, the tag, the line"),
+        ("halo-b8-gaps-6b8791-3 ask me about everything: the tray's status and Stop item; the card's line", LOOK, "check on screen: the tray, the line, off from the tray"),
         ("halo-b8-build-4fbdf7-9 'ask me about everything': it asks, volume doesn't, it stays on", LOOK, "check: the question and its line; on after a restart; off again"),
         ("halo-b8-build-4fbdf7-10 the orb glance (A12, explore.orb_glance)", LOOK, "say whether to keep it; it never took the keyboard"),
         ("halo-b8-build-4fbdf7-11 Approve fills, Copied, Pin, a caveat (A9, A4, A5)", LOOK, "check on screen"),

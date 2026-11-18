@@ -3029,6 +3029,16 @@ You should see: (1) bars of equal weight, the months the worker picked inside a 
 amber), and a grey "Worker's pick: …" tag under the legend; (2) plain words, with one grey line above them, "Shown as
 words: Swift couldn't check this as a chart." (if the worker answers in words without trying a shape, there is no line).
 
+<a id="check-halo-b8-gaps-6b8791-3"></a>**Check halo-b8-gaps-6b8791-3. "Ask me about everything" in the tray and on Swift's own cards (modes §3)**
+1. Say "Hey Swift, ask me about everything". Right-click the tray icon.
+2. Say "Hey Swift, type hello into Notepad" (with Notepad open). Look at the card, then click Reject.
+3. Right-click the tray icon and click **Stop asking about everything**. Right-click it again.
+
+You should see: (1) under "Listening…" the tray says "Asking about everything" in blue, with a "Stop asking about
+everything" item; (2) the Needs your OK card has "Asking because you said: ask me about everything." under its title
+(a card that would ask anyway, such as sending an email, has no such line); (3) the status line and the item are gone,
+and typing into Notepad no longer asks.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

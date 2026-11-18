@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import captions, clock, memory, recent, seen, stops, timers
+from swift import asking, captions, clock, memory, recent, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -1608,6 +1608,8 @@ class Session:
             case "speech.stop":
                 logger.info("speech stopped by the owner")
                 self.speaker.stop()  # only the voice: the card and the run stay (ADR-017)
+            case "asking":  # the tray's "Stop asking about everything" (modes §3): a click, it only asks less
+                await asking.from_tray(self)
             case "listen":
                 logger.info("listening", on=msg.data["on"])
                 if self.on_listen is not None:
@@ -4222,7 +4224,7 @@ class Session:
         self._artifacts_run = self._run_id()
         await self._send(outbound("artifact", **artifact.as_message(self._artifacts_run)))
 
-    async def _swift_confirm(self, title: str, detail: str, tool: str, artifact_id: str | None) -> Decision:
+    async def _swift_confirm(self, title: str, detail: str, tool: str, artifact_id: str | None, because: str = "") -> Decision:
         """The gateway's confirm card: shown, answered and timed out like a provider's."""
         request_id = f"swift:{next(self._swift_ids)}"
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
@@ -4240,7 +4242,7 @@ class Session:
             outbound(
                 "confirm.request", request_id=request_id, run_id=run_id, title=title, detail=detail, tool=tool,
                 # Swift is asking, not the provider.
-                agent=None, artifact_id=artifact_id,
+                agent=None, artifact_id=artifact_id, **({"because": because} if because else {}),
             )
         )
         if on_screen:

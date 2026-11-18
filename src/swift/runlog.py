@@ -60,7 +60,8 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
 # ``continues``, which is taken off the record before it finishes, and ``transcript_raw``, which only
 # older records have (word fixes, removed 2026-11-17).
 LOCAL_ONLY_FIELDS: frozenset[str] = frozenset({
-    "addressed_as", "answers", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "id", "steps", "target",
+    # fallback: B4's line on a refused shape (Swift's words, kept locally like the card's text).
+    "addressed_as", "answers", "approvals", "asked_unanswered", "audio_file", "continues", "error_detail", "fallback", "id", "steps", "target",
     "transcript", "transcript_heard", "transcript_raw", "ts", "unclear",
 })
 _ESCALATION_FIELDS = ("to", "by", "t_ms")  # not ``reason``: the model writes it, and it can restate the request

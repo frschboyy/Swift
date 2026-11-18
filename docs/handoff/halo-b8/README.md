@@ -65,7 +65,8 @@ What that means in code (Step B, `brief-halo.md`):
 
 - Amber means an OK is waiting now, nothing else. Red means failure, nothing else. Every mark has a word.
 - The state sets the treatment; blocks carry content. Shapes appear only on Done and in the reader, never on an approval or a question.
-- Swift never takes focus; the text box is the only exception. Only painted pixels take clicks.
+- Swift never takes focus; the text box is the only exception (A7's keyboard-entry hotkey opens the text box on the
+  card's buttons, so it is that same exception, and only the owner's hotkey does it). Only painted pixels take clicks.
 - Approval: Swift's own button, the same button from the keyboard (Tab then Enter), or speech with Swift's name or the hotkey held. Typed words never approve. Approve ignores clicks for 400 ms. `intake.approves` is the one place this is decided.
 - No provider name on screen ("via Claude" is gone; the byline is "Swift").
 - The confirm card never scrolls, and its buttons never leave the window: compact first, then fold the deck.

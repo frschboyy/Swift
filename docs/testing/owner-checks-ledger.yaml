@@ -97,7 +97,7 @@ areas:
   halo-b8-fixes:
     rule: an OK that lapses waits in the stack and only the owner brings it back; "stop" always says what it stopped
     paths: [src/swift/session.py, src/swift/stops.py, overlay/src/presenter.ts, overlay/src/deck.ts, overlay/src/pane.ts, overlay/src-tauri/src/lib.rs]
-    checks: [halo-b8-build-4fbdf7-1, halo-b8-build-4fbdf7-2, halo-b8-build-4fbdf7-3]
+    checks: [halo-b8-build-4fbdf7-1, halo-b8-build-4fbdf7-2, halo-b8-build-4fbdf7-3, halo-b8-build-4fbdf7-16]
   live-view:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
     checks: [10, 90-95, 126, 127]

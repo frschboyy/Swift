@@ -3081,6 +3081,18 @@ You should see: each choice takes effect on the next card; Large makes the cards
 cutting anything; Less turns card movements into short fades; the choices survive a restart. Not in it yet:
 "speak answers" and "watch opens" (they're in `config.yaml`).
 
+<a id="check-halo-b8-build-4fbdf7-16"></a>**Check halo-b8-build-4fbdf7-16. Keyboard entry on the card's buttons (A7)**
+1. Type in Notepad. Ask "Hey Swift, email Priya the tea report" so a Needs your OK card appears; keep typing in
+   Notepad for a moment.
+2. Press Ctrl+Alt+Enter. Press Tab twice, then Shift+Tab, then Esc. Type a word.
+3. Press Ctrl+Alt+Enter again, Tab to **Reject**, press Enter. Type a word.
+4. Ask for another card, press Ctrl+Alt+Enter, and with Approve reached press Enter at once.
+
+You should see: in step 1 your typing stays in Notepad (the card never takes the keyboard by itself). Ctrl+Alt+Enter
+opens the text box saying what Enter presses, with a ring on that card button; Tab moves only between the card's
+buttons; after Esc, and after Enter on Reject, your typing goes into Notepad again. In step 4 the card is approved
+only after its short guard (a press in the first moment does nothing); Reject the next one.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

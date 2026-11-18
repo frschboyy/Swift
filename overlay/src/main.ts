@@ -631,6 +631,18 @@ function syncTypingNotice(): void {
   void syncPanes();
 }
 
+/** A7, keyboard entry: the owner's hotkey (and only it, never a card appearing) opens the text box on the front
+ * card's first button. The text box is the one window that takes the keyboard (CLAUDE.md); Tab walks only the
+ * card's buttons, Enter presses the one reached as its own click (Approve keeps its 400 ms guard), and the box
+ * closes after the press or on Esc, so Windows gives the keyboard back to the app it came from. */
+function enterCard(): void {
+  const keys = keyedButtons().map((b) => b.dataset.key!);
+  if (!keys.length || !paneWindows) return;  // nothing to press, or no text box here: nothing takes the keyboard
+  if (!typing) toggleTyping();
+  keyOn = K.step(keys, null, 1);
+  syncKeyed();
+}
+
 function closeTyping(): void {
   if (!typing) return;
   typing = null;
@@ -2362,6 +2374,7 @@ async function registerHotkeys(hotkeys: Record<string, string>): Promise<void> {
   if (hotkeys.push_to_talk) wanted.push_to_talk = hotkeys.push_to_talk;
   if (debugEnabled && hotkeys.debug) wanted.debug = hotkeys.debug;
   if (hotkeys.type) wanted.type = hotkeys.type;
+  if (hotkeys.card) wanted.card = hotkeys.card;  // A7, keyboard entry
   const problems = await invoke<HotkeyProblem[]>("register_hotkeys", { hotkeys: wanted });
   const ptt = problems.find((p) => p.name === "push_to_talk");
   if (ptt) {
@@ -2416,6 +2429,8 @@ void listen<{ name: string; state: "down" | "up" }>("hotkey", ({ payload }) => {
     client.send({ type: "debug.run", data: { scenario } });
   } else if (payload.name === "type" && payload.state === "down") {
     toggleTyping();
+  } else if (payload.name === "card" && payload.state === "down") {
+    enterCard();
   } else if (payload.name === "push_to_talk") {
     const sent = client.send({ type: "ptt", data: { state: payload.state } });
     if (!sent && payload.state === "down") renderConnection(true);

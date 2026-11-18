@@ -50,6 +50,9 @@ class Hotkeys(_Section):
     debug: str = "Ctrl+Alt+F12"
     # Opens the overlay's text box: type a request instead of saying it (ADR-015 §10). "" turns it off.
     type: str = "Ctrl+Alt+Space"
+    # A7, keyboard entry: opens the text box on the front card's own buttons (Tab walks them, Enter presses one,
+    # Esc goes back to your app). Only this hotkey does it, never a card appearing. "" turns it off.
+    card: str = "Ctrl+Alt+Enter"
 
 
 class SttSettings(_Section):

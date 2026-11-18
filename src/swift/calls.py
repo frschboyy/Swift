@@ -34,7 +34,12 @@ OUT_S = 5.0
 # A key opened longer ago than this is left behind by a crash, not a call (review 7ab2b70 finding 3).
 STALE_S = 4 * 3600
 _EPOCH_1601 = 11644473600  # seconds from FILETIME's 1601 to Unix time
-CALL_APPS = ("teams", "zoom", "discord", "slack", "whatsapp", "skype", "webex", "chrome", "msedge", "firefox", "brave")
+# Desktop call apps by exact exe name (a substring would take msedgewebview2.exe, zoomit.exe: review finding 8).
+CALL_EXES = frozenset({"teams.exe", "ms-teams.exe", "zoom.exe", "discord.exe", "slack.exe", "whatsapp.exe",
+                       "skype.exe", "webex.exe", "ciscocollabhost.exe", "chrome.exe", "msedge.exe", "firefox.exe",
+                       "brave.exe"})
+# Store apps by a word in the package name (MSTeams, 5319275A.WhatsAppDesktop, 91750D7E.Slack...).
+CALL_PACKAGES = ("teams", "zoom", "discord", "slack", "whatsapp", "skype", "webex")
 # SHQueryUserNotificationState: BUSY, RUNNING_D3D_FULL_SCREEN, PRESENTATION_MODE.
 _PRESENTING = {2, 3, 4}
 _CS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone"
@@ -78,12 +83,12 @@ def mic_call(mic_apps: Iterable[str], alive: set[str], paths: Iterable[str] = ()
     for app in mic_apps:
         if app.startswith("np:"):
             exe = app[3:].lower()
-            running = exe in alive
-        else:
-            name, _, publisher = app.lower().rpartition("_")
-            exe = name
-            running = any(f.startswith(name + "_") and f.endswith("__" + publisher) for f in folders)
-        if running and any(word in exe for word in CALL_APPS):
+            if exe in alive and exe in CALL_EXES:
+                return True
+            continue
+        name, _, publisher = app.lower().rpartition("_")
+        if any(word in name for word in CALL_PACKAGES) and any(
+                f.startswith(name + "_") and f.endswith("__" + publisher) for f in folders):
             return True
     return False
 

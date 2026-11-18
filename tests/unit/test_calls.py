@@ -282,3 +282,13 @@ async def test_the_dialogue_is_forgotten_once_when_the_hold_begins() -> None:
     await session.hold_cards(False)
     await session.hold_cards(True)
     assert forgot == [True, True]
+
+
+# ---- review 7ab2b70 finding 8: desktop call apps by exact exe name -------------------------------------
+
+
+def test_lookalike_exes_are_not_call_apps() -> None:
+    for exe in ("msedgewebview2.exe", "zoomit.exe", "chromedriver.exe"):
+        assert mic_call([f"np:{exe}"], {exe}) is False, exe
+    for exe in ("ms-teams.exe", "teams.exe", "zoom.exe", "msedge.exe", "firefox.exe"):
+        assert mic_call([f"np:{exe}"], {exe}) is True, exe

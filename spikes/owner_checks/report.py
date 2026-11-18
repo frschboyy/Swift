@@ -445,6 +445,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-build-4fbdf7-4 every surface in Halo (board 9)", LOOK, "check on screen: pile, list, text box, tray, reply ring"),
         ("halo-b8-build-4fbdf7-5 'Swift is ready' only after an update or a crash", LOOK, "check: none after a plain restart"),
         ("halo-b8-build-4fbdf7-6 a long answer grows; Show all, Show less, Esc, the orb", LOOK, "check on screen: the fade, 640 wide open, folds back to the top"),
+        ("halo-b8-build-4fbdf7-7 how cards move (grow, fold, drain; reduced motion)", LOOK, "check on screen: say how it feels"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

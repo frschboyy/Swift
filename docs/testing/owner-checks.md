@@ -2988,6 +2988,18 @@ You should see: the answer fills most of the window before it's cut, with a fade
 open, the card is wider and only its text scrolls; Esc and a click on the orb fold it back to the top; while open
 the other requests are one edge, and the OK shows on it in amber. Click **Reject**.
 
+<a id="check-halo-b8-build-4fbdf7-7"></a>**Check halo-b8-build-4fbdf7-7. How cards move (B7)**
+1. Say "Hey Swift, what time is it?" and watch the card come out of the orb, then let it fade by itself.
+2. Ask again and close the card with its ×.
+3. With a request running behind (an edge), click the edge.
+4. Turn Windows' "Animation effects" off (Settings → Accessibility → Visual effects) and repeat step 1, then turn it
+   back on.
+
+You should see: the card grows out of the orb and its words appear just after; fading by itself it drifts a
+little toward the orb; closed, it folds into the orb, which pulses once; the edge grows into the card. With
+animation effects off, each is a short fade, and the bar under the answer still runs down. Say whether any of it
+feels slow, jumpy or distracting.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -65,7 +65,11 @@ Builds what the list below left. One commit per item; this table is kept current
 | B14 Edge · Timer with a card in front; RUNNING row with Cancel; voice "done" / "5 more"; Edge · Got it "Done: Tea timer" (+ check halo-b8-gaps-6b8791-1) | 3de9557 | built (`timers.heard`, `timers.stack_action`, `Drawn.front`; seam test `test_b14_done_and_five_more_*`; harness `timerStack`, `timerGot`; parity 413/423 unchanged). Voice "done" answers with a one-line Done card ("Done: Tea timer."), not the Got-it edge a click shows |
 | B4 D7 (`pick` on charts, a grey dashed outline + "Worker's pick" tag) and the fallback line (+ check halo-b8-gaps-6b8791-2) | 6ee126d | built (`shapes.Chart.pick`, `shapes.fallback`; the line rides the result's existing `note`, so it sits above the words, not under them; harness `answerChartPick`, `answerFallback`) |
 | B6 Watch · Step rows, "Step N" in the meta line, the console line under the paper | 1330b93 | built (`live.ts` steps from the `doing` items). **Not built:** "of 6 · about 1 min left": a run doesn't know its total until a plan says so (§2's plan card can supply it) |
-| "Ask me about everything": the tray's "Asking about everything" status and "Stop asking about everything" item; "Asking because you said…" on the gateway's own cards (+ check halo-b8-gaps-6b8791-3) | (ASK) | built (`presence.asking`, new inbound `asking` {on: false}, `asking.from_tray`; the gateway passes `because=` to its confirmer only on a card it shows solely because of the setting). **Product rule: needs review** |
+| "Ask me about everything": the tray's "Asking about everything" status and "Stop asking about everything" item; "Asking because you said…" on the gateway's own cards (+ check halo-b8-gaps-6b8791-3) | 5d872cb | built (`presence.asking`, new inbound `asking` {on: false}, `asking.from_tray`; the gateway passes `because=` to its confirmer only on a card it shows solely because of the setting). **Product rule: needs review** |
+| A2 replace the answer in place while the same run goes on | — | **blocked**: each request is its own run (run records, Stop, the stack and the journal are per run); a follow-up resumes the provider's session in the same thread as a new run. The overlay already keeps the same card for it (52dca0c). Making a follow-up the same run is a backend redesign, not a gap |
+
+Group 1 is done (B5, B7, B14, B4, B6, "ask me about everything"; A2 blocked). `session.py` is at its ratchet (4985):
+nothing more goes into it.
 
 ## B3 (grayscale)
 

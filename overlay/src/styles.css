@@ -1260,6 +1260,8 @@ code {
 
 #stage .capsule { max-width: min(var(--card-w), 100%); }
 #stage[data-anchor$="left"] .capsule:not([data-p="orb"]):not([data-p="idle"]) { margin-left: 21px; }
+/* ADR-019 §8.5: at right anchors the pill grows leftwards, so the orb's centre stays 44 px from the card's edge. */
+#stage[data-anchor$="right"] .capsule:not([data-p="orb"]):not([data-p="idle"]) { flex-direction: row-reverse; padding: 0 10px 0 18px; margin-right: 21px; }
 #stage .capsule[data-p="orb"] {
   width: var(--orb);
   height: var(--orb);

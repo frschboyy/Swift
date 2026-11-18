@@ -139,6 +139,11 @@ export function detailsText(details: ResultDetails | null | undefined): string {
         ...details.x.map((category, i) => [category, ...details.series.map((s) => s.values[i])].join("\t")),
         details.text,
       ].filter(Boolean).join("\n");
+    case "tree": {
+      const lines = (entries: NonNullable<typeof details.entries>, depth: number): string[] =>
+        entries.flatMap((e) => [`${"  ".repeat(depth)}${e.name}${e.folder ? "/" : ""}${e.meta ? `  ${e.meta}` : ""}`, ...lines(e.entries ?? [], depth + 1)]);
+      return [details.title, ...lines(details.entries, 0), details.text].filter(Boolean).join("\n");
+    }
     case "cards":
       return [
         details.title,

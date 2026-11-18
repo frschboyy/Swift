@@ -138,6 +138,7 @@ export function needsReader(summary: string, details: ResultDetails | null | und
     case "preview":
     case "chart":
     case "cards":
+    case "tree":
       return details.size === "expanded";  // Swift sized it (swift/shapes.py)
   }
 }

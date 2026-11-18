@@ -35,7 +35,8 @@ export type ResultDetails =
   | MindMap
   | Preview
   | Chart
-  | Cards;
+  | Cards
+  | Tree;
 
 // B4: options side by side, as the worker proposed them and Swift checked them (swift/shapes.py). by and size are
 // Swift's: who made it (always the worker's here, marked on the card) and whether it fits a card. text: the
@@ -72,6 +73,13 @@ export type Chart = {
 export type ProjectCard = { title: string; detail?: string; meta?: string };
 export type Cards = {
   kind: "cards"; title?: string; cards: ProjectCard[];
+  by: "worker"; size: "card" | "expanded"; text?: string;
+};
+
+// B13: files and folders as the worker listed them (swift/shapes.py Tree): names only, never a path Swift acts on.
+export type TreeEntry = { name: string; folder?: boolean; meta?: string; open?: boolean; entries?: TreeEntry[] };
+export type Tree = {
+  kind: "tree"; title?: string; entries: TreeEntry[];
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
 

@@ -1664,3 +1664,23 @@ async def test_b14_a_running_timer_reaches_the_orb_and_plus_five_sets_it_again()
     again = _screen(out)
     assert again["timerTitles"] == ["tea"] and again["timerPill"] == "5:00", again
     await finish_all(session, agent)
+
+
+async def test_b13_a_file_tree_reaches_the_done_card_as_one() -> None:
+    """B13: a file list the worker gave as a tree, checked by Swift, reaches the answer card as a tree (its
+    entries as indented lines in the card's words); more than ten entries open in full."""
+    few = [{"name": "2026", "folder": True, "open": True, "entries": [{"name": "beach.jpg", "meta": "2 MB"}]}, {"name": "notes.txt"}]
+    many = [{"name": f"photo {i}.jpg"} for i in range(12)]
+    for entries, long in [(few, False), (many, True)]:
+        session, out, agent, stt, _control, _sched = _lane()
+        shape, problems = shapes.check({"shape": "tree", "title": "Pictures", "entries": entries})
+        assert not problems
+        agent.details = shapes.details(shape)
+        run = await started(session, out, agent, stt, "Hey Swift, where are my holiday photos")
+        agent.runs[run]["go"].set()
+        await until(lambda: out.last("result"))
+        screen = agree(session, out)
+        assert screen["stage"] == "result" and screen["answerKind"] == "tree" and screen["answerLong"] is long, screen
+        if not long:
+            assert screen["answerText"] == "Pictures\n2026/\n  beach.jpg  2 MB\nnotes.txt", screen["answerText"]
+        await finish_all(session, agent)

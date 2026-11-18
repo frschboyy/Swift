@@ -306,3 +306,26 @@ def test_project_cards_are_kept_as_sent_and_sized_by_swift() -> None:
 def test_project_cards_out_of_shape_are_refused_whole(change: dict[str, Any]) -> None:
     shape, problems = shapes.check(PROJECTS | change)
     assert shape is None and problems
+
+
+def test_b13_a_file_tree_is_kept_and_bounded() -> None:
+    """B13: names, folders, a short meta and the one folder that starts open; never more than four levels or
+    sixty entries, a file never holds entries, and names are plain text (the worker's, shown as its own)."""
+    tree = {"shape": "tree", "title": "Photos", "entries": [
+        {"name": "2026", "folder": True, "open": True, "entries": [{"name": "beach.jpg", "meta": "2 MB"}]},
+        {"name": "notes.txt"},
+    ]}
+    shape, problems = shapes.check(tree)
+    assert problems == [] and shape is not None and shapes.extent(shape) == (3, shapes.CARD_TREE_ROWS)
+    assert shapes.details(shape)["by"] == "worker"
+    assert shapes.check({"shape": "tree", "entries": [{"name": "a.txt", "entries": [{"name": "b"}]}]})[0] is None
+    assert shapes.check({"shape": "tree", "entries": [{"name": "<b>x</b>"}]})[0] is None
+    deep: dict[str, Any] = {"name": "f", "folder": True, "entries": []}
+    node = deep
+    for _ in range(4):
+        child: dict[str, Any] = {"name": "f", "folder": True, "entries": []}
+        node["entries"] = [child]
+        node = child
+    assert shapes.check({"shape": "tree", "entries": [deep]})[0] is None
+    many = [{"name": f"{i}.txt"} for i in range(shapes.TREE_ITEMS + 1)]
+    assert shapes.check({"shape": "tree", "entries": many})[0] is None

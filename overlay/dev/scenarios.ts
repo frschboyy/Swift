@@ -306,6 +306,19 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // B5 (03-verify.md names): a long answer at its cap, and expanded by hand.
   cardCapped: async (s) => { await answer(s, "Give me a short history of tea", LONG); },
   cardExpanded: async (s) => { await DESIGN.answerLongOpen(s); },
+  // B13: a file list as a tree.
+  treeCard: async (s) => {
+    await answer(s, "Where are my holiday photos?", "They're in Pictures, under 2026.", { kind: "tree", title: "Pictures", by: "worker", size: "card", entries: [
+      { name: "2025", folder: true, meta: "214 items", entries: [{ name: "winter.jpg" }] },
+      { name: "2026", folder: true, open: true, meta: "38 items", entries: [
+        { name: "Lisbon - first evening by the river with everyone, panorama.jpg", meta: "6.1 MB" },
+        { name: "beach.jpg", meta: "2.4 MB" }, { name: "trip notes.docx", meta: "18 KB" },
+        { name: "Videos", folder: true, entries: [{ name: "waves.mp4" }] },
+      ] },
+      { name: "Screenshots", folder: true, meta: "1,204 items", entries: [{ name: "a.png" }] },
+      { name: "wallpaper.png", meta: "3.0 MB" },
+    ] });
+  },
   answerLongOpen: async (s) => {
     await answer(s, "Give me a short history of tea", LONG);
     document.querySelector<HTMLButtonElement>("#card .card-foot .show-all")?.click();

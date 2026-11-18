@@ -390,12 +390,12 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   // 8. timers and reminders
   timerDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-timer-7", agent: null });
-    s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null });
+    s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null, origin: "reminder" });
     await sleep(200);
   },
   reminderDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-reminder-3", agent: null });
-    s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null });
+    s.inject("result", { run_id: "due-reminder-3", status: "done", summary: "Reminder: call mum.", details: null, agent: null, note: null, origin: "reminder" });
     await sleep(200);
   },
   // 12. the shrunk working card, and the Deck's tightest cases (ADR-019 Step A's states)

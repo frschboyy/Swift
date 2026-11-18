@@ -177,3 +177,41 @@ async def test_a_plan_does_not_come_back_when_asking_about_everything_goes_off(t
     assert await _asks(ex, run, "git init")
     ex.ask_everything = lambda: False
     assert await _asks(ex, run, "mkdir tea-timer")
+
+
+# ---- PLAN-01, the paths 477ee02 left (second review, 2026-11-18): any new proposal ends the earlier approval ----
+
+
+async def test_a_new_plan_with_nothing_swift_can_cover_ends_the_earlier_plan(tmp_path: Any) -> None:
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    assert await ex._propose_plan(run, "cc-1", {"steps": PLAN[2:]}) == STEP_NOTHING_AHEAD_MESSAGE  # no card
+    assert await _asks(ex, run, "mkdir tea-timer")
+
+
+async def test_a_new_proposal_that_is_not_a_plan_ends_the_earlier_plan(tmp_path: Any) -> None:
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    assert await ex._propose_plan(run, "cc-1", {"steps": [PLAN[1]]}) == PLAN_NOT_A_PLAN_MESSAGE.format(most=8)
+    assert await _asks(ex, run, "mkdir tea-timer")
+
+
+async def test_a_change_on_a_step_card_ends_the_earlier_plan(tmp_path: Any) -> None:
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    proposing = asyncio.create_task(ex._propose_step(run, "cc-1", {"step": "Make the folder.", "commands": ["mkdir x"]}))
+    card = await asyncio.wait_for(run.queue.get(), 5)
+    await ex.reply(card.request_id, "call it tea instead")
+    await asyncio.wait_for(proposing, 5)
+    assert await _asks(ex, run, "mkdir tea-timer")
+
+
+async def test_a_no_on_a_step_card_ends_the_earlier_plan_even_if_the_run_isnt_interrupted(tmp_path: Any) -> None:
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    run.client = None  # no interrupt: the agent's turn would go on
+    proposing = asyncio.create_task(ex._propose_step(run, "cc-1", {"step": "Make the folder.", "commands": ["mkdir x"]}))
+    card = await asyncio.wait_for(run.queue.get(), 5)
+    await ex.reply(card.request_id, False)
+    await asyncio.wait_for(proposing, 5)
+    assert await _asks(ex, run, "mkdir tea-timer")

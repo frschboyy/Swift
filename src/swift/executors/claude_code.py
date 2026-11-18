@@ -876,6 +876,7 @@ class ClaudeCodeExecutor:
         grant; the rest ask on their own cards. A no stops the run, as a rejected command card does."""
         if self.tools is not None and self.tools.in_workflow_for(run_id):
             return NOT_IN_WORKFLOW_MESSAGE.format(tool="propose_step")
+        _set_grant(run, self.gateway)  # PLAN-01: a new proposal ends the earlier approval; only a yes to it grants again
         if self.ask_everything():  # the owner asked to be asked about everything: no card covers several commands
             return STEP_ASK_EVERYTHING_MESSAGE
         said = command_purpose("Bash", {"description": args.get("step")})
@@ -908,6 +909,7 @@ class ClaudeCodeExecutor:
         (``plan_card``); the others ask on their own cards. A changed plan is a new card, and a yes replaces any grant."""
         if self.tools is not None and self.tools.in_workflow_for(run_id):
             return NOT_IN_WORKFLOW_MESSAGE.format(tool="propose_plan")
+        _set_grant(run, self.gateway)  # PLAN-01: a new proposal ends the earlier approval, card or not; only a yes grants
         if self.ask_everything():  # no plan covers anything while the owner wants to be asked about everything
             return STEP_ASK_EVERYTHING_MESSAGE
         built = plan_card.build(args.get("steps"), lambda c: len(c) <= COMMAND_MAX and not self.reads.in_command(c, self.cwd), reversible)
@@ -925,7 +927,6 @@ class ClaudeCodeExecutor:
             nums = [str(i + 1) for i, r in enumerate(rows) if r["covered"]]
             return PLAN_APPROVED_MESSAGE.format(steps=", ".join(nums), covered="; ".join(covered))
         if isinstance(decision, tuple):
-            _set_grant(run, self.gateway)  # asked for something else: the earlier step's or plan's approval ends
             return CHANGE_MESSAGE.format(text=decision[1])
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)

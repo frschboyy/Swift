@@ -665,6 +665,8 @@ function setLive(next: L.Live): void {
   const toggled = watched(next) !== watched(live);
   live = next;
   if (toggled && stageNow() === "working") renderWorking();  // its Watch button comes and goes
+  // B10: while its watch is open the card never fades; its reading time starts once the watch closes.
+  if (toggled) setHold(!watched(next));
   if (paneWindows) void syncPanes();
   else drawLiveInline();
 }
@@ -1061,7 +1063,9 @@ function renderWorking(): void {
       backButton ?? showButton,
       pres.runId && !L.find(live, pres.runId)?.open
         ? el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
-        : null,
+        // B10, Run link: the card and the open watch are one run, on the same clock.
+        : pres.runId ? el("span", { class: "run-link", title: "Open in the watch beside this card" }, icon("play"), "In the watch · ",
+            el("span", { class: "run-link-time" }, V.elapsed(L.find(live, pres.runId)?.startedMs ?? runStarted))) : null,
       el("button", { class: "btn btn--ghost", onclick: () => cancelRun() }, icon("stop"), "Stop"),
     ],
   });
@@ -1908,7 +1912,8 @@ function noteScroll(): void {
 
 function setHold(restore = false): void {
   const selecting = !!window.getSelection()?.toString() && card.contains(window.getSelection()?.anchorNode ?? null);
-  pres = P.onHold(pres, hovering || dragging || expanded || scrolling || selecting, Date.now(), restore);
+  const watching = !!pres.card.runId && !!L.find(live, pres.card.runId)?.open;
+  pres = P.onHold(pres, hovering || dragging || expanded || scrolling || selecting || watching, Date.now(), restore);
   showDeadline();
 }
 document.addEventListener("selectionchange", () => setHold());
@@ -2014,6 +2019,8 @@ window.setInterval(() => {
   if (stageNow() === "working") {
     const node = card.querySelector<HTMLElement>(".elapsed");
     if (node && Date.now() - runStarted > ELAPSED_AFTER_MS) node.textContent = V.elapsed(runStarted);
+    const linked = card.querySelector<HTMLElement>(".run-link-time");
+    if (linked && pres.runId) linked.textContent = V.elapsed(L.find(live, pres.runId)?.startedMs ?? runStarted);
     if (isStalled(Date.now()) !== !!card.querySelector(".note")) renderWorking();
     // No news and nobody looking: shrink to the one line (ADR-015 §3.3, ADR-017: 12 s).
     if (!quiet && Panes.workingQuiet(Math.max(lastStepAt, runStarted, lastLookAt), Date.now(), hovering)) {

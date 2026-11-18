@@ -211,7 +211,7 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
     el("header", { class: "card-head watch-bar", title: "Drag to move" },
       el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "FINISHED" : "ENDED"),  // a stop isn't done
       el("p", { class: "words" }, v.title),
-      el("span", { class: "mon-clock" }, elapsed(v.startedMs, now)),
+      el("span", { class: "mon-clock elapsed chip-time" }, elapsed(v.startedMs, now)),
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
     el("div", { class: "watch-progress", style: `--p:${progress.toFixed(3)}`, "aria-hidden": "true" }),
     v.sources.length ? el("p", { class: "watch-meta" }, `${read} of ${v.sources.length} sources read`) : null,

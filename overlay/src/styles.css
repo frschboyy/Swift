@@ -1748,4 +1748,7 @@ code {
 #stage .live .spinner { border-color: var(--mon-line); border-top-color: var(--mon-live); }
 @media (prefers-reduced-motion: reduce) { #stage .live--running .live-badge::before { animation: none !important; } }
 @media (forced-colors: active) { #stage .live, #stage .live .live-doc { background: Canvas; color: CanvasText; border: 1px solid CanvasText; } }
+/* B10, Run link: on the card while its watch is open, "In the watch · 01:40" on the same clock. */
+#stage .run-link { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+#stage .run-link .icon { width: 12px; height: 12px; }
 

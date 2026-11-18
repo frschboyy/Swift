@@ -3069,6 +3069,16 @@ folder (then steps in), Left closes it (or steps out), Enter opens. There is nev
 You should see: the tea answer again as a Done card, at once (no Working card, nothing runs again); for the moon
 landing, "I haven't found anything about “the moon landing” since Swift started." (answers aren't kept after a restart).
 
+<a id="check-halo-b8-gaps-6b8791-7"></a>**Check halo-b8-gaps-6b8791-7. Captions turn on by themselves when the sound is muted or Live captions runs (A6)**
+1. If you ever said "captions on" or "captions off", note it: your words win, so this check needs neither said.
+   (Say "captions off" now and the PC no longer decides; this check then shows step 4 only.)
+2. Mute the PC's sound. Wait a minute, then ask "Hey Swift, what time is it?" (the reply is spoken).
+3. Unmute. Start Windows Live captions (Win+Ctrl+L). Wait a minute and ask again. Close Live captions.
+4. Say "captions off" while muted, and ask again.
+
+You should see: (2) and (3) the speaking pill widens and shows the words; with neither, no captions; (4) no captions
+while muted, because you said off.
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

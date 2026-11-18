@@ -30,7 +30,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import asking
+from swift import asking, captions
 from swift.ipc.protocol import Message, outbound
 from swift.presence import Change, PresenceMonitor
 
@@ -240,6 +240,8 @@ class Lifecycle:
         return (self.monitor is None or self.monitor.listening_allowed) and not self.paused
 
     async def announce(self) -> None:
+        # A6: captions follow the PC (muted, Windows Live captions) until the owner chooses (captions.py).
+        await captions.refresh(getattr(getattr(self.session, "system", None), "control", None))
         monitor = self.monitor
         await self.send(
             outbound(

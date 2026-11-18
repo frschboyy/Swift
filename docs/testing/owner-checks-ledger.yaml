@@ -39,8 +39,8 @@ areas:
     checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250]
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
-    paths: [src/swift/security/*, src/swift/restated.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
-    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385, 390, 391, 392, 393]
+    paths: [src/swift/security/*, src/swift/restated.py, src/swift/intake.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
+    checks: [4-8, 14, 21, 22, 34-37, 54, 57, 68, 122, 128-131, 138, 139, 156-158, 163, 164, 166, 172, 182-184, 195, 199, 215, 218, 263, 264, 300-302, 304, 385, 390, 391, 392, 393, rule-gaps-1]
   typing:
     rule: typing never approves
     paths: [overlay/src/entry.ts, overlay/src/keyed.ts, src/swift/intake.py]

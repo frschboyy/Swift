@@ -87,6 +87,10 @@ The rules above are the target; until each decision's code is merged, the code m
 code toward these rules, never away.
 
 - **1, 3, 10:** built (typed never approves; the hotkey held is a gesture; `intake.approves` is the one decider).
+  **On screen and in front** (claude/rule-gaps, 2026-11-18; built, not reviewed): `intake.approves(..., in_front=)`
+  refuses at every level when the thing isn't on screen and in front. A click (`confirm.reply`) on an OK set aside in
+  the stack, or on a card held while the owner is away, approves nothing (`Session._confirm_reply`); Swift's own
+  approval question answered off screen is refused quietly. Owner check rule-gaps-1.
   Their owner checks are not run yet. The correction offer is level 1, so a plain spoken "yes" takes it while it's
   on screen (owner, 2026-11-15). Open: the hint leaves out "press Enter on Yes" until decision 2 is built.
   Speech with the hotkey held can't answer Swift's own question yet (FD-01).

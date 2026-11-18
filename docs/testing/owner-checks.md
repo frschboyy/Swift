@@ -2934,6 +2934,20 @@ didn't take your typing, or a card with a flag answered when you pressed Enter, 
 
 The report checks: a correction was kept, and its kind.
 
+### Product-rule gaps (claude/rule-gaps, 2026-11-18)
+
+About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
+
+<a id="check-rule-gaps-1"></a>**Check rule-gaps-1. An OK set aside can't be approved until it's in front again**
+1. Ask for something that needs your OK ("Hey Swift, email Priya the tea report"). Don't answer it: let its
+   countdown run out, so it waits in the stack.
+2. Open the stack and click **Open** on it; click **Reject**.
+3. Ask again, let it run out again, then lock the screen and unlock it, and say "Swift, approve" while it is only in
+   the stack.
+
+You should see: nothing is sent or done while the OK is only in the stack, whatever you say; once you open it, it is
+in front with its own buttons again, and only then does a click on them count.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

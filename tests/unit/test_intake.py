@@ -85,6 +85,14 @@ def test_approves_is_the_table_cell_by_cell(doc: str) -> None:
                         doc, "paying", source, named)
     for level in cells:  # nothing heard over Swift's own voice is a yes, at any level
         assert not intake.approves("over_speech", named=True, level=level).allowed
+    # Nothing approves unless the thing is on screen and in front: through every door, at every level, paying too.
+    assert "on screen and in front" in " ".join((ROOT / doc).read_text(encoding="utf-8").split())
+    for level in cells:
+        for doors in DOORS.values():
+            for source, named in doors:
+                verdict = intake.approves(source, named=named, level=level, in_front=False)
+                assert verdict == intake.Verdict(False, "not_in_front"), (doc, level, source)
+                assert not intake.approves(source, named=named, level=level, paying=True, in_front=False).allowed
 
 
 def test_a_restatement_is_a_yes_exactly_when_approves_says_so(monkeypatch: pytest.MonkeyPatch) -> None:

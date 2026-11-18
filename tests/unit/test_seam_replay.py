@@ -1495,3 +1495,41 @@ async def test_heard_words_with_a_kept_clip_get_the_flag_and_a_confirm_card_or_t
     screen = agree(session, out)
     assert screen["stage"] == "confirm" and screen["heardFlag"] is None
     await finish_all(session, agent)
+
+
+async def _set_aside() -> tuple[Any, Any, Any, str, str]:
+    """An OK whose countdown ran out: set aside into the stack, off screen."""
+    from swift.attention import Attention
+    from test_runs import sent_for
+    from test_seams_audit_ipc import seen
+
+    attention = Attention(require_seen=True)
+    session, out, _records, agent, stt = make(attention=attention)
+    agent.attention = attention
+    run = await started(session, out, agent, stt, "Hey Swift, tidy the readme with a card")
+    agent.runs[run]["ask"].set()
+    await until(lambda: sent_for(out, run, "confirm.request"))
+    request_id = sent_for(out, run, "confirm.request")[-1]["request_id"]
+    await session.handle(seen(request_id))
+    assert session._expire_card(request_id)
+    await asyncio.sleep(0.05)
+    return session, out, agent, run, request_id
+
+
+async def test_an_approval_for_an_ok_not_in_front_is_refused() -> None:
+    """CLAUDE.md: nothing approves unless the thing is on screen and in front; enforcement lives in the backend
+    (``intake.approves``). A ``confirm.reply`` for an OK set aside in the stack, off screen, approves nothing; Open
+    brings it back in front, and then the same click approves it."""
+    session, out, agent, run, rid = await _set_aside()
+    await session.handle(Message("confirm.reply", {"request_id": rid, "decision": "approve"}))
+    await asyncio.sleep(0.1)
+    assert not any(m.data.get("run_id") == run and m.data.get("status") == "done" for m in out.messages if m.type == "result"), \
+        "an OK off screen was approved"
+    assert any(i["id"] == f"card:{rid}" for i in out.last("stack")["items"]), "the OK left the stack"
+    await session.handle(Message("stack.action", {"id": f"card:{rid}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    assert agree(session, out)["confirm"] == rid
+    await session.handle(Message("confirm.reply", {"request_id": rid, "decision": "approve"}))
+    agent.runs[run]["go"].set()
+    await until(lambda: any(m.data.get("run_id") == run and m.data.get("status") == "done" for m in out.messages if m.type == "result"))
+    await finish_all(session, agent)

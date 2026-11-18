@@ -15,7 +15,7 @@ def _decider(monkeypatch: pytest.MonkeyPatch, allowed: bool) -> list[tuple[str, 
     """``intake.approves`` patched to ``allowed``; the (source, named, level) of every call."""
     calls: list[tuple[str, bool, int]] = []
 
-    def approves(source: str, *, named: bool, level: int, paying: bool = False) -> intake.Verdict:
+    def approves(source: str, *, named: bool, level: int, paying: bool = False, in_front: bool = True) -> intake.Verdict:
         calls.append((source, named, level))
         return intake.Verdict(True) if allowed else intake.Verdict(False, "typed" if source == "typed" else "name")
 

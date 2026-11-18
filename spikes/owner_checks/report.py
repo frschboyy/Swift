@@ -438,6 +438,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("115 the improvement pass ran", bool(improve_runs),
          f"{len(improve_runs)} pass(es)"),
         ("116 saved recordings cleared", bool(cleared), f"{len(cleared)} time(s)"),
+        ("rule-gaps-1 an OK set aside approves nothing until it's in front", LOOK, "check: nothing done from the stack"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

@@ -3515,10 +3515,11 @@ class Session:
             record["asks"][-1].setdefault("turns", []).append(turn.action)
         match turn.action:
             case "answered" | "cancelled":
-                if q.approval and turn.action == "answered" and turn.answer.kind in ("yes", "choice") and not intake.approves(
-                    source, named=named or turn.answer.named, level=1,
-                ).allowed:
-                    await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
+                if q.approval and turn.action == "answered" and turn.answer.kind in ("yes", "choice") and not (verdict := intake.approves(
+                    source, named=named or turn.answer.named, level=1, in_front=self._on_screen(q),
+                )).allowed:
+                    if verdict.reason != "not_in_front":  # off screen: refused quietly, it waits where it is
+                        await self._reask(q, f"{TYPED_YES_HINT} {q.text}")  # typed: never a yes
                     return True
                 answer = turn.answer
                 if source != "click" and answer.kind not in ("yes", "no", "cancel"):
@@ -4613,6 +4614,11 @@ class Session:
         run = self._owner_of(request_id)
         if run is None or run.active is None:
             logger.warning("confirm.reply for an unknown request ignored")
+            return
+        # A click (the other doors already asked ``approves`` about the card in front): only on the OK in front.
+        in_front = request_id == self._open_confirm() and not (self.attention is not None and self.attention.held)
+        if approve and source == "click" and not (verdict := intake.approves(source, named=False, level=intake.CARD, in_front=in_front)).allowed:
+            logger.info("approval refused", reason=verdict.reason, source=source)  # it waits where it is, unanswered
             return
         with self._as(run):
             await self._reply_for_run(request_id, approve, source)

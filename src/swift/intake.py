@@ -63,7 +63,8 @@ class Verdict:
     allowed: bool
     # Why not, when not: "typed" (typing never approves), "name" (hands-free needs Swift's name),
     # "gesture" (only a gesture pays), "over_speech" (nothing said over Swift's voice is a yes),
-    # "source" (a door this table doesn't know: the strict rule).
+    # "source" (a door this table doesn't know: the strict rule), "not_in_front" (the thing isn't on screen and in
+    # front: an OK set aside in the stack, a card held while the owner is away).
     reason: str | None = None
 
 
@@ -82,9 +83,12 @@ def channel(source: str, *, named: bool) -> Channel | None:
     return None
 
 
-def approves(source: str, *, named: bool, level: Level, paying: bool = False) -> Verdict:
+def approves(source: str, *, named: bool, level: Level, paying: bool = False, in_front: bool = True) -> Verdict:
     """Whether a yes or "approve" from ``source`` approves something at ``level``: the one place approval is
-    decided (foundation decision 10). Every door calls it; ``APPROVES`` is CLAUDE.md's table."""
+    decided (foundation decision 10). Every door calls it; ``APPROVES`` is CLAUDE.md's table. ``in_front``: the
+    thing is on screen and in front (CLAUDE.md: nothing approves otherwise; the backend knows, so it says)."""
+    if not in_front:
+        return Verdict(False, "not_in_front")
     if SPOKEN_LIKE.get(source, source) == "over_speech":
         return Verdict(False, "over_speech")
     way = channel(source, named=named)

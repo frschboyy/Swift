@@ -49,6 +49,7 @@ are in the saved file.
 | A6 captions (off by default, on/off by voice) and A1 earlier today in the stack (one commit: shared files) (+ checks -12, -13) | 94fb6f9 | built; A6 partial: no automatic default from muted sound or Windows captions |
 | A2 a follow-up on the same card (+ check -14) | 52dca0c | built (presentation; a follow-up is still a new run in the same thread) |
 | A8 how Swift shows things, in the tray (+ check -15) | 916377e | built (no "speak answers" / "watch opens": backend settings) |
+| A7 keyboard entry on the card's buttons (owner approved 2026-11-18) (+ check -16) | 943d42e | built; **focus rule: needs review**; uses the text box's existing exception, so CLAUDE.md is unchanged |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
@@ -82,8 +83,8 @@ Stopped here (a natural end, not a credit stop): everything below is not built a
    "Stop asking" item, the line on the gateway's own cards.
 5. **A-ideas:** the "Do next" list is done except A7 and A3: A5, A6 (partial: captions don't yet turn on by
    themselves when the sound is muted or Windows captions are on, since Swift reads neither), A9, A4, A1, A2, A8.
-   **A7** keyboard entry is skipped: it would be a second exception to "Swift never takes focus", and the
-   orchestrator is asking the owner. **A3** hold during calls is skipped until the call-detector spike exists.
+   **A7** built after the owner's approval: its hotkey opens the text box on the card's buttons, so it stays the text
+   box's exception (CLAUDE.md unchanged; action-authority.md and the B8 README say how). **A3** hold during calls is skipped until the call-detector spike exists.
    Explore: A12 built (out of the README's order, before A5; nothing depended on it), behind `explore.orb_glance`,
    off by default. **A10, A11, A13 not built**, by instruction; their off-by-default switches are already in
    `config.yaml explore`.
@@ -98,7 +99,7 @@ Stopped here (a natural end, not a credit stop): everything below is not built a
 halo-b8-build-4fbdf7-1 F8 the text box gets the keyboard · -2 F1-F4 a lapsed OK · -3 F6/F7 "stop" · -4 every surface
 (board 9) · -5 D10 "Swift is ready" · -6 B5 grow and Show all · -7 B7 motion · -8 B14 timer on the orb, +5 min · -9
 "ask me about everything" · -10 A12 orb glance · -11 A9, A4, A5 · -12 A6 captions · -13 A1 earlier today · -14 A2 follow-up · -15 A8 how
-Swift shows things. Report lines (LOOK) and ledger areas are in.
+Swift shows things · -16 A7 keyboard entry. Report lines (LOOK) and ledger areas are in.
 
 ## Harness states added
 
@@ -117,15 +118,17 @@ design states (a stand-in socket); `?explore=1` turns the glance on.
 - B14 added `timers`/`due.snooze` frames and `due.snooze` sets timers from Swift's own items: worth a second look.
 - A5 gives the worker a new tool (`add_caveat`); what it says shows on Done cards, marked as the worker's.
 - A12 makes the idle orb take the pointer, only when `explore.orb_glance` is on.
+- **A7** (943d42e) is a focus-rule change: a hotkey opens the text box on the card's buttons. Tested by
+  `overlay/tests/focus.test.ts`.
 - A6 and A1 add optional fields to existing frames (`speech.text`, `stack.recent`); captions and "ask me about
   everything" are kept as records in the memory store (keys `captions-on`, `asking-everything`), left out of
   "what do you know about me".
 - The new capability permission `core:app:allow-version` (read-only, for D10) should be looked at too.
 
-## Tests at the stopping point (916377e + this file)
+## Tests at the stopping point (943d42e + this file)
 
 - Python: 2391 passed, 1 skipped, 31 xfailed, 0 failed (full suite).
-- Overlay: `tsc --noEmit` clean; `npm test` 169 tests, 167 pass, 0 fail (2 known "todo" findings).
+- Overlay: `tsc --noEmit` clean; `npm test` 171 tests, 169 pass, 0 fail (2 known "todo" findings).
 - Rust (`cargo test`): 41 passed.
 - Vite production build: OK.
 - Routing parity: 413/423, the same ten web misses as before this branch.

@@ -25,13 +25,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use windows_sys::Win32::Foundation::{GlobalFree, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+use windows_sys::Win32::Graphics::Gdi::{ClientToScreen, GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::DataExchange::{CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData};
 use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, GetGUIThreadInfo, GetWindowLongPtrW, GetWindowRect, SetWindowDisplayAffinity, SetWindowLongPtrW,
+    GetClassNameW, GetCursorPos, GetForegroundWindow, GetGUIThreadInfo, GetWindowLongPtrW, GetWindowRect, SetWindowDisplayAffinity, SetWindowLongPtrW,
     SetWindowPos, ShowWindow, GUITHREADINFO, GWL_EXSTYLE, HWND_TOPMOST, MA_NOACTIVATE, STYLESTRUCT,
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOWNOACTIVATE,
     WDA_EXCLUDEFROMCAPTURE, WM_MOUSEACTIVATE, WM_STYLECHANGING, WS_EX_APPWINDOW, WS_EX_LAYERED,
@@ -188,6 +188,31 @@ pub fn cursor_pos() -> Option<(i32, i32)> {
 pub fn move_to(raw: isize, x: i32, y: i32) {
     unsafe {
         SetWindowPos(hwnd(raw), std::ptr::null_mut(), x, y, 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
+    }
+}
+
+/// Whether the front window covers its whole monitor (a game, a video, a presentation). The desktop itself
+/// (Progman, WorkerW) doesn't count. Read-only: nothing is activated.
+pub fn foreground_fullscreen() -> bool {
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.is_null() {
+            return false;
+        }
+        let mut class = [0u16; 32];
+        let n = GetClassNameW(fg, class.as_mut_ptr(), class.len() as i32) as usize;
+        let name = String::from_utf16_lossy(&class[..n.min(class.len())]);
+        if name == "Progman" || name == "WorkerW" {
+            return false;
+        }
+        let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        let mut info: MONITORINFO = std::mem::zeroed();
+        info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        if GetWindowRect(fg, &mut r) == 0 || GetMonitorInfoW(MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), &mut info) == 0 {
+            return false;
+        }
+        let m = info.rcMonitor;
+        r.left <= m.left && r.top <= m.top && r.right >= m.right && r.bottom >= m.bottom
     }
 }
 

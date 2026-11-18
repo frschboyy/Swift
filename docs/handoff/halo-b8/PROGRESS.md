@@ -53,6 +53,8 @@ are in the saved file.
 | "Ask me about everything": typed words can't turn it off; the true source is kept; fails closed (owner, 2026-11-18) | b3721d3 | root fix; **product rule: needs review** |
 | Test: a "yes" while a lapsed OK waits in the stack approves nothing | 806a75d | test only |
 | Text box: typed text then Enter never presses the card's button | 373e932 | root fix (found by the A7 test request); **product rule: needs review** |
+| A10 "What can I say?" and A11 next-step chips behind `explore.what_can_i_say` / `explore.next_steps` (one commit: shared files) (+ checks upbeat-poincare-d02e4a-1, -2) | see `git log` | built; phrases from the real grammar (`hints.py`, tested against `rules.route`); learning is counted in the overlay on this PC (3 Copy clicks); a chip only sends its words as a request, so an OK opens its own card |
+| A13 the orb follows the active monitor behind `explore.follow_monitor` (+ check upbeat-poincare-d02e4a-3) | see `git log` | built (`follow.rs`, `cargo test`); **not tried on two monitors**: the owner check is the first real run |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.

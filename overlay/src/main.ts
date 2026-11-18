@@ -45,7 +45,8 @@ import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
+import { bump, nextChips, sayLines } from "./learn";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
@@ -1337,6 +1338,43 @@ let caption = "";
 
 // Halo's Explore ideas (A10-A13), from config.yaml: each off until the owner turns it on.
 let explore: Explore = { orb_glance: false, follow_monitor: false, what_can_i_say: false, next_steps: false };
+// A10/A11: what cards accept and Swift's own verbs, from the backend's real grammar (hints.py).
+let hints: Hints | null = null;
+const learnStore = (): Storage | null => { try { return localStorage; } catch { return null; } };
+const noStore = { getItem: () => null };
+/** A manual Copy or Show, counted on this PC so a verb is offered after 3 (learn.ts). */
+const learnFrom = (action: string): void => { const st = learnStore(); if ((explore.what_can_i_say || explore.next_steps) && st) bump(st, action); };
+
+/** A10: "What can I say?" on a card: its accepted phrases in an --accent-soft block, a mic per line, "· asks for
+ * your OK" where a phrase ends in an OK card. Nothing in it runs anything; it only lists. */
+function sayButton(kind: "confirm" | "done"): HTMLElement | null {
+  if (!explore.what_can_i_say || !hints) return null;
+  const h = hints;
+  return el("button", { class: "btn btn--ghost", "aria-expanded": "false", onclick: (ev: Event) => {
+    ev.stopPropagation();
+    const open = card.querySelector(".say");
+    if (open) { open.remove(); (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "false"); scheduleRegions(); return; }
+    const lines = sayLines(kind, h, learnStore() ?? noStore);
+    const block = el("div", { class: "say", role: "note" }, el("p", { class: "say-title" }, "You can say"),
+      ...lines.map((l) => el("p", { class: "say-line" }, icon("mic"), `“${l.text}”`, l.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
+    (card.querySelector(kind === "done" ? ".card-foot" : ".confirm-actions"))?.before(block);
+    (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "true");
+    scheduleRegions();
+  } }, icon("mic"), "What can I say?");
+}
+
+/** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times. A chip only sends the words as a
+ * request, like typing them: one that needs an OK opens that OK card and runs nothing; it approves nothing. */
+function nextRow(thread: string | null): HTMLElement | null {
+  if (!explore.next_steps || !hints) return null;
+  const chips = nextChips(hints, learnStore() ?? noStore);
+  if (!chips.length) return null;
+  return el("div", { class: "next", role: "group", "aria-label": "Next" }, el("span", { class: "next-label" }, "Next"),
+    ...chips.map((c) => el("button", { class: "chip", title: c.ok ? "Opens a card asking for your OK" : "", onclick: (ev: Event) => {
+      ev.stopPropagation();
+      client.send({ type: "text", data: { text: c.say, thread_id: thread } });
+    } }, c.label, c.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
+}
 
 // A12: the orb glance. The pointer resting 400 ms on the orb shows it; it leaves 200 ms after the pointer. Never
 // while a card shows, never focus, nothing in it to click.
@@ -1354,6 +1392,26 @@ capsuleEl.addEventListener("pointerenter", () => {
 capsuleEl.addEventListener("pointerleave", () => {
   window.clearTimeout(glanceTimer);
   glanceTimer = window.setTimeout(() => { glanceEl.hidden = true; }, 200);
+});
+
+// A13: the orb follows the monitor the owner works on (follow.rs decides and moves it). This side tells Rust
+// when nothing is up (no card, no OK, no typing, no glance), and fades the orb across: 120 ms out, 120 ms in
+// (CSS; none with reduced motion). A fade that never gets its "in" ends by itself.
+let followSent = "";
+function syncFollow(): void {
+  const idle = !card.classList.contains("card--in") && !typing && stageNow() === "idle";
+  const next = `${explore.follow_monitor}:${idle}`;
+  if (next === followSent) return;
+  followSent = next;
+  void invoke("set_follow", { on: explore.follow_monitor, idle }).catch(() => {});
+}
+window.setInterval(syncFollow, 300);
+let followTimer = 0;
+void listen<{ phase: "out" | "in" }>("follow", (ev) => {
+  window.clearTimeout(followTimer);
+  if (!explore.follow_monitor) return;
+  capsuleEl.toggleAttribute("data-follow", ev.payload.phase === "out");
+  if (ev.payload.phase === "out") followTimer = window.setTimeout(() => capsuleEl.removeAttribute("data-follow"), 1500);
 });
 
 // Halo B14: the timers still counting (the backend's ``timers``), soonest first.
@@ -1538,6 +1596,7 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
         el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), "Reject"),
         // "Change" opens the text box, where Enter sends a change; typing never approves.
         el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
+        sayButton("confirm"),
         el("span", { class: "foot-gap" }),
         approve,
       ),
@@ -1689,7 +1748,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   };
   const foot = el("footer", { class: "card-foot" });
   const showBtn = artifacts.size > finished.length
-    ? el("button", { class: "btn btn--ghost", onclick: (ev: Event) => { ev.stopPropagation(); askView("show"); } }, icon("external"), "Show")
+    ? el("button", { class: "btn btn--ghost", onclick: (ev: Event) => { ev.stopPropagation(); learnFrom("show"); askView("show"); } }, icon("external"), "Show")
     : null;
   const drawFoot = (): void => {
     if (long) {
@@ -1706,10 +1765,11 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.minutesToRead(copyable)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
-        copyButton(copyable),
+        ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
+        copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), pinButton(copyable), copyButton(copyable));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();
@@ -1718,7 +1778,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const caveat = data.caveat
     ? el("div", { class: "caveat", role: "note" }, icon("scale"), el("p", {}, el("span", { class: "caveat-by" }, "The worker says: "), data.caveat))
     : null;
-  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, foot] });
+  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, nextRow(data.thread_id ?? null), foot] });
 }
 
 /** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */
@@ -2203,6 +2263,7 @@ function onMessage(msg: Inbound): void {
       typeSpec = msg.data.hotkeys.type ?? "";
       void registerHotkeys(msg.data.hotkeys);
       if (msg.data.explore) explore = msg.data.explore;
+      hints = msg.data.hints ?? null;
       drawCapsule();
       void invoke("set_status", { text: `Swift: ready. Hold ${pttText()} to talk.` }).catch(() => {});
       break;

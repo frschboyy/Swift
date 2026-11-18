@@ -356,12 +356,13 @@ export function renderDetails(details: ResultDetails | null | undefined, full = 
 }
 
 /** Copy, which says "Copied" for a moment. */
-export function copyButton(text: string): HTMLElement {
+export function copyButton(text: string, onCopied?: () => void): HTMLElement {
   const button = el("button", { class: "btn btn--ghost", title: "Copy the answer" }, icon("copy"), "Copy");
   button.addEventListener("click", async (ev) => {
     ev.stopPropagation();
     try {
       await invoke("copy_text", { text });
+      onCopied?.();
       button.replaceChildren(icon("check"), "Copied");
       button.classList.add("btn--copied");  // A9: --ok check for 1.5 s
     } catch {

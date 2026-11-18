@@ -292,3 +292,31 @@ def test_lookalike_exes_are_not_call_apps() -> None:
         assert mic_call([f"np:{exe}"], {exe}) is False, exe
     for exe in ("ms-teams.exe", "teams.exe", "zoom.exe", "msedge.exe", "firefox.exe"):
         assert mic_call([f"np:{exe}"], {exe}) is True, exe
+
+
+async def test_a_failing_probe_logs_once_per_error_until_it_works() -> None:
+    from loguru import logger
+
+    class Broken(FakeProbe):
+        def in_call(self) -> bool:
+            if self.on:
+                return False
+            raise OSError("registry")
+
+    async def on_change(on: bool, seconds: float) -> None:
+        pass
+
+    logged: list[str] = []
+    sink = logger.add(lambda m: logged.append(m.record["message"]), level="WARNING")
+    try:
+        probe = Broken()
+        watch = CallWatch(probe, on_change)
+        for _ in range(3):
+            await watch.poll()
+        probe.on = True
+        await watch.poll()  # working again
+        probe.on = False
+        await watch.poll()  # a new failure is logged again
+    finally:
+        logger.remove(sink)
+    assert logged == ["call probe failed", "call probe failed"]

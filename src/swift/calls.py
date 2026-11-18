@@ -153,13 +153,17 @@ class CallWatch:
         self.in_call = False
         self._since = 0.0
         self._quiet: float | None = None
+        self._failing: str | None = None  # the probe's last error class: logged once, not every 2 s
 
     async def poll(self) -> None:
         try:
             now_on = await asyncio.to_thread(self.probe.in_call)  # ~20-50 ms of registry and processes
         except Exception as exc:  # a failed probe keeps the last state
-            logger.warning("call probe failed", error=type(exc).__name__)
+            if type(exc).__name__ != self._failing:
+                self._failing = type(exc).__name__
+                logger.warning("call probe failed", error=self._failing)
             return
+        self._failing = None
         now = self.clock()
         if now_on:
             self._quiet = None

@@ -363,10 +363,11 @@ export function copyButton(text: string): HTMLElement {
     try {
       await invoke("copy_text", { text });
       button.replaceChildren(icon("check"), "Copied");
+      button.classList.add("btn--copied");  // A9: --ok check for 1.5 s
     } catch {
       button.replaceChildren("Couldn't copy");
     }
-    window.setTimeout(() => button.replaceChildren(icon("copy"), "Copy"), 1600);
+    window.setTimeout(() => { button.replaceChildren(icon("copy"), "Copy"); button.classList.remove("btn--copied"); }, 1500);
   });
   return button;
 }

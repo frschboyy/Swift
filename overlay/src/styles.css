@@ -1752,3 +1752,14 @@ code {
 #stage .run-link { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 #stage .run-link .icon { width: 12px; height: 12px; }
 
+/* ==== A9, micro-feedback ==== */
+/* Approve fills left to right during its 400 ms guard (55% → full); it ends full, so with no motion it is full. */
+#stage .card--confirm .btn--warn {
+  background: linear-gradient(90deg, var(--warn) 50%, color-mix(in srgb, var(--warn) 55%, transparent) 50%) left / 200% 100%;
+  animation: approve-fill 400ms linear;
+}
+@keyframes approve-fill { from { background-position: right; } }
+/* Copy says "Copied" with an --ok check for 1.5 s. */
+#stage .btn--copied .icon { color: var(--ok); }
+/* Hovering a Done card pauses its bar, and says so. */
+#stage .card--hover.card--paused .card-foot > .byline::after { content: " · Paused while you read"; color: var(--faint); }

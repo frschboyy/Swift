@@ -135,6 +135,15 @@ design states (a stand-in socket); `?explore=1` turns the glance on.
 - `grep -rE "data-look|VITE_SWIFT_LOOK|look=halo" overlay` (excluding `node_modules`, `target` and the git-ignored,
   stale `dist`): nothing.
 
+## A full run that failed test_example_file_is_valid (checked 2026-11-18)
+
+The orchestrator's full Python run "on 0e4112b" ended 1 failed: `tests/unit/test_settings.py::test_example_file_is_valid`,
+passing on its own. Cause (reproduced): that run used this worktree while A7 was being written. The run imports
+`swift.settings` at collection; minutes later the test reads `config.example.yaml`, which by then had A7's
+`hotkeys.card` line, which 0e4112b's `Settings` forbids (`extra="forbid"`): `SettingsError: config.example.yaml:
+hotkeys.card: Extra inputs are not permitted`. 0e4112b's settings with 0e4112b's example pass; HEAD's pair passes; the
+full suite at 943d42e passed (2391). No code fix: don't run the suite in a worktree another session is editing.
+
 ## Notes for whoever picks it up
 
 - Harness design captures: run the harness **without** `?port=` (the live debug backend re-sends an empty stack and

@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { EASE, FADE_MS, isStill, MOVE_MS, over } from "../src/shuffle.ts";
+import { DRAIN_MS, drift, EASE, EASE_FOLD, EDGE_MS, FADE_MS, FOLD_MS, isStill, MOVE_MS, over } from "../src/shuffle.ts";
 
 const box = (left: number, top: number, width: number, height: number) => ({ left, top, width, height });
 
@@ -32,4 +32,17 @@ test("one curve: the design's easing, the ADR's times, and the stylesheet's easi
   // Never overshooting: both control points' y stay within 0 to 1.
   const [, y1, , y2] = EASE.slice(13, -1).split(",").map(Number);
   assert.ok(y1 >= 0 && y1 <= 1 && y2 >= 0 && y2 <= 1);
+});
+
+test("B7: the motion tokens, the same in the stylesheet, and Done drains a few px toward the orb", () => {
+  const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.equal(FOLD_MS, 220);
+  assert.equal(EDGE_MS, 320);
+  assert.equal(DRAIN_MS, 400);
+  assert.match(css, /--dur-fold: 220ms;/);
+  assert.match(css, /--dur-edge: 320ms;/);
+  assert.match(css, /--dur-drain: 400ms;/);
+  assert.ok(css.includes(`--ease-fold: ${EASE_FOLD};`));
+  assert.equal(drift(box(0, 0, 100, 100), box(50, 300, 0, 0)), "translate(0px, 8px)");
+  assert.equal(drift(box(0, 0, 100, 100), box(-300, 50, 0, 0)), "translate(-8px, 0px)");
 });

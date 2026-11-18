@@ -1229,7 +1229,10 @@ code {
   .capsule[data-p="heard"] .orb { box-shadow: 0 0 0 4px rgba(138, 180, 255, 0.35), 0 0 0 9px rgba(138, 180, 255, 0.14); }
   .spinner { animation: spin 1.8s linear infinite !important; }
   .wave i { height: 12px; }
-  .timebar { display: none; }
+  /* B7: every move is a 120 ms crossfade, but the reading bar still drains. */
+  .timebar { animation: drain var(--fade-ms, 6000ms) linear forwards !important; }
+  .card--paused .timebar { animation-play-state: paused !important; }
+  #stage .card > .card-in { transition-delay: 0ms !important; }
 }
 
 @media (forced-colors: active) {
@@ -1341,10 +1344,16 @@ code {
   padding: 0 var(--pad-right) 0 var(--pad-left);
   transform: translateY(var(--enter)) scale(0.94);
   transform-origin: var(--tail-x, 50%) 100%;
-  transition: opacity var(--dur-base) var(--ease), transform var(--dur-move) var(--ease);
+  /* B7: grows out of the orb in --dur-grow on the grow curve; its content fades in over the last 100 ms. */
+  transition: opacity var(--dur-base) var(--ease), transform var(--dur-grow) var(--ease-grow);
 }
 #stage[data-anchor^="top"] .card { transform-origin: var(--tail-x, 50%) 0; }
 #stage .card--in { transform: none; }
+#stage .card > .card-in { opacity: 0; transition: opacity 100ms linear calc(var(--dur-grow) - 100ms); }
+#stage .card--in > .card-in { opacity: 1; }
+/* B7: the orb pulses once (200 ms) as a card folds into it. */
+#stage .capsule--pulse .orb { animation: orb-pulse var(--dur-slow) var(--ease); }
+@keyframes orb-pulse { 50% { transform: scale(1.12); } }
 /* The corners that meet the deck. */
 #stage:has(.edge) .card { border-top-left-radius: var(--radius-card-inner); border-top-right-radius: var(--radius-card-inner); }
 #stage[data-anchor^="top"]:has(.edge) .card {

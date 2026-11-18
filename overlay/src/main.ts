@@ -38,7 +38,7 @@ import * as D from "./deck";
 import { DeckDraw } from "./deckdraw";
 import { BackendClient, type ConnectionStatus } from "./ipc";
 import { Orb } from "./orb";
-import { leaveTo, moveFrom } from "./shuffle";
+import { EDGE_MS, leaveTo, moveFrom } from "./shuffle";
 import * as Panes from "./panes";
 import * as H from "./heard";
 import * as F from "./heardfix";
@@ -888,7 +888,7 @@ function showCard(node: HTMLElement, variant: string, role: "status" | "alert" =
   for (const anim of card.getAnimations()) anim.cancel();  // on its way back into the capsule
   // It was an edge just now: one body, so the card grows out of it.
   const from = deckDraw.takeForward(D.keyOf(deck, pres.card.runId), Date.now());
-  if (from) moveFrom(card, from);
+  if (from) moveFrom(card, from, false, EDGE_MS);  // B7: an edge comes forward to be the card
   drawCapsule();
   // Scrolling a card that didn't fit holds it, like scrolling a long answer.
   node.addEventListener("scroll", () => noteScroll(), { passive: true });
@@ -935,9 +935,17 @@ function hideCard(): void {
     card.className = "card";
     scheduleRegions();
   };
-  if (shown) leaveTo(card, leavingFor(), clear);
-  else clear();
+  if (shown) {
+    leaveTo(card, leavingFor(), clear, draining);
+    // B7: the orb pulses once as a card folds into it.
+    capsuleEl.classList.remove("capsule--pulse");
+    void capsuleEl.offsetWidth;
+    capsuleEl.classList.add("capsule--pulse");
+  } else clear();
 }
+
+// The card in front is leaving because its reading time ran out (B7's drain), not a click or a new card.
+let draining = false;
 
 function dismiss(): void {
   const r = P.onDismiss(pres);
@@ -1906,7 +1914,9 @@ window.setInterval(() => {
   pres = r.p;
   if (r.hide) {
     question = null;
+    draining = true;
     setStage("idle");
+    draining = false;
   }
   drawFollowup(r.followupLeft);
   // The card in front is gone but another request still runs: bring it forward.

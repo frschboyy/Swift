@@ -238,11 +238,29 @@ async def test_a_failing_hold_keeps_the_watch_polling() -> None:
 
     watch = CallWatch(probe, on_change, out_s=0)
     probe.on = True
-    task = asyncio.create_task(watch.run(every_s=0))
-    for _ in range(5):
-        await asyncio.sleep(0)
+    task = asyncio.create_task(watch.run(every_s=0.01))
+    await asyncio.sleep(0.2)
     probe.on = False
-    for _ in range(5):
-        await asyncio.sleep(0)
+    await asyncio.sleep(0.2)
     assert not task.done() and calls == [True, False]
     task.cancel()
+
+
+# ---- review 7ab2b70 findings 6 and 9: the probe runs off the event loop, and a failing one logs once ---------
+
+
+async def test_the_probe_runs_off_the_event_loop() -> None:
+    import threading
+
+    threads: list[int] = []
+
+    class Where(FakeProbe):
+        def in_call(self) -> bool:
+            threads.append(threading.get_ident())
+            return False
+
+    async def on_change(on: bool, seconds: float) -> None:
+        pass
+
+    await CallWatch(Where(), on_change).poll()
+    assert threads and threads[0] != threading.get_ident()

@@ -151,7 +151,7 @@ class CallWatch:
 
     async def poll(self) -> None:
         try:
-            now_on = self.probe.in_call()
+            now_on = await asyncio.to_thread(self.probe.in_call)  # ~20-50 ms of registry and processes
         except Exception as exc:  # a failed probe keeps the last state
             logger.warning("call probe failed", error=type(exc).__name__)
             return

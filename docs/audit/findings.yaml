@@ -529,12 +529,14 @@
   area: perf
   severity: medium
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
-  evidence: backend/__main__.py:534-535 still builds QuickModel with prewarm; config.example.yaml:70 quick_answers
-    true
-  test: null
-  note: Waits on owner decision 2 (retire or retarget).
+  evidence: 'settings.ExecutorSettings.quick_answers defaults to false and config.example.yaml says false, so no
+    QuickModel and no warm CLI is built; quick-lane routes go to the agent (session._quick_answer).'
+  test: tests/unit/test_settings.py::test_the_light_lane_is_off_until_retargeted
+  note: 'Owner decision 2 answered 2026-11-18: off until retargeted. Partial: retargeting it is not done, and a
+    config.yaml that says quick_answers true still turns it on.'
+
 - id: R-08
   title: The agent-time metric includes the owner's own speaking and card waits.
   source: docs/audit/2026-11-seams-audit.md §3.6

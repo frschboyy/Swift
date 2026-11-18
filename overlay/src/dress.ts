@@ -5,10 +5,12 @@
 
 import { el, icon } from "./dom";
 import { needsCompact, tailX } from "./geometry";
+import { ago } from "./times";
 
 const TAIL_PATH = "M0 0C6 0 9 11 12 11C15 11 18 0 24 0";
 
-const clock = (): string => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+/** "just now", kept current by ``dressCards`` (ADR-019 §8.2: no clock times on cards). */
+const sinceNow = (): HTMLElement => el("span", { class: "halo-time", "data-at": String(Date.now()) }, ago(Date.now(), Date.now()));
 
 function stateLine(state: string, mark: Node, word: string, time: Node | string | null, close: Element | null): HTMLElement {
   return el("div", { class: `halo-state halo-state--${state}` },
@@ -35,9 +37,9 @@ function dress(inner: HTMLElement): void {
     time?.classList.add("halo-time");
     if (spinner) inner.prepend(stateLine("working", spinner, "Working", time, close));
   } else if (state === "failed" && bang) {
-    inner.prepend(stateLine("failed", bang, "Failed", clock(), close));
+    inner.prepend(stateLine("failed", bang, "Failed", sinceNow(), close));
   } else if (state === "done" && head && inner.querySelector(":scope > .answer")) {
-    inner.prepend(stateLine("done", icon("check"), "Done", clock(), close));
+    inner.prepend(stateLine("done", icon("check"), "Done", sinceNow(), close));
   } else if (state === "notice") {
     notice(inner);
   }
@@ -120,4 +122,10 @@ export function dressCards(stage: HTMLElement): void {
   sized.observe(card);
   sized.observe(capsule);
   window.addEventListener("resize", fit);
+  window.setInterval(() => {
+    for (const t of card.querySelectorAll<HTMLElement>(".halo-time[data-at]")) {
+      const text = ago(Number(t.dataset.at), Date.now());
+      if (t.textContent !== text) t.textContent = text;
+    }
+  }, 15_000);
 }

@@ -30,7 +30,8 @@ from typing import Any, Literal
 from loguru import logger
 
 Kind = Literal["memory"]
-Source = Literal["said", "approved", "inferred"]
+# "typed": the owner's own words, typed (kept apart from "said" where it matters: "ask me about everything").
+Source = Literal["said", "typed", "approved", "inferred"]
 ACTIONS = ("remember", "forget", "recall", "ask_all", "ask_less", "captions_on", "captions_off")
 # Record sources whose transcript is the owner's own words, said or typed. Not "click": a button's words may be a worker's.
 OWNER_WORDS = frozenset({"voice", "wake", "followup", "correction", "retry", "beside", "answer", "typed", "debug.ask"})
@@ -98,7 +99,7 @@ class Store:
         text = text.strip()
         if not text or len(text) > MAX_TEXT:
             raise ValueError("empty or too long")
-        if source == "said" and (words is None or _norm(text) not in _norm(words)):
+        if source in ("said", "typed") and (words is None or _norm(text) not in _norm(words)):
             raise NotOwnerWords("said, but not in the owner's words")
         if source == "approved" and not card:
             raise NotOwnerWords("approved, but no card")
@@ -189,7 +190,7 @@ def answer(store: Store | None, words: str, source: str, run: str) -> tuple[str,
         from swift import asking
 
         # Only adds or removes questions, so typed words count too; never a worker's (OWNER_WORDS).
-        return (asking.answer(store, action, words, run) if source in OWNER_WORDS
+        return (asking.answer(store, action, words, run, source) if source in OWNER_WORDS
                 else "I only change how often I ask when you tell me yourself."), None
     if action == "recall":
         known = [r for r in store.all("memory") if r.key not in ("asking-everything", "captions-on")]  # settings, not facts

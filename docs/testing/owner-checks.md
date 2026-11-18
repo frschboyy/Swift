@@ -3016,11 +3016,14 @@ Due card has **+5 min** and **Done**; +5 min puts the tea timer back on the orb 
 3. Say "Hey Swift, turn the volume down a bit".
 4. Say "Hey Swift, write a short note about tea in Word" with Word open on an empty document; Reject its card.
 5. Restart Swift, then say "Hey Swift, set a timer for 1 minute", and answer "no".
-6. Say "Hey Swift, stop asking about everything", then set a 1-minute timer again.
+6. Type "stop asking about everything" in the text box; then say "Hey Swift, stop asking about everything", and set
+   a 1-minute timer again.
 
 You should see: step 2 asks "Set the timer?" with "Asking because you said: ask me about everything." under it, and
 the timer is set after the yes; step 3 just changes the volume; step 4 shows a card before anything is written;
-step 5 still asks (it stays on after a restart) and "no" sets nothing; step 6 sets the timer without asking.
+step 5 still asks (it stays on after a restart) and "no" sets nothing; in step 6 the typed words are answered "I can
+only stop asking about everything when you say it" and change nothing, and after the spoken words the timer is set
+without asking.
 
 <a id="check-halo-b8-build-4fbdf7-10"></a>**Check halo-b8-build-4fbdf7-10. The orb glance, an idea to try (A12; off unless you turn it on)**
 1. In `config.yaml`, set `explore:` `orb_glance: true`, and restart Swift.

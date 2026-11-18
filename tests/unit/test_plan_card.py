@@ -242,3 +242,25 @@ async def test_turning_ask_me_about_everything_on_ends_every_earlier_plan_at_onc
     asking.answer(store, "ask_all", "ask me about everything", "r-1", "voice")
     asking.answer(store, "ask_less", "stop asking about everything", "r-2", "voice")
     assert await _asks(ex, run, "mkdir tea-timer")
+
+
+async def test_a_change_on_a_read_card_ends_the_earlier_plan(tmp_path: Any) -> None:
+    """Review of the plan01 fixes, finding 1: a Change on any card, a read card too, ends the plan."""
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    reading = asyncio.create_task(ex._ask(run, "cc-1", "Read", {"file_path": "C:/Windows/win.ini"}))
+    card = await asyncio.wait_for(run.queue.get(), 5)
+    await ex.reply(card.request_id, "read the other file")
+    await asyncio.wait_for(reading, 5)
+    assert await _asks(ex, run, "mkdir tea-timer")
+
+
+async def test_a_change_on_swift_s_own_question_ends_the_earlier_plan(tmp_path: Any) -> None:
+    """The same for a card Swift asks through _confirm (switching model)."""
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    asked = asyncio.create_task(ex._confirm(run, "cc-1", "Switch to a stronger model", "why", "SwitchModel"))
+    card = await asyncio.wait_for(run.queue.get(), 5)
+    await ex.reply(card.request_id, "stay on this one")
+    assert not await asyncio.wait_for(asked, 5)
+    assert await _asks(ex, run, "mkdir tea-timer")

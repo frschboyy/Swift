@@ -45,11 +45,12 @@ import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Origin, type Scenario, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Inbound, type Origin, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
 import { endRun, saysReady, startRun } from "./ready";
+import * as T from "./timers";
 import { getVersion } from "@tauri-apps/api/app";
 import { followTheme } from "./theme";
 import * as V from "./views";
@@ -1261,6 +1262,31 @@ function drawFollowup(left: number): void {
 // How long the reply window was open for, for its ring.
 let followupTotal = 0;
 
+// Halo B14: the timers still counting (the backend's ``timers``), soonest first.
+let timers: TimerRow[] = [];
+
+/** B14: no card while a timer counts; the orb wears its ring and a time pill. The reply window, while open,
+ * has the orb to itself. */
+function drawTimer(): void {
+  const now = Date.now();
+  const counting = timers.filter((t) => t.due_ms > now);
+  const on = counting.length > 0 && !capsuleEl.hasAttribute("data-followup");
+  capsuleEl.toggleAttribute("data-timer", on);
+  let pill = capsuleEl.querySelector<HTMLElement>(".tm-pill");
+  if (!on) {
+    pill?.remove();
+    return;
+  }
+  capsuleEl.style.setProperty("--tm-left", T.left(counting, now).toFixed(3));
+  if (!pill) {
+    pill = el("span", { class: "tm-pill", role: "timer" });
+    capsuleEl.append(pill);
+  }
+  const text = T.pillText(counting, now);
+  pill.title = counting.map((t) => t.title).join(", ");
+  if (pill.lastChild?.textContent !== text) pill.replaceChildren(icon("timer"), el("b", {}, text));
+}
+
 function onRunVoice(v: Extract<Inbound, { type: "run.voice" }>["data"]): void {
   window.clearTimeout(runVoiceTimer);
   runVoice = v.phase === "idle" ? null : v;
@@ -1666,6 +1692,12 @@ function renderDue(data: Extract<Inbound, { type: "result" }>["data"]): void {
   drawCard({ state: "due", look: "result card--due", role: "alert", inner: "due", body: [
     el("span", { class: "due-icon" }, icon(kind === "timer" ? "timer" : "bell")),
     el("span", { class: "due-text" }, el("p", { class: "due-label" }, label), el("p", { class: "due-title" }, title)),
+    // B14: "+5 min" sets the card's timers again (the backend takes them from its own items, never this card).
+    kind === "timer" ? el("button", { class: "btn btn--ghost btn--big", onclick: (ev: Event) => {
+      ev.stopPropagation();
+      client.send({ type: "due.snooze", data: { run_id: data.run_id } });
+      dismiss();
+    } }, "+5 min") : null,
     el("button", { class: "btn btn--primary btn--big", onclick: (ev: Event) => { ev.stopPropagation(); dismiss(); } }, "Done"),
   ] });
 }
@@ -1919,6 +1951,7 @@ window.setInterval(() => {
     draining = false;
   }
   drawFollowup(r.followupLeft);
+  drawTimer();
   // The card in front is gone but another request still runs: bring it forward.
   const next = P.promotion(pres);
   if (next && next !== promoted) askFocus(next);
@@ -2145,6 +2178,10 @@ function onMessage(msg: Inbound): void {
       break;
     case "stack":
       onStackMessage(msg.data.items);
+      break;
+    case "timers":
+      timers = msg.data.items;
+      drawTimer();
       break;
     case "heard":
       onHeard(msg.data);

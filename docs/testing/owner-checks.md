@@ -3000,6 +3000,16 @@ little toward the orb; closed, it folds into the orb, which pulses once; the edg
 animation effects off, each is a short fade, and the bar under the answer still runs down. Say whether any of it
 feels slow, jumpy or distracting.
 
+<a id="check-halo-b8-build-4fbdf7-8"></a>**Check halo-b8-build-4fbdf7-8. A timer counts on the orb, then +5 min (B14)**
+1. Say "Hey Swift, set a timer for 2 minutes for the tea". Look at the orb.
+2. Say "Hey Swift, set another timer for 5 minutes".
+3. While both count, ask "Hey Swift, what time is it?".
+4. When the tea timer is due, click **+5 min** on its card. Then let it come due again and click **Done**.
+
+You should see: no card while a timer counts; the orb full size in a ring that empties, and a small pill with the
+time left ("1:58", then "1:40 · 2" with two timers); the pill stays beside the orb while the answer card is up; the
+Due card has **+5 min** and **Done**; +5 min puts the tea timer back on the orb at 5:00.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

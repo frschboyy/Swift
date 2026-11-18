@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock, memory, seen, stops
+from swift import clock, memory, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -1366,7 +1366,7 @@ class Session:
         kind, key = parts
         logger.info("stack action", kind=kind, action=action)
         if kind == "due" and action != "skip":
-            self._due_cleared(key)
+            timers.cleared(self, key)
             await self._send_stack()
             return
         if action == "skip":
@@ -1624,6 +1624,8 @@ class Session:
                 await self._say(msg.data["text"])
             case "focus":
                 await self._focus_row(msg.data["run_id"])
+            case "due.snooze":
+                timers.snooze(self, msg.data["run_id"])  # "+5 min" on a timer's Due card (B14)
             case "watch":
                 # The live view opened (a click on Watch) or closed: content-free, for the log.
                 logger.info("live view", run_id=msg.data["run_id"], open=msg.data["open"])
@@ -3765,6 +3767,7 @@ class Session:
         # Off the schedule only once the overlay says it drew it (``screen``, O-08); not drawn, or the overlay
         # gone first, it's back in line.
         self._drawn.due[run_id] = (0, queued)
+        timers.remember(run_id, [i for i, _, _ in queued])
         await self._send_stack()
         await self._send_result(run_id, ExecResult("done", text), origin="away" if away else "reminder")
         logger.info("due sent", items=len(queued))
@@ -3787,15 +3790,6 @@ class Session:
             await self._send_stack()  # it waits there, never sent again into a refusal, till the screen rests
         elif rest and self._due:
             await self._kick_due()
-
-    def _due_cleared(self, key: str) -> None:
-        """Cleared from the stack: the owner has seen it, so it won't come up as a card too."""
-        kept = [entry for entry in self._due if str(entry[0].id) != key]
-        for item, _, _ in self._due:
-            if str(item.id) == key and self.system is not None:
-                self.system.scheduler.shown(item.id)
-        self._due = kept
-
 
     def _agent(self) -> dict[str, str] | None:
         """The provider of the active run as the overlay's ``agent``; None when it is Swift itself."""
@@ -4298,6 +4292,7 @@ class Session:
         The card on screen counts down again only once the new overlay says it drew it."""
         self.overlay_gone()
         self._rows_sent = None
+        timers.attach(self)  # its running timers, now and on every change (B14)
         await self._send_rows()
         if self.speaker.speaking:
             await self._raw_send(outbound("speech", speaking=True))

@@ -113,6 +113,8 @@ export type Inbound =
   | { type: "result"; data: { run_id: string; status: "done" | "cancelled" | "error" | "rejected"; summary: string; details?: ResultDetails | null; agent?: Agent | null; note?: string | null; thread_id?: string; origin?: Origin } }
   // ADR-009: title/message/hint are written for the owner; detail is the raw text, shown on request.
   // retry: "Try again" re-runs the request. severity "info": a nudge, not a failure.
+  // Halo B14: the timers still counting, soonest first (none: an empty list). No card while one counts.
+  | { type: "timers"; data: { items: TimerRow[] } }
   | { type: "error"; data: ErrorData }
   | { type: "artifact"; data: Artifact }
   // Open the detail view on an artifact (null: the steps), or close it. Swift decides which (ADR-010 §7).
@@ -186,6 +188,8 @@ export type RunRow = {
   origin?: Origin;
 };
 
+export type TimerRow = { id: number; title: string; due_ms: number; set_ms: number };
+
 export type ErrorData = {
   code: string;
   message: string;
@@ -214,6 +218,8 @@ export type Outbound =
   | { type: "view"; data: { action: "show" | "hide" } }
   // A background request to the front: a row clicked, or the card in front gone while it runs.
   | { type: "focus"; data: { run_id: string } }
+  // "+5 min" on a timer's Due card (B14): the backend sets the card's timers again from its own items.
+  | { type: "due.snooze"; data: { run_id: string } }
   // What is drawn, as of the backend's frame n (review item 9): the stage, the card's request, the confirm
   // card and question the owner can see ("": none). A confirm card counts down only while seen (ADR-015
   // §4.2); a due card leaves the schedule once it is the card here (O-08).

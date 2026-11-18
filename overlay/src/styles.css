@@ -1302,7 +1302,30 @@ code {
 #stage .fu-pill .icon { width: 13px; height: 13px; color: var(--accent); }
 #stage .fu-pill b { font-weight: 600; }
 #stage .fu-time { color: var(--faint); }
-#stage .capsule:not([data-p="orb"]) .fu-pill, #stage .capsule:not([data-p="orb"])::before { display: none; }
+#stage .capsule:not([data-p="orb"]) .fu-pill, #stage .capsule:not([data-p="orb"])[data-followup]::before { display: none; }
+/* Halo B14, Orb · Timer: a 44 px ring (--track, arc --accent, inner radius 0.8) and a 22 px time pill. */
+#stage .capsule[data-timer]::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--tm-left, 1) * 1turn), var(--raise-hover) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent 80%, #000 81%);
+  mask: radial-gradient(farthest-side, transparent 80%, #000 81%);
+  pointer-events: none;
+}
+#stage .tm-pill {
+  position: absolute; top: 50%; right: calc(100% + 12px); transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; white-space: nowrap;
+  border-radius: var(--radius-pill); background: var(--panel-solid); border: 1px solid var(--rim); box-shadow: var(--shadow);
+  font-size: 12px; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+#stage[data-anchor$="left"] .tm-pill { right: auto; left: calc(100% + 12px); }
+#stage .tm-pill .icon { width: 12px; height: 12px; color: var(--accent); }
+#stage .tm-pill b { font-weight: 600; }
+/* At rest with a timer running, the orb is full size inside its ring (not the idle dot). */
+#stage .capsule[data-p="idle"][data-timer] { width: var(--orb); height: var(--orb); margin: 4px; }
+#stage .capsule[data-p="idle"][data-timer] .orb { width: var(--orb); height: var(--orb); opacity: 1; }
+#stage[data-anchor$="left"] .capsule[data-p="idle"][data-timer] { margin-left: calc(var(--tail-inset) - var(--orb) / 2); }
+#stage[data-anchor$="right"] .capsule[data-p="idle"][data-timer] { margin-right: calc(var(--tail-inset) - var(--orb) / 2); }
+#stage .capsule:not([data-p="orb"]):not([data-p="idle"]) .tm-pill, #stage .capsule:not([data-p="orb"]):not([data-p="idle"])[data-timer]::before { display: none; }
 /* Board 9 §5, "say approve again". */
 #stage .voice-hint--again { display: flex; flex-wrap: nowrap; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--warn-text); font-size: 13px; font-weight: 600; }
 #stage .voice-hint--again .icon { flex: none; width: 14px; height: 14px; margin-top: 2px; color: var(--warn-text); }

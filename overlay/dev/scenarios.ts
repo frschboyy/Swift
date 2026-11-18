@@ -64,6 +64,7 @@ async function reset(s: Shim): Promise<void> {
   s.inject("presence", HERE);
   s.inject("runs", { focus: null, rows: [], waiting: 0 });
   s.inject("stack", { items: [] });
+  s.inject("timers", { items: [] });
   s.inject("state", { state: "idle" });
   await sleep(260);
 }
@@ -393,6 +394,12 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     await sleep(250);
   },
   // 8. timers and reminders
+  // Halo B14: a timer counting on the orb, alone, and with an answer card in front.
+  timerOrb: async (s) => { s.inject("timers", { items: [{ id: 7, title: "Tea", due_ms: Date.now() + 252_000, set_ms: Date.now() - 48_000 }] }); await sleep(400); },
+  timerTwo: async (s) => {
+    s.inject("timers", { items: [{ id: 7, title: "Tea", due_ms: Date.now() + 252_000, set_ms: Date.now() - 48_000 }, { id: 8, title: "Pasta", due_ms: Date.now() + 600_000, set_ms: Date.now() }] });
+    await answer(s, "What time is it?", "It's 3:42 pm");
+  },
   timerDue: async (s) => {
     s.inject("state", { state: "result", run_id: "due-timer-7", agent: null });
     s.inject("result", { run_id: "due-timer-7", status: "done", summary: "Your tea timer is up.", details: null, agent: null, note: null, origin: "reminder" });

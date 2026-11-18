@@ -1638,3 +1638,29 @@ async def test_f7_stop_with_nothing_running_keeps_the_stopped_card() -> None:
     screen = agree(session, out)
     assert screen["stage"] == "result" and screen["answerSummary"] == "Cancelled.", screen
     await finish_all(session, agent)
+
+
+async def test_b14_a_running_timer_reaches_the_orb_and_plus_five_sets_it_again() -> None:
+    """Halo B14: no card while a timer counts; the overlay hears the timers still counting (``timers``) on
+    every change, and "+5 min" on a timer's Due card sets it again from Swift's own items."""
+    session, out, agent, stt, _control, sched = _lane()
+    await session.handle(Message("ready", {"startup_ms": 1}))
+    sched.add("timer", sched.clock() + 300, "tea")
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["timerTitles"] == ["tea"] and screen["timerPill"] == "5:00", screen
+    assert screen["stage"] == "idle" and screen["cardRun"] is None  # no card while it counts
+    # It comes due: its card, then "+5 min" puts it back on the orb, five minutes from now.
+    sched.items[-1].due = sched.clock()
+    tea = sched.items[-1]
+    tea.fired = True
+    await session.notify_due(tea, False)
+    await asyncio.sleep(0.1)
+    screen = await _drawn_back(session, out)
+    due = screen["cardRun"]
+    assert due.startswith("due-timer-"), screen
+    await session.handle(Message("due.snooze", {"run_id": due}))
+    await asyncio.sleep(0.05)
+    again = _screen(out)
+    assert again["timerTitles"] == ["tea"] and again["timerPill"] == "5:00", again
+    await finish_all(session, agent)

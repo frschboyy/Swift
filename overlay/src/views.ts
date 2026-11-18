@@ -177,7 +177,21 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
   if (v.written) {
     const doc = el("div", { class: "live-doc", "aria-label": `What Swift wrote in ${v.written.app}` },
       ...v.written.text.split("\n").map((p) => el("p", {}, p)));
-    sections.push(el("section", { class: "live-sec" }, el("h3", { class: "section-title" }, `Writing in ${v.written.app}`), doc));
+    // B6: the paper view keeps one console line under the page: what it's doing now.
+    sections.push(el("section", { class: "live-sec" }, el("h3", { class: "section-title" }, `Writing in ${v.written.app}`), doc,
+      el("p", { class: "paper-console", "aria-hidden": "true" }, `${v.running ? "› " : ""}${v.doing}`)));
+  }
+  if (v.steps.length > 1) {
+    // B6: Watch · Step rows: ✓ done, › the one it's on (while it runs), each with when it started.
+    sections.push(el("section", { class: "live-sec" },
+      el("h3", { class: "section-title" }, "Steps"),
+      el("ol", { class: "watch-steps" }, ...v.steps.map((s, i) => {
+        const now = v.running && i === v.steps.length - 1;
+        return el("li", { class: now ? "watch-step watch-step--now" : "watch-step" },
+          el("span", { class: "watch-step-mark", "aria-hidden": "true" }, now ? "›" : "✓"),
+          el("span", { class: "watch-step-text" }, s.text),
+          el("span", { class: "watch-step-time" }, elapsed(v.startedMs, s.atMs)));
+      }))));
   }
   if (v.sources.length) {
     const read = v.sources.filter((s) => s.state === "read").length;
@@ -214,6 +228,11 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
   // progress line that never goes back (sources read of found), a mono meta line, then the steps.
   const read = v.sources.filter((s) => s.state === "read" || s.state === "failed").length;
   const progress = v.running ? (v.sources.length ? read / v.sources.length : 0) : 1;
+  // "Step 4": the steps it has been on (how many are left isn't known until a plan says so).
+  const meta = [
+    v.steps.length ? (v.running ? `Step ${v.steps.length}` : `${v.steps.length} steps`) : null,
+    v.sources.length ? `${read} of ${v.sources.length} sources read` : null,
+  ].filter((m): m is string => m !== null);
   return el(
     "section",
     { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""}`, role: "region", "aria-label": `Live: ${v.title}` },
@@ -223,7 +242,7 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
       el("span", { class: "mon-clock elapsed chip-time" }, elapsed(v.startedMs, now)),
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
     el("div", { class: "watch-progress", style: `--p:${progress.toFixed(3)}`, "aria-hidden": "true" }),
-    v.sources.length ? el("p", { class: "watch-meta" }, `${read} of ${v.sources.length} sources read`) : null,
+    meta.length ? el("p", { class: "watch-meta" }, meta.join(" · ")) : null,
     el("div", { class: "status live-now" }, status,
       el("span", { class: "status-verb live-doing", "aria-live": "polite" }, `${v.running ? "› " : ""}${v.doing}`)),
     v.ended && v.ended.summary ? el("p", { class: "live-summary" }, v.ended.summary) : null,

@@ -1734,6 +1734,15 @@ code {
 #stage .watch-progress { position: relative; height: 2px; margin: 0 -14px; background: var(--mon-line); }
 #stage .watch-progress::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--p, 0) * 100%); background: var(--mon-live); transition: width var(--dur-move) linear; }
 #stage .live--finished .watch-progress::after { background: var(--mon-ok); }
+/* B6: Watch · Step rows (mono 12; ✓ --mon-ok done, › --mon-live now 700, time right) and the paper's console line. */
+#stage .watch-steps { margin: 0; padding: 0; list-style: none; font: 12px/20px var(--mono); }
+#stage .watch-step { display: flex; gap: 8px; color: var(--mon-muted); }
+#stage .watch-step-mark { flex: none; width: 12px; color: var(--mon-ok); }
+#stage .watch-step--now { color: var(--mon-live); font-weight: 700; }
+#stage .watch-step--now .watch-step-mark { color: var(--mon-live); }
+#stage .watch-step-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#stage .watch-step-time { flex: none; color: var(--mon-faint); }
+#stage .paper-console { margin: 6px 0 0; color: var(--mon-live); font: 11px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #stage .watch-meta { margin: 8px 0 0; color: var(--mon-faint); font: 11px var(--mono); }
 #stage .live .live-doing { font: 700 12px var(--mono); color: var(--mon-live); }
 #stage .live--ended .live-doing { color: var(--mon-muted); font-weight: 400; }

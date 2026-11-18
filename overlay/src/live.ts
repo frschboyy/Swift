@@ -23,6 +23,8 @@ export type LiveRun = {
   words: string;
   startedMs: number;
   doing: { text: string; activity: string | null; app: string | null } | null;
+  // B6: each step it has been on, in order, and when it started on it (the watch's Watch · Step rows).
+  steps?: Step[];
   sources: Source[];
   notes: string[];
   // What Swift wrote into the owner's app, paragraph by paragraph, and the app.
@@ -38,6 +40,10 @@ export type LiveRun = {
 export type Live = { runs: LiveRun[] };
 
 /** What a live pane draws. */
+export type Step = { text: string; atMs: number };
+/** Steps kept per request (the watch shows the last ones). */
+export const MAX_STEPS = 30;
+
 export type LiveView = {
   kind: "live";
   runId: string;
@@ -47,6 +53,8 @@ export type LiveView = {
   sources: Source[];
   notes: string[];
   written: { app: string; text: string } | null;
+  // B6: the steps so far ("Step 4"), the last the one it's on while it runs.
+  steps: Step[];
   hint: string | null;
   running: boolean;
   ended: { status: string; summary: string; answer: boolean } | null;
@@ -119,8 +127,13 @@ function addSource(sources: Source[], s: Source): Source[] {
 export function onItem(l: Live, runId: string, item: LiveItem, now: number): Live {
   return update(l, runId, now, (r) => {
     switch (item.kind) {
-      case "doing":
-        return item.text ? { ...r, doing: { text: item.text, activity: item.activity ?? null, app: item.app ?? null } } : r;
+      case "doing": {
+        if (!item.text) return r;
+        const steps = r.steps ?? [];
+        const same = steps.length > 0 && steps[steps.length - 1].text === doingLine(item.text);
+        return { ...r, doing: { text: item.text, activity: item.activity ?? null, app: item.app ?? null },
+          steps: same ? steps : [...steps, { text: doingLine(item.text), atMs: now }].slice(-MAX_STEPS) };
+      }
       case "source": {
         const url = webUrl(item.url ?? "");
         if (!url) return r;
@@ -255,6 +268,7 @@ export function view(r: LiveRun): LiveView {
     sources: running ? r.sources : r.sources.map((s) => (s.state === "reading" ? { ...s, state: "found" as const } : s)),
     notes: r.notes,
     written: r.written,
+    steps: r.steps ?? [],
     hint: r.hint,
     running,
     ended: r.ended ? { status: r.ended.status, summary: r.ended.summary, answer: r.ended.status === "done" } : null,

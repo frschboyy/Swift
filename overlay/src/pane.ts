@@ -25,6 +25,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock, treeBlock,
 } from "./blocks";
+import { CHOICES, type Display } from "./display";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
@@ -215,6 +216,9 @@ const anchorName = (a: string): string =>
   a.replace("top", "Top").replace("bottom", "Bottom").replace("-left", " left").replace("-center", " centre").replace("-right", " right");
 
 /** The tray menu: Swift and its status, where it sits, smart placement, then the actions. */
+// A8's fold in the tray: open once the owner opened it, while this window lasts.
+let displayOpen = false;
+
 function drawTray(v: TrayView): void {
   const tray = (value: string, extra: Record<string, unknown> = {}) => () => act("tray", { value, ...extra });
   const typeKeys = v.typeKey ? keys(v.typeKey) : null;
@@ -235,6 +239,16 @@ function drawTray(v: TrayView): void {
         el("div", { class: "tray-row" }, "Smart placement",
           el("button", { class: "switch", role: "switch", "aria-checked": String(v.smart), "aria-label": "Smart placement", onclick: tray("smart") })),
         el("p", { class: "tray-help" }, "Moves away from the text cursor and full-screen apps.")),
+      // A8: how Swift shows things, until the Swift window exists.
+      // Folded until opened, so the menu fits a short screen at 150%.
+      v.display ? el("details", { class: "tray-block tray-display", open: displayOpen, ontoggle: (ev: Event) => { displayOpen = (ev.currentTarget as HTMLDetailsElement).open; } },
+        el("summary", { class: "tray-row" }, "How Swift shows things"),
+        ...(Object.keys(CHOICES) as (keyof Display)[]).map((k) => el("div", { class: "tray-seg-row" },
+          el("span", {}, { reading: "Reading time", text: "Text size", motion: "Motion" }[k]),
+          el("div", { class: "seg", role: "radiogroup", "aria-label": k },
+            ...CHOICES[k].map((c) => el("button", {
+              role: "radio", "aria-checked": String(v.display![k] === c.value), onclick: tray("display", { text: `${k}:${c.value}` }),
+            }, c.label)))))) : null,
       el("div", { class: "tray-sep" }),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("pause") }, icon(v.paused ? "play" : "pause"), v.paused ? "Resume listening" : "Pause listening"),
       el("button", { class: "tray-item", role: "menuitem", onclick: tray("type") }, icon("keyboard"), "Type to Swift", typeKeys),

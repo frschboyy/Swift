@@ -3070,6 +3070,17 @@ the tea answer again without running it again. With nothing waiting there's no p
 You should see: the second answer on the same card, its words line saying 'then “and the date?”', the first
 answer hidden under **First answer**, shown and hidden again by the button.
 
+<a id="check-halo-b8-build-4fbdf7-15"></a>**Check halo-b8-build-4fbdf7-15. How Swift shows things (A8, in the tray menu for now)**
+1. Open the tray menu and open **How Swift shows things**.
+2. Set Reading time to **2×**, ask "Hey Swift, what time is it?" and time how long the answer stays.
+3. Set **Until I close**, ask again: the answer stays until you close it.
+4. Set Text size **Large** and Motion **Less**, ask again; restart Swift and check they're kept.
+5. Put them back (1×, Default, Like Windows).
+
+You should see: each choice takes effect on the next card; Large makes the cards and the pill bigger without
+cutting anything; Less turns card movements into short fades; the choices survive a restart. Not in it yet:
+"speak answers" and "watch opens" (they're in `config.yaml`).
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

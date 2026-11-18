@@ -12,6 +12,7 @@
 //
 // ADR-017 §7: a running request's live view (live.ts) is a pane of its own, one per request.
 
+import type { Display } from "./display";
 import type { LiveView } from "./live";
 import type { ResultDetails } from "./protocol";
 import type { StackView } from "./stack";
@@ -38,6 +39,8 @@ export type TrayView = {
   smart: boolean;
   // The typing hotkey as written in config.yaml ("ctrl+space"), or null when there is none.
   typeKey: string | null;
+  // A8: how Swift shows things (display.ts).
+  display?: Display;
 };
 
 /** What a pane window draws. */

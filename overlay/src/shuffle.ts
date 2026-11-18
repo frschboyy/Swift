@@ -28,7 +28,8 @@ export function over(at: Box, there: Box): string {
 
 export const isStill = (a: Box, b: Box): boolean => Math.abs(a.left - b.left) < 1 && Math.abs(a.top - b.top) < 1;
 
-const reduced = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Windows' "Animation effects" off, or the owner's "Motion: Less" (A8, display.ts).
+const reduced = (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.motion === "less";
 
 /** A webview that isn't being painted holds an animation on its first frame, which would leave an
  * element invisible and its hit region wrong. A timer still runs there, so it always ends. */

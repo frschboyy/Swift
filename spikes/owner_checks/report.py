@@ -453,6 +453,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-build-4fbdf7-12 captions on and off by voice (A6)", LOOK, "check on screen: the words by the orb, kept after a restart"),
         ("halo-b8-build-4fbdf7-13 earlier today in the stack; Open shows the answer again (A1)", LOOK, "check on screen: not counted as waiting"),
         ("halo-b8-build-4fbdf7-14 a follow-up on the same card, First answer (A2)", LOOK, "check on screen"),
+        ("halo-b8-build-4fbdf7-15 how Swift shows things: reading time, text size, motion (A8)", LOOK, "check on screen; kept after a restart"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

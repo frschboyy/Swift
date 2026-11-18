@@ -52,6 +52,7 @@ import { dressCards } from "./dress";
 import { endRun, saysReady, startRun } from "./ready";
 import * as T from "./timers";
 import { glanceLines } from "./glance";
+import * as Dsp from "./display";
 import { getVersion } from "@tauri-apps/api/app";
 import { followTheme } from "./theme";
 import * as V from "./views";
@@ -775,7 +776,7 @@ async function openTray(): Promise<void> {
   if (!paneWindows) return;
   try {
     const prefs = await invoke<{ anchor: string; smart: boolean }>("get_prefs");
-    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null };
+    tray = { kind: "tray", status: trayStatus(), paused: !!presence?.paused, anchor: prefs.anchor, smart: prefs.smart, typeKey: typeSpec || null, display };
   } catch {
     return;  // an older shell: its native menu
   }
@@ -807,6 +808,13 @@ async function trayAction(op: string, value?: string): Promise<void> {
     case "type":
       tray = null;
       toggleTyping();
+      break;
+    case "display":
+      // A8: how Swift shows things, chosen in the tray (kept on this PC).
+      display = Dsp.choose(display, value ?? "");
+      Dsp.save(display, localStorage);
+      applyDisplay();
+      if (tray) tray = { ...tray, display };
       break;
     case "settings":
       tray = null;
@@ -1304,6 +1312,14 @@ function drawPinned(): void {
   scheduleRegions();
 }
 
+// A8: how Swift shows things (display.ts), on this PC.
+let display: Dsp.Display = (() => { try { return Dsp.load(localStorage); } catch { return { ...Dsp.DEFAULTS }; } })();
+function applyDisplay(): void {
+  stage.dataset.text = display.text;
+  document.documentElement.dataset.motion = display.motion;
+}
+applyDisplay();
+
 // A6: what Swift is saying, while the owner has captions on ("" otherwise).
 let caption = "";
 
@@ -1635,7 +1651,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   // window wasn't easy to read). Open, it stays until "Read less", Esc or a click on it.
   let long = Panes.needsReader(data.summary, fuller) || finished.length > 1;
   const shape = A.shape(data.summary, fuller, long);
-  if (!presentAnswer("result", A.readingMs(copyable), data.run_id, data.thread_id, clipLine(data.summary))) return;
+  if (!presentAnswer("result", Dsp.readingMs(display, A.readingMs(copyable)), data.run_id, data.thread_id, clipLine(data.summary))) return;
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   body.addEventListener("scroll", () => noteScroll(), { passive: true });

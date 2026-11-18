@@ -1715,3 +1715,37 @@ code {
   #stage .btn { border: 1px solid ButtonText; }
   #stage .halo-tail path { fill: Canvas !important; stroke: CanvasText !important; }
 }
+
+/* ==== B6/B11: the watch as a monitor (decided, b8-prompt-fix) ==== */
+/* Solid --mon-bg in both themes, radius 12, no glass, rim, tail, state line or amber. */
+#stage .live { background: var(--mon-bg); border: 1px solid var(--mon-line); border-radius: 12px; backdrop-filter: none; color: var(--mon-text); padding-top: 0; }
+#stage .live--running { border-color: var(--mon-line); }
+#stage .live .watch-bar { display: flex; align-items: center; gap: 10px; height: 36px; margin: 0 -14px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--mon-line); }
+#stage .live .watch-bar .words { color: var(--mon-text); font-size: 13px; font-weight: 600; }
+#stage .live .live-badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; background: var(--mon-raise); color: var(--mon-live); font: 700 11px/20px var(--mono); letter-spacing: 0.06em; }
+#stage .live--running .live-badge::before { background: var(--mon-live); animation: live-pulse 2s var(--ease) infinite; }
+#stage .live--finished .live-badge { color: var(--mon-ok); }
+#stage .live--ended:not(.live--finished) .live-badge { color: var(--mon-faint); }
+#stage .mon-clock { flex: none; margin-left: auto; color: var(--mon-muted); font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+#stage .watch-progress { position: relative; height: 2px; margin: 0 -14px; background: var(--mon-line); }
+#stage .watch-progress::after { content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--p, 0) * 100%); background: var(--mon-live); transition: width var(--dur-move) linear; }
+#stage .live--finished .watch-progress::after { background: var(--mon-ok); }
+#stage .watch-meta { margin: 8px 0 0; color: var(--mon-faint); font: 11px var(--mono); }
+#stage .live .live-doing { font: 700 12px var(--mono); color: var(--mon-live); }
+#stage .live--ended .live-doing { color: var(--mon-muted); font-weight: 400; }
+#stage .live .section-title { color: var(--mon-faint); font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; }
+#stage .live .live-src, #stage .live .live-notes li, #stage .live .live-summary { color: var(--mon-text); font-family: var(--mono); font-size: 12px; }
+#stage .live .live-notes li { color: var(--mon-muted); }
+#stage .live .live-src:hover { background: var(--mon-raise); }
+/* The paper view: what's being made, as it will look. */
+#stage .live .live-doc { background: var(--paper); color: var(--on-paper); border: 0; border-radius: 4px; font-family: var(--font-text); }
+#stage .live .card-foot { border-top: 1px solid var(--mon-line); }
+#stage .live .btn:not(.btn--primary):not(.btn--warn) { background: var(--mon-raise); color: var(--mon-text); }
+#stage .live .icon-btn, #stage .live .hint { color: var(--mon-muted); }
+/* Sources: 14 px state discs in the monitor's own colours. */
+#stage .live .src-state--read { background: var(--mon-ok); color: var(--mon-bg); }
+#stage .live .src-state--failed { background: var(--mon-raise); color: var(--mon-bad); }
+#stage .live .spinner { border-color: var(--mon-line); border-top-color: var(--mon-live); }
+@media (prefers-reduced-motion: reduce) { #stage .live--running .live-badge::before { animation: none !important; } }
+@media (forced-colors: active) { #stage .live, #stage .live .live-doc { background: Canvas; color: CanvasText; border: 1px solid CanvasText; } }
+

@@ -189,27 +189,34 @@ export function liveCard(v: LiveView, h: LiveHandlers, now = Date.now()): HTMLEl
     : v.ended?.status === "done"
       ? el("span", { class: "ok-dot" }, icon("check"))
       : el("span", { class: "ended-icon" });
+  // B6: Stop first, then what the run made.
   const foot: (HTMLElement | null)[] = v.running
     ? [
-        el("span", { class: "hint foot-gap" }, "Live"),
-        v.written ? el("button", { class: "btn btn--ghost", title: `Bring ${v.written.app} to the front`, onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
         el("button", { class: "btn btn--ghost", title: "Stop this request only", onclick: () => h.stop() }, icon("stop"), "Stop"),
+        el("span", { class: "foot-gap" }),
+        v.written ? el("button", { class: "btn btn--ghost", title: `Bring ${v.written.app} to the front`, onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
       ]
     : [
         el("span", { class: "hint foot-gap" }, "Closes by itself"),
         v.written ? el("button", { class: "btn btn--ghost", onclick: () => h.app() }, icon("external"), `Show in ${v.written.app}`) : null,
         v.ended?.answer ? el("button", { class: "btn btn--primary", onclick: () => h.answer() }, "Open the answer") : null,
       ];
+  // B6, the watch as a monitor: Watch · Title bar (LIVE / FINISHED / ENDED, the title, the clock, ×), a 2 px
+  // progress line that never goes back (sources read of found), a mono meta line, then the steps.
+  const read = v.sources.filter((s) => s.state === "read" || s.state === "failed").length;
+  const progress = v.running ? (v.sources.length ? read / v.sources.length : 0) : 1;
   return el(
     "section",
-    { class: `live${v.running ? " live--running" : " live--ended"}`, role: "region", "aria-label": `Live: ${v.title}` },
-    el("header", { class: "card-head", title: "Drag to move" },
-      el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "DONE" : "ENDED"),  // a stop isn't done
+    { class: `live${v.running ? " live--running" : " live--ended"}${v.ended?.answer ? " live--finished" : ""}`, role: "region", "aria-label": `Live: ${v.title}` },
+    el("header", { class: "card-head watch-bar", title: "Drag to move" },
+      el("span", { class: "live-badge" }, v.running ? "LIVE" : v.ended?.answer ? "FINISHED" : "ENDED"),  // a stop isn't done
       el("p", { class: "words" }, v.title),
+      el("span", { class: "mon-clock" }, elapsed(v.startedMs, now)),
       el("button", { class: "icon-btn", "aria-label": "Close", title: "Close", onclick: () => h.close() }, icon("x"))),
+    el("div", { class: "watch-progress", style: `--p:${progress.toFixed(3)}`, "aria-hidden": "true" }),
+    v.sources.length ? el("p", { class: "watch-meta" }, `${read} of ${v.sources.length} sources read`) : null,
     el("div", { class: "status live-now" }, status,
-      el("span", { class: "status-verb live-doing", "aria-live": "polite" }, v.doing),
-      v.running ? el("span", { class: "elapsed chip-time" }, elapsed(v.startedMs, now)) : null),
+      el("span", { class: "status-verb live-doing", "aria-live": "polite" }, `${v.running ? "› " : ""}${v.doing}`)),
     v.ended && v.ended.summary ? el("p", { class: "live-summary" }, v.ended.summary) : null,
     el("div", { class: "live-body", tabindex: "0" }, ...sections),
     v.hint ? el("p", { class: "voice-hint live-hint", "data-phase": "hint", "aria-live": "polite" }, v.hint) : null,

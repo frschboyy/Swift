@@ -1499,7 +1499,11 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     ? el("div", { class: "facts-text facts-text--mono" }, ...cardLines(data.detail).map((line) =>
       el("div", { class: line.agent ? "facts-line--agent" : "facts-line" }, line.text || " ")))
     : el("p", { class: `facts-text${mono ? " facts-text--mono" : ""}` }, data.detail);
-  if (!commandFolded(data.tool, data.purpose)) return el("div", { class: "facts" }, box, moreBelow(box));
+  // ADR-019 §8.1: Swift's facts box, "Runs in" (the run's folder, from Swift, never the worker's words).
+  const runsIn = data.facts?.runs_in
+    ? el("dl", { class: "facts facts--swift" }, el("dt", {}, "Runs in"), el("dd", { class: "facts-path" }, data.facts.runs_in))
+    : null;
+  if (!commandFolded(data.tool, data.purpose)) return el("div", {}, runsIn, el("div", { class: "facts" }, box, moreBelow(box)));
   // B1: the agent's words lead, under its bar (X-17); the command's first line always shows, the rest folds.
   // B2: a step card's commands are each approved, so all of them show, none folded.
   const commands = stepCommands(data.tool, data.purpose, data.step, data.detail);
@@ -1521,6 +1525,7 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     { class: "confirm-lead" },
     // ADR-019 §8.1, Block · Worker's content: the worker's sentence, marked as the worker's (never Swift's facts).
     el("p", { class: "confirm-purpose facts-line--agent worker-content" }, el("span", { class: "confirm-purpose-by" }, "The worker's words"), data.purpose ?? ""),
+    runsIn,
     commands
       ? el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, "The commands this approves (what will actually run)"), el("div", { class: "facts" }, box, moreBelow(box)))
       : el("div", { class: "command-head" }, el("span", { class: "confirm-purpose-by" }, rest ? "What will run, first line" : "What will run"), el("p", {}, head)),

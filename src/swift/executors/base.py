@@ -83,7 +83,8 @@ class ExecEvent:
     activity: Activity = "working"
     # True when a sub-agent the provider started did this step ("Claude Code's helper is reading").
     subagent: bool = False
-    # Set on "live" events only: {"kind": "source", "url", "title", "site", "state"} or {"kind": "note", "text"}.
+    # Set on "live" events: {"kind": "source", "url", "title", "site", "state"} or {"kind": "note", "text"}; on a
+    # "confirm" event: Swift's own facts rows for the card ({"runs_in": the run's folder}, ADR-019 §8.1).
     data: dict[str, Any] | None = None
 
 

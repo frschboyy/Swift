@@ -855,8 +855,10 @@ class ClaudeCodeExecutor:
         request_id = f"{run_id}:{next(run.ids)}"
         future: asyncio.Future[bool | str] = asyncio.get_running_loop().create_future()
         run.pending[request_id] = future
+        # ADR-019 §8.1: Swift's own fact on a command card, where it runs (this run's folder, never the agent's words).
+        facts = {"runs_in": self.cwd} if tool in COMMAND_TOOLS and self.cwd else None
         run.queue.put_nowait(ExecEvent(
-            "confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose, step=step))
+            "confirm", title, request_id=request_id, detail=detail, tool=tool, purpose=purpose, step=step, data=facts))
         run.held += 1  # the owner's turn: the watchdog waits (R-06)
         try:
             answer = await wait_answer(self.attention, request_id, future, self.confirm_timeout_s)

@@ -1795,6 +1795,9 @@ code {
 #stage .tm-time { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; padding-right: 8px; }
 /* Modes §3: "Asking because you said: ask me about everything." on a card that asks only because of it. */
 .tray-head .tray-asking { display: block; color: var(--accent); font-weight: 600; }
+/* ADR-019 §8.1: Swift's facts rows on a command card ("Runs in"). */
+#stage .facts--swift { margin: 8px 0 0; }
+#stage .facts--swift .facts-path { font: 12px var(--mono); overflow-wrap: anywhere; }
 #stage .asking-line { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--muted); font-size: 13px; }
 #stage .asking-line .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
 #stage .pinned-line { flex: 1 1 auto; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -419,6 +419,14 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
     s.inject("confirm.request", { request_id: `swift:${id}`, run_id: id, title: "Type into Notepad", detail: "hello", tool: "desktop_write", agent: null, artifact_id: null, thread_id: `t-${id}`, because: "Asking because you said: ask me about everything." });
     await sleep(600);
   },
+  // B1 + ADR-019 §8.1: the worker's words, Swift's "Runs in", the command's first line and the rest folded.
+  confirmRunsIn: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Build the site", final: true, typed: false });
+    s.inject("state", { state: "confirm", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("confirm.request", { request_id: `${id}:1`, run_id: id, title: "Run a command on your PC", detail: "npm run build -- --mode production\nnpm run test", tool: "Bash", purpose: "Builds the site, then runs its tests.", step: false, agent: AGENT, thread_id: `t-${id}`, facts: { runs_in: String.raw`C:\Users\Francis\Projects\site` } });
+    await sleep(600);
+  },
   confirmCommand: async (s) => { await confirm(s, "Run a command in your project", null, "npm run build -- --mode production", "Build the site"); },
   confirmAway: async (s) => {
     await DESIGN.confirmChange(s);

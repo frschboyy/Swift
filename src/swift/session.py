@@ -3889,7 +3889,7 @@ class Session:
                     outbound(
                         "confirm.request", request_id=event.request_id, run_id=run_id, title=event.text,
                         detail=event.detail or "", tool=event.tool or "",
-                        purpose=event.purpose or "",  # the agent's words on what a command is for (B1)
+                        purpose=event.purpose or "", **({"facts": event.data} if event.data else {}),  # B1; §8.1
                         step=event.step,  # B2: the detail lists a step's commands, shown open
                         agent=agent,
                     )

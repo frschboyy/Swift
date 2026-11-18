@@ -68,6 +68,8 @@ Builds what the list below left. One commit per item; this table is kept current
 | "Ask me about everything": the tray's "Asking about everything" status and "Stop asking about everything" item; "Asking because you said…" on the gateway's own cards (+ check halo-b8-gaps-6b8791-3) | 5d872cb | built (`presence.asking`, new inbound `asking` {on: false}, `asking.from_tray`; the gateway passes `because=` to its confirmer only on a card it shows solely because of the setting). **Product rule: needs review** |
 | A2 replace the answer in place while the same run goes on | — | **blocked**: each request is its own run (run records, Stop, the stack and the journal are per run); a follow-up resumes the provider's session in the same thread as a new run. The overlay already keeps the same card for it (52dca0c). Making a follow-up the same run is a backend redesign, not a gap |
 
+| §8.1 "Runs in" on command cards | (81) | built (`confirm.request.facts.runs_in`: the executor's own folder, never the agent's words; harness `confirmRunsIn`). **"Removes" blocked**: telling what a command removes from its text is the parser two reviews fooled (`claude_mapping.py confirm_card`); it comes with Swift's own delete tool (decision 7, not built), whose paths are known |
+
 Group 1 is done (B5, B7, B14, B4, B6, "ask me about everything"; A2 blocked). `session.py` is at its ratchet (4985):
 nothing more goes into it.
 

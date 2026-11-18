@@ -213,6 +213,13 @@ export function chartBlock(c: Chart, full: boolean): HTMLElement {
     }, label));
   }
 
+  // D7: the worker's pick is a grey outline round its categories; the bars keep their equal weight.
+  for (const i of (c.pick ?? []).filter((i) => i < shown)) {
+    svg.append(svgNode("rect", {
+      x: String(plot.left + i * groupWidth + 2), y: String(plot.top), width: String(groupWidth - 4), height: String(plot.height + 30),
+      rx: "6", class: "chart-pick",
+    }));
+  }
   if (c.type === "bar") {
     const base = y(0);
     const slot = groupWidth / c.series.length;
@@ -246,6 +253,7 @@ export function chartBlock(c: Chart, full: boolean): HTMLElement {
       ...c.series.map((s, i) => el("li", {},
         el("span", { class: `chart-legend-swatch chart-series-${i}${c.type === "line" ? " chart-legend-swatch--line" : ""}`, "aria-hidden": "true" }),
         el("span", {}, s.name)))),
+    c.pick?.length ? el("span", { class: "compare-tag chart-pick-tag" }, `${A.PICK}: ${c.pick.map((i) => c.x[i]).join(", ")}`) : null,
     shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Show all shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }

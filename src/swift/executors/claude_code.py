@@ -288,6 +288,7 @@ class _Run:
     # B4: the result's shape as Swift checked it (show_result), drawn only on a Done answer.
     shape: dict[str, Any] | None = None
     preview: previews.PreparedPreview | None = None
+    fallback: str = ""  # B4: why a refused shape reads as words, Swift's one grey line on the Done card
     caveat: str = ""  # A5: the worker's one line on why the answer may be wrong
     approved_reads: set[str] = field(default_factory=set)
     # The approval each command of ``grant`` is bound to (OWN-05); set together with it (``_set_grant``).
@@ -1051,6 +1052,8 @@ class ClaudeCodeExecutor:
                     caveat=said,
                 )
             status = "done" if outcome.status == "done" else "error"
+            if status == "done" and getattr(run, "fallback", ""):
+                meta["fallback"] = run.fallback  # B4: the session puts it on the card as Swift's note
             return ExecResult(status, outcome.summary, outcome.details, meta, outcome.failure, caveat=said)
         lines = exception_words(error).splitlines() if error else []  # often none: TimeoutError() has no words
         detail = f" ({lines[0][:160]})" if lines else ""
@@ -1070,6 +1073,7 @@ async def _show_result(run: _Run, args: Any, reads: ReadScope, cwd: str | None) 
     run.shape = None
     run.preview = None
     shape, problems = shapes.check(args)
+    run.fallback = "" if shape is not None else shapes.fallback(args)
     if shape is None:
         logger.info("result shape refused", problems=problems)  # field roles and error kinds, no content
         return SHAPE_REFUSED_MESSAGE.format(problems=", ".join(problems))

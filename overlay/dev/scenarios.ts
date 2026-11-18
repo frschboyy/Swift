@@ -304,6 +304,15 @@ const DESIGN: Record<string, (s: Shim) => Promise<void>> = {
   answerPdfPreview: async (s) => { await answer(s, "Preview this PDF", "The first page is a project summary.", PDF_PREVIEW); },
   answerOfficePreview: async (s) => { await answer(s, "Preview this Word document", "It opens with the rollout proposal.", OFFICE_PREVIEW); },
   answerChart: async (s) => { await answer(s, "Show quarterly active users", "Activity grew in the north and south.", CHART); },
+  answerChartPick: async (s) => { await answer(s, "Which quarters stood out?", "Q2 and Q4 stood out in the north.", { ...CHART, pick: [1, 3] }); },
+  // B4: a shape Swift refused: plain words, and Swift's one grey line on why (the result's note).
+  answerFallback: async (s) => {
+    const id = run();
+    s.inject("transcript", { text: "Chart my sales by region", final: true });
+    s.inject("state", { state: "result", run_id: id, agent: AGENT, thread_id: `t-${id}` });
+    s.inject("result", { run_id: id, status: "done", summary: "North sold the most: 45 units, then South with 40.", details: null, agent: AGENT, note: "Shown as words: Swift couldn't check this as a chart.", thread_id: `t-${id}` });
+    await sleep(220);
+  },
   answerChartLong: async (s) => { await answer(s, "Show weekly active users", "The trend rises overall.", CHART_LONG); },
   answerProjects: async (s) => { await answer(s, "List my current projects", "Three active projects.", PROJECTS); },
   answerProjectsLong: async (s) => { await answer(s, "List all my current projects", "Five projects are in progress.", PROJECTS_LONG); },

@@ -66,6 +66,8 @@ export type Preview = {
 export type Chart = {
   kind: "chart"; type: "bar" | "line"; title?: string; x: string[];
   series: { name: string; values: number[] }[]; unit?: string;
+  // D7: the categories the worker points out (indexes into x): a grey outline, never accent.
+  pick?: number[];
   by: "worker"; size: "card" | "expanded"; text?: string;
 };
 

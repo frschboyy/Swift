@@ -634,6 +634,8 @@ code {
 .chart-series-2 { --chart-color: var(--chart-3); }
 .chart-series-3 { --chart-color: var(--chart-4); }
 .chart-bar { fill: var(--chart-color); opacity: .8; }
+/* D7: the worker's pick, a grey outline (never accent) round its categories. */
+.chart-pick { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .chart-line { fill: none; stroke: var(--chart-color); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-series-1.chart-line { stroke-dasharray: 6 3; }
 .chart-series-2.chart-line { stroke-dasharray: 2 3; }

@@ -3021,6 +3021,14 @@ You should see: the stack list has a RUNNING section with "Eggs · Timer · 3 mi
 in "Waiting for you"; Cancel ends it (the orb's ring goes); "five more" puts the tea timer back at 5:00 with no
 worker run; "done" answers "Done: Tea timer."; clicking Done shows a "Done: Tea timer" edge for about 2.5 s.
 
+<a id="check-halo-b8-gaps-6b8791-2"></a>**Check halo-b8-gaps-6b8791-2. The worker's pick on a chart; a shape Swift refused (B4)**
+1. Say "Hey Swift, make a bar chart of rainfall by month for London last year, and point out the wettest months".
+2. Ask for something Swift can't draw as asked, e.g. "Hey Swift, show me a pie chart of my week".
+
+You should see: (1) bars of equal weight, the months the worker picked inside a grey dashed outline (never blue or
+amber), and a grey "Worker's pick: …" tag under the legend; (2) plain words, with one grey line above them, "Shown as
+words: Swift couldn't check this as a chart." (if the worker answers in words without trying a shape, there is no line).
+
 <a id="check-halo-b8-build-4fbdf7-9"></a>**Check halo-b8-build-4fbdf7-9. "Ask me about everything" (modes study §3)**
 1. Say "Hey Swift, ask me about everything".
 2. Say "Hey Swift, set a timer for 3 minutes". Answer the question with a plain "yes".

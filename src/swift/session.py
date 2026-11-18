@@ -4957,7 +4957,7 @@ class Session:
         if result.status == "done":
             self._last_result = (run_id, result, agent)
         self._stopped = (self._current(), clock.now()) if result.status == "cancelled" else None
-        note, self._note = self._note, None
+        note, self._note = self._note or result.meta.get("fallback"), None  # B4: a refused shape's grey line
         await self._set_state("result", run_id=run_id, agent=agent)
         await self._send(
             outbound(

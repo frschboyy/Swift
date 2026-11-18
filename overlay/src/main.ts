@@ -1715,7 +1715,10 @@ type Problem = {
 
 function renderProblem(p: Problem): void {
   const info = p.severity === "info";
-  if (!presentAnswer("error", p.sticky ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
+  // ADR-019 §8.3: a request's Failed card never fades and has no reading bar; it stays until the owner closes it
+  // or the next request takes the front.
+  const failed = !!(p.runId || p.threadId) && !info;
+  if (!presentAnswer("error", p.sticky || failed ? null : info ? INFO_FADE_MS : p.retry ? RETRY_FADE_MS : ERROR_FADE_MS, p.runId, p.threadId, clipLine(p.title))) return;
   let open = false;
   const detail = p.detail ? el("pre", { class: "detail", hidden: true }, p.detail) : null;
   const toggle = detail

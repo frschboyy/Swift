@@ -2954,10 +2954,12 @@ the screen and Swift, so you may never see it; tests cover it.
 <a id="check-rule-gaps-2"></a>**Check rule-gaps-2. Words that only look like asking to write ask first**
 1. Open Notepad with an empty page and click into it.
 2. Say "Hey Swift, what's here on my screen?".
-3. Say "Hey Swift, write a short note about tea here".
+3. Say "Hey Swift, what can I write here?".
+4. Say "Hey Swift, write a short note about tea here".
 
-You should see: in step 2, if Swift wants to write anything into Notepad it asks first ("Write this in Notepad?"),
-showing what it would write; say "no" and nothing is written. In step 3 it writes the note without asking.
+You should see: in steps 2 and 3, if Swift wants to write anything into Notepad it asks first ("Write this in
+Notepad?"), showing what it would write; say "no" each time and nothing is written. In step 4 it writes the note
+without asking.
 
 ## After the checks: the report
 

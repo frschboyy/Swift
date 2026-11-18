@@ -91,6 +91,12 @@ _PLACE = re.compile(
     re.IGNORECASE,
 )
 _NOT_WRITING = re.compile(r"\bfill (?:me|us|them|him|her) in\b", re.IGNORECASE)
+# Phrased as a question ("what can I write here?", "can I write here?"): never a clear ask unless a verb leads it.
+_QUESTION = re.compile(
+    r"\?\s*$|^\s*(?:(?:hey|ok|okay)\s+)?(?:swift\b[\s,.:!-]*)?(?:what|what's|which|who|whose|where|when|why|how|is|are|am"
+    r"|was|were|does|do|did|has|have|can i|could i|should i|may i|shall i|will i|would i)\b",
+    re.IGNORECASE,
+)
 _EMAIL_WORDS = re.compile(r"\b(?:e-?mail|mail|gmail|outlook|draft|fill (?:it|this|that) in)\b", re.IGNORECASE)
 NOT_ASKED = ("The owner didn't ask for writing in their apps in this request, so Swift didn't write anything. "
              "Only text the owner asked to be written can be; tell them what you would write instead.")
@@ -103,7 +109,9 @@ def owner_asked_to_write(said: str) -> bool:
     Swift's question first (``_ask_to_write``, level 1): an unclear match never writes silently."""
     if _NOT_WRITING.search(said):
         return False
-    return bool(_LEADS_WITH_VERB.search(said) or (_WRITING.search(said) and _PLACE.search(said)))
+    if _LEADS_WITH_VERB.search(said):
+        return True
+    return not _QUESTION.search(said) and bool(_WRITING.search(said) and _PLACE.search(said))
 
 
 def owner_asked_for_email(said: str) -> bool:

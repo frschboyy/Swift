@@ -236,6 +236,10 @@ async def test_a_due_card_the_overlay_did_not_draw_waits_in_the_stack() -> None:
     "fill me in on the news",
     "who will enter the race",
     "what did the editor say",
+    "what can I write here?",
+    "is this correct here?",
+    "what type of tea is here",
+    "can I write here?",
 ])
 def test_words_that_only_look_like_writing_are_not_a_clear_ask(said: str) -> None:
     """Decision 6, D4: these matched the pattern and wrote into an app with no question. Not a clear ask: Swift
@@ -252,6 +256,10 @@ def test_words_that_only_look_like_writing_are_not_a_clear_ask(said: str) -> Non
     "now paste the summary into the document",
     "could you rewrite this more formally",
     "jot down a list of what we need",
+    "can you write this here",
+    "could you type this here?",
+    "Hey Swift, can you write a note here?",
+    "a short note about tea, write it here",
 ])
 def test_a_clear_ask_after_swifts_name_or_please_still_writes(said: str) -> None:
     from swift.workflows.desktop_tools import owner_asked_to_write

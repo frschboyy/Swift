@@ -1792,3 +1792,22 @@ async def test_a_yes_while_a_lapsed_ok_waits_in_the_stack_approves_nothing(said:
     assert any(i["id"] == f"card:{rid}" for i in out.last("stack")["items"]), "the OK left the stack"
     agree(session, out)
     await finish_all(session, agent)
+
+
+async def test_a_scheduled_run_that_fails_is_a_failed_card_with_swifts_origin() -> None:
+    """§8.4: nobody asked for it, so the card says Swift started it; the cause is plain and names no provider."""
+    from swift.background import guarded
+
+    session, out, agent, stt, _control, sched = _lane()
+
+    async def broken(item: Any, missed: bool) -> None:
+        raise OSError("drive D: not connected")
+
+    with pytest.raises(OSError):  # the scheduler still logs it
+        await guarded(session, broken)(_timer(session, sched), False)
+    errors = [m.data for m in out.messages if m.type == "error"]
+    assert len(errors) == 1
+    assert errors[0]["origin"] == "scheduled" and errors[0]["origin_detail"] == "tea"
+    assert "claude" not in json.dumps(errors[0]).lower() and "drive D" not in json.dumps(errors[0])
+    await _shows(out, lambda s: s["stage"] == "error")
+    await finish_all(session, agent)

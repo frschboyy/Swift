@@ -241,6 +241,7 @@ def _make_system(settings: Settings, session: Session) -> tuple[SystemLane, asyn
     """The system lane (ADR-016 §3) and Swift's clock. Debug mode uses a stand-in device and keeps
     the schedule in memory, so the harness never changes the real volume or leaves timers behind."""
     from swift.system.control import FakeSystem, WindowsSystem
+    from swift.background import guarded
     from swift.system.scheduler import Scheduler
 
     scheduler = Scheduler(None if settings.debug else Path(settings.system.schedule_file))
@@ -256,7 +257,7 @@ def _make_system(settings: Settings, session: Session) -> tuple[SystemLane, asyn
         session.online = online
     session.system_chime = settings.system.chime
     logger.info("system lane", pending=len(scheduler.items), device="fake" if settings.debug else "windows")
-    return lane, asyncio.create_task(scheduler.run(session.notify_due), name="scheduler")
+    return lane, asyncio.create_task(scheduler.run(guarded(session, session.notify_due)), name="scheduler")
 
 
 def _make_speaker(settings: Settings, session: Session, loop: asyncio.AbstractEventLoop) -> None:

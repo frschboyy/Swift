@@ -25,6 +25,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   answerTable, cardsBlock, chartBlock, compareBlock, copyButton, detailsText, diagramBlock, mindmapBlock, previewBlock,
 } from "./blocks";
+import { enterAction } from "./keyed";
 import { el, icon, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
@@ -142,22 +143,29 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
     autocomplete: "off", spellcheck: "true", maxlength: "2000",
   }) as HTMLInputElement;
   input.value = v.draft;
+  // Typed since Tab last reached a button: then Enter sends the text, whatever the view still says (keyed.ts).
+  let typedSinceReach = false;
   input.addEventListener("keydown", (ev) => {
-    const on = view?.kind === "type" ? view.onCard : null;  // the latest view: this listener outlives updates
+    const on = view?.kind === "type" ? view.onCard ?? null : null;  // the latest view: this listener outlives updates
     if (ev.key === "Tab") {
       ev.preventDefault();
+      typedSinceReach = false;
       act("type-tab", { value: ev.shiftKey ? "-1" : "1" });
     } else if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) {
       ev.preventDefault();
-      if (on) act("type-press", { text: input.value });
-      else if (input.value.trim()) act("type-send", { text: input.value });
+      const what = enterAction(on, typedSinceReach, input.value);
+      if (what === "press") act("type-press", { text: input.value });
+      else if (what === "send") act("type-send", { text: input.value });
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       act("type-close", { text: input.value });
     }
   });
   // Typing again puts the keyboard back in the text.
-  input.addEventListener("input", () => { if (view?.kind === "type" && view.onCard) act("type-tab", { value: "0" }); });
+  input.addEventListener("input", () => {
+    typedSinceReach = true;
+    if (view?.kind === "type" && view.onCard) act("type-tab", { value: "0" });
+  });
   root.replaceChildren(
     el(
       "section",

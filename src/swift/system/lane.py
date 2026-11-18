@@ -33,7 +33,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
@@ -117,6 +117,8 @@ class SystemLane:
         self._undo_at = 0.0
         # "Ask me about everything" (asking.py): while it says yes, Swift asks before its own changes too.
         self.ask_everything: Callable[[], bool] = lambda: False
+        # Learned trust (trust.py): whether a kind on its table is trusted. "Ask me about everything" wins over it.
+        self.trusted: Callable[[str], bool] = lambda kind: False
 
     # ---- entry points ------------------------------------------------------------------
 
@@ -150,6 +152,9 @@ class SystemLane:
             if (slot := it.missing(intent)) is not None:
                 return Outcome(self.ask_for(intent), True, names, pending=tuple(found), ask=(it.SLOTS[intent.name][1], slot))
         if any(it.disruptive(i) for i in found):
+            if not self.ask_everything() and all(not it.disruptive(i) or self.trusted(it.trust_kind(i) or "") for i in found):
+                out = await self._execute(found, asked=False)
+                return replace(out, said=f"{out.said} {it.YOU_SAID}") if out.ok else out
             said, note = await self.question(found)
             return Outcome(said, True, names, pending=tuple(found), ask=("yes_no", None), note=note)
         if any(i.name not in asking.EXEMPT for i in found) and self.ask_everything():
@@ -188,7 +193,14 @@ class SystemLane:
 
     async def confirmed(self, intents: tuple[it.Intent, ...]) -> Outcome:
         """The owner said yes to what ``run`` asked about."""
-        return await self._execute(list(intents))
+        return await self._execute(list(intents), asked=True)
+
+    def declined(self, intents: tuple[it.Intent, ...]) -> str:
+        """The owner said no to what ``start`` asked: journaled for the count that decides an offer; what to say."""
+        for i in intents:
+            if kind := it.trust_kind(i):
+                self.journal.write(uuid.uuid4().hex[:12], "CANCELLED", reason="rejected", kind=kind)
+        return "Okay, I've left it as it is."
 
     async def run_intents(self, intents: list[it.Intent]) -> Outcome:
         """For the agent's ``system_action`` tool: the gateway already confirmed and journals it."""
@@ -208,12 +220,12 @@ class SystemLane:
             return "Turn off Wi-Fi?", "Swift needs the internet for most requests: only quick commands until it's back."
         return "Turn off Bluetooth?", "A Bluetooth headset, mouse or keyboard would disconnect."
 
-    async def _execute(self, found: list[it.Intent], journaled: bool = True) -> Outcome:
+    async def _execute(self, found: list[it.Intent], journaled: bool = True, asked: bool = False) -> Outcome:
         said: list[str] = []
         undos: list[Undo] = []
         ok = True
         for intent in found:
-            action_id = self._pending(intent.name) if journaled else None
+            action_id = self._pending(intent.name, kind=it.trust_kind(intent), asked=asked) if journaled else None
             failed: str | None = None
             try:
                 line, undo = await self._do(intent)
@@ -251,12 +263,14 @@ class SystemLane:
         self._settled(action_id, failed, undoable=False)
         return " ".join(lines)
 
-    def _pending(self, name: str, always: bool = False) -> str | None:
+    def _pending(self, name: str, always: bool = False, kind: str | None = None, asked: bool = False) -> str | None:
         """Journal a device change before it runs; None for an intent that changes nothing outside Swift."""
         if not always and name not in CHANGES:
             return None
         action_id = uuid.uuid4().hex[:12]
         fields = {"domains": DOMAINS[name]} if name in DOMAINS else {}
+        if kind:  # learned trust counts what was asked and approved (trust.offer_due); a trusted one isn't counted
+            fields |= {"kind": kind, "asked": asked, **({} if asked else {"trusted": kind})}
         self.journal.write(action_id, "PENDING", tool=f"system.{name}", **fields)
         return action_id
 

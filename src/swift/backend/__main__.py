@@ -23,7 +23,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import __version__, asking, hints
+from swift import __version__, asking, hints, trust
 from swift.audio.chime import Chime
 from swift.audio.recorder import MicRecorder, level_from_block
 from swift.config.paths import app_paths
@@ -569,6 +569,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
 
     if session.tools is not None:
         session.tools.gateway.ask_everything = asks_all
+        session.tools.gateway.trusted = lambda kind: trust.is_trusted(session.memories, kind)
     if isinstance(session.executor, ClaudeCodeExecutor):
         session.executor.ask_everything = asks_all
     if session.tools is not None:
@@ -577,6 +578,7 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)
         session.system.ask_everything = asks_all
+        session.system.trusted = lambda kind: trust.is_trusted(session.memories, kind)
         if session.tools is not None:
             session.tools.system = session.system  # the agent's system_action (ADR-016 §3)
     # restarted: started by Restart Swift (the tray or a stopped engine's card), not a fresh launch.

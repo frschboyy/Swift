@@ -3179,7 +3179,7 @@ class Session:
                 outcome = await self.system.confirmed(intents)
             elif kind == "yes_no":
                 record["confirmed"], record["action"] = False, "system_no"
-                return "Okay, I've left it as it is.", True
+                return self.system.declined(intents), True
             elif answer.kind == "cancel":
                 return "Okay, I won't.", True
             else:

@@ -86,6 +86,10 @@ areas:
   halo:
     paths: [overlay/src/dress.ts, overlay/src/geometry.ts, overlay/src/styles.css, overlay/src/views.ts, overlay/src/pane.ts, overlay/src/ready.ts, overlay/src/shuffle.ts, overlay/src/times.ts, overlay/src/timers.ts, src/swift/timers.py]
     checks: [216-221, halo-b8-build-4fbdf7-4, halo-b8-build-4fbdf7-5, halo-b8-build-4fbdf7-6, halo-b8-build-4fbdf7-7, halo-b8-build-4fbdf7-8]
+  asking-everything:
+    rule: Ask me about everything raises level 0 to 1, except reads in the read folders and volume; it only adds questions
+    paths: [src/swift/asking.py, src/swift/security/gateway.py, src/swift/system/lane.py, src/swift/executors/claude_code.py, src/swift/memory.py]
+    checks: [halo-b8-build-4fbdf7-9]
   halo-b8-fixes:
     rule: an OK that lapses waits in the stack and only the owner brings it back; "stop" always says what it stopped
     paths: [src/swift/session.py, src/swift/stops.py, overlay/src/presenter.ts, overlay/src/deck.ts, overlay/src/pane.ts, overlay/src-tauri/src/lib.rs]

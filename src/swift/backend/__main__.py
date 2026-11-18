@@ -23,7 +23,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import __version__
+from swift import __version__, asking
 from swift.audio.chime import Chime
 from swift.audio.recorder import MicRecorder, level_from_block
 from swift.config.paths import app_paths
@@ -558,11 +558,18 @@ async def _serve(settings: Settings, token: str, port: int) -> None:
         signin_task = asyncio.create_task(signins.run())  # noqa: F841 - lives as long as the backend
     # What the owner asked Swift to remember (swift/memory.py); debug mode never touches the owner's.
     session.memories = Store(Path(tempfile.mkdtemp(prefix="swift-memory-")) if settings.debug else Path(settings.memory_dir))
+    # "Ask me about everything" (asking.py): one setting in the store, read where each card is decided.
+    asks_all = lambda: asking.is_on(session.memories)  # noqa: E731
+    if session.tools is not None:
+        session.tools.gateway.ask_everything = asks_all
+    if isinstance(session.executor, ClaudeCodeExecutor):
+        session.executor.ask_everything = asks_all
     if session.tools is not None:
         session.tools.memories = session.memories  # read only: a described web address (C3)
     scheduler_task: asyncio.Task[None] | None = None
     if settings.system.enabled:
         session.system, scheduler_task = _make_system(settings, session)
+        session.system.ask_everything = asks_all
         if session.tools is not None:
             session.tools.system = session.system  # the agent's system_action (ADR-016 §3)
     # restarted: started by Restart Swift (the tray or a stopped engine's card), not a fresh launch.

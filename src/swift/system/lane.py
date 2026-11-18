@@ -39,7 +39,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import clock
+from swift import asking, clock
 from swift.security.journal import Journal
 from swift.system import intents as it
 from swift.system.control import SystemControl, SystemUnavailable
@@ -86,6 +86,21 @@ def plural(n: int, word: str) -> str:
 # Swift's question for "turn on airplane mode": what it will really do (owner check, 2026-11-09).
 AIRPLANE_QUESTION = "I can't switch airplane mode itself. Turn off Wi-Fi and Bluetooth instead?"
 
+# "Ask me about everything": the question before a change Swift would otherwise just make.
+_ASK_FIRST = {
+    "timer.set": "Set the timer?", "alarm.set": "Set the alarm?", "reminder.set": "Set the reminder?",
+    "brightness.set": "Change the brightness?", "brightness.step": "Change the brightness?", "theme": "Change the theme?",
+    "dnd": "Change Do not disturb?", "media": "Control the media?", "screenshot": "Take a screenshot?",
+    "settings": "Open Settings?", "window": "Move the window?", "cancel": "Cancel it?", "radio": "Turn it on?",
+    "lock": "Lock the PC?", "search": "Search for it?",
+}
+
+
+def ask_first(found: list[it.Intent]) -> str:
+    asked = [i for i in found if i.name not in asking.EXEMPT]
+    return _ASK_FIRST.get(asked[0].name, "Go ahead?") if len(asked) == 1 else "Do all of that?"
+
+
 class SystemLane:
     def __init__(
         self,
@@ -100,6 +115,8 @@ class SystemLane:
         self.journal = journal or Journal(None)
         self._undo: list[Undo] = []
         self._undo_at = 0.0
+        # "Ask me about everything" (asking.py): while it says yes, Swift asks before its own changes too.
+        self.ask_everything: Callable[[], bool] = lambda: False
 
     # ---- entry points ------------------------------------------------------------------
 
@@ -135,6 +152,9 @@ class SystemLane:
         if any(it.disruptive(i) for i in found):
             said, note = await self.question(found)
             return Outcome(said, True, names, pending=tuple(found), ask=("yes_no", None), note=note)
+        if any(i.name not in asking.EXEMPT for i in found) and self.ask_everything():
+            # Level 0 raised to 1: Swift's own question, which a plain yes may answer (CLAUDE.md, level 1).
+            return Outcome(ask_first(found), True, names, pending=tuple(found), ask=("yes_no", None), note=asking.NOTE)
         return await self._execute(found)
 
     @staticmethod

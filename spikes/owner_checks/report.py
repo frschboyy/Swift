@@ -447,6 +447,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("halo-b8-build-4fbdf7-6 a long answer grows; Show all, Show less, Esc, the orb", LOOK, "check on screen: the fade, 640 wide open, folds back to the top"),
         ("halo-b8-build-4fbdf7-7 how cards move (grow, fold, drain; reduced motion)", LOOK, "check on screen: say how it feels"),
         ("halo-b8-build-4fbdf7-8 a timer counts on the orb; +5 min sets it again", LOOK, "check on screen: the ring, the pill, +5 min back at 5:00"),
+        ("halo-b8-build-4fbdf7-9 'ask me about everything': it asks, volume doesn't, it stays on", LOOK, "check: the question and its line; on after a restart; off again"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

@@ -120,6 +120,15 @@ code toward these rules, never away.
   keeps `answers` (local only). Owner check not run. Not covered: a desktop write stopped mid-way (`_changed`) and
   the A9 UIA state.
 - **7, 9:** apply when the W2 file tools and paying (C2) are built.
+- **"Ask me about everything"** (modes study §3): built on `claude/halo-b8-build-4fbdf7` (2026-11-18), not reviewed
+  or checked yet. `swift/asking.py`: one record in the memory store, from the owner's words (said or typed, never a
+  worker's), on until they turn it off. The gateway adds a card to `reversible` actions, except volume (its
+  `Action.kind`); the system lane asks before its own changes (level 1, Swift's own question; volume and reads
+  excepted), with "Asking because you said: ask me about everything." under it; no step card is offered or used, so
+  every command asks. It only adds questions: `confirm` is never lowered. Rule tests in
+  `tests/unit/test_asking_everything.py`, each failing with its guard removed; owner check halo-b8-build-4fbdf7-9.
+  Not built: the tray's "Asking about everything" status and its "Stop asking" item, the line on the gateway's
+  cards, and learned trust (kept but not used: there is none yet).
 - Found by the ownership map, not in the decisions: worker tool cards weren't bound to a digest (OWN-05, fixed; a
   review by another author is pending).
 

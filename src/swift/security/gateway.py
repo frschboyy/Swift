@@ -47,6 +47,7 @@ from loguru import logger
 
 from swift.connectors.base import Contact, ConnectorError
 from swift.security.journal import Journal
+from swift import asking
 from swift.workflows.scope import RunScope
 
 # "revise": the owner wants a change first; ``reason`` holds their words (nothing was done).
@@ -96,6 +97,8 @@ class Action:
     undo: Callable[[RunScope, str], Action] | None = None
     # The journal id of the action this one reverses (set by ``undo_last``).
     undoes: str = ""
+    # What kind of change it is, Swift's own name for it (a system action's intent: "timer.set").
+    kind: str = ""
 
 
 @dataclass
@@ -149,6 +152,8 @@ class Bound:
 
 class ActionGateway:
     def __init__(self, journal: Journal | None = None, send_grace_s: float = 0.0) -> None:
+        # "Ask me about everything" (asking.py): while it says yes, reversible asks too (volume excepted).
+        self.ask_everything: Callable[[], bool] = lambda: False
         self.journal = journal or Journal(None)
         # How long an approved send waits for a "stop" before it goes (X-08); the app sets SEND_GRACE_S.
         self.send_grace_s = send_grace_s
@@ -226,7 +231,8 @@ class ActionGateway:
             return self._deny(action, f"No policy allows {action.tool}.", "no_policy")
         # 4. confirm
         approved_digest = action.digest()
-        if policy == "confirm":
+        # "Ask me about everything" (asking.py) only ever adds a card; what's done afterwards follows ``policy``.
+        if policy == "confirm" or (action.kind not in asking.EXEMPT and self.ask_everything()):
             await status("waiting_approval")
             decision = await scope.confirm(action.title, action.detail, action.tool, action.artifact_id)
             if decision == "revise":

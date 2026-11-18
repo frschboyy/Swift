@@ -4318,10 +4318,10 @@ class Session:
     async def hold_cards(self, held: bool) -> None:
         """The owner left (hide open confirm cards, stop their countdown) or came back (show them again,
         and what came due meanwhile: ``notify_due``)."""
-        self._away = held
+        began, self._away = held and not self._away, held  # held again mid-call: nothing new to forget
         if held and self._deaf():
             self._drop_heard()  # locked, not merely idle: the owner may be talking hands-free while idle
-        if held:
+        if began:
             self.dialogue.forget()  # nothing said before carries over to what is said after (§5.1)
             self._away_questions()
         if not held and self._due:

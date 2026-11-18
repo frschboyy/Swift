@@ -264,3 +264,21 @@ async def test_the_probe_runs_off_the_event_loop() -> None:
 
     await CallWatch(Where(), on_change).poll()
     assert threads and threads[0] != threading.get_ident()
+
+
+# ---- review 7ab2b70 finding 7: what was said is forgotten when the hold begins, not at every presence change ----
+
+
+async def test_the_dialogue_is_forgotten_once_when_the_hold_begins() -> None:
+    from swift.attention import Attention
+    from swift.parked import ParkedThreads
+    from test_corrections import make
+
+    session, out, records, calendar, agent, stt = make(attention=Attention(), parked=ParkedThreads(None))
+    forgot: list[bool] = []
+    session.dialogue.forget = lambda: forgot.append(True)  # type: ignore[method-assign]
+    await session.hold_cards(True)
+    await session.hold_cards(True)  # an idle/here flip mid-call holds again: nothing new to forget
+    await session.hold_cards(False)
+    await session.hold_cards(True)
+    assert forgot == [True, True]

@@ -50,6 +50,9 @@ are in the saved file.
 | A2 a follow-up on the same card (+ check -14) | 52dca0c | built (presentation; a follow-up is still a new run in the same thread) |
 | A8 how Swift shows things, in the tray (+ check -15) | 916377e | built (no "speak answers" / "watch opens": backend settings) |
 | A7 keyboard entry on the card's buttons (owner approved 2026-11-18) (+ check -16) | 943d42e | built; **focus rule: needs review**; uses the text box's existing exception, so CLAUDE.md is unchanged |
+| "Ask me about everything": typed words can't turn it off; the true source is kept; fails closed (owner, 2026-11-18) | b3721d3 | root fix; **product rule: needs review** |
+| Test: a "yes" while a lapsed OK waits in the stack approves nothing | 806a75d | test only |
+| Text box: typed text then Enter never presses the card's button | 373e932 | root fix (found by the A7 test request); **product rule: needs review** |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
@@ -118,6 +121,12 @@ design states (a stand-in socket); `?explore=1` turns the glance on.
 - B14 added `timers`/`due.snooze` frames and `due.snooze` sets timers from Swift's own items: worth a second look.
 - A5 gives the worker a new tool (`add_caveat`); what it says shows on Done cards, marked as the worker's.
 - A12 makes the idle orb take the pointer, only when `explore.orb_glance` is on.
+- **b3721d3**: "ask me about everything" off only by speech; fails closed. **373e932**: typed text then Enter never
+  presses a card button (a race between the pane and the main window). Both product-rule fixes.
+- Seen, not changed (806a75d): the backend accepts a `confirm.reply` for an OK in the stack, off screen; the overlay
+  can only send one for a card it shows.
+- Not changed, worth a decision: memory facts ("remember that …") typed in the text box are still stored as `said`;
+  only the asking setting now records `typed`.
 - **A7** (943d42e) is a focus-rule change: a hotkey opens the text box on the card's buttons. Tested by
   `overlay/tests/focus.test.ts`.
 - A6 and A1 add optional fields to existing frames (`speech.text`, `stack.recent`); captions and "ask me about
@@ -125,10 +134,10 @@ design states (a stand-in socket); `?explore=1` turns the glance on.
   "what do you know about me".
 - The new capability permission `core:app:allow-version` (read-only, for D10) should be looked at too.
 
-## Tests at the stopping point (943d42e + this file)
+## Tests at the stopping point (373e932 + this file)
 
-- Python: 2391 passed, 1 skipped, 31 xfailed, 0 failed (full suite).
-- Overlay: `tsc --noEmit` clean; `npm test` 171 tests, 169 pass, 0 fail (2 known "todo" findings).
+- Python: 2397 passed, 1 skipped, 31 xfailed, 0 failed (full suite).
+- Overlay: `tsc --noEmit` clean; `npm test` 172 tests, 170 pass, 0 fail (2 known "todo" findings).
 - Rust (`cargo test`): 41 passed.
 - Vite production build: OK.
 - Routing parity: 413/423, the same ten web misses as before this branch.

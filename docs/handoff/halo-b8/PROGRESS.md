@@ -42,6 +42,10 @@ are in the saved file.
 | Modes §3 "ask me about everything" (+ owner check -9) | 64dd679 | built; **product rule: needs review** (no tray label yet) |
 | A9 micro-feedback | 11abdda | built |
 | A4 Pin an answer as an edge | aa1b6b6 | built (no open-in-reader from the edge) |
+| A12 orb glance behind `explore.orb_glance` (off by default); the `explore` settings (+ owner check -10) | 0c29585 | built (no next meeting: the overlay has no calendar data) |
+| "Ask me about everything": a function, not a lambda with a noqa (lint gate) | 0ee8239 | fix to 64dd679 |
+| A5 Block · Caveat (new `add_caveat` tool, `caveat` on the result frame) (+ owner check -11 with A9, A4) | 2fe397d | built (no "Check sources") |
+| Forced colours for the new parts | af39398 | built |
 
 Each fix F1, F2 and F5–F7 has a seam scenario in `tests/unit/test_seam_replay.py` that fails without its fix (checked
 by undoing the fix). F3 and F4 fail with F1 undone.
@@ -55,25 +59,49 @@ in at least two ways that survive grayscale (band or tag or row, mark shape, the
 
 ## Where it is now
 
-B-items done or partial; modes study §3 done. **Not built, on purpose:** modes §1 learned trust (it lowers an
-approval level and adds a new offer card) and §2 the plan card (`propose_plan`, grants used in order, a 640 card and
-its seam scenario): both are product-rule work that deserves its own session and review, not a rushed end of this
-one. Now on the A-ideas: A9 and A4 done; next A12 (behind a setting, off by default), then A5, A6, A1, A2, A7, A3,
-A8, A10, A11, A13 as time allows.
+Stopped here (a natural end, not a credit stop): everything below is not built and recorded as such.
 
 ## Left, in the README's order
 
-1. **F8:** owner check halo-b8-build-4fbdf7-1 written (6bd887e). No `AllowSetForegroundWindow` change unless it fails.
-2. **Step B, what's left:** old `styles.css` rules that Halo's later rules override were not removed one by one
-   (ADR-019 §10 says so). Section labels in the stack list (RUNNING, EARLIER TODAY) come with B14 and A1.
-3. **B-items:** done or partial (the table says what each partial lacks).
-4. **Modes study** (`01-build-spec.md` §4): §3 built; §1 learned trust and §2 the plan card not built (see above).
-5. **A-ideas:** the nine "Do next" (A5, A6, A9, A4, A1, A2, A7, A3, A8), then A10–A13 behind a setting that is off by
-   default, each with an owner check. Not started.
-6. Not done either: owner checks for the new surfaces; ADR-019 §10's before/after captures; the live loop on the
-   real window (grayscale, reduced motion, forced colours, 150%). Only headless-Edge harness captures exist (dark and
-   light, some anchors).
+1. **F8:** owner check halo-b8-build-4fbdf7-1 written. No `AllowSetForegroundWindow` change unless it fails.
+2. **Step B, what's left:** a rule-by-rule cull of old `styles.css` rules Halo's later rules override (needs before
+   and after captures of every state). Stack section labels (RUNNING, EARLIER TODAY) wait for A1.
+3. **B-items, partial parts** (each commit says what it lacks): §8.1 "Runs in"/"Removes" rows (not on the confirm
+   frame); §8.3 "Try again from step N" and a Failed card moving to the stack after 10 min (D9); §8.4 a sender for
+   scheduled/watching errors; B5 node-boundary cuts and "Show all · 11 rows"; B7 tail ordering and the deck moving
+   160 ms after a drain; B14 Edge · Timer, the stack RUNNING row with Cancel, voice "done"/"5 more", "Done: Tea
+   timer"; B4 D7 (charts have no pick) and the fallback line; B13 Open / Show in folder / double-click (path from the
+   file system) and reader arrow keys; B6 step counts and the console line; B9 docked and mini placements (a Windows
+   app bar), the tether, B12 "Open the answer" from the run record after a restart.
+4. **Modes study:** §3 built. **§1 learned trust and §2 the plan card not built**: both are product-rule work (one
+   lowers an approval level and adds an offer card; the other adds `propose_plan` and grants used in order) and
+   deserve their own session and review. Also not built for §3: the tray's "Asking about everything" status and
+   "Stop asking" item, the line on the gateway's own cards.
+5. **A-ideas:** built A9, A4, A5, A12 (behind `explore.orb_glance`). Not built: A6 captions (its default depends on
+   Windows' mute and captions state, which Swift doesn't read yet), A1 recent runs in the stack (run records into
+   the stack, a new stack kind), A2 follow-up on the same card (the backend's threads), A7 keyboard entry (a second
+   focus exception: a product-rule question for the owner), A3 hold during calls (needs the call-detector spike
+   first), A8 the settings page, A10 "What can I say?", A11 next-step chips, A13 the orb following the active monitor
+   (Rust). A10, A11 and A13 already have their off-by-default switches in `config.yaml explore`.
+6. **The live loop on the real window** (`docs/testing/live-ui-loop.md`: the isolated test build, `seq.mjs`) was not
+   run. What ran instead, in headless Edge against the dev harness (no backend): grayscale (B3), reduced motion
+   (B7), forced colours (every new part), the confirm fit in a short window at 1.5× (§8.6), the orb's position at
+   three anchors (§8.5), and captures of every new state in dark and light.
 7. STT corrections (`claude/stt-corrections`): left alone as asked.
+
+## New owner checks (provisional ids, `plan.py --renumber` at merge)
+
+halo-b8-build-4fbdf7-1 F8 the text box gets the keyboard · -2 F1-F4 a lapsed OK · -3 F6/F7 "stop" · -4 every surface
+(board 9) · -5 D10 "Swift is ready" · -6 B5 grow and Show all · -7 B7 motion · -8 B14 timer on the orb, +5 min · -9
+"ask me about everything" · -10 A12 orb glance · -11 A9, A4, A5. Report lines (LOOK) and ledger areas are in.
+
+## Harness states added
+
+stackPile, stackOpen (one click), typeFollow, typeKeyed, typeFix, trayListening (pane.html), noticeReady,
+noticeRunning, noticeHoldToTalk, noticeNotCaught, problemStarting, problemReconnecting, problemRestarting,
+problemStopped, problemCantRestart, problemHotkey, followup, confirmAgain, failedScheduled, cardCapped,
+cardExpanded, timerOrb, timerTwo, timerDue (+5 min), treeCard, pinned, caveat. Harness without `?port=` now draws
+design states (a stand-in socket); `?explore=1` turns the glance on.
 
 ## Review flags (product-rule fixes: another author must review)
 
@@ -81,16 +109,19 @@ A8, A10, A11, A13 as time allows.
   before a run and with nothing running) change confirm and stop behaviour.
 - **"Ask me about everything"** (64dd679) changes where cards are decided (gateway, system lane, step grants).
 - B14 added `timers`/`due.snooze` frames and `due.snooze` sets timers from Swift's own items: worth a second look.
+- A5 gives the worker a new tool (`add_caveat`); what it says shows on Done cards, marked as the worker's.
+- A12 makes the idle orb take the pointer, only when `explore.orb_glance` is on.
 - The new capability permission `core:app:allow-version` (read-only, for D10) should be looked at too.
 
-## Tests at the stopping point
+## Tests at the stopping point (af39398 + this file)
 
-- Python: 2378 passed, 1 skipped, 31 xfailed (full suite, after F7; nothing in `src/` changed since).
-- Overlay: `tsc --noEmit` clean; `npm test` 158 tests, 158 pass, 0 fail (plus 2 known "todo" findings).
-- Vite production build: OK (after Step B).
-- Rust (`cargo test`): 41 passed (after the resume, with the capability change of 982b154).
-- `grep -rE "data-look|VITE_SWIFT_LOOK|look=halo" overlay` (excluding `node_modules`): clean except the git-ignored,
-  stale `overlay/dist` (mermaid's own `data-look`, from 2026-11-15).
+- Python: 2388 passed, 1 skipped, 31 xfailed, 0 failed (full suite).
+- Overlay: `tsc --noEmit` clean; `npm test` 168 tests, 166 pass, 0 fail (2 known "todo" findings).
+- Rust (`cargo test`): 41 passed.
+- Vite production build: OK.
+- Routing parity: 413/423, unchanged by "ask me about everything" (the same ten web misses before and after).
+- `grep -rE "data-look|VITE_SWIFT_LOOK|look=halo" overlay` (excluding `node_modules`, `target` and the git-ignored,
+  stale `dist`): nothing.
 
 ## Notes for whoever picks it up
 

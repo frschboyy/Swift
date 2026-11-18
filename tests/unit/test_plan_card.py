@@ -157,3 +157,23 @@ def test_a_task_s_plan_seeds_the_run(tmp_path: Any) -> None:
     _set_grant(run, ex.gateway, *WorkerTask("x", grant=steps).grant)
     assert (run.grant, run.later) == (steps[0], (steps[1],)) and set(run.step_bound) == {"git init", "git status"}
     assert _Run().later == ()
+
+
+async def test_a_change_on_the_plan_card_ends_the_earlier_approval(tmp_path: Any) -> None:
+    """Review of dcac4c8: asking for something else on a plan card must not leave the last plan in force."""
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    proposing = asyncio.create_task(ex._propose_plan(run, "cc-1", {"steps": PLAN}))
+    card = await asyncio.wait_for(run.queue.get(), 5)
+    await ex.reply(card.request_id, "call it tea instead")
+    await asyncio.wait_for(proposing, 5)
+    assert run.grant == Grant() and run.later == () and run.step_bound == {}
+
+
+async def test_a_plan_does_not_come_back_when_asking_about_everything_goes_off(tmp_path: Any) -> None:
+    ex, run = _executor(tmp_path)
+    await _plan(ex, run, PLAN)
+    ex.ask_everything = lambda: True
+    assert await _asks(ex, run, "git init")
+    ex.ask_everything = lambda: False
+    assert await _asks(ex, run, "mkdir tea-timer")

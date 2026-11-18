@@ -416,7 +416,7 @@ async def test_a_plan_card_says_which_steps_are_covered_and_which_will_ask() -> 
         {"step": "Push the first commit", "commands": [], "covered": False, "asks": "it sends"},
     ]
     agent.runs[run]["queue"].put_nowait(ExecEvent(
-        "confirm", "A plan in 4 steps", request_id=f"{run}:9", detail="", tool="Bash", step=True, data={"runs_in": "C:\p", "plan": plan}))
+        "confirm", "A plan in 4 steps", request_id=f"{run}:9", detail="", tool="Bash", step=True, data={"runs_in": "C:/p", "plan": plan}))
     await until(lambda: out.last("confirm.request"))
     screen = agree(session, out)
     assert screen["confirm"] == f"{run}:9"

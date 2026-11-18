@@ -1602,7 +1602,10 @@ function confirmFacts(data: Extract<Inbound, { type: "confirm.request" }>["data"
     );
   }
   if (shown) return el("div", { class: "facts" }, el("div", { class: "facts-text" }, artifactView(shown, 0, false)));
-  if (data.facts?.plan) return planRows(data.facts.plan);
+  if (data.facts?.plan) {
+    const runsIn = data.facts.runs_in ? el("dl", { class: "facts facts--swift" }, el("dt", {}, "Runs in"), el("dd", { class: "facts-path" }, data.facts.runs_in)) : null;
+    return el("div", {}, runsIn, planRows(data.facts.plan));
+  }
   // A request's own detail (a command, a file): all of it, exactly as it will run (audit A-12).
   if (!data.detail) return null;
   const mono = /[\\/`$|;]|\s--?\w/.test(data.detail);

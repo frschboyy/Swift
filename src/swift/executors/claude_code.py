@@ -818,6 +818,8 @@ class ClaudeCodeExecutor:
             # No card: an approval must not be able to read what Read is always refused (owner check 213).
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
             return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
+        if run.step_bound and self.ask_everything():  # a plan approved earlier must not come back when the setting goes off
+            _set_grant(run, self.gateway)
         if name in COMMAND_TOOLS and (run.grant.commands or run.later) and not self.ask_everything():
             command = str(args.get("command", ""))
             # Swift's classification, never the agent's: a delete, a send or anything unknown asks (B2, ADR-019).
@@ -923,6 +925,7 @@ class ClaudeCodeExecutor:
             nums = [str(i + 1) for i, r in enumerate(rows) if r["covered"]]
             return PLAN_APPROVED_MESSAGE.format(steps=", ".join(nums), covered="; ".join(covered))
         if isinstance(decision, tuple):
+            _set_grant(run, self.gateway)  # asked for something else: the earlier step's or plan's approval ends
             return CHANGE_MESSAGE.format(text=decision[1])
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)

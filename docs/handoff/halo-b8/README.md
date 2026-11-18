@@ -72,7 +72,7 @@ What that means in code (Step B, `brief-halo.md`):
 - The confirm card never scrolls, and its buttons never leave the window: compact first, then fold the deck.
 - Reduced motion: a 120 ms fade only. Forced colours: the amber band becomes Highlight, halos drop. Check at 150%.
 
-## Open decisions for the owner (defaults to use if they don't answer)
+## Decisions for the owner (answered 2026-11-18: the defaults below, exactly)
 
 | # | Question | Default |
 |---|---|---|

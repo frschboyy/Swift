@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ctypes
+import gc
 import os
 import subprocess
 import sys
@@ -302,24 +303,29 @@ def _com():
     return IAudioEndpointVolume, IAudioMeterInformation, IMMDeviceEnumerator, GUID("{BCDE0395-E52F-467C-8E3D-C4579291692E}")
 
 
-@contextlib.contextmanager
-def _endpoint(kind: str):
-    """The default speakers' ``kind`` interface ("volume" or "meter"); COM set up and torn down on this thread."""
+def _with_endpoint(kind: str, use):
+    """Run ``use(interface)`` on the default speakers' ``kind`` interface ("volume" or "meter").
+
+    COM is set up and torn down on this thread. Every COM pointer is released *before* CoUninitialize: a pointer
+    released after it (by the garbage collector, on any thread) crashed the engine with an access violation."""
     import comtypes
     from comtypes import CLSCTX_ALL, CoCreateInstance
 
     volume_t, meter_t, enum_t, clsid = _com()
     comtypes.CoInitialize()
+    enumerator = device = raw = None
     try:
         try:
             enumerator = CoCreateInstance(clsid, enum_t, CLSCTX_ALL)
             device = enumerator.GetDefaultAudioEndpoint(0, 1)  # eRender, eMultimedia
             wanted = volume_t if kind == "volume" else meter_t
             raw = device.Activate(wanted._iid_, CLSCTX_ALL, None)
-            yield ctypes.cast(raw, ctypes.POINTER(wanted))
+            return use(ctypes.cast(raw, ctypes.POINTER(wanted)))
         except OSError as exc:  # COMError is an OSError; no output device, or the service is down
             raise SystemUnavailable("I can't reach the sound device.") from exc
     finally:
+        enumerator = device = raw = None
+        gc.collect()  # releases the pointers now, while COM is still up
         comtypes.CoUninitialize()
 
 
@@ -378,41 +384,40 @@ class WindowsSystem(SystemControl):
 
     async def get_volume(self) -> int:
         def read() -> int:
-            with _endpoint("volume") as v:
-                return round(v.GetMasterVolumeLevelScalar() * 100)
+            return _with_endpoint("volume", lambda v: round(v.GetMasterVolumeLevelScalar() * 100))
         return await asyncio.to_thread(read)
 
     async def set_volume(self, level: int) -> int:
         level = max(0, min(100, level))
 
         def write() -> int:
-            with _endpoint("volume") as v:
+            def apply(v) -> int:
                 v.SetMasterVolumeLevelScalar(level / 100.0, None)
                 if level and v.GetMute():
                     v.SetMute(0, None)
                 return round(v.GetMasterVolumeLevelScalar() * 100)
+            return _with_endpoint("volume", apply)
         return await asyncio.to_thread(write)
 
     async def get_mute(self) -> bool:
         def read() -> bool:
-            with _endpoint("volume") as v:
-                return bool(v.GetMute())
+            return _with_endpoint("volume", lambda v: bool(v.GetMute()))
         return await asyncio.to_thread(read)
 
     async def set_mute(self, muted: bool) -> None:
         def write() -> None:
-            with _endpoint("volume") as v:
-                v.SetMute(1 if muted else 0, None)
+            _with_endpoint("volume", lambda v: v.SetMute(1 if muted else 0, None))
         await asyncio.to_thread(write)
 
     async def audio_playing(self) -> bool:
         def peak() -> bool:
-            with _endpoint("meter") as m:
+            def measure(m) -> bool:
                 best = 0.0
                 for _ in range(6):
                     best = max(best, m.GetPeakValue())
                     time.sleep(0.04)
                 return best > 0.0005
+            return _with_endpoint("meter", measure)
         return await asyncio.to_thread(peak)
 
     async def media_key(self, key: MediaKey) -> None:

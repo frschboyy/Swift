@@ -1,5 +1,29 @@
 # Swift findings register. One entry per finding from every audit, rechecked against the code on 2026-11-12.
 # Format and rules: tests/unit/test_findings_register.py. Sorted: open first, then by severity.
+- id: IA-01
+  title: A system action the owner plainly asked for, in words the grammar doesn't know or with one word misheard,
+    dead-ends on the agent path ("Swift didn't accept the request, so nothing was started").
+  source: docs/explorations/intent-architecture.md, 2026-11-24 (owner's "set up a timer for 1 minute")
+  module: src/swift/workflows/system_tools.py, src/swift/system/intents.py, src/swift/executors/claude_code.py
+  area: routing
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'Root cause: the provenance check that keeps a worker from choosing a system action (owner_intents) is
+    the same narrow grammar as the lane (intents.parse). A request the grammar misses goes to the agent, whose
+    system_action is then refused with NOT_ASKED_PLAIN ("Not done: the owner didn''t ask for that"), or NOT_ASKED
+    for a radio off or volume, whose answer must stand in for one word; WORKFLOW_PROMPT tells the agent not to try
+    another way, so it says it wasn''t done. The owner''s sentence is the agent''s wording of that refusal: it is
+    not in src/. Reproduced with fakes before 7d83958 ("set up a timer for 1 minute") and at 7d83958 ("time me for
+    two minutes", "turn on dark mod", "go offline", "lock the computa"). eval/intent at 7d83958: 31 of 129 dead
+    ends (39 before). A compound with a system part that a workflow takes ("turn off wifi and send Sam an email")
+    dead-ends too: system_action is outside the email-draft grant. The refusal leaves no line in swift.log and the
+    run ends "done".'
+  test: tests/unit/test_intent_eval.py::test_a_timer_the_owner_asked_for_in_other_words_is_never_a_dead_end
+  note: 'Strict xfail. 7d83958 (widening the verb list) is a partial fix: 8 of 39. The proposed fix, Swift''s own
+    "Did you mean ...?" question from one understanding step, is in the exploration doc §5; it changes what a level 1
+    question may come from, so it needs a review by someone other than its author.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

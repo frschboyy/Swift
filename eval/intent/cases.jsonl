@@ -32,8 +32,8 @@
 {"id": "rem-v02", "family": "reminder", "kind": "variant", "text": "can you remind me in 20 minutes to check the oven", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 1200}}}]}
 {"id": "rem-v03", "family": "reminder", "kind": "variant", "text": "set up a reminder to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}]}
 {"id": "rem-v04", "family": "reminder", "kind": "variant", "text": "don't let me forget to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}]}
-{"id": "rem-v05", "family": "reminder", "kind": "variant", "text": "nudge me in ten minutes about the laundry", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 600}}}]}
-{"id": "rem-v06", "family": "reminder", "kind": "variant", "text": "make a note to remind me to stretch in an hour", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 3600}}}]}
+{"id": "rem-v05", "family": "reminder", "kind": "variant", "text": "nudge me in ten minutes about the laundry", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 600}, "label": "the laundry"}}]}
+{"id": "rem-v06", "family": "reminder", "kind": "variant", "text": "make a note to remind me to stretch in an hour", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 3600}, "label": "stretch"}}]}
 {"id": "rem-v07", "family": "reminder", "kind": "variant", "text": "I want a reminder at 3 pm to take my pills", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 3}}}]}
 {"id": "rem-s01", "family": "reminder", "kind": "stt", "text": "remind me to cool mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}], "note": "plausible: the label is wrong, the intent is right"}
 {"id": "rem-s02", "family": "reminder", "kind": "stt", "text": "remained me to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}], "note": "plausible"}

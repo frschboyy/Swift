@@ -115,7 +115,11 @@ def judge(row: dict[str, Any], library: Any, family: Any = None) -> tuple[str, s
     r = guessed(with_guess(route(text), family), {"source": "voice"})
     if r.action == "system_guess":
         assert r.guess is not None
-        meant = isinstance(want, list) and len(want) == 1 and _same(want[0], r.guess.intent)
+        # Right only when the row says what every slot the question shows should be (review F5): a slot the row
+        # doesn't list would count as right whatever the guess put there.
+        shown = {k for k, v in r.guess.intent.slots.items() if v not in ("", None)}
+        meant = (isinstance(want, list) and len(want) == 1 and _same(want[0], r.guess.intent)
+                 and shown <= set(want[0].get("slots", {})))
         return ("asks_guess" if meant else "wrong_guess"), f"guess:{r.guess.intent.name} {r.guess.intent.slots}"
     if r.route == "local" and r.action == "system":
         got = it.parse(r.text) or []

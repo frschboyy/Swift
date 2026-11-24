@@ -320,7 +320,9 @@ def _with_endpoint(kind: str, use):
             device = enumerator.GetDefaultAudioEndpoint(0, 1)  # eRender, eMultimedia
             wanted = volume_t if kind == "volume" else meter_t
             raw = device.Activate(wanted._iid_, CLSCTX_ALL, None)
-            return use(ctypes.cast(raw, ctypes.POINTER(wanted)))
+            # Never ctypes.cast: the cast pointer Releases without having AddRef'd, so each call freed the device's
+            # object once too often and a later call on it crashed the engine (access violation in _ctypes.pyd).
+            return use(raw.QueryInterface(wanted))
         except OSError as exc:  # COMError is an OSError; no output device, or the service is down
             raise SystemUnavailable("I can't reach the sound device.") from exc
     finally:

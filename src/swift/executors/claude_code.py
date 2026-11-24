@@ -1045,9 +1045,11 @@ class ClaudeCodeExecutor:
                 retried = True
                 await self._default_model(run, model)
             while True:
+                heard = False  # the retry below is for the first model check only, never once the turn is running (EX-03)
                 try:
                     await asyncio.wait_for(run.client.query(request), CONNECT_S)
                     async for message in self._watched(run, run.client.receive_response()):
+                        heard = True
                         await self._watch(run, message)
                         event = as_event(message)
                         if event is None:
@@ -1060,7 +1062,7 @@ class ClaudeCodeExecutor:
                             run.queue.put_nowait(ExecEvent("live", item["kind"], data=item))
                         outcome = outcome_for(event, run.worked_around) or outcome
                 except Exception as exc:  # noqa: BLE001 - only the model check is retried
-                    if retried or outcome is not None or not model_unconfirmed(exc):
+                    if retried or heard or not model_unconfirmed(exc):
                         raise
                     retried = True
                     await self._default_model(run, run.models[-1] if run.models else model)

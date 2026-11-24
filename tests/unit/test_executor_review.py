@@ -174,7 +174,6 @@ class Unconfirmed(FakeClient):
         await super().set_model(model)  # type: ignore[arg-type]
 
 
-@pytest.mark.xfail(strict=True, reason="EX-03: the start-model retry also catches Swift's own escalation mid-turn")
 async def test_a_failed_switch_mid_turn_never_sends_the_request_again(tmp_path: Path) -> None:
     Unconfirmed.prompts, Unconfirmed.refuse_next_switch = [], True
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=Unconfirmed, prewarm=False,

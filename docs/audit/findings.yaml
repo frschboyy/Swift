@@ -61,14 +61,11 @@
   area: process
   severity: medium
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: 'The retry for the first model check (_pump, except around query and the stream) also wraps _watch ->
-    _escalate -> client.set_model. On that error it sets the default model and continues: query(request) again while
-    the first turn runs. Reproduced with a fake whose set_model refuses Opus once: two identical queries.'
+  evidence: "Root fix. _pump's model-check retry now applies only while no message of the turn has arrived, so a failed set_model from Swift's own escalation (_watch -> _escalate) ends the run with the error card instead of sending the request again. The strict xfail repro now passes."
   test: tests/unit/test_executor_review.py::test_a_failed_switch_mid_turn_never_sends_the_request_again
-  note: 'Strict xfail. Inferred, not run: that the real CLI raises this on set_model. Each side effect still asks its
-    card. Fix: retry only before the turn''s first message, or catch it in _escalate and keep the model.'
+  note: 'Inferred, not run: that the real CLI raises this text on set_model. A real unconfirmed-model error mid-run now ends the run with an error card rather than a retry. Fix label: root.'
 - id: EX-02
   title: The owner asking for a change on a command card, or declining a read card, counts as a failed tool call; two
     in a row move the run to Opus.

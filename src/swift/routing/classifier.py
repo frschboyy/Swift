@@ -215,7 +215,7 @@ class ClassifierEstimate:
                 self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)
         except Exception as exc:  # noqa: BLE001 - any failure leaves the keyword estimate in charge
             self.error = str(exc)
-            logger.warning("demand classifier unavailable; using keywords", error=self.error)
+            logger.warning("local classifier unavailable: keywords set demand, and Swift makes no guesses", error=self.error)
             return
         logger.info("demand classifier ready", examples=len(examples), load_ms=round((time.monotonic() - started) * 1000))
 

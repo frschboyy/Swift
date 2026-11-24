@@ -336,6 +336,20 @@ function draw(): void {
     case "live":
       drawLive(view);
       break;
+    case "workspace": {
+      const v = view;
+      const body = el("div", { class: "reader-body answer workspace-body", tabindex: "0" }, el("p", {}, v.summary), details(v.details));
+      root.replaceChildren(
+        el("section", { class: "reader workspace", role: "region", "aria-label": v.title },
+          el("header", { class: "card-head" }, el("p", { class: "words" }, v.title)),
+          body,
+          el("footer", { class: "card-foot" }, el("span", { class: "foot-gap" }),
+            el("button", { class: "btn btn--ghost", title: "Back to the card (Esc)", onclick: () => act("workspace-minimize") }, icon("collapse"), "Minimize"),
+            el("button", { class: "btn btn--ghost pin-btn", "aria-pressed": String(v.pinned), title: v.pinned ? "Pinned: click to unpin" : "Keep this with your pins",
+              onclick: () => act("stack-item", { id: `recent:${v.runId}`, item: v.pinned ? "unpin" : "pin" }) }, icon("pin"), v.pinned ? "Pinned" : "Pin"),
+            copyButton([v.summary, detailsText(v.details)].filter(Boolean).join("\n\n")))));
+      break;
+    }
     case "reader":
       if (view.chip) {
         root.replaceChildren(
@@ -438,6 +452,14 @@ void listen<{ label: string; view: PaneView }>("pane", ({ payload }) => {
   if (payload.label !== label) return;  // events reach every window: only ours
   view = payload.view;
   draw();
+});
+
+// The owner resized the workspace by hand: the main window remembers the width for the next Expand.
+let resized = 0;
+window.addEventListener("resize", () => {
+  if (view?.kind !== "workspace") return;
+  window.clearTimeout(resized);
+  resized = window.setTimeout(() => act("workspace-size", { value: String(window.innerWidth) }), 400);
 });
 
 // Elapsed time on a live view.

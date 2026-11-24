@@ -397,7 +397,8 @@ const deckDraw = new DeckDraw({
 /** The one way the other requests are drawn: the harness shows what the owner sees. */
 function drawRows(): void {
   // Read more folds the deck; so does a compact confirm that still doesn't fit (ADR-019 §8.6, dress.ts).
-  const view = D.deckView(deck, pres.rows, Date.now(), expanded || stage.hasAttribute("data-fold-deck"));
+  // Expanded into the workspace, the card has left the deck's space: it doesn't fold (owner, 2026-11-24).
+  const view = D.deckView(deck, pres.rows, Date.now(), (expanded && !workspace) || stage.hasAttribute("data-fold-deck"));
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
   deckDraw.draw(view, D.keyOf(deck, pres.focus));
@@ -410,6 +411,7 @@ const wanted = (): Panes.PaneSpec[] => {
   return Panes.wantedPanes(reader, {
     stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace })),
     history: historyOpen ? S.historyView(stack, Date.now()) : null,
+    workspace: workspace && { ...workspace, pinned: stack.items.some((i) => i.id === `pinned:${workspace?.runId}`) },
   });
 };
 
@@ -435,6 +437,10 @@ const paneSync = new Panes.PaneSync(
     console.warn("[overlay] pane windows unavailable:", err);
     paneWindows = false;
     reader = null;
+    if (workspace) {
+      workspace = null;  // Expand stays in place, on the card, as Show all did
+      card.classList.remove("card--away");
+    }
     typing = null;
     tray = null;
     drawRows();
@@ -490,6 +496,12 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       break;
     case "history-close":
       setHistory(false);
+      break;
+    case "workspace-minimize":
+      foldExpanded();
+      break;
+    case "workspace-size":
+      try { localStorage.setItem(WORKSPACE_W_KEY, String(Number(payload.value) || "")); } catch { /* not kept: the content's width next time */ }
       break;
     case "stack-at":
       stackAt = Number(payload.value);
@@ -1850,11 +1862,9 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
   const atEnd = (): void => { body.classList.toggle("answer--end", body.scrollTop + body.clientHeight >= body.scrollHeight - 2); };
   body.addEventListener("scroll", () => { noteScroll(); atEnd(); }, { passive: true });
-  // A drawn diagram (blocks.ts): too wide to read on the card, the answer opens with Show all after all; its nodes count as steps.
-  let nodes = 0;
+  // A drawn diagram (blocks.ts): too wide to read on the card, the answer offers Expand after all.
   body.addEventListener(DIAGRAM_DRAWN, (ev: Event) => {
     const d = (ev as CustomEvent<{ wide: boolean; nodes: number }>).detail;
-    nodes = d.nodes;
     if (long) return drawFoot();
     if (!d.wide) return;
     long = true;
@@ -1883,16 +1893,28 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const drawFoot = (): void => {
     if (long) {
       foot.replaceChildren(
-        // B5: "Show all · <how much>" under the fade at the cap; open, "Show less" (also Esc or a click on the orb).
-        el("button", { class: "btn btn--ghost show-all", "aria-expanded": String(expanded), onclick: (ev: Event) => {
+        // Expand / Minimize (owner, 2026-11-24, item 5; was B5's Show all / Show less): the card moves into a
+        // workspace at the screen's edge, sized to what it shows; Minimize, Esc or a click on the orb bring it back.
+        // Without pane windows (the harness) it opens in place, 640 wide, as Show all did.
+        el("button", { class: "btn btn--ghost show-all", "aria-expanded": String(expanded), title: expanded ? "Back to the card (Esc)" : "Open it beside your work, with room for all of it", onclick: (ev: Event) => {
           ev.stopPropagation();
           setExpanded(!expanded);
+          if (expanded && paneWindows) {
+            let owners: number | null = null;
+            try { owners = Number(localStorage.getItem(WORKSPACE_W_KEY)) || null; } catch { owners = null; }
+            workspace = { kind: "workspace", title: request || "Answer", summary: data.summary, details: fuller, runId: data.run_id, pinned: false,
+              w: Panes.workspaceWidth(fuller, window.screen.availWidth, owners) };
+            card.classList.add("card--away");
+            void syncPanes();
+            drawRows();
+            scheduleRegions();
+          }
           body.classList.toggle("answer--open", expanded);
           card.classList.toggle("card--open", expanded);
           if (!expanded) body.scrollTop = 0;  // folds back to the top
           drawBody();
           drawFoot();
-        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
+        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Minimize" : "Expand"),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
@@ -2236,6 +2258,12 @@ void listen<string>("backend-restart-failed", ({ payload }) => onRestartFailed(p
 function setExpanded(open: boolean): void {
   if (open === expanded) return;
   expanded = open;
+  if (!open && workspace) {
+    workspace = null;  // the workspace closes, and the card is back where it was
+    card.classList.remove("card--away");
+    void syncPanes();
+    scheduleRegions();
+  }
   setHold(!open);
   // The deck folds to one edge at once, so a long answer isn't squeezed (ADR-018); it unfolds 160 ms after
   // the card folds back (B5).
@@ -2244,7 +2272,11 @@ function setExpanded(open: boolean): void {
   void syncEscape();
 }
 
-/** B5: an expanded card folds back with Show less, Esc or a click on the orb. */
+// Expand's workspace while it's open (owner, 2026-11-24), and where the owner's own width is kept.
+let workspace: Panes.WorkspaceView | null = null;
+const WORKSPACE_W_KEY = "swift.workspace.w";
+
+/** B5: an expanded card folds back with Minimize, Esc or a click on the orb. */
 const foldExpanded = (): void => card.querySelector<HTMLElement>('.show-all[aria-expanded="true"]')?.click();
 
 // Scrolling a long answer holds it too, until a moment after the last scroll.

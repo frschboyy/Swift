@@ -17,7 +17,7 @@ import type { LiveView } from "./live";
 import type { ResultDetails } from "./protocol";
 import type { HistoryView, StackView } from "./stack";
 
-export type PaneKind = "reader" | "stack" | "type" | "tray" | "live" | "history";
+export type PaneKind = "reader" | "stack" | "type" | "tray" | "live" | "history" | "workspace";
 
 /** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any.
  * ``confirm``: a confirm card is open, so the box says typing can't approve it (Enter = Change). */
@@ -45,6 +45,20 @@ export type TrayView = {
   asking?: boolean;
 };
 
+/** Expand's workspace (owner, 2026-11-24, item 5): the card in front, at the screen edge on the orb's side, the work
+ * area's height; ``w``: its width in CSS px (the content's rule, or the owner's own from resizing it). */
+export type WorkspaceView = {
+  kind: "workspace"; title: string; summary: string; details: ResultDetails | null; runId: string; pinned: boolean; w: number;
+};
+
+/** Expand's width: the owner's own if they resized it, else text a third of the screen (at least 560 px), a wide
+ * block (a table, a chart, a diagram…) up to half. The shell keeps it to half the work area at most. */
+export function workspaceWidth(details: ResultDetails | null | undefined, screenW: number, owners: number | null): number {
+  if (owners && owners >= 400) return Math.round(owners);
+  const wide = !!details && details.kind !== "text" && details.kind !== "list";
+  return Math.round(wide ? screenW / 2 : Math.max(560, screenW / 3));
+}
+
 /** What a pane window draws. */
 export type PaneView =
   | { kind: "reader"; title: string; summary: string; details: ResultDetails | null; chip: boolean }
@@ -52,7 +66,8 @@ export type PaneView =
   | TypeView
   | TrayView
   | LiveView
-  | HistoryView;
+  | HistoryView
+  | WorkspaceView;
 
 export type PaneSpec = { label: string; kind: PaneKind; index: number; view: PaneView };
 
@@ -80,7 +95,7 @@ export const paneLabel = (kind: PaneKind, id = ""): string =>
   kind === "live" ? `pane-live-${id.replace(/[^A-Za-z0-9_-]/g, "_")}` : `pane-${kind}`;
 
 /** Besides the reader: the waiting stack and the text box, when they show. */
-export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[]; history?: HistoryView | null };
+export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[]; history?: HistoryView | null; workspace?: WorkspaceView | null };
 
 /** The panes that should exist now. */
 export function wantedPanes(reader: Reader, extra: Extra = {}): PaneSpec[] {
@@ -90,6 +105,7 @@ export function wantedPanes(reader: Reader, extra: Extra = {}): PaneSpec[] {
   (extra.live ?? []).forEach((v, index) => out.push({ label: paneLabel("live", v.runId), kind: "live", index, view: v }));
   if (extra.tray) out.push({ label: paneLabel("tray"), kind: "tray", index: 0, view: extra.tray });
   if (extra.history) out.push({ label: paneLabel("history"), kind: "history", index: 0, view: extra.history });
+  if (extra.workspace) out.push({ label: paneLabel("workspace"), kind: "workspace", index: 0, view: extra.workspace });
   if (reader) {
     out.push({
       label: paneLabel("reader"),
@@ -184,6 +200,8 @@ export function paneSize(spec: PaneSpec): { w: number; h: number } {
       return { w: 420, h: 480 };
     case "history":
       return { w: 360, h: 600 };  // the shell gives it the work area's height on the right edge
+    case "workspace":
+      return { w: v.w, h: 600 };  // the work area's height on the orb's edge
   }
 }
 

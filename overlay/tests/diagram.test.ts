@@ -3,7 +3,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { DIAGRAM_MIN_LABEL_PX, detailsText, diagramFits, howMuch, nodeCut, shape } from "../src/answer.ts";
+import { DIAGRAM_MIN_LABEL_PX, detailsText, diagramFits, nodeCut, shape } from "../src/answer.ts";
 import { needsReader } from "../src/panes.ts";
 import type { Diagram } from "../src/protocol.ts";
 
@@ -37,10 +37,3 @@ test("B5: a capped diagram is cut at a node boundary, never through a node", () 
   assert.equal(nodeCut([[0, 300]], 260), 260);  // one node taller than the cap: the cap
 });
 
-test("B5: Show all says how much: rows, items, steps, else the reading time", () => {
-  assert.equal(howMuch("x", { kind: "table", columns: ["a"], rows: Array.from({ length: 11 }, () => ["r"]) }), "11 rows");
-  assert.equal(howMuch("x", { kind: "list", items: ["a"] }), "1 item");
-  assert.equal(howMuch("x", flow, 5), "5 steps");
-  assert.equal(howMuch("x", flow), "1 min read");  // not drawn yet
-  assert.equal(howMuch("x", null), "1 min read");
-});

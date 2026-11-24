@@ -707,6 +707,11 @@ code {
   transition: max-height var(--dur-slow) var(--ease);
 }
 .card--open { border-color: var(--accent-edge); }
+/* Expanded into the workspace (owner, 2026-11-24): the card is there, not here, until Minimize. */
+#stage .card.card--away { display: none; }
+/* The workspace: the work area's height, only its body scrolls. */
+.workspace { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+.workspace .workspace-body { flex: 1; max-height: none; }
 
 /* footer: byline left, ghost buttons right */
 .card-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; min-height: 32px; flex: none; }

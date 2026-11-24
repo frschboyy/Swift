@@ -28,6 +28,9 @@ something in that area changes.
 - **The stack**: the small box in the bottom-right corner that holds things waiting for you (a stopped request,
   a question nobody answered, a card that ran out of time). Double-click it to open it; each item has
   **Open**, and **Cancel** (or **Dismiss**) when you point at it.
+- **Expand** and **Minimize** (since 2026-11-24): what older checks call **Show all** and **Show less**. Expand now
+  opens the answer in a workspace at the screen's edge instead of growing the card in place; a long answer scrolls
+  on its card before that, with every row.
 - **The live view**: the window **Watch** opens beside a working request, with the pages it reads and what it writes.
 - **Test Me**: a contact you saved for these checks. Any contact of yours works; the checks never send them anything
   unless a step says to approve.
@@ -2979,6 +2982,8 @@ looks wrong or hard to read.
 You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
 
 <a id="check-419"></a>**Check 419. A long answer grows, then Show all and Show less (B5)**
+*Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): run checks cards-stack-design-5fec91-5 and
+-6 instead. Record this one as RETIRED when that branch merges.*
 1. Say "Hey Swift, give me a detailed history of tea" and wait for the answer.
 2. Click **Show all**, scroll to the end, then press Esc.
 3. Click **Show all** again, then click the orb.
@@ -3312,7 +3317,7 @@ The report checks: nothing (LOOK).
 
 <a id="check-cards-stack-design-5fec91-3"></a>**Check cards-stack-design-5fec91-3. Pins: several, on a shelf, reopened and continued**
 1. Say "Hey Swift, compare train and flight options from London to Paris on Friday". When the answer shows (a long
-   one, with **Show all**), click **Pin** in its footer.
+   one, with **Expand**), click **Pin** in its footer.
 2. Say "Hey Swift, what's the capital of Portugal?" and click **Pin** on that answer too.
 3. Say "Hey Swift, what time is it?" and let the answer go.
 4. Look above the stack in its corner, then click the London pill.
@@ -3345,5 +3350,18 @@ The report checks: an item opened from History; "show my history" answered witho
 
 You should see: every row is there by scrolling, with no "and N more rows" line; the fade at the bottom says more is
 below and goes once you reach the end.
+
+The report checks: nothing (LOOK).
+
+<a id="check-cards-stack-design-5fec91-6"></a>**Check cards-stack-design-5fec91-6. Expand into a workspace, Minimize back, resize by hand**
+1. Say "Hey Swift, list the 15 largest cities in Europe with their populations, as a table". Click **Expand**.
+2. Drag the workspace's inner edge to make it narrower, then click **Minimize**.
+3. Click **Expand** again. Then press the orb (or Esc) to bring it back.
+4. Ask for a plain text answer ("Hey Swift, explain how a heat pump works, in detail") and click **Expand**.
+
+You should see: (1) the card leaves the middle and opens at the screen's edge on the orb's side, the screen's full
+height and about half its width (a table), with every row; the edges of other requests stay as they were. (2) the
+card is back in the middle, at its usual size. (3) it opens at the width you dragged it to. (4) it opens at that
+width too; with no width of yours it would be about a third of the screen. No Expand ever covers the whole screen.
 
 The report checks: nothing (LOOK).

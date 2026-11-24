@@ -28,6 +28,9 @@ pub enum PaneKind {
     Live,
     /// History (owner, 2026-11-24): a sidebar the work area's height on the right edge; it moves the stack aside.
     History,
+    /// Expand's workspace (owner, 2026-11-24): the card in front, the work area's height on the orb's edge,
+    /// resizable by hand.
+    Workspace,
 }
 
 impl PaneKind {
@@ -39,6 +42,7 @@ impl PaneKind {
             "tray" => Some(PaneKind::Tray),
             "live" => Some(PaneKind::Live),
             "history" => Some(PaneKind::History),
+            "workspace" => Some(PaneKind::Workspace),
             _ => None,
         }
     }
@@ -60,6 +64,7 @@ fn side(kind: PaneKind, main: Anchor) -> i32 {
         (PaneKind::Reader | PaneKind::Live, -1) => 1,
         (PaneKind::Reader | PaneKind::Live, _) => -1,
         (PaneKind::Tray | PaneKind::History, _) => 1,
+        (PaneKind::Workspace, c) => if c < 0 { -1 } else { 1 },
     }
 }
 
@@ -124,7 +129,7 @@ pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, inde
     }
     let x = if side(kind, main) < 0 { area.x + m } else { area.x + area.w as i32 - size.0 - m };
     let y = match kind {
-        PaneKind::Reader | PaneKind::History => area.y + m,
+        PaneKind::Reader | PaneKind::History | PaneKind::Workspace => area.y + m,
         PaneKind::Stack | PaneKind::Tray => area.y + area.h as i32 - m - size.1,
         PaneKind::Type | PaneKind::Live => unreachable!("placed above"),
     };
@@ -302,6 +307,7 @@ mod tests {
         assert_eq!(PaneKind::from_id("type"), Some(PaneKind::Type));
         assert_eq!(PaneKind::from_id("tray"), Some(PaneKind::Tray));
         assert_eq!(PaneKind::from_id("history"), Some(PaneKind::History));
+        assert_eq!(PaneKind::from_id("workspace"), Some(PaneKind::Workspace));
         assert_eq!(PaneKind::from_id("live"), Some(PaneKind::Live));
         assert_eq!(PaneKind::from_id("main"), None);
         assert!(PaneKind::Stack.grows_up() && !PaneKind::Reader.grows_up());

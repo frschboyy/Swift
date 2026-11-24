@@ -25,8 +25,9 @@ export function sayLines(card: "confirm" | "done", hints: Hints, store: Pick<Sto
   return [...hints.say[card], ...learned].filter((l, i, all) => all.findIndex((o) => o.text === l.text) === i);
 }
 
-/** A11: at most 2 learned verbs, as chips; each says what it sends (the words) and whether it ends in an OK card. */
-export function nextChips(hints: Hints, store: Pick<Storage, "getItem">): { label: string; say: string; ok: boolean }[] {
+/** A11: at most 2 learned verbs, as chips, and only those its own card can do (`can`: "show" only where the card has
+ * something to show). Each says what it does and whether it ends in an OK card. */
+export function nextChips(hints: Hints, store: Pick<Storage, "getItem">, can: (learn: string) => boolean = () => true): { learn: string; label: string; say: string; ok: boolean }[] {
   const seen = counts(store);
-  return hints.verbs.filter((v) => (seen[v.learn] ?? 0) >= LEARN_AT).slice(0, 2).map(({ label, say, ok }) => ({ label, say, ok }));
+  return hints.verbs.filter((v) => (seen[v.learn] ?? 0) >= LEARN_AT && can(v.learn)).slice(0, 2).map(({ learn, label, say, ok }) => ({ learn, label, say, ok }));
 }

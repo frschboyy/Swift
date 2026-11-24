@@ -1432,16 +1432,19 @@ function sayButton(kind: "confirm" | "done"): HTMLElement | null {
   } }, icon("mic"), "What can I say?");
 }
 
-/** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times. A chip only sends the words as a
- * request, like typing them: one that needs an OK opens that OK card and runs nothing; it approves nothing. */
-function nextRow(thread: string | null): HTMLElement | null {
+/** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times, and only those this card can do
+ * (`show`: the card's own Show, or nothing). "Show" does what that card's Show button does; "Put it in Word" sends its
+ * words as a follow-up on this card's thread, like typing them: it opens an OK card and approves nothing. */
+function nextRow(thread: string | null, show: (() => void) | null, copyable: boolean): HTMLElement | null {
   if (!explore.next_steps || !hints) return null;
-  const chips = nextChips(hints, learnStore() ?? noStore);
+  // Owner, 2026-11-18: "Show me again" on a time answer sent a new request each click, which found nothing to show.
+  const chips = nextChips(hints, learnStore() ?? noStore, (v) => (v === "show" ? show !== null : v === "copy" ? copyable : false));
   if (!chips.length) return null;
   return el("div", { class: "next", role: "group", "aria-label": "Next" }, el("span", { class: "next-label" }, "Next"),
     ...chips.map((c) => el("button", { class: "chip", title: c.ok ? "Opens a card asking for your OK" : "", onclick: (ev: Event) => {
       ev.stopPropagation();
-      client.send({ type: "text", data: { text: c.say, thread_id: thread } });
+      if (c.learn === "show" && show) show();
+      else client.send({ type: "text", data: { text: c.say, thread_id: thread } });
     } }, c.label, c.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
 }
 
@@ -1873,7 +1876,8 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
     scheduleRegions();
   };
   const foot = el("footer", { class: "card-foot" });
-  const showBtn = artifacts.size > finished.length
+  const canShow = artifacts.size > finished.length;
+  const showBtn = canShow
     ? el("button", { class: "btn btn--ghost", onclick: (ev: Event) => { ev.stopPropagation(); learnFrom("show"); askView("show"); } }, icon("external"), "Show")
     : null;
   const drawFoot = (): void => {
@@ -1904,7 +1908,7 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const caveat = data.caveat
     ? el("div", { class: "caveat", role: "note" }, icon("scale"), el("p", {}, el("span", { class: "caveat-by" }, "The worker says: "), data.caveat))
     : null;
-  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, nextRow(data.thread_id ?? null), foot] });
+  drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, nextRow(data.thread_id ?? null, canShow ? () => askView("show") : null, !!copyable), foot] });
 }
 
 /** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */

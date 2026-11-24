@@ -19,7 +19,7 @@ test("A10/A11: nothing is learned from 2 repeats; 3 Copy clicks make one hint an
   assert.deepEqual(nextChips(hints, s), []);
   bump(s, "copy");
   assert.deepEqual(sayLines("done", hints, s).at(-1), { text: "put that in Word", ok: true, learned: true });
-  assert.deepEqual(nextChips(hints, s), [{ label: "Put it in Word", say: "put that in Word", ok: true }]);
+  assert.deepEqual(nextChips(hints, s), [{ learn: "copy", label: "Put it in Word", say: "put that in Word", ok: true }]);
   assert.deepEqual(sayLines("confirm", hints, s), hints.say.confirm);  // a confirm card learns nothing
 });
 
@@ -30,4 +30,12 @@ test("A11: at most 2 chips; a broken store learns nothing", () => {
   const broken = { getItem: () => { throw new Error("no"); }, setItem: () => { throw new Error("no"); } };
   bump(broken, "copy");
   assert.deepEqual(nextChips(hints, broken), []);
+});
+
+test("A11: a chip is offered only for what its own card can do (owner, 2026-11-18: Show me again on a time answer)", () => {
+  const s = mem();
+  for (const a of ["copy", "show"]) for (let i = 0; i < 3; i++) bump(s, a);
+  const timeAnswer = (learn: string) => learn === "copy";  // copyable text, nothing to show
+  assert.deepEqual(nextChips(hints, s, timeAnswer).map((c) => c.learn), ["copy"]);
+  assert.deepEqual(nextChips(hints, s, () => false), []);
 });

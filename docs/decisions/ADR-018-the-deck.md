@@ -140,6 +140,26 @@ Measure on a branch, against today's windows on the same PC:
 
 Keep it only if it's no worse on each of these and removes more than it adds. Otherwise, handoff stays and nothing is lost.
 
+## 6a. Pins, History and the stack's actions (owner, 2026-11-24; branch `claude/cards-stack-design-5fec91`)
+
+The owner's run of 2026-11-18/19 (items 3, 9, 10, 11) and their answers of 2026-11-24 add two places to §2 and
+change what the stack holds. Design and the owner's answers: [`2026-11-23-pins-history-cards.md`](../explorations/2026-11-23-pins-history-cards.md).
+
+| Place | What's there | Where |
+|---|---|---|
+| **The stack** | Unfinished work only: what waits for the owner | The corner, as before |
+| **Pins** | Finished requests the owner chose to keep and go on with | Pills on a shelf above the stack, newest first (4, then "+N pinned") |
+| **History** | Every finished request Swift can still reopen | A 360 px sidebar the work area's height on the right edge, opened by the "History" link under the stack or "show my history"; it moves the stack aside |
+
+- "Earlier today" (Halo A1) left the stack for History. A pin or History item opened comes to the front as the same
+  request (`session._bring`): nothing runs again, and a reply continues it. Neither can reopen a confirm card.
+- Finished requests are kept in memory, the last 50 (`recent.Gone`), pins never dropped; a restart clears both.
+- "Keeps: Open / Skip / End" (ADR-015 §9) becomes **Open / Cancel**. Skip on a stack row only moved it to the
+  bottom, so it left the stack; Later on the card in front still sets it aside. Cancel (Dismiss on a Failed row)
+  asks in place, "Cancel?" for 3 s, with no card. A row's buttons keep their place and only fade in.
+- §4.8 "Read more folds the deck" is changed by Expand (Halo B5 below): see ADR-019 §11.
+- §6's one-window spike gains a reason: History's push is a window move beside a CSS slide today.
+
 ## 7. Alternatives considered
 
 - **Beads** (dots on the capsule): the smallest build and the calmest, but with no names on screen. That breaks the design's "a word with every state icon" and makes "stop the research one" harder to use without looking.

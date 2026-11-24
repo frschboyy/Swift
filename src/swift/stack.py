@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import Any
 
 # Kinds (waiting, later, held) and what each action does with them (session.py ``_stack_action``).
-ACTIONS = ("open", "skip", "end")
+ACTIONS = ("open", "skip", "end", "pin", "unpin")
 # Parked conversations shown at most (swift/parked.py keeps 10).
 MAX_PARKED = 10
 
@@ -66,7 +66,7 @@ def split_id(item_id: str) -> tuple[str, str] | None:
     """("card", request id), ("parked", thread), ("due", item id), ("recent", run) or ("timer", item id: B14's
     RUNNING row); None for anything else."""
     kind, sep, key = item_id.partition(":")
-    return (kind, key) if sep and key and kind in ("card", "parked", "due", "recent", "timer") else None
+    return (kind, key) if sep and key and kind in ("card", "parked", "due", "recent", "timer", "pinned") else None
 
 
 def order(items: list[StackItem], skipped: dict[str, float]) -> list[StackItem]:

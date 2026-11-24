@@ -25,7 +25,7 @@ export function compareBlock(c: Compare, full: boolean): HTMLElement {
         el("th", { scope: "col", class: mark(i) }, item, i === c.pick ? el("span", { class: "compare-tag" }, A.PICK) : null)))),
       el("tbody", {}, ...shown.map((r) => el("tr", {}, el("th", { scope: "row" }, r.label),
         ...r.values.map((v, i) => el("td", { class: mark(i) }, v)))))),
-    shown.length < c.rows.length ? el("p", { class: "answer-more" }, `and ${c.rows.length - shown.length} more rows (Show all shows them)`) : null,
+    shown.length < c.rows.length ? el("p", { class: "answer-more" }, `and ${c.rows.length - shown.length} more rows (Expand shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
 
@@ -38,7 +38,7 @@ export const DIAGRAM_DRAWN = "swift-diagram-drawn";
  *  doesn't draw, the words below it stand alone. ``full``: the reader's size, not the card's. */
 export function diagramBlock(d: Diagram, full: boolean): HTMLElement {
   const stage = el("div", { class: "diagram-stage", role: "img", "aria-label": d.title ?? "Diagram" }, el("p", { class: "answer-more" }, "Drawing the diagram…"));
-  const note = el("p", { class: "answer-more" }, "Too wide to read on the card (Show all shows all of it)");
+  const note = el("p", { class: "answer-more" }, "Too wide to read on the card (Expand shows all of it)");
   note.hidden = true;
   const block = el("div", { class: `diagram facts-line--agent${full ? " diagram--full" : ""}` },
     el("span", { class: "confirm-purpose-by" }, DIAGRAM_BY),
@@ -107,7 +107,7 @@ export function mindmapBlock(m: MindMap, full: boolean): HTMLElement {
     el("span", { class: "confirm-purpose-by" }, MINDMAP_BY),
     m.title ? el("p", { class: "compare-title" }, m.title) : null,
     el("div", { class: "mind" }, el("span", { class: "mind-root" }, m.root), tree),
-    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more ideas (Show all shows them)`) : null,
+    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more ideas (Expand shows them)`) : null,
     ...(m.text ? renderBlocks(m.text) : []));
 }
 
@@ -254,7 +254,7 @@ export function chartBlock(c: Chart, full: boolean): HTMLElement {
         el("span", { class: `chart-legend-swatch chart-series-${i}${c.type === "line" ? " chart-legend-swatch--line" : ""}`, "aria-hidden": "true" }),
         el("span", {}, s.name)))),
     c.pick?.length ? el("span", { class: "compare-tag chart-pick-tag" }, `${A.PICK}: ${c.pick.map((i) => c.x[i]).join(", ")}`) : null,
-    shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Show all shows them)`) : null,
+    shown < c.x.length ? el("p", { class: "answer-more" }, `and ${c.x.length - shown} more categories (Expand shows them)`) : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
 
@@ -354,8 +354,8 @@ export function cardsBlock(c: Cards, full: boolean): HTMLElement {
     el("span", { class: "confirm-purpose-by" }, PROJECTS_BY),
     c.title ? el("p", { class: "project-cards-title" }, c.title) : null,
     el("div", { class: "project-cards" }, ...cards),
-    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more projects (Show all shows them)`)
-      : !full && c.size === "expanded" ? el("p", { class: "answer-more" }, "Read more shows all project details") : null,
+    hidden ? el("p", { class: "answer-more" }, `and ${hidden} more projects (Expand shows them)`)
+      : !full && c.size === "expanded" ? el("p", { class: "answer-more" }, "Expand shows all project details") : null,
     ...(c.text ? renderBlocks(c.text) : []));
 }
 
@@ -380,28 +380,15 @@ export const answerTable = (columns: string[], rows: string[][]): HTMLElement =>
 /** ``full``: every row, for an answer opened with "Read more" (otherwise the first six). */
 export function renderDetails(details: ResultDetails | null | undefined, full = false): HTMLElement | null {
   if (!details) return null;
-  const shown = full ? Infinity : 6;
+  // Lists and tables are whole on every card: it scrolls (owner, 2026-11-24, item 5). ``full`` only sizes the
+  // blocks that choose a preview (a diagram, a mind map, project cards…) for Expand.
   switch (details.kind) {
     case "text":
       return el("div", {}, ...renderBlocks(details.text));
-    case "list": {
-      const more = details.items.length - shown;
-      return el(
-        "div",
-        {},
-        el("ul", {}, ...details.items.slice(0, shown).map((item) => el("li", {}, item))),
-        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more (Show all shows them)`) : null,
-      );
-    }
-    case "table": {
-      const more = details.rows.length - shown;
-      return el(
-        "div",
-        {},
-        answerTable(details.columns, details.rows.slice(0, shown)),
-        more > 0 ? el("p", { class: "answer-more" }, `and ${more} more rows (Show all shows them)`) : null,
-      );
-    }
+    case "list":
+      return el("div", {}, el("ul", {}, ...details.items.map((item) => el("li", {}, item))));
+    case "table":
+      return el("div", {}, answerTable(details.columns, details.rows));
     case "compare":
       return compareBlock(details, full);
     case "diagram":

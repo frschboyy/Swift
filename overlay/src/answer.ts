@@ -38,16 +38,6 @@ export function minutesToRead(text: string): string {
   return `${Math.max(1, Math.ceil(words(text) / WORDS_PER_MINUTE))} min read`;
 }
 
-/** B5: what "Show all · <how much>" says: rows for a table or comparison, items for a list, steps for a drawn
- *  diagram (``nodes``, once Mermaid has drawn it), else the reading time. */
-export function howMuch(text: string, details: ResultDetails | null | undefined, nodes = 0): string {
-  const n = (k: number, one: string, many: string): string => `${k} ${k === 1 ? one : many}`;
-  if (details?.kind === "table" || details?.kind === "compare") return n(details.rows.length, "row", "rows");
-  if (details?.kind === "list") return n(details.items.length, "item", "items");
-  if (details?.kind === "diagram" && nodes > 0) return n(nodes, "step", "steps");
-  return minutesToRead(text);
-}
-
 /** B5: where a diagram's cut goes, at or before ``cap``: the furthest node edge that no other node straddles, so
  *  no node is cut in half. ``spans`` are each node's [start, end] along the cut axis. None fits: ``cap``. */
 export function nodeCut(spans: [number, number][], cap: number): number {

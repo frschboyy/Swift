@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- Dev only (item 10): renders the real stack rows and measures them as a row is pointed at. Open on the harness
+     (port 1431); the result is the page's text: every row's top, at rest and with each row selected (hover's CSS). -->
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="/src/styles.css"></head>
+<body><div id="stage" data-theme="dark"><div id="out"></div></div>
+<script type="module">
+import { stackOpen } from "/src/views.ts";
+import { onStack, initialStack, stackView, expand } from "/src/stack.ts";
+const item = (id, kind, reason, title) => ({ id, kind, title, reason, since_ms: Date.now() - 600000, thread_id: null });
+const s = expand(onStack(initialStack, [item("card:1", "later", "later", "Email to Sam about the budget"), item("parked:a", "parked", "stopped", "Find a dentist near the office and book the first free slot next week"),
+  item("parked:b", "parked", "asked", "Book the table for Friday"), item("due:1", "due", "due", "Tea")], Date.now()), Date.now());
+const root = document.getElementById("stage");
+const tops = () => [...root.querySelectorAll(".stack-row")].map((r) => Math.round(r.getBoundingClientRect().top));
+root.replaceChildren(stackOpen(stackView(s, Date.now()), { item: () => {}, collapse: () => {}, selected: "none" }));
+const rows = [...root.querySelectorAll(".stack-row")];
+rows.forEach((r) => r.setAttribute("aria-selected", "false"));
+const rest = tops(); const out = { rest, selected: [] };
+for (const r of rows) { rows.forEach((x) => x.setAttribute("aria-selected", String(x === r))); out.selected.push(tops()); }
+rows.forEach((x) => x.setAttribute("aria-selected", "false"));
+rows[1].querySelector(".stack-actions .btn").click();  // "Cancel?"
+out.asking = tops(); out.label = rows[1].querySelector(".stack-actions .btn").textContent;
+out.same = out.selected.every((t) => JSON.stringify(t) === JSON.stringify(rest)) && JSON.stringify(out.asking) === JSON.stringify(rest);
+document.title = "done"; const pre = document.createElement("pre"); pre.id = "result"; pre.textContent = JSON.stringify(out); document.body.append(pre);
+</script></body></html>

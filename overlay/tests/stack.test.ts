@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import type { StackEntry } from "../src/protocol.ts";
-import { afterAction, openLabel, collapse, countLine, expand, freshNeedsOk, initialStack, itemIcon, needsOk, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
+import { hasHistory, waitingOnly, afterAction, openLabel, collapse, countLine, expand, freshNeedsOk, initialStack, itemIcon, needsOk, nextLine, onStack, reasonLine, stackView, FRESH_MS } from "../src/stack.ts";
 
 const item = (id: string, kind: StackEntry["kind"] = "parked", reason = "stopped", since = 0): StackEntry =>
   ({ id, kind, title: `Title ${id}`, reason, since_ms: since, thread_id: null });
@@ -102,4 +102,44 @@ test("owner, 2026-11-09: a ring shows how much of an item's time in the stack is
   assert.equal(leftLine(item, 120_000), "Kept 8 more min");
   const v = stackView(onStack(initialStack, [item], 0), 300_000)!;
   assert.equal(v.items[0].left, 0.5);
+});
+
+test("owner 2026-11-24: no Skip in the stack; one other action, named for what it does", async () => {
+  const { secondAction } = await import("../src/stack.ts");
+  assert.deepEqual(secondAction({ kind: "waiting" }), { label: "Cancel", tip: "Cancel: it won't be done", confirm: true });
+  assert.equal(secondAction({ kind: "parked", reason: "asked" })?.tip, "Cancel the request");
+  assert.equal(secondAction({ kind: "parked", reason: "stopped" })?.confirm, true);
+  assert.deepEqual(secondAction({ kind: "failed" }), { label: "Dismiss", tip: "Remove it from the stack", confirm: false });
+  // Open already does it, or there's nothing to end.
+  for (const kind of ["due", "timer", "past"] as const) assert.equal(secondAction({ kind }), null);
+  const v = stackView(onStack(initialStack, [item("card:1", "waiting", "waiting")], 0), 0)!;
+  assert.equal(v.items[0].second?.label, "Cancel");
+});
+
+test("owner 2026-11-24: pins keep the corner on their own, never count as waiting, and show their hint", () => {
+  const pin = { ...item("pinned:r1", "pinned", "3 options, fastest 2 h 50"), title: "Lisbon trains" };
+  const v = stackView(onStack(initialStack, [pin], 0), 0)!;
+  assert.ok(v, "a pin alone keeps the stack pane");
+  assert.equal(v.items[0].line, "3 options, fastest 2 h 50");
+  assert.equal(v.items[0].icon, "pin");
+  assert.equal(v.items[0].second, null);
+  assert.equal(countLine(stackView(onStack(initialStack, [pin, item("parked:a")], 0), 0)!.items.filter((i) => i.kind !== "pinned" && i.kind !== "past").length), "1 thing needs you");
+  assert.equal(nextLine(v), "");
+  // Q3: History alone keeps the corner too, for its link; it never counts as waiting.
+  const past = stackView(onStack(initialStack, [item("recent:r2", "past", "done")], 0), 0)!;
+  assert.ok(past && hasHistory(past));
+  assert.equal(countLine(waitingOnly(past).items.length), "0 things need you");
+});
+
+test("owner 2026-11-24: History lists pins first, then finished requests by day, with their outcome", async () => {
+  const { historyView } = await import("../src/stack.ts");
+  const now = new Date(2026, 10, 24, 15, 0).getTime();
+  const s = onStack(initialStack, [
+    { ...item("pinned:r1", "pinned", "Three options"), title: "Lisbon trains" },
+    item("recent:r2", "past", "failed", new Date(2026, 10, 24, 11, 20).getTime()),
+    item("recent:r3", "past", "stopped", new Date(2026, 10, 23, 9, 5).getTime()),
+  ], now);
+  const v = historyView(s, now);
+  assert.deepEqual(v.pins, [{ id: "pinned:r1", title: "Lisbon trains", line: "Three options" }]);
+  assert.deepEqual(v.past.map((p) => [p.day, p.icon, p.line.split(" · ")[0]]), [["Today", "alert", "Failed"], ["Yesterday", "pause", "Stopped"]]);
 });

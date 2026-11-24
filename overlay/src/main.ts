@@ -46,7 +46,7 @@ import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
 import { bump, nextChips } from "./learn";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type TimerRow, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type StackAction, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
@@ -397,7 +397,8 @@ const deckDraw = new DeckDraw({
 /** The one way the other requests are drawn: the harness shows what the owner sees. */
 function drawRows(): void {
   // Read more folds the deck; so does a compact confirm that still doesn't fit (ADR-019 §8.6, dress.ts).
-  const view = D.deckView(deck, pres.rows, Date.now(), expanded || stage.hasAttribute("data-fold-deck"));
+  // Expanded into the workspace, the card has left the deck's space: it doesn't fold (owner, 2026-11-24).
+  const view = D.deckView(deck, pres.rows, Date.now(), (expanded && !workspace) || stage.hasAttribute("data-fold-deck"));
   // The card gives way, so it never pushes the deck off the window.
   stage.style.setProperty("--deck-h", `${view.height}px`);
   deckDraw.draw(view, D.keyOf(deck, pres.focus));
@@ -409,6 +410,8 @@ const wanted = (): Panes.PaneSpec[] => {
   const view = S.stackView(stack, Date.now());
   return Panes.wantedPanes(reader, {
     stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace })),
+    history: historyOpen ? S.historyView(stack, Date.now()) : null,
+    workspace: workspace && { ...workspace, pinned: stack.items.some((i) => i.id === `pinned:${workspace?.runId}`) },
   });
 };
 
@@ -434,6 +437,10 @@ const paneSync = new Panes.PaneSync(
     console.warn("[overlay] pane windows unavailable:", err);
     paneWindows = false;
     reader = null;
+    if (workspace) {
+      workspace = null;  // Expand stays in place, on the card, as Show all did
+      card.classList.remove("card--away");
+    }
     typing = null;
     tray = null;
     drawRows();
@@ -465,7 +472,7 @@ function sendPane(label: string, view: Panes.PaneView): void {
 }
 
 type PaneAction = {
-  label: string; action: string; runId?: string; id?: string; item?: "open" | "skip" | "end"; text?: string; value?: string;
+  label: string; action: string; runId?: string; id?: string; item?: StackAction; text?: string; value?: string;
 };
 
 void listen<PaneAction>("pane-action", ({ payload }) => {
@@ -483,6 +490,18 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       break;
     case "stack-collapse":
       collapseStack();
+      break;
+    case "history-open":
+      setHistory(true);
+      break;
+    case "history-close":
+      setHistory(false);
+      break;
+    case "workspace-minimize":
+      foldExpanded();
+      break;
+    case "workspace-size":
+      try { localStorage.setItem(WORKSPACE_W_KEY, String(Number(payload.value) || "")); } catch { /* not kept: the content's width next time */ }
       break;
     case "stack-at":
       stackAt = Number(payload.value);
@@ -569,7 +588,7 @@ function collapseStack(): void {
 }
 
 /** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
-function stackAction(id: string, action: "open" | "skip" | "end"): void {
+function stackAction(id: string, action: StackAction): void {
   stack = S.afterAction(stack, action);
   if (id.startsWith("failed:")) return failedAction(id, action);
   client.send({ type: "stack.action", data: { id, action } });
@@ -592,7 +611,7 @@ function drawStackInline(): void {
   keepScroll(stackEl, ".stack-list", () => stackEl.replaceChildren(
     view.expanded
       ? el("div", { "data-hit": true }, V.stackOpen(view, {
-          item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"),
+          item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"), history: () => setHistory(true),
           select: (id) => { stackSelected = id; for (const row of stackEl.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id)); },
         }))
       : el("div", { "data-hit": true }, V.stackClosed(view, {
@@ -602,9 +621,19 @@ function drawStackInline(): void {
             void syncEscape();
             drawStackInline();
           },
-        })),
+        }, { item: stackAction, history: () => setHistory(true) })),
+    ...(historyOpen ? [el("div", { "data-hit": true, class: "history-inline" }, V.historyPanel(S.historyView(stack, Date.now()), { item: stackAction, close: () => setHistory(false) }))] : []),
   ));
   scheduleRegions();
+}
+
+// History (owner, 2026-11-24): the sidebar from the right edge, opened by the link under the stack or "show my history".
+let historyOpen = false;
+function setHistory(open: boolean): void {
+  if (historyOpen === open) return;
+  historyOpen = open;
+  void syncPanes();
+  drawStackInline();
 }
 
 // The backend's stack, before the timers still counting join it as RUNNING rows (B14).
@@ -1400,25 +1429,11 @@ function drawFollowup(left: number): void {
 // How long the reply window was open for, for its ring.
 let followupTotal = 0;
 
-// A4, Pin: one answer kept as an edge on the far side of the deck; it never fades (D11: one at a time).
-let pinned: { title: string; line: string; text: string } | null = null;
-const pinnedEl = el("div", { class: "pinned-edge", "data-hit": "", hidden: true });
 // B14: Edge · Timer (a card in front) and Edge · Got it ("Done: Tea timer"), read-only: nothing to click.
 const timerEdgeEl = el("div", { class: "pinned-edge timer-edge", role: "timer", hidden: true });
 const gotEl = el("div", { class: "pinned-edge got-edge", role: "status", hidden: true });
-rowsEl.before(gotEl, timerEdgeEl, pinnedEl);
+rowsEl.before(gotEl, timerEdgeEl);
 
-function drawPinned(): void {
-  pinnedEl.hidden = pinned === null;
-  if (pinned === null) {
-    pinnedEl.replaceChildren();
-  } else {
-    pinnedEl.title = pinned.text;
-    pinnedEl.replaceChildren(icon("pin"), el("b", {}, pinned.title), el("span", { class: "pinned-line" }, pinned.line),
-      Card.iconButton("x", "Unpin", () => { pinned = null; drawPinned(); }));
-  }
-  scheduleRegions();
-}
 
 // A8: how Swift shows things (display.ts), on this PC.
 let display: Dsp.Display = (() => { try { return Dsp.load(localStorage); } catch { return { ...Dsp.DEFAULTS }; } })();
@@ -1861,12 +1876,11 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   if (long) pres = P.stays(pres);  // seams decision 6: with Show all, it stays until dismissed
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
-  body.addEventListener("scroll", () => noteScroll(), { passive: true });
-  // A drawn diagram (blocks.ts): too wide to read on the card, the answer opens with Show all after all; its nodes count as steps.
-  let nodes = 0;
+  const atEnd = (): void => { body.classList.toggle("answer--end", body.scrollTop + body.clientHeight >= body.scrollHeight - 2); };
+  body.addEventListener("scroll", () => { noteScroll(); atEnd(); }, { passive: true });
+  // A drawn diagram (blocks.ts): too wide to read on the card, the answer offers Expand after all.
   body.addEventListener(DIAGRAM_DRAWN, (ev: Event) => {
     const d = (ev as CustomEvent<{ wide: boolean; nodes: number }>).detail;
-    nodes = d.nodes;
     if (long) return drawFoot();
     if (!d.wide) return;
     long = true;
@@ -1896,23 +1910,36 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   const drawFoot = (): void => {
     if (long) {
       foot.replaceChildren(
-        // B5: "Show all · <how much>" under the fade at the cap; open, "Show less" (also Esc or a click on the orb).
-        el("button", { class: "btn btn--ghost show-all", "aria-expanded": String(expanded), onclick: (ev: Event) => {
+        // Expand / Minimize (owner, 2026-11-24, item 5; was B5's Show all / Show less): the card moves into a
+        // workspace at the screen's edge, sized to what it shows; Minimize, Esc or a click on the orb bring it back.
+        // Without pane windows (the harness) it opens in place, 640 wide, as Show all did.
+        el("button", { class: "btn btn--ghost show-all", "aria-expanded": String(expanded), title: expanded ? "Back to the card (Esc)" : "Open it beside your work, with room for all of it", onclick: (ev: Event) => {
           ev.stopPropagation();
           setExpanded(!expanded);
+          if (expanded && paneWindows) {
+            let owners: number | null = null;
+            try { owners = Number(localStorage.getItem(WORKSPACE_W_KEY)) || null; } catch { owners = null; }
+            workspace = { kind: "workspace", title: request || "Answer", summary: data.summary, details: fuller, runId: data.run_id, pinned: false,
+              w: Panes.workspaceWidth(fuller, window.screen.availWidth, owners) };
+            card.classList.add("card--away");
+            void syncPanes();
+            drawRows();
+            scheduleRegions();
+          }
           body.classList.toggle("answer--open", expanded);
           card.classList.toggle("card--open", expanded);
           if (!expanded) body.scrollTop = 0;  // folds back to the top
           drawBody();
           drawFoot();
-        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
+        } }, icon(expanded ? "collapse" : "expand"), expanded ? "Minimize" : "Expand"),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         micButton(data.run_id),
+        pinButton(data.run_id),
         copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), micButton(data.run_id), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), micButton(data.run_id), pinButton(data.run_id), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();
@@ -1924,14 +1951,24 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, nextRow(data.thread_id ?? null, canShow ? () => askView("show") : null, !!copyable), foot] });
 }
 
-/** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */
-function pinButton(text: string): HTMLElement {
-  return el("button", { class: "btn btn--ghost", title: "Keep this answer as an edge until you close it", onclick: (ev: Event) => {
+/** Pin on a Done card (owner, 2026-11-24): kept on the shelf above the stack, as many as the owner likes, and
+ * reopened from there. The backend keeps the list; the card stays where it is, its button saying "Pinned". */
+function pinButton(runId: string): HTMLElement {
+  const id = `recent:${runId}`;
+  let on = stack.items.some((i) => i.id === `pinned:${runId}`);
+  const b = el("button", { class: "btn btn--ghost pin-btn", onclick: (ev: Event) => {
     ev.stopPropagation();
-    pinned = { title: request ? clipLine(request, 40) : "Pinned answer", line: clipLine(text, 80), text };
-    drawPinned();
-    dismiss();
-  } }, icon("pin"), "Pin");
+    on = !on;
+    client.send({ type: "stack.action", data: { id, action: on ? "pin" : "unpin" } });
+    draw();
+  } });
+  const draw = (): void => {
+    b.setAttribute("aria-pressed", String(on));
+    b.title = on ? "Pinned: click to unpin" : "Keep this with your pins, to come back to";
+    b.replaceChildren(icon("pin"), on ? "Pinned" : "Pin");
+  };
+  draw();
+  return b;
 }
 
 /** Swift's question (ADR-017): asking while it speaks, then waiting for the answer for the
@@ -2082,7 +2119,7 @@ function moveFailed(now: number): void {
 }
 
 /** Open or End on a Failed row of the stack (the overlay's own: the backend never had it). */
-function failedAction(id: string, action: "open" | "skip" | "end"): void {
+function failedAction(id: string, action: StackAction): void {
   if (action === "skip") return;
   const f = failedStack.find((x) => x.entry.id === id);
   failedStack = failedStack.filter((x) => x.entry.id !== id);
@@ -2242,6 +2279,12 @@ void listen<string>("backend-restart-failed", ({ payload }) => onRestartFailed(p
 function setExpanded(open: boolean): void {
   if (open === expanded) return;
   expanded = open;
+  if (!open && workspace) {
+    workspace = null;  // the workspace closes, and the card is back where it was
+    card.classList.remove("card--away");
+    void syncPanes();
+    scheduleRegions();
+  }
   setHold(!open);
   // The deck folds to one edge at once, so a long answer isn't squeezed (ADR-018); it unfolds 160 ms after
   // the card folds back (B5).
@@ -2250,7 +2293,11 @@ function setExpanded(open: boolean): void {
   void syncEscape();
 }
 
-/** B5: an expanded card folds back with Show less, Esc or a click on the orb. */
+// Expand's workspace while it's open (owner, 2026-11-24), and where the owner's own width is kept.
+let workspace: Panes.WorkspaceView | null = null;
+const WORKSPACE_W_KEY = "swift.workspace.w";
+
+/** B5: an expanded card folds back with Minimize, Esc or a click on the orb. */
 const foldExpanded = (): void => card.querySelector<HTMLElement>('.show-all[aria-expanded="true"]')?.click();
 
 // Scrolling a long answer holds it too, until a moment after the last scroll.
@@ -2546,7 +2593,10 @@ function onMessage(msg: Inbound): void {
       onRuns(msg.data);
       break;
     case "stack":
-      onStackMessage([...msg.data.items, ...(msg.data.recent ?? [])]);  // A1: earlier today after what waits
+      onStackMessage([...msg.data.items, ...(msg.data.pins ?? []), ...(msg.data.history ?? [])]);  // finished ones after what waits
+      break;
+    case "history":
+      setHistory(msg.data.open);
       break;
     case "timers":
       timers = msg.data.items;

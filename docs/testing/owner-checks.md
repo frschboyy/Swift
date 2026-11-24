@@ -27,7 +27,10 @@ something in that area changes.
   behind it. Click an edge to bring that request to the front.
 - **The stack**: the small box in the bottom-right corner that holds things waiting for you (a stopped request,
   a question nobody answered, a card that ran out of time). Double-click it to open it; each item has
-  **Open**, **Skip** and **End** when you point at it.
+  **Open**, and **Cancel** (or **Dismiss**) when you point at it.
+- **Expand** and **Minimize** (since 2026-11-24): what older checks call **Show all** and **Show less**. Expand now
+  opens the answer in a workspace at the screen's edge instead of growing the card in place; a long answer scrolls
+  on its card before that, with every row.
 - **The live view**: the window **Watch** opens beside a working request, with the pages it reads and what it writes.
 - **Test Me**: a contact you saved for these checks. Any contact of yours works; the checks never send them anything
   unless a step says to approve.
@@ -182,14 +185,14 @@ The report checks: a card held while you were away, answered after.
 2. While the card says it's working, press **Esc**.
 3. Hold the hotkey, say "draft an email to Test Me about lunch", and let go. Press **Esc** again while it works.
 4. Look at the bottom-right corner, then double-click the stack there.
-5. Point at the top item and click **Skip**. Point at the email item and click **End**.
+5. Point at the email item and click **Cancel**, then **Cancel?** within 3 seconds.
 6. Click anywhere outside the stack (or press Esc).
 
 You should see: the stack, closed, with an amber "2", "**2 things need you**" and "Next: …" **in your own words**.
 It glows briefly when one joins. Opened: both, with **whole titles**, a pause icon and "Unfinished · stopped …".
-**Skip** moves the top one to the bottom; **End** removes the email one. Clicking outside folds it back up.
+**Cancel** removes the email one. Clicking outside folds it back up.
 
-The report checks: two stopped requests kept; one skipped, one ended from the stack.
+The report checks: two stopped requests kept; one cancelled from the stack.
 
 <a id="check-16"></a>**Check 16**
 1. Double-click the stack and click **Open** on the lunch item from check 15.
@@ -3011,6 +3014,8 @@ looks wrong or hard to read.
 You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
 
 <a id="check-419"></a>**Check 419. A long answer grows, then Show all and Show less (B5)**
+*Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): run checks cards-stack-design-5fec91-5 and
+-6 instead. Record this one as RETIRED when that branch merges.*
 1. Say "Hey Swift, give me a detailed history of tea" and wait for the answer.
 2. Click **Show all**, scroll to the end, then press Esc.
 3. Click **Show all** again, then click the orb.
@@ -3193,6 +3198,8 @@ You should see: while Swift speaks, the pill by the orb shows the words it's say
 Captions don't turn on by themselves when the sound is muted (not built yet).
 
 <a id="check-426"></a>**Check 426. Earlier today in the stack (A1)**
+*Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): Earlier today moved to History; run check
+cards-stack-design-5fec91-4 instead. Record this one as RETIRED when that branch merges.*
 1. Ask two questions in a row ("Hey Swift, research the history of tea", then "Hey Swift, what time is it?").
 2. Leave something waiting (let an OK card run out), then click the pile.
 3. Click **Open** on the tea answer under EARLIER TODAY.
@@ -3397,10 +3404,10 @@ else on screen says it: no flattened "Needs your OK" strip is left under the orb
 1. Ask for something that needs your OK and let its countdown run out.
 2. Open the stack and click **Open** on it. Watch its countdown; don't answer. It runs out again.
 3. Open it again, hold the push-to-talk hotkey and say "reject".
-4. Ask again, let it run out, then click **End** on it in the stack.
+4. Ask again, let it run out, then click **Cancel** on it in the stack.
 
 You should see: (2) the reopened card counts down and, when it runs out, goes back to the stack with nothing left
-on screen; (3) the hotkey's "reject" answers it; (4) End takes it off the screen at once, with no "Stopped" strip.
+on screen; (3) the hotkey's "reject" answers it; (4) Cancel takes it off the screen at once, with no "Stopped" strip.
 
 <a id="check-ui-fixes-1119-bd6fc8-3"></a>**Check ui-fixes-1119-bd6fc8-3. "Paused while you read" is whole**
 1. Ask "Hey Swift, what time is it?" and rest the pointer on the answer card.
@@ -3423,3 +3430,77 @@ open, saying it's running, after its request ended.
 2. Open the stack, scroll to the bottom, and wait half a minute without touching it.
 
 You should see: the list stays where you scrolled it; it never jumps back to the top by itself.
+
+### Pins, History, cards and the stack's actions (2026-11-24)
+
+<a id="check-cards-stack-design-5fec91-1"></a>**Check cards-stack-design-5fec91-1. Cancel in the stack asks in place**
+1. Hold the hotkey, say "draft an email to Test Me about lunch", and let go. Press **Esc** while it works.
+2. Do the same with "find a dentist near the office".
+3. Double-click the stack. Point at each row: none has a **Skip** button.
+4. Click **Cancel** on the dentist row once, and wait 4 seconds.
+5. Click **Cancel** on the email row, then click **Cancel?** within 3 seconds.
+
+You should see: (3) each row has **Open** and **Cancel**; its tooltip says what Cancel does. (4) the button turns
+red, "**Cancel?**", then goes back to "Cancel" by itself, and the dentist row stays. (5) the email row leaves the
+stack. No card opened at any step.
+
+The report checks: one item cancelled from the stack, none skipped.
+
+<a id="check-cards-stack-design-5fec91-2"></a>**Check cards-stack-design-5fec91-2. Pointing down the stack moves nothing**
+1. With two or more things in the stack (check cards-stack-design-5fec91-1's steps 1–2 do it), double-click it.
+2. Move the pointer slowly from the top row to the bottom row and back.
+
+You should see: each row's **Cancel** fades in under its **Open** as you point at it, and no row moves up or down.
+
+The report checks: nothing (LOOK).
+
+<a id="check-cards-stack-design-5fec91-3"></a>**Check cards-stack-design-5fec91-3. Pins: several, on a shelf, reopened and continued**
+1. Say "Hey Swift, compare train and flight options from London to Paris on Friday". When the answer shows (a long
+   one, with **Expand**), click **Pin** in its footer.
+2. Say "Hey Swift, what's the capital of Portugal?" and click **Pin** on that answer too.
+3. Say "Hey Swift, what time is it?" and let the answer go.
+4. Look above the stack in its corner, then click the London pill.
+5. Reply by voice to the card that opens: "which of those is cheapest?".
+6. Point at the Portugal pill and click its **×**.
+
+You should see: (1, 2) the button turns into **Pinned** and the card stays on screen. (4) two pills, newest on
+top, each with a short hint; the time answer isn't one. A click on London brings that same answer back in full.
+(5) the reply goes on in that conversation. (6) the pill goes, and nothing else moves.
+
+The report checks: two pins and one unpin from the corner, and a pin opened.
+
+<a id="check-cards-stack-design-5fec91-4"></a>**Check cards-stack-design-5fec91-4. History: a sidebar from the right edge, reopened**
+1. Ask Swift three things, one after another ("what time is it?", "what's the capital of Portugal?", "turn the volume
+   to 30"), and let each answer go.
+2. Look at the stack's corner: under it (or alone, if nothing waits), a faint underlined **History**. Click it.
+3. Click "capital of Portugal" in the sidebar. Reply "and of Spain?".
+4. Click outside the sidebar. Then say "Hey Swift, show my history".
+
+You should see: (2) no "Earlier today" in the stack any more. A sidebar the screen's height slides in at the right
+edge, and the stack moves left out of its way; your three requests under **Today**, newest first, each with
+"Done · time". (3) that answer comes back in full and the reply goes on with it. (4) the sidebar closes and the
+stack goes back to its corner; the voice request opens it again, with "Here's your history."
+
+The report checks: an item opened from History; "show my history" answered without the agent.
+
+<a id="check-cards-stack-design-5fec91-5"></a>**Check cards-stack-design-5fec91-5. A long answer scrolls on its card, with nothing hidden**
+1. Say "Hey Swift, list the 15 largest cities in Europe with their populations, as a table".
+2. Without clicking anything, scroll the answer with the mouse wheel to its end.
+
+You should see: every row is there by scrolling, with no "and N more rows" line; the fade at the bottom says more is
+below and goes once you reach the end.
+
+The report checks: nothing (LOOK).
+
+<a id="check-cards-stack-design-5fec91-6"></a>**Check cards-stack-design-5fec91-6. Expand into a workspace, Minimize back, resize by hand**
+1. Say "Hey Swift, list the 15 largest cities in Europe with their populations, as a table". Click **Expand**.
+2. Drag the workspace's inner edge to make it narrower, then click **Minimize**.
+3. Click **Expand** again. Then press the orb (or Esc) to bring it back.
+4. Ask for a plain text answer ("Hey Swift, explain how a heat pump works, in detail") and click **Expand**.
+
+You should see: (1) the card leaves the middle and opens at the screen's edge on the orb's side, the screen's full
+height and about half its width (a table), with every row; the edges of other requests stay as they were. (2) the
+card is back in the middle, at its usual size. (3) it opens at the width you dragged it to. (4) it opens at that
+width too; with no width of yours it would be about a third of the screen. No Expand ever covers the whole screen.
+
+The report checks: nothing (LOOK).

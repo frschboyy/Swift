@@ -641,13 +641,20 @@ code {
 .project-card-detail { color: var(--muted); font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 
 /* B5: a long answer grows to the cap (the window's free height, less 34 px an edge shown, less the card's own
-   chrome), and a 56 px fade marks the cut; open (by hand only), the card is 640 wide and only its body scrolls. */
+   chrome) and scrolls there (owner, 2026-11-24, item 5: nothing hidden behind a button); a 56 px fade says more is
+   below, and goes at the bottom. */
 .answer--long {
   max-height: max(156px, calc(100vh - 78px - var(--deck-h, 0px) - 190px));
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  user-select: text;
   -webkit-mask-image: linear-gradient(#000 calc(100% - var(--cap-fade-h)), transparent);
   mask-image: linear-gradient(#000 calc(100% - var(--cap-fade-h)), transparent);
 }
+.answer--long.answer--end { -webkit-mask-image: none; mask-image: none; }
 /* Mind maps choose their own card preview; on short screens, scroll instead of clipping the selected branches. */
 #stage .answer--long:not(.answer--open):has(> .mindmap) {
   max-height: calc(min(70vh, 720px) - 150px);
@@ -700,6 +707,11 @@ code {
   transition: max-height var(--dur-slow) var(--ease);
 }
 .card--open { border-color: var(--accent-edge); }
+/* Expanded into the workspace (owner, 2026-11-24): the card is there, not here, until Minimize. */
+#stage .card.card--away { display: none; }
+/* The workspace: the work area's height, only its body scrolls. */
+.workspace { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+.workspace .workspace-body { flex: 1; max-height: none; }
 
 /* footer: byline left, ghost buttons right */
 .card-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; min-height: 32px; flex: none; }
@@ -985,7 +997,7 @@ code {
 .stack-row--shield .stack-mark { background: var(--warn); color: var(--on-warn); }
 .stack-row--question .stack-mark, .stack-row--bell .stack-mark, .stack-row--timer .stack-mark { background: var(--accent-soft); color: var(--accent); }
 .stack-row--shield .stack-reason { color: var(--warn-text); font-weight: 600; }
-.stack-open-btn { grid-row: span 2; border-radius: var(--radius-pill); }
+.stack-open-btn { grid-column: 3; grid-row: 1; border-radius: var(--radius-pill); min-width: 72px; }
 /* The time left before it leaves the stack: a thin arc round its mark, emptying clockwise (owner, 2026-11-09). */
 .stack-ring { position: relative; }
 .stack-ring::before {
@@ -998,11 +1010,65 @@ code {
 .stack-row--shield.stack-row--fresh { box-shadow: inset 3px 0 0 var(--warn); }
 .stack-title { font-size: 14px; line-height: 20px; font-weight: 600; overflow-wrap: anywhere; }
 .stack-reason { grid-column: 2; font-size: 12px; line-height: 17px; color: var(--muted); }
-.stack-actions { grid-column: 2 / 4; display: none; gap: 6px; margin-top: 6px; }
+/* Item 10 (owner, 2026-11-24): the row's other action always has its place, under Open, and only fades in, so
+   pointing down the list never moves a row. "Cancel?" fits the same width. */
+.stack-actions { grid-column: 3; grid-row: 2; display: flex; justify-content: flex-end; visibility: hidden; opacity: 0; transition: opacity var(--dur-fast), visibility var(--dur-fast); }
+.stack-actions .btn { min-width: 72px; justify-content: center; }
 .stack-row:hover, .stack-row[aria-selected="true"], .stack-row:focus-within { background: var(--raise); }
+/* Cancel asking in place ("Cancel?", 3 s): red text, no card (owner, 2026-11-24). */
+.stack-confirm { color: var(--bad); box-shadow: inset 0 0 0 1px var(--bad); font-weight: 600; }
 .stack-foot { display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-size: 12px; color: var(--faint); }
 .stack-foot .icon { width: 12px; height: 12px; }
-.stack-row:hover .stack-actions, .stack-row[aria-selected="true"] .stack-actions, .stack-row:focus-within .stack-actions { display: flex; }
+.stack-row:hover .stack-actions, .stack-row[aria-selected="true"] .stack-actions, .stack-row:focus-within .stack-actions, .stack-actions:has(.stack-confirm) { visibility: visible; opacity: 1; }
+
+/* Pins (owner, 2026-11-24): a shelf of pills above the stack, newest at the top. A pill's × keeps its place and only
+   fades in on hover or focus, so nothing moves. Neutral, never amber: a pin never needs an OK. */
+.stack-corner { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pins { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pin-pill { display: flex; align-items: center; height: 32px; max-width: 240px; padding: 0 4px 0 0; border-radius: var(--radius-pill);
+  background: var(--edge-1); border: 1px solid var(--accent-edge); box-shadow: var(--shadow); color: var(--text); font-size: 13px; }
+.pin-open { display: flex; align-items: center; gap: 8px; min-width: 0; height: 100%; padding: 0 6px 0 12px; border: 0; border-radius: var(--radius-pill);
+  background: none; color: inherit; font: inherit; cursor: pointer; }
+.pin-open .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
+.pin-open b { flex: none; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.pin-hint { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pin-x { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--muted);
+  cursor: pointer; opacity: 0; transition: opacity var(--dur-fast); }
+.pin-x .icon { width: 12px; height: 12px; }
+.pin-pill:hover .pin-x, .pin-pill:focus-within .pin-x { opacity: 1; }
+.pin-x:hover, .pin-open:hover { background: var(--raise); }
+.pin-more { font-size: 12px; color: var(--faint); padding: 0 8px; }
+.pin-btn[aria-pressed="true"] { color: var(--accent); }
+
+/* History (owner, 2026-11-24): a quiet underlined word under the stack, and a 360 px sidebar from the right edge
+   that slides in (280 ms, --ease; reduced motion: the global 120 ms fade). The shell gives its window the work
+   area's height and moves the stack aside, so the two never overlap. */
+.history-link { align-self: flex-end; padding: 2px 6px; border: 0; background: none; color: var(--faint); font: inherit; font-size: 12px;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.history-link:hover, .history-link:focus-visible { color: var(--text); }
+.history { display: flex; flex-direction: column; width: 360px; height: 100vh; box-sizing: border-box; border-radius: 18px; background: var(--panel-solid);
+  border: 1px solid var(--rim); box-shadow: var(--shadow); overflow: hidden; animation: history-in var(--dur-move) var(--ease); }
+@keyframes history-in { from { transform: translateX(100%); } }
+.history-head { display: flex; align-items: center; height: 52px; padding: 0 10px 0 18px; border-bottom: 1px solid var(--rim); }
+.history-head b { flex: 1; font-size: 16px; font-weight: 700; }
+.history-list { list-style: none; margin: 0; padding: 4px 6px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+.history-row { display: flex; align-items: center; gap: 4px; border-radius: 12px; }
+.history-row:hover, .history-row:focus-within { background: var(--raise); }
+.history-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 8px 6px 8px 10px; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.history-mark { flex: none; }
+.history-mark--check { color: var(--ok); } .history-mark--alert { color: var(--bad); } .history-mark--pin { color: var(--accent); }
+.history-text { display: flex; flex-direction: column; min-width: 0; }
+.history-text b { font-size: 14px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-text span { font-size: 12px; line-height: 17px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The pin button keeps its place and only fades in, so nothing moves (item 10's rule). */
+.history-pin { flex: none; opacity: 0; transition: opacity var(--dur-fast); }
+.history-row:hover .history-pin, .history-row:focus-within .history-pin, .history-pin[aria-pressed="true"] { opacity: 1; }
+.history-pin[aria-pressed="true"] { color: var(--accent); }
+.history-empty { margin: 16px 18px; color: var(--muted); }
+/* the harness: no pane windows, so History is drawn over the right edge of the page */
+.history-inline { position: fixed; top: 8px; right: 8px; bottom: 8px; z-index: 5; }
+.history-inline .history { height: 100%; }
 
 /* the harness has no pane windows: the stack sits beside the card */
 .stack-inline { display: flex; flex-direction: column; align-items: inherit; flex: none; }

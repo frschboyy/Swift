@@ -54,6 +54,10 @@ struct Panes(Mutex<HashMap<String, (isize, PaneKind)>>);
 #[derive(Default)]
 struct Bottoms(Mutex<HashMap<String, i32>>);
 
+/// The stack moved aside while History is open (its window handle and the x it had), to give back on close.
+#[derive(Default)]
+struct Pushed(Mutex<Option<(isize, i32)>>);
+
 /// B9: watch panes docked as app bars (label -> window handle): their strip is out of the work area until they
 /// leave the edge, close, or Swift quits.
 #[derive(Default)]
@@ -515,13 +519,25 @@ async fn open_pane(
     }
     let main = app.get_webview_window("overlay").ok_or("no overlay window")?;
     let (area, scale) = area_at(&main, win::cursor_pos()).ok_or("no monitor")?;
-    let size = ((w * scale).round() as i32, ((h * scale).round() as i32).min(panes::max_height(area)));
+    let anchor_now = app.state::<Placement>().0.lock().unwrap().current;
+    let edge = match kind {
+        PaneKind::History => Some(panes::edge_rect(area, scale, panes::HISTORY_W, true)),
+        // Expand's workspace: on the orb's edge, as wide as the overlay asked (at most half the work area).
+        PaneKind::Workspace => Some(panes::edge_rect(area, scale, w, !panes::dock_left(anchor_now))),
+        _ => None,
+    };
+    let size = match edge {
+        Some((_, _, ew, eh)) => (ew, eh),
+        None => ((w * scale).round() as i32, ((h * scale).round() as i32).min(panes::max_height(area))),
+    };
+    let (w, h) = (size.0 as f64 / scale, size.1 as f64 / scale);
     let (anchor, remembered) = {
         let state = app.state::<Placement>();
         let p = state.0.lock().unwrap();
         (p.current, remembered_place(&p.prefs.panes, kind))
     };
     let (x, y) = match remembered {
+        _ if edge.is_some() => edge.map(|(ex, ey, _, _)| (ex, ey)).unwrap(),
         _ if kind == PaneKind::Tray => panes::tray_origin(area, scale, *app.state::<TrayClick>().0.lock().unwrap(), size),
         // The stack remembers its bottom edge: it grows upwards.
         Some(f) if kind.grows_up() => {
@@ -552,7 +568,7 @@ async fn open_pane(
         .always_on_top(true)
         .skip_taskbar(true)
         .focused(typing)
-        .resizable(false)
+        .resizable(kind == PaneKind::Workspace)  // the owner can resize Expand's workspace by hand
         .inner_size(w, h)
         .position(x as f64 / scale, y as f64 / scale)
         .visible(true)
@@ -566,6 +582,9 @@ async fn open_pane(
     win::place(hwnd, x, y, size.0, size.1);
     if kind.grows_up() {
         app.state::<Bottoms>().0.lock().unwrap().insert(label.clone(), y + size.1);
+    }
+    if kind == PaneKind::History {
+        push_stack(&app, x, (panes::GAP * scale).round() as i32);
     }
     app.state::<Panes>().0.lock().unwrap().insert(label, (hwnd, kind));
     if typing {
@@ -621,7 +640,13 @@ async fn close_pane(app: AppHandle, label: String) -> Result<(), String> {
         win::appbar_remove(hwnd);
         place_on_main(&app, Place::Smart);  // the orb back out to the edge it had
     }
-    app.state::<Panes>().0.lock().unwrap().remove(&label);
+    if app.state::<Panes>().0.lock().unwrap().remove(&label).is_some_and(|(_, k)| k == PaneKind::History) {
+        if let Some((stack, x)) = app.state::<Pushed>().0.lock().unwrap().take() {
+            if let Some((_, y, _, _)) = win::window_rect(stack) {
+                win::move_to(stack, x, y);  // the stack back in its corner
+            }
+        }
+    }
     app.state::<Bottoms>().0.lock().unwrap().remove(&label);
     if let Some(window) = app.get_webview_window(&label) {
         window.destroy().map_err(|e| e.to_string())?;
@@ -629,12 +654,27 @@ async fn close_pane(app: AppHandle, label: String) -> Result<(), String> {
     Ok(())
 }
 
+/// History opened with its left edge at `edge_x`: the stack, if it would be under it, moves left to clear it (the
+/// owner's "push"; the content slides in by CSS), and its place is kept to give back on close.
+fn push_stack(app: &AppHandle, edge_x: i32, gap: i32) {
+    let stack = app.state::<Panes>().0.lock().unwrap().values().find(|(_, k)| *k == PaneKind::Stack).map(|(h, _)| *h);
+    let Some(hwnd) = stack else { return };
+    let Some((x, y, w, _)) = win::window_rect(hwnd) else { return };
+    if let Some(nx) = panes::pushed_left(x, w, edge_x, gap) {
+        win::move_to(hwnd, nx, y);
+        *app.state::<Pushed>().0.lock().unwrap() = Some((hwnd, x));
+    }
+}
+
 /// The pane measured what it shows (CSS px): the window takes that size, kept on screen.
 #[tauri::command]
 async fn fit_pane(app: AppHandle, label: String, w: f64, h: f64) -> Result<(), String> {
-    let Some((hwnd, _)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
+    let Some((hwnd, kind)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
         return Ok(());
     };
+    if kind == PaneKind::History || kind == PaneKind::Workspace {
+        return Ok(());  // it keeps the edge's full height (the workspace: and the owner's width)
+    }
     if app.state::<AppBars>().0.lock().unwrap().contains_key(&label) {
         return Ok(());  // a docked watch keeps the strip Windows gave it
     }
@@ -665,8 +705,8 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
     let Some((hwnd, kind)) = app.state::<Panes>().0.lock().unwrap().get(&label).copied() else {
         return Ok(false);
     };
-    if kind == PaneKind::Stack {
-        return Ok(false);  // it keeps its corner: a press is only ever a click
+    if kind == PaneKind::Stack || kind == PaneKind::History || kind == PaneKind::Workspace {
+        return Ok(false);  // it keeps its corner (History, its edge): a press is only ever a click
     }
     let (Some(start), Some((ox, oy, _, _))) = (win::cursor_pos(), win::window_rect(hwnd)) else {
         return Ok(false);
@@ -713,7 +753,7 @@ async fn drag_pane(app: AppHandle, label: String) -> Result<bool, String> {
         PaneKind::Stack => return Ok(true),  // never remembered: it keeps its corner
         PaneKind::Type => places.typing = place,
         PaneKind::Live => places.live = place,
-        PaneKind::Tray => return Ok(true),  // it opens by the tray icon each time
+        PaneKind::Tray | PaneKind::History | PaneKind::Workspace => return Ok(true),  // by the tray icon; the others, on their edge
     }
     prefs::save(&p.prefs);
     Ok(true)
@@ -726,7 +766,7 @@ fn remembered_place(places: &prefs::PanePlaces, kind: PaneKind) -> Option<(f64, 
         PaneKind::Stack => None,
         PaneKind::Type => places.typing,
         PaneKind::Live => places.live,
-        PaneKind::Tray => None,
+        PaneKind::Tray | PaneKind::History | PaneKind::Workspace => None,
     }
 }
 
@@ -1022,6 +1062,7 @@ pub fn run() {
         .manage(Panes::default())
         .manage(Bottoms::default())
         .manage(AppBars::default())
+        .manage(Pushed::default())
         .manage(Placement(Mutex::new({
             let prefs = prefs::load();
             PlacementState { prefs, current: prefs.anchor, ..Default::default() }

@@ -175,3 +175,12 @@ test("the text box grows a row for 'Typing can't approve', and the tray menu is 
   assert.deepEqual(Pn.paneSize(specs[0]), { w: 280, h: 400 });
   assert.equal(Pn.WORKING_QUIET_MS, 12_000);
 });
+
+test("owner 2026-11-24: Expand's width: text a third of the screen (560 at least), a wide block half, the owner's own first", async () => {
+  const { workspaceWidth } = await import("../src/panes.ts");
+  assert.equal(workspaceWidth({ kind: "text", text: "x" }, 1920, null), 640);
+  assert.equal(workspaceWidth(null, 1366, null), 560);
+  assert.equal(workspaceWidth({ kind: "table", columns: ["a"], rows: [] }, 1920, null), 960);
+  assert.equal(workspaceWidth({ kind: "table", columns: ["a"], rows: [] }, 1920, 720), 720);  // resized by hand
+  assert.equal(workspaceWidth(null, 1920, 120), 640);  // too narrow to be a choice: the rule again
+});

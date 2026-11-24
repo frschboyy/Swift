@@ -1,0 +1,249 @@
+<!doctype html>
+<!-- Dev only: static mockups for docs/explorations/2026-11-23-pins-history-cards.md (phase 1, nothing built).
+     Halo dark tokens copied from docs/design/halo-system/tokens.css. Open at http://localhost:1431/dev/cards-stack-mock.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pins, History, card size, stack actions: mockups</title>
+<style>
+:root {
+  --panel: #1c2030f0; --panel-solid: #1c2030; --rim-hi: #8ab4ff70; --rim: #ffffff14; --raise: #ffffff12;
+  --text: #f2f4fa; --muted: #c0c6d6; --faint: #9da4b6; --accent: #8ab4ff; --accent-soft: #8ab4ff29; --accent-edge: #8ab4ff80;
+  --edge-1: #2c3557; --edge-2: #273050; --edge-3: #222a47; --edge-line: #8ab4ff38; --ok: #7fd8a4; --bad: #ff8a80; --warn: #f5c26b;
+  --shadow: 0 12px 32px #00000085; --ease: cubic-bezier(0.2, 0.8, 0.2, 1); --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --history-w: 360px;
+  font: 14px/20px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--text);
+}
+body { margin: 0; background: #0b0d12; }
+h2 { margin: 28px 24px 8px; font: 600 18px/24px "Segoe UI Variable Display", "Segoe UI", sans-serif; }
+p.note { margin: 0 24px 12px; color: var(--muted); max-width: 1100px; }
+.desk { position: relative; width: 1280px; height: 720px; margin: 0 24px; overflow: hidden; border-radius: 10px;
+  background: radial-gradient(1200px 600px at 20% 10%, #3b4a6b, transparent), linear-gradient(135deg, #22324d, #4d3b5c 60%, #2b2f3a); }
+.desk::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: #12141bcc; }  /* taskbar */
+.glass { background: var(--panel); border: 1px solid var(--rim); box-shadow: var(--shadow), inset 0 1px 0 var(--rim-hi); }
+.orb { width: 36px; height: 36px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffffe6, transparent 42%), radial-gradient(circle, #8ab4ff, #4f7bdc 78%); }
+.capsule { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.anno { position: absolute; font-size: 12px; line-height: 16px; color: #ffe9a8; background: #00000080; padding: 4px 8px; border-radius: 6px; max-width: 240px; }
+
+/* ---- the corner column: pins shelf, stack, History link ---- */
+.corner { position: absolute; right: 16px; bottom: 64px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  transition: transform 280ms var(--ease); }
+.pins { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pill { position: relative; display: flex; align-items: center; gap: 8px; height: 32px; max-width: 220px; padding: 0 12px; border-radius: 999px;
+  background: var(--edge-1); border: 1px solid var(--accent-edge); box-shadow: var(--shadow); font-size: 13px; cursor: pointer; }
+.pill svg { width: 14px; height: 14px; color: var(--accent); flex: none; }
+.pill b { font-weight: 600; white-space: nowrap; }
+.pill span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pill .x { position: absolute; right: 4px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--edge-1);
+  color: var(--text); opacity: 0; visibility: hidden; transition: opacity 120ms; }
+.pill:hover .x, .pill.is-hover .x { opacity: 1; visibility: visible; }
+.pill.more { background: transparent; border-style: dashed; color: var(--muted); }
+.stack-closed { position: relative; width: 300px; height: 56px; margin-top: 8px; }
+.stack-closed .layer { position: absolute; inset: 0; border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--rim); }
+.stack-closed .layer.l1 { transform: translate(-6px, -6px); opacity: .6; } .stack-closed .layer.l2 { transform: translate(-3px, -3px); opacity: .8; }
+.stack-closed .top { position: absolute; inset: 0; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 16px; }
+.badge { min-width: 24px; height: 24px; border-radius: 12px; display: grid; place-items: center; background: var(--raise); font-weight: 700; font-size: 12px; }
+.stack-closed small { display: block; color: var(--muted); font-size: 12px; line-height: 16px; }
+.history-link { font-size: 12px; color: var(--faint); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; border: 0; padding: 2px 4px; }
+.history-link:hover { color: var(--text); }
+
+/* ---- the open stack: fixed rows, a fixed right slot ---- */
+.stack-open { position: absolute; right: 16px; bottom: 64px; width: 380px; border-radius: 18px; padding: 8px 0; background: var(--panel-solid); border: 1px solid var(--rim); box-shadow: var(--shadow); }
+.stack-open header { display: flex; align-items: center; gap: 6px; padding: 6px 16px 8px; }
+.stack-open ul { list-style: none; margin: 0; padding: 0 6px; }
+.sec { padding: 8px 10px 4px; }
+.row { display: grid; grid-template-columns: 28px 1fr 96px; align-items: center; gap: 10px; height: 56px; padding: 0 10px; border-radius: 12px; }
+.row:hover, .row.is-hover, .row:focus-within { background: var(--raise); }
+.mark { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--raise); }
+.mark svg { width: 14px; height: 14px; }
+.mark.ok svg { color: var(--warn); }
+.title { min-width: 0; } .title b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title small { display: block; color: var(--muted); font-size: 12px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title small.amber { color: var(--warn); }
+.slot { position: relative; height: 28px; }
+.slot > * { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; transition: opacity 120ms; }
+.slot .age { color: var(--faint); font-size: 12px; }
+.slot .acts, .slot .confirm { opacity: 0; visibility: hidden; }
+.row:hover .age, .row.is-hover .age, .row:focus-within .age, .row.is-confirm .age { opacity: 0; visibility: hidden; }
+.row:hover .acts, .row.is-hover .acts, .row:focus-within .acts { opacity: 1; visibility: visible; }
+.row.is-confirm .acts { opacity: 0; visibility: hidden; } .row.is-confirm .confirm { opacity: 1; visibility: visible; }
+.ib { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--raise); border: 0; color: var(--text); cursor: pointer; }
+.ib svg { width: 14px; height: 14px; } .ib:hover { background: #ffffff24; }
+.confirm button { height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid #ff8a8066; background: #ff8a8020; color: var(--bad); font-weight: 600; cursor: pointer; }
+
+/* ---- History sidebar, pushing the corner column ---- */
+.sidebar { position: absolute; top: 12px; right: 12px; bottom: 60px; width: var(--history-w); border-radius: 18px; display: flex; flex-direction: column;
+  transform: translateX(calc(100% + 16px)); transition: transform 280ms var(--ease-exit); }
+.desk.history-open .sidebar { transform: none; transition-timing-function: var(--ease); }
+.desk.history-open .corner { transform: translateX(calc(-1 * var(--history-w) - 12px)); }
+.sidebar header { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px 18px; }
+.sidebar header b { font: 600 16px/22px "Segoe UI Variable Display", "Segoe UI", sans-serif; flex: 1; }
+.filter { margin: 0 14px 6px; height: 32px; border-radius: 8px; background: var(--raise); border: 1px solid var(--rim); color: var(--faint); display: flex; align-items: center; padding: 0 10px; font-size: 13px; }
+.sidebar .list { overflow-y: auto; padding: 0 6px 10px; scrollbar-width: thin; }
+.sidebar .row { height: 48px; grid-template-columns: 24px 1fr 72px; }
+.sidebar .mark { width: 24px; height: 24px; }
+.mark.done svg { color: var(--ok); } .mark.fail svg { color: var(--bad); } .mark.pin svg { color: var(--accent); }
+
+/* ---- cards ---- */
+.card { position: absolute; left: 50%; transform: translateX(-50%); width: 512px; border-radius: 22px; padding: 16px 22px 14px; display: flex; flex-direction: column; }
+.card .origin { align-self: flex-end; background: var(--accent-soft); padding: 6px 12px; border-radius: 14px 14px 4px 14px; margin-bottom: 10px; }
+.card .state { display: flex; align-items: center; gap: 8px; color: var(--ok); font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+.card .body { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ffffff40 transparent; padding-right: 8px;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 40px), transparent); }
+.card .body p { margin: 0 0 10px; color: var(--muted); } .card .body h4 { margin: 4px 0 6px; font-size: 14px; }
+.card table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 10px; }
+.card th, .card td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rim); white-space: nowrap; }
+.card th { color: var(--faint); font-weight: 600; }
+.foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--rim); }
+.foot .by { color: var(--faint); font-size: 12px; flex: 1; }
+.btn { height: 32px; padding: 0 12px; border-radius: 10px; border: 0; background: var(--raise); color: var(--text); display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; cursor: pointer; }
+.btn svg { width: 14px; height: 14px; } .btn.on { color: var(--accent); }
+.edge { position: absolute; left: 50%; transform: translateX(-50%); height: 34px; border-radius: 18px 18px 0 0; border: 1px solid var(--edge-line); display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 13px; }
+.workspace { position: absolute; top: 12px; right: 12px; bottom: 60px; width: 600px; border-radius: 22px; padding: 16px 22px 14px; display: flex; flex-direction: column; }
+.workspace .grip { position: absolute; left: -3px; top: 40%; width: 6px; height: 64px; border-radius: 3px; background: #ffffff30; cursor: ew-resize; }
+.workspace .body { flex: 1; overflow-y: auto; -webkit-mask-image: none; }
+.toggle { margin: 0 24px 6px; }
+</style>
+</head>
+<body>
+<svg style="display:none">
+  <symbol id="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 6 4 4H6l4-4zM12 14v7"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></symbol>
+  <symbol id="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
+  <symbol id="pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6v12M15 6v12"/></symbol>
+  <symbol id="q" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 1-1 1.7V14M12 18h.01"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4l9 16H3zM12 10v4M12 17h.01"/></symbol>
+  <symbol id="expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></symbol>
+  <symbol id="collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M10 14l-7 7M14 10l7-7"/></symbol>
+  <symbol id="copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+</svg>
+
+<template id="pins-tpl">
+  <div class="pins">
+    <div class="pill"><svg><use href="#pin"/></svg><b>Lisbon trains</b><span>3 options, fastest 2 h 50</span><span class="x" title="Unpin"><svg style="width:12px;height:12px"><use href="#x"/></svg></span></div>
+    <div class="pill is-hover"><svg><use href="#pin"/></svg><b>Laptop research</b><span>ThinkPad X1 leads on battery</span><span class="x" title="Unpin"><svg style="width:12px;height:12px"><use href="#x"/></svg></span></div>
+    <div class="pill"><svg><use href="#pin"/></svg><b>Talk with Janet</b><span>3 turns</span><span class="x"><svg style="width:12px;height:12px"><use href="#x"/></svg></span></div>
+  </div>
+</template>
+
+<h2>A · The corner at rest: pins shelf, stack, History</h2>
+<p class="note">Pins are finished work kept on purpose: compact pills with a hint; a click reopens the full card. Hovering a pill (middle one shown) crossfades an Unpin × over the end of its hint, in place. Under the stack, one faint underlined "History". Click it here: the sidebar slides in from the right and pushes the corner column left.</p>
+<div class="desk" id="deskA">
+  <div class="capsule"><div class="orb"></div></div>
+  <div class="corner">
+    <div data-pins></div>
+    <div class="stack-closed"><span class="layer l1"></span><span class="layer l2"></span>
+      <div class="top glass"><span class="badge" style="color:var(--warn)">2</span><div><b>2 things need you</b><small style="color:var(--warn)">Needs your OK · Email to Sam</small></div></div></div>
+    <button class="history-link" onclick="document.getElementById('deskA').classList.toggle('history-open')">History</button>
+  </div>
+  <aside class="sidebar glass" data-history></aside>
+</div>
+
+<h2>B · The open stack: Open and Cancel, no layout shift</h2>
+<p class="note">Each row is a fixed 56 px with a fixed 96 px slot on the right. At rest the slot shows the age; on hover, focus or selection the age fades and Open / Cancel fade in, in the same slot (row 2). Skip is gone from the stack. Cancel asks in place: the slot turns into "Cancel?" for 3 s (row 3); no card opens. "Earlier today" is gone: finished things live in History. Hover the real rows to try it.</p>
+<div class="desk">
+  <div class="capsule"><div class="orb"></div></div>
+  <section class="stack-open">
+    <header><b>Waiting for you</b><span style="color:var(--faint)">· 4</span></header>
+    <ul>
+      <li class="row"><span class="mark ok"><svg><use href="#shield"/></svg></span><span class="title"><b>Email to Sam about the budget</b><small class="amber">Needs your OK · put off</small></span>
+        <span class="slot"><span class="age">4 min</span><span class="acts"><button class="ib" title="Open"><svg><use href="#open"/></svg></button><button class="ib" title="Cancel: it won't be sent"><svg><use href="#x"/></svg></button></span><span class="confirm"><button>Cancel?</button></span></span></li>
+      <li class="row is-hover"><span class="mark"><svg><use href="#pause"/></svg></span><span class="title"><b>Find a dentist near the office</b><small>Unfinished · stopped before it was done</small></span>
+        <span class="slot"><span class="age">12 min</span><span class="acts"><button class="ib" title="Open"><svg><use href="#open"/></svg></button><button class="ib" title="Cancel: Swift forgets where it got to"><svg><use href="#x"/></svg></button></span><span class="confirm"><button>Cancel?</button></span></span></li>
+      <li class="row is-confirm"><span class="mark"><svg><use href="#q"/></svg></span><span class="title"><b>Book the table for Friday</b><small>Unanswered question · which time?</small></span>
+        <span class="slot"><span class="age">20 min</span><span class="acts"><button class="ib"><svg><use href="#open"/></svg></button><button class="ib"><svg><use href="#x"/></svg></button></span><span class="confirm"><button>Cancel?</button></span></span></li>
+      <li class="row"><span class="mark"><svg><use href="#pause"/></svg></span><span class="title"><b>Summarise the Q3 report</b><small>Unfinished · a card went unanswered</small></span>
+        <span class="slot"><span class="age">1 h 05</span><span class="acts"><button class="ib" title="Open"><svg><use href="#open"/></svg></button><button class="ib" title="Cancel"><svg><use href="#x"/></svg></button></span><span class="confirm"><button>Cancel?</button></span></span></li>
+    </ul>
+    <div style="display:flex;justify-content:flex-end;padding:4px 14px 2px"><button class="history-link">History</button></div>
+  </section>
+  <div class="anno" style="right:410px;bottom:250px">Hover: Open + Cancel replace "12 min" in the same slot. Rows below don't move.</div>
+  <div class="anno" style="right:410px;bottom:180px">First click on Cancel: "Cancel?" for 3 s. Second click cancels; Esc or waiting puts it back.</div>
+</div>
+
+<h2>C · History, open</h2>
+<p class="note">Right edge, full height, 360 px. It slid in and pushed the pins and stack left so nothing overlaps. Pinned first (all pins, including any past the shelf's 4), then today, newest first. Rows reopen the request like a pin; hover crossfades Pin and Open over the time. Rows whose answer Swift no longer has say "Record only".</p>
+<div class="desk history-open" id="deskC">
+  <div class="capsule"><div class="orb"></div></div>
+  <div class="corner">
+    <div data-pins></div>
+    <div class="stack-closed"><span class="layer l1"></span><span class="layer l2"></span>
+      <div class="top glass"><span class="badge" style="color:var(--warn)">2</span><div><b>2 things need you</b><small style="color:var(--warn)">Needs your OK · Email to Sam</small></div></div></div>
+    <button class="history-link" onclick="document.getElementById('deskC').classList.toggle('history-open')">History</button>
+  </div>
+  <aside class="sidebar glass" data-history></aside>
+</div>
+
+<h2>D · The default card: content scrolls, Expand replaces Show all</h2>
+<p class="note">512 px wide as today. The body always scrolls when taller (no cut-and-fade, no hidden details); the fade only hints "more below". Footer: Expand · Pin · Copy. Pin is now on long answers too. Expand shows only when the content would gain from more room.</p>
+<div class="desk">
+  <div class="edge" style="bottom:600px;width:440px;background:var(--edge-2)"><b>Weather this weekend</b><span style="color:var(--muted)">Working · 0:14</span></div>
+  <div class="card glass" style="bottom:110px;height:456px">
+    <div class="origin">Compare train and flight options to Lisbon next Friday</div>
+    <div class="state"><svg style="width:14px;height:14px"><use href="#check"/></svg>Done · just now</div>
+    <div class="body" data-answer></div>
+    <div class="foot"><span class="by">Swift · researched 6 sites</span>
+      <button class="btn"><svg><use href="#expand"/></svg>Expand</button>
+      <button class="btn"><svg><use href="#pin"/></svg>Pin</button>
+      <button class="btn"><svg><use href="#copy"/></svg>Copy</button></div>
+  </div>
+  <div class="capsule"><div class="orb"></div></div>
+</div>
+
+<h2>E · Expanded: a workspace at the screen edge, sized to the content</h2>
+<p class="note">Expand moves the card to a workspace on the orb's side (right here): text gets max(560 px, a third of the work area); a wide block (this table) up to half; height is the content's, up to the full work area. Never the whole desktop. The left edge drags to resize, and Swift remembers the owner's size. Minimize puts it back as the default card. The deck behind stays (no fold): the card has left its space.</p>
+<div class="desk">
+  <div class="edge" style="bottom:110px;width:440px;background:var(--edge-1)"><b>Weather this weekend</b><span style="color:var(--muted)">Working · 0:21</span></div>
+  <div class="capsule"><div class="orb"></div></div>
+  <div class="workspace glass">
+    <span class="grip" title="Drag to resize"></span>
+    <div class="origin" style="align-self:flex-end;background:var(--accent-soft);padding:6px 12px;border-radius:14px 14px 4px 14px;margin-bottom:10px">Compare train and flight options to Lisbon next Friday</div>
+    <div class="state" style="display:flex;gap:8px;color:var(--ok);font-weight:600;font-size:13px;margin-bottom:8px"><svg style="width:14px;height:14px"><use href="#check"/></svg>Done · 2 min ago · Pinned</div>
+    <div class="body card" style="position:static;transform:none;width:auto;padding:0;background:none;border:0;box-shadow:none" data-answer></div>
+    <div class="foot"><span class="by">Swift · researched 6 sites</span>
+      <button class="btn"><svg><use href="#collapse"/></svg>Minimize</button>
+      <button class="btn on"><svg><use href="#pin"/></svg>Pinned</button>
+      <button class="btn"><svg><use href="#copy"/></svg>Copy</button></div>
+  </div>
+  <div class="anno" style="left:24px;top:24px">Main window: the capsule and the deck. The card in front is the workspace: a reply still reaches it.</div>
+</div>
+<div style="height:40px"></div>
+
+<script>
+const pins = document.getElementById("pins-tpl").innerHTML;
+document.querySelectorAll("[data-pins]").forEach((n) => (n.outerHTML = pins));
+const hrow = (mark, icon, title, line, time) => `<li class="row"><span class="mark ${mark}"><svg><use href="#${icon}"/></svg></span><span class="title"><b>${title}</b><small>${line}</small></span>
+  <span class="slot"><span class="age">${time}</span><span class="acts"><button class="ib" title="Pin"><svg><use href="#pin"/></svg></button><button class="ib" title="Open"><svg><use href="#open"/></svg></button></span></span></li>`;
+const history = `<header><b>History</b><button class="ib" title="Close (Esc)"><svg><use href="#x"/></svg></button></header>
+  <div class="filter">Filter</div>
+  <div class="list"><ul style="list-style:none;margin:0;padding:0">
+    <li class="sec"><span class="tag">Pinned</span></li>
+    ${hrow("pin", "pin", "Lisbon trains", "3 options, fastest 2 h 50", "11:42")}
+    ${hrow("pin", "pin", "Laptop research", "ThinkPad X1 leads on battery", "10:15")}
+    ${hrow("pin", "pin", "Talk with Janet", "3 turns", "09:30")}
+    <li class="sec"><span class="tag">Today</span></li>
+    ${hrow("done", "check", "Turn the volume down", "Volume 30%", "12:04")}
+    ${hrow("done", "check", "What's on my calendar this afternoon?", "2 meetings, first at 14:00", "11:58")}
+    ${hrow("fail", "alert", "Open the shared budget sheet", "Failed · couldn't reach Drive", "11:20")}
+    ${hrow("", "pause", "Find a dentist near the office", "Stopped", "11:02")}
+    ${hrow("done", "check", "Timer for the tea", "Done · 4 min", "10:40")}
+    ${hrow("done", "check", "Draft a reply to Sam", "Draft saved in Gmail", "10:02")}
+    ${hrow("done", "check", "Weather in Leeds tomorrow", "Record only", "09:12")}
+  </ul></div>`;
+document.querySelectorAll("[data-history]").forEach((n) => (n.innerHTML = history));
+const answer = `<p>Train is the better choice for Friday unless you need to be there before noon.</p>
+  <table><tr><th>Option</th><th>Leaves</th><th>Arrives</th><th>Time</th><th>Price</th><th>Changes</th></tr>
+  <tr><td>Train · Alfa Pendular</td><td>07:09</td><td>10:00</td><td>2 h 51</td><td>€34</td><td>0</td></tr>
+  <tr><td>Train · Intercidades</td><td>08:39</td><td>12:05</td><td>3 h 26</td><td>€25</td><td>0</td></tr>
+  <tr><td>Flight · TAP 1953</td><td>06:50</td><td>07:45</td><td>0 h 55</td><td>€118</td><td>0</td></tr>
+  <tr><td>Flight · Ryanair</td><td>13:20</td><td>14:15</td><td>0 h 55</td><td>€61</td><td>0</td></tr></table>
+  <h4>Door to door</h4><p>With check-in and the airport transfer, the 06:50 flight gets you to the centre around 08:45, the 07:09 train at 10:00, already in the centre.</p>
+  <h4>Booking</h4><p>Alfa Pendular fares rise in the last week; the €34 fare was available on all four sites checked this morning.</p>
+  <h4>Sources</h4><p>CP timetable, TAP, Ryanair, Omio, Trainline, Rome2Rio.</p>`;
+document.querySelectorAll("[data-answer]").forEach((n) => (n.innerHTML = answer));
+</script>
+</body>
+</html>

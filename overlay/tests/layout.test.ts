@@ -21,3 +21,13 @@ test("a card's scroller never scrolls sideways, and spans the padding its childr
   assert.match(css, /padding-inline: var\(--pad-left\) var\(--pad-right\);/);
 });
 
+
+test("item 10: pointing at a stack row never moves the rows below it (the actions fade in, their place kept)", () => {
+  const css = read("../src/styles.css");
+  const rule = css.match(/\n\.stack-actions \{([^}]*)\}/)![1];
+  assert.doesNotMatch(rule, /display: none/);
+  assert.match(rule, /grid-column: 3; grid-row: 2;/);
+  assert.match(rule, /visibility: hidden; opacity: 0;/);
+  assert.doesNotMatch(css, /\.stack-actions \{ display: flex; \}/);
+  assert.match(css, /\.stack-open-btn \{ grid-column: 3; grid-row: 1;/);
+});

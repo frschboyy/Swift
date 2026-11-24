@@ -11,7 +11,7 @@
 // has a type icon (a shield for a card waiting for an OK, a question mark for Swift's question,
 // a pause for anything unfinished), its whole title (never cut) and why it waits.
 
-import type { StackEntry, TimerRow } from "./protocol";
+import type { StackAction, StackEntry, TimerRow } from "./protocol";
 
 /** A card that just joined the stack glows this long, so the owner notices it. */
 export const FRESH_MS = 4000;
@@ -24,8 +24,11 @@ export type Stack = {
   freshUntil: number;
 };
 
-/** What waits for the owner: not an answer from earlier today (A1), not a timer still counting (B14). */
-export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "recent" && i.kind !== "timer";
+/** What waits for the owner: not a finished request (History, a pin), not a timer still counting (B14). */
+export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "past" && i.kind !== "timer" && i.kind !== "pinned";
+
+/** Pins shown on the shelf; the rest are counted ("+2 pinned"). */
+export const SHELF_PINS = 4;
 
 /** B14: a timer still counting, as a RUNNING row of the stack list (its Cancel ends it: ``timer:<id>``). */
 export const timerEntry = (t: TimerRow): StackEntry =>
@@ -49,7 +52,7 @@ export const expand = (s: Stack): Stack => (s.items.length ? { ...s, expanded: t
 export const collapse = (s: Stack): Stack => (s.expanded ? { ...s, expanded: false } : s);
 
 /** Opening a card from the stack compresses it: the card comes forward on its own. */
-export function afterAction(s: Stack, action: "open" | "skip" | "end"): Stack {
+export function afterAction(s: Stack, action: StackAction): Stack {
   return action === "open" ? collapse(s) : s;
 }
 
@@ -97,11 +100,27 @@ export function reasonLine(item: StackEntry, now: number): string {
 /** Every row's first button: open it (a card comes back, a conversation goes on). */
 export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "Done" : item.kind === "timer" ? "Cancel" : "Open");
 
+/** A row's one other action besides Open (owner, 2026-11-24: Skip only reordered the list, so it left the stack,
+ * and End is named for what it does). ``confirm``: a second click within 3 s does it, since it can't be undone.
+ * null: Open already does it (Done on a reminder, Cancel on a timer) or there's nothing to end (an earlier answer). */
+export function secondAction(item: { kind: StackEntry["kind"]; reason?: string }): { label: string; tip: string; confirm: boolean } | null {
+  switch (item.kind) {
+    case "due": case "timer": case "past": case "pinned": return null;
+    case "failed": return { label: "Dismiss", tip: "Remove it from the stack", confirm: false };
+    case "parked":
+      return item.reason === "asked"
+        ? { label: "Cancel", tip: "Cancel the request", confirm: true }
+        : { label: "Cancel", tip: "Cancel: Swift forgets where it got to", confirm: true };
+    default: return { label: "Cancel", tip: "Cancel: it won't be done", confirm: true };
+  }
+}
+
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
-export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" {
+export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" | "pin" {
+  if (item.kind === "pinned") return "pin";
   if (item.kind === "timer") return "timer";
   if (item.kind === "failed") return "alert";
-  if (item.kind === "recent") return item.reason === "failed" ? "alert" : "check";
+  if (item.kind === "past") return item.reason === "failed" ? "alert" : item.reason === "stopped" ? "pause" : "check";
   if (item.kind === "due") return "bell";
   if (item.kind !== "parked") return "shield";
   return item.reason === "asked" ? "question" : "pause";
@@ -123,25 +142,56 @@ export function leftLine(item: StackEntry, now: number): string {
 export type StackView = {
   kind: "stack";
   expanded: boolean;
-  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon>; left?: number | null; leftText?: string }[];
+  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon>; left?: number | null; leftText?: string; second?: ReturnType<typeof secondAction> }[];
   // The main window's middle on the screen (CSS px): a card arriving comes from that side.
   mainX?: number;
 };
 
-/** The stack pane's view, or null when nothing waits (no window): answers from earlier today alone don't make a
+/** The stack pane's view, or null when nothing waits and nothing is pinned (no window): answers from earlier today alone don't make a
  * pile (A1); they show under the waiting ones once it's open. */
 export function stackView(s: Stack, now: number): StackView | null {
-  if (!s.items.some(waits)) return null;
+  if (!s.items.some((i) => waits(i) || i.kind === "pinned" || i.kind === "past")) return null;  // a pin or History keeps the corner
   const glow = now < s.freshUntil ? new Set(s.fresh) : new Set<string>();
   return {
     kind: "stack",
     expanded: s.expanded,
     items: s.items.map((i) => ({
-      id: i.id, kind: i.kind, title: i.title, line: reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
-      left: timeLeft(i, now), leftText: timeLeft(i, now) === null ? "" : leftLine(i, now),
+      id: i.id, kind: i.kind, title: i.title, line: i.kind === "pinned" ? i.reason : reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
+      left: timeLeft(i, now), leftText: timeLeft(i, now) === null ? "" : leftLine(i, now), second: secondAction(i),
     })),
   };
 }
+
+/** History (owner, 2026-11-24): what the sidebar lists, pins first, then finished requests, newest first. */
+export type HistoryView = {
+  kind: "history";
+  pins: { id: string; title: string; line: string }[];
+  past: { id: string; title: string; line: string; icon: ReturnType<typeof itemIcon>; day: string }[];
+};
+
+const OUTCOME: Record<string, string> = { done: "Done", failed: "Failed", stopped: "Stopped" };
+
+/** A day's heading: "Today", "Yesterday", or the date. */
+export function dayLabel(ms: number, now: number): string {
+  const day = (t: number): number => new Date(new Date(t).toDateString()).getTime();
+  const back = Math.round((day(now) - day(ms)) / 86_400_000);
+  return back === 0 ? "Today" : back === 1 ? "Yesterday" : new Date(ms).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+}
+
+const clock = (ms: number): string => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+export function historyView(s: Stack, now: number): HistoryView {
+  return {
+    kind: "history",
+    pins: s.items.filter((i) => i.kind === "pinned").map((i) => ({ id: i.id, title: i.title, line: i.reason })),
+    past: s.items.filter((i) => i.kind === "past").map((i) => ({
+      id: i.id, title: i.title, line: `${OUTCOME[i.reason] ?? "Done"} · ${clock(i.since_ms)}`, icon: itemIcon(i), day: dayLabel(i.since_ms, now),
+    })),
+  };
+}
+
+/** Whether the corner shows the History link: there's something in it. */
+export const hasHistory = (v: StackView): boolean => v.items.some((i) => i.kind === "past" || i.kind === "pinned");
 
 /** Amber means an OK is waiting, nothing else (ADR-018 §2.6): the badge, and the glow of what just joined. */
 export const needsOk = (v: StackView): boolean => v.items.some((i) => i.icon === "shield");

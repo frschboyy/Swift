@@ -86,8 +86,9 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     # What the overlay has drawn, as of outbound frame ``n``: its stage, the card's request, and the
     # confirm card and question the owner can see ("": none). The only acknowledgement (review item 9).
     "screen": {"n": (int, None), "stage": (str, STATES), "run_id": (str, None), "confirm": (str, None), "ask_id": (str, None)},
-    # The waiting stack (ADR-015 §9): open (bring back / resume), skip (back to the stack), end (gone).
-    "stack.action": {"id": (str, None), "action": (str, ("open", "skip", "end"))},
+    # The waiting stack (ADR-015 §9): open (bring back / resume), skip (back to the stack), end (gone); pin and
+    # unpin a finished request (owner, 2026-11-24: the shelf of pins above the stack).
+    "stack.action": {"id": (str, None), "action": (str, ("open", "skip", "end", "pin", "unpin"))},
     # A request typed into the overlay; optional ``thread_id``: the conversation on screen it follows.
     "text": {"text": (str, None)},
     # Sent once when the overlay is fully up; ``backend_ms`` is optional.
@@ -122,7 +123,7 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
 OUTBOUND_TYPES = frozenset(
     {"hello.ok", "state", "level", "transcript", "step", "confirm.request", "confirm.voice", "result", "error",
      "artifact", "view", "run.voice", "followup", "presence", "confirm.hold", "resume.offer",
-     "runs", "stack", "heard", "speech", "live", "watch", "ask", "countdown", "timers"}
+     "runs", "stack", "heard", "speech", "live", "watch", "ask", "countdown", "timers", "history"}
 )
 
 

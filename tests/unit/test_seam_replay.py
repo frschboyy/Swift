@@ -1849,12 +1849,49 @@ async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens
     await until(lambda: out.last("result") and out.last("result")["run_id"] == coffee)
     await session._send_stack()
     stack = out.last("stack")
-    assert stack["items"] == [] and [i["id"] for i in stack["recent"]] == [f"recent:{tea}"], stack  # never waiting
+    assert stack["items"] == [] and [i["id"] for i in stack["history"]] == [f"recent:{tea}"], stack  # never waiting
     asked = len(agent.requests)
     await session.handle(Message("stack.action", {"id": f"recent:{tea}", "action": "open"}))
     await asyncio.sleep(0.05)
     screen = agree(session, out)
     assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
+    await finish_all(session, agent)
+
+
+async def test_pins_a_pinned_answer_is_on_the_shelf_not_earlier_today_and_reopens() -> None:
+    """Pins (owner, 2026-11-24): Pin on the answer on screen puts it on the shelf (``pins``), not in Earlier today,
+    and never waiting; a click on it brings that same request back, nothing runs again; Unpin takes it off."""
+    session, out, agent, stt, _control, _sched = _lane()
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[tea]["go"].set()
+    await until(lambda: out.last("result"))
+    await session.handle(Message("stack.action", {"id": f"recent:{tea}", "action": "pin"}))
+    assert [i["id"] for i in out.last("stack")["pins"]] == [f"pinned:{tea}"], out.last("stack")
+    coffee = await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    agent.runs[coffee]["go"].set()
+    await until(lambda: out.last("result") and out.last("result")["run_id"] == coffee)
+    await session._send_stack()
+    stack = out.last("stack")
+    assert stack["items"] == [] and "history" not in stack and [i["id"] for i in stack["pins"]] == [f"pinned:{tea}"], stack
+    asked = len(agent.requests)
+    await session.handle(Message("stack.action", {"id": f"pinned:{tea}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
+    await session.handle(Message("stack.action", {"id": f"pinned:{tea}", "action": "unpin"}))
+    assert "pins" not in out.last("stack"), out.last("stack")
+    await finish_all(session, agent)
+
+
+async def test_history_show_my_history_opens_the_panel_and_runs_nothing() -> None:
+    """History (owner, 2026-11-24, Q5): "show my history" opens the panel, and the answer says so; no worker run."""
+    session, out, agent, stt, _control, _sched = _lane()
+    asked = len(agent.requests)
+    await say(session, stt, "Hey Swift, show my history")
+    await until(lambda: out.last("history"))
+    assert out.last("history") == {"open": True} and len(agent.requests) == asked
+    await until(lambda: out.last("result"))
+    assert out.last("result")["summary"] == "Here's your history.", out.last("result")
     await finish_all(session, agent)
 
 

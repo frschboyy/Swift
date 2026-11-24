@@ -23,7 +23,8 @@
   test: tests/unit/test_intent_eval.py::test_a_timer_the_owner_asked_for_in_other_words_is_never_a_dead_end
   note: 'Strict xfail. 7d83958 (widening the verb list) is a partial fix: 8 of 39. The proposed fix, Swift''s own
     "Did you mean ...?" question from one understanding step, is in the exploration doc §5; it changes what a level 1
-    question may come from, so it needs a review by someone other than its author.'
+    question may come from, so it needs a review by someone other than its author. Phase 0 (observability, a
+    safeguard, not a fix) is on this branch: each refusal leaves a reason code in tool_refusals and swift.log.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

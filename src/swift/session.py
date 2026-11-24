@@ -207,7 +207,7 @@ from swift.system.scheduler import Item
 from swift.demo_listening import fake_listening
 from swift.workflows.artifacts import Artifact, ArtifactStore, last_proposal
 from swift.workflows.library import Library, Match, is_question, refresh_now
-from swift.workflows.scope import Decision, Grant, RunScope
+from swift.workflows.scope import Decision, Grant, RunScope, note_refusal
 from swift.workflows.tools import CURRENT as CURRENT_SCOPE
 from swift.workflows.tools import ToolHost
 
@@ -4171,7 +4171,7 @@ class Session:
         )
         run.last_scope = self._scope
         # Only a follow-up, a correction or a resumed conversation shares a thread with what came before.
-        self._scope.said, self._scope.run = str(record.get("transcript") or ""), record.get("id", "")
+        self._scope.said, self._scope.run, self._scope.on_refusal = str(record.get("transcript") or ""), record.get("id", ""), partial(note_refusal, record)
         if (before := self._left.get(record.get("thread") or "")) is not None:
             self._scope.carry_from(before)
         CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it

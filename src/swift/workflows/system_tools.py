@@ -121,13 +121,16 @@ def _same(a: it.Intent, b: it.Intent) -> bool:
 async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -> ToolResult:
     lane = host.system
     if lane is None:
+        scope.refused("system_action", "system_off")
         return ToolResult(False, "Swift's system actions are off here. Nothing was done.")
     phrase = str(args.get("request", "")).strip()
     wanted = it.parse(phrase)
     if not wanted:
+        scope.refused("system_action", "unknown")
         return ToolResult(False, f"“{phrase}” isn't a system action Swift knows (timers, volume, media, "
                                  "dark mode, brightness, radios, lock, settings pages, windows). Nothing was done.")
     if any(it.missing(i) for i in wanted):
+        scope.refused("system_action", "missing_slot", [i.name for i in wanted])
         return ToolResult(False, "That needs a detail first (how long, or when). Ask the owner with ask_owner, then "
                                  "pass the whole action (\"set a timer for 10 minutes\"). Nothing was done.", expected=True)
     asked = owner_intents(scope.said, scope.answers)
@@ -137,6 +140,7 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
     if missing:
         # Offer a guess only when an answer could unlock it, and only once (second review of 20ff906).
         offer = not scope.answers and all(from_answer(i) for i in missing)
+        scope.refused("system_action", "not_asked_offer" if offer else "not_asked", [i.name for i in missing])
         return ToolResult(False, NOT_ASKED if offer else NOT_ASKED_PLAIN, expected=True)
     said: list[str] = []
     for intent in wanted:
@@ -165,6 +169,7 @@ async def system_action(host: ToolHost, scope: RunScope, args: dict[str, Any]) -
         )
         outcome = await host.gateway.execute(scope, action)
         if outcome.status != "done":
+            scope.refused("system_action", f"gateway_{outcome.status}", [intent.name])
             reason = outcome.reason or "It wasn't done."
             done = " ".join(said)
             return ToolResult(False, (done + " " if done else "") + reason, expected=outcome.status in ("rejected", "denied"))

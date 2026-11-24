@@ -12,11 +12,29 @@ from __future__ import annotations
 
 import re
 import time
+from collections import deque
 from typing import Any
 
 from swift.stack import StackItem
 
 MAX_RECENT = 6
+# Finished requests kept, with their answers, so Earlier today (and pins and History) can reopen them: in memory
+# only, gone at a restart (owner, 2026-11-24). The session's own "gone" list keeps only its last few.
+MAX_KEPT = 50
+
+
+class Gone(deque):  # type: ignore[type-arg]
+    """``session._gone``: the last few requests that ended and aren't shown ("stop the research one" just after it
+    finished), and ``kept``: the last ``MAX_KEPT`` of them, for reopening."""
+
+    def __init__(self, maxlen: int) -> None:
+        super().__init__((), maxlen)
+        self.kept: deque[Any] = deque(maxlen=MAX_KEPT)
+
+    def append(self, run: Any) -> None:
+        super().append(run)
+        if run not in self.kept:
+            self.kept.append(run)
 
 
 def _today_ms() -> int:
@@ -27,7 +45,7 @@ def _today_ms() -> int:
 def _ended(session: Any) -> list[Any]:
     """Requests that ended with an answer and aren't in front, newest first (each once)."""
     seen: set[int] = set()
-    runs = [r for r in [*session._runs, *session._gone]
+    runs = [r for r in [*session._runs, *getattr(session._gone, "kept", session._gone)]
             if r.answer is not None and not r.alive and r.ui_id and r is not session._focus and not (id(r) in seen or seen.add(id(r)))]
     return sorted(runs, key=lambda r: r.started_ms, reverse=True)
 

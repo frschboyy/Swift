@@ -724,7 +724,7 @@ class Session:
         self._runs: list[Run] = []
         # The last few that ended and are no longer shown: "stop the research one" just after it
         # finished is answered, not sent on as a request (owner check 24, 2026-10-27).
-        self._gone: deque[Run] = deque(maxlen=MAX_RUNS)
+        self._gone: deque[Run] = recent.Gone(MAX_RUNS)  # and the last 50, kept for reopening (recent.py)
         # The one in front, one that takes the front when it first shows something, and the
         # stand-in when there is none.
         self._focus: Run | None = None

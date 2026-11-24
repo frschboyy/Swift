@@ -1848,7 +1848,8 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   if (long) pres = P.stays(pres);  // seams decision 6: with Show all, it stays until dismissed
   setExpanded(false);
   const body = el("div", { class: shape === "line" ? "answer answer--line" : `answer${long ? " answer--long" : ""}`, tabindex: long ? "0" : "-1" });
-  body.addEventListener("scroll", () => noteScroll(), { passive: true });
+  const atEnd = (): void => { body.classList.toggle("answer--end", body.scrollTop + body.clientHeight >= body.scrollHeight - 2); };
+  body.addEventListener("scroll", () => { noteScroll(); atEnd(); }, { passive: true });
   // A drawn diagram (blocks.ts): too wide to read on the card, the answer opens with Show all after all; its nodes count as steps.
   let nodes = 0;
   body.addEventListener(DIAGRAM_DRAWN, (ev: Event) => {

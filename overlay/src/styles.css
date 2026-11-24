@@ -641,13 +641,20 @@ code {
 .project-card-detail { color: var(--muted); font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 
 /* B5: a long answer grows to the cap (the window's free height, less 34 px an edge shown, less the card's own
-   chrome), and a 56 px fade marks the cut; open (by hand only), the card is 640 wide and only its body scrolls. */
+   chrome) and scrolls there (owner, 2026-11-24, item 5: nothing hidden behind a button); a 56 px fade says more is
+   below, and goes at the bottom. */
 .answer--long {
   max-height: max(156px, calc(100vh - 78px - var(--deck-h, 0px) - 190px));
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+  user-select: text;
   -webkit-mask-image: linear-gradient(#000 calc(100% - var(--cap-fade-h)), transparent);
   mask-image: linear-gradient(#000 calc(100% - var(--cap-fade-h)), transparent);
 }
+.answer--long.answer--end { -webkit-mask-image: none; mask-image: none; }
 /* Mind maps choose their own card preview; on short screens, scroll instead of clipping the selected branches. */
 #stage .answer--long:not(.answer--open):has(> .mindmap) {
   max-height: calc(min(70vh, 720px) - 150px);

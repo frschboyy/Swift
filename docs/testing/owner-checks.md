@@ -3338,3 +3338,12 @@ edge, and the stack moves left out of its way; your three requests under **Today
 stack goes back to its corner; the voice request opens it again, with "Here's your history."
 
 The report checks: an item opened from History; "show my history" answered without the agent.
+
+<a id="check-cards-stack-design-5fec91-5"></a>**Check cards-stack-design-5fec91-5. A long answer scrolls on its card, with nothing hidden**
+1. Say "Hey Swift, list the 15 largest cities in Europe with their populations, as a table".
+2. Without clicking anything, scroll the answer with the mouse wheel to its end.
+
+You should see: every row is there by scrolling, with no "and N more rows" line; the fade at the bottom says more is
+below and goes once you reach the end.
+
+The report checks: nothing (LOOK).

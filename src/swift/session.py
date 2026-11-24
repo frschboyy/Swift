@@ -158,7 +158,7 @@ from swift import intake
 from swift.dialogue import Answer, Dialogue, Question, Turn, elide, reask_text
 from swift.dialogue import resolve as resolve_answer
 from swift.drawn import Drawn
-from swift.endpoint import EndOfTurn
+from swift.endpoint import AutoEnd, EndOfTurn
 from swift.executors.base import SWIFT, Budget, ContextPack, ExecResult, Executor, ExecutorUnavailable, WorkerTask
 from swift.network import OFFLINE_HELP, OFFLINE_ITEMS, OFFLINE_NOT, OFFLINE_SAID
 from swift.executors.mock import MockExecutor
@@ -423,21 +423,6 @@ _NAME_STOP = frozenset(
     "up some from by is was be i you we".split()
 )
 _NAME_WORD = re.compile(r"[a-z0-9']+")
-
-
-@dataclass(frozen=True)
-class AutoEnd:
-    """A capture that ends by itself, after a wake phrase, instead of when a key is released."""
-
-    # Audio from before the capture started to keep: the wake phrase and what followed it
-    # while the phrase was being transcribed.
-    lead_s: float
-    end_silence_s: float
-    start_timeout_s: float
-    # Swift asked something that expects free text: the end-of-turn check is kinder (swift/endpoint.py).
-    free_text: bool = False
-
-
 
 
 # What each lane needs to work (seams audit S4). A lane is tried only if what it needs is there: offline,

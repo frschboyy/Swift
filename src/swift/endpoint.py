@@ -86,4 +86,17 @@ class EndOfTurn:
         return max(0.0, min(self.extend_s, self.cap_s - waited_s))
 
 
-__all__ = ["DEMONSTRATIVES", "NUMBER_PARTS", "PARTICLES", "TRAILING", "EndOfTurn", "more_coming"]
+__all__ = ["DEMONSTRATIVES", "NUMBER_PARTS", "PARTICLES", "TRAILING", "AutoEnd", "EndOfTurn", "more_coming"]
+
+
+@dataclass(frozen=True)
+class AutoEnd:
+    """A capture that ends by itself, after a wake phrase, instead of when a key is released."""
+
+    # Audio from before the capture started to keep: the wake phrase and what followed it
+    # while the phrase was being transcribed.
+    lead_s: float
+    end_silence_s: float
+    start_timeout_s: float
+    # Swift asked something that expects free text: the end-of-turn check is kinder (swift/endpoint.py).
+    free_text: bool = False

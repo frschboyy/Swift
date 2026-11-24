@@ -12,6 +12,11 @@ under-estimate costs an escalation while an over-estimate only costs money.
 The route vote is never acted on: control and local need an action only the
 rules can supply, so it is only logged (``route_hint``) to show which rules to add.
 
+The same model also votes on a request's *family* ("timer", "radio", ...) over ``families.jsonl`` (the parity set's
+labelled rows, ``eval/parity/parity.jsonl``: a system row's category, anything else ``other``). That vote is only
+Swift's guess about a command the grammar missed (IA-01 phase 2, ``system/understand.py``): it may make Swift ask,
+never act. It runs even while the demand vote is off (``demand=False``).
+
 The model is never downloaded here (README has the one-time command). Loading
 takes a few seconds and happens in the background; until it is ready, and if it
 fails, the keyword estimate in ``demand.py`` answers.
@@ -34,6 +39,7 @@ from swift.routing import rules
 
 MODEL_NAME = "bge-small-en-v1.5"
 BASE_EXAMPLES = Path(__file__).with_name("examples.jsonl")
+FAMILY_EXAMPLES = Path(__file__).with_name("families.jsonl")
 # Route names from before ADR-008, still found in examples learned earlier.
 LEGACY_ROUTES = {"claude": "agent"}
 MAX_TOKENS = 64
@@ -148,6 +154,31 @@ class DemandClassifier:
         return Prediction(route, scores[route] / sum(scores.values()), "light" if p_light >= self.threshold else None, p_light)
 
 
+class FamilyVote:
+    """Weighted k nearest neighbours over ``families.jsonl``: (family, share of the neighbours' weight)."""
+
+    def __init__(self, embed: Callable[[list[str]], np.ndarray], rows: list[tuple[str, str]], k: int = 7) -> None:
+        if not rows:
+            raise ClassifierUnavailable("no family examples")
+        self.embed, self.k = embed, k
+        self.families = [f for _, f in rows]
+        self.vectors = np.concatenate([embed([t for t, _ in rows[i:i + 32]]) for i in range(0, len(rows), 32)])
+
+    def __call__(self, text: str) -> tuple[str, float]:
+        sims = self.vectors @ self.embed([keywords.strip_lead(text)])[0]
+        top = np.argsort(-sims)[: self.k]
+        scores: dict[str, float] = {}
+        for i in top:
+            scores[self.families[i]] = scores.get(self.families[i], 0.0) + float(max(sims[i], 1e-6) ** 4)
+        family = max(scores, key=scores.__getitem__)
+        return family, scores[family] / sum(scores.values())
+
+
+def load_families(path: Path = FAMILY_EXAMPLES) -> list[tuple[str, str]]:
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    return [(r["text"], r["family"]) for r in rows]
+
+
 class ClassifierEstimate:
     """``demand_fn`` for ``rules.route``: the keyword estimate first, the classifier where it abstains.
 
@@ -158,13 +189,16 @@ class ClassifierEstimate:
     """
 
     def __init__(self, model_dir: Path, example_files: list[Path], threshold: float = 0.7,
-                 k: int = 7, quantized: bool = True) -> None:
+                 k: int = 7, quantized: bool = True, demand: bool = True) -> None:
         self.model_dir = model_dir
         self.example_files = example_files
         self.threshold = threshold
         self.k = k
         self.quantized = quantized
         self.classifier: DemandClassifier | None = None
+        # The demand vote on (settings.demand_classifier.enabled); off, only the family vote loads.
+        self.demand = demand
+        self.families: FamilyVote | None = None
         self.error: str | None = None
         self.hint: tuple[tuple[str, object], ...] = ()
 
@@ -175,8 +209,10 @@ class ClassifierEstimate:
         started = time.monotonic()
         try:
             embedder = Embedder(self.model_dir, quantized=self.quantized)
-            examples = load_examples(self.example_files)
-            self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)
+            self.families = FamilyVote(embedder.embed, load_families())
+            examples = load_examples(self.example_files) if self.demand else []
+            if self.demand:
+                self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)
         except Exception as exc:  # noqa: BLE001 - any failure leaves the keyword estimate in charge
             self.error = str(exc)
             logger.warning("demand classifier unavailable; using keywords", error=self.error)
@@ -198,5 +234,5 @@ class ClassifierEstimate:
         """``rules.route`` with this as its demand estimate, carrying the classifier's route vote when it thinks a
         rule missed the request (``Route.hint``), so the run record says so beside the request it was about."""
         self.hint = ()
-        found = rules.route(text, demand_fn=self)
+        found = rules.with_guess(rules.route(text, demand_fn=self), self.families)
         return replace(found, hint=self.hint) if self.hint else found

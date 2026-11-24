@@ -54,9 +54,15 @@ origin, decides what an action may use.
   - A web address comes from the owner's words in this request, or Swift asks "Open (their earlier address)?"
     *(foundation decision 4)*.
   - Memory is written only from the owner's words or an approved card.
+- **Swift's guess.** When the owner's words don't match a command Swift knows, Swift may guess what they meant, and
+  only ask: "Set a timer for 2 minutes?" (level 1, Swift's own question, showing every detail the yes will use).
+  A guess is made only from a request the owner started (the hotkey, the wake phrase, or typing), never from what's
+  heard while a question is open or in the follow-up window, never for a web address or locking the PC, and never
+  for anything above level 1. Saying again the words Swift guessed from doesn't approve it; saying the action
+  itself, in words Swift understands exactly, does. A guess never acts until it's approved, and nothing lowers it.
 - **Deleting a file always asks.** A move to the Recycle Bin is level 2; a permanent delete, emptying the bin, or a
   recycle Swift can't confirm is level 3 (ADR-019) *(foundation decision 7)*.
-- **Learned trust** lowers one kind from level 1 to 0 (only kinds on its table, never level 3). **"Ask me about
+- **Learned trust** lowers one kind from level 1 to 0 (only kinds on its table, never level 3, never Swift's guess). **"Ask me about
   everything"** raises level 0 to 1, except reads in the read folders and volume.
 - **`intake.approves` is the one place approval is decided**, and its test checks it against the table above
   *(foundation decision 10)*. Change both together.
@@ -80,6 +86,7 @@ From [`docs/architecture/ownership.md`](../architecture/ownership.md) §1, §5 t
 | Reads | `executors/read_scope.ReadScope` | — |
 | Memory | `memory.Store.write` (`said` text must be in the owner's words; `approved` needs a card) | — |
 | Presence | `presence`, `intake` step 1 | about four checks in `session` (RV-15) |
+| Swift's guess (IA-01 phase 2) | `system/understand.propose` (only a plain command, `PROPOSABLE` intents, every slot read from the owner's words), `routing/rules.guessed` (`GUESS_SOURCES`: hotkey, wake phrase, typing), `system/lane.SystemLane.propose` (its own yes/no question showing every slot; a yes runs `confirmed`), approved by `intake.approves` at level 1; `restated` keeps the bare grammar, so the guessed-from words ask again (`test_guess.py`, the seam scenario in `test_seam_replay.py`) | learned trust isn't built, so R2 has nothing to enforce yet |
 
 ## 5. Not built yet (2026-11-15)
 

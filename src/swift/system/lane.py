@@ -191,6 +191,54 @@ class SystemLane:
         """The owner said yes to what ``run`` asked about."""
         return await self._execute(list(intents))
 
+    async def propose(self, intent: it.Intent) -> Outcome:
+        """Swift's guess (IA-01 phase 2; CLAUDE.md "Swift's guess"): never done, only asked, as Swift's own yes/no
+        question showing every slot a yes runs (P2-6). A disruptive guess asks the lane's one question ("Turn off
+        Wi-Fi?"), never two. No ``asking.NOTE``, and asked even for ``asking.EXEMPT`` intents (P2-7). Only a yes,
+        through ``confirmed``, runs it: never ``start``, ``fill`` or ``redo`` (P2-1)."""
+        names = (intent.name,)
+        if it.disruptive(intent):
+            said, note = await self.question([intent])
+            return Outcome(said, True, names, pending=(intent,), ask=("yes_no", None), note=note)
+        said = self.guess_question(intent)
+        if said is None:
+            return Outcome("That time has already passed.", True, names)
+        return Outcome(said, True, names, pending=(intent,), ask=("yes_no", None))
+
+    def guess_question(self, i: it.Intent) -> str | None:
+        """The question for a guessed (non-disruptive) intent, from its payload, naming every slot ``_do`` uses;
+        None for a time already past."""
+        match i.name:
+            case "timer.set":
+                return f"Set a timer for {it.say_duration(i['seconds'])}{' for ' + i['label'] if i['label'] else ''}?"
+            case "alarm.set" | "reminder.set":
+                now = self.now()
+                due = it.resolve(i["when"], now)
+                if due is None:
+                    return None
+                when = f"in {it.say_duration(i['when'].seconds)}" if i["when"].seconds is not None else f"at {it.say_when(due, now)}"
+                return f"Set an alarm {when}?" if i.name == "alarm.set" else f"Remind you to {i['label']} {when}?"
+            case "volume.step":
+                return f"Turn the volume {'up' if i['delta'] > 0 else 'down'} by {abs(i['delta'])}?"
+            case "volume.set":
+                return f"Set the volume to {i['level']}?"
+            case "mute":
+                return "Mute the sound?" if i["on"] else "Unmute the sound?"
+            case "media":
+                return {"pause": "Pause what's playing?", "play": "Press play?", "next": "Skip to the next track?",
+                        "prev": "Go back to the previous track?"}[i["action"]]
+            case "brightness.step":
+                return f"Turn the brightness {'up' if i['delta'] > 0 else 'down'} by {abs(i['delta'])}?"
+            case "brightness.set":
+                return f"Set the brightness to {i['level']}?"
+            case "theme":
+                return f"Switch to {'dark' if i['dark'] else 'light'} mode?"
+            case "dnd":
+                return f"Turn {'on' if i['on'] else 'off'} Do not disturb?"
+            case "radio":
+                return f"Turn {'on' if i['on'] else 'off'} {self._radio_name(i['kind'])}?"
+        raise ValueError(f"{i.name} is not guessed")  # understand.PROPOSABLE and this must change together
+
     async def run_intents(self, intents: list[it.Intent]) -> Outcome:
         """For the agent's ``system_action`` tool: the gateway already confirmed and journals it."""
         return await self._execute(intents, journaled=False)

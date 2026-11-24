@@ -131,3 +131,29 @@
 {"id": "neg-r02", "family": "lock", "kind": "negation", "text": "Lock the computer. No wait, don't.", "want": "nothing", "note": "HA-SYS-10"}
 {"id": "q-v01", "family": "volume", "kind": "variant", "text": "Volume up?", "want": [{"name": "volume.step"}], "note": "a verbless change has no read: still a request (phase 1 review F2)"}
 {"id": "q-t01", "family": "timer", "kind": "variant", "text": "Timer for 5 minutes?", "want": [{"name": "timer.set", "slots": {"seconds": 300}}], "note": "phase 1 review F2"}
+{"id": "stm-01", "family": "timer", "kind": "statement", "text": "my timer just went off", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-02", "family": "radio", "kind": "statement", "text": "I turned the wifi off yesterday", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-03", "family": "theme", "kind": "statement", "text": "the video says turn on dark mode", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-04", "family": "lock", "kind": "statement", "text": "he said lock your screen", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-05", "family": "radio", "kind": "statement", "text": "I wonder if I should turn off the wifi", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-06", "family": "timer", "kind": "statement", "text": "I set a timer for ten minutes earlier", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-07", "family": "volume", "kind": "statement", "text": "the volume was too loud last night", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-08", "family": "volume", "kind": "statement", "text": "my sister told me to turn the volume down", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-09", "family": "reminder", "kind": "statement", "text": "I wonder if I need a reminder in an hour", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-10", "family": "radio", "kind": "statement", "text": "turned the bluetooth off a minute ago", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-11", "family": "theme", "kind": "statement", "text": "I wonder whether dark mode is on", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-12", "family": "timer", "kind": "statement", "text": "the recipe says set a timer for 20 minutes", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r03", "family": "timer", "kind": "negation", "text": "Set a timer for two minutes. No wait, don't.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r04", "family": "volume", "kind": "negation", "text": "Turn the volume up. Actually, never mind.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r05", "family": "timer", "kind": "negation", "text": "Time me for two minutes. Cancel that.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r06", "family": "timer", "kind": "negation", "text": "Count down from three minutes. Never mind.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r07", "family": "radio", "kind": "negation", "text": "Disconnect from the wifi. No, don't.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r08", "family": "radio", "kind": "negation", "text": "Can you get the wifi back on? Actually no.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r09", "family": "timer", "kind": "negation", "text": "don't give me ten minutes on the clock", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r10", "family": "timer", "kind": "negation", "text": "never count down from three minutes", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-01", "family": "reminder", "kind": "unsupported", "text": "remind Sam in ten minutes about the laundry", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-02", "family": "radio", "kind": "unsupported", "text": "tell Ada to turn off the wifi", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-03", "family": "timer", "kind": "unsupported", "text": "give her ten minutes on the clock", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-04", "family": "reminder", "kind": "unsupported", "text": "nudge Sam in an hour about the budget", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-05", "family": "timer", "kind": "unsupported", "text": "count down three minutes for him", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-06", "family": "radio", "kind": "unsupported", "text": "disconnect the wifi for Ada", "want": "agent", "note": "IA-01 phase 2, P2-3"}

@@ -220,6 +220,9 @@ class DemandClassifierSettings(_Section):
     # Off by default (owner decision 2026-10-23): on the test split it under-estimated 1 of 13 standard
     # requests, where the keywords had 0. Turn on once that is back to 0 (more examples, learn_demand.py).
     enabled: bool = False
+    # Swift's guess ("Set a timer for 2 minutes?") for a command the grammar missed uses the same model's family
+    # vote (IA-01 phase 2): it only asks. On even while ``enabled`` (the demand vote) is off.
+    guesses: bool = True
     model_dir: Expanded = "%LOCALAPPDATA%/Swift/models/bge-small-en-v1.5"
     # int8 model (34 MB, ~14 ms); false uses the fp32 one (133 MB, ~20 ms), same accuracy on the eval set.
     quantized: bool = True

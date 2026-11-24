@@ -1,0 +1,445 @@
+{"text": "set a timer for 10 minutes", "family": "timer"}
+{"text": "hey swift set a timer for 10 minutes", "family": "timer"}
+{"text": "can you set a timer for 10 minutes", "family": "timer"}
+{"text": "please set a timer for 10 minutes", "family": "timer"}
+{"text": "set a 5 minute timer for the pasta", "family": "timer"}
+{"text": "hey swift set a 5 minute timer for the pasta", "family": "timer"}
+{"text": "can you set a 5 minute timer for the pasta", "family": "timer"}
+{"text": "please set a 5 minute timer for the pasta", "family": "timer"}
+{"text": "timer for an hour and a half", "family": "timer"}
+{"text": "hey swift timer for an hour and a half", "family": "timer"}
+{"text": "can you timer for an hour and a half", "family": "timer"}
+{"text": "please timer for an hour and a half", "family": "timer"}
+{"text": "start a timer for 30 seconds", "family": "timer"}
+{"text": "hey swift start a timer for 30 seconds", "family": "timer"}
+{"text": "can you start a timer for 30 seconds", "family": "timer"}
+{"text": "please start a timer for 30 seconds", "family": "timer"}
+{"text": "set a timer for twenty minutes", "family": "timer"}
+{"text": "hey swift set a timer for twenty minutes", "family": "timer"}
+{"text": "can you set a timer for twenty minutes", "family": "timer"}
+{"text": "please set a timer for twenty minutes", "family": "timer"}
+{"text": "how long is left on the timer", "family": "timer"}
+{"text": "hey swift how long is left on the timer", "family": "timer"}
+{"text": "how much time is left on my timer", "family": "timer"}
+{"text": "hey swift how much time is left on my timer", "family": "timer"}
+{"text": "what timers do I have", "family": "timer"}
+{"text": "hey swift what timers do I have", "family": "timer"}
+{"text": "cancel the timer", "family": "timer"}
+{"text": "hey swift cancel the timer", "family": "timer"}
+{"text": "can you cancel the timer", "family": "timer"}
+{"text": "please cancel the timer", "family": "timer"}
+{"text": "cancel all my timers", "family": "timer"}
+{"text": "hey swift cancel all my timers", "family": "timer"}
+{"text": "can you cancel all my timers", "family": "timer"}
+{"text": "please cancel all my timers", "family": "timer"}
+{"text": "stop the pasta timer", "family": "timer"}
+{"text": "hey swift stop the pasta timer", "family": "timer"}
+{"text": "can you stop the pasta timer", "family": "timer"}
+{"text": "please stop the pasta timer", "family": "timer"}
+{"text": "wake me up at seven", "family": "alarm"}
+{"text": "hey swift wake me up at seven", "family": "alarm"}
+{"text": "can you wake me up at seven", "family": "alarm"}
+{"text": "please wake me up at seven", "family": "alarm"}
+{"text": "set an alarm for 6:30 am", "family": "alarm"}
+{"text": "hey swift set an alarm for 6:30 am", "family": "alarm"}
+{"text": "can you set an alarm for 6:30 am", "family": "alarm"}
+{"text": "please set an alarm for 6:30 am", "family": "alarm"}
+{"text": "set an alarm for seven thirty tomorrow", "family": "alarm"}
+{"text": "hey swift set an alarm for seven thirty tomorrow", "family": "alarm"}
+{"text": "can you set an alarm for seven thirty tomorrow", "family": "alarm"}
+{"text": "please set an alarm for seven thirty tomorrow", "family": "alarm"}
+{"text": "wake me at half past six", "family": "alarm"}
+{"text": "hey swift wake me at half past six", "family": "alarm"}
+{"text": "can you wake me at half past six", "family": "alarm"}
+{"text": "please wake me at half past six", "family": "alarm"}
+{"text": "remind me to call Sam at five", "family": "reminder"}
+{"text": "hey swift remind me to call Sam at five", "family": "reminder"}
+{"text": "can you remind me to call Sam at five", "family": "reminder"}
+{"text": "please remind me to call Sam at five", "family": "reminder"}
+{"text": "remind me in 20 minutes to take the pizza out", "family": "reminder"}
+{"text": "hey swift remind me in 20 minutes to take the pizza out", "family": "reminder"}
+{"text": "can you remind me in 20 minutes to take the pizza out", "family": "reminder"}
+{"text": "please remind me in 20 minutes to take the pizza out", "family": "reminder"}
+{"text": "remind me to call mum tomorrow at 9 am", "family": "reminder"}
+{"text": "hey swift remind me to call mum tomorrow at 9 am", "family": "reminder"}
+{"text": "can you remind me to call mum tomorrow at 9 am", "family": "reminder"}
+{"text": "please remind me to call mum tomorrow at 9 am", "family": "reminder"}
+{"text": "set a reminder to stretch in an hour", "family": "reminder"}
+{"text": "hey swift set a reminder to stretch in an hour", "family": "reminder"}
+{"text": "can you set a reminder to stretch in an hour", "family": "reminder"}
+{"text": "please set a reminder to stretch in an hour", "family": "reminder"}
+{"text": "remind me to leave for the station at 5 pm", "family": "reminder"}
+{"text": "hey swift remind me to leave for the station at 5 pm", "family": "reminder"}
+{"text": "can you remind me to leave for the station at 5 pm", "family": "reminder"}
+{"text": "please remind me to leave for the station at 5 pm", "family": "reminder"}
+{"text": "remind me to call Sam", "family": "reminder"}
+{"text": "hey swift remind me to call Sam", "family": "reminder"}
+{"text": "can you remind me to call Sam", "family": "reminder"}
+{"text": "please remind me to call Sam", "family": "reminder"}
+{"text": "remind me every weekday at 9 to check the lab bookings", "family": "other"}
+{"text": "hey swift remind me every weekday at 9 to check the lab bookings", "family": "other"}
+{"text": "can you remind me every weekday at 9 to check the lab bookings", "family": "other"}
+{"text": "please remind me every weekday at 9 to check the lab bookings", "family": "other"}
+{"text": "volume up", "family": "volume"}
+{"text": "hey swift volume up", "family": "volume"}
+{"text": "can you volume up", "family": "volume"}
+{"text": "please volume up", "family": "volume"}
+{"text": "turn the volume down a bit", "family": "volume"}
+{"text": "hey swift turn the volume down a bit", "family": "volume"}
+{"text": "can you turn the volume down a bit", "family": "volume"}
+{"text": "please turn the volume down a bit", "family": "volume"}
+{"text": "set the volume to 30 percent", "family": "volume"}
+{"text": "hey swift set the volume to 30 percent", "family": "volume"}
+{"text": "can you set the volume to 30 percent", "family": "volume"}
+{"text": "please set the volume to 30 percent", "family": "volume"}
+{"text": "louder", "family": "volume"}
+{"text": "hey swift louder", "family": "volume"}
+{"text": "please louder", "family": "volume"}
+{"text": "make it quieter", "family": "volume"}
+{"text": "hey swift make it quieter", "family": "volume"}
+{"text": "can you make it quieter", "family": "volume"}
+{"text": "please make it quieter", "family": "volume"}
+{"text": "what's the volume", "family": "volume"}
+{"text": "hey swift what's the volume", "family": "volume"}
+{"text": "mute the sound", "family": "volume"}
+{"text": "hey swift mute the sound", "family": "volume"}
+{"text": "can you mute the sound", "family": "volume"}
+{"text": "please mute the sound", "family": "volume"}
+{"text": "unmute", "family": "volume"}
+{"text": "hey swift unmute", "family": "volume"}
+{"text": "please unmute", "family": "volume"}
+{"text": "pause the music", "family": "media"}
+{"text": "hey swift pause the music", "family": "media"}
+{"text": "can you pause the music", "family": "media"}
+{"text": "please pause the music", "family": "media"}
+{"text": "play the music", "family": "media"}
+{"text": "hey swift play the music", "family": "media"}
+{"text": "can you play the music", "family": "media"}
+{"text": "please play the music", "family": "media"}
+{"text": "next song", "family": "media"}
+{"text": "hey swift next song", "family": "media"}
+{"text": "can you next song", "family": "media"}
+{"text": "please next song", "family": "media"}
+{"text": "skip this song", "family": "media"}
+{"text": "hey swift skip this song", "family": "media"}
+{"text": "can you skip this song", "family": "media"}
+{"text": "please skip this song", "family": "media"}
+{"text": "previous track", "family": "media"}
+{"text": "hey swift previous track", "family": "media"}
+{"text": "can you previous track", "family": "media"}
+{"text": "please previous track", "family": "media"}
+{"text": "stop the music", "family": "media"}
+{"text": "hey swift stop the music", "family": "media"}
+{"text": "can you stop the music", "family": "media"}
+{"text": "please stop the music", "family": "media"}
+{"text": "play some jazz", "family": "other"}
+{"text": "hey swift play some jazz", "family": "other"}
+{"text": "can you play some jazz", "family": "other"}
+{"text": "please play some jazz", "family": "other"}
+{"text": "play Taylor Swift on Spotify", "family": "other"}
+{"text": "hey swift play Taylor Swift on Spotify", "family": "other"}
+{"text": "can you play Taylor Swift on Spotify", "family": "other"}
+{"text": "please play Taylor Swift on Spotify", "family": "other"}
+{"text": "turn on dark mode", "family": "theme"}
+{"text": "hey swift turn on dark mode", "family": "theme"}
+{"text": "can you turn on dark mode", "family": "theme"}
+{"text": "please turn on dark mode", "family": "theme"}
+{"text": "switch to light mode", "family": "theme"}
+{"text": "hey swift switch to light mode", "family": "theme"}
+{"text": "can you switch to light mode", "family": "theme"}
+{"text": "please switch to light mode", "family": "theme"}
+{"text": "turn off dark mode", "family": "theme"}
+{"text": "hey swift turn off dark mode", "family": "theme"}
+{"text": "can you turn off dark mode", "family": "theme"}
+{"text": "please turn off dark mode", "family": "theme"}
+{"text": "set brightness to 40", "family": "brightness"}
+{"text": "hey swift set brightness to 40", "family": "brightness"}
+{"text": "can you set brightness to 40", "family": "brightness"}
+{"text": "please set brightness to 40", "family": "brightness"}
+{"text": "turn the brightness down", "family": "brightness"}
+{"text": "hey swift turn the brightness down", "family": "brightness"}
+{"text": "can you turn the brightness down", "family": "brightness"}
+{"text": "please turn the brightness down", "family": "brightness"}
+{"text": "dim the screen", "family": "brightness"}
+{"text": "hey swift dim the screen", "family": "brightness"}
+{"text": "can you dim the screen", "family": "brightness"}
+{"text": "please dim the screen", "family": "brightness"}
+{"text": "make the screen brighter", "family": "brightness"}
+{"text": "hey swift make the screen brighter", "family": "brightness"}
+{"text": "can you make the screen brighter", "family": "brightness"}
+{"text": "please make the screen brighter", "family": "brightness"}
+{"text": "turn off wifi", "family": "radio"}
+{"text": "hey swift turn off wifi", "family": "radio"}
+{"text": "can you turn off wifi", "family": "radio"}
+{"text": "please turn off wifi", "family": "radio"}
+{"text": "turn on bluetooth", "family": "radio"}
+{"text": "hey swift turn on bluetooth", "family": "radio"}
+{"text": "can you turn on bluetooth", "family": "radio"}
+{"text": "please turn on bluetooth", "family": "radio"}
+{"text": "is my wifi on", "family": "radio"}
+{"text": "hey swift is my wifi on", "family": "radio"}
+{"text": "turn on airplane mode", "family": "radio"}
+{"text": "hey swift turn on airplane mode", "family": "radio"}
+{"text": "can you turn on airplane mode", "family": "radio"}
+{"text": "please turn on airplane mode", "family": "radio"}
+{"text": "bluetooth off", "family": "radio"}
+{"text": "hey swift bluetooth off", "family": "radio"}
+{"text": "can you bluetooth off", "family": "radio"}
+{"text": "please bluetooth off", "family": "radio"}
+{"text": "turn the wifi back on", "family": "radio"}
+{"text": "hey swift turn the wifi back on", "family": "radio"}
+{"text": "can you turn the wifi back on", "family": "radio"}
+{"text": "please turn the wifi back on", "family": "radio"}
+{"text": "turn bluetooth back on", "family": "radio"}
+{"text": "hey swift turn bluetooth back on", "family": "radio"}
+{"text": "can you turn bluetooth back on", "family": "radio"}
+{"text": "please turn bluetooth back on", "family": "radio"}
+{"text": "switch wifi back on", "family": "radio"}
+{"text": "hey swift switch wifi back on", "family": "radio"}
+{"text": "can you switch wifi back on", "family": "radio"}
+{"text": "please switch wifi back on", "family": "radio"}
+{"text": "airplane mode back off", "family": "radio"}
+{"text": "hey swift airplane mode back off", "family": "radio"}
+{"text": "can you airplane mode back off", "family": "radio"}
+{"text": "please airplane mode back off", "family": "radio"}
+{"text": "turn on do not disturb", "family": "focus"}
+{"text": "hey swift turn on do not disturb", "family": "focus"}
+{"text": "can you turn on do not disturb", "family": "focus"}
+{"text": "please turn on do not disturb", "family": "focus"}
+{"text": "focus mode on", "family": "focus"}
+{"text": "hey swift focus mode on", "family": "focus"}
+{"text": "can you focus mode on", "family": "focus"}
+{"text": "please focus mode on", "family": "focus"}
+{"text": "lock the computer", "family": "lock"}
+{"text": "hey swift lock the computer", "family": "lock"}
+{"text": "can you lock the computer", "family": "lock"}
+{"text": "please lock the computer", "family": "lock"}
+{"text": "lock my pc", "family": "lock"}
+{"text": "hey swift lock my pc", "family": "lock"}
+{"text": "can you lock my pc", "family": "lock"}
+{"text": "please lock my pc", "family": "lock"}
+{"text": "shut down the computer", "family": "other"}
+{"text": "hey swift shut down the computer", "family": "other"}
+{"text": "can you shut down the computer", "family": "other"}
+{"text": "please shut down the computer", "family": "other"}
+{"text": "restart my pc", "family": "other"}
+{"text": "hey swift restart my pc", "family": "other"}
+{"text": "can you restart my pc", "family": "other"}
+{"text": "please restart my pc", "family": "other"}
+{"text": "put the computer to sleep", "family": "other"}
+{"text": "hey swift put the computer to sleep", "family": "other"}
+{"text": "can you put the computer to sleep", "family": "other"}
+{"text": "please put the computer to sleep", "family": "other"}
+{"text": "what's my battery", "family": "info"}
+{"text": "hey swift what's my battery", "family": "info"}
+{"text": "how much space do I have left", "family": "info"}
+{"text": "hey swift how much space do I have left", "family": "info"}
+{"text": "how much ram am I using", "family": "info"}
+{"text": "hey swift how much ram am I using", "family": "info"}
+{"text": "what's my cpu usage", "family": "info"}
+{"text": "hey swift what's my cpu usage", "family": "info"}
+{"text": "how long has my computer been on", "family": "info"}
+{"text": "hey swift how long has my computer been on", "family": "info"}
+{"text": "open bluetooth settings", "family": "settings"}
+{"text": "hey swift open bluetooth settings", "family": "settings"}
+{"text": "can you open bluetooth settings", "family": "settings"}
+{"text": "please open bluetooth settings", "family": "settings"}
+{"text": "open the wi-fi settings", "family": "settings"}
+{"text": "hey swift open the wi-fi settings", "family": "settings"}
+{"text": "can you open the wi-fi settings", "family": "settings"}
+{"text": "please open the wi-fi settings", "family": "settings"}
+{"text": "open display settings", "family": "settings"}
+{"text": "hey swift open display settings", "family": "settings"}
+{"text": "can you open display settings", "family": "settings"}
+{"text": "please open display settings", "family": "settings"}
+{"text": "open settings", "family": "settings"}
+{"text": "hey swift open settings", "family": "settings"}
+{"text": "can you open settings", "family": "settings"}
+{"text": "please open settings", "family": "settings"}
+{"text": "minimize this window", "family": "window"}
+{"text": "hey swift minimize this window", "family": "window"}
+{"text": "can you minimize this window", "family": "window"}
+{"text": "please minimize this window", "family": "window"}
+{"text": "show the desktop", "family": "window"}
+{"text": "hey swift show the desktop", "family": "window"}
+{"text": "can you show the desktop", "family": "window"}
+{"text": "please show the desktop", "family": "window"}
+{"text": "snap this window to the left", "family": "window"}
+{"text": "hey swift snap this window to the left", "family": "window"}
+{"text": "can you snap this window to the left", "family": "window"}
+{"text": "please snap this window to the left", "family": "window"}
+{"text": "maximize the window", "family": "window"}
+{"text": "hey swift maximize the window", "family": "window"}
+{"text": "can you maximize the window", "family": "window"}
+{"text": "please maximize the window", "family": "window"}
+{"text": "take a screenshot", "family": "screenshot"}
+{"text": "hey swift take a screenshot", "family": "screenshot"}
+{"text": "can you take a screenshot", "family": "screenshot"}
+{"text": "please take a screenshot", "family": "screenshot"}
+{"text": "search the web for pasta recipes", "family": "search"}
+{"text": "hey swift search the web for pasta recipes", "family": "search"}
+{"text": "can you search the web for pasta recipes", "family": "search"}
+{"text": "please search the web for pasta recipes", "family": "search"}
+{"text": "google best laptops 2026", "family": "search"}
+{"text": "hey swift google best laptops 2026", "family": "search"}
+{"text": "can you google best laptops 2026", "family": "search"}
+{"text": "please google best laptops 2026", "family": "search"}
+{"text": "search the codebase for every place we call transcribe", "family": "other"}
+{"text": "hey swift search the codebase for every place we call transcribe", "family": "other"}
+{"text": "can you search the codebase for every place we call transcribe", "family": "other"}
+{"text": "please search the codebase for every place we call transcribe", "family": "other"}
+{"text": "search my email for the invoice", "family": "other"}
+{"text": "hey swift search my email for the invoice", "family": "other"}
+{"text": "can you search my email for the invoice", "family": "other"}
+{"text": "please search my email for the invoice", "family": "other"}
+{"text": "what time is it", "family": "other"}
+{"text": "hey swift what time is it", "family": "other"}
+{"text": "what time is it in Tokyo", "family": "other"}
+{"text": "hey swift what time is it in Tokyo", "family": "other"}
+{"text": "what's the date", "family": "other"}
+{"text": "hey swift what's the date", "family": "other"}
+{"text": "what day is it tomorrow", "family": "other"}
+{"text": "hey swift what day is it tomorrow", "family": "other"}
+{"text": "how many days until Christmas", "family": "other"}
+{"text": "hey swift how many days until Christmas", "family": "other"}
+{"text": "what's 15 percent of 80", "family": "other"}
+{"text": "hey swift what's 15 percent of 80", "family": "other"}
+{"text": "12 times 7", "family": "other"}
+{"text": "hey swift 12 times 7", "family": "other"}
+{"text": "please 12 times 7", "family": "other"}
+{"text": "convert 5 km to miles", "family": "other"}
+{"text": "hey swift convert 5 km to miles", "family": "other"}
+{"text": "can you convert 5 km to miles", "family": "other"}
+{"text": "please convert 5 km to miles", "family": "other"}
+{"text": "what's 30 celsius in fahrenheit", "family": "other"}
+{"text": "hey swift what's 30 celsius in fahrenheit", "family": "other"}
+{"text": "square root of 144", "family": "other"}
+{"text": "hey swift square root of 144", "family": "other"}
+{"text": "please square root of 144", "family": "other"}
+{"text": "what's a synonym for happy", "family": "other"}
+{"text": "hey swift what's a synonym for happy", "family": "other"}
+{"text": "how do you say thank you in French", "family": "other"}
+{"text": "hey swift how do you say thank you in French", "family": "other"}
+{"text": "what does ubiquitous mean", "family": "other"}
+{"text": "hey swift what does ubiquitous mean", "family": "other"}
+{"text": "who wrote Middlemarch", "family": "other"}
+{"text": "hey swift who wrote Middlemarch", "family": "other"}
+{"text": "what's the capital of Peru", "family": "other"}
+{"text": "hey swift what's the capital of Peru", "family": "other"}
+{"text": "how tall is Mount Everest", "family": "other"}
+{"text": "hey swift how tall is Mount Everest", "family": "other"}
+{"text": "what's the weather today", "family": "other"}
+{"text": "hey swift what's the weather today", "family": "other"}
+{"text": "will it rain tomorrow", "family": "other"}
+{"text": "hey swift will it rain tomorrow", "family": "other"}
+{"text": "who won the football last night", "family": "other"}
+{"text": "hey swift who won the football last night", "family": "other"}
+{"text": "what's the latest news", "family": "other"}
+{"text": "hey swift what's the latest news", "family": "other"}
+{"text": "is the pharmacy open now", "family": "other"}
+{"text": "hey swift is the pharmacy open now", "family": "other"}
+{"text": "email Ada saying I'll be late", "family": "other"}
+{"text": "hey swift email Ada saying I'll be late", "family": "other"}
+{"text": "can you email Ada saying I'll be late", "family": "other"}
+{"text": "please email Ada saying I'll be late", "family": "other"}
+{"text": "read my latest email", "family": "other"}
+{"text": "hey swift read my latest email", "family": "other"}
+{"text": "can you read my latest email", "family": "other"}
+{"text": "please read my latest email", "family": "other"}
+{"text": "reply to the last email from Sam", "family": "other"}
+{"text": "hey swift reply to the last email from Sam", "family": "other"}
+{"text": "can you reply to the last email from Sam", "family": "other"}
+{"text": "please reply to the last email from Sam", "family": "other"}
+{"text": "what's on my calendar tomorrow", "family": "other"}
+{"text": "hey swift what's on my calendar tomorrow", "family": "other"}
+{"text": "add a meeting with Sam on Friday at 3", "family": "other"}
+{"text": "hey swift add a meeting with Sam on Friday at 3", "family": "other"}
+{"text": "can you add a meeting with Sam on Friday at 3", "family": "other"}
+{"text": "please add a meeting with Sam on Friday at 3", "family": "other"}
+{"text": "move my 2 pm meeting to 4", "family": "other"}
+{"text": "hey swift move my 2 pm meeting to 4", "family": "other"}
+{"text": "can you move my 2 pm meeting to 4", "family": "other"}
+{"text": "please move my 2 pm meeting to 4", "family": "other"}
+{"text": "find the hotel confirmation number in my email", "family": "other"}
+{"text": "hey swift find the hotel confirmation number in my email", "family": "other"}
+{"text": "can you find the hotel confirmation number in my email", "family": "other"}
+{"text": "please find the hotel confirmation number in my email", "family": "other"}
+{"text": "when is my flight", "family": "other"}
+{"text": "hey swift when is my flight", "family": "other"}
+{"text": "rewrite this more formally", "family": "other"}
+{"text": "hey swift rewrite this more formally", "family": "other"}
+{"text": "can you rewrite this more formally", "family": "other"}
+{"text": "please rewrite this more formally", "family": "other"}
+{"text": "write a haiku about tea here", "family": "other"}
+{"text": "hey swift write a haiku about tea here", "family": "other"}
+{"text": "can you write a haiku about tea here", "family": "other"}
+{"text": "please write a haiku about tea here", "family": "other"}
+{"text": "tidy my downloads folder", "family": "other"}
+{"text": "hey swift tidy my downloads folder", "family": "other"}
+{"text": "can you tidy my downloads folder", "family": "other"}
+{"text": "please tidy my downloads folder", "family": "other"}
+{"text": "how big is my downloads folder", "family": "other"}
+{"text": "hey swift how big is my downloads folder", "family": "other"}
+{"text": "stop", "family": "other"}
+{"text": "hey swift stop", "family": "other"}
+{"text": "please stop", "family": "other"}
+{"text": "never mind", "family": "other"}
+{"text": "hey swift never mind", "family": "other"}
+{"text": "please never mind", "family": "other"}
+{"text": "repeat that", "family": "other"}
+{"text": "hey swift repeat that", "family": "other"}
+{"text": "please repeat that", "family": "other"}
+{"text": "call mum", "family": "other"}
+{"text": "hey swift call mum", "family": "other"}
+{"text": "can you call mum", "family": "other"}
+{"text": "please call mum", "family": "other"}
+{"text": "text Sam that I'm on my way", "family": "other"}
+{"text": "hey swift text Sam that I'm on my way", "family": "other"}
+{"text": "can you text Sam that I'm on my way", "family": "other"}
+{"text": "please text Sam that I'm on my way", "family": "other"}
+{"text": "take a photo", "family": "other"}
+{"text": "hey swift take a photo", "family": "other"}
+{"text": "can you take a photo", "family": "other"}
+{"text": "please take a photo", "family": "other"}
+{"text": "how many steps did I take today", "family": "other"}
+{"text": "hey swift how many steps did I take today", "family": "other"}
+{"text": "pay Sam 20 dollars", "family": "other"}
+{"text": "hey swift pay Sam 20 dollars", "family": "other"}
+{"text": "can you pay Sam 20 dollars", "family": "other"}
+{"text": "please pay Sam 20 dollars", "family": "other"}
+{"text": "navigate home", "family": "other"}
+{"text": "hey swift navigate home", "family": "other"}
+{"text": "can you navigate home", "family": "other"}
+{"text": "please navigate home", "family": "other"}
+{"text": "set a timer", "family": "dialogue"}
+{"text": "hey swift set a timer", "family": "dialogue"}
+{"text": "can you set a timer", "family": "dialogue"}
+{"text": "please set a timer", "family": "dialogue"}
+{"text": "start a timer for the pasta", "family": "dialogue"}
+{"text": "hey swift start a timer for the pasta", "family": "dialogue"}
+{"text": "can you start a timer for the pasta", "family": "dialogue"}
+{"text": "please start a timer for the pasta", "family": "dialogue"}
+{"text": "remind me to call the dentist", "family": "dialogue"}
+{"text": "hey swift remind me to call the dentist", "family": "dialogue"}
+{"text": "can you remind me to call the dentist", "family": "dialogue"}
+{"text": "please remind me to call the dentist", "family": "dialogue"}
+{"text": "set a reminder to water the plants", "family": "dialogue"}
+{"text": "hey swift set a reminder to water the plants", "family": "dialogue"}
+{"text": "can you set a reminder to water the plants", "family": "dialogue"}
+{"text": "please set a reminder to water the plants", "family": "dialogue"}
+{"text": "remind me to buy milk every morning", "family": "other"}
+{"text": "hey swift remind me to buy milk every morning", "family": "other"}
+{"text": "can you remind me to buy milk every morning", "family": "other"}
+{"text": "please remind me to buy milk every morning", "family": "other"}
+{"text": "set a timer and write a haiku about tea", "family": "other"}
+{"text": "hey swift set a timer and write a haiku about tea", "family": "other"}
+{"text": "can you set a timer and write a haiku about tea", "family": "other"}
+{"text": "please set a timer and write a haiku about tea", "family": "other"}
+{"text": "remind me what we decided about the logo", "family": "other"}
+{"text": "hey swift remind me what we decided about the logo", "family": "other"}
+{"text": "can you remind me what we decided about the logo", "family": "other"}
+{"text": "please remind me what we decided about the logo", "family": "other"}
+{"text": "remind me on friday to call the bank", "family": "other"}
+{"text": "hey swift remind me on friday to call the bank", "family": "other"}
+{"text": "can you remind me on friday to call the bank", "family": "other"}
+{"text": "please remind me on friday to call the bank", "family": "other"}

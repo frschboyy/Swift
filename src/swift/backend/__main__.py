@@ -364,10 +364,11 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
     if not settings.routing:
         return None, None
     cfg = settings.demand_classifier
-    if not cfg.enabled:
+    if not cfg.enabled and not cfg.guesses:
         return route, None
     estimate = ClassifierEstimate(
-        Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized
+        Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized,
+        demand=cfg.enabled,
     )
     return estimate.route, estimate
 

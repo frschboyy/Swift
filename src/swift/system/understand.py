@@ -2,7 +2,8 @@
 
 ``understand(text)`` says what kind of thing the owner said (the speech act) and which system intents the grammar
 (``intents.parse``) finds in it, after a gate: a question changes nothing, and a request taken back ("Lock the
-computer. No wait, don't.") asks for nothing. It proposes nothing: guessing an intent the grammar misses is phase 2.
+computer. No wait, don't.") asks for nothing. ``propose(text, family_of)`` is Swift's guess when the grammar finds
+nothing (IA-01 phase 2, below): it only ever makes Swift ask.
 
 Who calls it, and who keeps the bare grammar (review condition C1-1):
 
@@ -16,6 +17,9 @@ Who calls it, and who keeps the bare grammar (review condition C1-1):
   done), ``session._brisk_system`` (sizes a reply) and ``SystemLane.matches``. None of them acts on its own: each
   works on a request one of the callers above already let through, or only words a reply. ``timers.heard`` reads
   its own two phrases, not the grammar.
+- **Swift's guess** (``propose``) is called only by the router through ``rules.with_guess`` (from
+  ``ClassifierEstimate.route``), and taken only by the session's ``rules.guessed``. None of the bare-grammar callers
+  above sees a guess.
 
 The gate on grammar matches (C1-3):
 
@@ -28,15 +32,32 @@ The gate on grammar matches (C1-3):
   the volume down."). A clause that negates its own request ("don't
   turn off the wifi") is no grammar match today, so nothing else changes.
 
-``Understood.record()`` is the run record's ``understood`` field: names only, never slots or words (P2-8).
+Swift's guess (phase 2; review conditions P2-1 to P2-8; CLAUDE.md "Swift's guess"):
+
+- Only for a command found positively (a leading verb or a request lead, one clause, no question), with no
+  negation, retraction, third party, report, past or elsewhere anywhere in it (``_VETO``, P2-3), that the grammar
+  finds nothing in.
+- The family is the classifier's vote (``classifier.FamilyVote``; None while it isn't loaded: no guess). Its slots
+  come from the grammar's own readers (``seconds_of``, ``find_when``, on/off, the device words) and every one the
+  intent needs must be read from the owner's words, never asked (P2-1). Only ``PROPOSABLE`` intents (P2-5).
+- Only from a request the owner started (``may_guess``: the hotkey, the wake phrase, typing; P2-4). The router
+  attaches the guess (``rules.with_guess``); the session takes it only for those sources (``rules.guessed``).
+- The lane asks it as its own yes/no question showing every slot (``SystemLane.propose``, P2-6) and runs it only
+  with ``confirmed`` after a yes, never through ``start``, ``fill`` or ``redo`` (P2-1). ``restated`` keeps the bare
+  grammar, so saying the guessed-from words again asks again (P2-2).
+
+``Understood.record()`` and ``Guess.record()`` are the run record's ``understood`` field: names and numbers only,
+never slots or words (P2-8).
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any, Literal
 
+from swift import intake
 from swift.system import intents as it
 
 Act = Literal["command", "question", "negation", "other"]
@@ -53,7 +74,7 @@ _VERBS = frozenset("""
     mute unmute silence pause play resume skip next previous louder quieter softer open close show lock minimize
     maximize restore snap take search google look go wake remind cancel time
     write send find tell email draft check read summarize call text book schedule move delete copy rename save
-    download translate explain list run
+    download translate explain list run count nudge let
 """.split())
 _ASKS = frozenset("how what what's whats is are does do did why when where which who whose".split())
 _NEGATES = re.compile(r"(?:don't|dont|do not(?! disturb)|never)\b")
@@ -132,3 +153,162 @@ def understand(text: str, each_clause: bool = False) -> Understood:
     else:
         found = []
     return Understood(act, found or None)
+
+
+# ---- Swift's guess (phase 2) ------------------------------------------------------------------------------------
+
+# What a guess may be about (P2-5): a new grammar intent isn't guessed until it is listed here. Never lock (a TV's
+# yes on the open microphone must not lock the PC), search (a web address comes from the owner's words, foundation
+# decision 4), settings, window or screenshot.
+PROPOSABLE = frozenset({
+    "timer.set", "alarm.set", "reminder.set", "volume.step", "volume.set", "mute", "media", "brightness.set",
+    "brightness.step", "theme", "dnd", "radio",
+})
+# Who may start one (P2-4): a request the owner started. Never ``followup``, ``beside``, ``answer``, ``over_speech``.
+GUESS_SOURCES = frozenset({"voice", "wake", "typed"})
+# The family vote's share below which Swift doesn't guess.
+GUESS_AT = 0.5
+
+_NUM = "one two three four five six seven eight nine"
+# "Set a timer four five minutes": normalize sums the two to "9", which the owner never said.
+_TWO_NUMBERS = re.compile(rf"\b(?:{'|'.join(_NUM.split())}) (?:{'|'.join(_NUM.split())}|ten|eleven|twelve|thirteen|"
+                          r"fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty)\b")
+# Anything here vetoes a guess (P2-3): negation, retraction, condition, past, report, someone else, elsewhere.
+_VETO = re.compile(
+    r"\b(?:don'?t|do not(?! disturb)|never|not|no|nope|without|leave|keep|wait|actually|cancel|never ?mind|scratch"
+    r"|forget|if|unless|whether|maybe|yesterday|earlier|already|ago|last night|says?|said|told|he|she|they|someone"
+    r"|somebody|everyone|him|her|them|his|their)\b"
+    r"|\b(?:remind|tell|ask|text|message|email|call|wake) (?!me\b|us\b|myself\b|up\b)"
+    r"|\b(?:phone|tv|television|router|chrome|browser|car|echo|alexa|tablet|ipad|kindle|door|office"
+    r"|kitchen|lights?|file)(?:'?s)?\b"
+)
+# Someone named: "remind Sam", "for Ada" (speech recognition writes names capitalized).
+_NAMED = re.compile(r"\b(?:for|to|tell|remind|ask) (?!I\b)[A-Z][a-z]+")
+
+_UP = frozenset("up louder raise increase higher boost brighter brighten".split())
+# Not "darker": dark mode or brightness, Swift can't tell (theme-v04 wants a question back, not a guess).
+_DOWN = frozenset("down quieter softer lower decrease reduce dim dimmer".split())
+_ON = frozenset("on enable activate connect reconnect".split())
+_OFF = frozenset("off disable deactivate disconnect kill shut cut".split())
+_MEDIA = {"pause": "pause stop hold", "play": "play resume continue unpause", "next": "next skip forward",
+          "prev": "previous back"}
+
+
+@dataclass(frozen=True)
+class Guess:
+    """Swift's guess: one intent, every slot read from the owner's words, and the vote it came from."""
+
+    intent: it.Intent
+    family: str
+    score: float
+
+    def record(self) -> dict[str, Any]:
+        """The run record's ``understood`` for a guess: names and a number, never slots (P2-8)."""
+        return {"act": "command", "source": "similar", "family": [self.intent.name], "score": round(self.score, 2)}
+
+
+def may_guess(source: str | None) -> bool:
+    """Whether a request from ``source`` may get a guess (P2-4; spoken-like sources count as ``voice``)."""
+    return intake.SPOKEN_LIKE.get(source or "", source) in GUESS_SOURCES
+
+
+def _one(words: set[str], up: frozenset[str], down: frozenset[str]) -> int | None:
+    """+1 or -1 when the words say exactly one way; None when they say neither or both."""
+    a, b = bool(words & up), bool(words & down)
+    return None if a == b else (1 if a else -1)
+
+
+def _number(t: str) -> int | None:
+    found = re.findall(r"\b\d{1,3}\b", t)
+    return int(found[0]) if len(found) == 1 and int(found[0]) <= 100 else None
+
+
+def _radio_kind(t: str) -> str | None:
+    words = t.split()
+    wifi = bool(re.search(r"\b(?:wi-?fi|wi fi|wireless|internet)\b", t)) or any(
+        it.heard_as_wifi(" ".join(words[i:i + n])) for n in (1, 2) for i in range(len(words)))
+    blue = bool(re.search(r"\b(?:bluetooth|blue tooth)\b", t))
+    return None if wifi == blue else ("wifi" if wifi else "bluetooth")
+
+
+def _timer(t: str, words: set[str]) -> it.Intent | None:
+    seconds = it.seconds_of(t)
+    return it.Intent("timer.set", {"seconds": seconds, "label": ""}) if seconds and 0 < seconds <= it.MAX_TIMER_S else None
+
+
+def _alarm(t: str, words: set[str]) -> it.Intent | None:
+    found = it.find_when(t, prefer_am="wake" in words)
+    return it.Intent("alarm.set", {"when": found[0]}) if found and found[0].hour is not None else None
+
+
+def _reminder(t: str, words: set[str]) -> it.Intent | None:
+    found = it.find_when(t)
+    what = re.search(r"\bme (?:to|about|that|of) (.+)$", found[1]) if found else None
+    label = what.group(1).strip() if what else ""
+    if found is None or not label or len(label.split()) > 10 or re.search(r"\b(?:and|then|also)\b", label):
+        return None  # the text must be the owner's, whole, and one thing (rem-c01: an email became a label)
+    return it.Intent("reminder.set", {"when": found[0], "label": label})
+
+
+def _volume(t: str, words: set[str]) -> it.Intent | None:
+    if "unmute" in words or "un mute" in t:
+        return it.Intent("mute", {"on": False})
+    if words & {"mute", "silence"}:
+        return it.Intent("mute", {"on": True})
+    if (level := _number(t)) is not None:
+        return it.Intent("volume.set", {"level": level})
+    sign = _one(words, _UP, _DOWN)
+    return it.Intent("volume.step", {"delta": 10 * sign}) if sign else None
+
+
+def _brightness(t: str, words: set[str]) -> it.Intent | None:
+    if (level := _number(t)) is not None:
+        return it.Intent("brightness.set", {"level": level})
+    sign = _one(words, _UP, _DOWN)
+    return it.Intent("brightness.step", {"delta": 20 * sign}) if sign else None
+
+
+def _media(t: str, words: set[str]) -> it.Intent | None:
+    actions = [a for a, said in _MEDIA.items() if words & set(said.split())]
+    return it.Intent("media", {"action": actions[0]}) if len(actions) == 1 else None
+
+
+def _theme(t: str, words: set[str]) -> it.Intent | None:
+    dark = _one(words, frozenset({"dark", "night"}), frozenset({"light"}))
+    on = _one(words, _ON, _OFF) or 1
+    return it.Intent("theme", {"dark": (dark > 0) == (on > 0)}) if dark else None
+
+
+def _dnd(t: str, words: set[str]) -> it.Intent | None:
+    on = _one(words, _ON, _OFF)
+    return it.Intent("dnd", {"on": on > 0}) if on else None
+
+
+def _radio(t: str, words: set[str]) -> it.Intent | None:
+    kind, on = _radio_kind(t), _one(words, _ON, _OFF)
+    return it.Intent("radio", {"kind": kind, "on": on > 0}) if kind and on else None
+
+
+# The classifier's families (``families.jsonl``) and the grammar's readers for their slots.
+_READERS: dict[str, Callable[[str, set[str]], it.Intent | None]] = {
+    "timer": _timer, "alarm": _alarm, "reminder": _reminder, "volume": _volume, "brightness": _brightness,
+    "media": _media, "theme": _theme, "focus": _dnd, "radio": _radio,
+}
+
+
+def propose(text: str, family_of: Callable[[str], tuple[str, float]] | None) -> Guess | None:
+    """Swift's guess at a command the grammar missed, or None (see the module). ``family_of``: the classifier's
+    family vote, None while it isn't loaded."""
+    if family_of is None or it.parse(text) is not None:
+        return None
+    t = it.normalize(text)
+    parts = [c for sentence in it.sentences(text) for c in it.clauses(sentence, loose=True)]
+    # A "?" is a question unless it is asked as a request ("can you get the wifi back on?"): stricter than the gate.
+    asked = text.rstrip().endswith("?") and not it.polite(text)
+    if (len(parts) != 1 or not _commands(text) or asked or _VETO.search(t) or _NAMED.search(text)
+            or _TWO_NUMBERS.search(text.lower())):
+        return None
+    family, score = family_of(text)
+    reader = _READERS.get(family)
+    intent = reader(t, set(t.split())) if reader is not None and score >= GUESS_AT else None
+    return Guess(intent, family, score) if intent is not None and intent.name in PROPOSABLE else None

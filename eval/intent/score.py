@@ -1,6 +1,6 @@
 """Score how Swift understands a request against the intent set (docs/explorations/intent-architecture.md §4).
 
-Usage:  PYTHONPATH=src python eval/intent/score.py [--show]
+Usage:  PYTHONPATH=src python eval/intent/score.py [--show] [--no-model]
 
 Each row of ``cases.jsonl`` says what the owner meant: system intents (``want`` a list), a workflow
 (``{"workflow": name}``), the agent with a system part (``agent+system``), the agent alone (``agent``),
@@ -17,6 +17,12 @@ recognition wrote. The scorer runs the real code with no session and no real act
 - ``wrong_route``: another workflow took it, or none of the system intents that were meant.
 - ``false_action``: Swift acts (or answers from the system lane) on something not meant.
 - ``wrong_confirm``: Swift asks to confirm a change that wasn't meant ("Turn off Wi-Fi?" after "don't ...").
+- ``asks_guess``: Swift asks its guess (IA-01 phase 2, "Set a timer for 2 minutes?") and the guess is what was meant.
+- ``wrong_guess``: Swift asks a guess that isn't what was meant, or asks one where nothing was (a question, a
+  negation, someone else's request): nothing acts without a yes, but it must never happen on those rows.
+
+Guesses use the classifier's family vote with the real model (``settings.demand_classifier.model_dir``), as a
+hotkey request (source ``voice``). Without the model, or with ``--no-model``, there are none, as in the app.
 
 No model runs: the light lane and the agent are not called. ``to_agent`` and ``slow_ok`` say where a
 request went, not what the agent then said.
@@ -30,13 +36,24 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from swift.routing.rules import route
+from swift.routing.rules import guessed, route, with_guess
 from swift.system import intents as it
 from swift.workflows import system_tools as st
 from swift.workflows.library import load_library
 
 HERE = Path(__file__).parent
-BAD = ("dead_end", "wrong_route", "false_action", "wrong_confirm")
+BAD = ("dead_end", "wrong_route", "false_action", "wrong_confirm", "wrong_guess")
+
+
+def family_vote() -> Any:
+    """The classifier's family vote with the real model, or None when it isn't on this PC."""
+    from swift.routing.classifier import ClassifierUnavailable, Embedder, FamilyVote, load_families
+    from swift.settings import Settings
+
+    try:
+        return FamilyVote(Embedder(Path(Settings().demand_classifier.model_dir)).embed, load_families())
+    except ClassifierUnavailable:
+        return None
 
 
 def load() -> list[dict[str, Any]]:
@@ -92,10 +109,14 @@ def _answer(want: dict[str, Any]) -> str:
     }.get(want["name"], "")
 
 
-def judge(row: dict[str, Any], library: Any) -> tuple[str, str]:
+def judge(row: dict[str, Any], library: Any, family: Any = None) -> tuple[str, str]:
     """(outcome, path) for one row."""
     text, want = row["text"], row["want"]
-    r = route(text)
+    r = guessed(with_guess(route(text), family), "voice")
+    if r.action == "system_guess":
+        assert r.guess is not None
+        meant = isinstance(want, list) and len(want) == 1 and _same(want[0], r.guess.intent)
+        return ("asks_guess" if meant else "wrong_guess"), f"guess:{r.guess.intent.name} {r.guess.intent.slots}"
     if r.route == "local" and r.action == "system":
         got = it.parse(r.text) or []
         path = "system:" + ",".join(g.name for g in got)
@@ -126,9 +147,9 @@ def judge(row: dict[str, Any], library: Any) -> tuple[str, str]:
     return {"accept": "slow_ok", "ask": "asks", "ask_refused": "dead_end", "refuse": "dead_end"}[verdict], path + f" (system_action: {verdict})"
 
 
-def score(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def score(rows: list[dict[str, Any]], family: Any = None) -> dict[str, Any]:
     library = load_library(None)
-    results = {r["id"]: judge(r, library) for r in rows}
+    results = {r["id"]: judge(r, library, family) for r in rows}
     by_kind: dict[str, Counter[str]] = defaultdict(Counter)
     by_family: dict[str, Counter[str]] = defaultdict(Counter)
     for r in rows:
@@ -137,7 +158,8 @@ def score(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {"results": results, "total": Counter(o for o, _ in results.values()), "kind": by_kind, "family": by_family}
 
 
-OUTCOMES = ("correct", "slow_ok", "asks", "to_agent", "dead_end", "wrong_route", "false_action", "wrong_confirm")
+OUTCOMES = ("correct", "slow_ok", "asks", "asks_guess", "to_agent", "dead_end", "wrong_route", "false_action",
+            "wrong_confirm", "wrong_guess")
 
 
 def _line(label: str, c: Counter[str]) -> str:
@@ -147,13 +169,14 @@ def _line(label: str, c: Counter[str]) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true", help="list every row that isn't correct")
+    ap.add_argument("--no-model", action="store_true", help="no guesses: the grammar alone (phase 1)")
     args = ap.parse_args()
     rows = load()
-    s = score(rows)
+    s = score(rows, None if args.no_model else family_vote())
     print(f"{'':12} " + " ".join(f"{o[:6]:>6}" for o in OUTCOMES) + f" {'n':>6}")
     print(_line("all", s["total"]))
     print()
-    for k in ("variant", "stt", "question", "negation", "compound", "unsupported"):
+    for k in ("variant", "stt", "question", "negation", "statement", "compound", "unsupported"):
         print(_line(k, s["kind"][k]))
     print()
     for f in sorted(s["family"]):

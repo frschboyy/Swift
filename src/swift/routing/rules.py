@@ -137,6 +137,8 @@ class Route:
     # What the understanding step made of a system or agent request: (("understood", {"act", "source", "family"}),)
     # for the run record (``understand.Understood.record``; IA-01 phase 1). Names only.
     understood: tuple[tuple[str, object], ...] = ()
+    # Swift's guess at a command the grammar missed (``with_guess``; IA-01 phase 2): only ever a question.
+    guess: understanding.Guess | None = None
 
 
 def _agent_key(name: str) -> str:
@@ -230,6 +232,22 @@ def _understood(found: Route) -> Route:
     if found.route != "agent":
         return found
     return replace(found, understood=(("understood", understanding.understand(found.text, each_clause=True).record()),))
+
+
+def with_guess(found: Route, family_of: Callable[[str], tuple[str, float]] | None) -> Route:
+    """An agent request the grammar missed, with Swift's guess at it when there is one (``understand.propose``).
+    It stays an agent route: only ``guessed`` turns it into Swift's question, for a source that may have one."""
+    if found.route != "agent" or (guess := understanding.propose(found.text, family_of)) is None:
+        return found
+    return replace(found, guess=guess)
+
+
+def guessed(found: Route, source: str | None) -> Route:
+    """The system lane's guess question (``system_guess``) for a request the owner started (P2-4), else the agent."""
+    if found.route != "agent" or found.guess is None or not understanding.may_guess(source):
+        return found
+    return Route("local", found.text, action="system_guess", guess=found.guess,
+                 understood=(("understood", found.guess.record()),))
 
 
 def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | None]) -> Route:

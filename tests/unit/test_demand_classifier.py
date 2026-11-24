@@ -135,7 +135,12 @@ def test_backend_router_uses_the_classifier_when_enabled() -> None:
     router, estimate = _make_router(on)
     assert isinstance(estimate, ClassifierEstimate) and router == estimate.route  # carries its route vote (IA-01)
     assert estimate.example_files[0] == BASE_EXAMPLES
-    assert _make_router(Settings()) == (route, None)  # off by default
+    assert estimate.demand
+    # Off by default, the demand vote stays off; the model still loads for Swift's guess (IA-01 phase 2).
+    _, guessing = _make_router(Settings())
+    assert isinstance(guessing, ClassifierEstimate) and not guessing.demand
+    off = Settings.model_validate({"demand_classifier": {"guesses": False}})
+    assert _make_router(off) == (route, None)
     assert _make_router(Settings.model_validate({"routing": False})) == (None, None)
 
 

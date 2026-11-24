@@ -15,22 +15,39 @@ assert _spec is not None and _spec.loader is not None
 score = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(score)
 
-# Measured at 7d83958 (2026-11-24). Lower these when a change improves them; never raise them.
-MAX_DEAD_ENDS = 31
+# Lower these when a change improves them; never raise them. The grammar alone: 31 at 7d83958 (2026-11-24).
+# With Swift's guess (IA-01 phase 2, the real model's family vote): 17 (2026-11-25).
+MAX_DEAD_ENDS_GRAMMAR = 31
+MAX_DEAD_ENDS = 17
 MAX_FALSE_ACTIONS = 1  # rem-c01: a compound's second half becomes the reminder's label
 
 
-def test_the_intent_set_never_gets_worse() -> None:
-    total = score.score(score.load())["total"]
-    assert total["wrong_confirm"] == 0
+@pytest.fixture(scope="module")
+def family() -> object:
+    vote = score.family_vote()
+    if vote is None:
+        pytest.skip("the classifier's model isn't on this PC (settings.demand_classifier.model_dir)")
+    return vote
+
+
+def _never_worse(s: dict, dead_ends: int) -> None:
+    total = s["total"]
+    assert total["wrong_confirm"] == 0 and total["wrong_guess"] == 0
     assert total["false_action"] <= MAX_FALSE_ACTIONS
-    assert total["dead_end"] <= MAX_DEAD_ENDS
+    assert total["dead_end"] <= dead_ends
+    # Nothing that isn't a request for this PC acts or gets a guess (P2-3): every one of these rows is correct.
+    for kind in ("question", "negation", "statement", "unsupported"):
+        assert s["kind"][kind]["correct"] == sum(s["kind"][kind].values()), kind
 
 
-def test_questions_and_negations_never_act() -> None:
-    s = score.score(score.load())
-    assert s["kind"]["question"]["correct"] == sum(s["kind"]["question"].values())
-    assert s["kind"]["negation"]["correct"] == sum(s["kind"]["negation"].values())
+def test_the_intent_set_never_gets_worse_with_the_grammar_alone() -> None:
+    _never_worse(score.score(score.load()), MAX_DEAD_ENDS_GRAMMAR)
+
+
+def test_the_intent_set_never_gets_worse_with_swifts_guess(family: object) -> None:
+    s = score.score(score.load(), family)
+    _never_worse(s, MAX_DEAD_ENDS)
+    assert s["total"]["asks_guess"] >= 31 - MAX_DEAD_ENDS  # the dead ends fell because Swift asks, not elsewhere
 
 
 @pytest.mark.xfail(strict=True, reason="IA-01: a phrasing the grammar misses dead-ends on the agent path")

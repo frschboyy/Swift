@@ -175,6 +175,7 @@ from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import (
     _normalize,
+    guessed,
     refers_here,
     refers_to_selection,
     route_midrun,
@@ -2779,7 +2780,7 @@ class Session:
                 # (owner checks 2026-11-04: "Swift, yes" went to the agent and Wi-Fi stayed on).
                 "answer", "click",
             ):
-                decision = self._follow_local(self.router(transcript), transcript, record)
+                decision = self._follow_local(guessed(self.router(transcript), record.get("source")), transcript, record)
                 named = route_target(transcript)
                 ended = named is not None and named[0] == "stop" and self._find(named[1], besides=run, gone=True) is not None
                 if named is not None and (self._live(besides=run) or ended):
@@ -3093,7 +3094,7 @@ class Session:
         if action == "show_last":
             await self._show_last(decision, record)
             return
-        if action in ("system", "system_undo", "system_carry") and self.system is not None:
+        if action in ("system", "system_undo", "system_carry", "system_guess") and self.system is not None:
             await self._system_lane(decision, record)
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
@@ -3132,9 +3133,8 @@ class Session:
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
 
     async def _system_lane(self, decision: Route, record: dict[str, Any]) -> None:
-        """The system lane (ADR-016 §3): carry the request out, ask what it needs, say what was done.
-        Its questions are this request's, so it stays alive until they're answered: its card, Stop,
-        replay and the stack are every request's (reliability review, item 7)."""
+        """The system lane (ADR-016 §3): carry the request out (or ask Swift's guess), ask what it needs, say what was
+        done. Its questions are this request's, so it stays alive until they're answered (reliability review, item 7)."""
         assert self.system is not None
         card = f"local-{next(self._local_ids)}"
         if decision.action == "system_undo":
@@ -3146,7 +3146,7 @@ class Session:
                 intents, replaces = turn.answer.value
                 outcome = await (self.system.redo(intents) if replaces else self.system.start(intents))
             else:
-                outcome = await self.system.run(decision.text)
+                outcome = await (self.system.propose(decision.guess.intent) if decision.guess else self.system.run(decision.text))
             if outcome is None:  # parsing is deterministic, so this is a bug; say so rather than do nothing
                 said, ok, record["intents"] = "Sorry, I couldn't work that out.", False, []
             else:

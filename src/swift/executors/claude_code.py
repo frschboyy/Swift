@@ -732,6 +732,9 @@ class ClaudeCodeExecutor:
         run = self._get(run_id)
         if run.finished.is_set():
             return
+        if run.result is not None:  # answered and closing: wait for the close, don't cancel it (EX-04)
+            await run.finished.wait()
+            return
         run.cancelled = True
         for future in run.pending.values():
             if not future.done():
@@ -1075,16 +1078,18 @@ class ClaudeCodeExecutor:
             logger.warning("claude run failed", error=type(exc).__name__)  # its text: the card and the local log
             run.result = self._final(run, outcome, exc)
         finally:
-            if run.client is not None:
-                with contextlib.suppress(Exception):
-                    await asyncio.wait_for(run.client.disconnect(), 5)
-            if run.cli_pid is not None and psutil.pid_exists(run.cli_pid):
-                with contextlib.suppress(Exception):
-                    await _kill_tree(run.cli_pid)
-            run.finished.set()
-            run.queue.put_nowait(_DONE)
-            # One CLI per request: connect the next one now, while the owner reads the result.
-            self._refill()
+            try:
+                if run.client is not None:
+                    with contextlib.suppress(Exception):
+                        await asyncio.wait_for(run.client.disconnect(), 5)
+                if run.cli_pid is not None and psutil.pid_exists(run.cli_pid):
+                    with contextlib.suppress(Exception):
+                        await _kill_tree(run.cli_pid)
+            finally:  # a cancel landing in the close above must still finish the run (EX-04)
+                run.finished.set()
+                run.queue.put_nowait(_DONE)
+                # One CLI per request: connect the next one now, while the owner reads the result.
+                self._refill()
 
     async def _watched(self, run: _Run, stream: Any) -> AsyncIterator[Any]:
         """``stream``'s messages, ending the run if the CLI goes silent for ``stall_timeout_s`` while

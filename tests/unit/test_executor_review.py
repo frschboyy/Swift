@@ -188,14 +188,24 @@ async def test_a_failed_switch_mid_turn_never_sends_the_request_again(tmp_path: 
 # ---- EX-04: a cancel that lands while the run closes never finishes ---------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="EX-04: CancelledError in _pump's finally skips finished.set(); cancel() waits for ever")
 async def test_a_cancel_while_the_run_closes_still_finishes_it(tmp_path: Path) -> None:
     SlowDisconnect.closing, SlowDisconnect.release, SlowDisconnect.prompts = asyncio.Event(), asyncio.Event(), []
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=SlowDisconnect, prewarm=False)
     run_id = await ex.start(WorkerTask("what is in my notes"))
     await SlowDisconnect.closing.wait()  # answered; disconnect() is in progress (up to 5 s for the real CLI)
-    try:
-        await asyncio.wait_for(ex.cancel(run_id), 1.0)  # Esc, or the session closing
-    finally:
-        SlowDisconnect.release.set()
+    asyncio.get_running_loop().call_later(0.1, SlowDisconnect.release.set)
+    await asyncio.wait_for(ex.cancel(run_id), 1.0)  # Esc: waits for the close, which is the honest wait
     assert ex._runs[run_id].finished.is_set()
+    assert (await ex.result(run_id)).status == "done"  # it had its answer
+
+
+async def test_the_task_cancelled_inside_the_close_still_finishes_the_run(tmp_path: Path) -> None:
+    """Swift quitting cancels the run's task wherever it is: here, inside ``disconnect()``."""
+    SlowDisconnect.closing, SlowDisconnect.release, SlowDisconnect.prompts = asyncio.Event(), asyncio.Event(), []
+    ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=SlowDisconnect, prewarm=False)
+    run_id = await ex.start(WorkerTask("what is in my notes"))
+    await SlowDisconnect.closing.wait()
+    run = ex._runs[run_id]
+    assert run.task is not None
+    run.task.cancel()
+    await asyncio.wait_for(run.finished.wait(), 1.0)

@@ -33,16 +33,11 @@
   area: process
   severity: high
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: '_pump''s finally awaits client.disconnect() (up to 5 s) and _kill_tree inside suppress(Exception);
-    CancelledError escapes it, so run.finished.set(), _DONE and _refill() are skipped. cancel() only skips a run whose
-    finished is set, cancels the task and waits on finished for ever. Reproduced with a fake client whose disconnect
-    is slow: cancel() never returns, finished stays unset after the task is done. Read, not run: the session awaits
-    cancel inside to_the_end (session.py:2953), so its finally never releases the MAX_RUNS slot.'
+  evidence: "Root fix. _pump's close (disconnect, _kill_tree) is wrapped in an inner try/finally, so finished.set(), _DONE and _refill() run even when a cancel lands in it; cancel() waits for the close without cancelling a run whose result is set. The strict xfail repro now passes."
   test: tests/unit/test_executor_review.py::test_a_cancel_while_the_run_closes_still_finishes_it
-  note: 'Strict xfail. Fix (root): finished.set(), _DONE and _refill() in an inner finally; cancel() doesn''t cancel a
-    run whose result is set. Not measured: how long the real CLI takes to close (the window).'
+  note: 'Not measured: how long the real CLI takes to close, and a live run. Fix label: root.'
 - id: EX-01
   title: A change of mind said while a Claude Code run is closing is accepted and dropped; the old answer shows as Done.
   source: docs/explorations/executor-review.md, 2026-11-24

@@ -512,6 +512,16 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       keyOn = payload.value === "0" ? null : K.step(keyedButtons().map((b) => b.dataset.key!), keyOn, payload.value === "-1" ? -1 : 1);
       syncKeyed();
       break;
+    case "type-space": {
+      // Space on a card that has the keyboard: its mic button, if it has one (items 4, 15); never another button.
+      const mic = card.querySelector<HTMLButtonElement>(".card-mic");
+      if (!mic || !keyOn) break;
+      keyOn = null;
+      typedDraft = payload.text ?? typedDraft;
+      mic.click();
+      closeTyping();
+      break;
+    }
     case "type-press": {
       // Enter on the button Tab reached presses it: the mouse's own click, with its guards (decision 2).
       const pressed = keyedButtons().find((b) => b.dataset.key === keyOn);
@@ -1414,6 +1424,12 @@ const noStore = { getItem: () => null };
 /** A manual Copy or Show, counted on this PC so a verb is offered after 3 (learn.ts). */
 const learnFrom = (action: string): void => { const st = learnStore(); if ((explore.what_can_i_say || explore.next_steps) && st) bump(st, action); };
 
+/** Items 4 and 15: say one follow-up to this card. It listens until the owner stops talking (card_mic.py); the
+ * capsule shows "Listening" as for the hotkey. Space presses it while the card has the keyboard (decided 2026-11-23). */
+const micButton = (runId: string | undefined): HTMLElement =>
+  Card.iconButton("mic", "Say a follow-up", () => void client.send({ type: "listen.card", data: {} }),
+    { class: "icon-btn card-mic", "data-key": `${runId ?? "card"}:mic` });
+
 /** A10: "What can I say?" on a card: its accepted phrases in an --accent-soft block, a mic per line, "· asks for
  * your OK" where a phrase ends in an OK card. Nothing in it runs anything; it only lists. */
 function sayButton(kind: "confirm" | "done"): HTMLElement | null {
@@ -1892,10 +1908,11 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
+        micButton(data.run_id),
         copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), micButton(data.run_id), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();

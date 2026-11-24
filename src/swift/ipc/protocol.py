@@ -96,6 +96,8 @@ _INBOUND: dict[str, dict[str, tuple[type, tuple[str, ...] | None]]] = {
     "speech.stop": {},
     # The tray's Pause listening / the capsule's Resume: the open microphone off or on (ADR-017).
     "listen": {"on": (bool, None)},
+    # The card's mic button, or Space on a card with the keyboard: one follow-up capture that ends by itself (card_mic.py).
+    "listen.card": {},
     # The tray's "Stop asking about everything" (modes study §3): turns it off. Only ever asks less than now.
     "asking": {"on": (bool, None)},
     # A8, "Speak answers" in the tray: "default" is config.yaml's speech.replies (frames.py).

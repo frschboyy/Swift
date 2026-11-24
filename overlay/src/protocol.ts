@@ -261,6 +261,8 @@ export type Outbound =
   | { type: "speech.stop"; data: Record<string, never> }
   // ADR-017: the tray's Pause listening (on: false) or the capsule's Resume (on: true).
   | { type: "listen"; data: { on: boolean } }
+  // Items 4 and 15: the card's mic button, or Space on a card with the keyboard: one follow-up that ends by itself.
+  | { type: "listen.card"; data: Record<string, never> }
   // The tray's "Stop asking about everything" (modes study §3): only ever false.
   | { type: "asking"; data: { on: boolean } }
   // A8, "Speak answers" in the tray: "default" is config.yaml's speech.replies.

@@ -45,7 +45,7 @@ FIELD_ORDER = (
 # The one line each interaction leaves in swift.log. An allow-list: a field that isn't here stays in
 # the local interaction log only, so a new field can't reach swift.log until someone decides it may.
 SUMMARY_FIELDS: frozenset[str] = frozenset({
-    "action", "answered_later", "artifacts", "asked", "asks", "audio_s", "back", "carried", "clip_flags",
+    "action", "answered_later", "artifacts", "asked", "asks", "audio_s", "back", "card_mic", "carried", "clip_flags",
     "confirmed", "context", "cost_usd", "demand", "denied", "desktop", "dialogue", "error_class",
     "duration_ms", "ended", "endpoint_waits", "error", "executor", "first_audio_ms", "fix",
     "follows_local", "fragment", "heard_back_ms", "improve", "intents", "interaction_ms", "live", "midrun",

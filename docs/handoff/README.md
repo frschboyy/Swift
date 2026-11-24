@@ -307,6 +307,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | `claude/typed-enter-fix` | Text box: typed text then Enter never presses the card's button | Open (2026-11-18) |
 | `claude/a12-c9-followup` | Docs: the follow-up order for A12 and C9 | Open (2026-11-16) |
 | `claude/docs-consolidation` | This documentation clean-up (`docs/audit/2026-11-18-docs-audit.md`) | Owner: merge after the Halo B8 branches (2026-11-18); merge `main` in first |
+| `claude/listening-feedback-3bb7ab` | Items 1, 4, 14, 15 of the 2026-11-18 run: the wake-miss diagnosis (`docs/audit/2026-11-18-wake-misses.md`), the orb reacting to the owner's voice at rest, the card's mic button and Space | Open (2026-11-24); changes `owner-checks.md` and the ledger; `card_mic.py` is a product-rule change waiting for another author's review |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
 
 Merged since the last check, rows removed: `claude/b4-diagram-902ffc` (B4 step 4; owner checks 404–407 still pending) and `claude/byline-no-provider`. Several worktrees under `.claude/worktrees/` still hold branches that are already merged; they can be removed with the owner's OK.

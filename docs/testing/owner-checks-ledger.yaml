@@ -94,6 +94,10 @@ areas:
     rule: Calls hold cards and speech like away and never approve; the hold is off unless explore.hold_during_calls is on
     paths: [src/swift/calls.py, src/swift/lifecycle.py]
     checks: [441]
+  listening-feedback:
+    rule: A capture started by the card's mic button or Space is a hands-free follow-up, never a gesture, and never starts while an OK or Swift's question waits
+    paths: [src/swift/card_mic.py, overlay/src/orb.ts]
+    checks: [listening-feedback-3bb7ab-1, listening-feedback-3bb7ab-2, listening-feedback-3bb7ab-3]
   asking-everything:
     rule: Ask me about everything raises level 0 to 1, except reads in the read folders and volume; it only adds questions
     paths: [src/swift/asking.py, src/swift/security/gateway.py, src/swift/system/lane.py, src/swift/executors/claude_code.py, src/swift/memory.py]

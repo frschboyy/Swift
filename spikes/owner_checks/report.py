@@ -471,6 +471,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("444 the orb follows the active monitor (A13, explore.follow_monitor)", LOOK, "check on screen with two monitors: after 1.5 s, never over a card, never full screen"),
         ("430 an OK set aside approves nothing until it's in front", LOOK, "check: nothing done from the stack; a refused click brings it forward"),
         ("431 words that only look like asking to write ask first", LOOK, "check: asked before writing in step 2"),
+        ("listening-feedback-3bb7ab-1 the orb grows with your voice at rest, never while paused", LOOK, "check on screen: blue dot, grey off, still while paused"),
+        ("listening-feedback-3bb7ab-2 the card's mic button and Space: one follow-up, same conversation", LOOK, "check: ends by itself; no mic on an OK card"),
+        ("listening-feedback-3bb7ab-3 Ctrl+Shift+Space on a card reopened from the stack", LOOK, "check: it listens; else paste the [overlay] hotkey lines"),
         ("413 a correction of what Swift heard was kept", bool(fixes_kept),
          ", ".join(f"{k} {n}" for k, n in sorted(fix_kinds.items())) or "none"),
         # Fixes from the checks of 2026-11-04.

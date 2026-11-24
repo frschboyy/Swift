@@ -3254,6 +3254,20 @@ written until you press Approve yourself. With `next_steps: false` there are no 
 
 You should see: in step 2 the orb fades out and back in at the same spot on that monitor after about 1.5 s; in step 3 the card stays where it is until it's gone; in step 4 the orb stays put; in step 5 it still moves, without a long fade. It never takes the keyboard or a click from your app. With `follow_monitor: false`, or one monitor, it never moves by itself.
 
+### Other words for the same request (claude/keen-moser-4e5a0c, 2026-11-24)
+
+About 3 minutes. Nothing here changes anything lasting: cancel the timer, and say "no" to the Wi-Fi question.
+
+<a id="check-keen-moser-4e5a0c-1"></a>**Check keen-moser-4e5a0c-1. "Set up a timer" works like "set a timer", and so do other words for Wi-Fi and Bluetooth**
+1. Say "Hey Swift, set up a timer for 1 minute". Then "Hey Swift, cancel the timer".
+2. Say "Hey Swift, I need a timer for 2 minutes", then cancel it.
+3. Say "Hey Swift, kill the Wi-Fi"; answer **no**. Say "Hey Swift, shut off Bluetooth"; answer **no**.
+4. Say "Hey Swift, how do I set up a timer?".
+
+You should see: steps 1 and 2 set a timer at once (the same card or answer as "set a timer for 1 minute"); in step 3 Swift
+asks "Turn off Wi-Fi?" / "Turn off Bluetooth?" first and nothing changes after "no"; step 4 is answered in words and no
+timer starts.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

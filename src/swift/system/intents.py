@@ -69,6 +69,7 @@ class Intent:
 
 _POLITE = re.compile(
     r"^(?:(?:can|could|would|will) you (?:please )?|i(?:'d| would) like you to |i want you to |i need you to"
+    r"|i(?:'d| would) like (?:to )?|i (?:need|want) (?:to )?|let'?s "
     r"|go ahead and |please |hey )+"
 )
 _HOURS = {
@@ -252,10 +253,11 @@ def say_duration(seconds: float) -> str:
 
 # ---- schedule: timers, alarms, reminders ----------------------------------------------------
 
-_SET = r"(?:set|start|make|create|begin|put on|add)"
+# "set up" and "start up" say the same as "set" and "start": one verb list, so a phrasing is not a new pattern.
+_SET = r"(?:set ?up|start ?up|set|start|make|create|begin|put on|put|add|give me|get me|get)"
 _LABEL = r"(?: (?:for|to|called|named|labelled|labeled|titled) (?P<label>[a-z0-9' ]{1,60}?))?"
 _TIMER_A = re.compile(rf"(?:{_SET} )?(?:an? |the |my )?(?P<d>{_DUR}) (?:count ?down )?timer{_LABEL}")
-_TIMER_B = re.compile(rf"(?:{_SET} )?(?:an? |the |my )?(?:count ?down )?timer (?:for|of|to) (?P<d>{_DUR}){_LABEL}")
+_TIMER_B = re.compile(rf"(?:{_SET} )?(?:an? |the |my )?(?:count ?down )?timer (?:on )?(?:for|of|to) (?P<d>{_DUR}){_LABEL}")
 _TIMER_C = re.compile(rf"(?:{_SET} )?(?:an? )?timer{_LABEL}")  # no length: needs asking
 _TIMER_LEFT = re.compile(
     r"(?:how (?:long|much time)(?: is)?(?: there)?(?: left| remaining)(?: on| for| in)?(?: the| my)?(?: (?P<label>[a-z0-9' ]+?))?(?: timer)?"
@@ -410,6 +412,7 @@ _MEDIA = [
 _THEME = [
     re.compile(r"(?:turn|switch|set|change|go|put|flip|enable|activate)(?: (?:on|to|into|it to))? (?:the )?(?:windows )?(?P<m>dark|light)(?: mode| theme)?"),
     re.compile(r"(?P<verb>turn|switch) (?P<onoff>on|off) (?:the )?(?:windows )?(?P<m>dark|light)(?: mode| theme)"),
+    re.compile(r"(?:make|set) (?:it|the screen|windows|everything) (?:to )?(?P<m>dark|light)(?: mode)?"),
     re.compile(r"(?P<verb>enable|disable) (?:the )?(?:windows )?(?P<m>dark|light)(?: mode| theme)"),
     re.compile(r"(?P<m>dark|light) (?:mode|theme) (?P<onoff>on|off)"),
     re.compile(r"(?:use|switch to) (?:the )?(?P<m>dark|light) (?:mode|theme)"),
@@ -578,10 +581,10 @@ _ONOFF = r"(?P<onoff>on|off)"
 # these went to the agent and got "I'm offline", while the offline list itself says "turn it back on").
 _AGAIN = r"(?: (?:back|again|now|please))*"
 _RADIO_SWITCH = [
-    re.compile(rf"(?:turn|switch|toggle|put|flip) {_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
-    re.compile(rf"(?:turn|switch|put|flip) (?:back )?{_ONOFF} {_RADIO}{_AGAIN}"),
+    re.compile(rf"(?:turn|switch|toggle|put|flip|shut|power|cut) {_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
+    re.compile(rf"(?:turn|switch|put|flip|shut|power|cut) (?:back )?{_ONOFF} {_RADIO}{_AGAIN}"),
     # Not "connect to Wi-Fi": that can mean joining a network, not switching the radio on.
-    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect|re-?enable) {_RADIO}{_AGAIN}"),
+    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect|re-?enable|kill|stop) {_RADIO}{_AGAIN}"),
     re.compile(rf"{_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
 ]
 _RADIO_GET = re.compile(rf"(?:(?:is|are) {_RADIO} (?:on|off|enabled|working|switched on|turned on)"
@@ -601,7 +604,7 @@ _DND_SWITCH = [
     re.compile(rf"(?P<verb>enable|disable|activate|deactivate|start|stop) {_DND}"),
     re.compile(rf"{_DND} {_ONOFF}"),
 ]
-_OFF_VERBS = ("disable", "deactivate", "disconnect", "stop", "exit", "leave")
+_OFF_VERBS = ("disable", "deactivate", "disconnect", "stop", "exit", "leave", "kill")
 
 
 def _on(m: re.Match[str]) -> bool:

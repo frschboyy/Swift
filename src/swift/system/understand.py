@@ -229,8 +229,16 @@ def _one(words: set[str], up: frozenset[str], down: frozenset[str]) -> int | Non
 
 
 def _number(t: str) -> int | None:
+    """A level: the only number, said after "to" or "at" ("set the volume to 30"), with no direction word; else
+    None. A direction with a number ("up 2 notches", "down to 5") is neither a level nor a step Swift can read for
+    sure, so it gets no guess (review F2)."""
     found = re.findall(r"\b\d{1,3}\b", t)
-    return int(found[0]) if len(found) == 1 and int(found[0]) <= 100 else None
+    level = re.search(r"\b(?:to|at) (\d{1,3})\b", t)
+    return int(level.group(1)) if len(found) == 1 and level and int(level.group(1)) <= 100 else None
+
+
+def _numbered(words: set[str], t: str) -> bool:
+    return bool(words & (_UP | _DOWN)) and re.search(r"\d", t) is not None
 
 
 def _radio_kind(t: str) -> str | None:
@@ -265,6 +273,8 @@ def _volume(t: str, words: set[str]) -> it.Intent | None:
         return it.Intent("mute", {"on": False})
     if words & {"mute", "silence"}:
         return it.Intent("mute", {"on": True})
+    if _numbered(words, t):
+        return None
     if (level := _number(t)) is not None:
         return it.Intent("volume.set", {"level": level})
     sign = _one(words, _UP, _DOWN)
@@ -272,6 +282,8 @@ def _volume(t: str, words: set[str]) -> it.Intent | None:
 
 
 def _brightness(t: str, words: set[str]) -> it.Intent | None:
+    if _numbered(words, t):
+        return None
     if (level := _number(t)) is not None:
         return it.Intent("brightness.set", {"level": level})
     sign = _one(words, _UP, _DOWN)

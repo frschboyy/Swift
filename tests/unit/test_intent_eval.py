@@ -16,9 +16,12 @@ score = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(score)
 
 # Lower these when a change improves them; never raise them. The grammar alone: 31 at 7d83958 (2026-11-24).
-# With Swift's guess (IA-01 phase 2, the real model's family vote): 17 (2026-11-25).
-MAX_DEAD_ENDS_GRAMMAR = 31
-MAX_DEAD_ENDS = 17
+# With Swift's guess (IA-01 phase 2, the real model's family vote): 17 (2026-11-25). Both counts then grew by 2 with
+# two rows the phase 2 review added (rv-14, rv-15: a direction with a number, where no guess is the chosen outcome),
+# not by a change getting worse.
+NEW_DEAD_END_ROWS = 2
+MAX_DEAD_ENDS_GRAMMAR = 31 + NEW_DEAD_END_ROWS
+MAX_DEAD_ENDS = 17 + NEW_DEAD_END_ROWS
 MAX_FALSE_ACTIONS = 1  # rem-c01: a compound's second half becomes the reminder's label
 
 
@@ -47,7 +50,7 @@ def test_the_intent_set_never_gets_worse_with_the_grammar_alone() -> None:
 def test_the_intent_set_never_gets_worse_with_swifts_guess(family: object) -> None:
     s = score.score(score.load(), family)
     _never_worse(s, MAX_DEAD_ENDS)
-    assert s["total"]["asks_guess"] >= 31 - MAX_DEAD_ENDS  # the dead ends fell because Swift asks, not elsewhere
+    assert s["total"]["asks_guess"] >= MAX_DEAD_ENDS_GRAMMAR - MAX_DEAD_ENDS  # the dead ends fell because Swift asks, not elsewhere
 
 
 @pytest.mark.xfail(strict=True, reason="IA-01: a phrasing the grammar misses dead-ends on the agent path")

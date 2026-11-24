@@ -44,6 +44,7 @@ def test_a_command_the_grammar_misses_is_guessed_with_slots_from_the_owners_word
     assert _guess("time me for two minutes") == it.Intent("timer.set", {"seconds": 120.0, "label": ""})
     assert _guess("disconnect from the wifi") == it.Intent("radio", {"kind": "wifi", "on": False})
     assert _guess("set a timer for 2 minutes") is None  # the grammar's: not a guess
+    assert _guess("take the volume to 30") == it.Intent("volume.set", {"level": 30})  # a level: after "to", no direction
     assert _guess("time me") is None  # no length in the owner's words: never asked for, so no guess (P2-1)
     assert u.propose("time me for two minutes", None) is None  # the classifier isn't loaded
 
@@ -59,6 +60,9 @@ def test_a_command_the_grammar_misses_is_guessed_with_slots_from_the_owners_word
     "Let me turn the volume down", "Let me turn off the bluetooth", "can you believe the volume went up",
     "Turn the volume down, Sam", "Bring the brightness up you guys", "Turn your volume up for this next song",
     "Turn off bluetooth, scrap that",
+    # F2: a direction with a number is neither a level nor a step Swift can read for sure.
+    "Turn the volume up 2 notches", "Nudge the volume down 3", "Bring the volume down to 5",
+    "turn the brightness up 30",
 ])
 def test_no_guess_for_what_isnt_a_plain_command_for_this_pc(text: str) -> None:
     assert _guess(text) is None

@@ -238,6 +238,11 @@ export function tick(l: Live, now: number, hovered: ReadonlySet<string> = new Se
   return changed ? { runs } : l;
 }
 
+/** Watch is for longer work: a request that has taken WATCH_STEPS steps (research, writing, many tools). A local
+ * answer or a request still being heard takes none, so it never gets one (owner, 2026-11-18, item 18). */
+export const WATCH_STEPS = 2;
+export const watchable = (steps: number | undefined): boolean => (steps ?? 0) >= WATCH_STEPS;
+
 export const openRuns = (l: Live): LiveRun[] => l.runs.filter((r) => r.open).slice(0, MAX_OPEN);
 export const find = (l: Live, runId: string): LiveRun | undefined => l.runs.find((r) => r.runId === runId);
 

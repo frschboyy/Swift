@@ -203,6 +203,8 @@ export type RunRow = {
   // The request in the owner's words (longer than the title).
   words?: string;
   origin?: Origin;
+  // How many steps it has taken (Watch is offered from live.WATCH_STEPS).
+  steps?: number;
 };
 
 // Halo's Explore ideas (A11-A13), each off by default (config.yaml explore).

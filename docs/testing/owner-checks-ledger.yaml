@@ -104,7 +104,7 @@ areas:
     checks: [414, 415, 416, 429, ui-fixes-1119-bd6fc8-1, ui-fixes-1119-bd6fc8-2]
   live-view:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
-    checks: [10, 90-95, 126, 127]
+    checks: [10, 90-95, 126, 127, ui-fixes-1119-bd6fc8-4]
   apps:
     rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]

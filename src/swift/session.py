@@ -606,7 +606,7 @@ class Run:
             "run_id": self.ui_id or f"req-{(self.record or {}).get('id', '')[:8]}",
             "thread_id": self.thread, "title": self.title, "state": state, "activity": self.activity,
             "app": self.app, "agent": self.agent, "started_ms": self.started_ms, "origin": "asked",
-            "summary": "" if self.alive or stopped else self.summary, "words": self.words,
+            "summary": "" if self.alive or stopped else self.summary, "words": self.words, "steps": len(self.steps),
         }
 
 

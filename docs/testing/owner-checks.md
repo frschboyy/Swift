@@ -3310,3 +3310,12 @@ on screen; (3) the hotkey's "reject" answers it; (4) End takes it off the screen
 
 You should see: the footer says "Swift · Paused while you read" in full (on two lines if it must), never cut off
 with "…".
+
+<a id="check-ui-fixes-1119-bd6fc8-4"></a>**Check ui-fixes-1119-bd6fc8-4. Watch is offered for longer work only**
+1. Say "Hey Swift, research the history of green tea and summarise it". While it runs, say "Hey Swift" and then,
+   when it listens, "what time is it".
+2. Rest the pointer on each strip under the card, and look at the working card's footer.
+
+You should see: no **Watch** on the time answer or on the strip that is still listening, and none on the research
+until it has taken a couple of steps; then the research offers **Watch**, and its Stop works. A watch never stays
+open, saying it's running, after its request ended.

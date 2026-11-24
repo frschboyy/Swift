@@ -42,6 +42,8 @@ export type Row = {
   summary: string;
   // The request in the owner's words (its edge's tooltip, and "Got it: …").
   words?: string;
+  // Steps taken so far (Watch: live.watchable).
+  steps?: number;
 };
 
 const RUNNING: ReadonlySet<string> = new Set(["queued", "listening", "transcribing", "working", "confirm"]);

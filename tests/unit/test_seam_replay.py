@@ -1630,6 +1630,31 @@ async def test_an_ok_reopened_from_the_stack_lives_like_the_first_time() -> None
     await finish_all(session, agent)
 
 
+async def test_watch_is_offered_for_longer_work_only() -> None:
+    """Owner's run of 2026-11-18, item 18: Watch opened on a local time answer queued behind another request
+    (``live view | run_id='req-b2cea73c' open=True``); the answer then came back as ``local-N``, so the watch kept
+    a dead id and its Stop was ``known=False``. Watch is for work that has taken steps: a request behind the
+    card with one step offers none, with two it does, and a local answer never does."""
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    research = await started(session, out, agent, stt, "Swift, research green tea")
+    await say(session, stt, "Swift, what time is it")
+    await asyncio.sleep(0.15)
+    await session.handle(Message("focus", {"run_id": first}))
+    await asyncio.sleep(0.05)
+    await until(lambda: any(r["run_id"] == research and r["steps"] == 1 for r in out.last("runs")["rows"]))  # the fake's first
+    screen = agree(session, out)
+    watch = dict(zip(screen["behind"], screen["behindWatch"], strict=True))
+    assert watch[research] is False and not any(watch.values()), screen
+    agent.runs[research]["queue"].put_nowait(ExecEvent("step", "Searching the web", activity="searching"))
+    await until(lambda: any(r["run_id"] == research and r["steps"] == 2 for r in out.last("runs")["rows"]))
+    screen = agree(session, out)
+    watch = dict(zip(screen["behind"], screen["behindWatch"], strict=True))
+    assert watch[research] is True and sum(watch.values()) == 1, screen  # the time answer offers none
+    await finish_all(session, agent)
+
+
 async def test_f5_the_same_question_asked_three_times_is_one_edge_with_a_count() -> None:
     """F5 (live run 2026-11-18): "what time is it" three times gave three identical "Ready to read" edges
     ("+2"). The same words ended the same way within a minute fold into one edge, "×3"."""

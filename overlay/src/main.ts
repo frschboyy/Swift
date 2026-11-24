@@ -354,7 +354,7 @@ const ROW_STATE: Record<string, string> = {
 function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   const rows: P.Row[] = data.rows.map((r) => ({
     runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
-    startedMs: r.started_ms, summary: r.summary, words: r.words,
+    startedMs: r.started_ms, summary: r.summary, words: r.words, steps: r.steps,
   }));
   // The card on screen, if this sends it behind: its edge starts there.
   const onCard = pres.focus ?? pres.card.runId;
@@ -735,8 +735,8 @@ const WORKING_ROW = (state: string): boolean => !["queued", "confirm", "listenin
 function autoWatch(now: number): void {
   if (display.watch === "ask") return;
   const running = [
-    ...(pres.runId && stageNow() === "working" ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
-    ...pres.rows.filter((r) => WORKING_ROW(r.state)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
+    ...(pres.runId && stageNow() === "working" && L.watchable(steps.length) ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
+    ...pres.rows.filter((r) => WORKING_ROW(r.state) && L.watchable(r.steps)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
   ];
   for (const r of running) {
     if (r.startedMs && Dsp.watchOpens(display, !!L.find(live, r.runId)?.written, now - r.startedMs, watchSeen.has(r.runId))) openLive(r.runId, r.title, r.words);
@@ -1169,7 +1169,7 @@ function renderWorking(): void {
       el("span", { class: "hint foot-gap" }, el("kbd", {}, "Esc"), "stops"),
       backButton ?? showButton,
       pres.runId && !L.find(live, pres.runId)?.open
-        ? el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
+        ? L.watchable(steps.length) && el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
         // B10, Run link: the card and the open watch are one run, on the same clock.
         : pres.runId ? el("span", { class: "run-link", title: "Open in the watch beside this card" }, icon("play"), "In the watch · ",
             el("span", { class: "run-link-time" }, V.elapsed(L.find(live, pres.runId)?.startedMs ?? runStarted))) : null,

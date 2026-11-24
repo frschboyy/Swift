@@ -3304,3 +3304,9 @@ else on screen says it: no flattened "Needs your OK" strip is left under the orb
 
 You should see: (2) the reopened card counts down and, when it runs out, goes back to the stack with nothing left
 on screen; (3) the hotkey's "reject" answers it; (4) End takes it off the screen at once, with no "Stopped" strip.
+
+<a id="check-ui-fixes-1119-bd6fc8-3"></a>**Check ui-fixes-1119-bd6fc8-3. "Paused while you read" is whole**
+1. Ask "Hey Swift, what time is it?" and rest the pointer on the answer card.
+
+You should see: the footer says "Swift · Paused while you read" in full (on two lines if it must), never cut off
+with "…".

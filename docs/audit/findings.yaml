@@ -25,6 +25,72 @@
     "Did you mean ...?" question from one understanding step, is in the exploration doc §5; it changes what a level 1
     question may come from, so it needs a review by someone other than its author. Phase 0 (observability, a
     safeguard, not a fix) is on this branch: each refusal leaves a reason code in tool_refusals and swift.log.'
+- id: EX-04
+  title: A cancel (Esc, or Swift quitting) that lands while a Claude Code run closes never finishes; the request hangs
+    and keeps one of the three run slots until Swift restarts.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: '_pump''s finally awaits client.disconnect() (up to 5 s) and _kill_tree inside suppress(Exception);
+    CancelledError escapes it, so run.finished.set(), _DONE and _refill() are skipped. cancel() only skips a run whose
+    finished is set, cancels the task and waits on finished for ever. Reproduced with a fake client whose disconnect
+    is slow: cancel() never returns, finished stays unset after the task is done. Read, not run: the session awaits
+    cancel inside to_the_end (session.py:2953), so its finally never releases the MAX_RUNS slot.'
+  test: tests/unit/test_executor_review.py::test_a_cancel_while_the_run_closes_still_finishes_it
+  note: 'Strict xfail. Fix (root): finished.set(), _DONE and _refill() in an inner finally; cancel() doesn''t cancel a
+    run whose result is set. Not measured: how long the real CLI takes to close (the window).'
+- id: EX-01
+  title: A change of mind said while a Claude Code run is closing is accepted and dropped; the old answer shows as Done.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'redirect() refuses only when finished is set or the run was cancelled. After the last turn the pump never
+    reads run.redirects again, but finished is set only after disconnect. Reproduced: redirect returns True, one query
+    is sent, the result is the first answer with status done; the session records redirected same_session.'
+  test: tests/unit/test_executor_review.py::test_a_change_of_mind_while_the_run_closes_is_refused_not_dropped
+  note: 'Strict xfail. Fix (root): redirect returns False once run.result is set; the session then restarts with the
+    change, as for other providers.'
+- id: EX-03
+  title: When Swift's own mid-run model switch fails with "couldn't confirm model", the run sends the owner's request
+    again into the same turn.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'The retry for the first model check (_pump, except around query and the stream) also wraps _watch ->
+    _escalate -> client.set_model. On that error it sets the default model and continues: query(request) again while
+    the first turn runs. Reproduced with a fake whose set_model refuses Opus once: two identical queries.'
+  test: tests/unit/test_executor_review.py::test_a_failed_switch_mid_turn_never_sends_the_request_again
+  note: 'Strict xfail. Inferred, not run: that the real CLI raises this on set_model. Each side effect still asks its
+    card. Fix: retry only before the turn''s first message, or catch it in _escalate and keep the model.'
+- id: EX-02
+  title: The owner asking for a change on a command card, or declining a read card, counts as a failed tool call; two
+    in a row move the run to Opus.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: '_ask denies with CHANGE_MESSAGE or READ_DECLINED_MESSAGE without adding to run.expected (only _too_long
+    and Swift tools'' ToolResult.expected do); the CLI returns the denial as an is_error tool result and _watch counts
+    it. Reproduced: two changes in a row escalate ("tool calls kept failing"). The module docstring says a change
+    isn''t a failure. Same, read not run: workflow, web, OWN-05 and outside_workflow refusals.'
+  test: tests/unit/test_executor_review.py::test_asking_for_a_change_twice_is_not_the_model_struggling
+  note: 'Strict xfail. Fix: one deny helper that counts Swift''s and the owner''s decisions as expected and reports a
+    reason code to tool_refusals (executor-review.md §5).'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

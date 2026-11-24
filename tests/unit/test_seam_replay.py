@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import pytest
 from test_dialogue import asker, asks
-from test_runs import SHORT, finish_all, make, say, started, until
+from test_runs import SHORT, Closing, finish_all, make, say, started, until
 from test_system_lane import lane
 from test_wake_acoustic import FakeScorer, stream
 from virtual_clock import VIRTUAL, event_loop_policy, one_clock, wall_ms  # noqa: F401 (fixtures)
@@ -1927,3 +1927,20 @@ async def test_the_weekly_improvement_pass_fails_with_swifts_origin() -> None:
     await session._send_failure(Failure("offline", "Can't reach", "m", "h"), {"source": "voice"})
     assert "origin" not in out.last("error")
     await finish_all(session, agent)
+
+
+async def test_ex01_a_change_said_while_the_run_closes_restarts_it_and_the_old_answer_is_never_shown() -> None:
+    """EX-01: the first run has its answer and is closing (the provider refuses the change). The owner's change
+    starts the request again: the screen never shows the old answer, and ends on the restarted run's."""
+    session, out, _records, agent, stt = make(Closing)
+    await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")
+    await say(session, stt, "Swift, actually make it about the deadline instead")
+    await until(lambda: len(agent.requests) == 2)
+    await _shows(out, lambda s: s["stage"] == "working" and s["cardRun"] is not None)  # type: ignore[attr-defined]
+    agree(session, out)
+    await finish_all(session, agent)
+    await _shows(out, lambda s: s["stage"] == "result" and s["answerSummary"] == "Done a-2.")
+    screen = agree(session, out)
+    assert screen["answerSummary"] == "Done a-2."
+    shown = [m.data.get("summary") for m in out.messages if m.type == "result"]
+    assert "Done a-1." not in shown, shown

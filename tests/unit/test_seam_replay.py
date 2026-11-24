@@ -1595,6 +1595,16 @@ async def test_f4_the_stage_follows_the_presenter_after_a_lapse() -> None:
     await finish_all(session, agent)
 
 
+async def test_an_ok_that_ran_out_is_in_the_stack_only_not_an_edge_too() -> None:
+    """Owner's run of 2026-11-18, item 17: a lapsed OK was flagged twice, in the stack ("held, no answer in time")
+    and as a flattened "Needs your OK" edge (its request's row). The stack says it; no edge is left behind."""
+    session, out, agent, _stt, rid = await _lapsed()
+    screen = agree(session, out)
+    assert screen["behind"] == [], f"the lapsed OK is still an edge: {screen}"
+    assert any(i["id"] == f"card:{rid}" and i["reason"] == "expired" for i in out.last("stack")["items"])
+    await finish_all(session, agent)
+
+
 async def test_f5_the_same_question_asked_three_times_is_one_edge_with_a_count() -> None:
     """F5 (live run 2026-11-18): "what time is it" three times gave three identical "Ready to read" edges
     ("+2"). The same words ended the same way within a minute fold into one edge, "×3"."""

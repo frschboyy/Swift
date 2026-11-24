@@ -3284,3 +3284,14 @@ Note the check number and the time. That's enough: the logs have the rest.
 4. Say "ask me about everything", repeat step 1.
 
 You should see: (2) the buttons Stop, Change and "Go ahead with 1 and 2", the hint "Steps 3 and 4 get their own card", no amber on the asking rows; (3) nothing that publishes or sends ran without its own card; (4) no plan card: every command asks.
+
+### Screen fixes from the owner's run of 2026-11-18 (claude/ui-fixes-1119, 2026-11-24)
+
+About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
+
+<a id="check-ui-fixes-1119-bd6fc8-1"></a>**Check ui-fixes-1119-bd6fc8-1. An OK that ran out is in the stack only**
+1. Ask for something that needs your OK ("Hey Swift, add lunch with Sam on Thursday at noon to my calendar"). Don't
+   answer it: let its countdown run out.
+
+You should see: the card leaves the screen and waits in the stack ("Needs your OK · held, no answer in time"). Nothing
+else on screen says it: no flattened "Needs your OK" strip is left under the orb.

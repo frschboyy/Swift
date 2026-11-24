@@ -1100,7 +1100,7 @@ class Session:
         self._sync_answer_capture()
         await self._send_stack()
         focus = self._focus
-        rows = [r.row() for r in self._runs if r is not focus and r.title]
+        rows = [r.row() for r in self._runs if r is not focus and r.title and all(r is not a for a, _ in self._aside)]  # an OK in the stack is never an edge too (item 17)
         waiting = max(0, len(self._cards) - 1)
         payload = {"focus": focus.ui_id if focus else None, "rows": rows, "waiting": waiting}
         last = self._rows_sent

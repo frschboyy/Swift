@@ -2888,12 +2888,12 @@ class Session:
                     record["addressed_as"] = decision.addressed_as
                     self._note = self._clarify(decision.addressed_as)
                 if decision.route != "agent":
-                    record["action"] = decision.action
+                    record.update(action=decision.action, **dict(decision.understood))  # IA-01 phase 1
                     if target is not None:
                         record["target"] = target.name
                     await self._handle_here(decision, record, target)
                     return
-                record.update(demand=decision.demand, **dict(decision.hint))  # hint: the classifier's route vote (IA-01)
+                record.update(demand=decision.demand, **dict(decision.hint), **dict(decision.understood))  # hint: the route vote (IA-01)
                 if decision.override:
                     record["override"] = decision.override
 

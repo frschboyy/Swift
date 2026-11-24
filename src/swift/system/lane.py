@@ -44,6 +44,7 @@ from swift.security.journal import Journal
 from swift.system import intents as it
 from swift.system.control import SystemControl, SystemUnavailable
 from swift.system.scheduler import Item, Scheduler, SchedulerError
+from swift.system.understand import understand
 
 UNDO_S = 600.0
 # Pressing play: how long sound has to start before Swift says nothing played, in how many looks.
@@ -127,7 +128,7 @@ class SystemLane:
     def claims(self, text: str) -> bool:
         """Whether Swift should handle ``text`` itself. A reminder to list or cancel when none was set
         here may be a calendar event or a task, so that goes to the agent, which has those."""
-        found = it.parse(text)
+        found = understand(text).intents
         if found is None:
             return False
         return not any(
@@ -138,7 +139,7 @@ class SystemLane:
     async def run(self, text: str) -> Outcome | None:
         """Carry out what the owner said. A disruptive change (Wi-Fi or Bluetooth off, airplane mode
         on) is not done: the outcome asks, and holds the intents in ``pending`` for ``confirmed``."""
-        found = it.parse(text)
+        found = understand(text).intents
         if found is None:
             return None
         return await self.start(found)

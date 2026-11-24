@@ -30,34 +30,29 @@ from loguru import logger
 from swift.connectors.base import ConnectorError
 from swift.security.gateway import Action
 from swift.system import intents as it
+from swift.system.understand import understand
 from swift.workflows.scope import RunScope
 from swift.workflows.tools import ToolHost, ToolResult, ToolSpec, _obj
-
-# Where one thing the owner asked for ends and the next begins.
-_CLAUSE = re.compile(
-    r"\b(?:and then|and also|after that|and|then|also|while|before|after|once|so that|because|but first|first)\b"
-)
-
-_SENTENCE = re.compile(r"(?<=[.!?;])\s+")
-
 
 def owner_intents(said: str, answers: list[str] | tuple[str, ...] = ()) -> list[it.Intent]:
     """Every system intent in the owner's own words, clause by clause: the request, and their answers
     to the run's questions. A short answer ("I meant Wi-Fi") also stands in for one word of the
     request, which speech recognition may have misheard ("turn off the wafer")."""
-    found = _intents(said)
+    request = understand(said, each_clause=True)  # one understanding step with the router and the lane (IA-01)
+    found = list(request.intents or ())
     for answer in answers:
-        found += [i for i in _intents(answer) if from_answer(i)]
+        found += [i for i in understand(answer, each_clause=True).intents or () if from_answer(i)]
         short = _LEAD.sub("", it.normalize(answer)).strip()
         if not short or len(short.split()) > MAX_STAND_IN or _NOT.search(short):
             continue  # "not Bluetooth" never stands in for anything
-        for sentence in _SENTENCE.split(said):
-            for clause in _CLAUSE.split(it.normalize(sentence)):
-                words = clause.split()
-                for i in range(len(words)):
-                    one = it.parse_one(" ".join([*words[:i], short, *words[i + 1:]]))
-                    if one is not None and from_answer(one):
-                        found.append(one)
+        if request.act == "negation":
+            continue  # nor in a request the owner took back or said not to do
+        for clause in it.clauses(said, loose=True):
+            words = clause.split()
+            for i in range(len(words)):
+                one = it.parse_one(" ".join([*words[:i], short, *words[i + 1:]]))
+                if one is not None and from_answer(one):
+                    found.append(one)
     return found
 
 
@@ -82,20 +77,6 @@ def from_answer(intent: it.Intent) -> bool:
 _NOT = re.compile(r"\b(?:not|don't|dont|never|no)\b")
 # An answer longer than this is a request of its own, read whole, never put inside another.
 MAX_STAND_IN = 3
-
-
-def _intents(said: str) -> list[it.Intent]:
-    whole = it.parse(said)
-    if whole is not None:
-        return whole
-    # Sentence ends first: normalizing drops the punctuation, and speech recognition writes full stops
-    # ("Turn the volume down. Write a haiku." found nothing, so the tool refused: 2026-11-05).
-    found: list[it.Intent] = []
-    for sentence in _SENTENCE.split(said):
-        for clause in _CLAUSE.split(it.normalize(sentence)):
-            if clause.strip() and (one := it.parse_one(clause)) is not None:
-                found.append(one)
-    return found
 
 
 # Its example once named Wi-Fi and Bluetooth, and the agent copied it word for word, offering Bluetooth the owner

@@ -264,6 +264,17 @@ only, never slots (P2-8). **Cost (review note 0-a):** the classifier now votes o
 requests, and those hints are thrown away). Kept on purpose: voting only when the keywords don't set the demand would
 lose the hint on 8 of the 31 dead ends. The independent review approved phase 0.
 
+**Phase 1, built (2026-11-25, `claude/sweet-booth-b2a0ba`):** `system/understand.py` `understand(text, each_clause=False)` returns
+`Understood(act, intents)`; its docstring lists which callers use it and which keep the bare grammar (C1-1). Callers:
+`rules._route`, `SystemLane.claims/run`, `system_tools.owner_intents` (each clause). Bare grammar kept: `restated`,
+`same_request`, `dialogue.elide`, `session._brisk_system`, `SystemLane.matches`. One splitter: `intents.clauses(text,
+loose)`, tested against the old two (`tests/unit/test_understand.py`; the gate may drop an intent, never add one, C1-2).
+The gate (C1-3) is applied to grammar matches: a change asked as a question is dropped (HA-SYS-03: partial, a safeguard
+at every acting path, the bare grammar still parses it), and an utterance with a clause that is only a retraction
+asks for nothing (HA-SYS-10: partial). **HA-SYS-09 stays open**: the gate can't tell what "it" is. The record gets
+`understood` = `{act, source, family}` (names only; allow-listed in `runlog.SUMMARY_FIELDS`). Eval: no row changed;
+parity 413/423, harmful 0. **Touches the provenance check: needs a review by someone other than its author.**
+
 ### 5.3 The speech-act gate (phase 1), concretely
 
 Deterministic, small, and tested by the eval's question and negation rows, and by new rows for the shapes the review

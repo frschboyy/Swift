@@ -848,15 +848,14 @@
   area: routing
   severity: medium
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
   evidence: fast.normalize strips '?' (routing/fast.py:96), then _RADIO_SWITCH form 4 '{radio} (back )?(on|off)'
     (intents.py:586) and _THEME form 4 (intents.py:414) match. Turning a radio on is not disruptive (intents.py:632-633),
     so lane.start runs it at once. 'is wifi on' correctly gives radio.get. 'wifi off?' asks first (disruptive),
     so only the 'on' side acts unasked.
   test: tests/unit/test_health_SYS.py::test_bluetooth_question_changes_nothing
-  note: Bluetooth on makes the PC discoverable, which system_tools.from_answer treats as needing care. The question
-    mark is lost before the grammar sees it; the lane would need the raw text or a flag from normalize.
+  note: "Bluetooth on makes the PC discoverable, which system_tools.from_answer treats as needing care. The question mark is lost before the grammar sees it; the lane would need the raw text or a flag from normalize. Safeguard, not root (IA-01 phase 1, intent-architecture branch): understand() drops a change asked as a question, so the router, the lane and the agent's provenance check no longer act on 'bluetooth on?'. The bare grammar still parses it (restated and same_request keep the bare grammar, review C1-1) and neither acts. Root unchanged: normalize drops the question mark. Owner check for the real PC still pending."
 - id: HA-SYS-05
   title: '''Undo that'' after an action with nothing to undo (next track, lock, a window, a reading) reverses an
     older change from up to 10 minutes before.'
@@ -920,8 +919,7 @@
     94-97) and finds lock; _same compares name and slots only (system_tools.py:114-115), and lock has none, so system_action('lock
     the computer') passes the scope check and runs as 'reversible' with no card (system_tools.py:153-162, 179).
   test: tests/unit/test_health_SYS.py::test_lock_it_in_another_request_is_not_lock_the_pc
-  note: The gate is shown open; the agent actually choosing to call it is not reproduced. Spoken directly to the
-    lane, 'Swift, lock it' locking is intended.
+  note: "The gate is shown open; the agent actually choosing to call it is not reproduced. Spoken directly to the lane, 'Swift, lock it' locking is intended. Left open by IA-01 phase 1 on purpose: the gate can't tell whether 'lock it' means the PC, so it still counts."
 - id: HA-HEAR-03
   title: After a bare "Hey Swift" that only the acoustic detector caught, the request sent to the agent keeps the
     misheard name and anything said before it.
@@ -1613,14 +1611,13 @@
   area: actions
   severity: low
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
   evidence: system_tools._intents parses sentence by sentence (system_tools.py:94-97) and never looks at a following
     negation; _NOT is applied only to answers (system_tools.py:52). Plain negations ('don't turn off wifi', 'never
     turn off the bluetooth', "don't lock the computer and turn the volume down") are correctly not actions (probed).
   test: tests/unit/test_health_SYS.py::test_a_retracted_lock_is_not_asked_for
-  note: The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first
-    sentence.
+  note: "The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first sentence. Safeguard (IA-01 phase 1): understand() drops every intent in an utterance with a clause that is only a retraction ('no wait, don't', 'never mind', 'cancel that'). Not caught: a retraction inside the same clause ('lock it never mind'; commas are gone after normalize). Owner check pending."
 - id: HA-SYS-11
   title: Timers are kept as wall-clock epoch times, so a clock correction or manual change makes a running timer
     fire early (marked missed) or late.

@@ -688,7 +688,24 @@ def _begun_again(text: str) -> str | None:
     return t[starts[-1].end():].strip() or None
 
 
-_SPLIT = re.compile(r"\s+(?:and then|and also|and|then|also|,)\s+|\s*,\s*(?:and |then )?")
+# Where one thing the owner asked for ends and the next begins: the one splitter for the lane's compounds and the
+# agent tool's provenance check (IA-01 phase 1). Commas and full stops are gone after ``normalize``, so words only.
+_AND = r"and then|and also|and|then|also"
+_ENDS = r"after that|while|before|after|once|so that|because|but first|first"
+_COMPOUND = re.compile(rf"\s+(?:{_AND})\s+")
+_CLAUSE = re.compile(rf"\b(?:{_AND}|{_ENDS})\b")
+_SENTENCE = re.compile(r"(?<=[.!?;])\s+")
+
+
+def clauses(text: str, loose: bool = False) -> list[str]:
+    """The clauses of ``text``, normalized. Strict (the lane's compounds): the whole utterance, split only where
+    "and", "then" or "also" join two requests. Loose (``system_action``'s check, where each clause is read alone):
+    sentence ends first, as speech recognition writes them ("Turn the volume down. Write a haiku."), then also
+    "before", "after", "because" ...; a part there may be something the owner asked for. Kept exactly as the two
+    old splitters (``test_understand.py`` compares them): merging them must accept nothing more (review C1-2)."""
+    if not loose:
+        return [p for p in _COMPOUND.split(normalize(text)) if p.strip()]
+    return [c for s in _SENTENCE.split(text) for c in _CLAUSE.split(normalize(s)) if c.strip()]
 
 
 def parse(text: str) -> list[Intent] | None:
@@ -697,8 +714,7 @@ def parse(text: str) -> list[Intent] | None:
         return [one]
     if (again := _begun_again(text)) is not None:
         return parse(again)
-    cleaned = normalize(text)
-    parts = [p for p in _SPLIT.split(cleaned) if p.strip()]
+    parts = clauses(text)
     if not 2 <= len(parts) <= 3:
         return None
     found = [parse_one(p) for p in parts]

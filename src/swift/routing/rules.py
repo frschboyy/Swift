@@ -51,7 +51,7 @@ from swift import memory
 from swift.executors.providers import AGENT_NAMES
 from swift.routing import fast, light
 from swift.routing.demand import estimate
-from swift.system import intents as system_intents
+from swift.system import understand as understanding  # a module: routing and system import each other
 
 RouteName = Literal["control", "local", "agent"]
 Demand = Literal["light", "standard"]
@@ -134,6 +134,9 @@ class Route:
     # The local classifier's vote when it thinks a rule missed an agent request: (("route_hint", "local"),
     # ("route_conf", 0.86)), for the run record (``ClassifierEstimate.route``; IA-01 phase 0). Never acted on.
     hint: tuple[tuple[str, object], ...] = ()
+    # What the understanding step made of a system or agent request: (("understood", {"act", "source", "family"}),)
+    # for the run record (``understand.Understood.record``; IA-01 phase 1). Names only.
+    understood: tuple[tuple[str, object], ...] = ()
 
 
 def _agent_key(name: str) -> str:
@@ -217,8 +220,16 @@ def route(text: str, default_demand: Demand = "standard",
         rest = text[m.end():].strip()
         if not rest:
             return Route("local", text.strip(), action="identity", addressed_as=called)
-        return replace(_route(rest, default_demand, demand_fn), addressed_as=called)
-    return _route(text, default_demand, demand_fn)
+        return _understood(replace(_route(rest, default_demand, demand_fn), addressed_as=called))
+    return _understood(_route(text, default_demand, demand_fn))
+
+
+def _understood(found: Route) -> Route:
+    """An agent request carries what the understanding step made of it: a command the grammar missed is IA-01's
+    dead end, counted on the record (phase 1). The system lane's route already carries it."""
+    if found.route != "agent":
+        return found
+    return replace(found, understood=(("understood", understanding.understand(found.text, each_clause=True).record()),))
 
 
 def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | None]) -> Route:
@@ -238,12 +249,12 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     if fast.answer(text) is not None:
         return Route("local", text.strip(), action="answer")
     # The system lane (ADR-016 §3): timers, reminders, volume, theme, lock, ... done by Swift.
-    if system_intents.parse(text) is not None:
-        return Route("local", text.strip(), action="system")
+    if (u := understanding.understand(text)).intents is not None:
+        return Route("local", text.strip(), action="system", understood=(("understood", u.record()),))
     # "How are you? Can you turn on airplane mode?": the greeting is no task, so the command is Swift's own,
     # with its own Yes/No question, not the agent's approval card (owner check, 2026-11-09 22:04).
-    if (rest := _after_pleasantries(text)) is not None and system_intents.parse(rest) is not None:
-        return Route("local", rest, action="system")
+    if (rest := _after_pleasantries(text)) is not None and (u := understanding.understand(rest)).intents is not None:
+        return Route("local", rest, action="system", understood=(("understood", u.record()),))
 
     if (opened := _open_request(norm)) is not None:
         return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])

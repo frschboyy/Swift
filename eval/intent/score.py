@@ -112,7 +112,7 @@ def _answer(want: dict[str, Any]) -> str:
 def judge(row: dict[str, Any], library: Any, family: Any = None) -> tuple[str, str]:
     """(outcome, path) for one row."""
     text, want = row["text"], row["want"]
-    r = guessed(with_guess(route(text), family), "voice")
+    r = guessed(with_guess(route(text), family), {"source": "voice"})
     if r.action == "system_guess":
         assert r.guess is not None
         meant = isinstance(want, list) and len(want) == 1 and _same(want[0], r.guess.intent)

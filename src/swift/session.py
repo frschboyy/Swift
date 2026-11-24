@@ -2780,7 +2780,7 @@ class Session:
                 # (owner checks 2026-11-04: "Swift, yes" went to the agent and Wi-Fi stayed on).
                 "answer", "click",
             ):
-                decision = self._follow_local(guessed(self.router(transcript), record.get("source")), transcript, record)
+                decision = self._follow_local(guessed(self.router(transcript), record), transcript, record)
                 named = route_target(transcript)
                 ended = named is not None and named[0] == "stop" and self._find(named[1], besides=run, gone=True) is not None
                 if named is not None and (self._live(besides=run) or ended):

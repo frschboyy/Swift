@@ -88,13 +88,15 @@ def test_a_family_not_on_the_list_is_never_guessed() -> None:
 
 @pytest.mark.parametrize("source", ["followup", "beside", "answer", "over_speech", "click", None])
 def test_a_guess_never_starts_from_a_source_the_owner_didnt_start(source: str | None) -> None:
-    found = guessed(with_guess(route("time me for two minutes"), family), source)
+    found = guessed(with_guess(route("time me for two minutes"), family), {"source": source})
     assert found.route == "agent" and found.action != "system_guess"
+    # "Try again" on such a request may not guess either (review F4).
+    assert guessed(with_guess(route("time me for two minutes"), family), {"source": "retry", "retry_of": source}).route == "agent"
 
 
 @pytest.mark.parametrize("source", ["voice", "wake", "typed", "debug.ask", "retry", "correction"])
 def test_a_guess_starts_from_the_hotkey_the_wake_phrase_or_typing(source: str) -> None:
-    found = guessed(with_guess(route("time me for two minutes"), family), source)
+    found = guessed(with_guess(route("time me for two minutes"), family), {"source": source, "retry_of": "voice"})
     assert found.route == "local" and found.action == "system_guess"
     assert dict(found.understood)["understood"] == {"act": "command", "source": "similar", "family": ["timer.set"],
                                                     "score": 0.9}  # names and numbers only (P2-8)

@@ -43,9 +43,9 @@ deliberately narrow: an unmatched command still reaches Claude Code, just slower
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from typing import Literal
+from typing import Any, Literal
 
 from swift import memory
 from swift.executors.providers import AGENT_NAMES
@@ -242,8 +242,11 @@ def with_guess(found: Route, family_of: Callable[[str], tuple[str, float]] | Non
     return replace(found, guess=guess)
 
 
-def guessed(found: Route, source: str | None) -> Route:
-    """The system lane's guess question (``system_guess``) for a request the owner started (P2-4), else the agent."""
+def guessed(found: Route, record: Mapping[str, Any]) -> Route:
+    """The system lane's guess question (``system_guess``) for a request the owner started (P2-4), else the agent.
+    ``record``: the request's run record. "Try again" re-runs a request as ``retry``; it may guess only as its first
+    try (``retry_of``) could, so a request heard in the follow-up window never gets one after a click (review F4)."""
+    source = record.get("retry_of") if record.get("source") == "retry" else record.get("source")
     if found.route != "agent" or found.guess is None or not understanding.may_guess(source):
         return found
     return Route("local", found.text, action="system_guess", guess=found.guess,

@@ -3299,3 +3299,11 @@ red, "**Cancel?**", then goes back to "Cancel" by itself, and the dentist row st
 stack. No card opened at any step.
 
 The report checks: one item cancelled from the stack, none skipped.
+
+<a id="check-cards-stack-design-5fec91-2"></a>**Check cards-stack-design-5fec91-2. Pointing down the stack moves nothing**
+1. With two or more things in the stack (check cards-stack-design-5fec91-1's steps 1–2 do it), double-click it.
+2. Move the pointer slowly from the top row to the bottom row and back.
+
+You should see: each row's **Cancel** fades in under its **Open** as you point at it, and no row moves up or down.
+
+The report checks: nothing (LOOK).

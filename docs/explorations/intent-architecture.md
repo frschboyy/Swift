@@ -275,6 +275,31 @@ asks for nothing (HA-SYS-10: partial). **HA-SYS-09 stays open**: the gate can't 
 `understood` = `{act, source, family}` (names only; allow-listed in `runlog.SUMMARY_FIELDS`). Eval: no row changed;
 parity 413/423, harmful 0. **Touches the provenance check: needs a review by someone other than its author.**
 
+**Phase 2, built (2026-11-25, `claude/intent-phase-2-b9b2d9`, on phase 1's `754b697`):**
+- `understand.propose(text, family_of)` returns a `Guess` (one intent, the family, the vote's share) or None. It needs
+  a plain command (one clause, a leading verb or request lead, no "?" unless asked as a request) with nothing in
+  `_VETO` (negation, retraction, condition, past, report, a third party or a capitalized name, another device), no
+  grammar match, a family vote ≥ `GUESS_AT` (0.5), every slot read by the grammar's own readers, and an intent on
+  `PROPOSABLE` (P2-1, P2-3, P2-5). "Four five minutes", which `normalize` sums to 9, gets no guess.
+- The family vote is `classifier.FamilyVote`: the same model and `Embedder`, k = 7, over `routing/families.jsonl` (the
+  parity set's rows: a system row's category, anything else `other`). It loads whenever the model is there
+  (`demand_classifier.guesses`, on by default), also while the demand vote stays off (the owner's 2026-10-23
+  decision): until then, or without the model, no guesses.
+- `ClassifierEstimate.route` attaches the guess to an agent route (`rules.with_guess`); the session's one in-place
+  change takes it only for `voice`, `wake`, `typed` and the spoken-like sources (`rules.guessed`, P2-4), as
+  `system_guess`. `SystemLane.propose` asks it as Swift's own yes/no question rendered from the payload
+  (`guess_question`, P2-6; the lane's `question` for a disruptive one, no `asking.NOTE`, asked for `EXEMPT` intents
+  too, P2-7). The session's existing `_system_questions` / `_ask_owner` runs it with `confirmed` on a yes approved by
+  `intake.approves` at level 1 (unchanged). `restated` is unchanged, so the guessed-from words re-ask (P2-2).
+- The record's `understood` is `{act, source: "similar", family: [intent name], score}` (P2-8).
+- **Eval (real model):** dead ends 31 → 17 of 159 rows (133 + 26 new P2-3 rows: statements, past, reported speech,
+  "I wonder if", later-sentence retractions, third parties); 14 `asks_guess`, 0 `wrong_guess`; `false_action` 1
+  (`rem-c01`, pre-existing, the grammar's), `wrong_confirm` 0; every question, negation, statement and unsupported
+  row correct. No parity row gets a guess; parity 413/423, harmful 0. Limits: the guessed rows aren't verbatim in
+  the family examples, but their phrasings are near; the owner's own clips must extend this.
+- Rules: R1 and R2 as worded in `CLAUDE.md` and `action-authority.md` (§3, and §4's map); R5's T6 control in the threat
+  model. **A product-rule change: needs a review by someone other than its author before merge.**
+
 ### 5.3 The speech-act gate (phase 1), concretely
 
 Deterministic, small, and tested by the eval's question and negation rows, and by new rows for the shapes the review

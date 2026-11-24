@@ -26,7 +26,11 @@
     question may come from, so it needs a review by someone other than its author. Phase 0 (observability, a
     safeguard, not a fix) is on this branch: each refusal leaves a reason code in tool_refusals and swift.log.
     Independent review (2026-11-24): phase 0 approved, phases 1-4 approved with conditions, phase 5 blocked as written;
-    the conditions and the rule wording (R1-R6) are in the exploration doc §5.5-5.6.'
+    the conditions and the rule wording (R1-R6) are in the exploration doc §5.5-5.6. Phase 2 (branch
+    claude/intent-phase-2-b9b2d9, 2026-11-25; partial fix, the lane path only): Swift asks its guess for a plain
+    command the grammar misses (understand.propose, SystemLane.propose). eval/intent with the real model: dead
+    ends 31 to 17 of 159 rows, 14 guesses all right, 0 wrong. The agent path (the xfail) is unchanged: phase 5.
+    A product-rule change (R1, R2): needs a review by someone other than its author before merge.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

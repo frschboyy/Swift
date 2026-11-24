@@ -139,3 +139,17 @@ def test_ia01_counts_dead_ends_and_the_classifier_s_vote() -> None:
     outcome, detail = _find(_results(rows, []), "intent-architecture-3011f9-1")
     assert outcome.value == "PASS" and detail.startswith("1 dead end(s)") and "1 request(s) the classifier" in detail
     assert _find(_results([], []), "intent-architecture-3011f9-1")[0].value == "NOT SEEN"
+
+
+def test_ia01_phase_2_counts_swifts_guesses_and_fails_one_from_the_follow_up_window() -> None:
+    guess = {"act": "command", "source": "similar", "family": ["timer.set"], "score": 0.8}
+    rows = [
+        {"source": "wake", "route": "local", "status": "done", "understood": guess, "confirmed": True},
+        {"source": "voice", "route": "local", "status": "done", "understood": guess, "confirmed": False},
+    ]
+    outcome, detail = _find(_results(rows, []), "intent-phase-2-b9b2d9-1")
+    assert outcome.value == "PASS" and detail.startswith("2 guess(es): 1 yes, 1 no")
+    assert _find(_results(rows, []), "intent-phase-2-b9b2d9-2")[0].value == "PASS"
+    followup = [{"source": "followup", "route": "local", "status": "done", "understood": guess}]
+    assert _find(_results(followup, []), "intent-phase-2-b9b2d9-2")[0].value == "FAIL"
+    assert _find(_results([], []), "intent-phase-2-b9b2d9-1")[0].value == "NOT SEEN"

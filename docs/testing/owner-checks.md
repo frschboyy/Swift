@@ -3277,6 +3277,33 @@ meant; answer **no**). In the report, this check's line says PASS with 2 dead en
 `not_asked_offer`, and counts the requests the classifier thought a rule missed. These are the dead ends of finding IA-01,
 now counted; a later change is meant to make Swift ask "Set a timer for 2 minutes?" instead.
 
+### Swift's guess (claude/intent-phase-2-b9b2d9, 2026-11-25)
+
+About 4 minutes. Nothing here changes anything lasting: cancel the timer at the end, and answer **no** to anything
+about Wi-Fi. It needs the classifier's model (`%LOCALAPPDATA%\Swift\models\bge-small-en-v1.5`, already on this PC);
+give Swift about 10 seconds after it starts.
+
+<a id="check-intent-phase-2-b9b2d9-1"></a>**Check intent-phase-2-b9b2d9-1. Swift asks its guess, and only a said or clicked yes runs it**
+1. Say "Hey Swift, time me for two minutes". Swift asks "Set a timer for 2 minutes?". Type **yes** in the text box.
+2. Say **yes** (no name needed while the question is on screen).
+3. Say "Hey Swift, cancel the timer".
+4. Say "Hey Swift, disconnect from the wifi". Answer **no**.
+5. Say "Hey Swift, time me for two minutes" again. While "Set a timer for 2 minutes?" is on screen, say
+   "time me for two minutes" once more, then click **No**.
+
+You should see: in step 1 nothing starts and the question comes back with "Typing can't approve: click Yes, or say
+yes."; step 2 sets a 2-minute timer; step 4 asks "Turn off Wi-Fi?" once (one question, not two) and Wi-Fi stays on;
+in step 5 the question is asked again (the words Swift guessed from aren't a yes) and no timer starts.
+
+<a id="check-intent-phase-2-b9b2d9-2"></a>**Check intent-phase-2-b9b2d9-2. No guess for what isn't a request for this PC, or from the follow-up window**
+1. Say "Hey Swift, my timer just went off".
+2. Say "Hey Swift, time me for two minutes. Never mind."
+3. Say "Hey Swift, give her ten minutes on the clock".
+4. Say "Hey Swift, what time is it?", and right after the answer, without "Hey Swift", say "time me for two minutes".
+
+You should see: none of these asks "Set a timer …?" and no timer starts: steps 1 to 3 are answered in words (or
+nothing happens for step 2), and in step 4 the words after the answer don't get Swift's question.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

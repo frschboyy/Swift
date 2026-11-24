@@ -150,6 +150,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
     dead_ends = [r for r in rows if any(str(e.get("code", "")).startswith("not_asked") for e in r.get("tool_refusals") or [])]
     refusal_codes = Counter(e.get("code") for r in rows for e in r.get("tool_refusals") or [])
     voted = [r for r in rows if r.get("route_hint")]
+    # Swift's guess (IA-01 phase 2): the record's ``understood`` says "similar". Never from the follow-up window,
+    # a request beside a question, or an answer (P2-4).
+    guesses = [r for r in rows if isinstance(r.get("understood"), dict) and r["understood"].get("source") == "similar"]
+    guessed_wrongly = [r for r in guesses if r.get("source") in ("followup", "beside", "answer", "over_speech")]
     asked = [line for line in log if "conversation parked | reason='asked'" in line]
     # How long each question listened for its answer ("question window", logged since 2026-10-27).
     windows = [_counter(line, "seconds") for line in log if "| question window |" in line]
@@ -375,6 +379,12 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("intent-architecture-3011f9-1 a request Swift's own tool refused says why", seen(dead_ends),
          f"{len(dead_ends)} dead end(s); refusals: {dict(refusal_codes) or 'none'}; "
          f"{len(voted)} request(s) the classifier thought a rule missed"),
+        ("intent-phase-2-b9b2d9-1 Swift asked its guess; only a said or clicked yes ran it", seen(guesses),
+         f"{len(guesses)} guess(es): {sum(1 for r in guesses if r.get('confirmed') is True)} yes, "
+         f"{sum(1 for r in guesses if r.get('confirmed') is False)} no; check on screen: the typed yes asked again"),
+        ("intent-phase-2-b9b2d9-2 no guess for what wasn't a request, or from the follow-up window",
+         unless(guessed_wrongly, rows), f"{len(guessed_wrongly)} guess(es) from a source that may not start one; "
+         "check on screen: steps 1-3 asked nothing"),
         ("47 a request recorded while the last one started (20, 21)", bool(next_recorded) or wake_count("queued") > 0,
          f"{len(next_recorded)} request(s), {wake_count('queued')} by voice"),
         ("50 line breaks typed into a chat app didn't send it", LOOK, "check on screen: one message, several lines"),

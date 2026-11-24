@@ -3518,7 +3518,7 @@ class Session:
             return False
         if not unsure and not intake.has_words(text):
             return True  # no words: about nothing, and not an answer (D-06)
-        turn = self.dialogue.answer("" if unsure else text, is_request=self._new_request)
+        turn = self.dialogue.answer(text, is_request=self._new_request, unsure=unsure)
         assert turn is not None
         logger.info("question answered", kind=q.kind, turn=turn.action, source=source, named=named)
         record = q.owner.record if q.owner is not None else None

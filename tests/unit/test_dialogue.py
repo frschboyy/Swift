@@ -968,3 +968,38 @@ def test_a_yes_followed_by_a_question_never_turns_the_wifi_off(said: str) -> Non
 
     answer = resolve(Question("Turn off Wi-Fi?", "yes_no"), said, is_request=lambda _s: True)
     assert answer.kind == "elsewhere"  # it goes beside; the question waits
+
+
+# ---- an answer the speech model was unsure of (owner, 2026-11-18 23:31: "No, leave it without an
+# invitation" was counted unsure twice, its words dropped, so it was asked again, then put in the stack) ----
+
+def invite() -> Question:
+    return Question("Invite Frank to the meeting on Thursday at 3 PM?", "yes_no")
+
+
+@pytest.mark.parametrize(("said", "kind"), [
+    ("No, leave it without an invitation.", "no"), ("never mind", "cancel"), ("hold on", "wait"),
+])
+def test_unsure_words_that_decline_or_hold_are_taken(said: str, kind: str) -> None:
+    d = Dialogue()
+    d.ask(invite())
+    turn = d.answer(said, unsure=True)
+    assert turn is not None and turn.answer.kind == kind
+
+
+def test_unsure_words_never_say_yes_or_start_a_request() -> None:
+    for q, said in ((invite(), "yes invite him"), (Question("Turn off Wi-Fi?", "yes_no", approval=True), "yes"),
+                    (invite(), "what time is it")):
+        d = Dialogue()
+        d.ask(q)
+        turn = d.answer(said, unsure=True, is_request=lambda _t: True)
+        assert turn is not None and turn.action == "reask", said
+
+
+def test_unsure_words_may_choose_unless_the_choice_approves() -> None:
+    d = Dialogue()
+    d.ask(Question("Which Sam?", "choice", ("Sam Lee", "Sam Okoro")))
+    assert d.answer("Sam Okoro", unsure=True).answer.index == 1  # type: ignore[union-attr]
+    d = Dialogue()
+    d.ask(Question("Send it?", "choice", ("Send", "Edit"), approval=True))
+    assert d.answer("send", unsure=True).action == "reask"  # type: ignore[union-attr]

@@ -379,6 +379,18 @@ def _resolve_kind(question: Question, said: str, raw: str) -> Answer:
     return Answer("value", value=value, corrected=correction is not None)
 
 
+def _unsure(question: Question, found: Answer) -> Answer:
+    """Words the speech model was unsure of (owner, 2026-11-18: a clear "no, leave it without an invitation"
+    was dropped as unsure twice, then the question put in the stack). They may decline, cancel, ask for a
+    moment, or pick an option or value of a question that approves nothing; a yes, a choice that approves,
+    free text and a new request still need the words heard clearly: asked again (T-06)."""
+    if found.kind in ("no", "wait") or (found.kind == "cancel" and not found.rest):
+        return found
+    if found.kind in ("choice", "value") and not question.approval:
+        return found
+    return Answer("unclear")
+
+
 def _replies(said: str) -> bool:
     """Whether it starts as a yes to the question ("yeah, ..."), and what follows isn't a
     question of its own: then the question on screen claims it, never a new request (owner check 144)."""
@@ -478,12 +490,15 @@ class Dialogue:
         """Every question ``owner`` asked, on screen or waiting."""
         return [q for q in ([self.pending] if self.pending else []) + self.waiting if q.owner is owner]
 
-    def answer(self, text: str, *, is_request: Callable[[str], bool] | None = None) -> Turn | None:
-        """Something said while a question waits; None when nothing does."""
+    def answer(self, text: str, *, is_request: Callable[[str], bool] | None = None, unsure: bool = False) -> Turn | None:
+        """Something said while a question waits; None when nothing does. ``unsure``: the speech model was
+        unsure of the words, so they count only when they can't approve or start anything (``_unsure``)."""
         question = self.pending
         if question is None:
             return None
-        found = resolve(question, text, is_request=is_request)
+        found = resolve(question, text, is_request=None if unsure else is_request)
+        if unsure:
+            found = _unsure(question, found)
         if found.kind == "elsewhere":
             return Turn("elsewhere", found, question)
         if found.kind == "cancel":

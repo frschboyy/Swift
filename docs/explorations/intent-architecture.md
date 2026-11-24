@@ -1,6 +1,8 @@
 # Understanding a request, then authorising it (2026-11-24)
 
-- **Status:** investigation, not decided. No ADR. No product code changed.
+- **Status:** investigation, not decided. No ADR. Phase 0 (observability) is built on this branch; nothing else is.
+  Reviewed independently on 2026-11-24: phase 0 approved, phases 1-4 approved with conditions, phase 5 blocked as
+  written. The conditions are folded in (§5.5) and the rule wording they need is §5.6.
 - **Asked by the owner:** "set a timer for 1 minute" worked and "set up a timer for 1 minute" failed with "I couldn't
   set the timer. Swift didn't accept the request, so nothing was started." The same happens with Wi-Fi and Bluetooth,
   and the owner expects it with workflows. Separate understanding what the owner wants from deciding whether Swift may
@@ -45,6 +47,10 @@
    "Set a timer for 2 minutes?", and a yes runs it through the lane as today. Intent confidence decides only whether
    Swift asks; the authority table decides what approves. Phase 0 makes every failure observable before anything
    changes.
+8. **The independent review** found my claim "no rule changes its wording" wrong in five places, and three holes in
+   phase 2 as first written (a guess with a missing slot ran with no yes; repeating the misheard words could approve
+   a guess; "command" wasn't defined positively). This version carries its conditions (§5.5) and its worded rule
+   changes R1-R6 (§5.6). Phase 5 stays blocked until re-specified per P5-1 to P5-5.
 
 ## 1. The dead end, traced and reproduced
 
@@ -197,28 +203,32 @@ transcript (+ Word.p)
    │
    ▼
 understand(text, context)  ── one function, one owner (new small module, system/understand.py)
-   │  act:        command | question | negation | other      (deterministic; library.is_question + negation words)
+   │  act:        command | question | negation | other      (deterministic; a command is found positively, §5.3)
    │  intents:    intents.parse(text)  → source "grammar"    (unchanged: the only thing that acts directly)
    │  proposal:   if act == command and no intents:
    │                family  ← classifier kNN (existing model, system examples from eval/parity)
    │                slots   ← the grammar's own readers (seconds_of, find_when, on/off, the device vocabulary)
-   │                → source "similar", only when every required slot is read or askable
+   │                → source "similar", only when every required slot is read from the owner's words (never
+   │                  asked: P2-1), the intent is on the proposable list (P2-5) and the source may propose (P2-4)
    ▼
-router · lane · system_action      all call understand(); none parses on its own
+router · lane · system_action      call understand(); restated, same_request, timers.heard, dialogue.elide and
+                                   system.claims keep the bare grammar (C1-1)
    │
    ├─ source grammar  → the lane, exactly as today (level 0, or level 1 when disruptive)
-   ├─ source similar  → Swift's own question: "Set a timer for 2 minutes?"  (level 1; the lane's yes/no)
+   ├─ source similar  → Swift's own question showing every slot: "Set a timer for 2 minutes?"  (level 1; the
+   │                    lane's yes/no; never through start, fill or redo)
    │                    yes → SystemLane.confirmed(intents) → the same execution, journal and undo
-   │                    disruptive → the same one question ("Turn off Wi-Fi?"), never two
+   │                    disruptive → the lane's one question (lane.question, "Turn off Wi-Fi?"), never two
    └─ nothing         → the agent, as today
 ```
 
-**Why this is level 1 and needs no new rule:** the authority table's level 1 already lists "Swift's own question
-about the owner's request" and "the owner's words don't clearly ask", approved by a gesture, Swift's name, or a plain
-spoken yes while it's on screen. A proposal is exactly that. `intake.approves` is unchanged. A proposal is never made
-for anything above level 1 (no system intent is level 3 today), and `search` opens a web address, which must
-come from the owner's words (foundation decision 4), so it's never proposed. Learned trust never lowers a proposal to
-level 0: it isn't the owner asking.
+**Why this is level 1:** the authority table's level 1 already lists "Swift's own question about the owner's request"
+and "the owner's words don't clearly ask", approved by a gesture, Swift's name, or a plain spoken yes while it's on
+screen. A guess is that, and `intake.approves` and its table are unchanged (the review verified this in `intake.py`).
+It is not true that no rule changes: a guess needs its own bullet (R1), learned trust must exclude it (R2), and
+restating the guessed-from words must not approve it (P2-2). Only intents on an explicit list may be guessed (P2-5):
+not `search` (a web address must come from the owner's words, foundation decision 4), and not `lock` (a TV's "yes"
+on the open microphone must not lock the PC, the reason `FROM_ANSWERS` already excludes it).
 
 **What confidence does and doesn't do:** the embedding's vote decides only whether Swift *asks*. It never lowers a
 level, never skips a question, and never reaches the gateway. "Intent confidence and execution authority are
@@ -230,11 +240,11 @@ through `intake.approves`.
 | Phase | What | Owner it changes | Product rule? | Gates |
 |---|---|---|---|---|
 | **0. See every failure** | `system_action` logs `system action refused` with a reason code (`not_asked`, `unknown`, `missing_slot`, `outside_workflow`) and the intent name, and adds it to the record (`tool_refusals`). The classifier's route hint moves into the record (`route_hint`, `route_conf`). An `understood` field (act, source, family, score: names and numbers only) is reserved. `roadmap.py`/`report.py` count "agent run with a system refusal" as a dead end. Transcript stays local-only | `system_tools`, `classifier`, `runlog.SUMMARY_FIELDS` | No (log privacy: structure only; the allow-list test) | unit tests; `test_runlog.py`, `test_seams_audit_privacy.py` (the allow-list) |
-| **1. One understanding step** | `understand()` wraps `intents.parse` and the speech-act gate. The router, `SystemLane.claims/run` and `owner_intents` call it. `_CLAUSE` and `_SPLIT` become one splitter. **No behaviour change intended** | `system/intents.py` (+ a small `understand.py`), `system_tools`, `rules` | Touches the provenance check: review | parity must not drop; eval: no row changes outcome; `test_system_lane`, `test_system_phase_a2`, `test_dialogue` |
-| **2. Proposals** | When the act is a command and the grammar finds nothing, the kNN family plus the grammar's slot readers propose one intent. The lane asks its own yes/no question, then runs it with `confirmed`. Only sources that start a request (voice, wake, typed); never from an answer or the open microphone mid-question. The classifier not loaded yet means no proposals | `understand.py`, `SystemLane` (`propose` → `Outcome(ask=yes_no)`), `classifier` (system examples) | **Yes**: a new source of level 1 questions. Independent review | eval: dead ends fall, **false_action and wrong_confirm stay 0, no question or negation gets a proposal**; parity; a seam scenario for the proposal card (said, clicked, typed never approves); owner checks (`plan.py --next-id`) |
-| **3. Workflows and compounds** | A workflow run whose owner's words hold a system intent (per `understand`) gets `system_action` in its grant; it's still provenance-checked and still through the gateway. The kNN can also name a workflow, which only sets which playbook the agent gets (no action) | `library`/`scope` grant | Yes (a grant): review | eval (`radio-c02`); `test_workflows_*` |
-| **4. Closed-set recovery of misheard words** | `HEARD_AS_WIFI` becomes a small vocabulary per slot (Wi-Fi, Bluetooth, timer, minutes, dark mode, lock) with the sound-alikes seen in saved clips. It's used only by the proposer: it can make Swift *ask*, never act. A word with low `Word.p` in a slot position strengthens a proposal. A yes to a proposal is a labelled pair (heard → meant) for the corrections test set and, approved by the owner, a new example for the kNN | `understand.py`, `stt/recordings` (labels) | Yes (the vocabulary changes what Swift may ask): review | `eval/stt/gate.py` unchanged (no transcript is rewritten); eval corruptions; W-03 meaning measure |
-| **5. The agent's last word** (only if the eval still shows agent-side dead ends after phase 2) | When `system_action` is refused, the tool asks `understand()` whether Swift independently proposes the same intent for the owner's words; if so, Swift asks its own question instead of refusing. `WORKFLOW_PROMPT` then needs no change | `system_tools` | Yes: review; threat model T3 (an injected page can make the agent *ask for* the PC to be locked; it still needs the owner's yes on Swift's own question) | eval; seam scenario; red-team rows (a page asking for "lock the PC") |
+| **1. One understanding step** | `understand()` wraps `intents.parse` and the speech-act gate. The router, `SystemLane.claims/run` and `owner_intents` call it; `restated` and the other grammar callers keep the bare grammar (C1-1). `_CLAUSE` and `_SPLIT` become one splitter that accepts nothing more (C1-2). **No behaviour change intended**, except closing HA-SYS-09/10 if the gate takes retraction (C1-2, C1-3) | `system/intents.py` (+ a small `understand.py`), `system_tools`, `rules` | **Approved with conditions** C1-1 to C1-3 | parity must not drop; eval: no row changes outcome; a test that the merged splitter finds nothing the old one didn't; `test_system_lane`, `test_system_phase_a2`, `test_dialogue`, `test_health_SYS` |
+| **2. Proposals** | When a command is found positively and the grammar finds nothing, the kNN family plus the grammar's slot readers propose one intent from the proposable list, with every required slot read from the owner's words. The lane asks its own yes/no question showing every slot, then runs it with `confirmed`, never through `start`/`fill`/`redo`. Sources: `voice`, `wake`, `typed` only (never `followup`, `beside`, `answer`, `over_speech`). The classifier not loaded yet means no proposals | `understand.py`, `SystemLane` (`propose` → `Outcome(ask=yes_no)`), `classifier` (system examples) | **Approved with conditions** P2-1 to P2-8; rule text R1, R2 | eval: dead ends fall, **false_action and wrong_confirm stay 0, no question, negation, statement, report, retraction or third-party request gets a proposal** (new rows, P2-3); a test per excluded source; a test that each slot appears in the question; a test that a guess plus a slot answer runs nothing; a test that repeating the guessed-from words re-asks; parity; a seam scenario for the guess card (said, clicked, typed never approves); owner checks |
+| **3. Workflows and compounds** | A workflow run whose owner's words hold a system intent **by grammar match, never a guess** (P3-1) gets `system_action` in its grant; it's still provenance-checked and still through the gateway. The kNN can also name a workflow: a choice of playbook *and* of grant, which only narrows from no grant, with no input filled from a guess (P3-2) | `library`/`scope` grant | **Approved with conditions** P3-1 to P3-3; rule text R3 (ADR-011 §4.2) | eval (`radio-c02`); `test_workflows_*` |
+| **4. Closed-set recovery of misheard words** | `HEARD_AS_WIFI` moves out of `intents.parse` into the proposer, one owner (P4-1: today it is a grammar match, so it already acts and counts as provenance), and becomes a small vocabulary per slot (Wi-Fi, Bluetooth, timer, minutes, dark mode) with the sound-alikes seen in saved clips. It can make Swift *ask*, never act; allowing a guessed "on" is a deliberate widening. A low `Word.p` in a slot position only lowers the bar to ask, never fills a slot. A yes to a guess is a labelled pair (heard → meant) for the corrections test set, and a *candidate* example that the owner reviews per example before the kNN uses it; learned examples feed the proposer only, never `intents.parse` (P4-2) | `understand.py`, `intents.py`, `stt/recordings` (labels) | **Approved with conditions** P4-1 to P4-4; rule text R4, R5 | `eval/stt/gate.py` unchanged (no transcript is rewritten); eval corruptions; owner checks 201 and 206 and `test_health_SYS` still pass through the proposal path; W-03 meaning measure |
+| **5. The agent's last word** (only if the eval still shows agent-side dead ends after phase 2) | **Blocked as written.** Re-specified per P5-1 to P5-5: when `system_action` is refused, the tool asks what phase 2's `understand()` would propose for one clause of the owner's own words (same thresholds, source list, intent list and veto); the agent's phrase is only an equality filter against that one top proposal and never supplies a slot. Non-disruptive: Swift's level 1 question once per run per intent, then the gateway. Disruptive: no extra question; the gateway's card stays the one approval at its level | `system_tools`, `scope` (the once-per-run record) | **Blocked** until re-specified and reviewed again; rule text R6 | eval; seam scenario; red-team rows: a page or tool output saying "lock the PC" / "turn off Wi-Fi" / "set a timer" with owner words that don't name it, each refused with no question |
 
 Phase 0 is worth doing on its own and first: it turns "the owner noticed" into a count.
 
@@ -248,12 +258,23 @@ rule missed an agent request, `Route.hint` carries `route_hint` and `route_conf`
 the free-standing log line, which named no request); the vote is now taken even when the keywords set the demand. The
 owner's report counts dead ends, refusal codes and votes (owner check `intent-architecture-3011f9-1`). Tests:
 `tests/unit/test_tool_refusals.py` (both through the whole session), `test_owner_report.py`. `session.py` changed two
-lines in place and stays at its ratchet. The `understood` field waits for phase 1.
+lines in place and stays at its ratchet. The `understood` field waits for phase 1, and must hold names and numbers
+only, never slots (P2-8). **Cost (review note 0-a):** the classifier now votes on every agent-route router call, about
+11 ms on the event loop, up to three times a request (the session also routes to check for control words and new
+requests, and those hints are thrown away). Kept on purpose: voting only when the keywords don't set the demand would
+lose the hint on 8 of the 31 dead ends. The independent review approved phase 0.
 
 ### 5.3 The speech-act gate (phase 1), concretely
 
-Deterministic, small, and tested by the eval's question and negation rows:
+Deterministic, small, and tested by the eval's question and negation rows, and by new rows for the shapes the review
+named (P2-3):
 
+- **Command, found positively:** an imperative verb leading a clause, or "I want/need you to / can you / please"
+  followed by one. Anything else (a statement, past tense, reported speech: "my timer just went off", "I turned the
+  wifi off yesterday", "the video says turn on dark mode", "I wonder if I should ...") is no command and gets no
+  proposal.
+- **Veto:** a negation or retraction anywhere in the utterance ("no wait", "never mind", "actually don't", "cancel
+  that") or a third party anywhere ("remind Sam", "tell Sam to", "for Sam") vetoes every proposal in it.
 - **Question:** `library.is_question` (moved to `understand.py`, one owner) plus "how do/should/why/does/what's the
   best". The system grammar's own read intents ("is my wifi on", "how long is left") stay grammar matches: they're
   reads.
@@ -263,6 +284,8 @@ Deterministic, small, and tested by the eval's question and negation rows:
 - **Compound:** the one clause splitter. A compound proposes only when every part is a grammar match or a proposal;
   otherwise the agent gets it whole, as today.
 - **Elsewhere:** "on my phone / on the TV / router / in Chrome / the front door" → never proposed.
+- **Grammar matches too (C1-3):** the grammar itself switches Bluetooth on for "bluetooth on?" (HA-SYS-03). Phase 1
+  either applies the gate to grammar matches or leaves HA-SYS-03 open, and says which.
 
 ### 5.4 Risks
 
@@ -271,13 +294,94 @@ Deterministic, small, and tested by the eval's question and negation rows:
   turning phase 2 on.
 - **A wrong proposal costs a "no".** Acceptable because nothing acts. It must never cost more: no proposal for a
   disruptive change unless it uses the same single question the lane already asks.
-- **The open microphone.** A TV saying "set a timer" could get a proposal. Proposals come only from sources that start
-  a request (wake or hotkey), and the yes rules are unchanged (presence, on screen, not over Swift's own voice).
+- **The open microphone and false wakes (threat model T2/T6).** Today a false wake reaches an action only with an
+  exact command; with guesses, anything near a command reaches a question on screen, which a plain yes from the room
+  approves. Mitigations: only `voice`, `wake` and `typed` may start a guess (P2-4), lock is never guessed (P2-5), and
+  the yes rules are unchanged (presence, on screen, not over Swift's own voice). The threat model needs the line in
+  R5. Stricter still, if the owner wants it: a guess from a hands-free request approved only by Swift's name or a
+  gesture (§7).
 - **Two grammars drifting.** Phase 1 exists to stop that: one step, one splitter, and the eval as the ratchet.
 - **The model not loaded** (first seconds after start, or the file missing): no proposals; behaviour as today.
 - **Eval bias.** I wrote it. Owner checks and the owner's saved clips must extend it (phase 4's labels do that).
 - **`session.py` growth.** Proposals live in the lane and `understand.py`; the session only shows the lane's question,
   which it already does.
+
+### 5.5 The independent review's conditions (2026-11-24)
+
+The full note: `side-session-notes/local_21c78fa6-0963-4228-8f5d-7caf912c796a/review-intent-architecture-phases-2-5.md`
+(reviewer: session `rule-review`, not the author). Each condition below is part of its phase's definition of done.
+
+**Where "a new path into an existing rule" hid a real change:**
+
+1. Restating a request approves level 1; for a guess it must exclude the words Swift guessed from (P2-2, R1).
+2. Phase 5 as written lowered a disruptive change on the agent path from a card (gesture or name) to a plain yes
+   (P5-2).
+3. A spoken yes to an action isn't the owner approving a training example; `learn_demand.py` asks per example (P4-2, R4).
+4. The threat model's "Words written down" covers words said again or corrected, not a yes to a guess (P4-3, R5).
+5. False wakes (T2/T6) reach a question on screen far more easily (§5.4, R5).
+
+**Phase 1.** C1-1: `restated.restated_as` keeps comparing grammar matches only; say which grammar callers call
+`understand()` and which don't. C1-2: the merged splitter accepts nothing the old `_intents` didn't (test it on the
+eval and the HA-SYS-09/10 rows); better, close HA-SYS-09 and HA-SYS-10. C1-3: apply the gate to grammar matches, or
+keep HA-SYS-03 open.
+
+**Phase 2.**
+- P2-1: a guess never runs through `start`, `fill` or `redo`; every required slot is read from the owner's words.
+  (Today a slot answer goes to `fill` → `start`, which runs a non-disruptive intent with no yes, and a TV saying
+  "five minutes" would fill it.)
+- P2-2: repeating the guessed-from words re-asks; it never approves.
+- P2-3: a command is found positively; negations, retractions and third parties veto (§5.3).
+- P2-4: sources `voice`, `wake`, `typed` (spoken-like sources map to `voice`); never `followup`, `beside`, `answer`
+  or `over_speech`.
+- P2-5: an explicit proposable list: `timer.set`, `alarm.set`, `reminder.set`, volume, mute, media, brightness,
+  theme, dnd, radio. Not lock, search, settings, window or screenshot. A new grammar intent isn't proposable until
+  listed.
+- P2-6: the question is rendered from the payload and shows every slot `confirmed` uses; a disruptive guess uses
+  `lane.question`, one question.
+- P2-7: a guess shows no `asking.NOTE` and asks even for `asking.EXEMPT` intents (volume).
+- P2-8: the `understood` field holds names and numbers only, never slots.
+
+**Phase 3.** P3-1: the grant follows grammar matches only. P3-2: a kNN-named workflow chooses a grant too; it only
+narrows, and no input is filled from a guess. P3-3: ADR-011 §4.2 says `needs` is the permission list shown at
+install, so the run-time addition is written there (R3).
+
+**Phase 4.** P4-1: `HEARD_AS_WIFI` moves into the proposer (one owner), with owner checks 201 and 206 still passing
+through the proposal path. P4-2: a yes makes a candidate example the owner reviews; examples feed the proposer only.
+P4-3: heard → meant pairs live in the local interaction log and the recordings index only (R5). P4-4: `Word.p` only
+lowers the bar to ask.
+
+**Phase 5 (blocked).** P5-1: per-clause phase 2, the agent's phrase only an equality filter, top-1, no slot from the
+agent. P5-2: a disruptive intent adds no question; the gateway's card is the approval. P5-3: once per run per intent;
+a "no" is final for the run, held on `RunScope`. P5-4: run exactly the proposed intent. P5-5: red-team eval rows.
+
+### 5.6 Rule wording the phases need (the review's R1-R6, for the owner to accept)
+
+- **R1** (`CLAUDE.md` and `action-authority.md` §3, after "What a worker read never acts by itself"; phase 2):
+  > **Swift's guess.** When the owner's words don't match a command Swift knows, Swift may guess what they meant, and
+  > only ask: "Set a timer for 2 minutes?" (level 1, Swift's own question, showing every detail the yes will use).
+  > A guess is made only from a request the owner started (the hotkey, the wake phrase, or typing), never from what's
+  > heard while a question is open or in the follow-up window, never for a web address or locking the PC, and never
+  > for anything above level 1. Saying again the words Swift guessed from doesn't approve it; saying the action
+  > itself, in words Swift understands exactly, does. A guess never acts until it's approved, and nothing lowers it.
+- **R2** (same files; phase 2): learned trust "lowers one kind from level 1 to 0 (only kinds on its table, never
+  level 3, never Swift's guess)".
+- **R3** (ADR-011 §4.2, under `needs`; phase 3):
+  > A run also gets `system_action` when the owner's own words in this request name a system action that Swift's
+  > grammar knows (not a guess). It isn't in `needs` and isn't shown when installing, because it's the owner's
+  > request, not the workflow's. The tool still does only what the owner's words name, through the gateway.
+- **R4** (`action-authority.md` §3 Memory, and `CLAUDE.md`'s copy; phase 4):
+  > Memory is written only from the owner's words or an approved card. A yes to Swift's guess approves that action
+  > only. An example learned from it is kept only after the owner reviews it, and it can only make Swift ask, never act.
+- **R5** (`threat_model.md`, "Privacy of saved recordings", "Words written down"; phases 2 and 4): "...and the words
+  the owner meant when they said them again, corrected them, or said yes to Swift's guess of them." And T6's
+  controls: "a guess (any request near a command) only asks; lock is never guessed".
+- **R6** (`threat_model.md` T1 or T3; phase 5 only):
+  > A worker's call never makes Swift guess. Swift's guess about the owner's words is the same with or without the
+  > worker. A refused worker call may only bring that same guess forward once, at the level the worker's own path
+  > needs (a disruptive change keeps its card), and only with details from the owner's words.
+
+No change is needed to level 3, "typed words never approve", `intake.APPROVES` or its test, presence, or the
+gateway's digest rule (verified by the reviewer in `intake.py` and `gateway.py`).
 
 ## 6. What was verified, and what was only read
 
@@ -290,17 +394,22 @@ Deterministic, small, and tested by the eval's question and negation rows:
   `asr.py` `_decoding`).
 - The kNN spike's numbers and its 11 ms p50 (§4.3), on this PC with the installed model.
 - `test_intent_eval.py`, `test_findings_register.py` and `test_structure_ratchet.py` pass.
+- Phase 0: `test_tool_refusals.py` (including two runs through the whole session) and `test_owner_report.py`;
+  the full suite at `a2c5b3e`, 2523 passed (the one failure, the `noqa` count at 79 > 78, is already on `main`);
+  parity unchanged.
+- By the independent reviewer, reading the code: a lane question's yes passes `intake.approves(level=1)` and a slot
+  answer doesn't; `HEARD_AS_WIFI` is inside `intents.parse`; the agent path's Wi-Fi off is a card approved only by a
+  gesture or the name; phase 0 logs no content.
 
 **Inferred from reading, not run:**
 
 - That the agent turns `NOT_ASKED_PLAIN` into the owner's exact sentence (the model's wording; no live agent was run).
 - The stage table's rows not marked *measured* (§2).
-- That a proposal fits the level 1 row without changing `intake.approves` (read against `action-authority.md`; needs
-  the independent review the table asks for).
+- How phase 1 wires `restated` (P2-2 depends on it), and P2-3's false positives (no proposer exists to measure).
 - That the seam harness can show a proposal card with no new frame kind (it is the lane's existing question).
 
-**Not done:** no seam scenario or harness run (nothing on screen changed); no real-PC check; the full Python suite
-wasn't run (no product code changed).
+**Not done:** no seam scenario or harness run (nothing on screen changed); no real-PC check (owner check
+`intent-architecture-3011f9-1` covers phase 0).
 
 ## 7. For the owner to decide
 
@@ -308,3 +417,8 @@ wasn't run (no product code changed).
    about a quarter of everyday phrasings are at stake.
 2. Phase 0 first, alone, to count dead ends in real use before anything else changes (recommended).
 3. Whether `7d83958` merges as it is (it's a partial fix: 8 of 39; nothing here conflicts with it).
+4. Whether to accept the rule wording R1-R6 (§5.6). R1 and R2 come with phase 2, R3 with phase 3, R4 and R5 with
+   phase 4, R6 only if phase 5 is re-specified.
+5. Whether a guess from a hands-free request should need Swift's name or a gesture, not a plain yes (stricter than
+   level 1; a new cell in `intake` and the table). The review leaves it to the owner.
+6. Whether phase 0 merges now. The review approved it.

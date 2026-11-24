@@ -772,8 +772,8 @@ class ClaudeCodeExecutor:
     async def redirect(self, run_id: str, text: str) -> bool:
         """The owner changed their mind mid-run ("actually, make it about the deadline"). True if taken."""
         run = self._runs.get(run_id)
-        if run is None or run.finished.is_set() or run.cancelled:
-            return False
+        if run is None or run.finished.is_set() or run.cancelled or run.result is not None:
+            return False  # answered and closing: the pump won't read a change now (EX-01); the session restarts with it
         run.web.note_request(text)
         _set_grant(run, self.gateway, Grant())  # the owner changed their mind: the step they approved may no longer be the plan
         waiting = [f for f in run.pending.values() if not f.done()]

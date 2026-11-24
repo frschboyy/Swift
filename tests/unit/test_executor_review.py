@@ -113,7 +113,6 @@ class SlowDisconnect(FakeClient):
         await super().disconnect()
 
 
-@pytest.mark.xfail(strict=True, reason="EX-01: redirect() takes a change after the last turn ended, and drops it")
 async def test_a_change_of_mind_while_the_run_closes_is_refused_not_dropped(tmp_path: Path) -> None:
     SlowDisconnect.closing, SlowDisconnect.release, SlowDisconnect.prompts = asyncio.Event(), asyncio.Event(), []
     ex = ClaudeCodeExecutor(cwd=str(tmp_path), claude="claude.exe", client_factory=SlowDisconnect, prewarm=False)

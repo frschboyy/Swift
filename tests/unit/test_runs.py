@@ -503,6 +503,29 @@ async def test_other_providers_start_again_with_the_change() -> None:
     assert len(records) == 1 and records[0]["redirected"] == "restart" and records[0]["status"] == "done"
 
 
+class Closing(Agent):
+    """Like Claude Code while its CLI closes: it has its answer, takes no change (``redirect`` False), and
+    ``cancel`` waits for the close instead of cancelling, so the result is Done (EX-01)."""
+
+    async def redirect(self, run_id: str, text: str) -> bool:
+        return False
+
+    async def cancel(self, run_id: str) -> None:
+        self.cancelled.append(run_id)
+        self.runs[run_id]["go"].set()
+        await self.runs[run_id]["task"]
+
+
+async def test_a_change_of_mind_while_the_run_closes_starts_again_with_it() -> None:
+    session, out, records, agent, stt = make(Closing)
+    await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")
+    await say(session, stt, "Swift, actually make it about the deadline instead")
+    await until(lambda: len(agent.requests) == 2)
+    assert "actually make it about the deadline instead" in agent.requests[1]
+    await finish_all(session, agent)
+    assert records[0]["redirected"] == "restart" and agent.runs["a-2"]["request"] == agent.requests[1]
+
+
 async def test_hands_free_a_change_of_mind_needs_swifts_name() -> None:
     session, out, _records, agent, stt = make(SameSession)
     await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")

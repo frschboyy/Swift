@@ -3812,7 +3812,7 @@ class Session:
         while True:
             result = await self._run_once(started, record, t0)
             change, run.restart = run.restart, None
-            if change is None or result.status != "cancelled" or run.sent is None:
+            if change is None or result.status not in ("cancelled", "done") or run.sent is None:  # done: it answered while closing (EX-01)
                 break
             # The provider can't change course in its session: start it again with the change (ADR-014 §7).
             note = (

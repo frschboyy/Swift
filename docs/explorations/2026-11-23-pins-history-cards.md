@@ -1,6 +1,11 @@
 # Pins, History, card size and the stack's actions: design for the owner's OK
 
-- **Status:** Phase 1, design only. Nothing here is built. Waiting for the owner's answers (§8).
+- **Status:** The owner took every recommendation in §8 (2026-11-24) and phase 2 is built on this branch, one commit
+  per finding (§10), not run on the real PC. Where the build differs from this note: the stack rows keep their whole
+  titles (rows aren't a fixed 56 px; the action's place under Open is fixed instead, so nothing moves); Open stays
+  visible at rest; History lists only what can be reopened (no "Record only" rows); the protocol keeps `end` (shown
+  as Cancel); `recent.py` keeps its name; the workspace width is kept in the main window's `localStorage`; Esc
+  doesn't close History (pane windows don't take the keyboard).
 - **Date:** 2026-11-23. **Branch:** `claude/cards-stack-design-5fec91`.
 - **From:** the owner's runs of 2026-11-18/19, items 3, 5, 9, 10 and 11.
 - **Mockups:** [`overlay/dev/cards-stack-mock.html`](../../overlay/dev/cards-stack-mock.html), served by the dev

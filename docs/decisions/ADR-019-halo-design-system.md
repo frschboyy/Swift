@@ -112,3 +112,20 @@ the old screenshots in `docs/design/pen-dev-handoff/screens/` are not.
 (Halo's rules win by specificity; a rule-by-rule cull needs before-and-after captures of every state). Nothing
 has been seen on the real PC.
 
+## 11. Pins, History, card size (owner, 2026-11-24; branch `claude/cards-stack-design-5fec91`)
+
+The owner's answers of 2026-11-24 to [`2026-11-23-pins-history-cards.md`](../explorations/2026-11-23-pins-history-cards.md) §8
+change four of this ADR's B8 items:
+
+- **A1 (Earlier today in the stack)** is superseded by History (ADR-018 §6a). `recent.py` sends `history`, not
+  `recent`.
+- **A4 (Pin) and D11 (one at a time)** are superseded: several pins, a shelf of pills above the stack, reopenable,
+  kept by the backend (`recent.Gone.pins`); Pin is on long answers too, and the card stays, saying "Pinned".
+- **B5 (Show all / Show less)** becomes **Expand / Minimize**. The default card's body scrolls, and lists and
+  tables are whole on it; Expand moves the card into a workspace at the screen edge on the orb's side, sized to its
+  content (text: max(560 px, a third of the work area); a wide block: up to half), the work area's height, resizable
+  by hand with the size remembered; Minimize puts it back. It is a pane (`PaneKind::Workspace`), not a `CardSpec.size`, which stays `"fit"`.
+- **Board 9 §1 (the stack row):** Open and Cancel in a fixed place; no Skip; no EARLIER TODAY label.
+
+The sidebar is 360 px wide (`HISTORY_W` in `panes.rs`, `.history` in `styles.css`).
+

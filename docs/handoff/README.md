@@ -307,6 +307,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | `claude/typed-enter-fix` | Text box: typed text then Enter never presses the card's button | Open (2026-11-18) |
 | `claude/a12-c9-followup` | Docs: the follow-up order for A12 and C9 | Open (2026-11-16) |
 | `claude/docs-consolidation` | This documentation clean-up (`docs/audit/2026-11-18-docs-audit.md`) | Owner: merge after the Halo B8 branches (2026-11-18); merge `main` in first |
+| `claude/cards-stack-design-5fec91` | Owner items 3, 5, 9, 10, 11 (2026-11-24): pins, History, Expand/Minimize, the stack's Cancel, no layout shift on hover; design in `docs/explorations/2026-11-23-pins-history-cards.md` | Open (2026-11-24); owner checks `cards-stack-design-5fec91-1`–`6`; changes `owner-checks.md`, the ledger and the protocol (`stack.action` pin/unpin, `stack` pins/history, `history`) |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
 
 Merged since the last check, rows removed: `claude/b4-diagram-902ffc` (B4 step 4; owner checks 404–407 still pending) and `claude/byline-no-provider`. Several worktrees under `.claude/worktrees/` still hold branches that are already merged; they can be removed with the owner's OK.

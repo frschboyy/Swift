@@ -74,14 +74,16 @@ _VERBS = frozenset("""
     mute unmute silence pause play resume skip next previous louder quieter softer open close show lock minimize
     maximize restore snap take search google look go wake remind cancel time
     write send find tell email draft check read summarize call text book schedule move delete copy rename save
-    download translate explain list run count nudge let
+    download translate explain list run count nudge
 """.split())
 _ASKS = frozenset("how what what's whats is are does do did why when where which who whose".split())
 _NEGATES = re.compile(r"(?:don't|dont|do not(?! disturb)|never)\b")
+# What takes a request back: one list, matched whole by the gate (``_RETRACT``) and anywhere by the guess's veto.
+_TAKE_BACK = (r"(?:no|nope|nah|don't|dont|do not(?! disturb)|never mind|nevermind|cancel that|scratch that"
+              r"|scrap that|forget (?:it|that)|on second thought)")
 _RETRACT = re.compile(
-    r"(?:(?:oh|um|uh|wait|hold on|actually|sorry|no|nope)\s+)*"
-    r"(?:no|nope|don't|dont|do not|never mind|nevermind|cancel that|scratch that|forget (?:it|that))"
-    r"(?:\s+(?:wait|actually|don't|dont|do not))*"
+    r"(?:(?:oh|um|uh|wait|hold on|actually|sorry|no|nope)\s+)*" + _TAKE_BACK
+    + r"(?:\s+(?:wait|actually|don't|dont|do not))*"
 )
 
 
@@ -173,17 +175,25 @@ _NUM = "one two three four five six seven eight nine"
 # "Set a timer four five minutes": normalize sums the two to "9", which the owner never said.
 _TWO_NUMBERS = re.compile(rf"\b(?:{'|'.join(_NUM.split())}) (?:{'|'.join(_NUM.split())}|ten|eleven|twelve|thirteen|"
                           r"fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty)\b")
-# Anything here vetoes a guess (P2-3): negation, retraction, condition, past, report, someone else, elsewhere.
+# Anything here vetoes a guess (P2-3): negation, retraction, condition, past, report, someone else, elsewhere. Also
+# (review F1) a second verb or a copula ("Turn on dark mode is a great feature"), a how-to or "can you believe",
+# "your" (a host talking: "turn your volume up") and a group addressed ("you guys").
 _VETO = re.compile(
-    r"\b(?:don'?t|do not(?! disturb)|never|not|no|nope|without|leave|keep|wait|actually|cancel|never ?mind|scratch"
+    r"\b(?:" + _TAKE_BACK + r"|never|not|without|leave|keep|wait|hold on|actually|sorry|cancel|scratch|scrap"
     r"|forget|if|unless|whether|maybe|yesterday|earlier|already|ago|last night|says?|said|told|he|she|they|someone"
-    r"|somebody|everyone|him|her|them|his|their)\b"
+    r"|somebody|everyone|everybody|him|her|them|his|their|your|yours|guys|kids|folks|y'?all"
+    r"|is|was|were|are|went|goes|does|did|has|had|been|how|why|what|believe|explain)\b"
     r"|\b(?:remind|tell|ask|text|message|email|call|wake) (?!me\b|us\b|myself\b|up\b)"
     r"|\b(?:phone|tv|television|router|chrome|browser|car|echo|alexa|tablet|ipad|kindle|door|office"
     r"|kitchen|lights?|file)(?:'?s)?\b"
 )
 # Someone named: "remind Sam", "for Ada" (speech recognition writes names capitalized).
 _NAMED = re.compile(r"\b(?:for|to|tell|remind|ask) (?!I\b)[A-Z][a-z]+")
+# Someone addressed at the end: "Turn the volume down, Sam" (review F1).
+_VOCATIVE = re.compile(r",\s*(?!(?:please|now|thanks|thank you|swift)\b)[a-z]+[.!]?\s*$", re.IGNORECASE)
+# A time said with a change that isn't timed (review F3): "turn the wifi off tomorrow" mustn't ask "Turn off Wi-Fi?".
+_TIMED = re.compile(r"\b(?:tomorrow|tonight|later|morning|afternoon|evening|noon|midnight|(?:at|in|by) \d)")
+_TIMED_FAMILIES = frozenset({"timer", "alarm", "reminder"})
 
 _UP = frozenset("up louder raise increase higher boost brighter brighten".split())
 # Not "darker": dark mode or brightness, Swift can't tell (theme-v04 wants a question back, not a guess).
@@ -306,7 +316,7 @@ def propose(text: str, family_of: Callable[[str], tuple[str, float]] | None) -> 
     # A "?" is a question unless it is asked as a request ("can you get the wifi back on?"): stricter than the gate.
     asked = text.rstrip().endswith("?") and not it.polite(text)
     if (len(parts) != 1 or not _commands(text) or asked or _VETO.search(t) or _NAMED.search(text)
-            or _TWO_NUMBERS.search(text.lower())):
+            or _VOCATIVE.search(text.strip()) or _TWO_NUMBERS.search(text.lower())):
         return None
     family, score = family_of(text)
     reader = _READERS.get(family)

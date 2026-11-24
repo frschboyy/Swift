@@ -23,7 +23,8 @@ from swift.system import intents as it
 from swift.system import understand as u
 
 FAMILIES = {"minutes": "timer", "clock": "timer", "wifi": "radio", "bluetooth": "radio", "louder": "volume",
-            "volume": "volume", "lock": "lock", "google": "search", "dark": "theme"}
+            "volume": "volume", "mute": "volume", "brightness": "brightness", "lock": "lock", "google": "search",
+            "dark": "theme"}
 
 
 def family(text: str) -> tuple[str, float]:
@@ -52,6 +53,12 @@ def test_a_command_the_grammar_misses_is_guessed_with_slots_from_the_owners_word
     "my timer just went off", "I wonder if I should disconnect the wifi", "the video says time me for two minutes",
     "give her ten minutes on the clock", "count down three minutes for Ada", "tell Ada to disconnect the wifi",
     "disconnect the wifi on my router", "time me for two minutes and email Sam", "set a timer four five minutes",
+    # The phase 2 review's F1: a verb-led statement, a how-to, "let me", "can you believe", someone addressed, a host.
+    "Turn on dark mode is a great feature", "Turn the volume up was the worst advice", "Mute button is broken",
+    "Explain how to turn off the wifi", "Show me how to turn on dark mode", "could you explain dark mode",
+    "Let me turn the volume down", "Let me turn off the bluetooth", "can you believe the volume went up",
+    "Turn the volume down, Sam", "Bring the brightness up you guys", "Turn your volume up for this next song",
+    "Turn off bluetooth, scrap that",
 ])
 def test_no_guess_for_what_isnt_a_plain_command_for_this_pc(text: str) -> None:
     assert _guess(text) is None

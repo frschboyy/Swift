@@ -157,3 +157,16 @@
 {"id": "third-04", "family": "reminder", "kind": "unsupported", "text": "nudge Sam in an hour about the budget", "want": "agent", "note": "IA-01 phase 2, P2-3"}
 {"id": "third-05", "family": "timer", "kind": "unsupported", "text": "count down three minutes for him", "want": "agent", "note": "IA-01 phase 2, P2-3"}
 {"id": "third-06", "family": "radio", "kind": "unsupported", "text": "disconnect the wifi for Ada", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "rv-01", "family": "theme", "kind": "statement", "text": "Turn on dark mode is a great feature", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-02", "family": "volume", "kind": "statement", "text": "Turn the volume up was the worst advice", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-03", "family": "volume", "kind": "statement", "text": "Mute button is broken", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-04", "family": "radio", "kind": "question", "text": "Explain how to turn off the wifi", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-05", "family": "theme", "kind": "question", "text": "Show me how to turn on dark mode", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-06", "family": "theme", "kind": "question", "text": "could you explain dark mode", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-07", "family": "volume", "kind": "statement", "text": "Let me turn the volume down", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-08", "family": "radio", "kind": "statement", "text": "Let me turn off the bluetooth", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-09", "family": "volume", "kind": "statement", "text": "can you believe the volume went up", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-10", "family": "volume", "kind": "statement", "text": "Turn the volume down, Sam", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-11", "family": "brightness", "kind": "statement", "text": "Bring the brightness up you guys", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-12", "family": "volume", "kind": "statement", "text": "Turn your volume up for this next song", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-13", "family": "radio", "kind": "negation", "text": "Turn off bluetooth, scrap that", "want": "nothing", "note": "phase 2 review F1"}

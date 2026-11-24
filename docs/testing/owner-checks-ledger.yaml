@@ -143,6 +143,9 @@ areas:
   lifetime:
     paths: [overlay/src-tauri/src/backend.rs, overlay/src-tauri/src/prefs.rs, src/swift/backend/*, src/swift/__main__.py, src/swift/settings.py, src/swift/config/*, src/swift/clock.py]
     checks: [77-80, 110, 120, 147]
+  engine:
+    paths: [src/swift/system/control.py, src/swift/captions.py, overlay/src-tauri/src/backend.rs, src/swift/backend/__main__.py]
+    checks: [engine-crashes-eac152-1, engine-crashes-eac152-2, engine-crashes-eac152-3]
 
 focus:
   - checks: [380-389]

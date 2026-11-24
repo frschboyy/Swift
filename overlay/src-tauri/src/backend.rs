@@ -35,6 +35,8 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// How long a backend asked to exit (stdin closed) gets before its job is ended.
 const QUIT_GRACE: Duration = Duration::from_secs(1);
 const RESTART_GRACE: Duration = Duration::from_secs(3);
+/// A start younger than this that is neither ready nor failed is still coming up: Restart leaves it alone.
+const STARTING: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Serialize, Default)]
 pub struct BackendInfo {
@@ -53,6 +55,8 @@ pub struct Backend {
     job: Option<isize>,
     /// Which start this is: news from an older backend's output (after a restart) is ignored.
     generation: u64,
+    /// When the current start began.
+    began: Option<Instant>,
 }
 
 pub type SharedBackend = Arc<Mutex<Backend>>;
@@ -105,10 +109,16 @@ fn started_by_hand() -> Option<BackendInfo> {
 fn begin(shared: &SharedBackend) -> u64 {
     let mut b = shared.lock().unwrap();
     b.generation += 1;
+    b.began = Some(Instant::now());
     b.info = None;
     b.ready_at = None;
     b.error = None;
     b.generation
+}
+
+/// A start is under way: not ready, not failed, and not yet overdue.
+fn starting(b: &Backend) -> bool {
+    b.info.is_none() && b.error.is_none() && b.began.is_some_and(|t| t.elapsed() < STARTING)
 }
 
 /// Start `generation` said it is ready; false if it isn't the current start.
@@ -231,6 +241,12 @@ pub fn restart(app: &AppHandle, shared: SharedBackend) -> Result<(), String> {
     if started_by_hand().is_some() {
         return Err("Swift's engine was started by hand (SWIFT_BACKEND_PORT): restart it there.".into());
     }
+    // A second Restart while the first engine is still coming up (2026-11-18 23:41:57 and 23:42:04: two engines,
+    // the first killed half started) would end the new engine too: it is already the restart asked for.
+    if starting(&shared.lock().unwrap()) {
+        eprintln!("[overlay] restart ignored: the engine is still starting");
+        return Ok(());
+    }
     begin(&shared); // from here the old backend's output closing is old news
     end(&shared, RESTART_GRACE);
     eprintln!("[overlay] restarting the backend");
@@ -293,6 +309,25 @@ mod tests {
         assert_eq!(s.lock().unwrap().info.as_ref().map(|i| i.port), Some(5000));
         // The new one dying is news.
         assert!(exited(&s, new).is_some() && s.lock().unwrap().info.is_none());
+    }
+
+    #[test]
+    fn a_start_under_way_is_starting_until_it_is_ready_or_fails() {
+        let s = shared();
+        assert!(!starting(&s.lock().unwrap())); // never started
+        let g = begin(&s);
+        assert!(starting(&s.lock().unwrap()));
+        assert!(ready(&s, g, info(4000)));
+        assert!(!starting(&s.lock().unwrap())); // running: Restart may end it
+        let g = begin(&s);
+        assert!(failed(&s, g, "no python".into()));
+        assert!(!starting(&s.lock().unwrap())); // failed: Restart is the way out
+        let g = begin(&s);
+        assert!(exited(&s, g).is_some());
+        assert!(!starting(&s.lock().unwrap())); // stopped
+        begin(&s);
+        s.lock().unwrap().began = Some(Instant::now() - STARTING);
+        assert!(!starting(&s.lock().unwrap())); // stuck before ready: Restart may end it
     }
 
     #[test]

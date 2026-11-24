@@ -409,6 +409,7 @@ const wanted = (): Panes.PaneSpec[] => {
   const view = S.stackView(stack, Date.now());
   return Panes.wantedPanes(reader, {
     stack: view && { ...view, mainX: Math.round(window.screenX + window.innerWidth / 2) }, typing, tray, live: L.openRuns(live).map((r) => ({ ...L.view(r), place: watchPlace })),
+    history: historyOpen ? S.historyView(stack, Date.now()) : null,
   });
 };
 
@@ -483,6 +484,12 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       break;
     case "stack-collapse":
       collapseStack();
+      break;
+    case "history-open":
+      setHistory(true);
+      break;
+    case "history-close":
+      setHistory(false);
       break;
     case "stack-at":
       stackAt = Number(payload.value);
@@ -582,7 +589,7 @@ function drawStackInline(): void {
   stackEl.replaceChildren(
     view.expanded
       ? el("div", { "data-hit": true }, V.stackOpen(view, {
-          item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"),
+          item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"), history: () => setHistory(true),
           select: (id) => { stackSelected = id; for (const row of stackEl.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id)); },
         }))
       : el("div", { "data-hit": true }, V.stackClosed(view, {
@@ -592,9 +599,19 @@ function drawStackInline(): void {
             void syncEscape();
             drawStackInline();
           },
-        }, stackAction)),
+        }, { item: stackAction, history: () => setHistory(true) })),
+    ...(historyOpen ? [el("div", { "data-hit": true, class: "history-inline" }, V.historyPanel(S.historyView(stack, Date.now()), { item: stackAction, close: () => setHistory(false) }))] : []),
   );
   scheduleRegions();
+}
+
+// History (owner, 2026-11-24): the sidebar from the right edge, opened by the link under the stack or "show my history".
+let historyOpen = false;
+function setHistory(open: boolean): void {
+  if (historyOpen === open) return;
+  historyOpen = open;
+  void syncPanes();
+  drawStackInline();
 }
 
 // The backend's stack, before the timers still counting join it as RUNNING rows (B14).
@@ -2520,7 +2537,10 @@ function onMessage(msg: Inbound): void {
       onRuns(msg.data);
       break;
     case "stack":
-      onStackMessage([...msg.data.items, ...(msg.data.recent ?? []), ...(msg.data.pins ?? [])]);  // A1: earlier today after what waits
+      onStackMessage([...msg.data.items, ...(msg.data.pins ?? []), ...(msg.data.history ?? [])]);  // finished ones after what waits
+      break;
+    case "history":
+      setHistory(msg.data.open);
       break;
     case "timers":
       timers = msg.data.items;

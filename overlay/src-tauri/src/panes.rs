@@ -26,6 +26,8 @@ pub enum PaneKind {
     Tray,
     /// A running request's live view (ADR-017 §7): on the reader's side, one per request, cascaded.
     Live,
+    /// History (owner, 2026-11-24): a sidebar the work area's height on the right edge; it moves the stack aside.
+    History,
 }
 
 impl PaneKind {
@@ -36,6 +38,7 @@ impl PaneKind {
             "type" => Some(PaneKind::Type),
             "tray" => Some(PaneKind::Tray),
             "live" => Some(PaneKind::Live),
+            "history" => Some(PaneKind::History),
             _ => None,
         }
     }
@@ -56,7 +59,7 @@ fn side(kind: PaneKind, main: Anchor) -> i32 {
         (PaneKind::Type, _) => 1,
         (PaneKind::Reader | PaneKind::Live, -1) => 1,
         (PaneKind::Reader | PaneKind::Live, _) => -1,
-        (PaneKind::Tray, _) => 1,
+        (PaneKind::Tray | PaneKind::History, _) => 1,
     }
 }
 
@@ -121,7 +124,7 @@ pub fn default_origin(area: Area, scale: f64, main: Anchor, kind: PaneKind, inde
     }
     let x = if side(kind, main) < 0 { area.x + m } else { area.x + area.w as i32 - size.0 - m };
     let y = match kind {
-        PaneKind::Reader => area.y + m,
+        PaneKind::Reader | PaneKind::History => area.y + m,
         PaneKind::Stack | PaneKind::Tray => area.y + area.h as i32 - m - size.1,
         PaneKind::Type | PaneKind::Live => unreachable!("placed above"),
     };
@@ -209,6 +212,25 @@ pub fn mini_origin(area: Area, scale: f64, main: Anchor, size: (i32, i32)) -> (i
     clamp(area, (x, y), size)
 }
 
+/// History's width, CSS px.
+pub const HISTORY_W: f64 = 360.0;
+
+/// A pane the work area's height on one edge (`right`), `w` CSS px wide but never more than half the work area,
+/// inside the margin (physical px: x, y, w, h). History; Expand's workspace.
+pub fn edge_rect(area: Area, scale: f64, w: f64, right: bool) -> (i32, i32, i32, i32) {
+    let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
+    let m = (MARGIN * scale).round() as i32;
+    let w = ((w * scale).round() as i32).min(area.w as i32 / 2);
+    let x = if right { area.x + area.w as i32 - w - m } else { area.x + m };
+    (x, area.y + m, w, area.h as i32 - 2 * m)
+}
+
+/// Where a pane at `x`, `w` wide, moves so it ends `gap` short of an edge pane starting at `edge_x`; None: clear.
+/// History pushes the stack aside this way, and gives it back its place when it closes.
+pub fn pushed_left(x: i32, w: i32, edge_x: i32, gap: i32) -> Option<i32> {
+    (x + w > edge_x - gap).then_some(edge_x - gap - w)
+}
+
 /// The reader's height at most: 70 % of the work area.
 pub fn max_height(area: Area) -> i32 {
     (area.h as f64 * 0.7).round() as i32
@@ -279,6 +301,7 @@ mod tests {
         assert_eq!(PaneKind::from_id("stack"), Some(PaneKind::Stack));
         assert_eq!(PaneKind::from_id("type"), Some(PaneKind::Type));
         assert_eq!(PaneKind::from_id("tray"), Some(PaneKind::Tray));
+        assert_eq!(PaneKind::from_id("history"), Some(PaneKind::History));
         assert_eq!(PaneKind::from_id("live"), Some(PaneKind::Live));
         assert_eq!(PaneKind::from_id("main"), None);
         assert!(PaneKind::Stack.grows_up() && !PaneKind::Reader.grows_up());
@@ -384,5 +407,16 @@ mod tests {
         }
         assert_eq!(WatchPlace::from_id("docked"), Some(WatchPlace::Docked));
         assert_eq!(WatchPlace::from_id("sideways"), None);
+    }
+
+    #[test]
+    fn history_takes_the_right_edge_full_height_and_pushes_the_stack_clear() {
+        let (x, y, w, h) = edge_rect(FHD, 1.0, HISTORY_W, true);
+        assert_eq!((x + w, y, w, y + h), (1920 - MARGIN as i32, MARGIN as i32, 360, 1040 - MARGIN as i32));
+        assert_eq!(edge_rect(FHD, 2.0, 600.0, true).2, 960);  // never more than half the work area
+        assert_eq!(edge_rect(FHD, 1.0, 360.0, false).0, MARGIN as i32);
+        // The stack in the bottom-right corner moves left to end 8 px short of History; one clear of it stays.
+        assert_eq!(pushed_left(1624, 280, x, 8), Some(x - 8 - 280));
+        assert_eq!(pushed_left(100, 280, x, 8), None);
     }
 }

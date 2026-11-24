@@ -1028,6 +1028,36 @@ code {
 .pin-more { font-size: 12px; color: var(--faint); padding: 0 8px; }
 .pin-btn[aria-pressed="true"] { color: var(--accent); }
 
+/* History (owner, 2026-11-24): a quiet underlined word under the stack, and a 360 px sidebar from the right edge
+   that slides in (280 ms, --ease; reduced motion: the global 120 ms fade). The shell gives its window the work
+   area's height and moves the stack aside, so the two never overlap. */
+.history-link { align-self: flex-end; padding: 2px 6px; border: 0; background: none; color: var(--faint); font: inherit; font-size: 12px;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.history-link:hover, .history-link:focus-visible { color: var(--text); }
+.history { display: flex; flex-direction: column; width: 360px; height: 100vh; box-sizing: border-box; border-radius: 18px; background: var(--panel-solid);
+  border: 1px solid var(--rim); box-shadow: var(--shadow); overflow: hidden; animation: history-in var(--dur-move) var(--ease); }
+@keyframes history-in { from { transform: translateX(100%); } }
+.history-head { display: flex; align-items: center; height: 52px; padding: 0 10px 0 18px; border-bottom: 1px solid var(--rim); }
+.history-head b { flex: 1; font-size: 16px; font-weight: 700; }
+.history-list { list-style: none; margin: 0; padding: 4px 6px; flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+.history-row { display: flex; align-items: center; gap: 4px; border-radius: 12px; }
+.history-row:hover, .history-row:focus-within { background: var(--raise); }
+.history-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 8px 6px 8px 10px; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.history-mark { flex: none; }
+.history-mark--check { color: var(--ok); } .history-mark--alert { color: var(--bad); } .history-mark--pin { color: var(--accent); }
+.history-text { display: flex; flex-direction: column; min-width: 0; }
+.history-text b { font-size: 14px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-text span { font-size: 12px; line-height: 17px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The pin button keeps its place and only fades in, so nothing moves (item 10's rule). */
+.history-pin { flex: none; opacity: 0; transition: opacity var(--dur-fast); }
+.history-row:hover .history-pin, .history-row:focus-within .history-pin, .history-pin[aria-pressed="true"] { opacity: 1; }
+.history-pin[aria-pressed="true"] { color: var(--accent); }
+.history-empty { margin: 16px 18px; color: var(--muted); }
+/* the harness: no pane windows, so History is drawn over the right edge of the page */
+.history-inline { position: fixed; top: 8px; right: 8px; bottom: 8px; z-index: 5; }
+.history-inline .history { height: 100%; }
+
 /* the harness has no pane windows: the stack sits beside the card */
 .stack-inline { display: flex; flex-direction: column; align-items: inherit; flex: none; }
 .stack-inline[hidden] { display: none; }

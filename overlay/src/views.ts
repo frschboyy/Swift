@@ -5,7 +5,7 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, freshNeedsOk, needsOk, nextLine, SHELF_PINS, waitingOnly, waits, type StackView } from "./stack";
+import { countLine, freshNeedsOk, hasHistory, needsOk, nextLine, SHELF_PINS, waitingOnly, waits, type HistoryView, type StackView } from "./stack";
 import type { StackAction } from "./protocol";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
@@ -76,15 +76,20 @@ export function shelf(v: StackView, item: StackHandlers["item"]): HTMLElement | 
     more > 0 ? el("span", { class: "pin-more" }, `+${more} pinned`) : null);
 }
 
-/** The corner: the pins shelf above the stack (either may be missing). */
-const corner = (top: HTMLElement | null, stack: HTMLElement | null): HTMLElement =>
-  top ? el("div", { class: "stack-corner" }, top, stack) : stack ?? el("div", {});
+/** History's way in (owner, 2026-11-24): one quiet underlined word under the stack, there when History has something,
+ * even with nothing waiting (Q3). */
+const historyLink = (v: StackView, open?: () => void): HTMLElement | null =>
+  open && hasHistory(v) ? el("button", { class: "history-link", title: "What you asked Swift, and its answers", onclick: (ev: Event) => { ev.stopPropagation(); open(); } }, "History") : null;
 
-/** The closed stack: two layers behind the top one, the count and what comes next; the pins shelf above it. */
-export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}, item?: StackHandlers["item"]): HTMLElement {
-  const pinned = item ? shelf(v, item) : null;
-  const n = waitingOnly(v).items.length;  // answers from earlier today aren't waiting (A1)
-  return corner(pinned, n ? pile(v, n, attrs) : null);
+/** The corner: the pins shelf, the stack, the History link (any may be missing). */
+const corner = (top: HTMLElement | null, stack: HTMLElement | null, link: HTMLElement | null = null): HTMLElement =>
+  top || link ? el("div", { class: "stack-corner" }, top, stack, link) : stack ?? el("div", {});
+
+/** The closed stack: two layers behind the top one, the count and what comes next; the pins shelf above it, History
+ * under it. */
+export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}, h?: Pick<StackHandlers, "item" | "history">): HTMLElement {
+  const n = waitingOnly(v).items.length;  // finished ones aren't waiting
+  return corner(h ? shelf(v, h.item) : null, n ? pile(v, n, attrs) : null, historyLink(v, h?.history));
 }
 
 function pile(v: StackView, n: number, attrs: Record<string, string | boolean | ((ev: Event) => void)>): HTMLElement {
@@ -110,6 +115,8 @@ function pile(v: StackView, n: number, attrs: Record<string, string | boolean | 
 
 export type StackHandlers = {
   item: (id: string, action: StackAction) => void;
+  // Opens History (owner, 2026-11-24).
+  history?: () => void;
   collapse: () => void;
   // The row the owner last pointed at (its buttons show).
   selected?: string | null;
@@ -163,7 +170,6 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
   // Board 9 §1: section labels once there is more than one kind of thing (B14: RUNNING, A1: EARLIER TODAY).
   const running = v.items.filter((i) => i.kind === "timer");
   const waiting = v.items.filter(waits);
-  const earlier = v.items.filter((i) => i.kind === "recent");
   const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
   return corner(shelf(v, h.item), el(
     "section",
@@ -174,10 +180,40 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       el("button", { class: "icon-btn", "aria-label": "Fold up", title: "Fold up (Esc)", onclick: () => h.collapse() }, icon("collapse"))),
     el("ul", { class: "stack-list" },
       ...(running.length ? [label("Running"), ...running.map(row)] : []),
-      ...(earlier.length || running.length ? [label("Waiting for you")] : []), ...waiting.map((i, n) => row(i, running.length + n)),
-      ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, running.length + waiting.length + n))] : [])),
+      ...(running.length ? [label("Waiting for you")] : []), ...waiting.map((i, n) => row(i, running.length + n))),
     el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
-  ));
+  ), historyLink(v, h.history));
+}
+
+export type HistoryHandlers = { item: (id: string, action: StackAction) => void; close: () => void };
+
+/** The History sidebar (owner, 2026-11-24): pins, then every finished request Swift can still reopen, by day, newest
+ * first. A click on a row brings it back to the front; its pin button pins or unpins it. It slides in from the right
+ * edge (styles.css). */
+export function historyPanel(v: HistoryView, h: HistoryHandlers): HTMLElement {
+  const row = (id: string, title: string, line: string, mark: string, pinned: boolean): HTMLElement =>
+    el("li", { class: "history-row" },
+      el("button", { class: "history-open", title: `Open “${title}”`, onclick: () => h.item(id, "open") },
+        el("span", { class: `stack-mark history-mark history-mark--${mark}` }, icon(mark)),
+        el("span", { class: "history-text" }, el("b", {}, title), el("span", {}, line))),
+      el("button", { class: "icon-btn history-pin", "aria-pressed": String(pinned), "aria-label": pinned ? `Unpin “${title}”` : `Pin “${title}”`,
+        title: pinned ? "Unpin" : "Pin", onclick: () => h.item(id, pinned ? "unpin" : "pin") }, icon("pin")));
+  const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
+  const days: HTMLElement[] = [];
+  let day = "";
+  for (const p of v.past) {
+    if (p.day !== day) days.push(label((day = p.day)));
+    days.push(row(p.id, p.title, p.line, p.icon, false));
+  }
+  const empty = !v.pins.length && !v.past.length;
+  return el("aside", { class: "history", role: "region", "aria-label": "History" },
+    el("header", { class: "history-head" }, el("b", {}, "History"),
+      el("button", { class: "icon-btn", "aria-label": "Close History", title: "Close (Esc)", onclick: () => h.close() }, icon("x"))),
+    el("ul", { class: "history-list" },
+      ...(v.pins.length ? [label("Pinned"), ...v.pins.map((p) => row(p.id, p.title, p.line, "pin", true))] : []),
+      ...days),
+    empty ? el("p", { class: "history-empty" }, "Nothing yet since Swift started.") : null,
+    el("footer", { class: "stack-foot" }, "Kept until Swift restarts"));
 }
 
 // ---- the live view (ADR-017 §7) ----------------------------------------------------------

@@ -3161,6 +3161,8 @@ You should see: while Swift speaks, the pill by the orb shows the words it's say
 Captions don't turn on by themselves when the sound is muted (not built yet).
 
 <a id="check-426"></a>**Check 426. Earlier today in the stack (A1)**
+*Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): Earlier today moved to History; run check
+cards-stack-design-5fec91-4 instead. Record this one as RETIRED when that branch merges.*
 1. Ask two questions in a row ("Hey Swift, research the history of tea", then "Hey Swift, what time is it?").
 2. Leave something waiting (let an OK card run out), then click the pile.
 3. Click **Open** on the tea answer under EARLIER TODAY.
@@ -3322,3 +3324,17 @@ top, each with a short hint; the time answer isn't one. A click on London brings
 (5) the reply goes on in that conversation. (6) the pill goes, and nothing else moves.
 
 The report checks: two pins and one unpin from the corner, and a pin opened.
+
+<a id="check-cards-stack-design-5fec91-4"></a>**Check cards-stack-design-5fec91-4. History: a sidebar from the right edge, reopened**
+1. Ask Swift three things, one after another ("what time is it?", "what's the capital of Portugal?", "turn the volume
+   to 30"), and let each answer go.
+2. Look at the stack's corner: under it (or alone, if nothing waits), a faint underlined **History**. Click it.
+3. Click "capital of Portugal" in the sidebar. Reply "and of Spain?".
+4. Click outside the sidebar. Then say "Hey Swift, show my history".
+
+You should see: (2) no "Earlier today" in the stack any more. A sidebar the screen's height slides in at the right
+edge, and the stack moves left out of its way; your three requests under **Today**, newest first, each with
+"Done · time". (3) that answer comes back in full and the reply goes on with it. (4) the sidebar closes and the
+stack goes back to its corner; the voice request opens it again, with "Here's your history."
+
+The report checks: an item opened from History; "show my history" answered without the agent.

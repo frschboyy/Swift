@@ -15,9 +15,9 @@
 import type { Display } from "./display";
 import type { LiveView } from "./live";
 import type { ResultDetails } from "./protocol";
-import type { StackView } from "./stack";
+import type { HistoryView, StackView } from "./stack";
 
-export type PaneKind = "reader" | "stack" | "type" | "tray" | "live";
+export type PaneKind = "reader" | "stack" | "type" | "tray" | "live" | "history";
 
 /** The text box (ADR-015 §10): what was typed so far, and the conversation it follows up, if any.
  * ``confirm``: a confirm card is open, so the box says typing can't approve it (Enter = Change). */
@@ -51,7 +51,8 @@ export type PaneView =
   | StackView
   | TypeView
   | TrayView
-  | LiveView;
+  | LiveView
+  | HistoryView;
 
 export type PaneSpec = { label: string; kind: PaneKind; index: number; view: PaneView };
 
@@ -79,7 +80,7 @@ export const paneLabel = (kind: PaneKind, id = ""): string =>
   kind === "live" ? `pane-live-${id.replace(/[^A-Za-z0-9_-]/g, "_")}` : `pane-${kind}`;
 
 /** Besides the reader: the waiting stack and the text box, when they show. */
-export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[] };
+export type Extra = { stack?: StackView | null; typing?: TypeView | null; tray?: TrayView | null; live?: LiveView[]; history?: HistoryView | null };
 
 /** The panes that should exist now. */
 export function wantedPanes(reader: Reader, extra: Extra = {}): PaneSpec[] {
@@ -88,6 +89,7 @@ export function wantedPanes(reader: Reader, extra: Extra = {}): PaneSpec[] {
   if (extra.typing) out.push({ label: paneLabel("type"), kind: "type", index: 0, view: extra.typing });
   (extra.live ?? []).forEach((v, index) => out.push({ label: paneLabel("live", v.runId), kind: "live", index, view: v }));
   if (extra.tray) out.push({ label: paneLabel("tray"), kind: "tray", index: 0, view: extra.tray });
+  if (extra.history) out.push({ label: paneLabel("history"), kind: "history", index: 0, view: extra.history });
   if (reader) {
     out.push({
       label: paneLabel("reader"),
@@ -180,6 +182,8 @@ export function paneSize(spec: PaneSpec): { w: number; h: number } {
       return { w: 280, h: 400 };
     case "live":
       return { w: 420, h: 480 };
+    case "history":
+      return { w: 360, h: 600 };  // the shell gives it the work area's height on the right edge
   }
 }
 

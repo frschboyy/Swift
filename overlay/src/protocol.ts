@@ -150,9 +150,12 @@ export type Inbound =
   // ADR-013 phase B: the request in front, the others as one-line rows, and cards waiting behind the one shown.
   | { type: "runs"; data: { focus: string | null; rows: RunRow[]; waiting: number } }
   // ADR-015 §9: what waits for the owner (the waiting stack), in the order to show it.
-  // recent: answers from earlier today (A1), listed after what waits; never waiting.
+  // history: every finished request Swift can still reopen, newest first (owner, 2026-11-24; it replaced A1's
+  // "recent"); never waiting.
   // pins: finished requests the owner pinned, newest first (owner, 2026-11-24); never waiting.
-  | { type: "stack"; data: { items: StackEntry[]; recent?: StackEntry[]; pins?: StackEntry[] } }
+  | { type: "stack"; data: { items: StackEntry[]; history?: StackEntry[]; pins?: StackEntry[] } }
+  // "Show my history" (owner, 2026-11-24): the History panel opens.
+  | { type: "history"; data: { open: boolean } }
   // Swift heard its name or the hotkey, before transcribing anything: the "Listening…" pulse (heard.ts).
   | { type: "heard"; data: { source: "wake" | "ptt" | "queued"; text: string } }
   // ADR-017: Swift started or stopped talking (the capsule's Speaking state, the question card).
@@ -181,11 +184,11 @@ export type StackAction = "open" | "skip" | "end" | "pin" | "unpin";
 
 export type StackEntry = {
   id: string;
-  // "recent": an answer from earlier today (A1), listed after what waits; it never counts as waiting.
+  // "past": a finished request in History (its reason: "done" | "failed" | "stopped"); it never counts as waiting.
   // "timer": a timer still counting (B14), made by the overlay from ``timers``: a RUNNING row, never waiting.
   // "failed": a request's Failed card moved here after 10 min (ADR-019 §8.3, the overlay's own); it counts (D9).
   // "pinned": a finished request the owner pinned (its reason is a one-line hint); a click reopens it.
-  kind: "waiting" | "later" | "held" | "parked" | "due" | "recent" | "timer" | "failed" | "pinned";
+  kind: "waiting" | "later" | "held" | "parked" | "due" | "past" | "timer" | "failed" | "pinned";
   title: string;
   // "waiting" | "later" | "held", or why it was parked: "stopped" | "unanswered" | "asked".
   reason: string;

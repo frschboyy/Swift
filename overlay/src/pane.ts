@@ -96,11 +96,12 @@ const plain = (v: Extract<PaneView, { kind: "reader" }>): string => [v.summary, 
 function watchOutside(): void {
   if (watching) return;
   watching = true;
-  const open = (): boolean => (view?.kind === "stack" && view.expanded) || view?.kind === "tray";
+  const open = (): boolean => (view?.kind === "stack" && view.expanded) || view?.kind === "tray" || view?.kind === "history";
   void invoke<boolean>("watch_outside", { label })
     .then((outside) => {
       if (!outside || !open()) return;
       if (view?.kind === "tray") act("tray", { value: "close" });
+      else if (view?.kind === "history") act("history-close");
       else act("stack-collapse");
     })
     .catch(() => {})
@@ -308,6 +309,7 @@ function draw(): void {
         root.replaceChildren(V.stackOpen(view, {
           item: (id, item) => act("stack-item", { id, item }),
           collapse: () => act("stack-collapse"),
+          history: () => act("history-open"),
           selected,
           unfold: !root.querySelector(".stack-open"),
           select: (id) => {
@@ -317,7 +319,7 @@ function draw(): void {
         }));
         watchOutside();
       } else {
-        root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }, (id, item) => act("stack-item", { id, item })));
+        root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }, { item: (id, item) => act("stack-item", { id, item }), history: () => act("history-open") }));
         takeHandoff(view);
       }
       break;
@@ -326,6 +328,10 @@ function draw(): void {
       break;
     case "tray":
       drawTray(view);
+      break;
+    case "history":
+      root.replaceChildren(V.historyPanel(view, { item: (id, item) => act("stack-item", { id, item }), close: () => act("history-close") }));
+      watchOutside();
       break;
     case "live":
       drawLive(view);

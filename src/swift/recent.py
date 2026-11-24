@@ -1,23 +1,22 @@
-"""Earlier today in the stack (Halo A1, D12: with the stack list, 2026-11-18).
+"""History and pins: finished requests, kept to be reopened (owner, 2026-11-24; it replaces Halo A1's Earlier today).
 
 ``found``: "what did you find about …" said or typed shows that earlier answer again, as this request's answer. Only
 answers since Swift started: none are kept on disk (run records are content-free), so after a restart it says so.
 
-Requests that ended today with an answer, newest first, listed under the waiting ones as ``recent`` items. They
-never count as waiting (the overlay leaves them out of the pile and its badge). Open brings the request back to the
-front with its answer, as a click on its edge would; it is the same run, so nothing runs again.
+Requests that ended with an answer, newest first, sent with the stack as ``history``, and the ones the owner pinned
+as ``pins``. They never count as waiting. Open brings the request back to the front with its answer, as a click on
+its edge would; it is the same run, so nothing runs again, and a reply goes on with it. ``show``: "show my history".
 """
 
 from __future__ import annotations
 
 import re
-import time
 from collections import deque
 from typing import Any
 
+from swift.ipc.protocol import outbound
 from swift.stack import StackItem
 
-MAX_RECENT = 6
 # Finished requests kept, with their answers, so Earlier today (and pins and History) can reopen them: in memory
 # only, gone at a restart (owner, 2026-11-24). The session's own "gone" list keeps only its last few.
 MAX_KEPT = 50
@@ -37,11 +36,6 @@ class Gone(deque):  # type: ignore[type-arg]
         super().append(run)
         if run not in self.kept:
             self.kept.append(run)
-
-
-def _today_ms() -> int:
-    t = time.localtime()
-    return int(time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, -1)) * 1000)
 
 
 def _ended(session: Any) -> list[Any]:
@@ -76,24 +70,35 @@ def pins(session: Any) -> list[StackItem]:
 
 
 def extras(session: Any) -> dict[str, list[dict[str, Any]]]:
-    """What the ``stack`` frame carries besides what waits: ``recent`` (A1) and ``pins``, each only when there is one."""
-    found = {"recent": [i.as_message() for i in items(session)], "pins": [i.as_message() for i in pins(session)]}
+    """What the ``stack`` frame carries besides what waits: ``history`` and ``pins``, each only when there is one."""
+    found = {"history": [i.as_message() for i in history(session)], "pins": [i.as_message() for i in pins(session)]}
     return {k: v for k, v in found.items() if v}
 
 
-def items(session: Any) -> list[StackItem]:
-    """The ``recent`` stack items: today's answers, newest first, at most MAX_RECENT. A pinned one is on the shelf
-    instead: one place each."""
-    today = _today_ms()
+def history(session: Any) -> list[StackItem]:
+    """History (owner, 2026-11-24; it replaces A1's Earlier today in the stack): every request that ended and can
+    still be reopened, newest first, the reason its outcome. A pinned one is on the shelf instead: one place each."""
     out: list[StackItem] = []
     for run in _ended(session):
         if run in _pins(session):
             continue
-        if run.started_ms < today or len(out) >= MAX_RECENT:
-            continue
-        out.append(StackItem(f"recent:{run.ui_id}", "recent", run.title or run.summary or "An answer",
-                             "failed" if _failed(run) else "done", run.started_ms, run.thread))
+        outcome = "failed" if _failed(run) else "stopped" if run.answer.data.get("status") == "cancelled" else "done"
+        out.append(StackItem(f"recent:{run.ui_id}", "past", run.title or run.summary or "An answer", outcome,
+                             run.started_ms, run.thread))
     return out
+
+
+# "Show my history", "open history", "Swift, show me my history".
+_HISTORY = re.compile(r"^\s*(?:(?:hey|ok|okay)\s+)?(?:swift\b[\s,.:!-]*)?(?:please\s+)?(?:show|open)(?: me)?(?: my)? history"
+                      r"(?: please)?[.!?]*\s*$", re.I)
+
+
+def show(session: Any, text: str) -> tuple[str, None] | None:
+    """"Show my history": the History panel opens (Q5, 2026-11-24); what Swift says back, else None."""
+    if not _HISTORY.match(text):
+        return None
+    session._background(session._raw_send(outbound("history", open=True)))
+    return "Here's your history.", None
 
 
 async def open_(session: Any, key: str, action: str) -> None:

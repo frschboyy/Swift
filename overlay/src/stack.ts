@@ -24,8 +24,8 @@ export type Stack = {
   freshUntil: number;
 };
 
-/** What waits for the owner: not an answer from earlier today (A1), not a timer still counting (B14), not a pin. */
-export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "recent" && i.kind !== "timer" && i.kind !== "pinned";
+/** What waits for the owner: not a finished request (History, a pin), not a timer still counting (B14). */
+export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "past" && i.kind !== "timer" && i.kind !== "pinned";
 
 /** Pins shown on the shelf; the rest are counted ("+2 pinned"). */
 export const SHELF_PINS = 4;
@@ -105,7 +105,7 @@ export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "D
  * null: Open already does it (Done on a reminder, Cancel on a timer) or there's nothing to end (an earlier answer). */
 export function secondAction(item: { kind: StackEntry["kind"]; reason?: string }): { label: string; tip: string; confirm: boolean } | null {
   switch (item.kind) {
-    case "due": case "timer": case "recent": case "pinned": return null;
+    case "due": case "timer": case "past": case "pinned": return null;
     case "failed": return { label: "Dismiss", tip: "Remove it from the stack", confirm: false };
     case "parked":
       return item.reason === "asked"
@@ -120,7 +120,7 @@ export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "b
   if (item.kind === "pinned") return "pin";
   if (item.kind === "timer") return "timer";
   if (item.kind === "failed") return "alert";
-  if (item.kind === "recent") return item.reason === "failed" ? "alert" : "check";
+  if (item.kind === "past") return item.reason === "failed" ? "alert" : item.reason === "stopped" ? "pause" : "check";
   if (item.kind === "due") return "bell";
   if (item.kind !== "parked") return "shield";
   return item.reason === "asked" ? "question" : "pause";
@@ -150,7 +150,7 @@ export type StackView = {
 /** The stack pane's view, or null when nothing waits and nothing is pinned (no window): answers from earlier today alone don't make a
  * pile (A1); they show under the waiting ones once it's open. */
 export function stackView(s: Stack, now: number): StackView | null {
-  if (!s.items.some((i) => waits(i) || i.kind === "pinned")) return null;  // pins alone keep the corner
+  if (!s.items.some((i) => waits(i) || i.kind === "pinned" || i.kind === "past")) return null;  // a pin or History keeps the corner
   const glow = now < s.freshUntil ? new Set(s.fresh) : new Set<string>();
   return {
     kind: "stack",
@@ -161,6 +161,37 @@ export function stackView(s: Stack, now: number): StackView | null {
     })),
   };
 }
+
+/** History (owner, 2026-11-24): what the sidebar lists, pins first, then finished requests, newest first. */
+export type HistoryView = {
+  kind: "history";
+  pins: { id: string; title: string; line: string }[];
+  past: { id: string; title: string; line: string; icon: ReturnType<typeof itemIcon>; day: string }[];
+};
+
+const OUTCOME: Record<string, string> = { done: "Done", failed: "Failed", stopped: "Stopped" };
+
+/** A day's heading: "Today", "Yesterday", or the date. */
+export function dayLabel(ms: number, now: number): string {
+  const day = (t: number): number => new Date(new Date(t).toDateString()).getTime();
+  const back = Math.round((day(now) - day(ms)) / 86_400_000);
+  return back === 0 ? "Today" : back === 1 ? "Yesterday" : new Date(ms).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+}
+
+const clock = (ms: number): string => new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+export function historyView(s: Stack, now: number): HistoryView {
+  return {
+    kind: "history",
+    pins: s.items.filter((i) => i.kind === "pinned").map((i) => ({ id: i.id, title: i.title, line: i.reason })),
+    past: s.items.filter((i) => i.kind === "past").map((i) => ({
+      id: i.id, title: i.title, line: `${OUTCOME[i.reason] ?? "Done"} · ${clock(i.since_ms)}`, icon: itemIcon(i), day: dayLabel(i.since_ms, now),
+    })),
+  };
+}
+
+/** Whether the corner shows the History link: there's something in it. */
+export const hasHistory = (v: StackView): boolean => v.items.some((i) => i.kind === "past" || i.kind === "pinned");
 
 /** Amber means an OK is waiting, nothing else (ADR-018 §2.6): the badge, and the glow of what just joined. */
 export const needsOk = (v: StackView): boolean => v.items.some((i) => i.icon === "shield");

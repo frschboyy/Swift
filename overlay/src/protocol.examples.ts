@@ -90,6 +90,7 @@ export const TO_BACKEND = [
   {"type": "text", "data": {"text": "make it Friday", "thread_id": "t-1"}},
   {"type": "speech.stop", "data": {}},
   {"type": "listen", "data": {"on": false}},
+  {"type": "listen.card", "data": {}},
   {"type": "asking", "data": {"on": false}},
   {"type": "speak", "data": {"replies": "never"}},
   {"type": "tree.open", "data": {"path": "C:\\Users\\Francis\\Pictures\\2026\\beach.jpg", "how": "open"}},

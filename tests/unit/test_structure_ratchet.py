@@ -8,7 +8,7 @@ SRC = Path(__file__).resolve().parents[2] / "src"
 
 # Two-way package imports that exist today (HA-INT-01). Remove a pair once it's broken.
 KNOWN_CYCLES = {("swift.executors", "swift.routing"), ("swift.routing", "swift.system"), ("swift.security", "swift.workflows")}
-SESSION_MAX_LINES = 4982  # main (4985) with rule-gaps, after the small inbound frames moved to frames.py (Halo B8 gaps); only lowers
+SESSION_MAX_LINES = 4967  # after AutoEnd moved to endpoint.py (listening-feedback); only lowers
 
 
 def _package(module: str) -> str:

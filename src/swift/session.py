@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import background, calls, captions, clock, frames, memory, recent, refused, retrying, seen, stops, timers
+from swift import background, calls, captions, card_mic, clock, frames, memory, recent, refused, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -158,7 +158,7 @@ from swift import intake
 from swift.dialogue import Answer, Dialogue, Question, Turn, elide, reask_text
 from swift.dialogue import resolve as resolve_answer
 from swift.drawn import Drawn
-from swift.endpoint import EndOfTurn
+from swift.endpoint import AutoEnd, EndOfTurn
 from swift.executors.base import SWIFT, Budget, ContextPack, ExecResult, Executor, ExecutorUnavailable, WorkerTask
 from swift.network import OFFLINE_HELP, OFFLINE_ITEMS, OFFLINE_NOT, OFFLINE_SAID
 from swift.executors.mock import MockExecutor
@@ -423,21 +423,6 @@ _NAME_STOP = frozenset(
     "up some from by is was be i you we".split()
 )
 _NAME_WORD = re.compile(r"[a-z0-9']+")
-
-
-@dataclass(frozen=True)
-class AutoEnd:
-    """A capture that ends by itself, after a wake phrase, instead of when a key is released."""
-
-    # Audio from before the capture started to keep: the wake phrase and what followed it
-    # while the phrase was being transcribed.
-    lead_s: float
-    end_silence_s: float
-    start_timeout_s: float
-    # Swift asked something that expects free text: the end-of-turn check is kinder (swift/endpoint.py).
-    free_text: bool = False
-
-
 
 
 # What each lane needs to work (seams audit S4). A lane is tried only if what it needs is there: offline,
@@ -1881,8 +1866,8 @@ class Session:
                     await self._send_question(asked, left)
 
     def answer_level(self, level: float) -> None:
-        """The open microphone's level (loop thread): while a spoken answer is awaited, the orb follows it."""
-        if self._listening_for() is not None and not self.speaker.speaking:
+        """The mic's level (loop thread), for the orb: while an answer is awaited, or wake listening hears speech (item 14)."""
+        if (self._listening_for() is not None or card_mic.hearing(self)) and not self.speaker.speaking:
             self._background(self._send(outbound("level", rms=round(level, 3))))
 
     async def _hear_wake_once(self, audio: Any, ended_at: float, short: bool = False) -> None:

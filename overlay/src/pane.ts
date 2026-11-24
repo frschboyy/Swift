@@ -158,6 +158,10 @@ function drawType(v: Extract<PaneView, { kind: "type" }>): void {
       const what = enterAction(on, typedSinceReach, input.value);
       if (what === "press") act("type-press", { text: input.value });
       else if (what === "send") act("type-send", { text: input.value });
+    } else if (ev.key === " " && on && !typedSinceReach) {
+      // A card has the keyboard: Space is its mic button (items 4 and 15; main.ts ignores it on a card without one).
+      ev.preventDefault();
+      act("type-space", { text: input.value });
     } else if (ev.key === "Escape") {
       ev.preventDefault();
       act("type-close", { text: input.value });

@@ -3313,6 +3313,44 @@ You should see: the answer is about football players (it carries the football re
 You should see: (1) no "Show me again" chip on the time answer (nothing to show); (2) the chip opens that card's own
 view, like its **Show** button, and never "There's nothing to show yet."
 
+### Seeing Swift listen, and the card's mic button (claude/listening-feedback, 2026-11-24)
+
+About 5 minutes. Items 1, 4, 14 and 15 of the run of 2026-11-18. Nothing here sends or changes anything.
+
+<a id="check-listening-feedback-3bb7ab-1"></a>**Check listening-feedback-3bb7ab-1. The orb shows when Swift hears you**
+1. With no card on screen, look at the small dot by the corner. Then click **Pause listening** in the tray, look
+   again, and click **Resume**.
+2. Talk near the microphone for a few seconds, without "Hey Swift" (read a line of this page aloud). Stop.
+3. Pause listening again and talk again. Resume.
+
+You should see: in step 1 the dot is blue while Swift listens for its name, and the paused capsule ("Not listening ·
+Mic off") while paused; with wake listening off in `config.yaml` the dot is grey. In step 2 the dot grows and glows
+with your voice and settles about half a second after you stop. Nothing starts. In step 3 nothing reacts.
+
+<a id="check-listening-feedback-3bb7ab-2"></a>**Check listening-feedback-3bb7ab-2. The card's mic button, and Space on a card**
+1. Say "Hey Swift, what time is it?". On the answer card, click the mic button by **Pin** and **Copy**, then say
+   "and in Tokyo?" and stop talking.
+2. Ask again; when the answer shows, press the card hotkey (keyboard entry) so the card has the keyboard, then press
+   Space and say "and in Paris?".
+3. Ask for something that needs your OK ("Hey Swift, email Priya the tea report"), and look at its card. Reject it.
+
+You should see: in step 1 the capsule says "Listening" with bars that follow your voice as soon as you click, and the
+capture ends by itself when you stop; the answer is about Tokyo, in the same conversation as the first card (its
+earlier answer shows on the card). Step 2 works the same from Space. In step 3 the OK card has no mic button, and
+Space there does nothing: an OK is still answered with a click, Swift's name, or the hotkey held.
+
+<a id="check-listening-feedback-3bb7ab-3"></a>**Check listening-feedback-3bb7ab-3. Ctrl+Shift+Space on a card reopened from the stack**
+1. Ask "Hey Swift, what time is it?" and let the card go. Open the stack, open that answer from "Earlier today",
+   then hold Ctrl+Shift+Space, say "and in Tokyo?", and let go.
+2. Ask for something that needs your OK; let its countdown run out so it waits in the stack. Open it, hold
+   Ctrl+Shift+Space and say "reject".
+3. Note the time of each try. If either does nothing, copy the lines that start with `[overlay] hotkey` from the
+   terminal running `npm run tauri dev`.
+
+You should see: in step 1 Swift listens while the key is held and answers; in step 2 the card shows "Listening…",
+then the request is not done. If a press does nothing, the terminal lines say whether the key reached Swift's window
+at all (on 2026-11-18 no press reached the backend, and the cause is unproven).
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

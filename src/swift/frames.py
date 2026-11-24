@@ -8,7 +8,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import asking, files, timers
+from swift import asking, card_mic, files, timers
 
 
 async def _snooze(session: Any, data: dict[str, Any]) -> None:
@@ -40,4 +40,5 @@ HANDLERS: dict[str, Callable[[Any, dict[str, Any]], Awaitable[None]]] = {
     "watch": _watch,
     "speak": _speak,
     "tree.open": files.open_from_tree,  # B13: Open / Show in folder on a file tree's row
+    "listen.card": card_mic.listen_from_card,  # the card's mic button, or Space on a card with the keyboard
 }

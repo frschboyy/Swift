@@ -512,6 +512,16 @@ void listen<PaneAction>("pane-action", ({ payload }) => {
       keyOn = payload.value === "0" ? null : K.step(keyedButtons().map((b) => b.dataset.key!), keyOn, payload.value === "-1" ? -1 : 1);
       syncKeyed();
       break;
+    case "type-space": {
+      // Space on a card that has the keyboard: its mic button, if it has one (items 4, 15); never another button.
+      const mic = card.querySelector<HTMLButtonElement>(".card-mic");
+      if (!mic || !keyOn) break;
+      keyOn = null;
+      typedDraft = payload.text ?? typedDraft;
+      mic.click();
+      closeTyping();
+      break;
+    }
     case "type-press": {
       // Enter on the button Tab reached presses it: the mouse's own click, with its guards (decision 2).
       const pressed = keyedButtons().find((b) => b.dataset.key === keyOn);
@@ -1313,10 +1323,26 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
   else if (!v.open && card.querySelector(".artifact")) setStage("idle");
 }
 
+// Item 14: at rest, the backend sends the level only while wake listening hears speech (card_mic.hearing): the
+// idle dot (or the orb beside a card) grows with the owner's voice, and settles 0.5 s after the last level.
+let hearingTimer = 0;
+function hearing(): void {
+  if (ACTIVE.has(stageNow())) return;  // a capture: the capsule's own listening bars follow it
+  capsuleEl.toggleAttribute("data-hearing", true);
+  orb.hear();
+  window.clearTimeout(hearingTimer);
+  hearingTimer = window.setTimeout(() => {
+    capsuleEl.removeAttribute("data-hearing");
+    orb.quiet();
+  }, 500);
+}
+
 // ---- presence: whether Swift is listening, and why not (ADR-014 §8, ADR-017) -------------------
 
 function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
   presence = p;
+  // Item 14: the idle dot says whether Swift listens for its name (lit) or not (grey).
+  capsuleEl.toggleAttribute("data-wake", p.wake && p.listening && !p.paused);
   const hold = `Hold ${pttText()} to talk.`;
   let text = `Swift: ready. ${hold}`;
   if (p.call) text = "Swift: holding cards and speech while you're on a call.";
@@ -1413,6 +1439,12 @@ const learnStore = (): Storage | null => { try { return localStorage; } catch { 
 const noStore = { getItem: () => null };
 /** A manual Copy or Show, counted on this PC so a verb is offered after 3 (learn.ts). */
 const learnFrom = (action: string): void => { const st = learnStore(); if (explore.next_steps && st) bump(st, action); };
+
+/** Items 4 and 15: say one follow-up to this card. It listens until the owner stops talking (card_mic.py); the
+ * capsule shows "Listening" as for the hotkey. Space presses it while the card has the keyboard (decided 2026-11-23). */
+const micButton = (runId: string | undefined): HTMLElement =>
+  Card.iconButton("mic", "Say a follow-up", () => void client.send({ type: "listen.card", data: {} }),
+    { class: "icon-btn card-mic", "data-key": `${runId ?? "card"}:mic` });
 
 /** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times, and only those this card can do
  * (`show`: the card's own Show, or nothing). "Show" does what that card's Show button does; "Put it in Word" sends its
@@ -1876,10 +1908,11 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
+        micButton(data.run_id),
         copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), micButton(data.run_id), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();
@@ -2434,6 +2467,7 @@ function onMessage(msg: Inbound): void {
       break;
     case "level":
       orb.setLevel(msg.data.rms);
+      hearing();
       noteLevel(msg.data.rms);
       break;
     case "transcript":

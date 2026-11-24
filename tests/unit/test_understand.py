@@ -88,3 +88,21 @@ def test_the_understood_field_holds_names_only() -> None:
     line = json.dumps(summary(rec))
     assert "secretpasta" not in line and "300" not in line and "timer.set" in line
     assert set(rec["understood"]) == {"act", "source", "family"}
+
+
+@pytest.mark.parametrize("text, name", [
+    ("No. Turn the volume down.", "volume.step"),
+    ("Never mind. Set a timer for 5 minutes.", "timer.set"),
+    ("No, no. Lock the computer.", "lock"),
+])
+def test_a_retraction_takes_back_only_what_came_before_it(text: str, name: str) -> None:
+    assert [i.name for i in owner_intents(text)] == [name]  # before phase 1 as well (review F1)
+
+
+def test_a_request_before_the_retraction_is_taken_back_and_the_one_after_kept() -> None:
+    assert [i.name for i in owner_intents("Lock the computer. No wait. Turn the volume down.")] == ["volume.step"]
+
+
+@pytest.mark.parametrize("text", ["Volume up?", "Timer for 5 minutes?", "Next song?"])
+def test_a_verbless_change_with_a_question_mark_is_still_a_request(text: str) -> None:
+    assert understand(text).intents is not None and owner_intents(text)

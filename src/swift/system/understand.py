@@ -20,10 +20,12 @@ Who calls it, and who keeps the bare grammar (review condition C1-1):
 The gate on grammar matches (C1-3):
 
 - **Question:** a sentence that ends in "?" and doesn't lead with a request ("can you", "please", or one of the
-  verbs below) is a question. The grammar's reads in it stay ("is my wifi on?"); a change is dropped, so
-  "Bluetooth on?" no longer switches Bluetooth on (HA-SYS-03).
+  verbs below) is a question. A change that can be read as a question about its state (a radio, dark mode, do not
+  disturb) is dropped, so "Bluetooth on?" no longer switches Bluetooth on (HA-SYS-03). Everything else stays:
+  the grammar's reads ("is my wifi on?") and verbless requests ("volume up?", "timer for 5 minutes?").
 - **Taken back:** a clause that is only a retraction ("no wait, don't", "never mind", "cancel that"), and no
-  intent itself, drops every intent in the utterance (HA-SYS-10). A clause that negates its own request ("don't
+  intent itself, drops the intents of the clauses before it (HA-SYS-10); a request after it is kept ("No. Turn
+  the volume down."). A clause that negates its own request ("don't
   turn off the wifi") is no grammar match today, so nothing else changes.
 
 ``Understood.record()`` is the run record's ``understood`` field: names only, never slots or words (P2-8).
@@ -35,7 +37,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from swift.routing import fast
 from swift.system import intents as it
 
 Act = Literal["command", "question", "negation", "other"]
@@ -76,7 +77,7 @@ class Understood:
 
 
 def _commands(sentence: str) -> bool:
-    if it._POLITE.match(fast.normalize(sentence)):
+    if it.polite(sentence):
         return True
     words = it.normalize(sentence).split()
     return bool(words) and words[0] in _VERBS
@@ -97,25 +98,37 @@ def _act(text: str, retracted: bool) -> Act:
     return "other"
 
 
+def _has_read(i: it.Intent) -> bool:
+    """A change that can be read as a question about its state: a radio, dark mode, do not disturb ("bluetooth on?").
+    A verbless request with no read ("volume up?", "timer for 5 minutes?") is still a request (review F2)."""
+    return i.name in ("radio", "theme", "dnd")
+
+
 def _kept(found: list[it.Intent], question: bool) -> list[it.Intent]:
-    return [i for i in found if i.name in READS] if question else found
+    return [i for i in found if not _has_read(i)] if question else found
 
 
 def understand(text: str, each_clause: bool = False) -> Understood:
     """The speech act and the grammar's intents in ``text``, after the gate. ``each_clause`` (the provenance check):
-    when the whole isn't one request, every clause that is one counts, as ``system_action`` has always read it."""
-    retracted = any(_RETRACT.fullmatch(c.strip()) and it.parse_one(c) is None for c in it.clauses(text, loose=True))
-    act = _act(text, retracted)
-    if retracted:
-        return Understood(act, None)
+    when the whole isn't one request, every clause that is one counts, as ``system_action`` has always read it.
+    A retraction takes back what came before it, never what follows ("No. Turn the volume down.": review F1)."""
+    parts = [(_question(sentence), c) for sentence in it.sentences(text) for c in it.clauses(sentence, loose=True)]
+    taken = [n for n, (_, c) in enumerate(parts) if _RETRACT.fullmatch(c.strip()) and it.parse_one(c) is None]
+    after = parts[taken[-1] + 1:] if taken else parts
+    if taken and not any(it.parse_one(c) is not None for _, c in after):
+        return Understood(_act(text, True), None)
+    if taken:
+        # Only the clauses after the last retraction, each read alone: the whole utterance isn't one request.
+        found = _kept([one for ask, c in after if (one := it.parse_one(c)) is not None], False) if each_clause else []
+        return Understood("command", found or None)
+    act = _act(text, False)
     whole = it.parse(text)
     if whole is not None:
         found = _kept(whole, _question(text))
     elif each_clause:
         found = []
-        for sentence in it._SENTENCE.split(text):
-            ask = _question(sentence)
-            found += _kept([one for c in it.clauses(sentence, loose=True) if (one := it.parse_one(c)) is not None], ask)
+        for ask, c in parts:
+            found += _kept([one] if (one := it.parse_one(c)) is not None else [], ask)
     else:
         found = []
     return Understood(act, found or None)

@@ -676,7 +676,7 @@ _RESTART = re.compile(r"\b(?:can|could|would|will) you (?:please )?")
 
 def _begun_again(text: str) -> str | None:
     """The request after the owner began it again, or None when ``text`` isn't one begun again."""
-    if _POLITE.match(fast.normalize(text)) is None:
+    if not polite(text):
         return None
     t = normalize(text)
     starts = list(_RESTART.finditer(t))
@@ -695,6 +695,16 @@ _ENDS = r"after that|while|before|after|once|so that|because|but first|first"
 _COMPOUND = re.compile(rf"\s+(?:{_AND})\s+")
 _CLAUSE = re.compile(rf"\b(?:{_AND}|{_ENDS})\b")
 _SENTENCE = re.compile(r"(?<=[.!?;])\s+")
+
+
+def sentences(text: str) -> list[str]:
+    """``text`` cut after each sentence end (speech recognition writes full stops; normalize drops them)."""
+    return _SENTENCE.split(text)
+
+
+def polite(text: str) -> bool:
+    """Whether ``text`` leads with a request lead ("can you", "please", "I want you to")."""
+    return _POLITE.match(fast.normalize(text)) is not None
 
 
 def clauses(text: str, loose: bool = False) -> list[str]:

@@ -127,3 +127,7 @@
 {"id": "wf-n01", "family": "workflow", "kind": "negation", "text": "don't email Sam yet", "want": "nothing"}
 {"id": "wf-c01", "family": "workflow", "kind": "compound", "text": "set up a reminder to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}], "note": "calendar's set up + call must not take a reminder"}
 {"id": "wf-c02", "family": "workflow", "kind": "compound", "text": "remind me about my meeting at 3", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 3}}}]}
+{"id": "neg-r01", "family": "volume", "kind": "compound", "text": "No. Turn the volume down.", "want": [{"name": "volume.step"}], "note": "a retraction takes back only what came before it (phase 1 review F1)"}
+{"id": "neg-r02", "family": "lock", "kind": "negation", "text": "Lock the computer. No wait, don't.", "want": "nothing", "note": "HA-SYS-10"}
+{"id": "q-v01", "family": "volume", "kind": "variant", "text": "Volume up?", "want": [{"name": "volume.step"}], "note": "a verbless change has no read: still a request (phase 1 review F2)"}
+{"id": "q-t01", "family": "timer", "kind": "variant", "text": "Timer for 5 minutes?", "want": [{"name": "timer.set", "slots": {"seconds": 300}}], "note": "phase 1 review F2"}

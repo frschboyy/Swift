@@ -168,6 +168,7 @@ from swift.failures import Failure, Severity, classify, failure_text
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.logging_setup import redact
 from swift.exchange import EARLIER_MAX, Exchange, owner_said
+from swift.restart_note import restart_note
 from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads, _clip
 from swift.routing import Route, fast
 from swift.routing import route as default_router
@@ -3815,10 +3816,7 @@ class Session:
             if change is None or result.status not in ("cancelled", "done") or run.sent is None:  # done: it answered while closing (EX-01)
                 break
             # The provider can't change course in its session: start it again with the change (ADR-014 §7).
-            note = (
-                f"[The user changed their mind while this was running: “{change}”. Do the request "
-                "with that change. A previous attempt was stopped part-way; check before redoing anything.]"
-            )
+            note = restart_note(change, result.status, result.summary)
             context = run.sent.context
             run.sent = replace(run.sent, context=replace(context, notes=(*context.notes, note)))
             try:

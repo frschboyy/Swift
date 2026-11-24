@@ -48,8 +48,8 @@
   status: fixed
   confidence: confirmed
   evidence: "Root fix, two parts. redirect() returns False once run.result is set (the pump won't read a change after its last turn), and the session's restart (_run) now also runs when the answer came back Done while the run was closing, not only when cancelled. The strict xfail repro passes, and test_runs.py::test_a_change_of_mind_while_the_run_closes_starts_again_with_it covers the session side."
-  test: tests/unit/test_executor_review.py::test_a_change_of_mind_while_the_run_closes_is_refused_not_dropped
-  note: 'Changes what the owner sees (the old answer is no longer shown as Done when they changed their mind in that window; the run starts again with the change): needs a review by someone other than its author. No overlay seam scenario was added: no screen text changed. Fix label: root. Not run live.'
+  test: tests/unit/test_seam_replay.py::test_ex01_a_change_said_while_the_run_closes_restarts_it_and_the_old_answer_is_never_shown
+  note: 'Changes what the owner sees (the old answer is no longer shown as Done when they changed their mind in that window; the run starts again with the change): needs a review by someone other than its author. A seam scenario (test_seam_replay.py) shows the old answer is never shown as Done and the restarted run card is. The restart note for a finished first attempt says so and carries its clipped answer (restart_note.py; reviewer F1). Executor repro: test_executor_review.py::test_a_change_of_mind_while_the_run_closes_is_refused_not_dropped. Fix label: root. Not run live.'
 - id: EX-03
   title: When Swift's own mid-run model switch fails with "couldn't confirm model", the run sends the owner's request
     again into the same turn.

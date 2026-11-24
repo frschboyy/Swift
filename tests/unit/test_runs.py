@@ -626,3 +626,22 @@ async def test_claude_code_takes_a_change_of_mind_as_the_next_turn(tmp_path: Any
     assert "changed their mind" in client.prompts[1] and "only the setup section" in client.prompts[1]
     assert result.status == "done"
     assert not await ex.redirect(run_id, "too late")  # finished: nothing to change
+
+
+def test_the_restart_note_is_worded_for_what_happened_to_the_first_attempt() -> None:
+    from swift.restart_note import restart_note
+
+    done = restart_note("only today's", "done", "Found 3 notes.")
+    assert "“only today's”" in done and "finished with: “Found 3 notes.”" in done and "part-way" not in done
+    stopped = restart_note("only today's", "cancelled", "Cancelled.")
+    assert "stopped part-way" in stopped and "Found" not in stopped
+    assert "…" in restart_note("x", "done", "word " * 200)  # the discarded answer is clipped
+
+
+async def test_a_restart_after_a_finished_attempt_tells_the_model_its_answer() -> None:
+    session, out, records, agent, stt = make(Closing)
+    await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")
+    await say(session, stt, "Swift, actually make it about the deadline instead")
+    await until(lambda: len(agent.requests) == 2)
+    assert "finished with: “Done a-1.”" in agent.requests[1]
+    await finish_all(session, agent)

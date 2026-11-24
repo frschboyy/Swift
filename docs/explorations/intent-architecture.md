@@ -299,6 +299,14 @@ parity 413/423, harmful 0. **Touches the provenance check: needs a review by som
   the family examples, but their phrasings are near; the owner's own clips must extend this.
 - Rules: R1 and R2 as worded in `CLAUDE.md` and `action-authority.md` (§3, and §4's map); R5's T6 control in the threat
   model. **A product-rule change: needs a review by someone other than its author before merge.**
+- **Independent review (2026-11-25): approved with conditions F1 and F2**, applied with the recommended F3 to F5 and
+  F7's warning wording, one commit each (`side-session-notes/.../review-intent-phase-2.md`). F1: no guess for a
+  verb-led statement, a how-to, "let me", "can you believe", someone addressed, or "your"; the retraction words
+  are one list (`_TAKE_BACK`). F2: a direction with a number gets no guess. F3: a time with an untimed change gets
+  no guess. F4: a retry guesses only as its first try could; the code map records the sources. F5: a guess
+  scores right only when its row lists every slot shown. F6 is IA-04. The eval then has 178 rows (19 from the
+  review): with the model, 14 `asks_guess`, 19 dead ends (17 plus 2 new rows where no guess is the chosen
+  outcome); without it, 33. `false_action` 1 (`rem-c01`), `wrong_confirm` 0, `wrong_guess` 0.
 
 ### 5.3 The speech-act gate (phase 1), concretely
 

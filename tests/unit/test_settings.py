@@ -73,6 +73,9 @@ def test_a_retired_setting_is_ignored(tmp_path: Path) -> None:
     path = tmp_path / "config.yaml"
     path.write_text('stt:\n  word_fixes: {"tori": "Tauri"}\n  word_fixes_file: "x.json"\n  cpu_threads: 2\n', encoding="utf-8")
     assert load_settings(path).stt.cpu_threads == 2
+    # "What can I say?" (A10) was removed (2026-11-24); the owner's config.yaml has it on.
+    path.write_text("explore:\n  what_can_i_say: true\n  next_steps: true\n", encoding="utf-8")
+    assert load_settings(path).explore.next_steps is True
 
 
 def test_audio_preroll_defaults_off_and_is_bounded(tmp_path: Path) -> None:

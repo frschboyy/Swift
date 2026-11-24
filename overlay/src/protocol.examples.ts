@@ -4,7 +4,7 @@
 import type { Inbound, Outbound } from "./protocol";
 
 export const TO_OVERLAY = [
-  {"type": "hello.ok", "data": {"version": "0.1.0", "debug": true, "hotkeys": {"push_to_talk": "Ctrl+Shift+Space", "type": "Ctrl+Shift+T"}, "explore": {"orb_glance": true, "follow_monitor": false, "what_can_i_say": false, "next_steps": false}}},
+  {"type": "hello.ok", "data": {"version": "0.1.0", "debug": true, "hotkeys": {"push_to_talk": "Ctrl+Shift+Space", "type": "Ctrl+Shift+T"}, "explore": {"orb_glance": true, "follow_monitor": false, "next_steps": false}}},
   {"type": "hello.ok", "data": {"version": "0.1.0", "debug": false, "hotkeys": {}, "instance": "3f9c2a1b7d4e"}},
   {"type": "state", "data": {"state": "idle"}},
   {"type": "state", "data": {"state": "working", "run_id": "a-1", "agent": {"id": "claude_code", "name": "Claude Code"}, "thread_id": "t-1"}},

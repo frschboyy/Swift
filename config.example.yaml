@@ -112,10 +112,9 @@ speech:                            # ADR-016 B: Swift says its answers, in short
   voice: ""                        # a Windows voice: "Mark", "Zira", "David"; empty = the Windows default
   rate: 0                          # -10 (slow) .. 10 (fast)
   volume: 100
-explore:                           # Halo's ideas to try (A10-A13); each is off until you turn it on
+explore:                           # Halo's ideas to try (A11-A13); each is off until you turn it on
   orb_glance: false                # A12: rest the pointer on the orb to see what's waiting and running
   follow_monitor: false            # A13: the orb moves to the monitor you're working on (not built yet)
-  what_can_i_say: false            # A10: "What can I say?" on a card (not built yet)
   next_steps: false                # A11: next-step chips (not built yet)
   hold_during_calls: false         # A3: while you're on a call or presenting, cards and speech wait; shown after
 contacts: []                       # who Swift may email; "my lecturer" finds them by alias. Addresses never come from speech alone

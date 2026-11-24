@@ -45,7 +45,7 @@ import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { bump, nextChips, sayLines } from "./learn";
+import { bump, nextChips } from "./learn";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
@@ -1405,32 +1405,14 @@ applyDisplay();
 // A6: what Swift is saying, while the owner has captions on ("" otherwise).
 let caption = "";
 
-// Halo's Explore ideas (A10-A13), from config.yaml: each off until the owner turns it on.
-let explore: Explore = { orb_glance: false, follow_monitor: false, what_can_i_say: false, next_steps: false };
-// A10/A11: what cards accept and Swift's own verbs, from the backend's real grammar (hints.py).
+// Halo's Explore ideas (A11-A13), from config.yaml: each off until the owner turns it on.
+let explore: Explore = { orb_glance: false, follow_monitor: false, next_steps: false };
+// A11: Swift's own verbs, from the backend's real grammar (hints.py).
 let hints: Hints | null = null;
 const learnStore = (): Storage | null => { try { return localStorage; } catch { return null; } };
 const noStore = { getItem: () => null };
 /** A manual Copy or Show, counted on this PC so a verb is offered after 3 (learn.ts). */
-const learnFrom = (action: string): void => { const st = learnStore(); if ((explore.what_can_i_say || explore.next_steps) && st) bump(st, action); };
-
-/** A10: "What can I say?" on a card: its accepted phrases in an --accent-soft block, a mic per line, "· asks for
- * your OK" where a phrase ends in an OK card. Nothing in it runs anything; it only lists. */
-function sayButton(kind: "confirm" | "done"): HTMLElement | null {
-  if (!explore.what_can_i_say || !hints) return null;
-  const h = hints;
-  return el("button", { class: "btn btn--ghost", "aria-expanded": "false", onclick: (ev: Event) => {
-    ev.stopPropagation();
-    const open = card.querySelector(".say");
-    if (open) { open.remove(); (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "false"); scheduleRegions(); return; }
-    const lines = sayLines(kind, h, learnStore() ?? noStore);
-    const block = el("div", { class: "say", role: "note" }, el("p", { class: "say-title" }, "You can say"),
-      ...lines.map((l) => el("p", { class: "say-line" }, icon("mic"), `“${l.text}”`, l.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
-    (card.querySelector(kind === "done" ? ".card-foot" : ".confirm-actions"))?.before(block);
-    (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "true");
-    scheduleRegions();
-  } }, icon("mic"), "What can I say?");
-}
+const learnFrom = (action: string): void => { const st = learnStore(); if (explore.next_steps && st) bump(st, action); };
 
 /** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times. A chip only sends the words as a
  * request, like typing them: one that needs an OK opens that OK card and runs nothing; it approves nothing. */
@@ -1715,7 +1697,6 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
         el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), plan ? "Stop" : "Reject"),
         // "Change" opens the text box, where Enter sends a change; typing never approves.
         el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
-        sayButton("confirm"),
         el("span", { class: "foot-gap" }),
         approve,
       ),
@@ -1891,11 +1872,10 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
-        ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
         copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();

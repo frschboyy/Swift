@@ -373,3 +373,9 @@ runs:
     PASS: ['306']
     FAIL: ['310', '320']
     BLOCKED: ['330']
+- date: 2026-11-24 11:58
+  commit: 2cc19e4
+  source: owner
+  note: 'A10 ''What can I say?'' removed at the owner''s request (run of 2026-11-18, item 6): the button, explore.what_can_i_say and its checks are gone; an older config.yaml with the key still starts.'
+  checks:
+    RETIRED: ['442']

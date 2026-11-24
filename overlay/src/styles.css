@@ -1750,11 +1750,7 @@ code {
 #stage .glance p { margin: 2px 0; color: var(--text); }
 #stage .glance .glance-warn { color: var(--warn-text); font-weight: 600; }
 
-/* ==== A10 "What can I say?" and A11 Next chips (Explore) ==== */
-#stage .say { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); }
-#stage .say-title { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
-#stage .say-line { display: flex; align-items: center; gap: 8px; margin: 2px 0; font-size: 14px; color: var(--text); }
-#stage .say-line .icon { flex: none; width: 14px; height: 14px; color: var(--accent); }
+/* ==== A11 Next chips (Explore) ==== */
 #stage .say-ok { color: var(--muted); font-size: 12px; white-space: pre; }
 #stage .next { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 #stage .next-label { font-size: 12px; color: var(--faint); }

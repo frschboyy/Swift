@@ -3225,7 +3225,7 @@ the screen and Swift, so you may never see it; tests cover it.
 You should see: in steps 2 and 3, if Swift wants to write anything into Notepad it asks first ("Write this in
 Notepad?"), showing what it would write; say "no" each time and nothing is written. In step 4 it writes the note
 without asking.
-<a id="check-442"></a>**Check 442. "What can I say?" on a card, an idea to try (A10; off unless you turn it on)**
+<a id="check-442"></a>**Check 442. "What can I say?" on a card, an idea to try (A10). Retired 2026-11-24: removed, the owner didn't want it; nothing to run**
 1. In `config.yaml`, set `explore:` `what_can_i_say: true`, and restart Swift.
 2. Ask for something that needs your OK, and click **What can I say?** on its card. Click it again.
 3. Ask "Hey Swift, what time is it?" and click **What can I say?** on the answer.

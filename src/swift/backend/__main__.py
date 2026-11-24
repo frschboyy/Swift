@@ -11,7 +11,6 @@ import argparse
 import asyncio
 import dataclasses
 import faulthandler
-import functools
 import os
 import shutil
 import sys
@@ -370,7 +369,7 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
     estimate = ClassifierEstimate(
         Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized
     )
-    return functools.partial(route, demand_fn=estimate), estimate
+    return estimate.route, estimate
 
 
 async def _report_wake(listener: WakeListener, session: Session, recorder: MicRecorder, every_s: float = 300.0) -> None:

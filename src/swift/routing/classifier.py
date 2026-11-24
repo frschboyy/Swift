@@ -23,13 +23,14 @@ import json
 import threading
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 from loguru import logger
 
 from swift.routing import demand as keywords
+from swift.routing import rules
 
 MODEL_NAME = "bge-small-en-v1.5"
 BASE_EXAMPLES = Path(__file__).with_name("examples.jsonl")
@@ -165,6 +166,7 @@ class ClassifierEstimate:
         self.quantized = quantized
         self.classifier: DemandClassifier | None = None
         self.error: str | None = None
+        self.hint: tuple[tuple[str, object], ...] = ()
 
     def start_loading(self) -> None:
         threading.Thread(target=self.load, name="demand-classifier", daemon=True).start()
@@ -182,13 +184,19 @@ class ClassifierEstimate:
         logger.info("demand classifier ready", examples=len(examples), load_ms=round((time.monotonic() - started) * 1000))
 
     def __call__(self, request: str) -> str | None:
-        if found := keywords.estimate(request):
-            return found
+        found = keywords.estimate(request)
         classifier = self.classifier
         if classifier is None:
-            return None
-        p = classifier.predict(request)
+            return found
+        p = classifier.predict(request)  # also when the keywords decided: its route vote goes on the record
         if p.route != "agent":
-            # No transcript here: swift.log stays redacted. A pattern of these means a rule is missing.
-            logger.info("classifier thinks a rule missed this", route_hint=p.route, confidence=round(p.route_conf, 2))
-        return p.demand
+            # A pattern of these means a rule is missing (IA-01). A name and a number: no words.
+            self.hint = (("route_hint", p.route), ("route_conf", round(p.route_conf, 2)))
+        return found or p.demand
+
+    def route(self, text: str) -> rules.Route:
+        """``rules.route`` with this as its demand estimate, carrying the classifier's route vote when it thinks a
+        rule missed the request (``Route.hint``), so the run record says so beside the request it was about."""
+        self.hint = ()
+        found = rules.route(text, demand_fn=self)
+        return replace(found, hint=self.hint) if self.hint else found

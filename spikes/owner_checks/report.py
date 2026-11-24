@@ -146,6 +146,10 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
     reopen_ms = _slowest(log, "| microphone reopened |", "ms")
     next_recorded = [r for r in rows if r.get("queued_behind")]
     asked_again = [r for r in rows if r.get("error") == "unclear_speech"]
+    # IA-01: a request Swift's own tool refused (codes only), and the classifier's vote that a rule missed it.
+    dead_ends = [r for r in rows if any(str(e.get("code", "")).startswith("not_asked") for e in r.get("tool_refusals") or [])]
+    refusal_codes = Counter(e.get("code") for r in rows for e in r.get("tool_refusals") or [])
+    voted = [r for r in rows if r.get("route_hint")]
     asked = [line for line in log if "conversation parked | reason='asked'" in line]
     # How long each question listened for its answer ("question window", logged since 2026-10-27).
     windows = [_counter(line, "seconds") for line in log if "| question window |" in line]
@@ -368,6 +372,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
          f"{wake_count('followup_quiet')} set aside as the room, {wake_count('followup_long')} as long talk, "
          f"{wake_count('followup')} taken"),
         ("46 unsure speech: asked to say it again", seen(asked_again), f"{len(asked_again)} time(s)"),
+        ("intent-architecture-3011f9-1 a request Swift's own tool refused says why", seen(dead_ends),
+         f"{len(dead_ends)} dead end(s); refusals: {dict(refusal_codes) or 'none'}; "
+         f"{len(voted)} request(s) the classifier thought a rule missed"),
         ("47 a request recorded while the last one started (20, 21)", bool(next_recorded) or wake_count("queued") > 0,
          f"{len(next_recorded)} request(s), {wake_count('queued')} by voice"),
         ("50 line breaks typed into a chat app didn't send it", LOOK, "check on screen: one message, several lines"),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from loguru import logger
 from test_system_phase_a2 import _host_and_scope
@@ -26,7 +27,7 @@ async def test_a_system_action_the_grammar_misses_is_recorded_as_not_asked() -> 
     finally:
         logger.remove(sink)
     assert not result.ok
-    assert record["tool_refusals"] == [{"tool": "system_action", "reason": "not_asked", "intents": ["timer.set"]}]
+    assert record["tool_refusals"] == [{"tool": "system_action", "code": "not_asked", "intents": ["timer.set"]}]
     logged = [line for line in lines if "tool refused" in line]
     assert logged and "not_asked" in logged[0] and "time me" not in logged[0] and "2 minutes" not in logged[0]
     line = summary(record)  # what swift.log's interaction line may say
@@ -40,7 +41,7 @@ async def test_each_refusal_has_its_own_reason() -> None:
     await system_action(host, scope, {"request": "turn off wifi"})  # the agent may offer its guess
     await system_action(host, scope, {"request": "make me a sandwich"})
     await system_action(host, scope, {"request": "set a timer"})
-    assert [e["reason"] for e in seen] == ["not_asked_offer", "unknown", "missing_slot"]
+    assert [e["code"] for e in seen] == ["not_asked_offer", "unknown", "missing_slot"]
 
 
 async def test_a_tool_outside_the_workflow_is_recorded() -> None:
@@ -50,7 +51,7 @@ async def test_a_tool_outside_the_workflow_is_recorded() -> None:
     seen: list[dict] = []
     scope.on_refusal = seen.append
     result = await host.call("system_action", {"request": "turn off wifi"}, run=None)
-    assert not result.ok and seen == [{"tool": "system_action", "reason": "outside_workflow"}]
+    assert not result.ok and seen == [{"tool": "system_action", "code": "outside_workflow"}]
 
 
 async def test_nothing_refused_leaves_no_field() -> None:
@@ -81,3 +82,37 @@ async def test_the_session_puts_a_run_s_refusals_on_its_record() -> None:
     assert records[0]["status"] == "done"  # what the run says: the reason is now beside it
     assert records[0]["tool_refusals"] and records[0]["tool_refusals"][0]["tool"] == "system_action"
     assert summary(records[0])["tool_refusals"] == records[0]["tool_refusals"]
+
+
+# ---- the classifier's vote that a rule missed a request, on that request's record --------------------------------
+
+
+def _estimate(route: str = "local") -> object:
+    from swift.routing.classifier import ClassifierEstimate, Prediction
+
+    class Stub:
+        def predict(self, text: str) -> Prediction:
+            return Prediction(route, 0.857, None, 0.0)
+
+    estimate = ClassifierEstimate(Path("unused"), [])
+    estimate.classifier = Stub()  # type: ignore[assignment]
+    return estimate
+
+
+def test_an_agent_request_carries_the_classifier_s_vote() -> None:
+    estimate = _estimate("local")
+    found = estimate.route("time me for two minutes")  # type: ignore[attr-defined]
+    assert found.route == "agent" and dict(found.hint) == {"route_hint": "local", "route_conf": 0.86}
+    assert estimate.route("set a timer for 2 minutes").hint == ()  # type: ignore[attr-defined]  # a rule took it
+    assert _estimate("agent").route("write me a haiku").hint == ()  # type: ignore[attr-defined]
+
+
+async def test_the_vote_is_on_the_record_and_in_swift_log_s_line() -> None:
+    from test_runs import finish_all, make, started
+
+    session, out, records, agent, stt = make(router=_estimate("local").route)  # type: ignore[attr-defined]
+    await started(session, out, agent, stt, "Hey Swift, time me for two minutes")
+    await finish_all(session, agent)
+    assert (records[0]["route_hint"], records[0]["route_conf"]) == ("local", 0.86)
+    line = summary(records[0])
+    assert line["route_hint"] == "local" and "time me" not in json.dumps(line)

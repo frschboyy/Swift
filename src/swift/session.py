@@ -2893,7 +2893,7 @@ class Session:
                         record["target"] = target.name
                     await self._handle_here(decision, record, target)
                     return
-                record["demand"] = decision.demand
+                record.update(demand=decision.demand, **dict(decision.hint))  # hint: the classifier's route vote (IA-01)
                 if decision.override:
                     record["override"] = decision.override
 

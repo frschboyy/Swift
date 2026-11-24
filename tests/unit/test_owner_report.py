@@ -128,3 +128,14 @@ def test_check_149_fails_when_a_due_card_was_sent_and_not_drawn() -> None:
     assert _find(_results([], _due_log(2, 1)), "149")[0] is report.FAIL
     assert _find(_results([], _due_log(1, 1)), "149")[0] is report.PASS
     assert _find(_results([], []), "149")[0] is report.NOT_SEEN
+
+
+def test_ia01_counts_dead_ends_and_the_classifier_s_vote() -> None:
+    rows = [
+        {"source": "wake", "route": "agent", "status": "done", "route_hint": "local", "route_conf": 0.86,
+         "tool_refusals": [{"tool": "system_action", "code": "not_asked", "intents": ["timer.set"]}]},
+        {"source": "wake", "route": "agent", "status": "done", "tool_refusals": [{"tool": "draft_email", "code": "outside_workflow"}]},
+    ]
+    outcome, detail = _find(_results(rows, []), "intent-architecture-3011f9-1")
+    assert outcome.value == "PASS" and detail.startswith("1 dead end(s)") and "1 request(s) the classifier" in detail
+    assert _find(_results([], []), "intent-architecture-3011f9-1")[0].value == "NOT SEEN"

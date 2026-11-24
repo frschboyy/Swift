@@ -238,13 +238,17 @@ through `intake.approves`.
 
 Phase 0 is worth doing on its own and first: it turns "the owner noticed" into a count.
 
-**Phase 0, built (2026-11-24, this branch):** `RunScope.refused(tool, reason, intents)` logs `tool refused` (reason
-code and intent names only) and, through `note_refusal`, adds the entry to the run record's `tool_refusals`, which
-`swift.log`'s interaction line may carry (`runlog.SUMMARY_FIELDS`). `system_action` reports `system_off`, `unknown`,
+**Phase 0, built (2026-11-24, this branch):** `RunScope.refused(tool, code, intents)` logs `tool refused` (a code and
+intent names only) and, through `note_refusal`, adds `{"tool", "code", "intents"}` to the run record's `tool_refusals`,
+which `swift.log`'s interaction line may carry (`runlog.SUMMARY_FIELDS`; the key is `code`, not `reason`, because the
+report's privacy check treats `'reason':` there as words). `system_action` reports `system_off`, `unknown`,
 `missing_slot`, `not_asked`, `not_asked_offer` and `gateway_<status>`; the tool host reports `outside_workflow`
-(replacing its own log line). Tests: `tests/unit/test_tool_refusals.py`, including the whole session path. **Not done
-yet:** the classifier's route hint on the record (the session doesn't hold the classifier; it needs a small seam in
-`ClassifierEstimate`), the `understood` field (phase 1 fills it), and counting dead ends in `report.py`/`roadmap.py`.
+(replacing its own log line). `ClassifierEstimate.route` is now the backend's router: when the classifier votes that a
+rule missed an agent request, `Route.hint` carries `route_hint` and `route_conf` onto that request's record (replacing
+the free-standing log line, which named no request); the vote is now taken even when the keywords set the demand. The
+owner's report counts dead ends, refusal codes and votes (owner check `intent-architecture-3011f9-1`). Tests:
+`tests/unit/test_tool_refusals.py` (both through the whole session), `test_owner_report.py`. `session.py` changed two
+lines in place and stays at its ratchet. The `understood` field waits for phase 1.
 
 ### 5.3 The speech-act gate (phase 1), concretely
 

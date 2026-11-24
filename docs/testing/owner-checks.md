@@ -3268,6 +3268,15 @@ You should see: steps 1 and 2 set a timer at once (the same card or answer as "s
 asks "Turn off Wi-Fi?" / "Turn off Bluetooth?" first and nothing changes after "no"; step 4 is answered in words and no
 timer starts.
 
+<a id="check-intent-architecture-3011f9-1"></a>**Check intent-architecture-3011f9-1. A request Swift can't take in those words says why, in the report**
+1. Say "Hey Swift, time me for two minutes".
+2. Say "Hey Swift, turn on duck mode".
+
+You should see: neither changes anything yet (each is answered in words: Swift says it didn't do it, or asks what you
+meant; answer **no**). In the report, this check's line says PASS with 2 dead ends and the codes `not_asked` and
+`not_asked_offer`, and counts the requests the classifier thought a rule missed. These are the dead ends of finding IA-01,
+now counted; a later change is meant to make Swift ask "Set a timer for 2 minutes?" instead.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -131,6 +131,9 @@ class Route:
     app: str | None = None
     # The agent name Swift was called by ("claude"), a key of AGENT_NAMES.
     addressed_as: str | None = None
+    # The local classifier's vote when it thinks a rule missed an agent request: (("route_hint", "local"),
+    # ("route_conf", 0.86)), for the run record (``ClassifierEstimate.route``; IA-01 phase 0). Never acted on.
+    hint: tuple[tuple[str, object], ...] = ()
 
 
 def _agent_key(name: str) -> str:

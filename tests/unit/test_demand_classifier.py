@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import functools
 import importlib.util
 import json
 import zlib
@@ -134,7 +133,7 @@ def test_backend_router_uses_the_classifier_when_enabled() -> None:
 
     on = Settings.model_validate({"demand_classifier": {"enabled": True}})
     router, estimate = _make_router(on)
-    assert isinstance(router, functools.partial) and isinstance(estimate, ClassifierEstimate)
+    assert isinstance(estimate, ClassifierEstimate) and router == estimate.route  # carries its route vote (IA-01)
     assert estimate.example_files[0] == BASE_EXAMPLES
     assert _make_router(Settings()) == (route, None)  # off by default
     assert _make_router(Settings.model_validate({"routing": False})) == (None, None)

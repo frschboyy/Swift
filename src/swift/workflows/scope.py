@@ -107,7 +107,7 @@ class RunScope:
     def refused(self, tool: str, reason: str, intents: tuple[str, ...] | list[str] = ()) -> None:
         """A tool didn't do what it was asked, and why: a reason code and intent names, never words (IA-01: a refusal
         the agent then explains in its own words left no trace, and the run ended "done")."""
-        entry = {"tool": tool, "reason": reason, **({"intents": list(intents)} if intents else {})}
+        entry = {"tool": tool, "code": reason, **({"intents": list(intents)} if intents else {})}
         logger.info("tool refused", **entry)
         if self.on_refusal is not None:
             self.on_refusal(entry)

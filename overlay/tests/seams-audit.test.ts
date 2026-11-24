@@ -8,10 +8,10 @@ import { initial, onAnswer, onConfirm, onState } from "../src/presenter.ts";
 
 const typeBox: PaneSpec = { label: "pane-type", kind: "type", index: 0, view: { kind: "type", draft: "", follows: null, confirm: true } };
 
-test("O-03: a text box whose window failed to open once is opened again without another change", { todo: "seams audit O-03: open finding; drop todo with the fix" }, async () => {
+test("O-03: a text box whose window failed to open once is opened again without another change", async () => {
   // #4 / #16b: Change (or the hotkey) asks for the text box; the window fails once (no monitor under
   // the cursor, a busy shell). main.ts keeps `typing` set, so a second Change does nothing and a
-  // second hotkey press *closes* it. Nothing retries until some unrelated change (Reject) syncs again.
+  // second hotkey press *closes* it. A transient failure retries without needing an unrelated change.
   let calls = 0;
   const opened: string[] = [];
   const sync = new PaneSync(

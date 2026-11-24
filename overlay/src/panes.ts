@@ -205,6 +205,7 @@ export class PaneSync {
   readonly shown = new Map<string, PaneView>();
   private running: Promise<void> | null = null;
   private again = false;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
   /** False once opening a window failed: the caller draws rows instead. */
   available = true;
 
@@ -260,10 +261,16 @@ export class PaneSync {
       } catch (err) {
         if (!noPaneWindows(err)) {
           // One window that couldn't open now (no monitor under the cursor while locked, …): tried
-          // again on the next change. Turning pane windows off for good left the text box a
+          // again shortly, even without another change. Turning pane windows off for good left the text box a
           // browser prompt that never shows in the app (owner checks 2026-11-04, 16b).
           this.shown.delete(spec.label);
           console.warn("[overlay] a pane window didn't open:", err);
+          if (this.retryTimer === null) {
+            this.retryTimer = setTimeout(() => {
+              this.retryTimer = null;
+              void this.sync();
+            }, 1000);
+          }
           return;
         }
         this.available = false;

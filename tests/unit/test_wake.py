@@ -233,7 +233,7 @@ async def test_bare_phrase_records_until_the_owner_stops_talking() -> None:
     await session.hear_wake(AUDIO, time.monotonic() - 0.5)
     await asyncio.sleep(0)
     assert session.state == "listening" and rec.recording
-    assert rec.lead is not None and 1.5 <= rec.lead < 2.5  # the 1 s phrase plus the 0.5 s since
+    assert rec.lead is not None and 0.3 <= rec.lead < 1.0  # only the 0.5 s since: nothing from before or in the phrase
     session_stt.text = "Hey Swift what time is it"
     assert rec.on_level is not None
     rec.on_level(0.8)  # talking...

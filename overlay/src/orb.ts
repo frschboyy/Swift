@@ -4,7 +4,7 @@ export class Orb {
   private target = 0;
   private level = 0;
   private frame = 0;
-  private mode: "off" | "listening" | "settling" | "hearing" = "off";
+  private mode: "off" | "listening" | "settling" = "off";
 
   constructor(private readonly node: HTMLElement) {}
 
@@ -22,17 +22,6 @@ export class Orb {
     this.mode = "settling";
     this.target = 0;
     this.run();
-  }
-
-  /** Item 14: at rest, wake listening hears speech: follow the level (``setLevel``) until ``quiet``. */
-  hear(): void {
-    if (this.mode !== "off") return;  // listening or settling already animates
-    this.mode = "hearing";
-    this.run();
-  }
-
-  quiet(): void {
-    if (this.mode === "hearing") this.stop();
   }
 
   stop(): void {

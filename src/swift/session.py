@@ -167,7 +167,7 @@ from swift.executors.quick import QuickModel
 from swift.failures import Failure, Severity, classify, failure_text
 from swift.ipc.protocol import Message, now_ms, outbound
 from swift.logging_setup import redact
-from swift.exchange import EARLIER_MAX, Exchange, owner_said
+from swift.exchange import EARLIER_MAX, Exchange, on_card, owner_said
 from swift.parked import QUESTION_KEEP_S, Parked, ParkedThreads, _clip
 from swift.routing import Route, fast
 from swift.routing import route as default_router
@@ -540,6 +540,7 @@ class Run:
     # Every card it asked that still waits, by request id: the one replayed is the one on screen (O-07).
     cards: dict[str, Message] = field(default_factory=dict)
     answer: Message | None = None
+    exchange: Exchange | None = None  # its last: the context for a follow-up on its finished card (``on_card``)
     # Swift's question on its card (``ask``, ADR-016 §5.1) while it waits, replayed with the card.
     ask: Message | None = None
     # A lane question answered in this request, and what the dialogue made of it.
@@ -2700,8 +2701,8 @@ class Session:
         self._record = record
         continues = record.pop("continues", None)
         previous = continues or run.card_thread or self._last_thread
-        # Typed text continues the conversation on screen when the overlay names it (ADR-015 §10).
-        continuing = record.get("source") in CONTINUES_THREAD or (record.get("source") == "typed" and continues is not None)
+        # Typed text, or speech from a card's own mic, continues the conversation on screen when it names it (ADR-015 §10).
+        continuing = record.get("source") in CONTINUES_THREAD or continues is not None
         self._thread = previous if previous and continuing else uuid.uuid4().hex[:12]
         record["thread"] = self._thread
         self.runs.begin(record)
@@ -3518,7 +3519,7 @@ class Session:
             return False
         if not unsure and not intake.has_words(text):
             return True  # no words: about nothing, and not an answer (D-06)
-        turn = self.dialogue.answer("" if unsure else text, is_request=self._new_request)
+        turn = self.dialogue.answer(text, is_request=self._new_request, unsure=unsure)
         assert turn is not None
         logger.info("question answered", kind=q.kind, turn=turn.action, source=source, named=named)
         record = q.owner.record if q.owner is not None else None
@@ -4818,13 +4819,12 @@ class Session:
         Also when it ended in a question that was parked unanswered, however long ago: this is
         most likely the answer, so its thread goes on and is no longer parked.
         """
-        last, now = self._last_exchange, clock.now()
-        if record.get("follows_local") and self._local_exchange is not None:
-            last = self._local_exchange  # a follow-up to Swift's own answer: that answer is the context
-        if last is None or self.followup_s <= 0:
-            return ""
-        asked = self._asked_parked(last.thread)
-        if now - last.at > self.followup_s and not asked:
+        local = self._local_exchange if record.get("follows_local") else None  # a follow-up to Swift's own answer
+        card = None if local else on_card(record.get("thread"), (*self._runs, *self._gone), self._current())
+        # Going on from a finished card: that card is the context, however long ago (item 4, 2026-11-18).
+        last, now = local or card or self._last_exchange, clock.now()
+        asked = last is not None and self._asked_parked(last.thread)
+        if last is None or self.followup_s <= 0 or (now - last.at > self.followup_s and not asked and card is None):
             return ""
         if asked and last.thread is not None and self.parked is not None:
             self.parked.drop(last.thread)
@@ -4876,7 +4876,7 @@ class Session:
     def _remember(self, record: dict[str, Any], request: str, result: ExecResult) -> None:
         if result.status in ("done", "rejected"):
             proposed = last_proposal(self._store())
-            self._last_exchange = Exchange(
+            self._last_exchange = self._current().exchange = Exchange(
                 record["id"], request, result.summary, tuple(self._approved), clock.now(), thread=record.get("thread"),
                 # The record's status, not the provider's: a rejected Swift card turns "done" into "rejected".
                 proposed=proposed, proposed_done=bool(proposed) and record.get("status") == "done",

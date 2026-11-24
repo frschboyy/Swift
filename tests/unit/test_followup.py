@@ -184,3 +184,21 @@ def test_context_is_clipped() -> None:
     text = Exchange("x", "r" * 1000, "a " * 2000, tuple(f"Edit f{i}.py" for i in range(9)), 0.0).as_context(12.0)
     assert len(text) < 1600 and "12 s ago" in text
     assert "Edit f8.py" in text and "Edit f3.py" not in text
+
+
+async def test_a_follow_up_on_a_finished_card_carries_that_card_not_the_last_answer() -> None:
+    # Owner, 2026-11-18 (item 4): after "history of football" finished, "Who are the greatest five?" had none of
+    # it. The context was only ever the last answer, and only for 5 minutes, whatever card the request went on.
+    session, out, spy, records = make(Scripted(("done", "Football began in England in 1863."), ("done", "Tea is ready.")),
+                                      followup_s=0.05)
+    await ask(session, "Research the history of football.")
+    await asyncio.sleep(0.1)  # past the follow-up window
+    await ask(session, "Is the tea ready?")
+    football = next(r for r in (*session._runs, *session._gone) if r.thread == records[0]["thread"])
+    session._focus = football  # the finished card brought back to the front (from the stack's earlier answers)
+    await asyncio.sleep(0.1)
+    await session.handle(Message("text", {"text": "Who are the greatest five?", "thread_id": records[0]["thread"]}))
+    await settled(session)
+    third = spy.calls[2][0]
+    assert "Football began in England in 1863." in third and "Tea is ready." not in third
+    assert records[2]["thread"] == records[0]["thread"]

@@ -8,6 +8,7 @@ earlier in the conversation can be opened (C3, owner's decision 2026-11-14): nev
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -84,3 +85,10 @@ def owner_said(record: dict[str, Any], scope: Any, heard_at: float | None) -> di
     and their answers to its questions, with when the request began. Nothing the agent wrote or a tool read."""
     words = (str(record.get("transcript") or ""), *(scope.answers if scope is not None else ()))
     return {"owner": tuple(w for w in words if w.strip()), "heard_at": clock.now() if heard_at is None else heard_at}
+
+
+def on_card(thread: str | None, runs: Iterable[Any], mine: Any) -> Exchange | None:
+    """The last exchange of an earlier request in ``thread`` (``Run.exchange``). A thread is only reused when a request
+    goes on from its card (a reply, a typed or card follow-up, a correction), never by a new request."""
+    found = [r.exchange for r in runs if thread and r.thread == thread and r is not mine and r.exchange]
+    return max(found, key=lambda e: e.at, default=None)

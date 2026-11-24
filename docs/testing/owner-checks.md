@@ -3254,6 +3254,33 @@ written until you press Approve yourself. With `next_steps: false` there are no 
 
 You should see: in step 2 the orb fades out and back in at the same spot on that monitor after about 1.5 s; in step 3 the card stays where it is until it's gone; in step 4 the orb stays put; in step 5 it still moves, without a long fade. It never takes the keyboard or a click from your app. With `follow_monitor: false`, or one monitor, it never moves by itself.
 
+### Answers in your own words, follow-ups on a finished card, Next chips (claude/conversation-answers-cards, 2026-11-24)
+
+About 5 minutes. Nothing is sent: reject any card these leave.
+
+<a id="check-conversation-answers-cards-1"></a>**Check conversation-answers-cards-1. A loose "no" to Swift's question is understood**
+1. Say "Hey Swift, set up a meeting with Test Me on Thursday at three" (someone not in your contacts).
+2. When Swift asks whether to invite someone else, answer in your own words, quietly or quickly, as you would to a
+   person: "No, leave it without an invitation", "no, just me".
+
+You should see: Swift takes it as a no and goes on (a meeting card for you alone, which you reject). It asks again
+only if it really couldn't tell; a "yes" it wasn't sure it heard is always asked again, never taken.
+
+<a id="check-conversation-answers-cards-2"></a>**Check conversation-answers-cards-2. A follow-up on a finished card goes on from that card**
+1. Say "Hey Swift, research the history of football". Let it finish and wait more than 5 minutes.
+2. Ask something else short ("Hey Swift, what time is it?").
+3. Open the stack, click **Open** on the football answer, and type "Who are the greatest five?" in its text box.
+
+You should see: the answer is about football players (it carries the football research), not about the time.
+
+<a id="check-conversation-answers-cards-3"></a>**Check conversation-answers-cards-3. Next chips belong to their card** (with `explore.next_steps` on)
+1. Ask "Hey Swift, what time is it?" and look under the answer.
+2. Ask for something that leaves something to show (research with sources), and click its **Next · Show me again**
+   chip if it appears.
+
+You should see: (1) no "Show me again" chip on the time answer (nothing to show); (2) the chip opens that card's own
+view, like its **Show** button, and never "There's nothing to show yet."
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

@@ -36,7 +36,7 @@ areas:
     checks: [413]
   conversation:
     paths: [src/swift/dialogue.py, src/swift/answer_window.py, src/swift/intake.py, overlay/src/ask.ts]
-    checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250]
+    checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250, conversation-answers-cards-1, conversation-answers-cards-2]
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
     paths: [src/swift/security/*, src/swift/restated.py, src/swift/intake.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
@@ -89,7 +89,7 @@ areas:
   explore:
     rule: Halo's Explore ideas are off until the owner turns each on in config.yaml; none takes focus
     paths: [overlay/src/glance.ts, overlay/src/learn.ts, overlay/src-tauri/src/follow.rs, src/swift/hints.py, src/swift/settings.py]
-    checks: [423, 442, 443, 444]
+    checks: [423, 442, 443, 444, conversation-answers-cards-3]
   hold-during-calls:
     rule: Calls hold cards and speech like away and never approve; the hold is off unless explore.hold_during_calls is on
     paths: [src/swift/calls.py, src/swift/lifecycle.py]

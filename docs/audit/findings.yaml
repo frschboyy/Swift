@@ -3996,3 +3996,21 @@
   test: null
   note: Apply only the question part of the gate in restated_as; that narrows approval but is a product-rule change and
     needs its own review. Phase 1 now drops the cancel case in owner_intents and the lane (a retraction first, then a request).
+- id: IA-04
+  title: Swift's guess reads direction, on/off, media and level with its own word lists beside the grammar's.
+  source: independent review of IA-01 phase 2 (F6), 2026-11-25
+  module: src/swift/system/understand.py, src/swift/system/intents.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: In understand.py, _UP, _DOWN, _ON, _OFF, _MEDIA and _number sit beside the lists in intents.py
+    (_direction, _on, _OFF_VERBS, _MEDIA, _amount), so two owners decide which word means up or off. The reader
+    functions seconds_of, find_when and heard_as_wifi are shared. Not a safety issue, since a guess only asks and
+    its question shows the slot.
+  test: null
+  note: Export the word lists from intents.py and use them in the readers of the guess. Recorded from the same
+    review (F7, no change needed for merge). A guess question left in the stack resumes to the agent, because the
+    resume uses system.claims, which is grammar-only (phase 5 or later). Seven eval texts are word for word in
+    families.jsonl (radio-q02, vol-v03, vol-v07, vol-q01, theme-v01, lock-v01, lock-v02), and none is a guessed row.

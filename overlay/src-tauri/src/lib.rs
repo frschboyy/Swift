@@ -104,6 +104,10 @@ struct Placement(Mutex<PlacementState>);
 struct TrayItems {
     anchors: Vec<(Anchor, CheckMenuItem<Wry>)>,
     smart: CheckMenuItem<Wry>,
+    /// "Open logs" is for developers: in the menu only while config.yaml's `debug` is on (`set_developer`).
+    menu: Menu<Wry>,
+    logs: MenuItem<Wry>,
+    logs_shown: Mutex<bool>,
 }
 
 #[derive(Clone, Serialize)]
@@ -870,10 +874,22 @@ fn preview_extension(path: &std::path::Path) -> bool {
     })
 }
 
-/// "Open logs" on an error card.
+/// "Open logs" on an error card (shown in debug mode only).
 #[tauri::command]
 async fn open_logs() -> Result<(), String> {
     open_logs_folder();
+    Ok(())
+}
+
+/// The page says whether config.yaml's `debug` is on (hello.ok): the tray's "Open logs" follows it.
+#[tauri::command]
+async fn set_developer(app: AppHandle, on: bool) -> Result<(), String> {
+    let items = app.state::<TrayItems>();
+    let mut shown = items.logs_shown.lock().unwrap();
+    if *shown != on {
+        if on { items.menu.insert(&items.logs, 4) } else { items.menu.remove(&items.logs) }.map_err(|e| e.to_string())?;
+        *shown = on;
+    }
     Ok(())
 }
 
@@ -930,12 +946,24 @@ async fn diagnostics(overlay: State<'_, Overlay>) -> Result<Diagnostics, String>
 
 // ---- app --------------------------------------------------------------------
 
+/// swift.log itself, and crash.log beside it when a native crash wrote one; the folder only if neither exists yet.
 fn open_logs_folder() {
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
-        let dir = std::path::Path::new(&local).join("Swift");
+        let dir = std::path::Path::new(&local).join("Swift").join("logs");
         let _ = std::fs::create_dir_all(&dir);
-        let _ = std::process::Command::new("explorer.exe").arg(dir).spawn();
+        let files = log_files(&dir);
+        for target in if files.is_empty() { vec![dir] } else { files } {
+            let _ = std::process::Command::new("explorer.exe").arg(target).spawn(); // the .log's own app
+        }
     }
+}
+
+fn log_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    ["swift.log", "crash.log"]
+        .iter()
+        .map(|name| dir.join(name))
+        .filter(|path| std::fs::metadata(path).is_ok_and(|m| m.len() > 0))
+        .collect()
 }
 
 fn open_config() {
@@ -1026,6 +1054,7 @@ pub fn run() {
             open_link,
             open_preview,
             open_logs,
+            set_developer,
             set_status,
             get_theme,
             get_prefs,
@@ -1075,7 +1104,7 @@ pub fn run() {
             // ADR-017: the same as the tray menu pane's (the overlay knows whether it's paused).
             let pause_item = MenuItem::with_id(app, "pause", "Pause or resume listening", true, None::<&str>)?;
             let settings_item = MenuItem::with_id(app, "settings", "Settings (config.yaml)", true, None::<&str>)?;
-            let logs_item = MenuItem::with_id(app, "logs", "Open logs folder", true, None::<&str>)?;
+            let logs_item = MenuItem::with_id(app, "logs", "Open logs", true, None::<&str>)?;
             // Audit 2026-10, B-06: saved recordings, used and wiped on this PC only.
             let improve_item = MenuItem::with_id(app, "improve", "Improve speech recognition", true, None::<&str>)?;
             let clear_item = MenuItem::with_id(app, "clear-recordings", "Clear saved recordings", true, None::<&str>)?;
@@ -1085,10 +1114,10 @@ pub fn run() {
             let separator2 = PredefinedMenuItem::separator(app)?;
             let menu = Menu::with_items(
                 app,
-                &[&pause_item, &type_item, &position, &settings_item, &logs_item, &improve_item, &clear_item, &separator2,
+                &[&pause_item, &type_item, &position, &settings_item, &improve_item, &clear_item, &separator2,
                   &restart_item, &quit_item],
             )?;
-            app.manage(TrayItems { anchors, smart });
+            app.manage(TrayItems { anchors, smart, menu: menu.clone(), logs: logs_item, logs_shown: Mutex::new(false) });
             let mut tray = TrayIconBuilder::with_id("swift")
                 .tooltip("Swift: starting")
                 .menu(&menu)
@@ -1162,5 +1191,23 @@ mod preview_tests {
         for path in ["notes.txt", "program.exe", "folder"] {
             assert!(!preview_extension(Path::new(path)), "{path}");
         }
+    }
+}
+
+#[cfg(test)]
+mod log_tests {
+    use super::log_files;
+
+    #[test]
+    fn open_logs_opens_swift_log_and_crash_log_only_when_there_is_one() {
+        let dir = std::env::temp_dir().join(format!("swift-logs-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(log_files(&dir).is_empty()); // nothing yet: the folder is opened instead
+        std::fs::write(dir.join("swift.log"), "x").unwrap();
+        std::fs::write(dir.join("crash.log"), "").unwrap(); // faulthandler opens it at every start
+        assert_eq!(log_files(&dir), vec![dir.join("swift.log")]);
+        std::fs::write(dir.join("crash.log"), "Windows fatal exception").unwrap();
+        assert_eq!(log_files(&dir), vec![dir.join("swift.log"), dir.join("crash.log")]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

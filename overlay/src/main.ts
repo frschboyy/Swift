@@ -2128,7 +2128,8 @@ function renderProblem(p: Problem): void {
       } }, "Details")
     : null;
   const actions: HTMLElement[] = [];
-  if (p.logs) actions.push(el("button", { class: "btn btn--ghost", onclick: () => void invoke("open_logs") }, "Open logs"));
+  // Logs are for developers (owner, 2026-11-19): only with config.yaml's debug on.
+  if (p.logs && debugEnabled) actions.push(el("button", { class: "btn btn--ghost", onclick: () => void invoke("open_logs") }, "Open logs"));
   if (p.restart) {
     actions.push(el("button", { class: "btn btn--primary", onclick: (ev: Event) => {
       (ev.currentTarget as HTMLButtonElement).disabled = true;
@@ -2196,7 +2197,10 @@ function renderConnection(asked: boolean): void {
     renderProblem({ title: "Reconnecting to Swift…", message: "Your next request will work once it's back.", severity: "info", glyph: "spin", sticky: true });
     return;
   }
-  renderProblem({ ...describeBackendProblem(status.problem), sticky: true, logs: true });
+  const problem = describeBackendProblem(status.problem);
+  // The raw diagnostic is a developer's; a config.yaml mistake is the owner's to fix, so its detail always shows.
+  const detail = debugEnabled || status.problem.startsWith("config ") ? problem.detail : null;
+  renderProblem({ ...problem, detail, sticky: true, logs: true });
 }
 
 /** Restart Swift (the tray, or a stopped engine's card): Rust ends the old engine and starts a new
@@ -2429,6 +2433,7 @@ function onMessage(msg: Inbound): void {
       if (msg.data.instance && backendInstance && msg.data.instance !== backendInstance) forgetBackend();
       backendInstance = msg.data.instance ?? backendInstance;
       debugEnabled = msg.data.debug;
+      void invoke("set_developer", { on: debugEnabled }).catch(() => {});  // the tray's Open logs
       if (msg.data.hotkeys.push_to_talk) pttSpec = msg.data.hotkeys.push_to_talk;
       typeSpec = msg.data.hotkeys.type ?? "";
       sendSpeak();  // A8: this PC's choice, again for each backend

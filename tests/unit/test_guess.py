@@ -63,6 +63,8 @@ def test_a_command_the_grammar_misses_is_guessed_with_slots_from_the_owners_word
     # F2: a direction with a number is neither a level nor a step Swift can read for sure.
     "Turn the volume up 2 notches", "Nudge the volume down 3", "Bring the volume down to 5",
     "turn the brightness up 30",
+    # F3: a time with a change that isn't timed; a yes would make it now.
+    "disconnect the wifi tomorrow", "switch on dark mode at 9 pm", "crank the volume louder later",
 ])
 def test_no_guess_for_what_isnt_a_plain_command_for_this_pc(text: str) -> None:
     assert _guess(text) is None

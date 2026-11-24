@@ -173,3 +173,6 @@
 {"id": "rv-14", "family": "volume", "kind": "variant", "text": "Turn the volume up 2 notches", "want": [{"name": "volume.step", "slots": {}}], "note": "phase 2 review F2: no guess (a direction with a number)"}
 {"id": "rv-15", "family": "volume", "kind": "variant", "text": "Nudge the volume down 3", "want": [{"name": "volume.step"}], "note": "phase 2 review F2: no guess (a direction with a number)"}
 {"id": "rv-16", "family": "volume", "kind": "variant", "text": "Bring the volume down to 5 minutes", "want": "clarify", "note": "phase 2 review F2: no guess (a direction with a number)"}
+{"id": "rv-17", "family": "radio", "kind": "unsupported", "text": "Turn the wifi off tomorrow", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
+{"id": "rv-18", "family": "theme", "kind": "unsupported", "text": "switch on dark mode at 9 pm", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
+{"id": "rv-19", "family": "volume", "kind": "unsupported", "text": "crank the volume up later", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}

@@ -331,6 +331,8 @@ def propose(text: str, family_of: Callable[[str], tuple[str, float]] | None) -> 
             or _VOCATIVE.search(text.strip()) or _TWO_NUMBERS.search(text.lower())):
         return None
     family, score = family_of(text)
+    if family not in _TIMED_FAMILIES and (_TIMED.search(t) or it.find_when(t) is not None):
+        return None
     reader = _READERS.get(family)
     intent = reader(t, set(t.split())) if reader is not None and score >= GUESS_AT else None
     return Guess(intent, family, score) if intent is not None and intent.name in PROPOSABLE else None

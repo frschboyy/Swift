@@ -94,7 +94,28 @@ export type StackHandlers = {
   unfold?: boolean;
 };
 
-/** The open stack: every card, its whole title, why it waits, and Open / Skip / End. */
+/** A row's Cancel or Dismiss. With ``confirm``, the first click turns it into "Cancel?" for 3 s (Esc puts it back);
+ * the second does it. shortcut: the asking state is the button's own, so a redraw of the list within those 3 s
+ * resets it; move it into the stack's state if the owner sees that happen. */
+function secondButton(id: string, a: NonNullable<StackView["items"][number]["second"]>, h: StackHandlers): HTMLElement {
+  let timer = 0;
+  const reset = (b: HTMLElement): void => { window.clearTimeout(timer); b.textContent = a.label; b.classList.remove("stack-confirm"); delete b.dataset.asking; };
+  return el("button", {
+    class: "btn btn--ghost btn--small", title: a.tip, "aria-label": a.tip,
+    onkeydown: (ev: Event) => { if ((ev as KeyboardEvent).key === "Escape" && (ev.currentTarget as HTMLElement).dataset.asking) { ev.stopPropagation(); reset(ev.currentTarget as HTMLElement); } },
+    onclick: (ev: Event) => {
+      ev.stopPropagation();
+      const b = ev.currentTarget as HTMLElement;
+      if (!a.confirm || b.dataset.asking) { reset(b); h.item(id, "end"); return; }
+      b.dataset.asking = "1";
+      b.textContent = `${a.label}?`;
+      b.classList.add("stack-confirm");
+      timer = window.setTimeout(() => reset(b), 3000);
+    },
+  }, a.label);
+}
+
+/** The open stack: every card, its whole title, why it waits, and Open / Cancel. */
 export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
   const selected = h.selected && v.items.some((i) => i.id === h.selected) ? h.selected : v.items[0]?.id;
   const row = (i: StackView["items"][number], at: number): HTMLElement =>
@@ -111,10 +132,9 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       el("span", { class: "stack-title" }, i.title),
       el("button", { class: "btn btn--small stack-open-btn", onclick: () => h.item(i.id, i.kind === "timer" ? "end" : "open") }, i.open),
       el("span", { class: "stack-reason" }, i.line),
-      // An answer from earlier today has nothing to skip or end (A1): only Open.
-      !waits(i) ? null : el("span", { class: "stack-actions" },
-        el("button", { class: "btn btn--ghost btn--small", title: "Back to the stack, last in line", onclick: () => h.item(i.id, "skip") }, "Skip"),
-        el("button", { class: "btn btn--ghost btn--small", title: "End it: it won't come back", onclick: () => h.item(i.id, "end") }, "End")),
+      // One other action, named for what it does (no Skip: it only reordered the list). Where it can't be undone,
+      // it asks in place, "Cancel?", for 3 s: no card opens and nothing moves.
+      !i.second ? null : el("span", { class: "stack-actions" }, secondButton(i.id, i.second, h)),
     );
   // Board 9 §1: section labels once there is more than one kind of thing (B14: RUNNING, A1: EARLIER TODAY).
   const running = v.items.filter((i) => i.kind === "timer");

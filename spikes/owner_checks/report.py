@@ -298,8 +298,9 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         # The waiting stack (ADR-015 §9) replaced "continue" as the way back.
         ("15 stopped requests parked into the stack", sum(r.get("parked") == "stopped" for r in rows) >= 2,
          f"{sum(r.get('parked') == 'stopped' for r in rows)} parked"),
-        ("15 a card in the stack skipped, and one ended", _stack(log, "skip") > 0 and _stack(log, "end") > 0,
-         f"skip {_stack(log, 'skip')}, end {_stack(log, 'end')}"),
+        ("15 a card in the stack cancelled", _stack(log, "end") > 0, f"cancel {_stack(log, 'end')}"),
+        ("cards-stack-design-5fec91-1 cancelled from the stack, nothing skipped from it", _stack(log, "end") > 0,
+         f"cancel {_stack(log, 'end')}; skip {_stack(log, 'skip')} (a card's own Later counts here too)"),
         ("16 a conversation resumed from the stack", any(r.get("source") == "stack" and r.get("resumed") for r in rows),
          f"opened from the stack: {_stack(log, 'open')}"),
         # ADR-017: no Later button; a card whose countdown ran out goes to the stack (see 16 below).

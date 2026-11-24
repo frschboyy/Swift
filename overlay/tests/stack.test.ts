@@ -103,3 +103,15 @@ test("owner, 2026-11-09: a ring shows how much of an item's time in the stack is
   const v = stackView(onStack(initialStack, [item], 0), 300_000)!;
   assert.equal(v.items[0].left, 0.5);
 });
+
+test("owner 2026-11-24: no Skip in the stack; one other action, named for what it does", async () => {
+  const { secondAction } = await import("../src/stack.ts");
+  assert.deepEqual(secondAction({ kind: "waiting" }), { label: "Cancel", tip: "Cancel: it won't be done", confirm: true });
+  assert.equal(secondAction({ kind: "parked", reason: "asked" })?.tip, "Cancel the request");
+  assert.equal(secondAction({ kind: "parked", reason: "stopped" })?.confirm, true);
+  assert.deepEqual(secondAction({ kind: "failed" }), { label: "Dismiss", tip: "Remove it from the stack", confirm: false });
+  // Open already does it, or there's nothing to end.
+  for (const kind of ["due", "timer", "recent"] as const) assert.equal(secondAction({ kind }), null);
+  const v = stackView(onStack(initialStack, [item("card:1", "waiting", "waiting")], 0), 0)!;
+  assert.equal(v.items[0].second?.label, "Cancel");
+});

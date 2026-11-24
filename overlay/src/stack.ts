@@ -97,6 +97,21 @@ export function reasonLine(item: StackEntry, now: number): string {
 /** Every row's first button: open it (a card comes back, a conversation goes on). */
 export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "Done" : item.kind === "timer" ? "Cancel" : "Open");
 
+/** A row's one other action besides Open (owner, 2026-11-24: Skip only reordered the list, so it left the stack,
+ * and End is named for what it does). ``confirm``: a second click within 3 s does it, since it can't be undone.
+ * null: Open already does it (Done on a reminder, Cancel on a timer) or there's nothing to end (an earlier answer). */
+export function secondAction(item: { kind: StackEntry["kind"]; reason?: string }): { label: string; tip: string; confirm: boolean } | null {
+  switch (item.kind) {
+    case "due": case "timer": case "recent": return null;
+    case "failed": return { label: "Dismiss", tip: "Remove it from the stack", confirm: false };
+    case "parked":
+      return item.reason === "asked"
+        ? { label: "Cancel", tip: "Cancel the request", confirm: true }
+        : { label: "Cancel", tip: "Cancel: Swift forgets where it got to", confirm: true };
+    default: return { label: "Cancel", tip: "Cancel: it won't be done", confirm: true };
+  }
+}
+
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
 export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" {
   if (item.kind === "timer") return "timer";
@@ -123,7 +138,7 @@ export function leftLine(item: StackEntry, now: number): string {
 export type StackView = {
   kind: "stack";
   expanded: boolean;
-  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon>; left?: number | null; leftText?: string }[];
+  items: { id: string; kind: StackEntry["kind"]; title: string; line: string; open: string; fresh: boolean; icon: ReturnType<typeof itemIcon>; left?: number | null; leftText?: string; second?: ReturnType<typeof secondAction> }[];
   // The main window's middle on the screen (CSS px): a card arriving comes from that side.
   mainX?: number;
 };
@@ -138,7 +153,7 @@ export function stackView(s: Stack, now: number): StackView | null {
     expanded: s.expanded,
     items: s.items.map((i) => ({
       id: i.id, kind: i.kind, title: i.title, line: reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
-      left: timeLeft(i, now), leftText: timeLeft(i, now) === null ? "" : leftLine(i, now),
+      left: timeLeft(i, now), leftText: timeLeft(i, now) === null ? "" : leftLine(i, now), second: secondAction(i),
     })),
   };
 }

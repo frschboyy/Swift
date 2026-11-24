@@ -27,7 +27,7 @@ something in that area changes.
   behind it. Click an edge to bring that request to the front.
 - **The stack**: the small box in the bottom-right corner that holds things waiting for you (a stopped request,
   a question nobody answered, a card that ran out of time). Double-click it to open it; each item has
-  **Open**, **Skip** and **End** when you point at it.
+  **Open**, and **Cancel** (or **Dismiss**) when you point at it.
 - **The live view**: the window **Watch** opens beside a working request, with the pages it reads and what it writes.
 - **Test Me**: a contact you saved for these checks. Any contact of yours works; the checks never send them anything
   unless a step says to approve.
@@ -182,14 +182,14 @@ The report checks: a card held while you were away, answered after.
 2. While the card says it's working, press **Esc**.
 3. Hold the hotkey, say "draft an email to Test Me about lunch", and let go. Press **Esc** again while it works.
 4. Look at the bottom-right corner, then double-click the stack there.
-5. Point at the top item and click **Skip**. Point at the email item and click **End**.
+5. Point at the email item and click **Cancel**, then **Cancel?** within 3 seconds.
 6. Click anywhere outside the stack (or press Esc).
 
 You should see: the stack, closed, with an amber "2", "**2 things need you**" and "Next: …" **in your own words**.
 It glows briefly when one joins. Opened: both, with **whole titles**, a pause icon and "Unfinished · stopped …".
-**Skip** moves the top one to the bottom; **End** removes the email one. Clicking outside folds it back up.
+**Cancel** removes the email one. Clicking outside folds it back up.
 
-The report checks: two stopped requests kept; one skipped, one ended from the stack.
+The report checks: two stopped requests kept; one cancelled from the stack.
 
 <a id="check-16"></a>**Check 16**
 1. Double-click the stack and click **Open** on the lunch item from check 15.
@@ -3284,3 +3284,18 @@ Note the check number and the time. That's enough: the logs have the rest.
 4. Say "ask me about everything", repeat step 1.
 
 You should see: (2) the buttons Stop, Change and "Go ahead with 1 and 2", the hint "Steps 3 and 4 get their own card", no amber on the asking rows; (3) nothing that publishes or sends ran without its own card; (4) no plan card: every command asks.
+
+### Pins, History, cards and the stack's actions (2026-11-24)
+
+<a id="check-cards-stack-design-5fec91-1"></a>**Check cards-stack-design-5fec91-1. Cancel in the stack asks in place**
+1. Hold the hotkey, say "draft an email to Test Me about lunch", and let go. Press **Esc** while it works.
+2. Do the same with "find a dentist near the office".
+3. Double-click the stack. Point at each row: none has a **Skip** button.
+4. Click **Cancel** on the dentist row once, and wait 4 seconds.
+5. Click **Cancel** on the email row, then click **Cancel?** within 3 seconds.
+
+You should see: (3) each row has **Open** and **Cancel**; its tooltip says what Cancel does. (4) the button turns
+red, "**Cancel?**", then goes back to "Cancel" by itself, and the dentist row stays. (5) the email row leaves the
+stack. No card opened at any step.
+
+The report checks: one item cancelled from the stack, none skipped.

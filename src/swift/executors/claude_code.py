@@ -232,13 +232,19 @@ class _Spare:
     binding: list[tuple[_Run, str]] = field(default_factory=list)
 
 
-def _too_long(run: _Run, tool: str, message: str) -> Any:
-    """Refused for its length, not the model struggling: the run stays on its model and goes on."""
+def _refused(run: _Run, message: str) -> Any:
+    """A no that is Swift's or the owner's (a card answered with a change or a no, a refused path), not the model
+    struggling: it counts as ``expected`` so two in a row don't move the run to Opus (EX-02)."""
     from claude_agent_sdk import PermissionResultDeny
 
     run.expected += 1
-    run.too_long.append(tool)
     return PermissionResultDeny(message=message, interrupt=False)
+
+
+def _too_long(run: _Run, tool: str, message: str) -> Any:
+    """Refused for its length, not the model struggling: the run stays on its model and goes on."""
+    run.too_long.append(tool)
+    return _refused(run, message)
 
 
 def _smaller_call_approved(run: _Run, tool: str) -> None:
@@ -799,7 +805,7 @@ class ClaudeCodeExecutor:
         from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
 
         if name == "AskUserQuestion":
-            return PermissionResultDeny(message=NO_QUESTIONS_MESSAGE)
+            return _refused(run, NO_QUESTIONS_MESSAGE)
         if name in READ_TOOLS:
             return await self._ask_read(run, run_id, name, args)
         host = self.tools
@@ -809,19 +815,19 @@ class ClaudeCodeExecutor:
                 if name == "WebFetch" and not run.web.allows(str(args.get("url", ""))):
                     # An address the model put together could carry what it read to someone else.
                     logger.info("web fetch refused: address not given", run_id=run_id)
-                    return PermissionResultDeny(message=NOT_GIVEN_URL_MESSAGE)
+                    return _refused(run, NOT_GIVEN_URL_MESSAGE)
                 return PermissionResultAllow(updated_input=args)
-            return PermissionResultDeny(message=NO_WEB_MESSAGE)
+            return _refused(run, NO_WEB_MESSAGE)
         if host is not None and host.in_workflow_for(run_id):
             # The workflow's manifest lists what it may do; nothing else, not even with a card.
-            return PermissionResultDeny(message=NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
+            return _refused(run, NOT_IN_WORKFLOW_MESSAGE.format(tool=name))
         if name in ("Bash", "PowerShell") and len(str(args.get("command", "")).strip()) > COMMAND_MAX:
             # Too long to show whole on a card: the owner would approve what they can't read.
             return _too_long(run, name, LONG_COMMAND_MESSAGE.format(n=COMMAND_MAX))
         if name in ("Bash", "PowerShell") and (place := self.reads.in_command(str(args.get("command", "")), self.cwd)):
             # No card: an approval must not be able to read what Read is always refused (owner check 213).
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
-            return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=place), interrupt=False)
+            return _refused(run, NEVER_READ_MESSAGE.format(path=place))
         if run.step_bound and (self.ask_everything() or run.asking_at != asking.turned_on):
             _set_grant(run, self.gateway)  # PLAN-04: turned on since the approval, even for a moment: it never covers again
         if name in COMMAND_TOOLS and (run.grant.commands or run.later) and not self.ask_everything():
@@ -830,7 +836,7 @@ class ClaudeCodeExecutor:
             if (bound := _spend(run, command)) is not None:
                 shown = {"command": command}  # all the step card showed: no other argument rides on it
                 if not self.gateway.allow(bound, STEP_TOOL, shown, how="step"):
-                    return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
+                    return _refused(run, CHANGED_MESSAGE)
                 run.grant_counts["covered"] += 1
                 return PermissionResultAllow(updated_input=shown)
             run.grant_counts["asked_again"] += 1
@@ -841,18 +847,18 @@ class ClaudeCodeExecutor:
         decision = await self._decide(run, run_id, title, detail, name, command_purpose(name, args))
         if decision == "approve":
             if not self.gateway.allow(bound, name, args):  # recomputed from what is handed back to run
-                return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
+                return _refused(run, CHANGED_MESSAGE)
             _smaller_call_approved(run, name)
             return PermissionResultAllow(updated_input=args)
         if isinstance(decision, tuple):  # ("change", the owner's words): declined, but the run goes on
-            return PermissionResultDeny(message=CHANGE_MESSAGE.format(text=decision[1]), interrupt=False)
+            return _refused(run, CHANGE_MESSAGE.format(text=decision[1]))
         if run.stopped_by is None and not run.cancelled:
             run.stopped_by = (decision, title)
-        return PermissionResultDeny(message=REJECTED_MESSAGE, interrupt=True)
+        return PermissionResultDeny(message=REJECTED_MESSAGE, interrupt=True)  # ends the run: kept raw
 
     async def _ask_read(self, run: _Run, run_id: str, name: str, args: dict[str, Any]) -> Any:
         """Read, Glob, Grep: by where they look. A no is just a no: the run goes on without it."""
-        from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
+        from claude_agent_sdk import PermissionResultAllow
 
         path = target_path(name, args, self.cwd)
         verdict = self.reads.verdict(path)
@@ -862,18 +868,18 @@ class ClaudeCodeExecutor:
             return PermissionResultAllow(updated_input=args)
         if verdict == "never":
             logger.info("read refused: never-read path", run_id=run_id, tool=name)
-            return PermissionResultDeny(message=NEVER_READ_MESSAGE.format(path=path), interrupt=False)
+            return _refused(run, NEVER_READ_MESSAGE.format(path=path))
         shown = Path(path).name or path
         title = f"Read {shown}" if name == "Read" else f"Look through {shown}"
         bound = self.gateway.bind(name, args)
         decision = await self._decide(run, run_id, title, f"Outside your read folders: {path}", name)
         if decision == "approve":
             if not self.gateway.allow(bound, name, args):
-                return PermissionResultDeny(message=CHANGED_MESSAGE, interrupt=False)
+                return _refused(run, CHANGED_MESSAGE)
             if name == "Read":
                 run.approved_reads.add(self.reads.key(path))
             return PermissionResultAllow(updated_input=args)
-        return PermissionResultDeny(message=READ_DECLINED_MESSAGE.format(path=path), interrupt=False)
+        return _refused(run, READ_DECLINED_MESSAGE.format(path=path))
 
     async def _propose_step(self, run: _Run, run_id: str, args: dict[str, Any]) -> str:
         """B2: one card for a step's commands. Only those Swift classes as reversible go on it and into the

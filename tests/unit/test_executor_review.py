@@ -136,7 +136,6 @@ class Escalations:
         self.models.append(model)
 
 
-@pytest.mark.xfail(strict=True, reason="EX-02: a denied card (change, declined read) is counted as a failed tool call")
 async def test_asking_for_a_change_twice_is_not_the_model_struggling(tmp_path: Path) -> None:
     """The module docstring: a result that is the owner asking for a change "isn't a failure". Swift's own tools get
     that (``ToolResult.expected``); Claude Code's own tools' cards don't, so two changes in a row move the run up."""

@@ -71,15 +71,11 @@
   area: process
   severity: low
   product_rule: false
-  status: open
+  status: fixed
   confidence: confirmed
-  evidence: '_ask denies with CHANGE_MESSAGE or READ_DECLINED_MESSAGE without adding to run.expected (only _too_long
-    and Swift tools'' ToolResult.expected do); the CLI returns the denial as an is_error tool result and _watch counts
-    it. Reproduced: two changes in a row escalate ("tool calls kept failing"). The module docstring says a change
-    isn''t a failure. Same, read not run: workflow, web, OWN-05 and outside_workflow refusals.'
+  evidence: "Root fix. Every deny that is Swift's decision or the owner's (change on a command card, declined read, never-read path, workflow/web/question refusals, a changed call) goes through _refused, which counts it as expected, as _too_long already did; _watch then no longer counts the CLI's is_error result as a failed tool call. The strict xfail repro passes. Still not counted this way (not changed): a Swift tool's outside_workflow refusal in tools.py."
   test: tests/unit/test_executor_review.py::test_asking_for_a_change_twice_is_not_the_model_struggling
-  note: 'Strict xfail. Fix: one deny helper that counts Swift''s and the owner''s decisions as expected and reports a
-    reason code to tool_refusals (executor-review.md §5).'
+  note: 'Changes what the run does, not what the owner sees or approves, but it touches the permission bridge (product-rule area, no rule changed): needs a review by someone other than its author. A seam scenario was not added: no screen change. Fix label: root. Limit: expected is a plain counter, so a denial the CLI never reports back leaves it one high (W2 in the review). Not run live.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

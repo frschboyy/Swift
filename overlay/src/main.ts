@@ -31,7 +31,7 @@ import * as Q from "./ask";
 import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails, setTreeOpener } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
-import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
+import { el, hotkeyParts, icon, keepScroll, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
 import { cardLines, commandFolded, commandParts, hasMarkedLines, planView, quoteLines, recipientText, stepCommands } from "./cardtext";
 import * as D from "./deck";
@@ -579,7 +579,7 @@ function drawStackInline(): void {
     scheduleRegions();
     return;
   }
-  stackEl.replaceChildren(
+  keepScroll(stackEl, ".stack-list", () => stackEl.replaceChildren(
     view.expanded
       ? el("div", { "data-hit": true }, V.stackOpen(view, {
           item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"),
@@ -593,7 +593,7 @@ function drawStackInline(): void {
             drawStackInline();
           },
         })),
-  );
+  ));
   scheduleRegions();
 }
 

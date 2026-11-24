@@ -62,6 +62,15 @@ const ICONS: Record<string, string> = {
   bulb: "M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9V16h7v-2.1A6 6 0 0012 3z",
 };
 
+/** Redraw with ``draw``, keeping the scroll place of ``selector`` under ``root``: a redraw builds that element anew,
+ * which starts at the top (the open stack snapped back up as you scrolled it, 2026-11-18). */
+export function keepScroll(root: ParentNode, selector: string, draw: () => void): void {
+  const top = root.querySelector<HTMLElement>(selector)?.scrollTop ?? 0;
+  draw();
+  const again = root.querySelector<HTMLElement>(selector);
+  if (again) again.scrollTop = top;
+}
+
 export function icon(name: keyof typeof ICONS | string): SVGSVGElement {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");

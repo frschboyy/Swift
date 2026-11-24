@@ -69,7 +69,7 @@ areas:
     checks: [203, 320, 345, 382]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
-    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388]
+    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388, ui-fixes-1119-bd6fc8-5]
   presence:
     rule: no hands-free listening while locked
     paths: [src/swift/presence.py, src/swift/lifecycle.py]

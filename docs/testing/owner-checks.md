@@ -3319,3 +3319,10 @@ with "…".
 You should see: no **Watch** on the time answer or on the strip that is still listening, and none on the research
 until it has taken a couple of steps; then the research offers **Watch**, and its Stop works. A watch never stays
 open, saying it's running, after its request ended.
+
+<a id="check-ui-fixes-1119-bd6fc8-5"></a>**Check ui-fixes-1119-bd6fc8-5. The open stack keeps its scroll place**
+1. Leave enough in the stack to need scrolling (four or five things: let OK cards run out, answer "later" to
+   Swift's questions).
+2. Open the stack, scroll to the bottom, and wait half a minute without touching it.
+
+You should see: the list stays where you scrolled it; it never jumps back to the top by itself.

@@ -1617,7 +1617,7 @@
     negation; _NOT is applied only to answers (system_tools.py:52). Plain negations ('don't turn off wifi', 'never
     turn off the bluetooth', "don't lock the computer and turn the volume down") are correctly not actions (probed).
   test: tests/unit/test_health_SYS.py::test_a_retracted_lock_is_not_asked_for
-  note: "The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first sentence. Safeguard (IA-01 phase 1): understand() drops every intent in an utterance with a clause that is only a retraction ('no wait, don't', 'never mind', 'cancel that'). Not caught: a retraction inside the same clause ('lock it never mind'; commas are gone after normalize). Owner check pending."
+  note: "The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first sentence. Safeguard (IA-01 phase 1, with review fixes): understand() drops the intents of clauses before a clause that is only a retraction ('no wait, don't', 'never mind', 'cancel that'); a request after the retraction is kept. Not caught: a retraction inside the same clause ('lock it never mind'; commas are gone after normalize), and a negated restatement in the next sentence ('Lock the computer. Actually don't lock it.' still gives lock). Owner check pending."
 - id: HA-SYS-11
   title: Timers are kept as wall-clock epoch times, so a clock correction or manual change makes a running timer
     fire early (marked missed) or late.
@@ -3962,3 +3962,33 @@
     port 1431, which another session''s vite held (now SWIFT_UI_PORT, SWIFT_TEST_EXE).'
   test: null
   note: Update live-ui-loop.md section 4 row 11, or restart the backend inside the step.
+- id: IA-02
+  title: Two owners of 'is it a question' and 'is it a retraction' for a system request - understand.py beside library.is_question,
+    the router's cancel words and dialogue's never mind.
+  source: independent review of IA-01 phase 1 (review-intent-phase-1.md F3), 2026-11-25
+  module: src/swift/system/understand.py, src/swift/workflows/library.py, src/swift/routing/rules.py, src/swift/dialogue.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: understand._ASKS differs from library._QUESTION; _RETRACT is its own list beside rules.py's cancel control
+    and dialogue's never mind. The design (5.3) said library.is_question moves into understand.py.
+  test: null
+  note: For IA-01 phase 2, which needs the gate as the one owner (P2-3). Move is_question into understand.py and have
+    library and session import it; build _RETRACT from the router's cancel words.
+- id: IA-03
+  title: restated_as counts a spoken question ('wifi off?') as saying the request again, and 'Cancel that. Set an alarm for 7 am.'
+    parsed as cancel in the lane before phase 1.
+  source: independent review of IA-01 phase 1 (F5), 2026-11-25
+  module: src/swift/restated.py, src/swift/system/intents.py
+  area: actions
+  severity: low
+  product_rule: true
+  status: open
+  confidence: suspected
+  evidence: restated.py compares bare grammar matches (kept on purpose, review C1-1). A question isn't the same request
+    said again, but approves level 1. Read from the code, not run through a session. The cancel case ran on 7583be8.
+  test: null
+  note: Apply only the question part of the gate in restated_as; that narrows approval but is a product-rule change and
+    needs its own review. Phase 1 now drops the cancel case in owner_intents and the lane (a retraction first, then a request).

@@ -146,7 +146,7 @@ from typing import Any
 
 from loguru import logger
 
-from swift import background, calls, captions, clock, frames, memory, recent, refused, retrying, seen, stops, timers
+from swift import background, calls, captions, card_mic, clock, frames, memory, recent, refused, retrying, seen, stops, timers
 from swift.answer_window import AnswerWindow
 from swift.cleanup import in_turn, to_the_end  # a stop's clean-up runs to its end, even if stopped again meanwhile
 from swift import identity
@@ -1865,8 +1865,8 @@ class Session:
                     await self._send_question(asked, left)
 
     def answer_level(self, level: float) -> None:
-        """The open microphone's level (loop thread): while a spoken answer is awaited, the orb follows it."""
-        if self._listening_for() is not None and not self.speaker.speaking:
+        """The mic's level (loop thread), for the orb: while an answer is awaited, or wake listening hears speech (item 14)."""
+        if (self._listening_for() is not None or card_mic.hearing(self)) and not self.speaker.speaking:
             self._background(self._send(outbound("level", rms=round(level, 3))))
 
     async def _hear_wake_once(self, audio: Any, ended_at: float, short: bool = False) -> None:

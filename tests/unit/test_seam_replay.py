@@ -179,6 +179,23 @@ async def test_the_orb_follows_the_owners_voice_only_while_an_answer_is_awaited(
     assert [m.data["rms"] for m in out.messages if m.type == "level"] == [0.5]
     await finish_all(session, agent)
 
+async def test_at_rest_the_orb_follows_speech_wake_listening_hears_never_while_paused() -> None:
+    # Item 14 (owner, 2026-11-18): he couldn't tell whether Swift heard him. At rest the open microphone's level goes
+    # to the orb while wake listening collects speech (card_mic.hearing); never while listening is paused.
+    session, out, agent, _stt, _control, _sched = _lane(30.0)
+    def levels() -> list[float]:
+        return [m.data["rms"] for m in out.messages if m.type == "level"]
+    session.in_speech = lambda: True  # the owner talks near the microphone
+    session.answer_level(0.5)
+    await asyncio.sleep(0.02)
+    assert levels() == [0.5] and agree(session, out)["stage"] == "idle"
+    session.listening_paused = True  # paused from the tray: the privacy indicator, never a reacting orb
+    session.answer_level(0.6)
+    await asyncio.sleep(0.02)
+    assert levels() == [0.5]
+    await finish_all(session, agent)
+
+
 async def test_b_the_question_runs_out_behind_a_run_that_goes_on() -> None:
     session, out, agent, stt, _control, _sched = _lane(0.6)
     rid = await _beside(session, out, agent, stt)

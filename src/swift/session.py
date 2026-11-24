@@ -1383,6 +1383,7 @@ class Session:
                 run = self._owner_of(key)
                 if run is not None:
                     await self._end_run(run)
+                    self._forget_row(run)  # ended by the owner from the stack: no "Stopped" edge left (item 16)
                 else:
                     await self._card_done(key)
             elif self.parked is not None and action == "open":
@@ -1477,8 +1478,7 @@ class Session:
 
     async def _end_run(self, run: Run) -> None:
         """Ended from the stack: the request stops and isn't kept as unfinished."""
-        if run.record is not None:
-            run.record["ended"] = True
+        (run.record if run.record is not None else {})["ended"] = True
         if run.task is not None and not run.task.done():
             run.task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

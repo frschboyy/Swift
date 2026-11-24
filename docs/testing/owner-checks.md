@@ -3295,3 +3295,12 @@ About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
 
 You should see: the card leaves the screen and waits in the stack ("Needs your OK · held, no answer in time"). Nothing
 else on screen says it: no flattened "Needs your OK" strip is left under the orb.
+
+<a id="check-ui-fixes-1119-bd6fc8-2"></a>**Check ui-fixes-1119-bd6fc8-2. An OK reopened from the stack lives like the first time**
+1. Ask for something that needs your OK and let its countdown run out.
+2. Open the stack and click **Open** on it. Watch its countdown; don't answer. It runs out again.
+3. Open it again, hold the push-to-talk hotkey and say "reject".
+4. Ask again, let it run out, then click **End** on it in the stack.
+
+You should see: (2) the reopened card counts down and, when it runs out, goes back to the stack with nothing left
+on screen; (3) the hotkey's "reject" answers it; (4) End takes it off the screen at once, with no "Stopped" strip.

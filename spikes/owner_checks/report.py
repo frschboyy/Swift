@@ -632,6 +632,7 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         *_grounded(rows),
         *_memory(rows),
         *_health(log),
+        *_engine(log),
         *_gmail(log),
         *_front_and_web(rows),
         *_command_cards(rows),
@@ -940,6 +941,33 @@ def _health(log: list[str]) -> list[tuple[str, Outcome | bool, str]]:
         ("241 no chime straight after a lock", LOOK, "tell us whether Swift chimed or showed 'heard' while locked"),
         ("242 no card left working after its request ended", unless(ghosts, stops),
          f"{len(stops)} stop(s); pressed on a request already over: {len(ghosts)}"),
+    ]
+
+
+def _engine(log: list[str], crash_log: Path = LOCAL / "logs" / "crash.log") -> list[tuple[str, Outcome | bool, str]]:
+    """The engine crashes of 2026-11-18 (a COM use-after-free) and Restart starting two engines."""
+    start = _stamp(log[0]) if log else None
+    dumps: list[str] = []
+    began = None  # the engine whose dumps follow: "<time> engine started pid=N" (backend/__main__.py)
+    lines = crash_log.read_text(encoding="utf-8", errors="replace").splitlines() if crash_log.exists() else []
+    for line in lines:
+        if " engine started pid=" in line:
+            began = _stamp(line)
+        elif line.startswith("Windows fatal exception") and start and began and began >= start:
+            dumps.append(f"{began:%H:%M:%S}")
+    readies = [i for i, line in enumerate(log) if "| backend ready |" in line]
+    restarts = [i for i in readies if "restarted=True" in log[i]]
+    ends = {i: next((j for j in readies if j > i), len(log)) for i in restarts}
+    half = [log[i][11:19] for i in restarts if not any("| speech model loaded |" in line for line in log[i:ends[i]])]
+    twice = [log[j][11:19] for i, j in zip(restarts, restarts[1:])
+             if (a := _stamp(log[i])) and (b := _stamp(log[j])) and (b - a).total_seconds() < 20 and ends[i] == j]
+    return [
+        ("engine-crashes-eac152-1 the engine stayed up (no crash dump)", unless(dumps, log),
+         f"dumps in engines started at {', '.join(dumps)}" if dumps else "crash.log: nothing new"),
+        ("engine-crashes-eac152-2 Restart starts one engine, and it comes up fully", unless(half or twice, restarts),
+         f"{len(restarts)} restart(s); two within 20 s: {', '.join(twice) or 'none'}; not up: {', '.join(half) or 'none'}"),
+        ("engine-crashes-eac152-3 Open logs and details only in debug mode; Open logs opens swift.log", LOOK,
+         "check on screen: no Open logs without debug; with it, swift.log (and crash.log) open"),
     ]
 
 

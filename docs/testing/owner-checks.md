@@ -826,10 +826,42 @@ The report checks: a restart.
 2. Click **Restart Swift** on the card that appears.
 3. Say "Hey Swift, what time is it".
 
-You should see: within a few seconds, "Swift's engine stopped" with **Restart Swift** and Open logs (never "quit and
-start again"). After Restart, Swift answers.
+You should see: within a few seconds, "Swift's engine stopped" with **Restart Swift** (and Open logs only with
+`debug: true`, check engine-crashes-eac152-3), never "quit and start again". After Restart, Swift answers.
 
 The report checks: a restart.
+
+<a id="check-engine-crashes-eac152-1"></a>**Check engine-crashes-eac152-1. The engine stays up**
+1. Use Swift for an evening as usual, with the explore flags you had on 18 November. Don't say "captions on" or
+   "captions off" (captions then follow the PC, which reads the speakers' mute once a minute: the reading that
+   crashed the engine).
+2. Once, say "Hey Swift, pause" with music playing, then "Hey Swift, play" (the speakers' meter).
+
+You should see: no "Swift's engine stopped" all evening, and Swift never stops answering with a card frozen.
+
+The report checks: no crash dump in `crash.log` from an engine started during the run.
+
+<a id="check-engine-crashes-eac152-2"></a>**Check engine-crashes-eac152-2. Restart starts one engine**
+1. Open Task Manager → **Details**, sorted by name.
+2. Right-click the tray icon → **Restart Swift**, and at once (while "Restarting Swift…" shows) **Restart Swift**
+   again.
+3. When Swift is back, say "Hey Swift, what time is it".
+
+You should see: one "Restarting Swift…", then back; **one** Swift `python.exe` (about 700 MB) afterwards. It answers.
+
+The report checks: no two restarts within 20 seconds, and each restarted engine loaded its speech model.
+
+<a id="check-engine-crashes-eac152-3"></a>**Check engine-crashes-eac152-3. Logs are for developers**
+1. With `debug: false` (the default) in `config.yaml`: right-click the tray icon. Then end Swift's `python.exe` in
+   Task Manager.
+2. Set `debug: true`, quit Swift from the tray and start it again. Right-click the tray icon → **Open logs**. Then
+   end Swift's `python.exe` again and click **Open logs** on the card.
+
+You should see: (1) no Open logs in the tray menu, and the "Swift's engine stopped" card has Restart Swift but no
+Open logs; (2) Open logs in the tray menu and on the card, and each opens `swift.log` itself (and `crash.log` when
+there is one), not just a folder.
+
+The report checks: nothing; only the screen shows it.
 
 ### Watching a request work: the live view (ADR-017 §7)
 

@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
-  answerOpens, close, doingLine, ended, initialLive, name, onItem, onRows, openRuns, plain, since, tick, touch, view, watch, webUrl,
+  answerOpens, close, doingLine, ended, initialLive, name, onItem, onRows, openRuns, plain, since, tick, touch, view, watch, watchable, webUrl,
   FORGET_MS, LINGER_MS, MAX_NOTES, MAX_OPEN, MAX_SOURCES, MAX_WRITTEN, type Live,
 } from "../src/live.ts";
 import { diffPanes, paneLabel, paneSize, wantedPanes } from "../src/panes.ts";
@@ -175,4 +175,11 @@ test("B6: each new thing it does is a step; the same one again isn't", () => {
   const v = view(l.runs[0]);
   assert.equal(v.steps.length, 2);
   assert.equal(v.steps[1].atMs, T + 5000);
+});
+
+test("Watch is for longer work: none before two steps, none for a local answer (2026-11-18, item 18)", () => {
+  assert.equal(watchable(undefined), false);
+  assert.equal(watchable(0), false);
+  assert.equal(watchable(1), false);
+  assert.equal(watchable(2), true);
 });

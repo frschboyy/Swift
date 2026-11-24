@@ -466,7 +466,6 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("427 a follow-up on the same card, First answer (A2)", LOOK, "check on screen"),
         ("428 how Swift shows things: reading time, text size, motion (A8)", LOOK, "check on screen; kept after a restart"),
         ("429 keyboard entry on the card's buttons; the keyboard goes back (A7)", LOOK, "check: never by itself, Esc and a press give it back"),
-        ("442 'What can I say?' on a card (A10, explore.what_can_i_say)", LOOK, "check on screen: the phrases, 'asks for your OK', the learned line after 3 Copy clicks"),
         ("443 next-step chips (A11, explore.next_steps)", LOOK, "check on screen: a chip after 3 Copy clicks; it opens an OK, never runs"),
         ("444 the orb follows the active monitor (A13, explore.follow_monitor)", LOOK, "check on screen with two monitors: after 1.5 s, never over a card, never full screen"),
         ("430 an OK set aside approves nothing until it's in front", LOOK, "check: nothing done from the stack; a refused click brings it forward"),

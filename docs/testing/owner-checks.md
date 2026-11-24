@@ -3257,7 +3257,7 @@ the screen and Swift, so you may never see it; tests cover it.
 You should see: in steps 2 and 3, if Swift wants to write anything into Notepad it asks first ("Write this in
 Notepad?"), showing what it would write; say "no" each time and nothing is written. In step 4 it writes the note
 without asking.
-<a id="check-442"></a>**Check 442. "What can I say?" on a card, an idea to try (A10; off unless you turn it on)**
+<a id="check-442"></a>**Check 442. "What can I say?" on a card, an idea to try (A10). Retired 2026-11-24: removed, the owner didn't want it; nothing to run**
 1. In `config.yaml`, set `explore:` `what_can_i_say: true`, and restart Swift.
 2. Ask for something that needs your OK, and click **What can I say?** on its card. Click it again.
 3. Ask "Hey Swift, what time is it?" and click **What can I say?** on the answer.
@@ -3316,3 +3316,45 @@ Note the check number and the time. That's enough: the logs have the rest.
 4. Say "ask me about everything", repeat step 1.
 
 You should see: (2) the buttons Stop, Change and "Go ahead with 1 and 2", the hint "Steps 3 and 4 get their own card", no amber on the asking rows; (3) nothing that publishes or sends ran without its own card; (4) no plan card: every command asks.
+
+### Screen fixes from the owner's run of 2026-11-18 (claude/ui-fixes-1119, 2026-11-24)
+
+About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
+
+<a id="check-ui-fixes-1119-bd6fc8-1"></a>**Check ui-fixes-1119-bd6fc8-1. An OK that ran out is in the stack only**
+1. Ask for something that needs your OK ("Hey Swift, add lunch with Sam on Thursday at noon to my calendar"). Don't
+   answer it: let its countdown run out.
+
+You should see: the card leaves the screen and waits in the stack ("Needs your OK · held, no answer in time"). Nothing
+else on screen says it: no flattened "Needs your OK" strip is left under the orb.
+
+<a id="check-ui-fixes-1119-bd6fc8-2"></a>**Check ui-fixes-1119-bd6fc8-2. An OK reopened from the stack lives like the first time**
+1. Ask for something that needs your OK and let its countdown run out.
+2. Open the stack and click **Open** on it. Watch its countdown; don't answer. It runs out again.
+3. Open it again, hold the push-to-talk hotkey and say "reject".
+4. Ask again, let it run out, then click **End** on it in the stack.
+
+You should see: (2) the reopened card counts down and, when it runs out, goes back to the stack with nothing left
+on screen; (3) the hotkey's "reject" answers it; (4) End takes it off the screen at once, with no "Stopped" strip.
+
+<a id="check-ui-fixes-1119-bd6fc8-3"></a>**Check ui-fixes-1119-bd6fc8-3. "Paused while you read" is whole**
+1. Ask "Hey Swift, what time is it?" and rest the pointer on the answer card.
+
+You should see: the footer says "Swift · Paused while you read" in full (on two lines if it must), never cut off
+with "…".
+
+<a id="check-ui-fixes-1119-bd6fc8-4"></a>**Check ui-fixes-1119-bd6fc8-4. Watch is offered for longer work only**
+1. Say "Hey Swift, research the history of green tea and summarise it". While it runs, say "Hey Swift" and then,
+   when it listens, "what time is it".
+2. Rest the pointer on each strip under the card, and look at the working card's footer.
+
+You should see: no **Watch** on the time answer or on the strip that is still listening, and none on the research
+until it has taken a couple of steps; then the research offers **Watch**, and its Stop works. A watch never stays
+open, saying it's running, after its request ended.
+
+<a id="check-ui-fixes-1119-bd6fc8-5"></a>**Check ui-fixes-1119-bd6fc8-5. The open stack keeps its scroll place**
+1. Leave enough in the stack to need scrolling (four or five things: let OK cards run out, answer "later" to
+   Swift's questions).
+2. Open the stack, scroll to the bottom, and wait half a minute without touching it.
+
+You should see: the list stays where you scrolled it; it never jumps back to the top by itself.

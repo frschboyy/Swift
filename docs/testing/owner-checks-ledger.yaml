@@ -69,7 +69,7 @@ areas:
     checks: [203, 320, 345, 382]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
-    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388]
+    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388, ui-fixes-1119-bd6fc8-5]
   presence:
     rule: no hands-free listening while locked
     paths: [src/swift/presence.py, src/swift/lifecycle.py]
@@ -85,7 +85,7 @@ areas:
     checks: [400, 402, 403, 404, 405, 406, 407, 408]
   halo:
     paths: [overlay/src/dress.ts, overlay/src/geometry.ts, overlay/src/styles.css, overlay/src/views.ts, overlay/src/pane.ts, overlay/src/ready.ts, overlay/src/shuffle.ts, overlay/src/times.ts, overlay/src/timers.ts, src/swift/timers.py, src/swift/captions.py, src/swift/recent.py, overlay/src/display.ts]
-    checks: [216-221, 417, 418, 419, 420, 421, 432, 433, 434, 435, 436, 437, 438, 439, 440, 424, 425, 426, 427, 428, 445]
+    checks: [216-221, 417, 418, 419, 420, 421, 432, 433, 434, 435, 436, 437, 438, 439, 440, 424, 425, 426, 427, 428, 445, ui-fixes-1119-bd6fc8-3]
   explore:
     rule: Halo's Explore ideas are off until the owner turns each on in config.yaml; none takes focus
     paths: [overlay/src/glance.ts, overlay/src/learn.ts, overlay/src-tauri/src/follow.rs, src/swift/hints.py, src/swift/settings.py]
@@ -101,10 +101,10 @@ areas:
   halo-b8-fixes:
     rule: an OK that lapses waits in the stack and only the owner brings it back; "stop" always says what it stopped
     paths: [src/swift/session.py, src/swift/stops.py, overlay/src/presenter.ts, overlay/src/deck.ts, overlay/src/pane.ts, overlay/src-tauri/src/lib.rs]
-    checks: [414, 415, 416, 429]
+    checks: [414, 415, 416, 429, ui-fixes-1119-bd6fc8-1, ui-fixes-1119-bd6fc8-2]
   live-view:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
-    checks: [10, 90-95, 126, 127]
+    checks: [10, 90-95, 126, 127, ui-fixes-1119-bd6fc8-4]
   apps:
     rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
@@ -382,3 +382,9 @@ runs:
   note: 'The owner''s run of 2026-11-18 22:03 to 2026-11-19 00:26 (relayed 2026-11-23). Check 4 passed, but answers to Swift''s questions in loose words were asked again and then shelved (22:56 choice, 23:31 yes/no): feedback item 13, the conversation session.'
   checks:
     PASS: ['1', '2', '3', '4']
+- date: 2026-11-24 11:58
+  commit: 2cc19e4
+  source: owner
+  note: 'A10 ''What can I say?'' removed at the owner''s request (run of 2026-11-18, item 6): the button, explore.what_can_i_say and its checks are gone; an older config.yaml with the key still starts.'
+  checks:
+    RETIRED: ['442']

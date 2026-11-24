@@ -62,3 +62,8 @@ test("§8.6: a compact confirm still too tall folds the deck, only with more tha
   assert.equal(needsFold(true, 1, 500, 34, 560), false);  // one edge is already the folded deck
   assert.equal(needsFold(false, 3, 500, 102, 560), false);
 });
+
+test("a paused Done card's byline wraps, so \"Paused while you read\" is never cut off (2026-11-18)", () => {
+  const css = read("../src/styles.css");
+  assert.match(css, /\.card--hover\.card--paused \.card-foot > \.byline \{ white-space: normal; \}/);
+});

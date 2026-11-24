@@ -4,7 +4,7 @@
 import type { Inbound, Outbound } from "./protocol";
 
 export const TO_OVERLAY = [
-  {"type": "hello.ok", "data": {"version": "0.1.0", "debug": true, "hotkeys": {"push_to_talk": "Ctrl+Shift+Space", "type": "Ctrl+Shift+T"}, "explore": {"orb_glance": true, "follow_monitor": false, "what_can_i_say": false, "next_steps": false}}},
+  {"type": "hello.ok", "data": {"version": "0.1.0", "debug": true, "hotkeys": {"push_to_talk": "Ctrl+Shift+Space", "type": "Ctrl+Shift+T"}, "explore": {"orb_glance": true, "follow_monitor": false, "next_steps": false}}},
   {"type": "hello.ok", "data": {"version": "0.1.0", "debug": false, "hotkeys": {}, "instance": "3f9c2a1b7d4e"}},
   {"type": "state", "data": {"state": "idle"}},
   {"type": "state", "data": {"state": "working", "run_id": "a-1", "agent": {"id": "claude_code", "name": "Claude Code"}, "thread_id": "t-1"}},
@@ -47,7 +47,7 @@ export const TO_OVERLAY = [
   {"type": "timers", "data": {"items": [{"id": 7, "title": "Tea", "due_ms": 1794971000000, "set_ms": 1794970700000}]}},
   {"type": "resume.offer", "data": {"thread_id": "t-1", "title": "Plan the trip"}},
   {"type": "runs", "data": {"focus": null, "rows": [], "waiting": 0}},
-  {"type": "runs", "data": {"focus": "a-1", "rows": [{"run_id": "a-2", "thread_id": null, "title": "rename the notes file", "state": "working", "activity": "editing", "app": "Word", "agent": {"id": "claude_code", "name": "Claude Code"}, "started_ms": 1793867652488, "summary": "", "words": "rename the notes file", "origin": "asked"}, {"run_id": "a-3", "thread_id": "t-3", "title": "research tea", "state": "idle", "activity": null, "app": null, "agent": null, "started_ms": 1793867652488, "summary": "Done."}], "waiting": 1}},
+  {"type": "runs", "data": {"focus": "a-1", "rows": [{"run_id": "a-2", "thread_id": null, "title": "rename the notes file", "state": "working", "activity": "editing", "app": "Word", "agent": {"id": "claude_code", "name": "Claude Code"}, "started_ms": 1793867652488, "summary": "", "words": "rename the notes file", "origin": "asked", "steps": 3}, {"run_id": "a-3", "thread_id": "t-3", "title": "research tea", "state": "idle", "activity": null, "app": null, "agent": null, "started_ms": 1793867652488, "summary": "Done."}], "waiting": 1}},
   {"type": "stack", "data": {"items": []}},
   {"type": "stack", "data": {"items": [{"id": "card:swift:2", "kind": "waiting", "title": "Send this email to Ada", "reason": "waiting", "since_ms": 1793867652489, "thread_id": "t-1", "expires_ms": null}, {"id": "thread:t-2", "kind": "parked", "title": "Plan the trip", "reason": "asked", "since_ms": 1793867652489, "thread_id": null, "expires_ms": 1793868252489}]}},
   {"type": "stack", "data": {"items": [], "recent": [{"id": "recent:a-3", "kind": "recent", "title": "Research tea", "reason": "done", "since_ms": 1793867652489, "thread_id": "t-3", "expires_ms": null}]}},

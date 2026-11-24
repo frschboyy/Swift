@@ -4,7 +4,7 @@
 // ADR-017 §7: the live view of a running request, the same way.
 
 import { el, icon } from "./dom";
-import type { LiveView, Source } from "./live";
+import { watchable as longWork, type LiveView, type Source } from "./live";
 import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, waits, type StackView } from "./stack";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
@@ -19,6 +19,8 @@ export type EdgeView = {
   saying: boolean;
   // Asked this many times, folded into this edge (F5).
   times?: number;
+  // Steps taken: Watch only from live.WATCH_STEPS.
+  steps?: number;
 };
 
 function edgeMark(v: EdgeView): HTMLElement {
@@ -39,7 +41,7 @@ export function edgeContent(v: EdgeView, watch: () => void): HTMLElement[] {
       el("span", { class: "edge-sub edge-said" }, `“${v.words}”`),
     ];
   }
-  const watchable = v.running && v.state !== "confirm" && v.state !== "queued";
+  const watchable = v.running && v.state !== "confirm" && v.state !== "queued" && longWork(v.steps);
   return [
     edgeMark(v),
     el("span", { class: "edge-title" }, v.title),

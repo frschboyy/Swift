@@ -10,6 +10,7 @@ import { commandFolded, commandParts, planView, quoteLines, stepCommands } from 
 import * as D from "../../src/deck.ts";
 import { canFlag } from "../../src/heardfix.ts";
 import { needsReader } from "../../src/panes.ts";
+import * as L from "../../src/live.ts";
 import * as P from "../../src/presenter.ts";
 import { pillText } from "../../src/timers.ts";
 
@@ -52,7 +53,7 @@ for (const { type, data: d, n } of frames) {
       if (forward !== null) [words, clip] = [forward, null];
       pres = P.onRuns(pres, d.focus, d.rows.map((r: any) => ({
         runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
-        startedMs: r.started_ms, summary: r.summary, words: r.words,
+        startedMs: r.started_ms, summary: r.summary, words: r.words, steps: r.steps,
       })), d.waiting);
       deck = D.onRows(deck, pres.focus, pres.rows, now, onCard);
       break;
@@ -107,6 +108,8 @@ process.stdout.write(JSON.stringify({
   behindStates: settled.edges.map((e) => e.row.state),
   // F5: how many identical requests each edge stands for ("×3").
   behindTimes: settled.edges.map((e) => e.times),
+  // Item 18: whether each edge offers Watch (longer work only, live.watchable).
+  behindWatch: settled.edges.map((e) => L.watchable(e.row.steps)),
   more: settled.edges.reduce((n, e) => n + e.more, 0),
   stage: P.stageOf(pres),
   cardRun: pres.card.runId,

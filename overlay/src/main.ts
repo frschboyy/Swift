@@ -31,7 +31,7 @@ import * as Q from "./ask";
 import { copyButton, detailsText, DIAGRAM_DRAWN, renderBlocks, renderDetails, setTreeOpener } from "./blocks";
 import * as C from "./capsule";
 import * as Card from "./card";
-import { el, hotkeyParts, icon, keys, withKeys } from "./dom";
+import { el, hotkeyParts, icon, keepScroll, keys, withKeys } from "./dom";
 import { describeBackendProblem } from "./engine";
 import { cardLines, commandFolded, commandParts, hasMarkedLines, planView, quoteLines, recipientText, stepCommands } from "./cardtext";
 import * as D from "./deck";
@@ -45,7 +45,7 @@ import * as F from "./heardfix";
 import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
-import { bump, nextChips, sayLines } from "./learn";
+import { bump, nextChips } from "./learn";
 import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
@@ -354,7 +354,7 @@ const ROW_STATE: Record<string, string> = {
 function onRuns(data: Extract<Inbound, { type: "runs" }>["data"]): void {
   const rows: P.Row[] = data.rows.map((r) => ({
     runId: r.run_id, threadId: r.thread_id, title: r.title, state: r.state, activity: r.activity, app: r.app,
-    startedMs: r.started_ms, summary: r.summary, words: r.words,
+    startedMs: r.started_ms, summary: r.summary, words: r.words, steps: r.steps,
   }));
   // The card on screen, if this sends it behind: its edge starts there.
   const onCard = pres.focus ?? pres.card.runId;
@@ -579,7 +579,7 @@ function drawStackInline(): void {
     scheduleRegions();
     return;
   }
-  stackEl.replaceChildren(
+  keepScroll(stackEl, ".stack-list", () => stackEl.replaceChildren(
     view.expanded
       ? el("div", { "data-hit": true }, V.stackOpen(view, {
           item: stackAction, collapse: collapseStack, selected: stackSelected, unfold: !stackEl.querySelector(".stack-open"),
@@ -593,7 +593,7 @@ function drawStackInline(): void {
             drawStackInline();
           },
         })),
-  );
+  ));
   scheduleRegions();
 }
 
@@ -735,8 +735,8 @@ const WORKING_ROW = (state: string): boolean => !["queued", "confirm", "listenin
 function autoWatch(now: number): void {
   if (display.watch === "ask") return;
   const running = [
-    ...(pres.runId && stageNow() === "working" ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
-    ...pres.rows.filter((r) => WORKING_ROW(r.state)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
+    ...(pres.runId && stageNow() === "working" && L.watchable(steps.length) ? [{ runId: pres.runId, title: clipLine(request, 60), words: request, startedMs: runStarted }] : []),
+    ...pres.rows.filter((r) => WORKING_ROW(r.state) && L.watchable(r.steps)).map((r) => ({ runId: r.runId, title: r.title, words: r.words ?? "", startedMs: r.startedMs })),
   ];
   for (const r of running) {
     if (r.startedMs && Dsp.watchOpens(display, !!L.find(live, r.runId)?.written, now - r.startedMs, watchSeen.has(r.runId))) openLive(r.runId, r.title, r.words);
@@ -1169,7 +1169,7 @@ function renderWorking(): void {
       el("span", { class: "hint foot-gap" }, el("kbd", {}, "Esc"), "stops"),
       backButton ?? showButton,
       pres.runId && !L.find(live, pres.runId)?.open
-        ? el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
+        ? L.watchable(steps.length) && el("button", { class: "btn btn--ghost", title: "Watch it work: sources, notes and what it writes", onclick: () => openLive(pres.runId!, request, request) }, icon("play"), "Watch")
         // B10, Run link: the card and the open watch are one run, on the same clock.
         : pres.runId ? el("span", { class: "run-link", title: "Open in the watch beside this card" }, icon("play"), "In the watch · ",
             el("span", { class: "run-link-time" }, V.elapsed(L.find(live, pres.runId)?.startedMs ?? runStarted))) : null,
@@ -1405,32 +1405,14 @@ applyDisplay();
 // A6: what Swift is saying, while the owner has captions on ("" otherwise).
 let caption = "";
 
-// Halo's Explore ideas (A10-A13), from config.yaml: each off until the owner turns it on.
-let explore: Explore = { orb_glance: false, follow_monitor: false, what_can_i_say: false, next_steps: false };
-// A10/A11: what cards accept and Swift's own verbs, from the backend's real grammar (hints.py).
+// Halo's Explore ideas (A11-A13), from config.yaml: each off until the owner turns it on.
+let explore: Explore = { orb_glance: false, follow_monitor: false, next_steps: false };
+// A11: Swift's own verbs, from the backend's real grammar (hints.py).
 let hints: Hints | null = null;
 const learnStore = (): Storage | null => { try { return localStorage; } catch { return null; } };
 const noStore = { getItem: () => null };
 /** A manual Copy or Show, counted on this PC so a verb is offered after 3 (learn.ts). */
-const learnFrom = (action: string): void => { const st = learnStore(); if ((explore.what_can_i_say || explore.next_steps) && st) bump(st, action); };
-
-/** A10: "What can I say?" on a card: its accepted phrases in an --accent-soft block, a mic per line, "· asks for
- * your OK" where a phrase ends in an OK card. Nothing in it runs anything; it only lists. */
-function sayButton(kind: "confirm" | "done"): HTMLElement | null {
-  if (!explore.what_can_i_say || !hints) return null;
-  const h = hints;
-  return el("button", { class: "btn btn--ghost", "aria-expanded": "false", onclick: (ev: Event) => {
-    ev.stopPropagation();
-    const open = card.querySelector(".say");
-    if (open) { open.remove(); (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "false"); scheduleRegions(); return; }
-    const lines = sayLines(kind, h, learnStore() ?? noStore);
-    const block = el("div", { class: "say", role: "note" }, el("p", { class: "say-title" }, "You can say"),
-      ...lines.map((l) => el("p", { class: "say-line" }, icon("mic"), `“${l.text}”`, l.ok ? el("span", { class: "say-ok" }, " · asks for your OK") : null)));
-    (card.querySelector(kind === "done" ? ".card-foot" : ".confirm-actions"))?.before(block);
-    (ev.currentTarget as HTMLElement).setAttribute("aria-expanded", "true");
-    scheduleRegions();
-  } }, icon("mic"), "What can I say?");
-}
+const learnFrom = (action: string): void => { const st = learnStore(); if (explore.next_steps && st) bump(st, action); };
 
 /** A11: at most 2 "Next" chips, from verbs the owner has done by hand 3 times. A chip only sends the words as a
  * request, like typing them: one that needs an OK opens that OK card and runs nothing; it approves nothing. */
@@ -1715,7 +1697,6 @@ function renderConfirm(data: Extract<Inbound, { type: "confirm.request" }>["data
         el("button", { class: "btn btn--ghost btn--big", "data-key": `${data.request_id}:reject`, "data-tab": "1", onclick: reply("reject") }, icon("x"), plan ? "Stop" : "Reject"),
         // "Change" opens the text box, where Enter sends a change; typing never approves.
         el("button", { class: "btn btn--ghost btn--big", title: "Type what to change (typing never approves)", onclick: () => { if (!typing) toggleTyping(); } }, icon("edit"), "Change"),
-        sayButton("confirm"),
         el("span", { class: "foot-gap" }),
         approve,
       ),
@@ -1891,11 +1872,10 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         } }, icon(expanded ? "collapse" : "expand"), expanded ? "Show less" : `Show all · ${A.howMuch(copyable, fuller, nodes)}`),
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
-        ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
         copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();

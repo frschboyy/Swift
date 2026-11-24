@@ -27,7 +27,7 @@ import {
 } from "./blocks";
 import { CHOICES, type Display } from "./display";
 import { enterAction } from "./keyed";
-import { el, icon, keys } from "./dom";
+import { el, icon, keepScroll, keys } from "./dom";
 import type { LiveView } from "./live";
 import type { PaneView, TrayView } from "./panes";
 import type { ResultDetails } from "./protocol";
@@ -305,7 +305,8 @@ function draw(): void {
   switch (view.kind) {
     case "stack":
       if (view.expanded) {
-        root.replaceChildren(V.stackOpen(view, {
+        const open = view;
+        keepScroll(root, ".stack-list", () => root.replaceChildren(V.stackOpen(open, {
           item: (id, item) => act("stack-item", { id, item }),
           collapse: () => act("stack-collapse"),
           selected,
@@ -314,7 +315,7 @@ function draw(): void {
             selected = id;
             for (const row of root.querySelectorAll<HTMLElement>(".stack-row")) row.setAttribute("aria-selected", String(row.dataset.id === id));
           },
-        }));
+        })));
         watchOutside();
       } else {
         root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }));

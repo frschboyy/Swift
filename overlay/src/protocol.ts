@@ -203,16 +203,17 @@ export type RunRow = {
   // The request in the owner's words (longer than the title).
   words?: string;
   origin?: Origin;
+  // How many steps it has taken (Watch is offered from live.WATCH_STEPS).
+  steps?: number;
 };
 
-// Halo's Explore ideas (A10-A13), each off by default (config.yaml explore).
+// Halo's Explore ideas (A11-A13), each off by default (config.yaml explore).
 /** Modes §2: one step of a plan card. Swift decides `covered` (only reversible commands), never the worker. */
 export type PlanStep = { step: string; commands: string[]; covered: boolean; asks: string };
-export type Explore = { orb_glance: boolean; follow_monitor: boolean; what_can_i_say: boolean; next_steps: boolean };
+export type Explore = { orb_glance: boolean; follow_monitor: boolean; next_steps: boolean };
 
-// A10/A11: what a card accepts and Swift's own verbs (hints.py, from the real grammar); only while one is on.
+// A11: Swift's own verbs (hints.py, from the real grammar); only while next_steps is on.
 export type Hints = {
-  say: { confirm: { text: string; ok: boolean }[]; done: { text: string; ok: boolean }[] };
   verbs: { learn: string; label: string; say: string; ok: boolean }[];
 };
 

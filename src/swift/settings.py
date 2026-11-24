@@ -300,11 +300,10 @@ class SpeechSettings(_Section):
 
 
 class ExploreSettings(_Section):
-    """Halo's "Explore" ideas (A10–A13, handoff halo-b8 §3): each off until the owner turns it on."""
+    """Halo's "Explore" ideas (A11–A13, handoff halo-b8 §3): each off until the owner turns it on."""
 
     orb_glance: bool = False  # A12: resting the pointer on the orb shows what's waiting and running
     follow_monitor: bool = False  # A13: the orb follows the monitor you're working on
-    what_can_i_say: bool = False  # A10: "What can I say?" on a card
     next_steps: bool = False  # A11: up to two next-step chips
     hold_during_calls: bool = False  # A3: cards and speech wait while you're on a call or presenting
 
@@ -357,7 +356,10 @@ class SettingsError(ValueError):
 
 
 # Settings Swift no longer has, per section: ignored, so an older config.yaml still starts.
-RETIRED = {"stt": ("word_fixes", "word_fixes_file")}  # word fixes, removed 2026-11-17
+RETIRED = {
+    "stt": ("word_fixes", "word_fixes_file"),  # word fixes, removed 2026-11-17
+    "explore": ("what_can_i_say",),  # A10 "What can I say?", removed 2026-11-24 (the owner didn't want it)
+}
 
 
 def load_settings(path: Path | None) -> Settings:

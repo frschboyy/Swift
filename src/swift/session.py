@@ -606,7 +606,7 @@ class Run:
             "run_id": self.ui_id or f"req-{(self.record or {}).get('id', '')[:8]}",
             "thread_id": self.thread, "title": self.title, "state": state, "activity": self.activity,
             "app": self.app, "agent": self.agent, "started_ms": self.started_ms, "origin": "asked",
-            "summary": "" if self.alive or stopped else self.summary, "words": self.words,
+            "summary": "" if self.alive or stopped else self.summary, "words": self.words, "steps": len(self.steps),
         }
 
 
@@ -1100,7 +1100,7 @@ class Session:
         self._sync_answer_capture()
         await self._send_stack()
         focus = self._focus
-        rows = [r.row() for r in self._runs if r is not focus and r.title]
+        rows = [r.row() for r in self._runs if r is not focus and r.title and all(r is not a for a, _ in self._aside)]  # an OK in the stack is never an edge too (item 17)
         waiting = max(0, len(self._cards) - 1)
         payload = {"focus": focus.ui_id if focus else None, "rows": rows, "waiting": waiting}
         last = self._rows_sent
@@ -1383,6 +1383,7 @@ class Session:
                 run = self._owner_of(key)
                 if run is not None:
                     await self._end_run(run)
+                    self._forget_row(run)  # ended by the owner from the stack: no "Stopped" edge left (item 16)
                 else:
                     await self._card_done(key)
             elif self.parked is not None and action == "open":
@@ -1477,8 +1478,7 @@ class Session:
 
     async def _end_run(self, run: Run) -> None:
         """Ended from the stack: the request stops and isn't kept as unfinished."""
-        if run.record is not None:
-            run.record["ended"] = True
+        (run.record if run.record is not None else {})["ended"] = True
         if run.task is not None and not run.task.done():
             run.task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

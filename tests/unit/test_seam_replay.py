@@ -1595,6 +1595,66 @@ async def test_f4_the_stage_follows_the_presenter_after_a_lapse() -> None:
     await finish_all(session, agent)
 
 
+async def test_an_ok_that_ran_out_is_in_the_stack_only_not_an_edge_too() -> None:
+    """Owner's run of 2026-11-18, item 17: a lapsed OK was flagged twice, in the stack ("held, no answer in time")
+    and as a flattened "Needs your OK" edge (its request's row). The stack says it; no edge is left behind."""
+    session, out, agent, _stt, rid = await _lapsed()
+    screen = agree(session, out)
+    assert screen["behind"] == [], f"the lapsed OK is still an edge: {screen}"
+    assert any(i["id"] == f"card:{rid}" and i["reason"] == "expired" for i in out.last("stack")["items"])
+    await finish_all(session, agent)
+
+
+async def test_an_ok_reopened_from_the_stack_lives_like_the_first_time() -> None:
+    """Owner's run of 2026-11-18, item 16: an OK reopened from the stack seemed to stay for ever and the hotkey
+    stopped working on it. Reopened, it counts down, runs out back into the stack (no edge left on screen), the
+    hotkey's speech goes to it, and End from the stack takes it off the screen."""
+    session, out, agent, _stt, rid = await _lapsed()
+    for _ in range(2):
+        await session.handle(Message("stack.action", {"id": f"card:{rid}", "action": "open"}))
+        await asyncio.sleep(0.05)
+        await _drawn_back(session, out)
+        await asyncio.sleep(0.05)
+        screen = agree(session, out)
+        assert screen["confirm"] == rid and screen["countdown"]["paused"] is False, screen
+        assert session._front_busy() and session._open_confirm() == rid  # where push-to-talk's words go
+        await asyncio.sleep(125)  # its whole countdown again, then it runs out
+        screen = agree(session, out)
+        assert screen["confirm"] is None and screen["behind"] == [], f"it stayed on screen: {screen}"
+        assert rid in session._expired
+    await session.handle(Message("stack.action", {"id": f"card:{rid}", "action": "end"}))
+    await asyncio.sleep(0.1)
+    screen = agree(session, out)
+    assert screen["confirm"] is None and screen["behind"] == [], screen
+    assert not any(i["id"] == f"card:{rid}" for i in out.last("stack")["items"])
+    await finish_all(session, agent)
+
+
+async def test_watch_is_offered_for_longer_work_only() -> None:
+    """Owner's run of 2026-11-18, item 18: Watch opened on a local time answer queued behind another request
+    (``live view | run_id='req-b2cea73c' open=True``); the answer then came back as ``local-N``, so the watch kept
+    a dead id and its Stop was ``known=False``. Watch is for work that has taken steps: a request behind the
+    card with one step offers none, with two it does, and a local answer never does."""
+    session, out, agent, stt, _control, _sched = _lane()
+    first = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    await asyncio.sleep(0.05)
+    research = await started(session, out, agent, stt, "Swift, research green tea")
+    await say(session, stt, "Swift, what time is it")
+    await asyncio.sleep(0.15)
+    await session.handle(Message("focus", {"run_id": first}))
+    await asyncio.sleep(0.05)
+    await until(lambda: any(r["run_id"] == research and r["steps"] == 1 for r in out.last("runs")["rows"]))  # the fake's first
+    screen = agree(session, out)
+    watch = dict(zip(screen["behind"], screen["behindWatch"], strict=True))
+    assert watch[research] is False and not any(watch.values()), screen
+    agent.runs[research]["queue"].put_nowait(ExecEvent("step", "Searching the web", activity="searching"))
+    await until(lambda: any(r["run_id"] == research and r["steps"] == 2 for r in out.last("runs")["rows"]))
+    screen = agree(session, out)
+    watch = dict(zip(screen["behind"], screen["behindWatch"], strict=True))
+    assert watch[research] is True and sum(watch.values()) == 1, screen  # the time answer offers none
+    await finish_all(session, agent)
+
+
 async def test_f5_the_same_question_asked_three_times_is_one_edge_with_a_count() -> None:
     """F5 (live run 2026-11-18): "what time is it" three times gave three identical "Ready to read" edges
     ("+2"). The same words ended the same way within a minute fold into one edge, "×3"."""

@@ -1781,6 +1781,31 @@ async def test_a1_an_answer_from_earlier_today_is_listed_never_waiting_and_opens
     await finish_all(session, agent)
 
 
+async def test_pins_a_pinned_answer_is_on_the_shelf_not_earlier_today_and_reopens() -> None:
+    """Pins (owner, 2026-11-24): Pin on the answer on screen puts it on the shelf (``pins``), not in Earlier today,
+    and never waiting; a click on it brings that same request back, nothing runs again; Unpin takes it off."""
+    session, out, agent, stt, _control, _sched = _lane()
+    tea = await started(session, out, agent, stt, "Hey Swift, research the history of tea")
+    agent.runs[tea]["go"].set()
+    await until(lambda: out.last("result"))
+    await session.handle(Message("stack.action", {"id": f"recent:{tea}", "action": "pin"}))
+    assert [i["id"] for i in out.last("stack")["pins"]] == [f"pinned:{tea}"], out.last("stack")
+    coffee = await started(session, out, agent, stt, "Hey Swift, research the history of coffee")
+    agent.runs[coffee]["go"].set()
+    await until(lambda: out.last("result") and out.last("result")["run_id"] == coffee)
+    await session._send_stack()
+    stack = out.last("stack")
+    assert stack["items"] == [] and "recent" not in stack and [i["id"] for i in stack["pins"]] == [f"pinned:{tea}"], stack
+    asked = len(agent.requests)
+    await session.handle(Message("stack.action", {"id": f"pinned:{tea}", "action": "open"}))
+    await asyncio.sleep(0.05)
+    screen = agree(session, out)
+    assert screen["cardRun"] == tea and screen["stage"] == "result" and len(agent.requests) == asked, screen
+    await session.handle(Message("stack.action", {"id": f"pinned:{tea}", "action": "unpin"}))
+    assert "pins" not in out.last("stack"), out.last("stack")
+    await finish_all(session, agent)
+
+
 async def test_a1_what_did_you_find_about_shows_that_answer_again_and_runs_nothing() -> None:
     """A1: "what did you find about tea" shows the tea answer again as this request's answer, with no worker run;
     something never asked about says so (answers aren't kept across a restart)."""

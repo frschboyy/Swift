@@ -5,7 +5,8 @@
 
 import { el, icon } from "./dom";
 import type { LiveView, Source } from "./live";
-import { countLine, freshNeedsOk, needsOk, nextLine, waitingOnly, waits, type StackView } from "./stack";
+import { countLine, freshNeedsOk, needsOk, nextLine, SHELF_PINS, waitingOnly, waits, type StackView } from "./stack";
+import type { StackAction } from "./protocol";
 
 export const elapsed = (startedMs: number, now = Date.now()): string => {
   const s = Math.max(0, Math.floor((now - startedMs) / 1000));
@@ -61,9 +62,32 @@ export function edgeTimes(list: HTMLElement, now = Date.now()): void {
   }
 }
 
-/** The closed stack: two layers behind the top one, the count and what comes next. */
-export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}): HTMLElement {
+/** Pins (owner, 2026-11-24): finished work kept on purpose, a pill each above the stack, the newest first. A click
+ * brings it back to the front, where it can be read and replied to; its × unpins it. */
+export function shelf(v: StackView, item: StackHandlers["item"]): HTMLElement | null {
+  const pins = v.items.filter((i) => i.kind === "pinned");
+  if (!pins.length) return null;
+  const more = pins.length - SHELF_PINS;
+  return el("div", { class: "pins", role: "list", "aria-label": "Pinned" },
+    ...pins.slice(0, SHELF_PINS).map((p) => el("div", { class: "pin-pill", role: "listitem" },
+      el("button", { class: "pin-open", title: `Open “${p.title}”`, onclick: (ev: Event) => { ev.stopPropagation(); item(p.id, "open"); } },
+        icon("pin"), el("b", {}, p.title), p.line ? el("span", { class: "pin-hint" }, p.line) : null),
+      el("button", { class: "pin-x", "aria-label": `Unpin “${p.title}”`, title: "Unpin", onclick: (ev: Event) => { ev.stopPropagation(); item(p.id, "unpin"); } }, icon("x")))),
+    more > 0 ? el("span", { class: "pin-more" }, `+${more} pinned`) : null);
+}
+
+/** The corner: the pins shelf above the stack (either may be missing). */
+const corner = (top: HTMLElement | null, stack: HTMLElement | null): HTMLElement =>
+  top ? el("div", { class: "stack-corner" }, top, stack) : stack ?? el("div", {});
+
+/** The closed stack: two layers behind the top one, the count and what comes next; the pins shelf above it. */
+export function stackClosed(v: StackView, attrs: Record<string, string | boolean | ((ev: Event) => void)> = {}, item?: StackHandlers["item"]): HTMLElement {
+  const pinned = item ? shelf(v, item) : null;
   const n = waitingOnly(v).items.length;  // answers from earlier today aren't waiting (A1)
+  return corner(pinned, n ? pile(v, n, attrs) : null);
+}
+
+function pile(v: StackView, n: number, attrs: Record<string, string | boolean | ((ev: Event) => void)>): HTMLElement {
   const look = [
     needsOk(v) ? " stack--ok" : "",
     v.items.some((i) => i.fresh) ? " stack--fresh" : "",
@@ -85,7 +109,7 @@ export function stackClosed(v: StackView, attrs: Record<string, string | boolean
 }
 
 export type StackHandlers = {
-  item: (id: string, action: "open" | "skip" | "end") => void;
+  item: (id: string, action: StackAction) => void;
   collapse: () => void;
   // The row the owner last pointed at (its buttons show).
   selected?: string | null;
@@ -141,7 +165,7 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
   const waiting = v.items.filter(waits);
   const earlier = v.items.filter((i) => i.kind === "recent");
   const label = (text: string): HTMLElement => el("li", { class: "stack-section", role: "presentation" }, text);
-  return el(
+  return corner(shelf(v, h.item), el(
     "section",
     { class: `stack-open${h.unfold ? " stack-open--unfold" : ""}`, role: "region", "aria-label": "Waiting for you" },
     el("header", { class: "stack-head", title: "Drag to move" },
@@ -153,7 +177,7 @@ export function stackOpen(v: StackView, h: StackHandlers): HTMLElement {
       ...(earlier.length || running.length ? [label("Waiting for you")] : []), ...waiting.map((i, n) => row(i, running.length + n)),
       ...(earlier.length ? [label("Earlier today"), ...earlier.map((i, n) => row(i, running.length + waiting.length + n))] : [])),
     el("footer", { class: "stack-foot" }, icon("mic"), "Or say “what's waiting?”"),
-  );
+  ));
 }
 
 // ---- the live view (ADR-017 §7) ----------------------------------------------------------

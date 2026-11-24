@@ -302,6 +302,8 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
         ("cards-stack-design-5fec91-1 cancelled from the stack, nothing skipped from it", _stack(log, "end") > 0,
          f"cancel {_stack(log, 'end')}; skip {_stack(log, 'skip')} (a card's own Later counts here too)"),
         ("cards-stack-design-5fec91-2 pointing down the stack moves no row", LOOK, "check: Cancel fades in under Open; no row moves"),
+        ("cards-stack-design-5fec91-3 two pins, one unpinned, one opened", _stack(log, "pin") >= 2 and _stack(log, "unpin") >= 1,
+         f"pin {_stack(log, 'pin')}, unpin {_stack(log, 'unpin')}; check: a pill opened its answer and a reply continued it"),
         ("16 a conversation resumed from the stack", any(r.get("source") == "stack" and r.get("resumed") for r in rows),
          f"opened from the stack: {_stack(log, 'open')}"),
         # ADR-017: no Later button; a card whose countdown ran out goes to the stack (see 16 below).

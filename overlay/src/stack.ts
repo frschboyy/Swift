@@ -11,7 +11,7 @@
 // has a type icon (a shield for a card waiting for an OK, a question mark for Swift's question,
 // a pause for anything unfinished), its whole title (never cut) and why it waits.
 
-import type { StackEntry, TimerRow } from "./protocol";
+import type { StackAction, StackEntry, TimerRow } from "./protocol";
 
 /** A card that just joined the stack glows this long, so the owner notices it. */
 export const FRESH_MS = 4000;
@@ -24,8 +24,11 @@ export type Stack = {
   freshUntil: number;
 };
 
-/** What waits for the owner: not an answer from earlier today (A1), not a timer still counting (B14). */
-export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "recent" && i.kind !== "timer";
+/** What waits for the owner: not an answer from earlier today (A1), not a timer still counting (B14), not a pin. */
+export const waits = (i: { kind: StackEntry["kind"] }): boolean => i.kind !== "recent" && i.kind !== "timer" && i.kind !== "pinned";
+
+/** Pins shown on the shelf; the rest are counted ("+2 pinned"). */
+export const SHELF_PINS = 4;
 
 /** B14: a timer still counting, as a RUNNING row of the stack list (its Cancel ends it: ``timer:<id>``). */
 export const timerEntry = (t: TimerRow): StackEntry =>
@@ -49,7 +52,7 @@ export const expand = (s: Stack): Stack => (s.items.length ? { ...s, expanded: t
 export const collapse = (s: Stack): Stack => (s.expanded ? { ...s, expanded: false } : s);
 
 /** Opening a card from the stack compresses it: the card comes forward on its own. */
-export function afterAction(s: Stack, action: "open" | "skip" | "end"): Stack {
+export function afterAction(s: Stack, action: StackAction): Stack {
   return action === "open" ? collapse(s) : s;
 }
 
@@ -102,7 +105,7 @@ export const openLabel = (item: StackEntry): string => (item.kind === "due" ? "D
  * null: Open already does it (Done on a reminder, Cancel on a timer) or there's nothing to end (an earlier answer). */
 export function secondAction(item: { kind: StackEntry["kind"]; reason?: string }): { label: string; tip: string; confirm: boolean } | null {
   switch (item.kind) {
-    case "due": case "timer": case "recent": return null;
+    case "due": case "timer": case "recent": case "pinned": return null;
     case "failed": return { label: "Dismiss", tip: "Remove it from the stack", confirm: false };
     case "parked":
       return item.reason === "asked"
@@ -113,7 +116,8 @@ export function secondAction(item: { kind: StackEntry["kind"]; reason?: string }
 }
 
 /** The type icon on a row: a card waiting for an OK, Swift's question, or something unfinished. */
-export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" {
+export function itemIcon(item: StackEntry): "shield" | "question" | "pause" | "bell" | "check" | "alert" | "timer" | "pin" {
+  if (item.kind === "pinned") return "pin";
   if (item.kind === "timer") return "timer";
   if (item.kind === "failed") return "alert";
   if (item.kind === "recent") return item.reason === "failed" ? "alert" : "check";
@@ -143,16 +147,16 @@ export type StackView = {
   mainX?: number;
 };
 
-/** The stack pane's view, or null when nothing waits (no window): answers from earlier today alone don't make a
+/** The stack pane's view, or null when nothing waits and nothing is pinned (no window): answers from earlier today alone don't make a
  * pile (A1); they show under the waiting ones once it's open. */
 export function stackView(s: Stack, now: number): StackView | null {
-  if (!s.items.some(waits)) return null;
+  if (!s.items.some((i) => waits(i) || i.kind === "pinned")) return null;  // pins alone keep the corner
   const glow = now < s.freshUntil ? new Set(s.fresh) : new Set<string>();
   return {
     kind: "stack",
     expanded: s.expanded,
     items: s.items.map((i) => ({
-      id: i.id, kind: i.kind, title: i.title, line: reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
+      id: i.id, kind: i.kind, title: i.title, line: i.kind === "pinned" ? i.reason : reasonLine(i, now), open: openLabel(i), fresh: glow.has(i.id), icon: itemIcon(i),
       left: timeLeft(i, now), leftText: timeLeft(i, now) === null ? "" : leftLine(i, now), second: secondAction(i),
     })),
   };

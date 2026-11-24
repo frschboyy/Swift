@@ -3307,3 +3307,18 @@ The report checks: one item cancelled from the stack, none skipped.
 You should see: each row's **Cancel** fades in under its **Open** as you point at it, and no row moves up or down.
 
 The report checks: nothing (LOOK).
+
+<a id="check-cards-stack-design-5fec91-3"></a>**Check cards-stack-design-5fec91-3. Pins: several, on a shelf, reopened and continued**
+1. Say "Hey Swift, compare train and flight options from London to Paris on Friday". When the answer shows (a long
+   one, with **Show all**), click **Pin** in its footer.
+2. Say "Hey Swift, what's the capital of Portugal?" and click **Pin** on that answer too.
+3. Say "Hey Swift, what time is it?" and let the answer go.
+4. Look above the stack in its corner, then click the London pill.
+5. Reply by voice to the card that opens: "which of those is cheapest?".
+6. Point at the Portugal pill and click its **×**.
+
+You should see: (1, 2) the button turns into **Pinned** and the card stays on screen. (4) two pills, newest on
+top, each with a short hint; the time answer isn't one. A click on London brings that same answer back in full.
+(5) the reply goes on in that conversation. (6) the pill goes, and nothing else moves.
+
+The report checks: two pins and one unpin from the corner, and a pin opened.

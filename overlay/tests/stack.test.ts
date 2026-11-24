@@ -115,3 +115,15 @@ test("owner 2026-11-24: no Skip in the stack; one other action, named for what i
   const v = stackView(onStack(initialStack, [item("card:1", "waiting", "waiting")], 0), 0)!;
   assert.equal(v.items[0].second?.label, "Cancel");
 });
+
+test("owner 2026-11-24: pins keep the corner on their own, never count as waiting, and show their hint", () => {
+  const pin = { ...item("pinned:r1", "pinned", "3 options, fastest 2 h 50"), title: "Lisbon trains" };
+  const v = stackView(onStack(initialStack, [pin], 0), 0)!;
+  assert.ok(v, "a pin alone keeps the stack pane");
+  assert.equal(v.items[0].line, "3 options, fastest 2 h 50");
+  assert.equal(v.items[0].icon, "pin");
+  assert.equal(v.items[0].second, null);
+  assert.equal(countLine(stackView(onStack(initialStack, [pin, item("parked:a")], 0), 0)!.items.filter((i) => i.kind !== "pinned" && i.kind !== "recent").length), "1 thing needs you");
+  assert.equal(nextLine(v), "");
+  assert.equal(stackView(onStack(initialStack, [item("recent:r2", "recent", "done")], 0), 0), null);  // an earlier answer alone doesn't
+});

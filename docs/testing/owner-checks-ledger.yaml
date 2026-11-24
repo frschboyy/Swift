@@ -68,8 +68,8 @@ areas:
     paths: [overlay/src-tauri/src/cover.rs, overlay/src-tauri/src/placement.rs, overlay/src-tauri/src/lib.rs]
     checks: [203, 320, 345, 382]
   stack:
-    paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts]
-    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388, cards-stack-design-5fec91-1, cards-stack-design-5fec91-2]
+    paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts, src/swift/recent.py]
+    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388, cards-stack-design-5fec91-1, cards-stack-design-5fec91-2, cards-stack-design-5fec91-3]
   presence:
     rule: no hands-free listening while locked
     paths: [src/swift/presence.py, src/swift/lifecycle.py]

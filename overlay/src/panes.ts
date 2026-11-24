@@ -171,7 +171,9 @@ export function paneSize(spec: PaneSpec): { w: number; h: number } {
     case "reader":
       return v.chip ? { w: 280, h: 56 } : { w: 560, h: 420 };
     case "stack":
-      return v.expanded ? { w: 320, h: 64 + 76 * Math.min(6, v.items.length) } : { w: 280, h: 80 };
+      // Pins add a 38 px pill each on the shelf above (at most 4, then a "+N pinned" line); it measures itself after.
+      return { w: v.expanded ? 320 : 280, h: (v.expanded ? 64 + 76 * Math.min(6, v.items.filter((i) => i.kind !== "pinned").length) : 80)
+        + 38 * Math.min(5, v.items.filter((i) => i.kind === "pinned").length) };
     case "type":
       return v.fix ? { w: 512, h: 200 } : { w: 512, h: 52 + (v.confirm ? 44 : 0) + (v.follows ? 44 : 0) };
     case "tray":

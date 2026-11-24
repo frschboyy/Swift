@@ -46,7 +46,7 @@ import * as K from "./keyed";
 import * as L from "./live";
 import * as P from "./presenter";
 import { bump, nextChips, sayLines } from "./learn";
-import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type TimerRow, type UiState } from "./protocol";
+import { SCENARIOS, type Activity, type Agent, type Artifact, type ErrorData, type Explore, type Hints, type Inbound, type Origin, type PlanStep, type Scenario, type StackAction, type TimerRow, type UiState } from "./protocol";
 import { wantsRaise } from "./raise";
 import * as S from "./stack";
 import { dressCards } from "./dress";
@@ -465,7 +465,7 @@ function sendPane(label: string, view: Panes.PaneView): void {
 }
 
 type PaneAction = {
-  label: string; action: string; runId?: string; id?: string; item?: "open" | "skip" | "end"; text?: string; value?: string;
+  label: string; action: string; runId?: string; id?: string; item?: StackAction; text?: string; value?: string;
 };
 
 void listen<PaneAction>("pane-action", ({ payload }) => {
@@ -559,7 +559,7 @@ function collapseStack(): void {
 }
 
 /** Open, skip or end something in the waiting stack (or the card on screen, from its buttons). */
-function stackAction(id: string, action: "open" | "skip" | "end"): void {
+function stackAction(id: string, action: StackAction): void {
   stack = S.afterAction(stack, action);
   if (id.startsWith("failed:")) return failedAction(id, action);
   client.send({ type: "stack.action", data: { id, action } });
@@ -592,7 +592,7 @@ function drawStackInline(): void {
             void syncEscape();
             drawStackInline();
           },
-        })),
+        }, stackAction)),
   );
   scheduleRegions();
 }
@@ -1374,25 +1374,11 @@ function drawFollowup(left: number): void {
 // How long the reply window was open for, for its ring.
 let followupTotal = 0;
 
-// A4, Pin: one answer kept as an edge on the far side of the deck; it never fades (D11: one at a time).
-let pinned: { title: string; line: string; text: string } | null = null;
-const pinnedEl = el("div", { class: "pinned-edge", "data-hit": "", hidden: true });
 // B14: Edge · Timer (a card in front) and Edge · Got it ("Done: Tea timer"), read-only: nothing to click.
 const timerEdgeEl = el("div", { class: "pinned-edge timer-edge", role: "timer", hidden: true });
 const gotEl = el("div", { class: "pinned-edge got-edge", role: "status", hidden: true });
-rowsEl.before(gotEl, timerEdgeEl, pinnedEl);
+rowsEl.before(gotEl, timerEdgeEl);
 
-function drawPinned(): void {
-  pinnedEl.hidden = pinned === null;
-  if (pinned === null) {
-    pinnedEl.replaceChildren();
-  } else {
-    pinnedEl.title = pinned.text;
-    pinnedEl.replaceChildren(icon("pin"), el("b", {}, pinned.title), el("span", { class: "pinned-line" }, pinned.line),
-      Card.iconButton("x", "Unpin", () => { pinned = null; drawPinned(); }));
-  }
-  scheduleRegions();
-}
 
 // A8: how Swift shows things (display.ts), on this PC.
 let display: Dsp.Display = (() => { try { return Dsp.load(localStorage); } catch { return { ...Dsp.DEFAULTS }; } })();
@@ -1892,10 +1878,11 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
         el("span", { class: "hint foot-gap" }, expanded ? "Stays while open" : ""),
         ...(showBtn ? [showBtn] : []),
         ...[sayButton("done")].filter((b): b is HTMLElement => !!b),
+        pinButton(data.run_id),
         copyButton(copyable, () => learnFrom("copy")),
       );
     } else {
-      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(copyable), copyButton(copyable, () => learnFrom("copy")));
+      foot.replaceChildren(el("span", { class: "byline" }, byline(data.agent)), ...(showBtn ? [showBtn] : []), ...[sayButton("done")].filter((b): b is HTMLElement => !!b), pinButton(data.run_id), copyButton(copyable, () => learnFrom("copy")));
     }
   };
   drawBody();
@@ -1907,14 +1894,24 @@ function renderResult(data: Extract<Inbound, { type: "result" }>["data"]): void 
   drawCard({ state: "done", look: "result", onclick: dismissUnlessControl, origin: headRow(), thread: threadLines(), body: [data.note ? el("p", { class: "answer-note" }, data.note) : null, body, caveat, nextRow(data.thread_id ?? null), foot] });
 }
 
-/** A4: "Pin" on a Done card keeps it as an edge (one pin; a new one replaces it). */
-function pinButton(text: string): HTMLElement {
-  return el("button", { class: "btn btn--ghost", title: "Keep this answer as an edge until you close it", onclick: (ev: Event) => {
+/** Pin on a Done card (owner, 2026-11-24): kept on the shelf above the stack, as many as the owner likes, and
+ * reopened from there. The backend keeps the list; the card stays where it is, its button saying "Pinned". */
+function pinButton(runId: string): HTMLElement {
+  const id = `recent:${runId}`;
+  let on = stack.items.some((i) => i.id === `pinned:${runId}`);
+  const b = el("button", { class: "btn btn--ghost pin-btn", onclick: (ev: Event) => {
     ev.stopPropagation();
-    pinned = { title: request ? clipLine(request, 40) : "Pinned answer", line: clipLine(text, 80), text };
-    drawPinned();
-    dismiss();
-  } }, icon("pin"), "Pin");
+    on = !on;
+    client.send({ type: "stack.action", data: { id, action: on ? "pin" : "unpin" } });
+    draw();
+  } });
+  const draw = (): void => {
+    b.setAttribute("aria-pressed", String(on));
+    b.title = on ? "Pinned: click to unpin" : "Keep this with your pins, to come back to";
+    b.replaceChildren(icon("pin"), on ? "Pinned" : "Pin");
+  };
+  draw();
+  return b;
 }
 
 /** Swift's question (ADR-017): asking while it speaks, then waiting for the answer for the
@@ -2065,7 +2062,7 @@ function moveFailed(now: number): void {
 }
 
 /** Open or End on a Failed row of the stack (the overlay's own: the backend never had it). */
-function failedAction(id: string, action: "open" | "skip" | "end"): void {
+function failedAction(id: string, action: StackAction): void {
   if (action === "skip") return;
   const f = failedStack.find((x) => x.entry.id === id);
   failedStack = failedStack.filter((x) => x.entry.id !== id);
@@ -2523,7 +2520,7 @@ function onMessage(msg: Inbound): void {
       onRuns(msg.data);
       break;
     case "stack":
-      onStackMessage([...msg.data.items, ...(msg.data.recent ?? [])]);  // A1: earlier today after what waits
+      onStackMessage([...msg.data.items, ...(msg.data.recent ?? []), ...(msg.data.pins ?? [])]);  // A1: earlier today after what waits
       break;
     case "timers":
       timers = msg.data.items;

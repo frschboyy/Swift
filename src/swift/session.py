@@ -744,7 +744,7 @@ class Session:
         self._card_since: dict[str, int] = {}
         self._stack_skipped: dict[str, float] = {}
         # The last ``stack`` message sent (None: none yet).
-        self._stack_sent: list[Any] | None = [[], []]  # [waiting, recent] as last sent
+        self._stack_sent: list[Any] | None = [[], {}]  # [waiting, recent and pins] as last sent
         # The last ``runs`` message sent (None: none yet, or nothing besides the one in front).
         self._rows_sent: dict[str, Any] | None = None
         # The thread of the last request started (ADR-013 §4): a follow-up continues it.
@@ -1353,11 +1353,11 @@ class Session:
     async def _send_stack(self) -> None:
         """The ``stack`` message, whenever what waits changes (never while it stays empty)."""
         items = [item.as_message() for item in self._stack_items()]
-        earlier = [item.as_message() for item in recent.items(self)]  # A1: answers from earlier today, never waiting
+        earlier = recent.extras(self)  # A1: answers from earlier today, and pins (2026-11-24); never waiting
         if [items, earlier] == self._stack_sent:
             return
         self._stack_sent = [items, earlier]
-        await self._raw_send(outbound("stack", items=items, **({"recent": earlier} if earlier else {})))
+        await self._raw_send(outbound("stack", items=items, **earlier))
 
     async def _stack_action(self, item_id: str, action: str) -> None:
         """Open, skip or end something in the stack (or the card on screen, by its own buttons)."""
@@ -1367,8 +1367,8 @@ class Session:
             return
         kind, key = parts
         logger.info("stack action", kind=kind, action=action)
-        if kind == "recent":
-            return await recent.open_(self, key, action)  # A1: an answer from earlier today
+        if kind in ("recent", "pinned"):
+            return await recent.open_(self, key, action)  # A1: an answer from earlier today; a pin
         if kind in ("due", "timer") and action != "skip":
             return await self._send_stack() if timers.stack_action(self, kind, key) else None
         if action == "skip":

@@ -317,7 +317,7 @@ function draw(): void {
         }));
         watchOutside();
       } else {
-        root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }));
+        root.replaceChildren(V.stackClosed(view, { "data-click": "stack" }, (id, item) => act("stack-item", { id, item })));
         takeHandoff(view);
       }
       break;

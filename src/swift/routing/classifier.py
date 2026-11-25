@@ -202,7 +202,8 @@ class ClassifierEstimate:
     """
 
     def __init__(self, model_dir: Path, example_files: list[Path], threshold: float = 0.7,
-                 k: int = 7, quantized: bool = True, demand: bool = True, family_files: Iterable[Path] = ()) -> None:
+                 k: int = 7, quantized: bool = True, demand: bool = True, family_files: Iterable[Path] = (),
+                 guesses: bool = True) -> None:
         self.model_dir = model_dir
         self.example_files = example_files
         self.family_files = list(family_files)  # the guess examples the owner kept (``guess_examples``)
@@ -212,6 +213,8 @@ class ClassifierEstimate:
         self.classifier: DemandClassifier | None = None
         # The demand vote on (settings.demand_classifier.enabled); off, only the family vote loads.
         self.demand = demand
+        # Swift's guess on (settings.demand_classifier.guesses); off, no family vote loads and nothing is guessed.
+        self.guesses = guesses
         self.families: FamilyVote | None = None
         self.error: str | None = None
         self.hint: tuple[tuple[str, object], ...] = ()
@@ -223,7 +226,8 @@ class ClassifierEstimate:
         started = time.monotonic()
         try:
             embedder = Embedder(self.model_dir, quantized=self.quantized)
-            self.families = FamilyVote(embedder.embed, load_families(learned=self.family_files))
+            if self.guesses:
+                self.families = FamilyVote(embedder.embed, load_families(learned=self.family_files))
             examples = load_examples(self.example_files) if self.demand else []
             if self.demand:
                 self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)
@@ -248,5 +252,7 @@ class ClassifierEstimate:
         """``rules.route`` with this as its demand estimate, carrying the classifier's route vote when it thinks a
         rule missed the request (``Route.hint``), so the run record says so beside the request it was about."""
         self.hint = ()
-        found = rules.with_guess(rules.route(text, demand_fn=self), self.families)
+        found = rules.route(text, demand_fn=self)
+        if self.guesses:
+            found = rules.with_guess(found, self.families)
         return replace(found, hint=self.hint) if self.hint else found

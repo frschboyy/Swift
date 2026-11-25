@@ -368,7 +368,7 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
         return route, None
     estimate = ClassifierEstimate(
         Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized,
-        demand=cfg.enabled, family_files=[guess_examples(Path(cfg.examples_file))],
+        demand=cfg.enabled, family_files=[guess_examples(Path(cfg.examples_file))], guesses=cfg.guesses,
     )
     return estimate.route, estimate
 

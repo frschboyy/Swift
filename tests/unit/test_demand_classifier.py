@@ -141,6 +141,11 @@ def test_backend_router_uses_the_classifier_when_enabled() -> None:
     assert isinstance(guessing, ClassifierEstimate) and not guessing.demand
     off = Settings.model_validate({"demand_classifier": {"guesses": False}})
     assert _make_router(off) == (route, None)
+    # The demand vote on and guesses off: no family vote, no guess (phase 4 review F3).
+    _, demand_only = _make_router(Settings.model_validate({"demand_classifier": {"enabled": True, "guesses": False}}))
+    assert isinstance(demand_only, ClassifierEstimate) and not demand_only.guesses
+    demand_only.families = lambda text: ("timer", 0.9)  # type: ignore[assignment]  # even were one loaded
+    assert demand_only.route("time me for two minutes").guess is None
     assert _make_router(Settings.model_validate({"routing": False})) == (None, None)
 
 

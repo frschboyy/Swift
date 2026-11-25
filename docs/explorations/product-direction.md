@@ -247,7 +247,7 @@ Not adopted from the talk: a provider-hosted memory service (Claude Managed Agen
 
 ### 6.1 Where settings live
 
-Today a setting is either in `config.yaml` (owner's file, Swift never writes it) or in `overlay.json`. To change settings by voice or from a screen, Swift needs its own store: **defaults → config.yaml (advanced, wins when set) → Swift's settings (written by voice and the settings window)**, with the settings window showing when `config.yaml` overrides something. This is the second piece of groundwork, with memory.
+Today a setting is either in `config.yaml` (owner's file, Swift never writes it) or in `overlay.json`. To change settings by voice or from a screen, Swift needs its own store: **defaults → config.yaml (advanced, wins when set) → Swift's settings (written by voice and the settings window)**, with the settings window showing when `config.yaml` overrides something (but "wins when set" fails on a full copy of the example: see §6.3). This is the second piece of groundwork, with memory.
 
 ### 6.2 What is worth configuring
 
@@ -265,6 +265,25 @@ Grouped by what the owner thinks about, not by module:
 | **Activity** | Every request: what was heard, which lane or worker took it and why, what it did, what was approved, undo where possible |
 
 Settings to leave out: internals the owner shouldn't need (thresholds, buffer sizes, model ids). Those stay in `config.yaml` for development.
+
+### 6.3 Today's `config.yaml`, key by key (proposal, 2026-11-25)
+
+Each key in `config.example.yaml` belongs to one of three groups. The middle group is the one that matters: those keys widen what Swift may do, so they follow "approval rules change only in settings, by the owner" (§5.5) and "what a worker read never acts" (`CLAUDE.md`).
+
+| Group | Keys | Who may change them |
+|---|---|---|
+| **Owner settings** | `hotkeys.*`; `audio.chime`, `audio.preroll_s`, `audio.keep_days`, `audio.improve_weekly`; `wake.enabled`, `wake.greetings`, `wake.followup_s`; `speech.*`; `local.folders`, `local.projects`, `local.editor`; `system.chime`; `owner_name`; `executor.confirm_timeout_s` | The window, or the owner's own words by voice ("speak less"), answered with a card showing the change and Undo |
+| **Widens what Swift may do** | `executor.working_dirs`, `read_dirs`, `never_read`; `allowed_tools`, `confirm_tools`; `max_budget_usd`, `confirm_strong`, `web`; `connectors.*`; `contacts`; `desktop.never_read_apps`, `never_read_titles` | The window only, by a gesture. Voice may open the right section; it never applies the change. The agent can never change any setting, so a page it read can't add a folder to `read_dirs`. A change that only narrows (adding to `never_read`, removing a contact) may also be done by voice |
+| **Development** | `stt.*`; `wake.min_p`, `followup_min_p`, `end_silence_s`, `start_timeout_s`, `acoustic*`; `executor.kind`, `models`, `turn_limits`, `escalation`, `prewarm`, `quick_answers`, `default_dir`; `demand_classifier.*`; `routing`, `followup_context_s`; `logging.*`; every path (`audio_dir`, `schedule_file`, `workflows.dir`, ...); `audio.keep_all`, `test_set_max`; `explore.*` until those features are built; `debug` | `config.yaml` only; not shown in the window |
+
+Open: `explore.*` keys move to owner settings as each feature ships; `system.enabled`, `desktop.enabled` and `workflows.enabled` could be owner settings ("stop reading my screen") but turning them back on widens what Swift reads, so they belong in the middle group.
+
+**The precedence problem.** §6.1 says `config.yaml` wins when a key is set. But the owner makes `config.yaml` by copying the whole of `config.example.yaml`, so every key is set, and nothing changed in the window or by voice would ever take effect. Two fixes, not exclusive:
+
+1. `config.yaml` wins only for development keys. For owner settings and the middle group, Swift's store wins, and `config.yaml`'s value is only the starting default (shown in the window as "from config.yaml" until changed).
+2. `config.example.yaml` ships with the owner settings and the middle group commented out, so a fresh copy sets only development keys.
+
+Recommended: 1, since it works on existing copies without asking the owner to edit their file; 2 as well, so the example stops suggesting that `config.yaml` is where the owner changes these. Either way the window says which file a value came from.
 
 ## 7. Does Swift need a dashboard?
 

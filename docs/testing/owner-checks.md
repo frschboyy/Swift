@@ -1734,7 +1734,7 @@ The report checks: a yes went ahead with what it sounded like.
 ### Fixes from your checks of 2026-11-09
 
 <a id="check-201"></a>**Check 201. Your answer to Swift's question counts as what you asked**
-**Superseded** by [check 243](#check-243) and [check intent-phase-4-81502b-1](#check-intent-phase-4-81502b-1):
+**Superseded** by [check 243](#check-243) and [check 470](#check-470):
 "turn off the wafer" now gets Swift's own question "Turn off Wi-Fi?", not "what did you mean". Skip this one.
 1. Say "Hey Swift, turn off the wafer" (say "wafer" on purpose, as if it were misheard).
 2. Swift asks what you meant. Answer out loud: "I meant the Wi-Fi".
@@ -3363,7 +3363,7 @@ at all (on 2026-11-18 no press reached the backend, and the cause is unproven).
 
 About 3 minutes. Nothing here changes anything lasting: cancel the timer, and say "no" to the Wi-Fi question.
 
-<a id="check-keen-moser-4e5a0c-1"></a>**Check keen-moser-4e5a0c-1. "Set up a timer" works like "set a timer", and so do other words for Wi-Fi and Bluetooth**
+<a id="check-466"></a>**Check 466. "Set up a timer" works like "set a timer", and so do other words for Wi-Fi and Bluetooth**
 1. Say "Hey Swift, set up a timer for 1 minute". Then "Hey Swift, cancel the timer".
 2. Say "Hey Swift, I need a timer for 2 minutes", then cancel it.
 3. Say "Hey Swift, kill the Wi-Fi"; answer **no**. Say "Hey Swift, shut off Bluetooth"; answer **no**.
@@ -3373,7 +3373,7 @@ You should see: steps 1 and 2 set a timer at once (the same card or answer as "s
 asks "Turn off Wi-Fi?" / "Turn off Bluetooth?" first and nothing changes after "no"; step 4 is answered in words and no
 timer starts.
 
-<a id="check-intent-architecture-3011f9-1"></a>**Check intent-architecture-3011f9-1. A request Swift can't take in those words says why, in the report**
+<a id="check-467"></a>**Check 467. A request Swift can't take in those words says why, in the report**
 1. Say "Hey Swift, time me for two minutes".
 2. Say "Hey Swift, turn on duck mode".
 
@@ -3388,7 +3388,7 @@ About 4 minutes. Nothing here changes anything lasting: cancel the timer at the 
 about Wi-Fi. It needs the classifier's model (`%LOCALAPPDATA%\Swift\models\bge-small-en-v1.5`, already on this PC);
 give Swift about 10 seconds after it starts.
 
-<a id="check-intent-phase-2-b9b2d9-1"></a>**Check intent-phase-2-b9b2d9-1. Swift asks its guess, and only a said or clicked yes runs it**
+<a id="check-468"></a>**Check 468. Swift asks its guess, and only a said or clicked yes runs it**
 1. Say "Hey Swift, time me for two minutes". Swift asks "Set a timer for 2 minutes?". Type **yes** in the text box.
 2. Say **yes** (no name needed while the question is on screen).
 3. Say "Hey Swift, cancel the timer".
@@ -3400,7 +3400,7 @@ You should see: in step 1 nothing starts and the question comes back with "Typin
 yes."; step 2 sets a 2-minute timer; step 4 asks "Turn off Wi-Fi?" once (one question, not two) and Wi-Fi stays on;
 in step 5 the question is asked again (the words Swift guessed from aren't a yes) and no timer starts.
 
-<a id="check-intent-phase-2-b9b2d9-2"></a>**Check intent-phase-2-b9b2d9-2. No guess for what isn't a request for this PC, or from the follow-up window**
+<a id="check-469"></a>**Check 469. No guess for what isn't a request for this PC, or from the follow-up window**
 1. Say "Hey Swift, my timer just went off".
 2. Say "Hey Swift, time me for two minutes. Never mind."
 3. Say "Hey Swift, give her ten minutes on the clock".
@@ -3413,7 +3413,7 @@ nothing happens for step 2), and in step 4 the words after the answer don't get 
 
 About 2 minutes. Answer **no** to every question here, so nothing changes. No model is needed for these.
 
-<a id="check-intent-phase-4-81502b-1"></a>**Check intent-phase-4-81502b-1. A misheard word gets Swift's question, never an action**
+<a id="check-470"></a>**Check 470. A misheard word gets Swift's question, never an action**
 1. Say "Hey Swift, turn on dark mod" (say "mod", as if it were misheard). Swift asks "Turn on dark mode?". Say **no**.
 2. Say "Hey Swift, turn off the wafer". Swift asks "Turn off Wi-Fi?". While it is on screen, say "turn off the
    wafer" once more, then click **No**.
@@ -3573,7 +3573,7 @@ The report checks: nothing (LOOK).
 
 About 3 minutes. No real email: the draft is only opened, and you close it without sending.
 
-<a id="check-intent-phase-3-ae18ba-1"></a>**Check intent-phase-3-ae18ba-1. A draft and a system change in one request, each done by its own path**
+<a id="check-471"></a>**Check 471. A draft and a system change in one request, each done by its own path**
 1. Say "Hey Swift, turn on dark mode and draft an email to myself".
 2. Close the draft without sending it.
 3. Say "Hey Swift, draft an email to myself about turning off the wifi". Close that draft too.

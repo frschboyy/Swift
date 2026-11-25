@@ -387,16 +387,16 @@ def _checks(rows: list[dict[str, Any]], log: list[str], runs_dir: Path | None = 
          f"{wake_count('followup_quiet')} set aside as the room, {wake_count('followup_long')} as long talk, "
          f"{wake_count('followup')} taken"),
         ("46 unsure speech: asked to say it again", seen(asked_again), f"{len(asked_again)} time(s)"),
-        ("intent-architecture-3011f9-1 a request Swift's own tool refused says why", seen(dead_ends),
+        ("467 a request Swift's own tool refused says why", seen(dead_ends),
          f"{len(dead_ends)} dead end(s); refusals: {dict(refusal_codes) or 'none'}; "
          f"{len(voted)} request(s) the classifier thought a rule missed"),
-        ("intent-phase-2-b9b2d9-1 Swift asked its guess; only a said or clicked yes ran it", seen(guesses),
+        ("468 Swift asked its guess; only a said or clicked yes ran it", seen(guesses),
          f"{len(guesses)} guess(es): {sum(1 for r in guesses if r.get('confirmed') is True)} yes, "
          f"{sum(1 for r in guesses if r.get('confirmed') is False)} no; check on screen: the typed yes asked again"),
-        ("intent-phase-2-b9b2d9-2 no guess for what wasn't a request, or from the follow-up window",
+        ("469 no guess for what wasn't a request, or from the follow-up window",
          unless(guessed_wrongly, rows), f"{len(guessed_wrongly)} guess(es) from a source that may not start one; "
          "check on screen: steps 1-3 asked nothing"),
-        ("intent-phase-4-81502b-1 a misheard word got Swift's question, never an action", seen(heard),
+        ("470 a misheard word got Swift's question, never an action", seen(heard),
          f"{len(heard)} guess(es) from a misheard word: {sum(1 for r in heard if r.get('confirmed') is True)} yes, "
          f"{sum(1 for r in heard if r.get('confirmed') is False)} no; check on screen: the repeated words asked again"),
         ("47 a request recorded while the last one started (20, 21)", bool(next_recorded) or wake_count("queued") > 0,

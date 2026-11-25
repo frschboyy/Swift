@@ -70,20 +70,20 @@ As of 2026-11-25 at `387e63d`. Each number links to its check.
 **On branches not merged yet:**
 
 - `claude/dazzling-curie-f61a88`: adds checks halo-b8-build-4fbdf7-1, halo-b8-build-4fbdf7-2, halo-b8-build-4fbdf7-3, halo-b8-build-4fbdf7-4, halo-b8-build-4fbdf7-5, halo-b8-build-4fbdf7-6, halo-b8-build-4fbdf7-7, halo-b8-build-4fbdf7-8, halo-b8-gaps-6b8791-1, halo-b8-gaps-6b8791-2, halo-b8-gaps-6b8791-3, halo-b8-gaps-6b8791-4, halo-b8-gaps-6b8791-5, halo-b8-gaps-6b8791-6, halo-b8-gaps-6b8791-7, halo-b8-gaps-6b8791-8, halo-b8-gaps-6b8791-9, halo-b8-build-4fbdf7-9, halo-b8-build-4fbdf7-10, halo-b8-build-4fbdf7-11, halo-b8-build-4fbdf7-12, halo-b8-build-4fbdf7-13, halo-b8-build-4fbdf7-14, halo-b8-build-4fbdf7-15, halo-b8-build-4fbdf7-16, upbeat-poincare-d02e4a-1, upbeat-poincare-d02e4a-2, upbeat-poincare-d02e4a-3; changes code behind 10 checks here (77, 78, 79, 80, 446, 447, 448, 110, 120, 147).
-- `claude/ex-fix-review-584280`: adds checks keen-moser-4e5a0c-1; changes code behind 122 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
-- `claude/executor-review-8f7672`: adds checks keen-moser-4e5a0c-1; changes code behind 115 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
-- `claude/intent-architecture-3011f9`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1; changes code behind 126 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/intent-phase-2-b9b2d9`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1, intent-phase-2-b9b2d9-1, intent-phase-2-b9b2d9-2; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/intent-phase-3-ae18ba`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1, intent-phase-2-b9b2d9-1, intent-phase-2-b9b2d9-2, intent-phase-3-ae18ba-1; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/intent-phase-4-81502b`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1, intent-phase-2-b9b2d9-1, intent-phase-2-b9b2d9-2, intent-phase-4-81502b-1; changes code behind 139 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/jolly-greider-fe5890`: adds checks keen-moser-4e5a0c-1; changes code behind 122 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
-- `claude/keen-moser-4e5a0c`: adds checks keen-moser-4e5a0c-1; changes code behind 45 checks here (53, 61, 71, 77, 78, 100, 101, 102, 105, 106, 124, 128, …).
-- `claude/phase1-review-e6462a`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1; changes code behind 127 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/phase2-review-d6b571`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1, intent-phase-2-b9b2d9-1, intent-phase-2-b9b2d9-2; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/phase3-review-1cfc51`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1, intent-phase-2-b9b2d9-1, intent-phase-2-b9b2d9-2, intent-phase-3-ae18ba-1; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/phase4-review-cc8763`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1, intent-phase-2-b9b2d9-1, intent-phase-2-b9b2d9-2, intent-phase-4-81502b-1; changes code behind 139 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/rule-review-intent-54e087`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1; changes code behind 126 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
-- `claude/sweet-booth-b2a0ba`: adds checks keen-moser-4e5a0c-1, intent-architecture-3011f9-1; changes code behind 127 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/ex-fix-review-584280`: adds checks 466; changes code behind 122 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
+- `claude/executor-review-8f7672`: adds checks 466; changes code behind 115 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
+- `claude/intent-architecture-3011f9`: adds checks 466, 467; changes code behind 126 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/intent-phase-2-b9b2d9`: adds checks 466, 467, 468, 469; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/intent-phase-3-ae18ba`: adds checks 466, 467, 468, 469, 471; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/intent-phase-4-81502b`: adds checks 466, 467, 468, 469, 470; changes code behind 139 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/jolly-greider-fe5890`: adds checks 466; changes code behind 122 checks here (19, 19b, 23, 24, 25, 28, 37, 40, 41, 42, 49, 52, …).
+- `claude/keen-moser-4e5a0c`: adds checks 466; changes code behind 45 checks here (53, 61, 71, 77, 78, 100, 101, 102, 105, 106, 124, 128, …).
+- `claude/phase1-review-e6462a`: adds checks 466, 467; changes code behind 127 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/phase2-review-d6b571`: adds checks 466, 467, 468, 469; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/phase3-review-1cfc51`: adds checks 466, 467, 468, 469, 471; changes code behind 132 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/phase4-review-cc8763`: adds checks 466, 467, 468, 469, 470; changes code behind 139 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/rule-review-intent-54e087`: adds checks 466, 467; changes code behind 126 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
+- `claude/sweet-booth-b2a0ba`: adds checks 466, 467; changes code behind 127 checks here (4, 19, 19b, 23, 24, 25, 28, 29, 30, 37, 40, 41, …).
 
 **Next free check number: 466** (counted across `main` and every open branch; `plan.py --renumber` gives it to a branch's first provisional check when the branch merges).
 

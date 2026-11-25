@@ -256,7 +256,7 @@ report's privacy check treats `'reason':` there as words). `system_action` repor
 (replacing its own log line). `ClassifierEstimate.route` is now the backend's router: when the classifier votes that a
 rule missed an agent request, `Route.hint` carries `route_hint` and `route_conf` onto that request's record (replacing
 the free-standing log line, which named no request); the vote is now taken even when the keywords set the demand. The
-owner's report counts dead ends, refusal codes and votes (owner check `intent-architecture-3011f9-1`). Tests:
+owner's report counts dead ends, refusal codes and votes (owner check `467`). Tests:
 `tests/unit/test_tool_refusals.py` (both through the whole session), `test_owner_report.py`. `session.py` changed two
 lines in place and stays at its ratchet. The `understood` field waits for phase 1, and must hold names and numbers
 only, never slots (P2-8). **Cost (review note 0-a):** the classifier now votes on every agent-route router call, about
@@ -337,7 +337,7 @@ parity 413/423, harmful 0. **Touches the provenance check: needs a review by som
   `eval/stt/gate.py` unchanged: nothing in the speech path changed (no diff under `src/swift/stt/transcriber.py`,
   `eval/stt/`), and `propose`'s spelled-out copy goes nowhere else.
 - Rules: R4 in `CLAUDE.md` and `action-authority.md` (Memory), R5's "Words written down" in the threat model, and
-  the code map's row. Owner check `intent-phase-4-81502b-1`. **A product-rule change: needs a review by someone
+  the code map's row. Owner check `470`. **A product-rule change: needs a review by someone
   other than its author before merge.**
 
 ### 5.3 The speech-act gate (phase 1), concretely
@@ -485,7 +485,7 @@ gateway's digest rule (verified by the reviewer in `intake.py` and `gateway.py`)
 - That the seam harness can show a proposal card with no new frame kind (it is the lane's existing question).
 
 **Not done:** no seam scenario or harness run (nothing on screen changed); no real-PC check (owner check
-`intent-architecture-3011f9-1` covers phase 0).
+`467` covers phase 0).
 
 ## 7. For the owner to decide
 

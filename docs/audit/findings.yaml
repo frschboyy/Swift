@@ -37,6 +37,57 @@
     change (R4, R5): needs a review by someone other than its author before merge. Its review (2026-11-25) approved
     it with conditions F1, F2, applied with F3 (the owner: guesses off means no guess, from a sound-alike either; this also
     fixed the phase 2 gap where enabled with guesses off still guessed), F4 and F5 (no "waffle"), one commit each.'
+- id: EX-04
+  title: A cancel (Esc, or Swift quitting) that lands while a Claude Code run closes never finishes; the request hangs
+    and keeps one of the three run slots until Swift restarts.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: high
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: "Root fix. _pump's close (disconnect, _kill_tree) is wrapped in an inner try/finally, so finished.set(), _DONE and _refill() run even when a cancel lands in it; cancel() waits for the close without cancelling a run whose result is set. The strict xfail repro now passes."
+  test: tests/unit/test_executor_review.py::test_a_cancel_while_the_run_closes_still_finishes_it
+  note: 'Not measured: how long the real CLI takes to close, and a live run. Fix label: root.'
+- id: EX-01
+  title: A change of mind said while a Claude Code run is closing is accepted and dropped; the old answer shows as Done.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: "Root fix, two parts. redirect() returns False once run.result is set (the pump won't read a change after its last turn), and the session's restart (_run) now also runs when the answer came back Done while the run was closing, not only when cancelled. The strict xfail repro passes, and test_runs.py::test_a_change_of_mind_while_the_run_closes_starts_again_with_it covers the session side."
+  test: tests/unit/test_seam_replay.py::test_ex01_a_change_said_while_the_run_closes_restarts_it_and_the_old_answer_is_never_shown
+  note: 'Changes what the owner sees (the old answer is no longer shown as Done when they changed their mind in that window; the run starts again with the change): needs a review by someone other than its author. A seam scenario (test_seam_replay.py) shows the old answer is never shown as Done and the restarted run card is. The restart note for a finished first attempt says so and carries its clipped answer (restart_note.py; reviewer F1). Executor repro: test_executor_review.py::test_a_change_of_mind_while_the_run_closes_is_refused_not_dropped. Fix label: root. Not run live.'
+- id: EX-03
+  title: When Swift's own mid-run model switch fails with "couldn't confirm model", the run sends the owner's request
+    again into the same turn.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: medium
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: "Root fix. _pump's model-check retry now applies only while no message of the turn has arrived, so a failed set_model from Swift's own escalation (_watch -> _escalate) ends the run with the error card instead of sending the request again. The strict xfail repro now passes."
+  test: tests/unit/test_executor_review.py::test_a_failed_switch_mid_turn_never_sends_the_request_again
+  note: 'Inferred, not run: that the real CLI raises this text on set_model. A real unconfirmed-model error mid-run now ends the run with an error card rather than a retry. Fix label: root.'
+- id: EX-02
+  title: The owner asking for a change on a command card, or declining a read card, counts as a failed tool call; two
+    in a row move the run to Opus.
+  source: docs/explorations/executor-review.md, 2026-11-24
+  module: src/swift/executors/claude_code.py
+  area: process
+  severity: low
+  product_rule: false
+  status: fixed
+  confidence: confirmed
+  evidence: "Root fix. Every deny that is Swift's decision or the owner's (change on a command card, declined read, never-read path, workflow/web/question refusals, a changed call) goes through _refused, which counts it as expected, as _too_long already did; _watch then no longer counts the CLI's is_error result as a failed tool call. The strict xfail repro passes. Still not counted this way (not changed): a Swift tool's outside_workflow refusal in tools.py."
+  test: tests/unit/test_executor_review.py::test_asking_for_a_change_twice_is_not_the_model_struggling
+  note: 'Changes what the run does, not what the owner sees or approves, but it touches the permission bridge (product-rule area, no rule changed): needs a review by someone other than its author. A seam scenario was not added: no screen change. Fix label: root. Limit: expected is a plain counter, so a denial the CLI never reports back leaves it one high (W2 in the review). Not run live.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

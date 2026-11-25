@@ -503,6 +503,29 @@ async def test_other_providers_start_again_with_the_change() -> None:
     assert len(records) == 1 and records[0]["redirected"] == "restart" and records[0]["status"] == "done"
 
 
+class Closing(Agent):
+    """Like Claude Code while its CLI closes: it has its answer, takes no change (``redirect`` False), and
+    ``cancel`` waits for the close instead of cancelling, so the result is Done (EX-01)."""
+
+    async def redirect(self, run_id: str, text: str) -> bool:
+        return False
+
+    async def cancel(self, run_id: str) -> None:
+        self.cancelled.append(run_id)
+        self.runs[run_id]["go"].set()
+        await self.runs[run_id]["task"]
+
+
+async def test_a_change_of_mind_while_the_run_closes_starts_again_with_it() -> None:
+    session, out, records, agent, stt = make(Closing)
+    await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")
+    await say(session, stt, "Swift, actually make it about the deadline instead")
+    await until(lambda: len(agent.requests) == 2)
+    assert "actually make it about the deadline instead" in agent.requests[1]
+    await finish_all(session, agent)
+    assert records[0]["redirected"] == "restart" and agent.runs["a-2"]["request"] == agent.requests[1]
+
+
 async def test_hands_free_a_change_of_mind_needs_swifts_name() -> None:
     session, out, _records, agent, stt = make(SameSession)
     await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")
@@ -603,3 +626,22 @@ async def test_claude_code_takes_a_change_of_mind_as_the_next_turn(tmp_path: Any
     assert "changed their mind" in client.prompts[1] and "only the setup section" in client.prompts[1]
     assert result.status == "done"
     assert not await ex.redirect(run_id, "too late")  # finished: nothing to change
+
+
+def test_the_restart_note_is_worded_for_what_happened_to_the_first_attempt() -> None:
+    from swift.restart_note import restart_note
+
+    done = restart_note("only today's", "done", "Found 3 notes.")
+    assert "“only today's”" in done and "finished with: “Found 3 notes.”" in done and "part-way" not in done
+    stopped = restart_note("only today's", "cancelled", "Cancelled.")
+    assert "stopped part-way" in stopped and "Found" not in stopped
+    assert "…" in restart_note("x", "done", "word " * 200)  # the discarded answer is clipped
+
+
+async def test_a_restart_after_a_finished_attempt_tells_the_model_its_answer() -> None:
+    session, out, records, agent, stt = make(Closing)
+    await started(session, out, agent, stt, "Hey Swift, write a summary of the meeting")
+    await say(session, stt, "Swift, actually make it about the deadline instead")
+    await until(lambda: len(agent.requests) == 2)
+    assert "finished with: “Done a-1.”" in agent.requests[1]
+    await finish_all(session, agent)

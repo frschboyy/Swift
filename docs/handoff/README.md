@@ -12,7 +12,7 @@ Read this first when picking Swift up in a new session or account. The map of ev
 - **The groundwork is half built** (§4, step 3): run records, the memory store, `WorkerTask` and the step grant are in; the `session.py` split, settings in Swift's own store (product-direction §6.3), quiet modes and B-05 are not.
 - **The Deck's Step 1 is on `main` (merged 2026-11-07); its checks haven't passed yet** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). Whether to keep it is still the owner's call (it adds more lines than it removes).
 - **Seen in `swift.log` on 2026-11-25:** "local classifier unavailable": the local classifier didn't load on this PC, so keywords set demand and Swift makes none of IA-01's guesses (sound-alikes like "wafer" still ask). Cause not checked.
-- **Next:** a test campaign (`/campaign`, [`strategy.md`](../testing/strategy.md) §4.1, branch `claude/test-campaign`): one build, one check at a time, a pass retires the check, ideas go to an inbox instead of becoming checks. Until it starts: run the "Run these first" list and paste the report, keep using Swift daily, paste the weekly usage report (§3).
+- **Next:** a test campaign (`/campaign`, [`strategy.md`](../testing/strategy.md) §4.1, merged 2026-11-25): one build, one check at a time, a pass retires the check, ideas go to an inbox instead of becoming checks. Until it starts: run the "Run these first" list and paste the report, keep using Swift daily, paste the weekly usage report (§3).
 
 - **§6 lists the work that isn't on `main` yet.** Every session reads §6 before it starts, and adds its own branch there. `plan.py --next-id` gives a new owner check its id.
 
@@ -301,7 +301,6 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | `claude/phase3-review-1cfc51` | Review scratch for IA-01 phase 3 (one commit, "not for merge") | Can be deleted with the owner's OK |
 | `claude/intent-phases-3-4` | IA-01 phases 3 and 4 joined; its one extra commit fixes the grant test's scope leak, which `main` fixed its own way (`e1ac559`) | Can be deleted with the owner's OK |
 | `claude/dazzling-curie-f61a88` | ADR-019 §8.4's sender; its commit is on `main` (`git cherry` finds no new change) | Can be deleted with the owner's OK |
-| `claude/test-campaign` | Test campaigns: `campaign.py`, the `/campaign` skill, a pass retires a check to `owner-checks-archive.md`, `plan.py` freezes staleness at the campaign's build and runs about 4x faster | Waiting for the owner's review |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
 
 Every branch the 2026-11-18 table listed (Halo B8 and its gaps, the intent architecture, the typed-Enter fix, A12/C9, the docs consolidation, the 11-19 UI fixes, listening feedback, cards and stack) is merged. Many worktrees under `.claude/worktrees/` still hold merged branches; they can be removed with the owner's OK.

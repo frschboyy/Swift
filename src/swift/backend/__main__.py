@@ -614,7 +614,7 @@ def _trace_native_crashes(logs_dir: Path) -> None:
     Python stack to crash.log instead. Frames are code locations only, no content."""
     global _crash_file
     try:
-        _crash_file = open(logs_dir / "crash.log", "a", buffering=1, encoding="utf-8")  # noqa: SIM115
+        _crash_file = open(logs_dir / "crash.log", "a", buffering=1, encoding="utf-8")
         # faulthandler writes no time: this line dates the dumps under it (the owner checks' report reads it).
         # A dump isn't always a death: a fault inside a ctypes call becomes an OSError and the engine goes on.
         _crash_file.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} engine started pid={os.getpid()}\n")

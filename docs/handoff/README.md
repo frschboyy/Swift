@@ -11,7 +11,6 @@ Read this first when picking Swift up in a new session or account. The map of ev
 - **Merged 2026-11-25:** IA-01 phases 0–4 (a system action asked for in other words gets Swift's own question instead of dead-ending; [`intent-architecture.md`](../explorations/intent-architecture.md)) and the executor fixes EX-01 to EX-04.
 - **The groundwork is half built** (§4, step 3): run records, the memory store, `WorkerTask` and the step grant are in; the `session.py` split, settings in Swift's own store (product-direction §6.3), quiet modes and B-05 are not.
 - **The Deck's Step 1 is on `main` (merged 2026-11-07); its checks haven't passed yet** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). Whether to keep it is still the owner's call (it adds more lines than it removes).
-- **A known red test on `main`:** `test_lint_gate.py::test_noqa_count_does_not_grow` fails since `6f65cdf` (2026-11-19, crash.log) added a 79th `noqa` (limit 78). Fix it separately.
 - **Seen in `swift.log` on 2026-11-25:** "local classifier unavailable": the local classifier didn't load on this PC, so keywords set demand and Swift makes none of IA-01's guesses (sound-alikes like "wafer" still ask). Cause not checked.
 - **Next:** run the "Run these first" list and paste the report, keep using Swift daily, paste the weekly usage report (§3).
 
@@ -58,7 +57,7 @@ Read this first when picking Swift up in a new session or account. The map of ev
 
 | Suite | Result |
 |---|---|
-| Python | 2,906 passed, 1 failed (`test_lint_gate.py::test_noqa_count_does_not_grow`: 79 `noqa`, limit 78, since `6f65cdf`), 1 skipped, 27 expected failures (open findings) |
+| Python | 2,906 passed, 1 failed, 1 skipped, 27 expected failures (open findings). The failure, the noqa gate (79 `noqa`, limit 78, since `6f65cdf`), is fixed in the next commit: that `noqa` was never needed |
 | Overlay | 192 tests: 191 passed, 1 todo (HA-UI-05, an open finding); `tsc` clean |
 | Rust, routing parity | Not rerun; at the B8 merge (2026-11-18): Rust 46 passed, parity 413/423 (the 10 misses are the web lane) |
 

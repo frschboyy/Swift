@@ -21,8 +21,9 @@ _spec.loader.exec_module(score)
 # not by a change getting worse. Phase 4 (misheard words, 2026-11-25): a sound-alike guesses with or without the
 # model, so the speech-recognition rows' dead ends fell from 10 to 6: 33 -> 27 without the model, 19 -> 15 with it.
 NEW_DEAD_END_ROWS = 2
-MAX_DEAD_ENDS_GRAMMAR = 25 + NEW_DEAD_END_ROWS  # no model: the grammar and the sound-alikes
-MAX_DEAD_ENDS = 13 + NEW_DEAD_END_ROWS
+# Phase 3 (the workflow grant) took one off each: radio-c02, "turn off wifi and send Sam an email". With phase 4: 24 and 12.
+MAX_DEAD_ENDS_GRAMMAR = 24 + NEW_DEAD_END_ROWS  # no model: the grammar and the sound-alikes
+MAX_DEAD_ENDS = 12 + NEW_DEAD_END_ROWS
 MAX_FALSE_ACTIONS = 1  # rem-c01: a compound's second half becomes the reminder's label
 
 

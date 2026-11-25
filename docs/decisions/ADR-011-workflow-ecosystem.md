@@ -130,6 +130,11 @@ Swift needs all of these. The spec's `metadata` is a map of strings, too thin fo
 | `undo` | Whether reversible steps can be undone ("undo that") |
 | `history` | Short changelog per version (§6.5) |
 
+> **R3 (phase 3 of the intent architecture, owner-accepted 2026-11-25).** A run also gets `system_action` when the
+> owner's own words in this request name a system action that Swift's grammar knows (not a guess). It isn't in `needs`
+> and isn't shown when installing, because it's the owner's request, not the workflow's. The tool still does only what
+> the owner's words name, through the gateway.
+
 ### 4.3 The recipe language (`recipe.yaml`, sketch)
 
 Step kinds:

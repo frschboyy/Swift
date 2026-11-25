@@ -89,20 +89,38 @@ async def test_the_session_asks_and_a_yes_does_it() -> None:
 
 @pytest.mark.parametrize("heard", ["Turn off the wafer", "turn off the wafer.", "Turn off the Wofo.",
                                    "switch the waffle off", "turn off why fi", "disable the wafer"])
-def test_a_misheard_wifi_is_read_as_wifi_off(heard: str) -> None:
+def test_a_misheard_wifi_is_guessed_never_parsed(heard: str) -> None:
     # Owner checks 201 and 206, 2026-11-13: "wafer" went to the agent, which asked "Wi-Fi or Bluetooth?" and
-    # could never be answered. Off always has Swift's own "Turn off Wi-Fi?", so the guess is asked, never acted on.
-    assert names(heard) == ["radio"] and it.parse(heard)[0].slots == {"kind": "wifi", "on": False}  # type: ignore[index]
+    # could never be answered. IA-01 phase 4 (P4-1): the sound-alike is Swift's guess, not the grammar's, so it
+    # only asks and never counts as the owner asking (owner_intents).
+    from swift.system.understand import propose
+    from swift.workflows.system_tools import owner_intents
+
+    guess = propose(heard, None)
+    assert guess is not None and guess.heard and guess.intent.slots == {"kind": "wifi", "on": False}
+    assert names(heard) is None and owner_intents(heard) == []
 
 
-@pytest.mark.parametrize("heard", ["turn on the wafer", "switch the wafer on", "turn off the water", "turn off the window",
+@pytest.mark.parametrize("heard", ["turn on the wafer", "switch the wafer on"])
+def test_a_misheard_wifi_on_is_a_guess_too(heard: str) -> None:
+    # A deliberate widening (phase 4): the grammar took only "off", because a guessed "on" had no question then.
+    # Every guess asks now ("Turn on Wi-Fi?").
+    from swift.system.understand import propose
+
+    guess = propose(heard, None)
+    assert guess is not None and guess.intent.slots == {"kind": "wifi", "on": True} and names(heard) is None
+
+
+@pytest.mark.parametrize("heard", ["turn off the water", "turn off the window",
                                    "turn off the weather", "turn off the wire", "turn off the lights", "eat a wafer",
                                    # Review of 225ca9b: a sound-alike rule took these, and a plain yes then did it.
                                    "turn off the wave", "turn off my wife", "turn off the weave", "disconnect the waver",
-                                   "switch off we feel", "turn off the whiff", "turn off the woofer"])
-def test_a_guess_is_never_read_as_switching_on_or_from_another_word(heard: str) -> None:
-    # A guessed "on" would have no question and act on a guess.
-    assert names(heard) is None
+                                   "switch off we feel", "turn off the whiff", "turn off the woofer",
+                                   "don't turn off the wafer", "turn off the wafer on my phone"])
+def test_another_word_is_never_read_as_a_misheard_wifi(heard: str) -> None:
+    from swift.system.understand import propose
+
+    assert names(heard) is None and propose(heard, None) is None
 
 
 async def test_a_misheard_wifi_gets_swifts_own_question_and_a_plain_yes_does_it() -> None:
@@ -186,12 +204,16 @@ async def test_the_refusals_own_example_works_and_names_no_other_device() -> Non
     assert done.ok and dev.volume == 30
 
 
-async def test_a_misheard_wifi_on_the_agent_path_still_has_its_approval_card() -> None:
-    # Review of 225ca9b: "turn off the wafer and write me a haiku" now counts as asking for Wi-Fi off. The
-    # agent's system_action is disruptive, so it still has the confirm card (never a plain yes).
+async def test_a_misheard_wifi_on_the_agent_path_is_refused_until_the_owner_names_it() -> None:
+    # Phase 4 (P4-1) changed this: "wafer" is Swift's guess, not the grammar's, so it no longer counts as the owner
+    # asking for Wi-Fi off. The refusal offers the agent's question; the owner's answer "Wi-Fi" then lets it
+    # through, still with the disruptive change's own card (never a plain yes).
     from swift.workflows.system_tools import system_action
 
     host, scope, dev, journal, asked = _host_and_scope("turn off the wafer and write me a haiku")
+    refused = await system_action(host, scope, {"request": "turn off wifi"})
+    assert not refused.ok and asked == [] and dev.radio_state["wifi"] is True
+    scope.answers.append("Wi-Fi")
     result = await system_action(host, scope, {"request": "turn off wifi"})
     assert asked == ["Turn off Wi-Fi?"] and result.ok and dev.radio_state["wifi"] is False
     assert [e.get("tool") for e in journal.entries if e["state"] == "PENDING"] == ["system_action_disruptive"]

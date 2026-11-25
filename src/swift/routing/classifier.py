@@ -15,7 +15,9 @@ rules can supply, so it is only logged (``route_hint``) to show which rules to a
 The same model also votes on a request's *family* ("timer", "radio", ...) over ``families.jsonl`` (the parity set's
 labelled rows, ``eval/parity/parity.jsonl``: a system row's category, anything else ``other``). That vote is only
 Swift's guess about a command the grammar missed (IA-01 phase 2, ``system/understand.py``): it may make Swift ask,
-never act. It runs even while the demand vote is off (``demand=False``).
+never act. It runs even while the demand vote is off (``demand=False``). It also counts the guess examples the
+owner kept after a yes to a guess (``guess_examples``; ``spikes/routing/learn_demand.py --guesses``, IA-01 phase 4):
+those feed the vote only, never the grammar (``intents.parse``).
 
 The model is never downloaded here (README has the one-time command). Loading
 takes a few seconds and happens in the background; until it is ready, and if it
@@ -174,8 +176,19 @@ class FamilyVote:
         return family, scores[family] / sum(scores.values())
 
 
-def load_families(path: Path = FAMILY_EXAMPLES) -> list[tuple[str, str]]:
+def guess_examples(examples_file: Path) -> Path:
+    """Where the guess examples the owner kept live (``learn_demand.py --guesses``), beside the demand examples."""
+    return examples_file.with_name("guess_examples.jsonl")
+
+
+def load_families(path: Path = FAMILY_EXAMPLES, learned: Iterable[Path] = ()) -> list[tuple[str, str]]:
+    """The family examples, and the learned ones the owner kept (never one marked rejected). A yes to a guess is
+    never one by itself: it is a candidate until the owner keeps it (R4)."""
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    for extra in learned:
+        if extra.exists():
+            rows += [r for x in extra.read_text(encoding="utf-8").splitlines() if x.strip()
+                     if not (r := json.loads(x)).get("rejected")]
     return [(r["text"], r["family"]) for r in rows]
 
 
@@ -189,9 +202,10 @@ class ClassifierEstimate:
     """
 
     def __init__(self, model_dir: Path, example_files: list[Path], threshold: float = 0.7,
-                 k: int = 7, quantized: bool = True, demand: bool = True) -> None:
+                 k: int = 7, quantized: bool = True, demand: bool = True, family_files: Iterable[Path] = ()) -> None:
         self.model_dir = model_dir
         self.example_files = example_files
+        self.family_files = list(family_files)  # the guess examples the owner kept (``guess_examples``)
         self.threshold = threshold
         self.k = k
         self.quantized = quantized
@@ -209,7 +223,7 @@ class ClassifierEstimate:
         started = time.monotonic()
         try:
             embedder = Embedder(self.model_dir, quantized=self.quantized)
-            self.families = FamilyVote(embedder.embed, load_families())
+            self.families = FamilyVote(embedder.embed, load_families(learned=self.family_files))
             examples = load_examples(self.example_files) if self.demand else []
             if self.demand:
                 self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)

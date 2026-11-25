@@ -18,10 +18,11 @@ _spec.loader.exec_module(score)
 # Lower these when a change improves them; never raise them. The grammar alone: 31 at 7d83958 (2026-11-24).
 # With Swift's guess (IA-01 phase 2, the real model's family vote): 17 (2026-11-25). Both counts then grew by 2 with
 # two rows the phase 2 review added (rv-14, rv-15: a direction with a number, where no guess is the chosen outcome),
-# not by a change getting worse.
+# not by a change getting worse. Phase 4 (misheard words, 2026-11-25): a sound-alike guesses with or without the
+# model, so the speech-recognition rows' dead ends fell from 10 to 6: 33 -> 27 without the model, 19 -> 15 with it.
 NEW_DEAD_END_ROWS = 2
-MAX_DEAD_ENDS_GRAMMAR = 31 + NEW_DEAD_END_ROWS
-MAX_DEAD_ENDS = 17 + NEW_DEAD_END_ROWS
+MAX_DEAD_ENDS_GRAMMAR = 25 + NEW_DEAD_END_ROWS  # no model: the grammar and the sound-alikes
+MAX_DEAD_ENDS = 13 + NEW_DEAD_END_ROWS
 MAX_FALSE_ACTIONS = 1  # rem-c01: a compound's second half becomes the reminder's label
 
 

@@ -614,36 +614,13 @@ def _on(m: re.Match[str]) -> bool:
     return g.get("verb") not in _OFF_VERBS
 
 
-# How speech recognition has written "Wi-Fi" (owner checks 201 and 206, 2026-11-13: "wafer", "Wofo"), and
-# close spellings of those. Only these: a sound-alike rule also took "wave", "wife" and "we feel" (review of
-# 225ca9b), and a plain yes to "Turn off Wi-Fi?" is for a change the owner asked for. Add a word when a saved
-# clip shows it.
-HEARD_AS_WIFI = frozenset({"wafer", "wafers", "wofo", "woofo", "wofa", "waffle", "why fi", "wi fy", "wi fry"})
-
-
-def heard_as_wifi(words: str) -> bool:
-    """Whether ``words`` is one of the ways speech recognition has misheard "Wi-Fi" (``HEARD_AS_WIFI``)."""
-    return " ".join(words.split()) in HEARD_AS_WIFI
-
-
-# "Turn off the wafer": the radio slot, whatever was heard there, for ``heard_as_wifi``.
-_HEARD_OFF = [
-    re.compile(r"(?:turn|switch|put|flip) (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?) off(?: (?:now|please))*"),
-    re.compile(r"(?:turn|switch|put|flip) off (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?)(?: (?:now|please))*"),
-    re.compile(r"(?:disable|deactivate|disconnect) (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?)"),
-]
-
-
+# No sound-alikes here ("wafer" for Wi-Fi): they are Swift's guess (understand.SOUNDS_LIKE), so they only ask and
+# never count as the owner asking (IA-01 phase 4, P4-1).
 def _radios(t: str) -> Intent | None:
     for pattern in _RADIO_SWITCH:
         if m := pattern.fullmatch(t):
             kind = "bluetooth" if "blue" in m.group("radio") else "wifi"
             return Intent("radio", {"kind": kind, "on": _on(m)})
-    for pattern in _HEARD_OFF:
-        # Only off: that always has Swift's own "Turn off Wi-Fi?", so a wrong guess costs a "no". A guessed
-        # "on" has no question and would act on a guess, so it stays unparsed.
-        if (m := pattern.fullmatch(t)) and heard_as_wifi(m.group("radio")):
-            return Intent("radio", {"kind": "wifi", "on": False})
     if m := _RADIO_GET.fullmatch(t):
         return Intent("radio.get", {"kind": "bluetooth" if "blue" in (m.group("radio") or m.group("radio2")) else "wifi"})
     for pattern in _AIRPLANE:

@@ -46,6 +46,23 @@ Swift's guess (phase 2; review conditions P2-1 to P2-8; CLAUDE.md "Swift's guess
   with ``confirmed`` after a yes, never through ``start``, ``fill`` or ``redo`` (P2-1). ``restated`` keeps the bare
   grammar, so saying the guessed-from words again asks again (P2-2).
 
+Misheard words (phase 4; review conditions P4-1 to P4-4):
+
+- ``SOUNDS_LIKE`` is the one owner of what speech recognition writes for Swift's own slot words ("wafer" for
+  Wi-Fi). It is read only here, by ``propose``: a sound-alike makes a guess, so it only ever makes Swift ask, and
+  it never counts as the owner asking (``understand`` and ``owner_intents`` keep the grammar, which has no
+  sound-alikes). It needs no family vote: the words themselves say what was meant. The transcript is never
+  rewritten; ``propose`` reads a copy with the sound-alikes spelled out.
+- A guessed "on" ("Turn on Wi-Fi?") is a deliberate widening: the grammar took only a misheard "off", because a
+  guessed "on" had no question then. Every guess asks now.
+- ``GUESS_UNSURE_AT``: when speech recognition was unsure of a word in the request, a lower family vote is
+  enough to ask (``rules.guessed``, from the record's ``unclear``), as long as no unsure word is one a slot is
+  read from. It only lowers the bar to ask: slots still come only from the readers (P4-4).
+- A yes to a guess is in the run record (``understood``, ``confirmed``, the transcript), so the local interaction
+  log holds the heard -> meant pair; ``swift.log`` gets names only. ``spikes/routing/learn_demand.py --guesses``
+  shows each one to the owner, and only the ones kept become family examples (``classifier.GUESS_EXAMPLES``),
+  which feed the vote, never the grammar (P4-2, R4).
+
 ``Understood.record()`` and ``Guess.record()`` are the run record's ``understood`` field: names and numbers only,
 never slots or words (P2-8).
 """
@@ -168,8 +185,32 @@ PROPOSABLE = frozenset({
 })
 # Who may start one (P2-4): a request the owner started. Never ``followup``, ``beside``, ``answer``, ``over_speech``.
 GUESS_SOURCES = frozenset({"voice", "wake", "typed"})
-# The family vote's share below which Swift doesn't guess.
+# The family vote's share below which Swift doesn't guess; and below which it doesn't even when speech recognition
+# was unsure of a word in the request (P4-4). shortcut: neither is scored on the owner's clips yet (W-03).
 GUESS_AT = 0.5
+GUESS_UNSURE_AT = 0.35
+
+# What speech recognition has written for Swift's own slot words (P4-1): the meant word, then what it heard.
+# "observed" ones are in a saved clip or an owner check; "plausible" ones aren't yet, and are kept few. A wrong
+# guess from one costs a "no": drop it then. Add one when a saved clip shows it.
+SOUNDS_LIKE: dict[str, dict[str, tuple[str, ...]]] = {
+    # Owner checks 201 and 206 (2026-11-13): "wafer", "Wofo". The close spellings were in the grammar since then.
+    "wifi": {"observed": ("wafer", "wofo"),
+             "plausible": ("wafers", "woofo", "wofa", "waffle", "why fi", "wi fy", "wi fry", "white fi")},
+    "bluetooth": {"plausible": ("blue tool",)},
+    "timer": {"plausible": ("tire",)},
+    "minute": {"plausible": ("minuet",)},
+    "minutes": {"plausible": ("minuets",)},
+    "dark mode": {"plausible": ("dark mod", "duck mode")},
+}
+_HEARD = {alike: meant for meant, seen in SOUNDS_LIKE.items() for alikes in seen.values() for alike in alikes}
+_HEARD_RE = re.compile(r"\b(?:" + "|".join(sorted(map(re.escape, _HEARD), key=len, reverse=True)) + r")\b")
+# Each guessable intent's family (the classifier's names), for a guess that had no vote and for learned examples.
+FAMILY_OF = {
+    "timer.set": "timer", "alarm.set": "alarm", "reminder.set": "reminder", "volume.step": "volume",
+    "volume.set": "volume", "mute": "volume", "media": "media", "brightness.set": "brightness",
+    "brightness.step": "brightness", "theme": "theme", "dnd": "focus", "radio": "radio",
+}
 
 _NUM = "one two three four five six seven eight nine"
 # "Set a timer four five minutes": normalize sums the two to "9", which the owner never said.
@@ -211,10 +252,13 @@ class Guess:
     intent: it.Intent
     family: str
     score: float
+    # Read through a sound-alike (``SOUNDS_LIKE``), not the family vote.
+    heard: bool = False
 
     def record(self) -> dict[str, Any]:
-        """The run record's ``understood`` for a guess: names and a number, never slots (P2-8)."""
-        return {"act": "command", "source": "similar", "family": [self.intent.name], "score": round(self.score, 2)}
+        """The run record's ``understood`` for a guess: names and a number, never slots or words (P2-8)."""
+        return {"act": "command", "source": "heard" if self.heard else "similar", "family": [self.intent.name],
+                "score": round(self.score, 2)}
 
 
 def may_guess(source: str | None) -> bool:
@@ -242,9 +286,7 @@ def _numbered(words: set[str], t: str) -> bool:
 
 
 def _radio_kind(t: str) -> str | None:
-    words = t.split()
-    wifi = bool(re.search(r"\b(?:wi-?fi|wi fi|wireless|internet)\b", t)) or any(
-        it.heard_as_wifi(" ".join(words[i:i + n])) for n in (1, 2) for i in range(len(words)))
+    wifi = bool(re.search(r"\b(?:wi-?fi|wi fi|wireless|internet)\b", t))
     blue = bool(re.search(r"\b(?:bluetooth|blue tooth)\b", t))
     return None if wifi == blue else ("wifi" if wifi else "bluetooth")
 
@@ -318,21 +360,57 @@ _READERS: dict[str, Callable[[str, set[str]], it.Intent | None]] = {
 }
 
 
-def propose(text: str, family_of: Callable[[str], tuple[str, float]] | None) -> Guess | None:
+def heard_as(t: str) -> str | None:
+    """Normalized ``t`` with each sound-alike written as the slot word it stands for (``SOUNDS_LIKE``), or None
+    when it has none. Only ``propose`` reads it: it never reaches the grammar's callers or the transcript."""
+    fixed = _HEARD_RE.sub(lambda m: _HEARD[m.group(0)], t)
+    return fixed if fixed != t else None
+
+
+def unsure_ok(text: str, unsure: list[str] | None) -> bool:
+    """Whether a word speech recognition was unsure of lowers the bar to ask (``GUESS_UNSURE_AT``, P4-4): one of
+    them is in ``text``, and none is a word a slot is read from (a number, on/off, a direction, a device or
+    mode), so an unsure word never decides what the question shows."""
+    words = {w for u in unsure or () for w in it.normalize(u).split()}
+    slots = _UP | _DOWN | _ON | _OFF | {"wifi", "bluetooth", "dark", "light", "night", "mute", "unmute"}
+    return bool(words & set(it.normalize(text).split())) and not any(
+        w in slots or w.isdigit() or w in _NUM.split() for w in words)
+
+
+def _heard_guess(t: str) -> Guess | None:
+    """A guess read through a sound-alike: the grammar's own reading of the words as meant, one intent only."""
+    found = it.parse(fixed) if (fixed := heard_as(t)) is not None else None
+    if not found or len(found) != 1 or found[0].name not in PROPOSABLE:
+        return None
+    return Guess(found[0], FAMILY_OF[found[0].name], 1.0, heard=True)
+
+
+def propose(text: str, family_of: Callable[[str], tuple[str, float]] | None,
+            at: float = GUESS_AT) -> Guess | None:
     """Swift's guess at a command the grammar missed, or None (see the module). ``family_of``: the classifier's
-    family vote, None while it isn't loaded."""
-    if family_of is None or it.parse(text) is not None:
+    family vote, None while it isn't loaded (a sound-alike still guesses). ``at``: the vote's bar (``with_guess``
+    asks at ``GUESS_UNSURE_AT``; ``rules.guessed`` keeps a guess under ``GUESS_AT`` only for unsure words)."""
+    if it.parse(text) is not None:
         return None
     t = it.normalize(text)
     parts = [c for sentence in it.sentences(text) for c in it.clauses(sentence, loose=True)]
     # A "?" is a question unless it is asked as a request ("can you get the wifi back on?"): stricter than the gate.
     asked = text.rstrip().endswith("?") and not it.polite(text)
-    if (len(parts) != 1 or not _commands(text) or asked or _VETO.search(t) or _NAMED.search(text)
+    # The veto reads the sound-alikes spelled out: "why fi" is Wi-Fi, not a "why".
+    if (len(parts) != 1 or not _commands(text) or asked or _VETO.search(heard_as(t) or t) or _NAMED.search(text)
             or _VOCATIVE.search(text.strip()) or _TWO_NUMBERS.search(text.lower())):
         return None
-    family, score = family_of(text)
+    heard = _heard_guess(t)
+    if heard is not None:
+        family, score = heard.family, heard.score
+    elif family_of is not None:
+        family, score = family_of(text)
+    else:
+        return None
     if family not in _TIMED_FAMILIES and (_TIMED.search(t) or it.find_when(t) is not None):
         return None
+    if heard is not None:
+        return heard
     reader = _READERS.get(family)
-    intent = reader(t, set(t.split())) if reader is not None and score >= GUESS_AT else None
+    intent = reader(t, set(t.split())) if reader is not None and score >= at else None
     return Guess(intent, family, score) if intent is not None and intent.name in PROPOSABLE else None

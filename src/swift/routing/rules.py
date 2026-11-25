@@ -236,21 +236,30 @@ def _understood(found: Route) -> Route:
 
 def with_guess(found: Route, family_of: Callable[[str], tuple[str, float]] | None) -> Route:
     """An agent request the grammar missed, with Swift's guess at it when there is one (``understand.propose``).
-    It stays an agent route: only ``guessed`` turns it into Swift's question, for a source that may have one."""
-    if found.route != "agent" or (guess := understanding.propose(found.text, family_of)) is None:
+    It stays an agent route: only ``guessed`` turns it into Swift's question, for a source that may have one. The
+    vote's bar here is the lower one (``GUESS_UNSURE_AT``); ``guessed`` holds the usual one unless speech
+    recognition was unsure of a word (P4-4)."""
+    if found.route != "agent":
         return found
-    return replace(found, guess=guess)
+    guess = understanding.propose(found.text, family_of, at=understanding.GUESS_UNSURE_AT)
+    return found if guess is None else replace(found, guess=guess)
 
 
 def guessed(found: Route, record: Mapping[str, Any]) -> Route:
     """The system lane's guess question (``system_guess``) for a request the owner started (P2-4), else the agent.
     ``record``: the request's run record. "Try again" re-runs a request as ``retry``; it may guess only as its first
-    try (``retry_of``) could, so a request heard in the follow-up window never gets one after a click (review F4)."""
+    try (``retry_of``) could, so a request heard in the follow-up window never gets one after a click (review F4).
+    A sound-alike guesses with no family vote (``understand.SOUNDS_LIKE``), so a router without the classifier
+    still asks one. A vote under ``GUESS_AT`` asks only when the record says speech recognition was unsure of a
+    word in the request (``unclear``) that no slot is read from (P4-4)."""
     source = record.get("retry_of") if record.get("source") == "retry" else record.get("source")
-    if found.route != "agent" or found.guess is None or not understanding.may_guess(source):
+    if found.route != "agent" or not understanding.may_guess(source):
         return found
-    return Route("local", found.text, action="system_guess", guess=found.guess,
-                 understood=(("understood", found.guess.record()),))
+    guess = found.guess or understanding.propose(found.text, None)
+    if guess is None or (guess.score < understanding.GUESS_AT
+                         and not understanding.unsure_ok(found.text, record.get("unclear"))):
+        return found
+    return Route("local", found.text, action="system_guess", guess=guess, understood=(("understood", guess.record()),))
 
 
 def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | None]) -> Route:

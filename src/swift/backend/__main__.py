@@ -44,7 +44,7 @@ from swift.parked import ParkedThreads
 from swift.presence import PresenceMonitor, WindowsProbe
 from swift.logging_setup import setup_logging
 from swift.routing import Route, route
-from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
+from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate, guess_examples
 from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog, summary
 from swift.runs import RunRecords
@@ -368,7 +368,7 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
         return route, None
     estimate = ClassifierEstimate(
         Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized,
-        demand=cfg.enabled,
+        demand=cfg.enabled, family_files=[guess_examples(Path(cfg.examples_file))],
     )
     return estimate.route, estimate
 

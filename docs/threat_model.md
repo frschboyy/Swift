@@ -45,7 +45,7 @@ Audit B-06, decided by the owner on 2026-10-28: recordings are kept for 7 days a
 - **No training.** Clips are never used to train or fine-tune a model. The weekly improvement pass:
   - measures accuracy;
   - writes pause timings for end-of-speech tuning.
-- **Words written down.** The index records why a clip was kept, and the words the owner meant when they said them again or corrected them. Transcripts are not written down. Logs carry counts, flags and rates only.
+- **Words written down.** The index records why a clip was kept, and the words the owner meant when they said them again, corrected them, or said yes to Swift's guess of them. Transcripts are not written down. Logs carry counts, flags and rates only.
 - **Bystanders.** A kept clip can still hold room or bystander audio. That is why clips are deleted within 7 days, and why one item clears everything.
 
 ## Out of scope for the MVP

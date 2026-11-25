@@ -49,7 +49,8 @@ answered, and whether the owner is there. Swift decides reversibility and reach,
     *(foundation decision 5)*.
   - A web address comes from the owner's words in this request, or Swift asks "Open (their earlier address)?"
     *(foundation decision 4)*.
-  - Memory is written only from the owner's words or an approved card.
+  - Memory is written only from the owner's words or an approved card. A yes to Swift's guess approves that action
+    only. An example learned from it is kept only after the owner reviews it, and it can only make Swift ask, never act.
 - **Swift's guess.** When the owner's words don't match a command Swift knows, Swift may guess what they meant, and
   only ask: "Set a timer for 2 minutes?" (level 1, Swift's own question, showing every detail the yes will use).
   A guess is made only from a request the owner started (the hotkey, the wake phrase, or typing), never from what's

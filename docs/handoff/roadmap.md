@@ -95,7 +95,7 @@ While you use it, Claude works on (handoff §4 f–h, nothing you need to run):
 
 ## After daily use: decide what comes next
 
-- [ ] Decide on the light lane: retarget it or turn it off (seams decision 2, handoff §5).
+- [x] Decide on the light lane: retarget it or turn it off (seams decision 2, handoff §5). Decided 2026-11-18: off until retargeted at thread questions, "try again" and small talk; no warm CLI while off.
 - [x] Go-ahead for Halo Step B, one card renderer (ADR-019). Given and merged 2026-11-14; owner checks 305–306.
 - [ ] The interaction layer's nine decisions, before any ADR ([`interaction-layer.md`](../explorations/interaction-layer.md)).
 - [ ] Choose the first two watchers (decision 22: boss emails, tech news, …).
@@ -103,7 +103,8 @@ While you use it, Claude works on (handoff §4 f–h, nothing you need to run):
 
 ## Then: groundwork, then the product steps (handoff §4)
 
-- [ ] Groundwork, nothing you'd notice: split `session.py`, run records, a settings and memory store, the `WorkerTask` contract, quiet modes, B-05 (the slow first request).
+- [x] Groundwork, built: run records (`runs.py`), the memory store (`memory.py`), the `WorkerTask` contract and the step grant (2026-11-14).
+- [ ] Groundwork, still open: split `session.py`, settings in Swift's own store (product-direction §6.1, §6.3), quiet modes, B-05 (the slow first request).
 - [ ] 4. Notifications at rest, and one "while you were away" card.
 - [ ] 5. Watchers v1.
 - [ ] 6. Recipes from runs ("do that again every Friday").

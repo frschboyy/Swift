@@ -39,10 +39,3 @@ async def listen_from_card(session: Any, data: dict[str, Any]) -> None:
     auto = AutoEnd(lead_s=0.0, end_silence_s=session.wake_end_silence_s, start_timeout_s=session.wake_start_timeout_s)
     record = {"source": "followup", "executor": getattr(session.executor, "name", "?"), "card_mic": True}
     session._launch(record, partial(session._capture_voice, auto=auto), session.executor, session.executor.start)
-
-
-def hearing(session: Any) -> bool:
-    """At rest, wake listening is collecting speech now: the orb follows the owner's voice (item 14), so they can see
-    Swift hears them before it knows what they said. Never while locked, away or paused, nor during a capture (that
-    sends its own level)."""
-    return session.in_speech() and not session._capturing() and not session._deaf()

@@ -67,7 +67,7 @@ async def test_after_a_bare_hey_swift_only_the_detector_heard_the_request_is_onl
     script(stt, "He's left.", "He swift.", "He's left. What time is it?")  # utterance, window, then the capture
     await session.hear_wake(audio, time.monotonic())
     await until(lambda: rec.recording)  # the capture opened, as for "Hey Swift"
-    assert session.wake_stats["acoustic_wake"] == 1 and rec.lead is not None and rec.lead >= 1.5  # the whole utterance
+    assert session.wake_stats["acoustic_wake"] == 1 and rec.lead is not None and rec.lead < 1.0  # only what came after the phrase
     assert rec.on_level is not None
     rec.on_level(0.8)
     await asyncio.sleep(0.15)

@@ -1352,20 +1352,6 @@ function onView(v: Extract<Inbound, { type: "view" }>["data"]): void {
   else if (!v.open && card.querySelector(".artifact")) setStage("idle");
 }
 
-// Item 14: at rest, the backend sends the level only while wake listening hears speech (card_mic.hearing): the
-// idle dot (or the orb beside a card) grows with the owner's voice, and settles 0.5 s after the last level.
-let hearingTimer = 0;
-function hearing(): void {
-  if (ACTIVE.has(stageNow())) return;  // a capture: the capsule's own listening bars follow it
-  capsuleEl.toggleAttribute("data-hearing", true);
-  orb.hear();
-  window.clearTimeout(hearingTimer);
-  hearingTimer = window.setTimeout(() => {
-    capsuleEl.removeAttribute("data-hearing");
-    orb.quiet();
-  }, 500);
-}
-
 // ---- presence: whether Swift is listening, and why not (ADR-014 §8, ADR-017) -------------------
 
 function onPresence(p: Extract<Inbound, { type: "presence" }>["data"]): void {
@@ -2514,7 +2500,6 @@ function onMessage(msg: Inbound): void {
       break;
     case "level":
       orb.setLevel(msg.data.rms);
-      hearing();
       noteLevel(msg.data.rms);
       break;
     case "transcript":

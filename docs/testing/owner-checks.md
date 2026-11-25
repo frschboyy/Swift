@@ -3324,15 +3324,15 @@ view, like its **Show** button, and never "There's nothing to show yet."
 
 About 5 minutes. Items 1, 4, 14 and 15 of the run of 2026-11-18. Nothing here sends or changes anything.
 
-<a id="check-listening-feedback-3bb7ab-1"></a>**Check listening-feedback-3bb7ab-1. The orb shows when Swift hears you**
+<a id="check-listening-feedback-3bb7ab-1"></a>**Check listening-feedback-3bb7ab-1. The orb waits for “Hey Swift”**
 1. With no card on screen, look at the small dot by the corner. Then click **Pause listening** in the tray, look
    again, and click **Resume**.
-2. Talk near the microphone for a few seconds, without "Hey Swift" (read a line of this page aloud). Stop.
-3. Pause listening again and talk again. Resume.
+2. Talk near the microphone for a few seconds, without "Hey Swift". Then say a sentence and, just before it, "Hey Swift".
 
 You should see: in step 1 the dot is blue while Swift listens for its name, and the paused capsule ("Not listening ·
-Mic off") while paused; with wake listening off in `config.yaml` the dot is grey. In step 2 the dot grows and glows
-with your voice and settles about half a second after you stop. Nothing starts. In step 3 nothing reacts.
+Mic off") while paused; with wake listening off in `config.yaml` the dot is grey. In step 2 the dot does not react to
+your talking; after "Hey Swift" the listening capsule appears and follows your voice. A request never includes words
+you said before "Hey Swift".
 
 <a id="check-listening-feedback-3bb7ab-2"></a>**Check listening-feedback-3bb7ab-2. The card's mic button, and Space on a card**
 1. Say "Hey Swift, what time is it?". On the answer card, click the mic button by **Pin** and **Copy**, then say

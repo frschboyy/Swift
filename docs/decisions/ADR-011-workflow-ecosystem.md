@@ -125,15 +125,15 @@ Swift needs all of these. The spec's `metadata` is a map of strings, too thin fo
 | `triggers` | `say` phrases with slots (`"email {person} {message}"`), `schedule` (cron, with `notify` vs `act`), later `event` (a file appears, a calendar event starts) |
 | `inputs`, `settings` | Typed: `text`, `choice`, `contact`, `folder`, `project`, `date`. Inputs come per run; settings are per-owner defaults. |
 | `needs` | Capabilities plus scope. This is the permission list shown when installing or enabling. |
+| `run` | `recipe`, `playbook`, or both (recipe first, playbook as fallback); `provider` or `role` preference; `budget` (minutes, cost) |
+| `shows` | Artifact kinds it produces, so "show me" knows what to expect |
+| `undo` | Whether reversible steps can be undone ("undo that") |
+| `history` | Short changelog per version (§6.5) |
 
 > **R3 (phase 3 of the intent architecture, owner-accepted 2026-11-25).** A run also gets `system_action` when the
 > owner's own words in this request name a system action that Swift's grammar knows (not a guess). It isn't in `needs`
 > and isn't shown when installing, because it's the owner's request, not the workflow's. The tool still does only what
 > the owner's words name, through the gateway.
-| `run` | `recipe`, `playbook`, or both (recipe first, playbook as fallback); `provider` or `role` preference; `budget` (minutes, cost) |
-| `shows` | Artifact kinds it produces, so "show me" knows what to expect |
-| `undo` | Whether reversible steps can be undone ("undo that") |
-| `history` | Short changelog per version (§6.5) |
 
 ### 4.3 The recipe language (`recipe.yaml`, sketch)
 

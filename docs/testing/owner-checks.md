@@ -830,11 +830,11 @@ The report checks: a restart.
 3. Say "Hey Swift, what time is it".
 
 You should see: within a few seconds, "Swift's engine stopped" with **Restart Swift** (and Open logs only with
-`debug: true`, check engine-crashes-eac152-3), never "quit and start again". After Restart, Swift answers.
+`debug: true`, check 448), never "quit and start again". After Restart, Swift answers.
 
 The report checks: a restart.
 
-<a id="check-engine-crashes-eac152-1"></a>**Check engine-crashes-eac152-1. The engine stays up**
+<a id="check-446"></a>**Check 446. The engine stays up**
 1. Use Swift for an evening as usual, with the explore flags you had on 18 November. Don't say "captions on" or
    "captions off" (captions then follow the PC, which reads the speakers' mute once a minute: the reading that
    crashed the engine).
@@ -844,7 +844,7 @@ You should see: no "Swift's engine stopped" all evening, and Swift never stops a
 
 The report checks: no crash dump in `crash.log` from an engine started during the run.
 
-<a id="check-engine-crashes-eac152-2"></a>**Check engine-crashes-eac152-2. Restart starts one engine**
+<a id="check-447"></a>**Check 447. Restart starts one engine**
 1. Open Task Manager → **Details**, sorted by name.
 2. Right-click the tray icon → **Restart Swift**, and at once (while "Restarting Swift…" shows) **Restart Swift**
    again.
@@ -854,7 +854,7 @@ You should see: one "Restarting Swift…", then back; **one** Swift `python.exe`
 
 The report checks: no two restarts within 20 seconds, and each restarted engine loaded its speech model.
 
-<a id="check-engine-crashes-eac152-3"></a>**Check engine-crashes-eac152-3. Logs are for developers**
+<a id="check-448"></a>**Check 448. Logs are for developers**
 1. With `debug: false` (the default) in `config.yaml`: right-click the tray icon. Then end Swift's `python.exe` in
    Task Manager.
 2. Set `debug: true`, quit Swift from the tray and start it again. Right-click the tray icon → **Open logs**. Then
@@ -3014,7 +3014,7 @@ looks wrong or hard to read.
 You should see: no "Swift is ready" card after step 1; one after step 2 (and after Swift was ended by force).
 
 <a id="check-419"></a>**Check 419. A long answer grows, then Show all and Show less (B5)**
-*Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): run checks cards-stack-design-5fec91-5 and
+*Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): run checks 464 and
 -6 instead. Record this one as RETIRED when that branch merges.*
 1. Say "Hey Swift, give me a detailed history of tea" and wait for the answer.
 2. Click **Show all**, scroll to the end, then press Esc.
@@ -3199,7 +3199,7 @@ Captions don't turn on by themselves when the sound is muted (not built yet).
 
 <a id="check-426"></a>**Check 426. Earlier today in the stack (A1)**
 *Superseded on 2026-11-24 (branch `claude/cards-stack-design-5fec91`): Earlier today moved to History; run check
-cards-stack-design-5fec91-4 instead. Record this one as RETIRED when that branch merges.*
+463 instead. Record this one as RETIRED when that branch merges.*
 1. Ask two questions in a row ("Hey Swift, research the history of tea", then "Hey Swift, what time is it?").
 2. Leave something waiting (let an OK card run out), then click the pile.
 3. Click **Open** on the tea answer under EARLIER TODAY.
@@ -3297,7 +3297,7 @@ You should see: in step 2 the orb fades out and back in at the same spot on that
 
 About 5 minutes. Nothing is sent: reject any card these leave.
 
-<a id="check-conversation-answers-cards-1"></a>**Check conversation-answers-cards-1. A loose "no" to Swift's question is understood**
+<a id="check-449"></a>**Check 449. A loose "no" to Swift's question is understood**
 1. Say "Hey Swift, set up a meeting with Test Me on Thursday at three" (someone not in your contacts).
 2. When Swift asks whether to invite someone else, answer in your own words, quietly or quickly, as you would to a
    person: "No, leave it without an invitation", "no, just me".
@@ -3305,14 +3305,14 @@ About 5 minutes. Nothing is sent: reject any card these leave.
 You should see: Swift takes it as a no and goes on (a meeting card for you alone, which you reject). It asks again
 only if it really couldn't tell; a "yes" it wasn't sure it heard is always asked again, never taken.
 
-<a id="check-conversation-answers-cards-2"></a>**Check conversation-answers-cards-2. A follow-up on a finished card goes on from that card**
+<a id="check-450"></a>**Check 450. A follow-up on a finished card goes on from that card**
 1. Say "Hey Swift, research the history of football". Let it finish and wait more than 5 minutes.
 2. Ask something else short ("Hey Swift, what time is it?").
 3. Open the stack, click **Open** on the football answer, and type "Who are the greatest five?" in its text box.
 
 You should see: the answer is about football players (it carries the football research), not about the time.
 
-<a id="check-conversation-answers-cards-3"></a>**Check conversation-answers-cards-3. Next chips belong to their card** (with `explore.next_steps` on)
+<a id="check-451"></a>**Check 451. Next chips belong to their card** (with `explore.next_steps` on)
 1. Ask "Hey Swift, what time is it?" and look under the answer.
 2. Ask for something that leaves something to show (research with sources), and click its **Next · Show me again**
    chip if it appears.
@@ -3324,7 +3324,7 @@ view, like its **Show** button, and never "There's nothing to show yet."
 
 About 5 minutes. Items 1, 4, 14 and 15 of the run of 2026-11-18. Nothing here sends or changes anything.
 
-<a id="check-listening-feedback-3bb7ab-1"></a>**Check listening-feedback-3bb7ab-1. The orb waits for “Hey Swift”**
+<a id="check-452"></a>**Check 452. The orb waits for “Hey Swift”**
 1. With no card on screen, look at the small dot by the corner. Then click **Pause listening** in the tray, look
    again, and click **Resume**.
 2. Talk near the microphone for a few seconds, without "Hey Swift". Then say a sentence and, just before it, "Hey Swift".
@@ -3334,7 +3334,7 @@ Mic off") while paused; with wake listening off in `config.yaml` the dot is grey
 your talking; after "Hey Swift" the listening capsule appears and follows your voice. A request never includes words
 you said before "Hey Swift".
 
-<a id="check-listening-feedback-3bb7ab-2"></a>**Check listening-feedback-3bb7ab-2. The card's mic button, and Space on a card**
+<a id="check-453"></a>**Check 453. The card's mic button, and Space on a card**
 1. Say "Hey Swift, what time is it?". On the answer card, click the mic button by **Pin** and **Copy**, then say
    "and in Tokyo?" and stop talking.
 2. Ask again; when the answer shows, press the card hotkey (keyboard entry) so the card has the keyboard, then press
@@ -3346,7 +3346,7 @@ capture ends by itself when you stop; the answer is about Tokyo, in the same con
 earlier answer shows on the card). Step 2 works the same from Space. In step 3 the OK card has no mic button, and
 Space there does nothing: an OK is still answered with a click, Swift's name, or the hotkey held.
 
-<a id="check-listening-feedback-3bb7ab-3"></a>**Check listening-feedback-3bb7ab-3. Ctrl+Shift+Space on a card reopened from the stack**
+<a id="check-454"></a>**Check 454. Ctrl+Shift+Space on a card reopened from the stack**
 1. Ask "Hey Swift, what time is it?" and let the card go. Open the stack, open that answer from "Earlier today",
    then hold Ctrl+Shift+Space, say "and in Tokyo?", and let go.
 2. Ask for something that needs your OK; let its countdown run out so it waits in the stack. Open it, hold
@@ -3393,14 +3393,14 @@ You should see: (2) the buttons Stop, Change and "Go ahead with 1 and 2", the hi
 
 About 5 minutes. Click **Reject** on every card these leave; nothing is sent.
 
-<a id="check-ui-fixes-1119-bd6fc8-1"></a>**Check ui-fixes-1119-bd6fc8-1. An OK that ran out is in the stack only**
+<a id="check-455"></a>**Check 455. An OK that ran out is in the stack only**
 1. Ask for something that needs your OK ("Hey Swift, add lunch with Sam on Thursday at noon to my calendar"). Don't
    answer it: let its countdown run out.
 
 You should see: the card leaves the screen and waits in the stack ("Needs your OK · held, no answer in time"). Nothing
 else on screen says it: no flattened "Needs your OK" strip is left under the orb.
 
-<a id="check-ui-fixes-1119-bd6fc8-2"></a>**Check ui-fixes-1119-bd6fc8-2. An OK reopened from the stack lives like the first time**
+<a id="check-456"></a>**Check 456. An OK reopened from the stack lives like the first time**
 1. Ask for something that needs your OK and let its countdown run out.
 2. Open the stack and click **Open** on it. Watch its countdown; don't answer. It runs out again.
 3. Open it again, hold the push-to-talk hotkey and say "reject".
@@ -3409,13 +3409,13 @@ else on screen says it: no flattened "Needs your OK" strip is left under the orb
 You should see: (2) the reopened card counts down and, when it runs out, goes back to the stack with nothing left
 on screen; (3) the hotkey's "reject" answers it; (4) Cancel takes it off the screen at once, with no "Stopped" strip.
 
-<a id="check-ui-fixes-1119-bd6fc8-3"></a>**Check ui-fixes-1119-bd6fc8-3. "Paused while you read" is whole**
+<a id="check-457"></a>**Check 457. "Paused while you read" is whole**
 1. Ask "Hey Swift, what time is it?" and rest the pointer on the answer card.
 
 You should see: the footer says "Swift · Paused while you read" in full (on two lines if it must), never cut off
 with "…".
 
-<a id="check-ui-fixes-1119-bd6fc8-4"></a>**Check ui-fixes-1119-bd6fc8-4. Watch is offered for longer work only**
+<a id="check-458"></a>**Check 458. Watch is offered for longer work only**
 1. Say "Hey Swift, research the history of green tea and summarise it". While it runs, say "Hey Swift" and then,
    when it listens, "what time is it".
 2. Rest the pointer on each strip under the card, and look at the working card's footer.
@@ -3424,7 +3424,7 @@ You should see: no **Watch** on the time answer or on the strip that is still li
 until it has taken a couple of steps; then the research offers **Watch**, and its Stop works. A watch never stays
 open, saying it's running, after its request ended.
 
-<a id="check-ui-fixes-1119-bd6fc8-5"></a>**Check ui-fixes-1119-bd6fc8-5. The open stack keeps its scroll place**
+<a id="check-459"></a>**Check 459. The open stack keeps its scroll place**
 1. Leave enough in the stack to need scrolling (four or five things: let OK cards run out, answer "later" to
    Swift's questions).
 2. Open the stack, scroll to the bottom, and wait half a minute without touching it.
@@ -3433,7 +3433,7 @@ You should see: the list stays where you scrolled it; it never jumps back to the
 
 ### Pins, History, cards and the stack's actions (2026-11-24)
 
-<a id="check-cards-stack-design-5fec91-1"></a>**Check cards-stack-design-5fec91-1. Cancel in the stack asks in place**
+<a id="check-460"></a>**Check 460. Cancel in the stack asks in place**
 1. Hold the hotkey, say "draft an email to Test Me about lunch", and let go. Press **Esc** while it works.
 2. Do the same with "find a dentist near the office".
 3. Double-click the stack. Point at each row: none has a **Skip** button.
@@ -3446,15 +3446,15 @@ stack. No card opened at any step.
 
 The report checks: one item cancelled from the stack, none skipped.
 
-<a id="check-cards-stack-design-5fec91-2"></a>**Check cards-stack-design-5fec91-2. Pointing down the stack moves nothing**
-1. With two or more things in the stack (check cards-stack-design-5fec91-1's steps 1–2 do it), double-click it.
+<a id="check-461"></a>**Check 461. Pointing down the stack moves nothing**
+1. With two or more things in the stack (check 460's steps 1–2 do it), double-click it.
 2. Move the pointer slowly from the top row to the bottom row and back.
 
 You should see: each row's **Cancel** fades in under its **Open** as you point at it, and no row moves up or down.
 
 The report checks: nothing (LOOK).
 
-<a id="check-cards-stack-design-5fec91-3"></a>**Check cards-stack-design-5fec91-3. Pins: several, on a shelf, reopened and continued**
+<a id="check-462"></a>**Check 462. Pins: several, on a shelf, reopened and continued**
 1. Say "Hey Swift, compare train and flight options from London to Paris on Friday". When the answer shows (a long
    one, with **Expand**), click **Pin** in its footer.
 2. Say "Hey Swift, what's the capital of Portugal?" and click **Pin** on that answer too.
@@ -3469,7 +3469,7 @@ top, each with a short hint; the time answer isn't one. A click on London brings
 
 The report checks: two pins and one unpin from the corner, and a pin opened.
 
-<a id="check-cards-stack-design-5fec91-4"></a>**Check cards-stack-design-5fec91-4. History: a sidebar from the right edge, reopened**
+<a id="check-463"></a>**Check 463. History: a sidebar from the right edge, reopened**
 1. Ask Swift three things, one after another ("what time is it?", "what's the capital of Portugal?", "turn the volume
    to 30"), and let each answer go.
 2. Look at the stack's corner: under it (or alone, if nothing waits), a faint underlined **History**. Click it.
@@ -3483,7 +3483,7 @@ stack goes back to its corner; the voice request opens it again, with "Here's yo
 
 The report checks: an item opened from History; "show my history" answered without the agent.
 
-<a id="check-cards-stack-design-5fec91-5"></a>**Check cards-stack-design-5fec91-5. A long answer scrolls on its card, with nothing hidden**
+<a id="check-464"></a>**Check 464. A long answer scrolls on its card, with nothing hidden**
 1. Say "Hey Swift, list the 15 largest cities in Europe with their populations, as a table".
 2. Without clicking anything, scroll the answer with the mouse wheel to its end.
 
@@ -3492,7 +3492,7 @@ below and goes once you reach the end.
 
 The report checks: nothing (LOOK).
 
-<a id="check-cards-stack-design-5fec91-6"></a>**Check cards-stack-design-5fec91-6. Expand into a workspace, Minimize back, resize by hand**
+<a id="check-465"></a>**Check 465. Expand into a workspace, Minimize back, resize by hand**
 1. Say "Hey Swift, list the 15 largest cities in Europe with their populations, as a table". Click **Expand**.
 2. Drag the workspace's inner edge to make it narrower, then click **Minimize**.
 3. Click **Expand** again. Then press the orb (or Esc) to bring it back.

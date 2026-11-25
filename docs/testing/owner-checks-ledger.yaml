@@ -36,7 +36,7 @@ areas:
     checks: [413]
   conversation:
     paths: [src/swift/dialogue.py, src/swift/answer_window.py, src/swift/intake.py, overlay/src/ask.ts]
-    checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250, conversation-answers-cards-1, conversation-answers-cards-2]
+    checks: [2, 2b, 3, 8, 26, 27, 69, 100-108, 141-145, 156, 160, 161, 200, 201, 204, 205, 208, 211, 212, 218, 243, 250, 449, 450]
   approval:
     rule: approving hands-free needs Swift's name; a bare "yes" only for Swift's own question on screen
     paths: [src/swift/security/*, src/swift/restated.py, src/swift/intake.py, overlay/src/answer.ts, overlay/src/cardtext.ts]
@@ -69,7 +69,7 @@ areas:
     checks: [203, 320, 345, 382]
   stack:
     paths: [src/swift/stack.py, src/swift/parked.py, src/swift/same_request.py, overlay/src/stack.ts, src/swift/recent.py]
-    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388, cards-stack-design-5fec91-1, cards-stack-design-5fec91-2, cards-stack-design-5fec91-3, cards-stack-design-5fec91-4, cards-stack-design-5fec91-5, cards-stack-design-5fec91-6, ui-fixes-1119-bd6fc8-5]
+    checks: [15, 16, 106, 131, 167, 175, 197, 198, 205, 207, 210, 212, 388, 460, 461, 462, 463, 464, 465, 459]
   presence:
     rule: no hands-free listening while locked
     paths: [src/swift/presence.py, src/swift/lifecycle.py]
@@ -85,11 +85,11 @@ areas:
     checks: [400, 402, 403, 404, 405, 406, 407, 408]
   halo:
     paths: [overlay/src/dress.ts, overlay/src/geometry.ts, overlay/src/styles.css, overlay/src/views.ts, overlay/src/pane.ts, overlay/src/ready.ts, overlay/src/shuffle.ts, overlay/src/times.ts, overlay/src/timers.ts, src/swift/timers.py, src/swift/captions.py, src/swift/recent.py, overlay/src/display.ts]
-    checks: [216-221, 417, 418, 419, 420, 421, 432, 433, 434, 435, 436, 437, 438, 439, 440, 424, 425, 426, 427, 428, 445, ui-fixes-1119-bd6fc8-3]
+    checks: [216-221, 417, 418, 419, 420, 421, 432, 433, 434, 435, 436, 437, 438, 439, 440, 424, 425, 426, 427, 428, 445, 457]
   explore:
     rule: Halo's Explore ideas are off until the owner turns each on in config.yaml; none takes focus
     paths: [overlay/src/glance.ts, overlay/src/learn.ts, overlay/src-tauri/src/follow.rs, src/swift/hints.py, src/swift/settings.py]
-    checks: [423, 442, 443, 444, conversation-answers-cards-3]
+    checks: [423, 442, 443, 444, 451]
   hold-during-calls:
     rule: Calls hold cards and speech like away and never approve; the hold is off unless explore.hold_during_calls is on
     paths: [src/swift/calls.py, src/swift/lifecycle.py]
@@ -97,7 +97,7 @@ areas:
   listening-feedback:
     rule: A capture started by the card's mic button or Space is a hands-free follow-up, never a gesture, and never starts while an OK or Swift's question waits
     paths: [src/swift/card_mic.py, overlay/src/orb.ts]
-    checks: [listening-feedback-3bb7ab-1, listening-feedback-3bb7ab-2, listening-feedback-3bb7ab-3]
+    checks: [452, 453, 454]
   asking-everything:
     rule: Ask me about everything raises level 0 to 1, except reads in the read folders and volume; it only adds questions
     paths: [src/swift/asking.py, src/swift/security/gateway.py, src/swift/system/lane.py, src/swift/executors/claude_code.py, src/swift/memory.py]
@@ -105,10 +105,10 @@ areas:
   halo-b8-fixes:
     rule: an OK that lapses waits in the stack and only the owner brings it back; "stop" always says what it stopped
     paths: [src/swift/session.py, src/swift/stops.py, overlay/src/presenter.ts, overlay/src/deck.ts, overlay/src/pane.ts, overlay/src-tauri/src/lib.rs]
-    checks: [414, 415, 416, 429, ui-fixes-1119-bd6fc8-1, ui-fixes-1119-bd6fc8-2]
+    checks: [414, 415, 416, 429, 455, 456]
   live-view:
     paths: [overlay/src/live.ts, overlay/src/views.ts, src/swift/workflows/artifacts.py]
-    checks: [10, 90-95, 126, 127, ui-fixes-1119-bd6fc8-4]
+    checks: [10, 90-95, 126, 127, 458]
   apps:
     rule: Swift writes into apps when the owner's own words asked, otherwise after asking them
     paths: [src/swift/desktop/*, src/swift/workflows/desktop_tools.py, src/swift/workflows/owner_address.py, src/swift/workflows/library/research-into-word/*]
@@ -149,7 +149,7 @@ areas:
     checks: [77-80, 110, 120, 147]
   engine:
     paths: [src/swift/system/control.py, src/swift/captions.py, overlay/src-tauri/src/backend.rs, src/swift/backend/__main__.py]
-    checks: [engine-crashes-eac152-1, engine-crashes-eac152-2, engine-crashes-eac152-3]
+    checks: [446, 447, 448]
 
 focus:
   - checks: [380-389]

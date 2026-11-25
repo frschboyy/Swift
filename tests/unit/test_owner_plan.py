@@ -63,7 +63,10 @@ def test_the_generated_status_is_its_own_file_and_merges_as_ours() -> None:
 
 def test_the_status_file_links_each_check_in_the_checks_file() -> None:
     top, bottom = plan.render([], [], [], [], [], "abc1234", "2026-11-15")
-    assert plan.link(CHECKS["1"]) == "[1](owner-checks.md#check-1)"
+    c = next(c for c in CHECKS.values() if c.file == plan.CHECKS.name)
+    assert plan.link(c) == f"[{c.id}](owner-checks.md#check-{c.id})"
+    c = plan.Check("9", "", "", "", file=plan.ARCHIVE.name)  # a retired check links into the archive
+    assert plan.link(c) == "[9](owner-checks-archive.md#check-9)"
     page = plan.status_file(top, bottom)
     assert "## Run these first" in page and "## Where every check stands" in page
 
@@ -244,3 +247,59 @@ def test_a_focus_entry_moves_a_check_up_and_says_why() -> None:
     s = _states(checks, [], [], born={"8": "2026-11-11", "9": "2026-11-11"})
     assert [x.check.id for x in plan.run_list(list(s.values()), 1)] == ["9"]
     assert "ADR-020 asks for it" in s["9"].why
+
+
+# --- a test campaign (spikes/owner_checks/campaign.py) --------------------------------------------
+
+sys.path.insert(0, str(ROOT / "spikes" / "owner_checks"))
+import campaign
+
+cplan = campaign.plan  # campaign.py imports plan.py as `plan`: its own copy of the classes
+
+
+def _cstates(checks: dict, runs: list[dict], changes: list) -> list:
+    return cplan.assess(checks, runs, {"aaa": changes}, changes, {}, datetime(2026, 11, 12))
+
+
+def _ccheck(cid: str, section: str = "S", text: str = "1. Say it.") -> object:
+    return cplan.Check(cid, f"Check {cid}", section, text, areas=["a"], paths=["src/swift/stack.py"])
+
+
+def test_a_campaign_pass_retires_the_check_and_a_change_never_brings_it_back() -> None:
+    checks = {"1": _ccheck("1"), "2": _ccheck("2"), "3": _ccheck("3")}
+    runs = [{"date": "2026-11-09 21:55", "commit": "aaa", "source": "owner", "checks": {"PASS": ["1"]}},
+            {"date": "2026-11-09 21:56", "commit": "aaa", "source": "owner", "campaign": "c1",
+             "checks": {"PASS": ["2"], "ROUGH": ["3"]}}]
+    kinds = {s.check.id: s.kind for s in _cstates(checks, runs, [_commit("bbb", ["src/swift/stack.py"])])}
+    assert kinds == {"1": "stale", "2": "done", "3": "fixed"}
+    kinds = {s.check.id: s.kind for s in _cstates(checks, runs, [])}
+    assert kinds["3"] == "rough"  # works, not good enough: waits for a fix, not for the owner
+
+
+def test_the_campaign_queue_goes_a_section_at_a_time_and_skips_what_it_has() -> None:
+    checks = {"1": _ccheck("1", "Calm"), "2": _ccheck("2", "Urgent"), "3": _ccheck("3", "Calm"),
+              "4": _ccheck("4", "Urgent", "1. Right after check 1, say it."), "5": _ccheck("5", "Calm")}
+    runs = [{"date": "2026-11-09 21:55", "commit": "aaa", "source": "owner", "checks": {"FAIL": ["2"]}},
+            {"date": "2026-11-10 10:00", "commit": "aaa", "source": "owner", "campaign": "c1", "checks": {"FAIL": ["5"]}}]
+    states = _cstates(checks, runs, [_commit("bbb", ["src/swift/stack.py"], "Fix (check 2)")])
+    order = [s.check.id for s in campaign.queue(states, runs, "c1")]
+    assert order == ["2", "1", "4", "3"]  # the fixed failure's section first; 4 after the check it builds on; 5 had its turn
+
+
+def test_archiving_moves_a_check_and_an_emptied_section(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(cplan, "CHECKS", tmp_path / "owner-checks.md")
+    monkeypatch.setattr(cplan, "ARCHIVE", tmp_path / "owner-checks-archive.md")
+    cplan.CHECKS.write_text(
+        "# Checks\n\n### One\n\nAbout a minute.\n\n<a id=\"check-1\"></a>**Check 1**\n1. Say it.\n\n"
+        "<a id=\"check-2\"></a>**Check 2**\n1. Say more.\n\n### Two\n\nSet up.\n\n"
+        "<a id=\"check-3\"></a>**Check 3**\n1. Say it.\n\n## After the checks\n\nThe report.\n", encoding="utf-8")
+    campaign.archive(["3", "1"])
+    left, arch = cplan.CHECKS.read_text(encoding="utf-8"), cplan.ARCHIVE.read_text(encoding="utf-8")
+    assert list(cplan.parse_checks(left)) == ["2"]
+    assert "### Two" not in left and "## After the checks" in left and "About a minute." in left
+    assert {c: k.section for c, k in cplan.parse_checks(arch).items()} == {"3": "Two", "1": "One"}
+    assert "Set up." in arch and "About a minute." in arch
+    campaign.archive(["2"])
+    arch = cplan.ARCHIVE.read_text(encoding="utf-8")
+    assert [c for c, k in cplan.parse_checks(arch).items() if k.section == "One"] == ["1", "2"]
+    assert "### One" not in cplan.CHECKS.read_text(encoding="utf-8")

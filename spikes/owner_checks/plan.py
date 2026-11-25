@@ -25,18 +25,20 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from fnmatch import fnmatch
+from fnmatch import fnmatch, translate
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKS = ROOT / "docs" / "testing" / "owner-checks.md"
+ARCHIVE = ROOT / "docs" / "testing" / "owner-checks-archive.md"  # checks retired by a pass in a campaign, or as obsolete
 LEDGER = ROOT / "docs" / "testing" / "owner-checks-ledger.yaml"
 STATUS = ROOT / "docs" / "testing" / "owner-checks-status.md"
 CODE = ("src/swift/", "overlay/src/", "overlay/src-tauri/src/")
 RECENT_DAYS = 14
-VERDICTS = ("PASS", "FAIL", "PARTIAL", "RETIRED", "BLOCKED")
+VERDICTS = ("PASS", "ROUGH", "FAIL", "PARTIAL", "RETIRED", "BLOCKED")
 FINDING = re.compile(r"\b[A-Z]-\d{2}\b")
 ANCHOR = re.compile(r'<a id="check-([^"]+)"></a>')
 # A check written on a branch has a provisional id, `<branch>-<n>` ("friendly-mestorf-f4f7fb-1"), until
@@ -61,6 +63,7 @@ class Check:
     rules: list[str] = field(default_factory=list)
     paths: list[str] = field(default_factory=list)
     focus: list[str] = field(default_factory=list)
+    file: str = CHECKS.name  # owner-checks.md, or the archive once retired
 
     @property
     def num(self) -> int:
@@ -124,6 +127,10 @@ def expand(spec: list[object], known: dict[str, Check]) -> list[str]:
 
 def load(text: str | None = None, ledger: dict | None = None) -> tuple[dict[str, Check], dict]:
     checks = parse_checks(text if text is not None else CHECKS.read_text(encoding="utf-8"))
+    if text is None and ARCHIVE.exists():
+        for cid, c in parse_checks(ARCHIVE.read_text(encoding="utf-8")).items():
+            c.file = ARCHIVE.name
+            checks.setdefault(cid, c)
     led = ledger if ledger is not None else yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
     for name, area in led["areas"].items():
         for cid in expand(area["checks"], checks):
@@ -180,19 +187,35 @@ def named(c: Check, commit: Commit) -> bool:
     """The commit's message names the check, or a finding the check names."""
     if provisional(c.id) and re.search(rf"\bchecks? {re.escape(c.id)}(?![\w-])", commit.message, re.I):
         return True
-    names =re.findall(r"\bchecks? ((?:\d+[a-z]?(?:[–-]\d+)?(?:, | and )?)+)", commit.message, re.I)
-    for group in names:
-        for lo, hi in re.findall(r"(\d+[a-z]?)(?:[–-](\d+))?", group):
-            if c.id == lo or (hi and lo.isdigit() and int(lo) <= c.num <= int(hi)):
-                return True
-    return bool(c.findings & set(FINDING.findall(commit.message)))
+    ranges, findings = named_in(commit.message)
+    for lo, hi in ranges:
+        if c.id == lo or (hi and lo.isdigit() and int(lo) <= c.num <= int(hi)):
+            return True
+    return bool(c.findings & findings)
+
+
+@lru_cache(maxsize=None)
+def named_in(message: str) -> tuple[tuple[tuple[str, str], ...], frozenset[str]]:
+    """The check numbers and ranges, and the findings, a commit message names: parsed once per message,
+    since every check asks it of every commit."""
+    groups = re.findall(r"\bchecks? ((?:\d+[a-z]?(?:[–-]\d+)?(?:, | and )?)+)", message, re.I)
+    ranges = tuple(pair for g in groups for pair in re.findall(r"(\d+[a-z]?)(?:[–-](\d+))?", g))
+    return ranges, frozenset(FINDING.findall(message))
 
 
 def touches(c: Check, commit: Commit) -> bool:
     """The commit changed what the check sees: it touched code, and that code or its message is the check's."""
     if not any(f.startswith(CODE) for f in commit.files):  # docs, tests and spikes change no behaviour
         return False
-    return named(c, commit) or any(fnmatch(f, p) for f in commit.files for p in c.paths)
+    rx = paths_rx(tuple(c.paths))
+    return named(c, commit) or any(rx.match(f) for f in commit.files)
+
+
+@lru_cache(maxsize=None)
+def paths_rx(paths: tuple[str, ...]) -> re.Pattern[str]:
+    """A check's path patterns as one regex. Case-sensitive like fnmatchcase: git's paths and the ledger's are both
+    as committed, and fnmatch per file and pattern was most of plan.py's half-minute run."""
+    return re.compile("|".join(f"(?:{translate(p)})" for p in paths) or r"(?!)")
 
 
 @dataclass
@@ -213,7 +236,9 @@ LABEL = {
     "stale": "Passed, changed since",
     "passed": "Passed, nothing changed since",
     "failing": "Failed, waiting for a fix",
+    "rough": "Works, but not good enough yet: waiting for a fix",
     "passive": "Only when it happens: the report watches for it",
+    "done": "Passed in a campaign: retired to the archive",
     "retired": "Retired",
     "blocked": "Blocked",
 }
@@ -238,8 +263,10 @@ def assess(checks: dict[str, Check], runs: list[dict], since: dict[str, list[Com
         outcome = last["outcome"] if last else None
         if outcome in ("RETIRED", "BLOCKED"):
             kind = outcome.lower()
-        elif outcome == "FAIL":
-            kind = "fixed" if changes else "failing"
+        elif outcome == "PASS" and last.get("campaign"):  # type: ignore[union-attr]
+            kind = "done"  # a campaign pass retires the check: later changes don't bring it back
+        elif outcome in ("FAIL", "ROUGH"):
+            kind = "fixed" if changes else "failing" if outcome == "FAIL" else "rough"
         elif c.passive:
             kind = "passive"
         elif outcome == "PASS":
@@ -336,7 +363,7 @@ def dangling(checks: dict[str, Check]) -> list[tuple[str, str]]:
 
 def link(c: Check) -> str:
     """A link from the status file to the check in owner-checks.md."""
-    return f"[{c.id}]({CHECKS.name}#check-{c.id})"
+    return f"[{c.id}]({c.file}#check-{c.id})"
 
 
 def name(c: Check) -> str:
@@ -516,7 +543,9 @@ def append_run(run: dict) -> None:
 def compute(checks: dict[str, Check], led: dict, limit: int = 15):
     """Every check's state, the run list, the open branches, recent commits, main's head and now."""
     today = datetime.now()
-    since = {sha: commits(f"{sha}..main") for sha in {str(r["commit"]) for r in led["runs"]}}
+    # During a campaign Swift runs one build: what merged after it can't make a result stale.
+    end = str((led.get("campaign") or {}).get("commit") or "main")
+    since = {sha: commits(f"{sha}..{end}") for sha in {str(r["commit"]) for r in led["runs"]}}
     recent = commits(f"--since={today - timedelta(days=RECENT_DAYS):%Y-%m-%d}", "main")
     states = assess(checks, led["runs"], since, recent, births(), today)
     return states, run_list(states, limit), branch_view(checks), recent, git("rev-parse", "--short", "main").strip(), today
@@ -527,7 +556,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="write the run list and status to owner-checks-status.md")
     ap.add_argument("--record", type=Path, help="a file holding a pasted report.py output")
-    ap.add_argument("--set", nargs="+", metavar="ID=OUTCOME", help="the owner's verdicts: pass, fail, retired, blocked")
+    ap.add_argument("--set", nargs="+", metavar="ID=OUTCOME", help="the owner's verdicts: pass, rough, fail, retired, blocked")
     ap.add_argument("--note", default="", help="what the owner said, for --set and --record")
     ap.add_argument("--date", help="YYYY-MM-DD HH:MM of the run, for --set (default now)")
     ap.add_argument("--commit", help="the commit Swift ran, when known (default: main at the run's time)")

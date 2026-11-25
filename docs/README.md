@@ -30,7 +30,7 @@ code wins over all of them ([`CLAUDE.md`](../CLAUDE.md): specified, implemented 
 | [`architecture/ownership.md`](architecture/ownership.md) | Which module owns each responsibility (check here before adding logic) |
 | [`engineering/reliability.md`](engineering/reliability.md) | How to fix things: prove the cause, one finding per commit, fix labels |
 | [`testing/strategy.md`](testing/strategy.md) | Which test layers a change needs, and the commands |
-| [`testing/owner-checks.md`](testing/owner-checks.md), [`owner-checks-status.md`](testing/owner-checks-status.md), `owner-checks-ledger.yaml` | Real-PC checks, what to run first (generated), every result so far |
+| [`testing/owner-checks.md`](testing/owner-checks.md), [`owner-checks-status.md`](testing/owner-checks-status.md), `owner-checks-ledger.yaml`, `owner-checks-archive.md`, `campaign-ideas.md` | Real-PC checks, what to run first (generated), every result so far, checks retired by a campaign, the owner's ideas from campaigns (`strategy.md` §4.1) |
 | [`google_setup.md`](google_setup.md), [`licenses.md`](licenses.md) | Google sign-in setup; dependency licences |
 | [`../eval/routes.md`](../eval/routes.md) | Routing labels and parity scoring |
 

@@ -108,3 +108,22 @@ A pasted report carries the first 60 characters of each request ([`docs/security
 §8).
 
 The live roadmap: `docs/handoff/roadmap.md`, written to `ROADMAP.md` by `spikes/owner_checks/roadmap.py`.
+
+### 4.1 Test campaigns
+
+A campaign works through the backlog against one build, so that it shrinks (owner, 2026-11-25). The owner types
+`/campaign` (`.claude/skills/campaign/SKILL.md`). The session hands them one check at a time, then records the
+verdict, the time window and the notes with `spikes/owner_checks/campaign.py`:
+
+- **One build.** `begin` puts a `campaign:` entry (its commit) in the ledger. While it's open, `plan.py` measures
+  staleness up to that commit only. Nothing else merges into `main` until `end`, except a blocker's fix, after which
+  the campaign moves to the new build.
+- **Pass retires.** A pass needs the screen, what Swift did and the whole flow all to be good, and no FAIL in the
+  report. It moves the check's text to `owner-checks-archive.md`. Its results stay in the ledger, and a later code
+  change doesn't bring it back: changed behaviour gets a new check. `rough` (it works, but isn't good enough) and
+  `fail` stay open with the owner's note. `retired` archives a check that no longer applies.
+- **Ideas aren't checks.** What the owner would like changed goes to `docs/testing/campaign-ideas.md`. During a
+  campaign, nobody writes new checks and Swift isn't changed. The rough and failed checks and the inbox are reviewed
+  after the campaign.
+- **Evidence.** `done` runs `report.py` from the check's start and keeps the output in
+  `%LOCALAPPDATA%\Swift\campaign\<name>\` on the owner's PC. The ledger keeps the window and the file's name.

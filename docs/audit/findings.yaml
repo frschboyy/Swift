@@ -34,7 +34,9 @@
     claude/intent-phase-4-81502b, 2026-11-25; partial fix, misheard slot words): sound-alikes ("wafer") moved out
     of the grammar into the guess, so they ask and never count as the owner asking; a guessed "on" now asks too.
     Speech-recognition dead ends 10 to 6 of 25 (all 19 to 15 with the model, 33 to 27 without). A product-rule
-    change (R4, R5): needs a review by someone other than its author before merge.'
+    change (R4, R5): needs a review by someone other than its author before merge. Its review (2026-11-25) approved
+    it with conditions F1, F2, applied with F3 (the owner: guesses off means no guess, from a sound-alike either; this also
+    fixed the phase 2 gap where enabled with guesses off still guessed), F4 and F5 (no "waffle"), one commit each.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

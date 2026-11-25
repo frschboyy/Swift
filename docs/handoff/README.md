@@ -1,17 +1,20 @@
-# Swift: handoff (updated 2026-11-18)
+# Swift: handoff (updated 2026-11-25)
 
 Read this first when picking Swift up in a new session or account. The map of every other document is [`docs/README.md`](../README.md); decisions already taken are listed in [`docs/decisions/log.md`](../decisions/log.md). It holds everything still open: what's built, what's left, what the owner must run and decide, and in what order. The working rules are in [`CLAUDE.md`](../../CLAUDE.md).
 
 ## In one minute
 
-- **Swift works in tests, and has barely been used for real.** Since 2026-10-29 it was used on 4 days, and 119 of the 150 requests were one testing day. The roadmap was meant to be decided by two weeks of daily use, which hasn't happened yet.
-- **Reliability work is the current focus.** Nearly all commits since 2026-11-04 went on it. The review's items 1 to 8 are committed, and the latest ones reach real causes. Most of them have no real-PC evidence yet.
-- **The product roadmap has started, in its groundwork.** Run records (`runs.py`), the memory store (`memory.py`), `WorkerTask` and the step grant are built (§4, step 3); the rest is open. The full check of every decision against the code is [`status-review-2026-11-14.md`](../archive/2026-11-14-sessions/status-review-2026-11-14.md).
-- **The Deck's Step 1 is on `main` (merged 2026-11-07) and hasn't been run on the real PC** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). The owner asked for it before the short checks. Two things wait on them: whether to keep it (it adds more lines than it removes, and undoing it now means reverting it on `main`), and what the review of its backend change left for them (ADR-018 §4.1): a request said beside a working card now stays behind it, which changes what a plain "stop" reaches.
-- **Log privacy is fixed in the code and unproven on the PC.** X-03, X-04, X-05 and X-19 are on `main`. Swift needs a restart to use them.
-- **Next:** restart Swift, run the short real-PC checks, then use Swift daily for two weeks (§3 and §4). X-17 is fixed, so the cards you approve show the whole change.
+- **The code is well ahead of what's been checked on the real PC.** Most fixes since 2026-11-13 are merged and waiting for their owner checks (`ROADMAP.md`'s "Next up": every re-run group is at 0 passed, mostly because the code changed after it failed). The owner's runs so far: 2026-11-13 (two), 2026-11-14 (both PCs) and 2026-11-18 22:03 to 00:26 (checks 1–4 passed; its items drove the 2026-11-24 merges).
+- **Daily use started on 2026-11-13** (usage report, 2026-11-25): 227 requests on 8 days, much of it testing; answered by Swift 24%, done cleanly 65%, agent p50 12.4 s, $1.57. The weekly report hasn't been pasted yet.
+- **Halo is Swift's only look** (ADR-019 §10, merged 2026-11-18): no switch, no `VITE_SWIFT_LOOK`. The Halo B8 build is merged (`docs/handoff/halo-b8/PROGRESS.md`), and so are pins, History, Expand/Minimize and the stack's Cancel (2026-11-24, ADR-018 §6a, ADR-019 §11).
+- **The foundation decisions** (accepted 2026-11-15): 1–6, 8 and 10 are built, owner checks not run; 7 (deleting) and 9 (paying) apply when W2 file tools and C2 are built ([`action-authority.md`](../product/action-authority.md) §5).
+- **Merged 2026-11-25:** IA-01 phases 0–4 (a system action asked for in other words gets Swift's own question instead of dead-ending; [`intent-architecture.md`](../explorations/intent-architecture.md)) and the executor fixes EX-01 to EX-04.
+- **The groundwork is half built** (§4, step 3): run records, the memory store, `WorkerTask` and the step grant are in; the `session.py` split, settings in Swift's own store (product-direction §6.3), quiet modes and B-05 are not.
+- **The Deck's Step 1 is on `main` (merged 2026-11-07); its checks haven't passed yet** ([ADR-018](../decisions/ADR-018-the-deck.md) §4.1). Whether to keep it is still the owner's call (it adds more lines than it removes).
+- **A known red test on `main`:** `test_lint_gate.py::test_noqa_count_does_not_grow` fails since `6f65cdf` (2026-11-19, crash.log) added a 79th `noqa` (limit 78). Fix it separately.
+- **Seen in `swift.log` on 2026-11-25:** "local classifier unavailable": the local classifier didn't load on this PC, so keywords set demand and Swift makes none of IA-01's guesses (sound-alikes like "wafer" still ask). Cause not checked.
+- **Next:** run the "Run these first" list and paste the report, keep using Swift daily, paste the weekly usage report (§3).
 
-- **The owner's check 185 (2026-11-07) found six problems in voice and side-by-side requests.** Causes and fixes are in [`2026-11-07-voice-and-requests.md`](../audit/2026-11-07-voice-and-requests.md), merged to `main` and not run on the real PC. Swift's replies are off by default, apart from "Hello". Why checks 191–197 still failed is in [`2026-11-08-interaction-investigation.md`](../audit/2026-11-08-interaction-investigation.md), which led to [ADR-020](../decisions/ADR-020-one-record-per-conversation.md). A branch is trialling whether Swift gets a dedicated wake model (§6).
 - **§6 lists the work that isn't on `main` yet.** Every session reads §6 before it starts, and adds its own branch there. `plan.py --next-id` gives a new owner check its id.
 
 - **Three workstreams** (owner, 2026-11-13): task orchestration and state, adaptive UI and UX, agent autonomy. Every item from the owner's run, with its checks and what's known, is in [`workstreams.md`](workstreams.md); `roadmap.md` tracks them.
@@ -27,7 +30,7 @@ Read this first when picking Swift up in a new session or account. The map of ev
 | Speech | Local speech-to-text (parakeet), wake listening, the room-relative noise gate, Swift speaks (Windows voices) | `docs/stt-*.md`, ADR-016 §15 |
 | Actions | Gateway with confirm cards and undo; calendar (look, change, cancel, Meet links); Gmail drafts written as the owner; Google Contacts | ADR-010, ADR-011 |
 | Attention | Up to 3 requests at once, presence, held cards, the waiting stack, typing to Swift | ADR-013, ADR-014, ADR-015 |
-| Overlay | Capsule redesign (dark and light, tray panel, pause listening, speaking state), live view | ADR-017, `docs/design/swift-overlay/` |
+| Overlay | Halo, the only look since 2026-11-18 (glass cards growing from the orb, dark and light, the tray panel, pause listening, the watch as a monitor, docked or mini); the Deck; pins, History, Expand/Minimize (2026-11-24) | ADR-019 §10–11, ADR-018, `docs/design/halo-system/`, `docs/handoff/halo-b8/` |
 | Dialogue | Swift asks for what's missing, the question card, carry-over, end of speech | ADR-016 §16 |
 | Recordings | Saved recordings that improve hearing (7-day loop) | `src/swift/stt/recordings.py`, [`privacy.md`](../security/privacy.md) |
 | Sign-ins | Google's and Claude Code's sign-ins checked at start-up, daily and when refused, with a card to sign in again | `swift/signin.py`, owner checks 120–123 |
@@ -51,18 +54,13 @@ Read this first when picking Swift up in a new session or account. The map of ev
 | 7 | Swift's own questions belong to a live request (prototype kept: `session.py` +110, −385) | `79c3318` |
 | 8 | A due item is never refused: it waits in the stack | `fdfdb23` |
 
-**Measured on `main` at `9c07c33` (2026-11-06):**
+**Measured on `main` at `08a4310` (2026-11-25):**
 
 | Suite | Result |
 |---|---|
-| Python | 1,539 passed, 1 skipped, 12 expected failures (open findings, §2) |
-| Overlay | 89 passed, 1 todo (O-03); `tsc` clean |
-| Routing parity | 413/423 (97.6%), 0 harmful; the 10 misses are the web lane |
-| Rust | Not rerun; 30 passed at `ab09f51` |
-
-**Measured on the Deck's branch before it merged (2026-11-07):** Python 1,599 passed, 1 skipped, 12 expected failures; overlay 112 passed, 1 todo (O-03), `tsc` clean; Rust 29 passed; routing parity 413/423, 0 harmful.
-
-**Measured with X-17's fix (2026-11-07):** Python 1,637 passed, 1 skipped, 12 expected failures; overlay 115 passed, 1 todo (O-03), `tsc` clean. Rust and routing parity not rerun: neither is touched. One earlier full run had a single failure that didn't come back and wasn't identified, so a flaky test is possible.
+| Python | 2,906 passed, 1 failed (`test_lint_gate.py::test_noqa_count_does_not_grow`: 79 `noqa`, limit 78, since `6f65cdf`), 1 skipped, 27 expected failures (open findings) |
+| Overlay | 192 tests: 191 passed, 1 todo (HA-UI-05, an open finding); `tsc` clean |
+| Rust, routing parity | Not rerun; at the B8 merge (2026-11-18): Rust 46 passed, parity 413/423 (the 10 misses are the web lane) |
 
 **Limit of these tests:** the seam test reaches the real presenter and the Deck's order but not the DOM or Tauri, and it replays one way only (`test_seam_replay.py`). The harness now draws other requests as the app does, so frames replayed there show the same edges, but it still has no pane windows. Green tests have coexisted with bad days on the real PC before.
 
@@ -103,7 +101,7 @@ Glob and Grep only (X-20, safeguard merged; the root fix is a shell that can't o
 
 - **The overlay can still refuse a frame silently.** `presenter.ts:273–277` declines frames and the backend isn't told. Only due cards have an acknowledgement. Frames also go out through two doors (`_send`, `_raw_send`) and fire-and-forget tasks, and each countdown runs on both sides (T-08). The planned fix is review item 9, in §4.
 - **Speech acceptance is tuned incident by incident.** The review's M4 counts eight commits with no proven cause. The improvement pass now reports a sentence that was right and went wrong (W-03, merged 2026-11-13), on the owner's own test set. The read and noisy corpora are checked by `eval/stt/gate.py` (merged 2026-11-13), to run before and after any change to speech recognition. Unsafe word fixes can still be proposed (W-01, W-02). Saying "no" over Swift's voice has four failing tests (V-02). A misheard single word reaches the agent again until a bar is scored on saved clips (item 5).
-- **`session.py` is 4,975 lines** (2026-11-18), up from 4,401 when the split was agreed. New work goes in small modules.
+- **`session.py` is 4,965 lines** (2026-11-25), up from 4,401 when the split was agreed; `test_structure_ratchet.py` stops it growing. New work goes in small modules.
 
 ### Not understood yet
 
@@ -160,27 +158,27 @@ Set on 2026-11-06 from the seams audit, the reliability review and the product d
 
 - **a. Product-rule and safety gaps** (§2): done 2026-11-10, X-17 to X-08.
 - **b. Owner checks for items 3 and 7:** done 2026-11-10, checks 212 and 106.
-- **c. The short real-PC checks,** then fixes for what fails (§3).
-- **d. Two weeks of daily use** (§3 step 4). Its numbers decide what comes after the groundwork.
-- **e. The light lane (R-07):** retire it unless the owner wants it retargeted (seams decision 2).
+- **c. The short real-PC checks,** then fixes for what fails (§3). Under way: runs on 2026-11-13, 11-14 and 11-18; most re-runs are due again because their code changed (`ROADMAP.md`).
+- **d. Two weeks of daily use** (§3 step 4), started 2026-11-13: 8 days used by 2026-11-25. Its numbers decide what comes after the groundwork.
+- **e. The light lane (R-07):** done. The owner chose on 2026-11-18: off until retargeted at thread questions, "try again" and small talk, with no warm CLI while off (`executor.quick_answers: false`).
 
 **While the owner uses Swift**
 
 - **f. Speech:** the per-sentence check (W-03) is done (merged 2026-11-13). Word fixes were removed on 2026-11-17 at the owner's request (rigid, context-free rewrites), which closes W-01 and W-02. Any change to a confidence bar is scored on the owner's saved clips. Prove the cause of wake after idle before another fix.
-- **Context-aware speech** ([`context-aware-speech.md`](../explorations/context-aware-speech.md), merged 2026-11-13): an investigation with measurements, not an ADR. Its step 1 (the speech gate and fairer scoring) is built. Step 2, a monitor that flags and never rewrites, waits for the owner's yes on the labelling card (seams decision 7); step 3 needs their OK for one model download.
+- **Context-aware speech** ([`context-aware-speech.md`](../explorations/context-aware-speech.md), merged 2026-11-13): an investigation with measurements, not an ADR. Its step 1 (the speech gate and fairer scoring) is built. Step 2, a monitor that flags and never rewrites, can start: the owner said yes to the weekly labelling card on 2026-11-18 (seams decision 7), and the card isn't built yet. Correcting what Swift heard on one clip is built (`83376f1`, `stt/recordings.py`). Step 3 needs their OK for one model download.
 - **g. Review item 9: one versioned screen snapshot** (first half merged: the acknowledgement of what was drawn, `6aadae9`, and one clock for a card's countdown, `f0970e6`; the versioned snapshot itself is not built), derived from the existing owners and acknowledged when drawn. Decide on the ledger here: build it only if new failures still come from holders disagreeing, so use what daily use shows. Prototype on a branch and keep it only if it removes more than it adds.
 - **h. Review item 11:** one table of lifetimes. Cheap; no reproduced failure depends on it.
 - **The Deck ([ADR-018](../decisions/ADR-018-the-deck.md)),** the owner's chosen direction for how requests share the screen (2026-11-06). **Step 1 is on `main` (merged 2026-11-07).** It's overlay only apart from what takes the front (ADR-018 §4.1), and the owner approved it going before g, a deliberate departure from the review's order. The owner first timed it after the short checks (c). On 2026-11-07 they asked for it before them, since they couldn't run the checks then, so the checks no longer test the reliability fixes alone. Daily use (d) still happens on the screen that stays. Step 2 needs g.
-- **Halo ([ADR-019](../decisions/ADR-019-halo-design-system.md)),** the owner's chosen look and design system (2026-11-07), replacing the Capsule's look and keeping the Deck. Design: [`docs/design/halo-system/`](../design/halo-system/); the finished Step A/B brief is archived ([`brief-halo.md`](../archive/briefs/brief-halo.md)). **Step A** (a dev-only look switch, so the owner can check Halo on the real PC) is on `main` (merged 2026-11-10) and not yet seen on the real PC: start it with `$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev`, or `?look=halo` in the harness. The release bundle is byte-identical to `main`'s. Owner checks 216–221 are waiting; what they find goes in ADR-019 §8. **Step B** (one card renderer, no new features) is on `main` (merged 2026-11-14, checks 305–306; `overlay/src/card.ts`). N2 (`origin` in the protocol) is built with run records (`abc1f1f`). ADR-019 §8's six items are not built. ADR-019 also added a product rule to `CLAUDE.md`: deleting a file always asks.
+- **Halo ([ADR-019](../decisions/ADR-019-halo-design-system.md)),** the owner's chosen look and design system (2026-11-07), replacing the Capsule's look and keeping the Deck. Design: [`docs/design/halo-system/`](../design/halo-system/); the finished Step A/B brief is archived ([`brief-halo.md`](../archive/briefs/brief-halo.md)). **Halo is the only look** since 2026-11-18 (ADR-019 §10): the dev-only switch of Step A (`VITE_SWIFT_LOOK`, `?look=`) is deleted, in debug and release builds. Start Swift as usual; owner checks 216–221 run on it. Step B (one card renderer) merged 2026-11-14 (checks 305–306). The **B8 build** merged 2026-11-18: ADR-019 §8's items (§8.1 partial: no "Removes"), B3–B7, B9–B11, B13, B14, the A-ideas behind `explore.*` and "ask me about everything"; what's built, partial and blocked is in [`halo-b8/PROGRESS.md`](halo-b8/PROGRESS.md). Pins, History, Expand/Minimize and the stack's Cancel merged 2026-11-24 (ADR-019 §11). Several B8 items are product-rule changes waiting for another author's review (PROGRESS.md, "Review flags"). ADR-019 also added a product rule to `CLAUDE.md`: deleting a file always asks.
 - **The interaction layer** ([`interaction-layer.md`](../explorations/interaction-layer.md), 2026-11-10): an exploration, not decided, of Swift as several surfaces beside Windows rather than one overlay. It has nine decisions for the owner before an ADR, and nothing in it should be built before g and d. Its spikes S1 and S2 are mostly answered in [`desktop-choreography.md`](../explorations/desktop-choreography.md) (spikes: `spikes/desktop/card_origin.py`, `spikes/desktop/card_overlay/`).
 - **i. After g:** the timer widget and the Deck's Step 2. **Last:** the owner-checks rewrite, as a fresh baseline.
 
-**3. Groundwork.** Mostly built (2026-11-14: run records, the memory store, `WorkerTask` and the step grant, N2); not built: the `session.py` split (in progress on its own branch) and ADR-014 L3. No behaviour change the owner should notice:
+**3. Groundwork.** Half built (2026-11-14: run records, the memory store, `WorkerTask` and the step grant, N2). Not built: the `session.py` split (no branch now; `.claude/stale-wip/2026-11-15/serene-sanderson-27dd51.patch` has a first step against an older `session.py`; only `AutoEnd` moved out, to `endpoint.py`, 2026-11-24), settings in Swift's own store (product-direction §6.1, §6.3) and ADR-014 L3 (call detection exists only as the off-by-default `explore.hold_during_calls`, `calls.py`). No behaviour change the owner should notice:
 
 - split `session.py`: run launching, follow-ups, workflows and the local lanes into their own modules;
 - **run records:** one append-only event log per run (steps, tool calls, approvals, artifacts, which worker and why), generalizing the action journal; the interaction log becomes a view of it;
 - **a settings and memory store** owned by Swift, separate from `config.yaml` (which still wins), every record with its source (said, approved, inferred), plus "remember", "forget" and "what do you know about me". Keep it safe as in product-direction §5.5: only the owner's words or an approved card write memory, only Swift's backend writes it, every change versioned with its run. The review job that proposes patterns from run records is §5.6;
-- **a `WorkerTask` contract:** executors take the request, a context pack Swift builds, the grant, a budget and a privacy class; a contract test runs the same tasks on the mock and on Claude Code. Built on `claude/beautiful-chandrasekhar-b67eea`: `start(WorkerTask)` replaced `start(request, demand, override)`, and `tests/unit/test_worker_task.py` is the contract test. The `Grant` is modelled for B2 and Claude Code acts on it since 2026-11-14 (`executors/step_grant.py`: one approval covers a step's listed commands; deletes, sends and unknown commands still ask). Only Claude Code reads the privacy class, refusing `"local"`;
+- **a `WorkerTask` contract:** executors take the request, a context pack Swift builds, the grant, a budget and a privacy class; a contract test runs the same tasks on the mock and on Claude Code. Built (merged 2026-11-14): `start(WorkerTask)` replaced `start(request, demand, override)`, and `tests/unit/test_worker_task.py` is the contract test. The `Grant` is modelled for B2 and Claude Code acts on it since 2026-11-14 (`executors/step_grant.py`: one approval covers a step's listed commands; deletes, sends and unknown commands still ask). Only Claude Code reads the privacy class, refusing `"local"`;
 - **ADR-014 L3:** quiet modes and call detection;
 - **B-05** is worth fixing here: it shows in daily use.
 
@@ -262,13 +260,13 @@ After the adaptive UI sequence in [`workstreams.md`](workstreams.md), a separate
 | 2 | Idle capsule dot: tray option to hide it? | Shown; suggest adding the option |
 | 3 | Pause card countdowns after 60 s without input? | No (a card that runs out goes to the stack) |
 | 4 | "Show in Word" on long answers? | Later |
-| 5 | Timer card with its length and "+5 min" snooze? | Not yet; suggest yes (small scheduler change) |
+| 5 | Timer card with its length and "+5 min" snooze? | Built (B14, 2026-11-18): a running timer on the orb, "+5 min" on its Due card |
 | 6 | Question window 20 s (design) or 25 s? | 25 s |
 | 7 | Hotkey works while listening is paused? | Yes |
 | 8 | Chime when a confirm card appears? | Not yet; suggest yes |
 | 9 | "via Claude Code" line on confirm cards? | No |
 | 10 | Voice: Windows voices or Piper? | Windows voices; Piper after the listening test (`spikes/tts/voice_test.py`, not run by the owner yet) |
-| 11 | When Swift speaks | Only when spoken to (`speech.replies: auto`) |
+| 11 | When Swift speaks | Never: answers on cards only, apart from "Hello" (`speech.replies: never`, owner 2026-11-07); the tray's "Speak answers" changes it on this PC |
 | 12 | Mic opens by itself after Swift asks a question | Yes (Phase C) |
 | 13 | Continuous conversation mode | No: one exchange at a time |
 | 14 | Power actions | Lock by voice; sleep, restart and shut down only on a card |
@@ -297,23 +295,16 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 
 ## 6. Branches, sessions and folders
 
-**Checked 2026-11-18** against `git branch --no-merged main`. Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
+**Checked 2026-11-25** against `git branch --no-merged main`. Keep this table current: a session that starts a branch adds a row, and the session that merges it removes the row.
 
 | Branch | What | State |
 |---|---|---|
-| `claude/halo-b8` | Halo B8 handoff: build spec, fixes, verify plan, tokens, boards 1–9, the live UI loop (`docs/testing/live-ui-loop.md`) | Open (2026-11-18) |
-| `claude/halo-b8-build-4fbdf7` | Halo B8 build | Open (2026-11-18); changes `owner-checks.md` and the ledger |
-| `claude/halo-b8-gaps-6b8791` | Halo B8 gaps, B7 motion | Open (2026-11-18); changes `owner-checks.md` and the ledger |
-| `claude/intent-architecture-3011f9` | Investigation: why a request in other words dead-ends (IA-01), the intent eval set (`eval/intent/`), and the proposal `docs/explorations/intent-architecture.md`. No product code. Built on `claude/keen-moser-4e5a0c` (`7d83958`, the verb-list fix) | Open (2026-11-24); decisions in the doc's §7 |
-| `claude/typed-enter-fix` | Text box: typed text then Enter never presses the card's button | Open (2026-11-18) |
-| `claude/a12-c9-followup` | Docs: the follow-up order for A12 and C9 | Open (2026-11-16) |
-| `claude/docs-consolidation` | This documentation clean-up (`docs/audit/2026-11-18-docs-audit.md`) | Owner: merge after the Halo B8 branches (2026-11-18); merge `main` in first |
-| `claude/ui-fixes-1119-bd6fc8` | Screen fixes from the owner's run of 2026-11-18: footer, A10 removed, lapsed OK only in the stack, reopened OK's End, Watch for longer work, stack scroll | Open (2026-11-24); changes `session.py`, `owner-checks.md` and the ledger (checks `455` to `-5`; 442 retired) |
-| `claude/listening-feedback-3bb7ab` | Items 1, 4, 14, 15 of the 2026-11-18 run: the wake-miss diagnosis (`docs/audit/2026-11-18-wake-misses.md`), the orb reacting to the owner's voice at rest, the card's mic button and Space | Open (2026-11-24); changes `owner-checks.md` and the ledger; `card_mic.py` is a product-rule change waiting for another author's review |
-| `claude/cards-stack-design-5fec91` | Owner items 3, 5, 9, 10, 11 (2026-11-24): pins, History, Expand/Minimize, the stack's Cancel, no layout shift on hover; design in `docs/explorations/2026-11-23-pins-history-cards.md` | Open (2026-11-24); owner checks `460`–`6`; changes `owner-checks.md`, the ledger and the protocol (`stack.action` pin/unpin, `stack` pins/history, `history`) |
+| `claude/phase3-review-1cfc51` | Review scratch for IA-01 phase 3 (one commit, "not for merge") | Can be deleted with the owner's OK |
+| `claude/intent-phases-3-4` | IA-01 phases 3 and 4 joined; its one extra commit fixes the grant test's scope leak, which `main` fixed its own way (`e1ac559`) | Can be deleted with the owner's OK |
+| `claude/dazzling-curie-f61a88` | ADR-019 §8.4's sender; its commit is on `main` (`git cherry` finds no new change) | Can be deleted with the owner's OK |
 | `backup/wake-porcupine-trial-pre-rebase` | A backup of the wake trial before its rebase (ADR-021) | Kept on purpose |
 
-Merged since the last check, rows removed: `claude/b4-diagram-902ffc` (B4 step 4; owner checks 404–407 still pending) and `claude/byline-no-provider`. Several worktrees under `.claude/worktrees/` still hold branches that are already merged; they can be removed with the owner's OK.
+Every branch the 2026-11-18 table listed (Halo B8 and its gaps, the intent architecture, the typed-Enter fix, A12/C9, the docs consolidation, the 11-19 UI fixes, listening feedback, cards and stack) is merged. Many worktrees under `.claude/worktrees/` still hold merged branches; they can be removed with the owner's OK.
 
 **Cleaned up on 2026-11-15 (owner's OK):** every other local branch and worktree.
 - `claude/audit-fixes-google-calendar` and `claude/audit-fixes-recipients` (the second is inside the first) were

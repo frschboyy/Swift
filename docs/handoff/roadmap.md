@@ -48,18 +48,18 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 
 - [ ] B1. An approval card says in a plain sentence what it does and why; the command folds underneath. <!-- checks: 199 -->
 - [ ] B2. Fewer approvals: one grant for a coherent step of a task (decided: one approval per step, its commands listed; anything irreversible keeps its own card; after the grant).
-- [ ] B3. Working, waiting for you, waiting for an OK, doing and failed each look different. <!-- checks: 206, 218 -->
-- [ ] B4. Results laid out to fit them (decided: Swift chooses how each result is shown, visually and in words, from what it is; free tools as needed; Halo Step B first).
-- [ ] B5. Cards grow when the content needs it, up to a limit that never covers your work, and expand by hand (decided: both).
-- [ ] B6. The watch and working views each have their own look (decided: study first: a separate card or not; a technical feel, or a visual one that shows the email or deck being built).
-- [ ] B7. Motion you can see (decided: slower transitions; the grow-from-the-orb version tried in the harness before you choose). <!-- checks: 221 -->
-- [ ] B8. Your pen.dev prompt that extends Halo.
-- [ ] B9. The watch docked as a sidebar or mini sidebar, at a corner or edge (not decided). <!-- checks: 305 -->
-- [ ] B10. The watch stays connected to its request: the card doesn't go while it's open. <!-- checks: 305 -->
-- [ ] B11. Progress or animation in the watch. <!-- checks: 305 -->
-- [ ] B12. "Open answer" leads back to the answer. <!-- checks: 305 -->
-- [ ] B13. File lists shown as a tree. <!-- checks: 305 -->
-- [ ] B14. A discreet running-timer indicator, perhaps in the stack. <!-- checks: 305 -->
+- [ ] B3. Working, waiting for you, waiting for an OK, doing and failed each look different (Halo B8; verified in grayscale in the harness). <!-- checks: 206, 218, 417 -->
+- [ ] B4. Results laid out to fit them: tables, comparisons, diagrams, previews, charts, project cards (built; the worker's pick on charts). <!-- checks: 404-407, 433 -->
+- [ ] B5. Cards grow when the content needs it, and expand by hand: built, then changed on 2026-11-24 to a scrolling card with Expand into a workspace and Minimize (ADR-019 §11). <!-- checks: 419, 464, 465 -->
+- [ ] B6. The watch has its own look: a monitor with its steps and a console line (built; no "of 6 · about 1 min left"). Watch is offered only once a request has taken two steps. <!-- checks: 458 -->
+- [ ] B7. Motion you can see: cards grow from the orb, fold, drain; the tail settles last (built). <!-- checks: 221, 420 -->
+- [x] B8. Your pen.dev prompt that extends Halo: written (`docs/design/halo-system/b8-pen-prompt.md`), and the B8 build from it merged 2026-11-18.
+- [ ] B9. The watch docked on the orb's edge, or mini in a corner; the Dock button cycles them (built). <!-- checks: 440 -->
+- [ ] B10. The watch stays connected to its request: the card holds while it's open, one clock (built, partial: no tether). <!-- checks: 305 -->
+- [ ] B11. Progress in the watch: its steps, "Step N" (built with B6). <!-- checks: 305 -->
+- [ ] B12. "Open answer" leads back to the answer (blocked after a restart: needs the answer from the run record). <!-- checks: 305 -->
+- [ ] B13. File lists shown as a tree, with Open, Show in folder and arrow keys (built). <!-- checks: 436 -->
+- [ ] B14. A running timer on the orb and in the stack, "+5 min", "done" / "5 more" said (built). <!-- checks: 421, 432 -->
 
 **C. Agent autonomy: working out how to reach a goal, inside the product rules**
 
@@ -76,7 +76,7 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 ## Next week, when you have 15 minutes each
 
 - [ ] The second way in for "Hey Swift": set `wake.acoustic: true` in `config.yaml`, restart, and run these (ADR-021). <!-- checks: 228-232 -->
-- [ ] The Halo look: start with `$env:VITE_SWIFT_LOOK = "halo"; npm run tauri dev`, and say what you think (ADR-019 §8). <!-- checks: 216-221 -->
+- [ ] The Halo look, now the only look: start Swift as usual and say what you think (ADR-019 §8, §10). <!-- checks: 216-221 -->
 - [ ] Listen to the two voices and choose one (decision 10): `uv run python spikes/tts/voice_test.py`.
 
 ## Weeks 1 to 3: use Swift for real, every day (handoff §4 d)
@@ -87,9 +87,9 @@ Every item, with what's known, is in [`workstreams.md`](workstreams.md). A line 
 
 While you use it, Claude works on (handoff §4 f–h, nothing you need to run):
 
-- [ ] Speech: the per-sentence check (W-03) before any more tuning. (Word fixes were removed on 2026-11-17.)
+- [x] Speech: the per-sentence check (W-03), merged 2026-11-13; any more tuning is scored on your saved clips. (Word fixes were removed on 2026-11-17.)
 - [ ] Prove the cause of wake misses after idle before another fix.
-- [ ] Context-aware speech ([`context-aware-speech.md`](../explorations/context-aware-speech.md)): step 1 is done; say yes or no to the weekly labelling card (seams decision 7) so step 2, the monitor, can start.
+- [ ] Context-aware speech ([`context-aware-speech.md`](../explorations/context-aware-speech.md)): step 1 is done; you said yes to the weekly labelling card (seams decision 7, 2026-11-18), so step 2, the monitor, can start; the card isn't built yet.
 - [ ] Review item 9: one versioned screen snapshot, kept only if it removes more code than it adds.
 - [ ] Review item 11: one table of lifetimes.
 

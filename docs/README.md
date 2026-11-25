@@ -41,7 +41,7 @@ code wins over all of them ([`CLAUDE.md`](../CLAUDE.md): specified, implemented 
 | [`handoff/roadmap.md`](handoff/roadmap.md) | The plan for the coming weeks (source of `ROADMAP.md`) |
 | [`handoff/workstreams.md`](handoff/workstreams.md) | Items A1–A12, B1–B14, C1–C9 with their checks and status |
 | [`audit/findings.yaml`](audit/findings.yaml) | **The one register of known problems** (open, partial, unproven, fixed); `test_findings_register.py` keeps it honest |
-| [`design/`](design/) | Current design work: Halo (`halo-system/`, with `b8-pen-prompt.md`), B4 results, B6 live view, heard corrections; `swift-overlay/` is the Capsule spec, still the look that ships |
+| [`design/`](design/) | Current design work: Halo (`halo-system/`, with `b8-pen-prompt.md`), B4 results, B6 live view, heard corrections; `swift-overlay/` is the older Capsule spec (Halo has been the only look since 2026-11-18; the Capsule's behaviour notes still apply where ADR-018/019 don't change them) |
 | [`explorations/`](explorations/) | Studies and proposals. Each says in its status line whether it's decided; undecided ones are listed in handoff §4 or §5 |
 
 ## 5. Evidence and reasoning (dated, kept as written)

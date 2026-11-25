@@ -1843,7 +1843,7 @@ The report checks: a yes went ahead with what it sounded like.
 
 ### The Halo look, before anything is built (ADR-019 Step A, `SPEC.md` §15, 2026-11-07)
 
-About 15 minutes. Nothing here has been seen on your screen: these checks decide whether Halo goes ahead as drawn. Say what you think, not only whether it passes, and click **Reject** on any card. Only the look changes: Swift behaves as it does today, and a release build never shows it.
+About 15 minutes. Written before Halo was built, to decide whether it went ahead as drawn; it has since become the only look, so these checks now say whether it reads well on your real screen. Say what you think, not only whether it passes, and click **Reject** on any card.
 
 Halo has been Swift's only look since Step B (2026-11-18): start Swift as usual, no setting needed.
 

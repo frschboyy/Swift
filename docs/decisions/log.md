@@ -12,6 +12,13 @@ owner check. The product rules in force are in [`CLAUDE.md`](../../CLAUDE.md) an
 
 | Date | Decision | Where it's written |
 |---|---|---|
+| 2026-11-25 | IA-01: rules R4 and R5 (a yes to Swift's guess approves that action only; a learned example only makes Swift ask); guesses off means no guess, a sound-alike's too | [`intent-architecture.md`](../explorations/intent-architecture.md) phase 4, [`action-authority.md`](../product/action-authority.md) |
+| 2026-11-25 | Settings: `config.yaml`'s keys split into owner, permission-widening and development; the precedence problem (proposal, not built) | [`product-direction.md`](../explorations/product-direction.md) §6.3 |
+| 2026-11-24 | Pins (several, on a shelf), History (a sidebar replacing Earlier today), Expand/Minimize (replacing Show all), the stack's Cancel asked in place | [ADR-018](ADR-018-the-deck.md) §6a, [ADR-019](ADR-019-halo-design-system.md) §11 |
+| 2026-11-24 | A10 "What can I say?" removed (the owner doesn't want it) | owner-checks ledger, 2026-11-24 11:58; check 442 retired |
+| 2026-11-18 | Halo is the only look, in debug and release, with no switch; the old look deleted | [ADR-019](ADR-019-halo-design-system.md) §10 |
+| 2026-11-18 | Seams decisions 2 and 4–8 (light lane off until retargeted, the capsule click opens the text box, echo cancellation as an off-by-default trial, "Read more" answers stay, a weekly labelling card, daily use on the Vite dev server); X-17's card limit; HA-HEAR-01, HA-UI-01, OCT-01, B-10; Halo B8 D1–D12 | [handoff](../handoff/README.md) §5, "Answered" |
+| 2026-11-18 | Learned trust (modes §1) removed after an independent review rejected it; "ask me about everything" turned off by speech only | [`halo-b8/PROGRESS.md`](../handoff/halo-b8/PROGRESS.md) |
 | 2026-11-17 | Word fixes removed (rigid, context-free rewrites); closes W-01, W-02 | handoff §4 f, `findings.yaml` |
 | 2026-11-15 | The 14 foundation decisions: one approval model (levels 0–3), typed words never approve, gestures, addresses asked about, recipients from the owner's words, Recycle Bin vs permanent delete, reason codes in `swift.log`, paying by gesture only, `intake.approves` the one decider, provisional check ids, `git bundle` between PCs | [`foundation-rules-review.md`](../explorations/foundation-rules-review.md) §7, [`action-authority.md`](../product/action-authority.md) |
 | 2026-11-15 | `CLAUDE.md` slimmed, detail split into product, engineering, testing, security and architecture documents | [`claude-md-split.md`](../archive/adopted-proposals/claude-md-split.md) (archived) |

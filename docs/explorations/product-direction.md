@@ -14,6 +14,8 @@ The owner asked for a critical look at Swift as a product, not only as code: wha
 
 ## 1. What exists today (audit)
 
+As of 2026-10-28, kept as written. What exists now is in the handoff ([`docs/handoff/README.md`](../handoff/README.md) §1).
+
 ### 1.1 Built, on `main`
 
 | Area | What is built | Where |

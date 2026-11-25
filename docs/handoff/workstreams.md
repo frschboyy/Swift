@@ -1,6 +1,6 @@
 # Three workstreams (from the owner's run of 2026-11-13)
 
-**Statuses rechecked against `main` on 2026-11-18** (branch names replaced by their merge commits). The owner's decisions in the last two sections are also indexed in [`docs/decisions/log.md`](../decisions/log.md).
+**Statuses rechecked against `main` on 2026-11-18; the B rows again on 2026-11-25** (after the Halo B8 merge of 2026-11-18 and the cards-and-stack merge of 2026-11-24; what each B8 commit built, left partial or found blocked is in [`halo-b8/PROGRESS.md`](halo-b8/PROGRESS.md)). The owner's decisions in the last two sections are also indexed in [`docs/decisions/log.md`](../decisions/log.md).
 
 The owner's run of 2026-11-13 (10:05 and 13:37) failed more than a list of checks. Its failures share three causes
 underneath, so they're tracked as three workstreams. Each item names what the owner saw, the checks that prove it,
@@ -47,18 +47,18 @@ How results and requests look. Mostly design for the owner, built on Halo (ADR-0
 |---|---|---|---|---|
 | B1 | An approval card leads with a plain sentence: what it will do, why, what comes of it; the command folded underneath | 238, 199, 263, 264 | design, then code | **Built** (`bce7b36`, `2b1003b`; merged 2026-11-14) as decided (below): the agent's own sentence leads, marked as the agent's; the command's first line always shows, only the rest folds. Checks 263–264 wait |
 | B2 | Fewer approvals: one task's commands grouped, with one grant for a coherent step | 238, 300–302 | design + architecture | **Built** on the `WorkerTask` grant (`59d7f37`, `f64f4a2` root, `2897e94` safeguard; merged 2026-11-14): one approval covers a step's commands, listed on B1's card; deletes, sends and unknown commands still ask. Checks 300–302 wait |
-| B3 | Distinct looks for working, waiting for an answer, waiting for an OK, doing, failed or timed out | 206, 211, 218 | design + defect | Shares its defect with A2; Halo has the colours (218 passed), the states must be truthful first |
-| B4 | Results laid out to fit: tables, comparisons, project cards, real diagrams, document previews | 238 | design + capability | Halo Step B (one card renderer) is the base; the interaction layer's decisions decide the rest |
-| B5 | Overlays that grow when the content needs it, and can be expanded by hand, without covering the work | — | design | The owner leans to both |
-| B6 | The watch (live view) and working surfaces distinct; the watch keeps a technical feel | 93, 95 | design | **Decided** 2026-11-14 after the study (`674c17d`, `5e7b1e8`; below): its own window as a monitor, visual where something is made, the LIVE mark in Halo's blue. Not built yet |
-| B7 | Motion that's seen: the card growing from the orb (unsure), transitions that feel alive | 221, 178 | design | 221 was too quick to see |
-| B8 | A pen.dev prompt that extends Halo | — | owner | The owner is drafting it; `docs/design/halo-system/` is the base |
-| B9 | The watch (live view) docked as a sidebar, or a mini sidebar, at a corner or screen edge, instead of a window beside the card | 305 | design | The owner's note on check 305 (ledger, 2026-11-14 16:06): "Watch in a corner or sidebar". Today it opens beside the card (B6's decision: its own window, restyled as a monitor). Nearest ideas: Halo's "one run, five sizes" (`SPEC.md`), ADR-018's one-large-window spike, and the 2026-10 overlay study's docked ribbon (rejected then for the whole overlay, not for the watch). Not decided, not built |
-| B10 | The watch feels disconnected from its request: the main card goes soon after Watch opens, and "closes by itself" shows while the watch stays open | 305 | design, maybe defect | The owner's note on check 305. The card's lifetime ignores an open watch (A5's rules say nothing about it), and the label is `overlay/src/views.ts`. Not investigated |
-| B11 | Progress or animation in the watch, so it's seen to be working | 305 | design | The owner's note on check 305. Belongs with B6's monitor restyle and B7's motion |
-| B12 | "Open answer" leads back to the answer | 305 | design, maybe defect | The owner's note on check 305. Where it leads today isn't recorded. Not investigated |
-| B13 | File lists shown as a tree | 305 | design | The owner's note on check 305. A layout for B4's renderer (B4's vetted set covers tables and diagrams, not trees yet) |
-| B14 | A discreet indicator of a running timer, perhaps in the stack | 305 | design | The owner's note on check 305. Related, older: handoff §4 i (the timer widget, after review item 9) and running-default decision 5 (a timer card with "+5 min") |
+| B3 | Distinct looks for working, waiting for an answer, waiting for an OK, doing, failed or timed out | 206, 211, 218 | design + defect | Halo B8 (`208c32e`): each state differs in at least two ways that survive grayscale (harness, no code change). Shares its defect with A2; the states must be truthful first. Checks 206, 218, 417 |
+| B4 | Results laid out to fit: tables, comparisons, project cards, real diagrams, document previews | 238 | design + capability | **Built:** diagrams, previews, charts and project cards (`claude/b4-diagram-902ffc`, merged 2026-11-17; checks 404–407), the worker's pick on charts and a refused shape's one line (`6ee126d`, check 433) |
+| B5 | Overlays that grow when the content needs it, and can be expanded by hand, without covering the work | — | design | **Built** (`a37589e`, `64f1d4b`; check 419), then **changed** on 2026-11-24 (ADR-019 §11): the default card scrolls with lists and tables whole, and Expand opens a workspace at the screen edge, Minimize brings it back (checks 464, 465) |
+| B6 | The watch (live view) and working surfaces distinct; the watch keeps a technical feel | 93, 95 | design | **Built** (`97a522f`, `1330b93`): the watch as a monitor, its steps, "Step N", the console line. Not built: "of 6 · about 1 min left" (a run doesn't know its total). Watch is offered only once a request has taken two steps (2026-11-24, check 458) |
+| B7 | Motion that's seen: the card growing from the orb (unsure), transitions that feel alive | 221, 178 | design | **Built** (`19cc84e`, `d3e92a4`; check 420): grow, fold, edge forward, drain; the tail settles last and retracts first. 221 was too quick to see |
+| B8 | A pen.dev prompt that extends Halo | — | owner | **Done:** the prompt is `docs/design/halo-system/b8-pen-prompt.md`; the B8 build from it merged 2026-11-18 |
+| B9 | The watch (live view) docked as a sidebar, or a mini sidebar, at a corner or screen edge, instead of a window beside the card | 305 | design | **Built** (`c5c997d`; check 440): docked (a Windows app bar on the orb's edge) and mini (opposite bottom corner); the Dock button cycles beside → docked → mini |
+| B10 | The watch feels disconnected from its request: the main card goes soon after Watch opens, and "closes by itself" shows while the watch stays open | 305 | design, maybe defect | **Partial** (`7ccf5df`, `fc25663`): the card holds while its watch is open, and the watch's clock is its request's. Not built: the tether |
+| B11 | Progress or animation in the watch, so it's seen to be working | 305 | design | **Built with B6** (`97a522f`, `1330b93`): the watch shows its steps and "Step N" |
+| B12 | "Open answer" leads back to the answer | 305 | design, maybe defect | **Blocked** after a restart: "Open the answer" needs the answer from the run record (PROGRESS.md). Not investigated otherwise |
+| B13 | File lists shown as a tree | 305 | design | **Built** (`167dc5a`, `609d124`; check 436): a `tree` shape, Open, Show in folder, double-click, arrow keys in the reader |
+| B14 | A discreet indicator of a running timer, perhaps in the stack | 305 | design | **Built** (`1743e23`, `3de9557`; checks 421, 432): a running timer on the orb, a RUNNING row with Cancel in the stack, "+5 min", "done" / "5 more" said |
 
 ## C. Agent autonomy
 
@@ -112,7 +112,7 @@ Taken from the orchestrator's recommendations, except B4 and B6, which are the o
 All taken from the orchestrator's recommendations:
 
 - **B1:** the agent's own sentence leads, marked as the agent's; the command's first line always shows under it, and only the rest folds.
-- **Review item 9:** carries on, on its branch: with B1 in, the countdowns move to one side; it merges only if the total deletes code.
+- **Review item 9:** carries on (no branch now; its first half is merged, handoff §4 g): with B1 in, the countdowns move to one side; it merges only if the total deletes code.
 - **B4:** the vetted set is approved: Swift's own code (text, tables, comparisons, simple charts), Mermaid's tiny build (diagrams), Windows' PDF renderer and a text excerpt (documents). A mind-map shape is prototyped now; a map that grows as the owner talks is a later item, on run records and memory.
 - **Halo Step B:** go, after item 9's countdown move (both change how cards are drawn).
 - **B6:** its own window restyled as a monitor; visual where there's something to see, technical otherwise; the LIVE mark in Halo's accent blue (red means failure); email shows the finished draft first, streaming later; the visual deck waits for a deck capability.
@@ -128,6 +128,8 @@ All taken from the orchestrator's recommendations:
   ADR-019 §8's six items are built on a separate branch after Step B merges, one commit each, with owner checks;
   both looks stay for now, and a small branch makes Halo the default and deletes the old look only after the owner
   has seen Halo on the real PC (checks 216–221); deck edges and stack rows stay out of the renderer, revisited with B5.
+  **Superseded 2026-11-18** (ADR-019 §10): the owner made Halo the only look, with no switch, before checks 216–221,
+  which now run on it; §8's items were built in the B8 build (PROGRESS.md).
 - **C3, a web address the owner gave earlier** (product rule, from check 255): `desktop_open(url=…)` may open an address the owner said or typed themselves earlier in this conversation, in the last 10 minutes. The source is Swift's own record of the owner's words (each request's transcript and their answers to its questions, kept with the conversation's exchanges), never the agent's text or what a page or tool read. A yes to an address the agent made up still never counts. When no address the owner gave fits, the agent asks the owner to say it instead of offering one. Merged 2026-11-14 after a second review, check 330.
 - **C3, which earlier address a request means** (product rule, after check 330's run at 15:00): a recent address (the owner's own words, last 10 minutes, same conversation) is reused only when the request points at it ("open that site again", "the one I just opened", "open it"). A description ("my university's website") is reused only through a memory written from the owner's words ("remember my university is usiu.ac.ke"). Otherwise Swift asks him to say the address and offers none. Built (`69558d5`), then replaced the next day by foundation decision 4 (asked about, never matched).
 - **Modes study's seven decisions** (`docs/explorations/modes-study.md`, 2026-11-14 evening): all seven taken as recommended.
@@ -170,5 +172,5 @@ All taken from the orchestrator's recommendations:
   time: compare, diagram and mind map, preview, chart and cards (5); shapes only on Done results and the reader,
   never on Needs your OK or Waiting for you (6). The first slice, `show_result` and **compare**, is on `main`
   (check 400). **Diagrams** (Mermaid's tiny build, lazy, strict), **mind maps** (Swift's own code), **document
-  previews**, **charts**, and **project cards** are implemented on `claude/b4-diagram-902ffc`; automated checks pass.
-  Owner checks 404 through -7 are pending the owner's real-PC run.
+  previews**, **charts**, and **project cards** are implemented and merged (`claude/b4-diagram-902ffc`, 2026-11-17).
+  Owner checks 404–407 are pending the owner's real-PC run.

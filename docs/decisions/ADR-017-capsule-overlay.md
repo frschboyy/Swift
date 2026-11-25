@@ -1,6 +1,6 @@
 # ADR-017: The Capsule overlay (the owner's approved redesign)
 
-- **Status:** Accepted; built (2026-10-28) and on `main` (`overlay/src/capsule.ts`); the owner's checks 63–75 are partly run (`docs/testing/owner-checks.md`). **Amended by ADR-019:** Halo replaces the Capsule's look; until Halo becomes the default (it is behind a dev-only switch), the Capsule is the look that ships.
+- **Status:** Accepted; built (2026-10-28) and on `main` (`overlay/src/capsule.ts`); the owner's checks 63–75 are partly run (`docs/testing/owner-checks.md`). **Amended by ADR-019:** Halo replaces the Capsule's look. Since 2026-11-18 Halo is the only look, with no switch (ADR-019 §10); the capsule stays as Swift's body, and this ADR's behaviour stands where ADR-018 and ADR-019 don't change it.
 - **Date:** 2026-10-28
 - **Builds on:** ADR-009 (overlay UX), ADR-013 (several requests), ADR-014 (presence), ADR-015 (pane windows, card timing, the stack, typing), ADR-016 B (Swift speaks)
 - **Spec:** `docs/design/swift-overlay/design_handoff_swift_overlay/README.md` (high fidelity; it wins over the HTML frames). What drives each element: `docs/design/swift-overlay/IMPLEMENTATION.md`.

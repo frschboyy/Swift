@@ -1,5 +1,9 @@
 # Handoff: Halo B8, every surface, the A ideas, and the live-test findings
 
+**Status (2026-11-25): built and merged on 2026-11-18.** What was built, left partial or blocked is in
+[`PROGRESS.md`](PROGRESS.md). The text below is the brief as written: where it says Halo "only appears with
+`VITE_SWIFT_LOOK`", that was before Step B; Halo is now the only look.
+
 For the Claude Code session that builds and verifies this. Written 2026-11-18 from the pen.dev work in
 `docs/design/halo-system/halo.pen`. **Read this file, then the four below, in order.**
 
@@ -11,7 +15,7 @@ For the Claude Code session that builds and verifies this. Written 2026-11-18 fr
 | [`tokens-b8.css`](tokens-b8.css) | The new `b-*` tokens (monitor, paper, worker, fade, motion), dark and light |
 
 Background you need: `CLAUDE.md` (working rules, product rules, port 1420 is the owner's Swift),
-[`brief-halo.md`](../brief-halo.md) (Step A is built: `overlay/src/look/`, dev-only `?look=halo`; Step B makes Halo
+[`brief-halo.md`](../../archive/briefs/brief-halo.md) (Step A is built: `overlay/src/look/`, dev-only `?look=halo`; Step B makes Halo
 the only look), `docs/design/halo-system/SPEC.md`, `tokens.css`, ADR-019, and
 [`docs/testing/live-ui-loop.md`](../../testing/live-ui-loop.md) (how to drive the real overlay).
 

@@ -195,9 +195,10 @@ GUESS_UNSURE_AT = 0.35
 # "observed" ones are in a saved clip or an owner check; "plausible" ones aren't yet, and are kept few. A wrong
 # guess from one costs a "no": drop it then. Add one when a saved clip shows it.
 SOUNDS_LIKE: dict[str, dict[str, tuple[str, ...]]] = {
-    # Owner checks 201 and 206 (2026-11-13): "wafer", "Wofo". The close spellings were in the grammar since then.
+    # Owner checks 201 and 206 (2026-11-13): "wafer", "Wofo". The close spellings were in the grammar since then;
+    # not "waffle", an everyday word ("put the waffle on"), until a saved clip shows it (phase 4 review F5).
     "wifi": {"observed": ("wafer", "wofo"),
-             "plausible": ("wafers", "woofo", "wofa", "waffle", "why fi", "wi fy", "wi fry", "white fi")},
+             "plausible": ("wafers", "woofo", "wofa", "why fi", "wi fy", "wi fry", "white fi")},
     "bluetooth": {"plausible": ("blue tool",)},
     "timer": {"plausible": ("tire",)},
     "minute": {"plausible": ("minuet",)},

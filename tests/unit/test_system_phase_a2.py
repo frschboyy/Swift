@@ -88,7 +88,7 @@ async def test_the_session_asks_and_a_yes_does_it() -> None:
 
 
 @pytest.mark.parametrize("heard", ["Turn off the wafer", "turn off the wafer.", "Turn off the Wofo.",
-                                   "switch the waffle off", "turn off why fi", "disable the wafer"])
+                                   "switch the wafer off", "turn off why fi", "disable the wafer"])
 def test_a_misheard_wifi_is_guessed_never_parsed(heard: str) -> None:
     # Owner checks 201 and 206, 2026-11-13: "wafer" went to the agent, which asked "Wi-Fi or Bluetooth?" and
     # could never be answered. IA-01 phase 4 (P4-1): the sound-alike is Swift's guess, not the grammar's, so it
@@ -116,7 +116,9 @@ def test_a_misheard_wifi_on_is_a_guess_too(heard: str) -> None:
                                    # Review of 225ca9b: a sound-alike rule took these, and a plain yes then did it.
                                    "turn off the wave", "turn off my wife", "turn off the weave", "disconnect the waver",
                                    "switch off we feel", "turn off the whiff", "turn off the woofer",
-                                   "don't turn off the wafer", "turn off the wafer on my phone"])
+                                   "don't turn off the wafer", "turn off the wafer on my phone",
+                                   # Phase 4 review F5: an everyday word, not a sound-alike until a clip shows it.
+                                   "put the waffle on", "turn on the waffle", "switch the waffle off"])
 def test_another_word_is_never_read_as_a_misheard_wifi(heard: str) -> None:
     from swift.system.understand import propose
 

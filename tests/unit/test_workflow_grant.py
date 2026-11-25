@@ -61,13 +61,21 @@ async def test_a_disruptive_named_intent_still_gets_its_card() -> None:
 def test_the_session_makes_the_grant_from_the_transcript_not_the_decision_text() -> None:
     # _open_scope gets only the record: the decision's text (carried-over words, "undo that", a resumed playbook)
     # never reaches it. Same workflow, two transcripts.
+    import contextvars
+
     from test_playbooks import World
 
     w = World()
-    for transcript, widened in (("email my lecturer saying hello", False), ("mute the sound and email my lecturer", True)):
-        match = w.session.library.match(transcript)
-        assert match is not None and match.package.name == "email-draft"
-        record: dict = {"transcript": transcript, "id": "r1"}
-        w.session._open_scope(record, match)
-        assert w.session._scope is not None and w.session._scope.grant is not None
-        assert ("system_action" in w.session._scope.grant.tools) is widened
+
+    def check() -> None:
+        for transcript, widened in (("email my lecturer saying hello", False), ("mute the sound and email my lecturer", True)):
+            match = w.session.library.match(transcript)
+            assert match is not None and match.package.name == "email-draft"
+            record: dict = {"transcript": transcript, "id": "r1"}
+            w.session._open_scope(record, match)
+            assert w.session._scope is not None and w.session._scope.grant is not None
+            assert ("system_action" in w.session._scope.grant.tools) is widened
+
+    # _open_scope sets CURRENT_SCOPE; from a sync test it would leak into every later test (their sends would wait
+    # on this dead session's card), so it runs in a context of its own.
+    contextvars.copy_context().run(check)

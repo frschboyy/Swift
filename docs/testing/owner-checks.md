@@ -1699,6 +1699,8 @@ The report checks: a yes went ahead with what it sounded like.
 ### Fixes from your checks of 2026-11-09
 
 <a id="check-201"></a>**Check 201. Your answer to Swift's question counts as what you asked**
+**Superseded** by [check 243](#check-243) and [check intent-phase-4-81502b-1](#check-intent-phase-4-81502b-1):
+"turn off the wafer" now gets Swift's own question "Turn off Wi-Fi?", not "what did you mean". Skip this one.
 1. Say "Hey Swift, turn off the wafer" (say "wafer" on purpose, as if it were misheard).
 2. Swift asks what you meant. Answer out loud: "I meant the Wi-Fi".
 3. You should see the card "Turn off Wi-Fi?". **Reject** it, so Wi-Fi stays on.
@@ -2003,8 +2005,7 @@ About 2 minutes. From your run of 2026-11-13, 14:13 ("wafer") and 14:25 ("Wofo")
 3. Say "no". Wi-Fi stays on.
 4. Say "Hey Swift, turn off the Wofo", and this time say "yes". Wi-Fi goes off.
 5. Say "Hey Swift, turn the Wi-Fi back on".
-6. Say "Hey Swift, turn on the wafer". This one isn't guessed (switching on has no question): Swift may ask what you
-   meant, and nothing switches on by itself.
+6. Say "Hey Swift, turn on the wafer". Swift asks "Turn on Wi-Fi?"; say no. Nothing switches on by itself.
 
 The report checks: none of the misheard Wi-Fi requests went to the agent.
 

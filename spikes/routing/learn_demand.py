@@ -99,7 +99,10 @@ def propose_guesses(records: list[dict], known: set[str]) -> list[dict]:
             continue
         family = FAMILY_OF.get((understood.get("family") or [""])[0])
         if family:
-            why = f"you said yes to Swift's guess ({understood['source']}: {understood['family'][0]})"
+            # When, how it started and what Swift asked, so the owner can tell a yes from the room from their own
+            # (phase 4 review F4): "wake" means the wake phrase, "voice" the hotkey.
+            why = (f"{r.get('ts') or 'time unknown'}, started by {r.get('source') or 'unknown'}: a yes to Swift's guess "
+                   f"{understood['family'][0]} ({'a misheard word' if understood['source'] == 'heard' else 'similar words'})")
             out[key(text)] = {"text": text, "family": family, "why": why, "ts": r.get("ts")}
     return list(out.values())
 

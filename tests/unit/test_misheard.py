@@ -154,6 +154,8 @@ async def test_a_yes_adds_a_candidate_never_an_active_example(tmp_path: Path) ->
     learn = _learn()
     candidates = learn.propose_guesses([record], set())  # type: ignore[attr-defined]
     assert [(c["text"], c["family"]) for c in candidates] == [("turn on the wafer", "radio")]
+    # Shown with its time, how it started and the intent asked, to tell the room's yes from the owner's (F4).
+    assert str(record["ts"]) in candidates[0]["why"] and "radio (a misheard word)" in candidates[0]["why"]
     store = tmp_path / "guess_examples.jsonl"
     before = load_families(learned=[store])
     assert ("turn on the wafer", "radio") not in before  # nothing is kept until the owner keeps it

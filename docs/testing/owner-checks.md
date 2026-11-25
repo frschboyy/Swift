@@ -3334,3 +3334,17 @@ Note the check number and the time. That's enough: the logs have the rest.
 4. Say "ask me about everything", repeat step 1.
 
 You should see: (2) the buttons Stop, Change and "Go ahead with 1 and 2", the hint "Steps 3 and 4 get their own card", no amber on the asking rows; (3) nothing that publishes or sends ran without its own card; (4) no plan card: every command asks.
+
+### A workflow run and the owner's system words (claude/intent-phase-3-ae18ba, 2026-11-25)
+
+About 3 minutes. No real email: the draft is only opened, and you close it without sending.
+
+<a id="check-intent-phase-3-ae18ba-1"></a>**Check intent-phase-3-ae18ba-1. A draft and a system change in one request, each done by its own path**
+1. Say "Hey Swift, turn on dark mode and draft an email to myself".
+2. Close the draft without sending it.
+3. Say "Hey Swift, draft an email to myself about turning off the wifi". Close that draft too.
+
+You should see: step 1 switches to dark mode (no "Not done: the owner didn't ask for that.") and opens a draft; nothing is
+sent and no card for Wi-Fi appears; step 3 opens a draft only: the theme and the Wi-Fi don't change. In the report the
+step 1 run shows no `not_asked` refusal.
+

@@ -466,3 +466,12 @@ gateway's digest rule (verified by the reviewer in `intake.py` and `gateway.py`)
 5. Whether a guess from a hands-free request should need Swift's name or a gesture, not a plain yes (stricter than
    level 1; a new cell in `intake` and the table). The review leaves it to the owner.
 6. Whether phase 0 merges now. The review approved it.
+
+### 5.7 Phase 3, built (2026-11-25)
+
+- P3-1: `scope.with_system` widens a workflow grant from `owner_intents(transcript)`, the grammar only, called in
+  `session._open_scope`. `radio-c02` now passes (dead ends 31 → 30 grammar-only, 17 → 16 with the model, plus the 2 phase 2
+  review rows); rows `p3-01` to `p3-03` added. `tests/unit/test_workflow_grant.py`.
+- P3-2: no such path exists. Phase 2's classifier only names a system family (`understand.propose`); workflows are chosen
+  by `Library.match` alone. Nothing added. A kNN-named workflow is not built; if it ever is, it must start from no grant.
+- P3-3: R3 is in ADR-011 §4.2. Needs an independent review before merge (it changes a workflow grant).

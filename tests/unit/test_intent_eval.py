@@ -20,8 +20,9 @@ _spec.loader.exec_module(score)
 # two rows the phase 2 review added (rv-14, rv-15: a direction with a number, where no guess is the chosen outcome),
 # not by a change getting worse.
 NEW_DEAD_END_ROWS = 2
-MAX_DEAD_ENDS_GRAMMAR = 31 + NEW_DEAD_END_ROWS
-MAX_DEAD_ENDS = 17 + NEW_DEAD_END_ROWS
+# Phase 3 (the workflow grant) took one off each: radio-c02, "turn off wifi and send Sam an email".
+MAX_DEAD_ENDS_GRAMMAR = 30 + NEW_DEAD_END_ROWS
+MAX_DEAD_ENDS = 16 + NEW_DEAD_END_ROWS
 MAX_FALSE_ACTIONS = 1  # rem-c01: a compound's second half becomes the reminder's label
 
 

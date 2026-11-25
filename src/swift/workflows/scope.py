@@ -15,7 +15,7 @@ import hashlib
 import itertools
 import json
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from loguru import logger
@@ -45,6 +45,16 @@ class Grant:
     workflow: str
     tools: frozenset[str]
     capabilities: frozenset[str]
+
+
+def with_system(grant: Grant | None, said: str) -> Grant | None:
+    """A workflow run's grant, plus ``system_action`` when the owner's own words name a system intent the grammar
+    knows (never a guess, never text a worker read; ADR-011 §4.2, R3). The tool still does only what they named."""
+    from swift.workflows.system_tools import owner_intents  # here, not above: that module imports this one
+
+    if grant is None or "system_action" in grant.tools or not owner_intents(said):
+        return grant
+    return replace(grant, tools=grant.tools | {"system_action"})
 
 
 @dataclass(frozen=True)

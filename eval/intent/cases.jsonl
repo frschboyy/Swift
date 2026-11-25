@@ -176,3 +176,6 @@
 {"id": "rv-17", "family": "radio", "kind": "unsupported", "text": "Turn the wifi off tomorrow", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
 {"id": "rv-18", "family": "theme", "kind": "unsupported", "text": "switch on dark mode at 9 pm", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
 {"id": "rv-19", "family": "volume", "kind": "unsupported", "text": "crank the volume up later", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
+{"id": "p3-01", "family": "mute", "kind": "compound", "text": "add lunch with Sam tomorrow and mute the sound", "want": "agent+system", "system": [{"name": "mute"}], "note": "phase 3: a workflow's grant gets system_action from the owner's grammar words"}
+{"id": "p3-02", "family": "theme", "kind": "compound", "text": "turn on dark mode and draft an email to myself", "want": "agent+system", "system": [{"name": "theme", "slots": {"dark": true}}], "note": "phase 3: the owner check's request"}
+{"id": "p3-03", "family": "workflow", "kind": "variant", "text": "draft an email to Sam about turning off the wifi", "want": {"workflow": "email-draft"}, "note": "phase 3: no system intent in the owner's words, so nothing to widen (tests/unit/test_workflow_grant.py)"}

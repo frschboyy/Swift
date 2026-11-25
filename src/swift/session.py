@@ -208,7 +208,7 @@ from swift.system.scheduler import Item
 from swift.demo_listening import fake_listening
 from swift.workflows.artifacts import Artifact, ArtifactStore, last_proposal
 from swift.workflows.library import Library, Match, is_question, refresh_now
-from swift.workflows.scope import Decision, Grant, RunScope, note_refusal
+from swift.workflows.scope import Decision, Grant, RunScope, note_refusal, with_system
 from swift.workflows.tools import CURRENT as CURRENT_SCOPE
 from swift.workflows.tools import ToolHost
 
@@ -4159,7 +4159,7 @@ class Session:
         grant = None
         if workflow is not None:
             package = workflow.package
-            grant = Grant(package.name, package.tools, frozenset(package.needs))
+            grant = with_system(Grant(package.name, package.tools, frozenset(package.needs)), str(record.get("transcript") or ""))
         run = self._current()
         self._scope = self.tools.open(
             partial(self._for_run, run, partial(self._publish, record)),

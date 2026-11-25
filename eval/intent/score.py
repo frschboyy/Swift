@@ -40,6 +40,7 @@ from swift.routing.rules import guessed, route, with_guess
 from swift.system import intents as it
 from swift.workflows import system_tools as st
 from swift.workflows.library import load_library
+from swift.workflows.scope import Grant, with_system
 
 HERE = Path(__file__).parent
 BAD = ("dead_end", "wrong_route", "false_action", "wrong_confirm", "wrong_guess")
@@ -145,7 +146,8 @@ def judge(row: dict[str, Any], library: Any, family: Any = None) -> tuple[str, s
     if want == "nothing":
         return ("wrong_route" if wf is not None else "correct"), path
     wants = row["system"] if want == "agent+system" else want
-    if wf is not None and "system_action" not in wf.package.tools:
+    if wf is not None and "system_action" not in wf.package.tools and not with_system(
+            Grant(wf.package.name, wf.package.tools, frozenset()), text).tools & {"system_action"}:
         return "dead_end", path + " (system_action outside the workflow)"
     verdict = _accepts(wants, text)
     return {"accept": "slow_ok", "ask": "asks", "ask_refused": "dead_end", "refuse": "dead_end"}[verdict], path + f" (system_action: {verdict})"

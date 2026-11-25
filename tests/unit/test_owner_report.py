@@ -153,3 +153,12 @@ def test_ia01_phase_2_counts_swifts_guesses_and_fails_one_from_the_follow_up_win
     followup = [{"source": "followup", "route": "local", "status": "done", "understood": guess}]
     assert _find(_results(followup, []), "intent-phase-2-b9b2d9-2")[0].value == "FAIL"
     assert _find(_results([], []), "intent-phase-2-b9b2d9-1")[0].value == "NOT SEEN"
+
+
+def test_ia01_phase_4_counts_guesses_from_a_misheard_word() -> None:
+    heard = {"act": "command", "source": "heard", "family": ["theme"], "score": 1.0}
+    rows = [{"source": "wake", "route": "local", "status": "done", "understood": heard, "confirmed": False}]
+    outcome, detail = _find(_results(rows, []), "intent-phase-4-81502b-1")
+    assert outcome.value == "PASS" and detail.startswith("1 guess(es) from a misheard word: 0 yes, 1 no")
+    assert _find(_results(rows, []), "intent-phase-2-b9b2d9-1")[0].value == "PASS"  # a guess like any other
+    assert _find(_results([], []), "intent-phase-4-81502b-1")[0].value == "NOT SEEN"

@@ -308,6 +308,35 @@ parity 413/423, harmful 0. **Touches the provenance check: needs a review by som
   review): with the model, 14 `asks_guess`, 19 dead ends (17 plus 2 new rows where no guess is the chosen
   outcome); without it, 33. `false_action` 1 (`rem-c01`), `wrong_confirm` 0, `wrong_guess` 0.
 
+**Phase 4, built (2026-11-25, `claude/intent-phase-4-81502b`, on phase 2's `6c7d2ea`):**
+- P4-1: `HEARD_AS_WIFI` and `_HEARD_OFF` left `intents.parse`. The one owner of sound-alikes is
+  `understand.SOUNDS_LIKE`, per slot word (Wi-Fi, Bluetooth, timer, minute/minutes, dark mode), each marked
+  `observed` (only "wafer" and "Wofo", owner checks 201 and 206) or `plausible` (kept few). `propose` reads a copy
+  of the words with the sound-alikes spelled out and takes the grammar's own reading of it, one proposable intent
+  only; it needs no family vote, so a router without the classifier still asks (`rules.guessed`). The transcript
+  is never rewritten. The record's `understood.source` is `"heard"`.
+- **Behaviour changes, on purpose:** a guessed "on" asks ("Turn on the wafer" → "Turn on Wi-Fi?"): a deliberate
+  widening, since every guess asks now. "Turn off the wafer" on the agent path is refused until the owner names
+  Wi-Fi (`owner_intents` keeps the grammar), and saying "turn off the wafer" again over "Turn off Wi-Fi?" asks
+  again instead of approving it (P2-2). `test_system_phase_a2.py`'s wafer tests were changed to say so.
+- P4-4: `with_guess` proposes at `GUESS_UNSURE_AT` (0.35); `rules.guessed` keeps a guess under `GUESS_AT` only
+  when the record's `unclear` (the words below speech recognition's bar, already on the record before routing)
+  holds a word of the request that no slot is read from. Slots still come only from the readers. No session change.
+- P4-2 / R4: a yes to a guess is already in the run record (`understood`, `confirmed`, `intents`, the transcript).
+  `spikes/routing/learn_demand.py --guesses` turns each into a candidate (heard words → family) that the owner
+  keeps or rejects one by one; kept ones go to `guess_examples.jsonl` beside the demand examples and feed
+  `FamilyVote` only (`classifier.load_families(learned=...)`), never the grammar.
+- P4-3 / R5: the heard → meant pair is in the interaction log and, for a kept clip, the recordings index
+  (`guessed`); `swift.log`'s line has names only (`runlog.SUMMARY_FIELDS` unchanged).
+- Eval (real model): dead ends 19 → 15 (speech-recognition rows 10 → 6: "turn on the wafer", "switch the white fi
+  off", "turn off the blue tool", "turn on duck mode"); `asks_guess` 14 → 20; without the model 33 → 27.
+  `wrong_guess` 0, `wrong_confirm` 0, `false_action` 1 (`rem-c01`, the grammar's). Parity 413/423, harmful 0.
+  `eval/stt/gate.py` unchanged: nothing in the speech path changed (no diff under `src/swift/stt/transcriber.py`,
+  `eval/stt/`), and `propose`'s spelled-out copy goes nowhere else.
+- Rules: R4 in `CLAUDE.md` and `action-authority.md` (Memory), R5's "Words written down" in the threat model, and
+  the code map's row. Owner check `intent-phase-4-81502b-1`. **A product-rule change: needs a review by someone
+  other than its author before merge.**
+
 ### 5.3 The speech-act gate (phase 1), concretely
 
 Deterministic, small, and tested by the eval's question and negation rows, and by new rows for the shapes the review

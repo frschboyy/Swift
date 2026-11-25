@@ -30,7 +30,11 @@
     claude/intent-phase-2-b9b2d9, 2026-11-25; partial fix, the lane path only): Swift asks its guess for a plain
     command the grammar misses (understand.propose, SystemLane.propose). eval/intent with the real model: dead
     ends 31 to 17 of 159 rows, 14 guesses all right, 0 wrong. The agent path (the xfail) is unchanged: phase 5.
-    A product-rule change (R1, R2): needs a review by someone other than its author before merge.'
+    A product-rule change (R1, R2): needs a review by someone other than its author before merge. Phase 4 (branch
+    claude/intent-phase-4-81502b, 2026-11-25; partial fix, misheard slot words): sound-alikes ("wafer") moved out
+    of the grammar into the guess, so they ask and never count as the owner asking; a guessed "on" now asks too.
+    Speech-recognition dead ends 10 to 6 of 25 (all 19 to 15 with the model, 33 to 27 without). A product-rule
+    change (R4, R5): needs a review by someone other than its author before merge.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.

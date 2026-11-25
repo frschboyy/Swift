@@ -3304,6 +3304,19 @@ in step 5 the question is asked again (the words Swift guessed from aren't a yes
 You should see: none of these asks "Set a timer …?" and no timer starts: steps 1 to 3 are answered in words (or
 nothing happens for step 2), and in step 4 the words after the answer don't get Swift's question.
 
+### Misheard words (claude/intent-phase-4-81502b, 2026-11-25)
+
+About 2 minutes. Answer **no** to every question here, so nothing changes. No model is needed for these.
+
+<a id="check-intent-phase-4-81502b-1"></a>**Check intent-phase-4-81502b-1. A misheard word gets Swift's question, never an action**
+1. Say "Hey Swift, turn on dark mod" (say "mod", as if it were misheard). Swift asks "Turn on dark mode?". Say **no**.
+2. Say "Hey Swift, turn off the wafer". Swift asks "Turn off Wi-Fi?". While it is on screen, say "turn off the
+   wafer" once more, then click **No**.
+
+You should see: step 1 asks and the theme stays as it was (if Swift turns dark mode on straight away, it heard
+"dark mode": say "Hey Swift, turn off dark mode" and note it, that isn't this check failing); in step 2 the question
+is asked again after the repeated words (they aren't a yes), and Wi-Fi stays on.
+
 ## After the checks: the report
 
 1. Open PowerShell in the Swift folder (the one with `pyproject.toml` in it).

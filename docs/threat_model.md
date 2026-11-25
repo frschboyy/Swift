@@ -27,7 +27,7 @@
 | T3 | **Approved action swapped** before execution | The LLM changes the recipient after approval | `ActionDigest` is recomputed immediately before execute; any mismatch voids the approval | P3-4 |
 | T4 | **Command injection** | A transcript or LLM output becomes a shell string | No shell tool; the Phase 0 `profiles.toml` argv list was never wired in and was removed (2026-11-15, HA-CFG-06); a worker's commands each ask on a card (HA-CFG-01); `shell=False` | P3-3 |
 | T5 | **Path escape** | `..`, junctions, symlinks, ADS, UNC, `\\?\`, 8.3 names | Reject special forms → `resolve(strict=True)` → root containment → reparse check → deny-globs | P3-2 |
-| T6 | **Wake false accept** acting on overheard speech | TV says something like the wake phrase followed by a command | Threshold, refractory period, optional STT verifier; consequential actions still need confirmation (T2); no action while locked | S1, P1-4 |
+| T6 | **Wake false accept** acting on overheard speech | TV says something like the wake phrase followed by a command | Threshold, refractory period, optional STT verifier; consequential actions still need confirmation (T2); no action while locked; a guess (any request near a command) only asks; lock is never guessed | S1, P1-4 |
 | T7 | **Acting while the owner is away** | Commands arrive while the PC is locked | Wake listener paused while locked; hard rule that nothing executes outside `ACTIVE` | P1-4 |
 | T8 | **Secret leakage via logs** | A token or email body ends up in a log file | Mandatory redaction patcher on all sinks; content fields replaced by their length; diagnose/backtrace off; audit log holds metadata only | P0-3 (`test_redaction.py`) |
 | T9 | **Token theft from disk** | Malware reads a config file | Only the refresh token is stored, in Credential Manager; no secrets in files; `.gitignore` blocks `client_secret*.json` and `.env` | P5-7 |
@@ -45,7 +45,7 @@ Audit B-06, decided by the owner on 2026-10-28: recordings are kept for 7 days a
 - **No training.** Clips are never used to train or fine-tune a model. The weekly improvement pass:
   - measures accuracy;
   - writes pause timings for end-of-speech tuning.
-- **Words written down.** The index records why a clip was kept, and the words the owner meant when they said them again or corrected them. Transcripts are not written down. Logs carry counts, flags and rates only.
+- **Words written down.** The index records why a clip was kept, and the words the owner meant when they said them again, corrected them, or said yes to Swift's guess of them. Transcripts are not written down. Logs carry counts, flags and rates only.
 - **Bystanders.** A kept clip can still hold room or bystander audio. That is why clips are deleted within 7 days, and why one item clears everything.
 
 ## Out of scope for the MVP

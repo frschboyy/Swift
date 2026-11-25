@@ -11,7 +11,6 @@ import argparse
 import asyncio
 import dataclasses
 import faulthandler
-import functools
 import os
 import shutil
 import sys
@@ -45,7 +44,7 @@ from swift.parked import ParkedThreads
 from swift.presence import PresenceMonitor, WindowsProbe
 from swift.logging_setup import setup_logging
 from swift.routing import Route, route
-from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate
+from swift.routing.classifier import BASE_EXAMPLES, ClassifierEstimate, guess_examples
 from swift.routing.local import LocalOpener
 from swift.runlog import InteractionLog, summary
 from swift.runs import RunRecords
@@ -365,12 +364,13 @@ def _make_router(settings: Settings) -> tuple[Callable[[str], Route] | None, Cla
     if not settings.routing:
         return None, None
     cfg = settings.demand_classifier
-    if not cfg.enabled:
+    if not cfg.enabled and not cfg.guesses:
         return route, None
     estimate = ClassifierEstimate(
-        Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized
+        Path(cfg.model_dir), [BASE_EXAMPLES, Path(cfg.examples_file)], threshold=cfg.threshold, quantized=cfg.quantized,
+        demand=cfg.enabled, family_files=[guess_examples(Path(cfg.examples_file))], guesses=cfg.guesses,
     )
-    return functools.partial(route, demand_fn=estimate), estimate
+    return estimate.route, estimate
 
 
 async def _report_wake(listener: WakeListener, session: Session, recorder: MicRecorder, every_s: float = 300.0) -> None:

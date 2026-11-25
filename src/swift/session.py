@@ -175,6 +175,7 @@ from swift.routing.demand import estimate
 from swift.routing.local import LocalOpener, OpenTarget
 from swift.routing.rules import (
     _normalize,
+    guessed,
     refers_here,
     refers_to_selection,
     route_midrun,
@@ -207,7 +208,7 @@ from swift.system.scheduler import Item
 from swift.demo_listening import fake_listening
 from swift.workflows.artifacts import Artifact, ArtifactStore, last_proposal
 from swift.workflows.library import Library, Match, is_question, refresh_now
-from swift.workflows.scope import Decision, Grant, RunScope
+from swift.workflows.scope import Decision, Grant, RunScope, note_refusal
 from swift.workflows.tools import CURRENT as CURRENT_SCOPE
 from swift.workflows.tools import ToolHost
 
@@ -2765,7 +2766,7 @@ class Session:
                 # (owner checks 2026-11-04: "Swift, yes" went to the agent and Wi-Fi stayed on).
                 "answer", "click",
             ):
-                decision = self._follow_local(self.router(transcript), transcript, record)
+                decision = self._follow_local(guessed(self.router(transcript), record), transcript, record)
                 named = route_target(transcript)
                 ended = named is not None and named[0] == "stop" and self._find(named[1], besides=run, gone=True) is not None
                 if named is not None and (self._live(besides=run) or ended):
@@ -2874,12 +2875,12 @@ class Session:
                     record["addressed_as"] = decision.addressed_as
                     self._note = self._clarify(decision.addressed_as)
                 if decision.route != "agent":
-                    record["action"] = decision.action
+                    record.update(action=decision.action, **dict(decision.understood))  # IA-01 phase 1
                     if target is not None:
                         record["target"] = target.name
                     await self._handle_here(decision, record, target)
                     return
-                record["demand"] = decision.demand
+                record.update(demand=decision.demand, **dict(decision.hint), **dict(decision.understood))  # hint: the route vote (IA-01)
                 if decision.override:
                     record["override"] = decision.override
 
@@ -3079,7 +3080,7 @@ class Session:
         if action == "show_last":
             await self._show_last(decision, record)
             return
-        if action in ("system", "system_undo", "system_carry") and self.system is not None:
+        if action in ("system", "system_undo", "system_carry", "system_guess") and self.system is not None:
             await self._system_lane(decision, record)
             return
         if action == "answer":  # the fast lane (ADR-007 §10), worked out now
@@ -3118,9 +3119,8 @@ class Session:
         await self._send_result(f"local-{next(self._local_ids)}", ExecResult("done", said, details))
 
     async def _system_lane(self, decision: Route, record: dict[str, Any]) -> None:
-        """The system lane (ADR-016 §3): carry the request out, ask what it needs, say what was done.
-        Its questions are this request's, so it stays alive until they're answered: its card, Stop,
-        replay and the stack are every request's (reliability review, item 7)."""
+        """The system lane (ADR-016 §3): carry the request out (or ask Swift's guess), ask what it needs, say what was
+        done. Its questions are this request's, so it stays alive until they're answered (reliability review, item 7)."""
         assert self.system is not None
         card = f"local-{next(self._local_ids)}"
         if decision.action == "system_undo":
@@ -3132,7 +3132,7 @@ class Session:
                 intents, replaces = turn.answer.value
                 outcome = await (self.system.redo(intents) if replaces else self.system.start(intents))
             else:
-                outcome = await self.system.run(decision.text)
+                outcome = await (self.system.propose(decision.guess.intent) if decision.guess else self.system.run(decision.text))
             if outcome is None:  # parsing is deterministic, so this is a bug; say so rather than do nothing
                 said, ok, record["intents"] = "Sorry, I couldn't work that out.", False, []
             else:
@@ -4157,7 +4157,7 @@ class Session:
         )
         run.last_scope = self._scope
         # Only a follow-up, a correction or a resumed conversation shares a thread with what came before.
-        self._scope.said, self._scope.run = str(record.get("transcript") or ""), record.get("id", "")
+        self._scope.said, self._scope.run, self._scope.on_refusal = str(record.get("transcript") or ""), record.get("id", ""), partial(note_refusal, record)
         if (before := self._left.get(record.get("thread") or "")) is not None:
             self._scope.carry_from(before)
         CURRENT_SCOPE.set(self._scope)  # tasks the provider starts for this request inherit it

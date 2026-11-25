@@ -304,6 +304,7 @@ Decisions 2–9 come from `docs/design/swift-overlay/IMPLEMENTATION.md` (owner q
 | `claude/halo-b8` | Halo B8 handoff: build spec, fixes, verify plan, tokens, boards 1–9, the live UI loop (`docs/testing/live-ui-loop.md`) | Open (2026-11-18) |
 | `claude/halo-b8-build-4fbdf7` | Halo B8 build | Open (2026-11-18); changes `owner-checks.md` and the ledger |
 | `claude/halo-b8-gaps-6b8791` | Halo B8 gaps, B7 motion | Open (2026-11-18); changes `owner-checks.md` and the ledger |
+| `claude/intent-architecture-3011f9` | Investigation: why a request in other words dead-ends (IA-01), the intent eval set (`eval/intent/`), and the proposal `docs/explorations/intent-architecture.md`. No product code. Built on `claude/keen-moser-4e5a0c` (`7d83958`, the verb-list fix) | Open (2026-11-24); decisions in the doc's §7 |
 | `claude/typed-enter-fix` | Text box: typed text then Enter never presses the card's button | Open (2026-11-18) |
 | `claude/a12-c9-followup` | Docs: the follow-up order for A12 and C9 | Open (2026-11-16) |
 | `claude/docs-consolidation` | This documentation clean-up (`docs/audit/2026-11-18-docs-audit.md`) | Owner: merge after the Halo B8 branches (2026-11-18); merge `main` in first |

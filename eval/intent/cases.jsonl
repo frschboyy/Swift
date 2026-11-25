@@ -1,0 +1,178 @@
+{"id": "timer-v01", "family": "timer", "kind": "variant", "text": "set a timer for 1 minute", "want": [{"name": "timer.set", "slots": {"seconds": 60}}]}
+{"id": "timer-v02", "family": "timer", "kind": "variant", "text": "set up a timer for 1 minute", "want": [{"name": "timer.set", "slots": {"seconds": 60}}], "note": "owner, 2026-11-24"}
+{"id": "timer-v03", "family": "timer", "kind": "variant", "text": "put on a timer for one minute", "want": [{"name": "timer.set", "slots": {"seconds": 60}}]}
+{"id": "timer-v04", "family": "timer", "kind": "variant", "text": "I need a timer for one minute", "want": [{"name": "timer.set", "slots": {"seconds": 60}}]}
+{"id": "timer-v05", "family": "timer", "kind": "variant", "text": "can you start a five minute timer", "want": [{"name": "timer.set", "slots": {"seconds": 300}}]}
+{"id": "timer-v06", "family": "timer", "kind": "variant", "text": "give me ten minutes on the clock", "want": [{"name": "timer.set", "slots": {"seconds": 600}}]}
+{"id": "timer-v07", "family": "timer", "kind": "variant", "text": "time me for two minutes", "want": [{"name": "timer.set", "slots": {"seconds": 120}}]}
+{"id": "timer-v08", "family": "timer", "kind": "variant", "text": "count down from three minutes", "want": [{"name": "timer.set", "slots": {"seconds": 180}}]}
+{"id": "timer-v09", "family": "timer", "kind": "variant", "text": "could you please set me a timer for 20 seconds", "want": [{"name": "timer.set", "slots": {"seconds": 20}}]}
+{"id": "timer-v10", "family": "timer", "kind": "variant", "text": "a timer for 15 minutes please", "want": [{"name": "timer.set", "slots": {"seconds": 900}}]}
+{"id": "timer-v11", "family": "timer", "kind": "variant", "text": "let me know when 5 minutes are up", "want": [{"name": "timer.set", "slots": {"seconds": 300}}]}
+{"id": "timer-v12", "family": "timer", "kind": "variant", "text": "kill the timer", "want": [{"name": "cancel", "slots": {"kind": "timer"}}]}
+{"id": "timer-v13", "family": "timer", "kind": "variant", "text": "get rid of my timer", "want": [{"name": "cancel", "slots": {"kind": "timer"}}]}
+{"id": "timer-s01", "family": "timer", "kind": "stt", "text": "set a time for 5 minutes", "want": [{"name": "timer.set", "slots": {"seconds": 300}}], "note": "plausible: final r dropped"}
+{"id": "timer-s02", "family": "timer", "kind": "stt", "text": "said a timer for 5 minutes", "want": [{"name": "timer.set", "slots": {"seconds": 300}}], "note": "plausible: set heard as said"}
+{"id": "timer-s03", "family": "timer", "kind": "stt", "text": "set a timer four five minutes", "want": [{"name": "timer.set", "slots": {"seconds": 300}}], "note": "plausible: for heard as four"}
+{"id": "timer-s04", "family": "timer", "kind": "stt", "text": "set a tire for one minute", "want": [{"name": "timer.set", "slots": {"seconds": 60}}], "note": "plausible"}
+{"id": "timer-s05", "family": "timer", "kind": "stt", "text": "set up a time of one minute", "want": [{"name": "timer.set", "slots": {"seconds": 60}}], "note": "plausible"}
+{"id": "timer-q01", "family": "timer", "kind": "question", "text": "how do I set a timer on my phone", "want": "agent"}
+{"id": "timer-q02", "family": "timer", "kind": "question", "text": "can you set timers", "want": "agent"}
+{"id": "timer-q03", "family": "timer", "kind": "question", "text": "how long is left on my timer", "want": [{"name": "timer.left"}]}
+{"id": "timer-q04", "family": "timer", "kind": "question", "text": "what's the best timer app for windows", "want": "agent"}
+{"id": "timer-n01", "family": "timer", "kind": "negation", "text": "don't set a timer", "want": "nothing"}
+{"id": "timer-n02", "family": "timer", "kind": "negation", "text": "I don't need a timer for 5 minutes", "want": "nothing"}
+{"id": "timer-n03", "family": "timer", "kind": "negation", "text": "no timer this time", "want": "nothing"}
+{"id": "timer-c01", "family": "timer", "kind": "compound", "text": "set a timer for 5 minutes and turn the volume down", "want": [{"name": "timer.set", "slots": {"seconds": 300}}, {"name": "volume.step"}]}
+{"id": "timer-c02", "family": "timer", "kind": "compound", "text": "set up a timer for one minute and turn on dark mode", "want": [{"name": "timer.set", "slots": {"seconds": 60}}, {"name": "theme", "slots": {"dark": true}}]}
+{"id": "timer-c03", "family": "timer", "kind": "compound", "text": "set a timer for 10 minutes and write me a haiku about tea", "want": "agent+system", "system": [{"name": "timer.set", "slots": {"seconds": 600}}]}
+{"id": "timer-u01", "family": "timer", "kind": "unsupported", "text": "set a timer on my phone for 5 minutes", "want": "agent"}
+{"id": "timer-u02", "family": "timer", "kind": "variant", "text": "set a timer for the oven", "want": [{"name": "timer.set", "slots": {"seconds": null}}], "note": "asks For how long?"}
+{"id": "rem-v01", "family": "reminder", "kind": "variant", "text": "remind me to call mum at 5", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}]}
+{"id": "rem-v02", "family": "reminder", "kind": "variant", "text": "can you remind me in 20 minutes to check the oven", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 1200}}}]}
+{"id": "rem-v03", "family": "reminder", "kind": "variant", "text": "set up a reminder to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}]}
+{"id": "rem-v04", "family": "reminder", "kind": "variant", "text": "don't let me forget to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}]}
+{"id": "rem-v05", "family": "reminder", "kind": "variant", "text": "nudge me in ten minutes about the laundry", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 600}, "label": "the laundry"}}]}
+{"id": "rem-v06", "family": "reminder", "kind": "variant", "text": "make a note to remind me to stretch in an hour", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 3600}, "label": "stretch"}}]}
+{"id": "rem-v07", "family": "reminder", "kind": "variant", "text": "I want a reminder at 3 pm to take my pills", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 3}}}]}
+{"id": "rem-s01", "family": "reminder", "kind": "stt", "text": "remind me to cool mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}], "note": "plausible: the label is wrong, the intent is right"}
+{"id": "rem-s02", "family": "reminder", "kind": "stt", "text": "remained me to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}], "note": "plausible"}
+{"id": "rem-s03", "family": "reminder", "kind": "stt", "text": "remind me in twenty minute to check the oven", "want": [{"name": "reminder.set", "slots": {"when": {"seconds": 1200}}}], "note": "plausible: plural s lost"}
+{"id": "rem-q01", "family": "reminder", "kind": "question", "text": "remind me what we decided yesterday", "want": "agent"}
+{"id": "rem-q02", "family": "reminder", "kind": "question", "text": "how do reminders work in outlook", "want": "agent"}
+{"id": "rem-q03", "family": "reminder", "kind": "question", "text": "what reminders do I have", "want": [{"name": "list", "slots": {"kind": "reminder"}}]}
+{"id": "rem-n01", "family": "reminder", "kind": "negation", "text": "don't remind me to call mum at five", "want": "nothing"}
+{"id": "rem-n02", "family": "reminder", "kind": "negation", "text": "you don't need to remind me at 5", "want": "nothing"}
+{"id": "rem-c01", "family": "reminder", "kind": "compound", "text": "remind me to call mum at five and email Sam the notes", "want": "agent+system", "system": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}]}
+{"id": "rem-u01", "family": "reminder", "kind": "unsupported", "text": "remind me every monday at 9 to submit my timesheet", "want": "agent"}
+{"id": "rem-u02", "family": "reminder", "kind": "unsupported", "text": "remind Sam to call me at five", "want": "agent"}
+{"id": "radio-v01", "family": "radio", "kind": "variant", "text": "switch off the wi-fi", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}]}
+{"id": "radio-v02", "family": "radio", "kind": "variant", "text": "kill the bluetooth", "want": [{"name": "radio", "slots": {"kind": "bluetooth", "on": false}}]}
+{"id": "radio-v03", "family": "radio", "kind": "variant", "text": "kill the bluetooth connection", "want": [{"name": "radio", "slots": {"kind": "bluetooth", "on": false}}]}
+{"id": "radio-v04", "family": "radio", "kind": "variant", "text": "can you get the wifi back on", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": true}}]}
+{"id": "radio-v05", "family": "radio", "kind": "variant", "text": "disconnect from the wifi", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}]}
+{"id": "radio-v06", "family": "radio", "kind": "variant", "text": "I want bluetooth on", "want": [{"name": "radio", "slots": {"kind": "bluetooth", "on": true}}]}
+{"id": "radio-v07", "family": "radio", "kind": "variant", "text": "go offline", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}]}
+{"id": "radio-v08", "family": "radio", "kind": "variant", "text": "turn off the thing that connects me to the internet", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}], "note": "semantic recovery: should end in a question"}
+{"id": "radio-v09", "family": "radio", "kind": "variant", "text": "enable wireless", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": true}}]}
+{"id": "radio-s01", "family": "radio", "kind": "stt", "text": "turn off the wafer", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}], "note": "observed: owner checks 201, 206"}
+{"id": "radio-s02", "family": "radio", "kind": "stt", "text": "turn off wafer", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}], "note": "observed shape"}
+{"id": "radio-s03", "family": "radio", "kind": "stt", "text": "turn the wifey off", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}], "note": "plausible"}
+{"id": "radio-s04", "family": "radio", "kind": "stt", "text": "switch the white fi off", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}], "note": "plausible"}
+{"id": "radio-s05", "family": "radio", "kind": "stt", "text": "turn on the wafer", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": true}}], "note": "a guessed on has no card: should ask"}
+{"id": "radio-s06", "family": "radio", "kind": "stt", "text": "turn off blue tooth", "want": [{"name": "radio", "slots": {"kind": "bluetooth", "on": false}}], "note": "plausible"}
+{"id": "radio-s07", "family": "radio", "kind": "stt", "text": "turn off the blue tool", "want": [{"name": "radio", "slots": {"kind": "bluetooth", "on": false}}], "note": "plausible"}
+{"id": "radio-s08", "family": "radio", "kind": "stt", "text": "turn of the wifi", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}], "note": "plausible: off heard as of"}
+{"id": "radio-q01", "family": "radio", "kind": "question", "text": "how do I turn off wifi", "want": "agent"}
+{"id": "radio-q02", "family": "radio", "kind": "question", "text": "is my wifi on", "want": [{"name": "radio.get", "slots": {"kind": "wifi"}}]}
+{"id": "radio-q03", "family": "radio", "kind": "question", "text": "why does my wifi keep turning off", "want": "agent"}
+{"id": "radio-q04", "family": "radio", "kind": "question", "text": "should I turn off bluetooth to save battery", "want": "agent"}
+{"id": "radio-n01", "family": "radio", "kind": "negation", "text": "don't turn off the wifi", "want": "nothing"}
+{"id": "radio-n02", "family": "radio", "kind": "negation", "text": "I don't want to turn off wifi", "want": "nothing"}
+{"id": "radio-n03", "family": "radio", "kind": "negation", "text": "leave the bluetooth on", "want": "nothing"}
+{"id": "radio-n04", "family": "radio", "kind": "negation", "text": "never turn off my wifi", "want": "nothing"}
+{"id": "radio-c01", "family": "radio", "kind": "compound", "text": "turn off wifi and bluetooth", "want": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}, {"name": "radio", "slots": {"kind": "bluetooth", "on": false}}]}
+{"id": "radio-c02", "family": "radio", "kind": "compound", "text": "turn off wifi and send Sam an email", "want": "agent+system", "system": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}]}
+{"id": "radio-c03", "family": "radio", "kind": "compound", "text": "turn the wafer off and write me a haiku", "want": "agent+system", "system": [{"name": "radio", "slots": {"kind": "wifi", "on": false}}]}
+{"id": "radio-u01", "family": "radio", "kind": "unsupported", "text": "turn off the wifi on my router", "want": "agent"}
+{"id": "radio-u02", "family": "radio", "kind": "unsupported", "text": "turn off the lights", "want": "agent"}
+{"id": "radio-u03", "family": "radio", "kind": "unsupported", "text": "turn off my phone's bluetooth", "want": "agent"}
+{"id": "vol-v01", "family": "volume", "kind": "variant", "text": "turn it down a bit", "want": [{"name": "volume.step"}], "note": "volume is the reasonable default"}
+{"id": "vol-v02", "family": "volume", "kind": "variant", "text": "turn the volume down", "want": [{"name": "volume.step"}]}
+{"id": "vol-v03", "family": "volume", "kind": "variant", "text": "make it quieter", "want": [{"name": "volume.step"}]}
+{"id": "vol-v04", "family": "volume", "kind": "variant", "text": "can you crank up the volume", "want": [{"name": "volume.step"}]}
+{"id": "vol-v05", "family": "volume", "kind": "variant", "text": "it's too loud", "want": [{"name": "volume.step"}]}
+{"id": "vol-v06", "family": "volume", "kind": "variant", "text": "put the volume at 30", "want": [{"name": "volume.set", "slots": {"level": 30}}]}
+{"id": "vol-v07", "family": "volume", "kind": "variant", "text": "mute the sound", "want": [{"name": "mute"}]}
+{"id": "vol-v08", "family": "volume", "kind": "variant", "text": "silence the computer", "want": [{"name": "mute"}]}
+{"id": "vol-s01", "family": "volume", "kind": "stt", "text": "turn the volume town", "want": [{"name": "volume.step"}], "note": "observed: owner checks 128, 144"}
+{"id": "vol-s02", "family": "volume", "kind": "stt", "text": "turn the volume app", "want": [{"name": "volume.step"}], "note": "plausible: up heard as app"}
+{"id": "vol-s03", "family": "volume", "kind": "stt", "text": "set the volume two thirty", "want": [{"name": "volume.set", "slots": {"level": 30}}], "note": "plausible: to heard as two"}
+{"id": "vol-q01", "family": "volume", "kind": "question", "text": "what's the volume", "want": [{"name": "volume.get"}]}
+{"id": "vol-q02", "family": "volume", "kind": "question", "text": "why is my volume so low", "want": "agent"}
+{"id": "vol-n01", "family": "volume", "kind": "negation", "text": "don't mute it", "want": "nothing"}
+{"id": "vol-n02", "family": "volume", "kind": "negation", "text": "don't turn the volume down", "want": "nothing"}
+{"id": "vol-u01", "family": "volume", "kind": "unsupported", "text": "turn down the volume on the tv", "want": "agent"}
+{"id": "theme-v01", "family": "theme", "kind": "variant", "text": "turn on dark mode", "want": [{"name": "theme", "slots": {"dark": true}}]}
+{"id": "theme-v02", "family": "theme", "kind": "variant", "text": "switch to the dark theme", "want": [{"name": "theme", "slots": {"dark": true}}]}
+{"id": "theme-v03", "family": "theme", "kind": "variant", "text": "go dark", "want": [{"name": "theme", "slots": {"dark": true}}]}
+{"id": "theme-v04", "family": "theme", "kind": "variant", "text": "make my screen darker", "want": "clarify", "note": "dark mode or brightness: should ask which"}
+{"id": "theme-v05", "family": "theme", "kind": "variant", "text": "light mode please", "want": [{"name": "theme", "slots": {"dark": false}}]}
+{"id": "theme-s01", "family": "theme", "kind": "stt", "text": "turn on dark mod", "want": [{"name": "theme", "slots": {"dark": true}}], "note": "plausible"}
+{"id": "theme-s02", "family": "theme", "kind": "stt", "text": "turn on duck mode", "want": [{"name": "theme", "slots": {"dark": true}}], "note": "plausible"}
+{"id": "theme-q01", "family": "theme", "kind": "question", "text": "does dark mode save battery", "want": "agent"}
+{"id": "theme-n01", "family": "theme", "kind": "negation", "text": "don't switch to dark mode", "want": "nothing"}
+{"id": "theme-u01", "family": "theme", "kind": "unsupported", "text": "turn on dark mode in chrome", "want": "agent"}
+{"id": "lock-v01", "family": "lock", "kind": "variant", "text": "lock the computer", "want": [{"name": "lock"}]}
+{"id": "lock-v02", "family": "lock", "kind": "variant", "text": "lock my pc", "want": [{"name": "lock"}]}
+{"id": "lock-v03", "family": "lock", "kind": "variant", "text": "lock up", "want": [{"name": "lock"}]}
+{"id": "lock-v04", "family": "lock", "kind": "variant", "text": "lock the screen", "want": [{"name": "lock"}]}
+{"id": "lock-v05", "family": "lock", "kind": "variant", "text": "I'm stepping away, lock it", "want": [{"name": "lock"}]}
+{"id": "lock-s01", "family": "lock", "kind": "stt", "text": "log the computer", "want": "clarify", "note": "plausible: lock or log off; should ask"}
+{"id": "lock-s02", "family": "lock", "kind": "stt", "text": "lock the computa", "want": [{"name": "lock"}], "note": "plausible"}
+{"id": "lock-q01", "family": "lock", "kind": "question", "text": "how do I lock my computer", "want": "agent"}
+{"id": "lock-n01", "family": "lock", "kind": "negation", "text": "don't lock the computer", "want": "nothing"}
+{"id": "lock-u01", "family": "lock", "kind": "unsupported", "text": "lock the front door", "want": "agent"}
+{"id": "lock-u02", "family": "lock", "kind": "unsupported", "text": "lock this file", "want": "agent"}
+{"id": "wf-v01", "family": "workflow", "kind": "variant", "text": "add lunch with Sam to my calendar tomorrow at one", "want": {"workflow": "calendar-event"}}
+{"id": "wf-v02", "family": "workflow", "kind": "variant", "text": "set up a meeting with my professor on Friday", "want": {"workflow": "calendar-event"}}
+{"id": "wf-v03", "family": "workflow", "kind": "variant", "text": "can you pencil in coffee with Ada on Thursday", "want": {"workflow": "calendar-event"}}
+{"id": "wf-v04", "family": "workflow", "kind": "variant", "text": "block out two hours on Friday morning for writing", "want": {"workflow": "calendar-event"}}
+{"id": "wf-v05", "family": "workflow", "kind": "variant", "text": "write my lecturer an email about the deadline", "want": {"workflow": "email-draft"}}
+{"id": "wf-v06", "family": "workflow", "kind": "variant", "text": "let Sam know I'll be late by email", "want": {"workflow": "email-draft"}}
+{"id": "wf-v07", "family": "workflow", "kind": "variant", "text": "drop Ada a line about the budget", "want": {"workflow": "email-draft"}}
+{"id": "wf-s01", "family": "workflow", "kind": "stt", "text": "had lunch with Sam tomorrow at one", "want": {"workflow": "calendar-event"}, "note": "observed: owner check 31"}
+{"id": "wf-s02", "family": "workflow", "kind": "stt", "text": "e-mail Sam about the budget", "want": {"workflow": "email-draft"}}
+{"id": "wf-q01", "family": "workflow", "kind": "question", "text": "how do I schedule a meeting in Teams", "want": "agent"}
+{"id": "wf-n01", "family": "workflow", "kind": "negation", "text": "don't email Sam yet", "want": "nothing"}
+{"id": "wf-c01", "family": "workflow", "kind": "compound", "text": "set up a reminder to call mum at five", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 5}}}], "note": "calendar's set up + call must not take a reminder"}
+{"id": "wf-c02", "family": "workflow", "kind": "compound", "text": "remind me about my meeting at 3", "want": [{"name": "reminder.set", "slots": {"when": {"hour": 3}}}]}
+{"id": "neg-r01", "family": "volume", "kind": "compound", "text": "No. Turn the volume down.", "want": [{"name": "volume.step"}], "note": "a retraction takes back only what came before it (phase 1 review F1)"}
+{"id": "neg-r02", "family": "lock", "kind": "negation", "text": "Lock the computer. No wait, don't.", "want": "nothing", "note": "HA-SYS-10"}
+{"id": "q-v01", "family": "volume", "kind": "variant", "text": "Volume up?", "want": [{"name": "volume.step"}], "note": "a verbless change has no read: still a request (phase 1 review F2)"}
+{"id": "q-t01", "family": "timer", "kind": "variant", "text": "Timer for 5 minutes?", "want": [{"name": "timer.set", "slots": {"seconds": 300}}], "note": "phase 1 review F2"}
+{"id": "stm-01", "family": "timer", "kind": "statement", "text": "my timer just went off", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-02", "family": "radio", "kind": "statement", "text": "I turned the wifi off yesterday", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-03", "family": "theme", "kind": "statement", "text": "the video says turn on dark mode", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-04", "family": "lock", "kind": "statement", "text": "he said lock your screen", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-05", "family": "radio", "kind": "statement", "text": "I wonder if I should turn off the wifi", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-06", "family": "timer", "kind": "statement", "text": "I set a timer for ten minutes earlier", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-07", "family": "volume", "kind": "statement", "text": "the volume was too loud last night", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-08", "family": "volume", "kind": "statement", "text": "my sister told me to turn the volume down", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-09", "family": "reminder", "kind": "statement", "text": "I wonder if I need a reminder in an hour", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-10", "family": "radio", "kind": "statement", "text": "turned the bluetooth off a minute ago", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-11", "family": "theme", "kind": "statement", "text": "I wonder whether dark mode is on", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "stm-12", "family": "timer", "kind": "statement", "text": "the recipe says set a timer for 20 minutes", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r03", "family": "timer", "kind": "negation", "text": "Set a timer for two minutes. No wait, don't.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r04", "family": "volume", "kind": "negation", "text": "Turn the volume up. Actually, never mind.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r05", "family": "timer", "kind": "negation", "text": "Time me for two minutes. Cancel that.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r06", "family": "timer", "kind": "negation", "text": "Count down from three minutes. Never mind.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r07", "family": "radio", "kind": "negation", "text": "Disconnect from the wifi. No, don't.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r08", "family": "radio", "kind": "negation", "text": "Can you get the wifi back on? Actually no.", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r09", "family": "timer", "kind": "negation", "text": "don't give me ten minutes on the clock", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "neg-r10", "family": "timer", "kind": "negation", "text": "never count down from three minutes", "want": "nothing", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-01", "family": "reminder", "kind": "unsupported", "text": "remind Sam in ten minutes about the laundry", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-02", "family": "radio", "kind": "unsupported", "text": "tell Ada to turn off the wifi", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-03", "family": "timer", "kind": "unsupported", "text": "give her ten minutes on the clock", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-04", "family": "reminder", "kind": "unsupported", "text": "nudge Sam in an hour about the budget", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-05", "family": "timer", "kind": "unsupported", "text": "count down three minutes for him", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "third-06", "family": "radio", "kind": "unsupported", "text": "disconnect the wifi for Ada", "want": "agent", "note": "IA-01 phase 2, P2-3"}
+{"id": "rv-01", "family": "theme", "kind": "statement", "text": "Turn on dark mode is a great feature", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-02", "family": "volume", "kind": "statement", "text": "Turn the volume up was the worst advice", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-03", "family": "volume", "kind": "statement", "text": "Mute button is broken", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-04", "family": "radio", "kind": "question", "text": "Explain how to turn off the wifi", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-05", "family": "theme", "kind": "question", "text": "Show me how to turn on dark mode", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-06", "family": "theme", "kind": "question", "text": "could you explain dark mode", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-07", "family": "volume", "kind": "statement", "text": "Let me turn the volume down", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-08", "family": "radio", "kind": "statement", "text": "Let me turn off the bluetooth", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-09", "family": "volume", "kind": "statement", "text": "can you believe the volume went up", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-10", "family": "volume", "kind": "statement", "text": "Turn the volume down, Sam", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-11", "family": "brightness", "kind": "statement", "text": "Bring the brightness up you guys", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-12", "family": "volume", "kind": "statement", "text": "Turn your volume up for this next song", "want": "agent", "note": "phase 2 review F1"}
+{"id": "rv-13", "family": "radio", "kind": "negation", "text": "Turn off bluetooth, scrap that", "want": "nothing", "note": "phase 2 review F1"}
+{"id": "rv-14", "family": "volume", "kind": "variant", "text": "Turn the volume up 2 notches", "want": [{"name": "volume.step", "slots": {}}], "note": "phase 2 review F2: no guess (a direction with a number)"}
+{"id": "rv-15", "family": "volume", "kind": "variant", "text": "Nudge the volume down 3", "want": [{"name": "volume.step"}], "note": "phase 2 review F2: no guess (a direction with a number)"}
+{"id": "rv-16", "family": "volume", "kind": "variant", "text": "Bring the volume down to 5 minutes", "want": "clarify", "note": "phase 2 review F2: no guess (a direction with a number)"}
+{"id": "rv-17", "family": "radio", "kind": "unsupported", "text": "Turn the wifi off tomorrow", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
+{"id": "rv-18", "family": "theme", "kind": "unsupported", "text": "switch on dark mode at 9 pm", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}
+{"id": "rv-19", "family": "volume", "kind": "unsupported", "text": "crank the volume up later", "want": "agent", "note": "phase 2 review F3: a time with an untimed change"}

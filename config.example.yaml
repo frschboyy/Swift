@@ -129,5 +129,6 @@ followup_context_s: 300            # a request this soon after the last answer s
 demand_classifier:                 # local classifier picks Haiku vs Sonnet where keywords can't (ADR-007 §4)
   enabled: false                   # off until it stops under-estimating (ADR-007 step 3); needs the bge-small model (README)
   threshold: 0.7                   # how sure it must be that a request is light
+  guesses: true                    # the same model lets Swift ask "Set a timer for 2 minutes?" for words it doesn't know
 
 debug: true

@@ -20,7 +20,9 @@ A recording is kept only when it can improve transcription, and only on this PC:
 
 The index (``index.json``) holds metadata: id, time, length, source, flags, how sure the model was,
 peak and noise dB, the speech model, the outcome, and the known words where the owner gave them. The
-heard words only on a clip the owner corrected.
+heard words only on a clip the owner corrected, or one whose request the owner said yes to Swift's guess of
+(``guessed``: the heard words and the intent names the yes ran; IA-01 phase 4, P4-3). That pair is kept here and
+in the interaction log only, never in ``swift.log``.
 Nothing here opens a network connection; logs carry counts only. Audio and words are never used
 to train a model: the improvement pass (``swift.stt.improve``) proposes word fixes for the owner
 to approve and checks accuracy.
@@ -220,6 +222,10 @@ class Recordings:
                 "flags": flags, "confidence": confidence, "status": status, "error": error,
                 "peak_db": record.get("peak_db"), "noise_db": record.get("noise_db"), "stt_model": self.stt_model,
             }
+            understood = record.get("understood")
+            guessed = isinstance(understood, dict) and understood.get("source") in ("similar", "heard")
+            if guessed and record.get("confirmed") is True:
+                entry["guessed"] = {"heard": text, "meant": list(record.get("intents") or [])}
             self._write_entry(entry)
             if (fix := self._pending_fix.pop(clip_id, None)) is not None:
                 self._apply_fix(clip_id, fix)

@@ -12,6 +12,13 @@ under-estimate costs an escalation while an over-estimate only costs money.
 The route vote is never acted on: control and local need an action only the
 rules can supply, so it is only logged (``route_hint``) to show which rules to add.
 
+The same model also votes on a request's *family* ("timer", "radio", ...) over ``families.jsonl`` (the parity set's
+labelled rows, ``eval/parity/parity.jsonl``: a system row's category, anything else ``other``). That vote is only
+Swift's guess about a command the grammar missed (IA-01 phase 2, ``system/understand.py``): it may make Swift ask,
+never act. It runs even while the demand vote is off (``demand=False``). It also counts the guess examples the
+owner kept after a yes to a guess (``guess_examples``; ``spikes/routing/learn_demand.py --guesses``, IA-01 phase 4):
+those feed the vote only, never the grammar (``intents.parse``).
+
 The model is never downloaded here (README has the one-time command). Loading
 takes a few seconds and happens in the background; until it is ready, and if it
 fails, the keyword estimate in ``demand.py`` answers.
@@ -23,16 +30,18 @@ import json
 import threading
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 from loguru import logger
 
 from swift.routing import demand as keywords
+from swift.routing import rules
 
 MODEL_NAME = "bge-small-en-v1.5"
 BASE_EXAMPLES = Path(__file__).with_name("examples.jsonl")
+FAMILY_EXAMPLES = Path(__file__).with_name("families.jsonl")
 # Route names from before ADR-008, still found in examples learned earlier.
 LEGACY_ROUTES = {"claude": "agent"}
 MAX_TOKENS = 64
@@ -147,6 +156,42 @@ class DemandClassifier:
         return Prediction(route, scores[route] / sum(scores.values()), "light" if p_light >= self.threshold else None, p_light)
 
 
+class FamilyVote:
+    """Weighted k nearest neighbours over ``families.jsonl``: (family, share of the neighbours' weight)."""
+
+    def __init__(self, embed: Callable[[list[str]], np.ndarray], rows: list[tuple[str, str]], k: int = 7) -> None:
+        if not rows:
+            raise ClassifierUnavailable("no family examples")
+        self.embed, self.k = embed, k
+        self.families = [f for _, f in rows]
+        self.vectors = np.concatenate([embed([t for t, _ in rows[i:i + 32]]) for i in range(0, len(rows), 32)])
+
+    def __call__(self, text: str) -> tuple[str, float]:
+        sims = self.vectors @ self.embed([keywords.strip_lead(text)])[0]
+        top = np.argsort(-sims)[: self.k]
+        scores: dict[str, float] = {}
+        for i in top:
+            scores[self.families[i]] = scores.get(self.families[i], 0.0) + float(max(sims[i], 1e-6) ** 4)
+        family = max(scores, key=scores.__getitem__)
+        return family, scores[family] / sum(scores.values())
+
+
+def guess_examples(examples_file: Path) -> Path:
+    """Where the guess examples the owner kept live (``learn_demand.py --guesses``), beside the demand examples."""
+    return examples_file.with_name("guess_examples.jsonl")
+
+
+def load_families(path: Path = FAMILY_EXAMPLES, learned: Iterable[Path] = ()) -> list[tuple[str, str]]:
+    """The family examples, and the learned ones the owner kept (never one marked rejected). A yes to a guess is
+    never one by itself: it is a candidate until the owner keeps it (R4)."""
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    for extra in learned:
+        if extra.exists():
+            rows += [r for x in extra.read_text(encoding="utf-8").splitlines() if x.strip()
+                     if not (r := json.loads(x)).get("rejected")]
+    return [(r["text"], r["family"]) for r in rows]
+
+
 class ClassifierEstimate:
     """``demand_fn`` for ``rules.route``: the keyword estimate first, the classifier where it abstains.
 
@@ -157,14 +202,22 @@ class ClassifierEstimate:
     """
 
     def __init__(self, model_dir: Path, example_files: list[Path], threshold: float = 0.7,
-                 k: int = 7, quantized: bool = True) -> None:
+                 k: int = 7, quantized: bool = True, demand: bool = True, family_files: Iterable[Path] = (),
+                 guesses: bool = True) -> None:
         self.model_dir = model_dir
         self.example_files = example_files
+        self.family_files = list(family_files)  # the guess examples the owner kept (``guess_examples``)
         self.threshold = threshold
         self.k = k
         self.quantized = quantized
         self.classifier: DemandClassifier | None = None
+        # The demand vote on (settings.demand_classifier.enabled); off, only the family vote loads.
+        self.demand = demand
+        # Swift's guess on (settings.demand_classifier.guesses); off, no family vote loads and nothing is guessed.
+        self.guesses = guesses
+        self.families: FamilyVote | None = None
         self.error: str | None = None
+        self.hint: tuple[tuple[str, object], ...] = ()
 
     def start_loading(self) -> None:
         threading.Thread(target=self.load, name="demand-classifier", daemon=True).start()
@@ -173,22 +226,33 @@ class ClassifierEstimate:
         started = time.monotonic()
         try:
             embedder = Embedder(self.model_dir, quantized=self.quantized)
-            examples = load_examples(self.example_files)
-            self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)
+            if self.guesses:
+                self.families = FamilyVote(embedder.embed, load_families(learned=self.family_files))
+            examples = load_examples(self.example_files) if self.demand else []
+            if self.demand:
+                self.classifier = DemandClassifier(embedder.embed, examples, k=self.k, threshold=self.threshold)
         except Exception as exc:  # noqa: BLE001 - any failure leaves the keyword estimate in charge
             self.error = str(exc)
-            logger.warning("demand classifier unavailable; using keywords", error=self.error)
+            logger.warning("local classifier unavailable: keywords set demand, and Swift makes no guesses", error=self.error)
             return
         logger.info("demand classifier ready", examples=len(examples), load_ms=round((time.monotonic() - started) * 1000))
 
     def __call__(self, request: str) -> str | None:
-        if found := keywords.estimate(request):
-            return found
+        found = keywords.estimate(request)
         classifier = self.classifier
         if classifier is None:
-            return None
-        p = classifier.predict(request)
+            return found
+        p = classifier.predict(request)  # also when the keywords decided: its route vote goes on the record
         if p.route != "agent":
-            # No transcript here: swift.log stays redacted. A pattern of these means a rule is missing.
-            logger.info("classifier thinks a rule missed this", route_hint=p.route, confidence=round(p.route_conf, 2))
-        return p.demand
+            # A pattern of these means a rule is missing (IA-01). A name and a number: no words.
+            self.hint = (("route_hint", p.route), ("route_conf", round(p.route_conf, 2)))
+        return found or p.demand
+
+    def route(self, text: str) -> rules.Route:
+        """``rules.route`` with this as its demand estimate, carrying the classifier's route vote when it thinks a
+        rule missed the request (``Route.hint``), so the run record says so beside the request it was about."""
+        self.hint = ()
+        found = rules.route(text, demand_fn=self)
+        if self.guesses:
+            found = rules.with_guess(found, self.families)
+        return replace(found, hint=self.hint) if self.hint else found

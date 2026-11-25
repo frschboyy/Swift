@@ -52,9 +52,9 @@ SUMMARY_FIELDS: frozenset[str] = frozenset({
     "models", "moved_on", "noise_db", "offer", "offered", "offered_resume", "override", "parked", "paused",
     "bare_busy", "confirmed_unclear", "duplicate", "greeted", "named", "resume_from",
     "peak_db", "preroll_ms", "provider", "queued", "queued_behind", "reason", "redirected", "redirects",
-    "resumed", "retries", "retry_of", "route", "run_ms", "scenario", "since_back_ms", "skipped",
+    "resumed", "retries", "retry_of", "route", "route_conf", "route_hint", "run_ms", "scenario", "since_back_ms", "skipped",
     "source", "spoken_chars", "start_model", "status", "step_grant", "stopped_by", "stt_confidence", "stt_ms",
-    "thread", "turns", "undo", "views", "workflow",
+    "thread", "tool_refusals", "turns", "understood", "undo", "views", "workflow",
 })
 # Fields that stay out on purpose: words, or the name or path of something of the owner's. Also
 # ``continues``, which is taken off the record before it finishes, and ``transcript_raw``, which only

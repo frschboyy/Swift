@@ -1734,6 +1734,8 @@ The report checks: a yes went ahead with what it sounded like.
 ### Fixes from your checks of 2026-11-09
 
 <a id="check-201"></a>**Check 201. Your answer to Swift's question counts as what you asked**
+**Superseded** by [check 243](#check-243) and [check intent-phase-4-81502b-1](#check-intent-phase-4-81502b-1):
+"turn off the wafer" now gets Swift's own question "Turn off Wi-Fi?", not "what did you mean". Skip this one.
 1. Say "Hey Swift, turn off the wafer" (say "wafer" on purpose, as if it were misheard).
 2. Swift asks what you meant. Answer out loud: "I meant the Wi-Fi".
 3. You should see the card "Turn off Wi-Fi?". **Reject** it, so Wi-Fi stays on.
@@ -2038,8 +2040,7 @@ About 2 minutes. From your run of 2026-11-13, 14:13 ("wafer") and 14:25 ("Wofo")
 3. Say "no". Wi-Fi stays on.
 4. Say "Hey Swift, turn off the Wofo", and this time say "yes". Wi-Fi goes off.
 5. Say "Hey Swift, turn the Wi-Fi back on".
-6. Say "Hey Swift, turn on the wafer". This one isn't guessed (switching on has no question): Swift may ask what you
-   meant, and nothing switches on by itself.
+6. Say "Hey Swift, turn on the wafer". Swift asks "Turn on Wi-Fi?"; say no. Nothing switches on by itself.
 
 The report checks: none of the misheard Wi-Fi requests went to the agent.
 
@@ -3357,6 +3358,69 @@ Space there does nothing: an OK is still answered with a click, Swift's name, or
 You should see: in step 1 Swift listens while the key is held and answers; in step 2 the card shows "Listening…",
 then the request is not done. If a press does nothing, the terminal lines say whether the key reached Swift's window
 at all (on 2026-11-18 no press reached the backend, and the cause is unproven).
+
+### Other words for the same request (claude/keen-moser-4e5a0c, 2026-11-24)
+
+About 3 minutes. Nothing here changes anything lasting: cancel the timer, and say "no" to the Wi-Fi question.
+
+<a id="check-keen-moser-4e5a0c-1"></a>**Check keen-moser-4e5a0c-1. "Set up a timer" works like "set a timer", and so do other words for Wi-Fi and Bluetooth**
+1. Say "Hey Swift, set up a timer for 1 minute". Then "Hey Swift, cancel the timer".
+2. Say "Hey Swift, I need a timer for 2 minutes", then cancel it.
+3. Say "Hey Swift, kill the Wi-Fi"; answer **no**. Say "Hey Swift, shut off Bluetooth"; answer **no**.
+4. Say "Hey Swift, how do I set up a timer?".
+
+You should see: steps 1 and 2 set a timer at once (the same card or answer as "set a timer for 1 minute"); in step 3 Swift
+asks "Turn off Wi-Fi?" / "Turn off Bluetooth?" first and nothing changes after "no"; step 4 is answered in words and no
+timer starts.
+
+<a id="check-intent-architecture-3011f9-1"></a>**Check intent-architecture-3011f9-1. A request Swift can't take in those words says why, in the report**
+1. Say "Hey Swift, time me for two minutes".
+2. Say "Hey Swift, turn on duck mode".
+
+You should see: neither changes anything yet (each is answered in words: Swift says it didn't do it, or asks what you
+meant; answer **no**). In the report, this check's line says PASS with 2 dead ends and the codes `not_asked` and
+`not_asked_offer`, and counts the requests the classifier thought a rule missed. These are the dead ends of finding IA-01,
+now counted; a later change is meant to make Swift ask "Set a timer for 2 minutes?" instead.
+
+### Swift's guess (claude/intent-phase-2-b9b2d9, 2026-11-25)
+
+About 4 minutes. Nothing here changes anything lasting: cancel the timer at the end, and answer **no** to anything
+about Wi-Fi. It needs the classifier's model (`%LOCALAPPDATA%\Swift\models\bge-small-en-v1.5`, already on this PC);
+give Swift about 10 seconds after it starts.
+
+<a id="check-intent-phase-2-b9b2d9-1"></a>**Check intent-phase-2-b9b2d9-1. Swift asks its guess, and only a said or clicked yes runs it**
+1. Say "Hey Swift, time me for two minutes". Swift asks "Set a timer for 2 minutes?". Type **yes** in the text box.
+2. Say **yes** (no name needed while the question is on screen).
+3. Say "Hey Swift, cancel the timer".
+4. Say "Hey Swift, disconnect from the wifi". Answer **no**.
+5. Say "Hey Swift, time me for two minutes" again. While "Set a timer for 2 minutes?" is on screen, say
+   "time me for two minutes" once more, then click **No**.
+
+You should see: in step 1 nothing starts and the question comes back with "Typing can't approve: click Yes, or say
+yes."; step 2 sets a 2-minute timer; step 4 asks "Turn off Wi-Fi?" once (one question, not two) and Wi-Fi stays on;
+in step 5 the question is asked again (the words Swift guessed from aren't a yes) and no timer starts.
+
+<a id="check-intent-phase-2-b9b2d9-2"></a>**Check intent-phase-2-b9b2d9-2. No guess for what isn't a request for this PC, or from the follow-up window**
+1. Say "Hey Swift, my timer just went off".
+2. Say "Hey Swift, time me for two minutes. Never mind."
+3. Say "Hey Swift, give her ten minutes on the clock".
+4. Say "Hey Swift, what time is it?", and right after the answer, without "Hey Swift", say "time me for two minutes".
+
+You should see: none of these asks "Set a timer …?" and no timer starts: steps 1 to 3 are answered in words (or
+nothing happens for step 2), and in step 4 the words after the answer don't get Swift's question.
+
+### Misheard words (claude/intent-phase-4-81502b, 2026-11-25)
+
+About 2 minutes. Answer **no** to every question here, so nothing changes. No model is needed for these.
+
+<a id="check-intent-phase-4-81502b-1"></a>**Check intent-phase-4-81502b-1. A misheard word gets Swift's question, never an action**
+1. Say "Hey Swift, turn on dark mod" (say "mod", as if it were misheard). Swift asks "Turn on dark mode?". Say **no**.
+2. Say "Hey Swift, turn off the wafer". Swift asks "Turn off Wi-Fi?". While it is on screen, say "turn off the
+   wafer" once more, then click **No**.
+
+You should see: step 1 asks and the theme stays as it was (if Swift turns dark mode on straight away, it heard
+"dark mode": say "Hey Swift, turn off dark mode" and note it, that isn't this check failing); in step 2 the question
+is asked again after the repeated words (they aren't a yes), and Wi-Fi stays on.
 
 ## After the checks: the report
 

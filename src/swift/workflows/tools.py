@@ -867,7 +867,7 @@ class ToolHost:
             return ToolResult(False, "No Swift run is active; nothing was done.")
         if not scope.allows(name):
             assert scope.grant is not None
-            logger.info("tool outside the workflow refused", tool=name, workflow=scope.grant.workflow)
+            scope.refused(name, "outside_workflow")  # the workflow's name is in the record's ``workflow``
             return ToolResult(False, f"The {scope.grant.workflow} workflow doesn't use {name}, so Swift refused it. "
                               "Nothing was done; carry on with the workflow's own tools.")
         try:

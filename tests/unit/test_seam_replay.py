@@ -1426,6 +1426,38 @@ async def test_a_typed_swift_yes_on_swifts_question_shows_the_typing_hint_and_ch
     await finish_all(session, agent)
 
 
+@pytest.mark.parametrize("how", ["said", "clicked", "typed"])
+async def test_swifts_guess_is_on_screen_with_its_slots_and_only_a_said_or_clicked_yes_runs_it(how: str) -> None:
+    """IA-01 phase 2 (CLAUDE.md "Swift's guess"): "time me for two minutes" isn't a command Swift knows, so it asks
+    its guess, showing the length a yes sets. Both sides agree it's on screen; a spoken or clicked yes sets the timer;
+    a typed one asks again with the typing hint and sets nothing."""
+    from test_guess import family
+
+    from swift.routing.rules import route, with_guess
+
+    session, out, _records, agent, stt = asker(parked=ParkedThreads(None), router=lambda t: with_guess(route(t), family))
+    session.system, _control, sched = lane()
+    await say(session, stt, "Hey Swift, time me for two minutes")
+    await until(lambda: asks(out)[-1].get("open") and asks(out)[-1]["question"] == "Set a timer for 2 minutes?")
+    assert agree(session, out)["question"] == "Set a timer for 2 minutes?" and not sched.items
+    q = session.dialogue.pending
+    assert q is not None
+    if how == "said":
+        await session._take_answer("yes", source="answer")
+    elif how == "clicked":
+        await session.handle(Message("ask.reply", {"ask_id": q.id, "text": "yes"}))
+    else:
+        await session.handle(Message("text", {"text": "yes"}))
+    await asyncio.sleep(0.2)
+    screen = agree(session, out)
+    if how == "typed":
+        assert not sched.items, "typed words approved Swift's guess"
+        assert screen["question"] == "Typing can't approve: click Yes, or say yes. Set a timer for 2 minutes?", screen
+    else:
+        assert [i.kind for i in sched.items] == ["timer"] and screen["question"] is None
+    await finish_all(session, agent)
+
+
 async def test_a_typed_swift_yes_on_a_correction_offer_shows_the_typing_hint_on_its_card() -> None:
     """Foundation decision 1 (OWN-01): "Say yes and I'll send a correction" took a typed "Swift, yes" by its own
     rule in ``_fix_refused``. Now ``intake.approves`` refuses it, and the hint is the answer on the offer's card."""

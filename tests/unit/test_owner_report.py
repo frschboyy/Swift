@@ -128,3 +128,37 @@ def test_check_149_fails_when_a_due_card_was_sent_and_not_drawn() -> None:
     assert _find(_results([], _due_log(2, 1)), "149")[0] is report.FAIL
     assert _find(_results([], _due_log(1, 1)), "149")[0] is report.PASS
     assert _find(_results([], []), "149")[0] is report.NOT_SEEN
+
+
+def test_ia01_counts_dead_ends_and_the_classifier_s_vote() -> None:
+    rows = [
+        {"source": "wake", "route": "agent", "status": "done", "route_hint": "local", "route_conf": 0.86,
+         "tool_refusals": [{"tool": "system_action", "code": "not_asked", "intents": ["timer.set"]}]},
+        {"source": "wake", "route": "agent", "status": "done", "tool_refusals": [{"tool": "draft_email", "code": "outside_workflow"}]},
+    ]
+    outcome, detail = _find(_results(rows, []), "intent-architecture-3011f9-1")
+    assert outcome.value == "PASS" and detail.startswith("1 dead end(s)") and "1 request(s) the classifier" in detail
+    assert _find(_results([], []), "intent-architecture-3011f9-1")[0].value == "NOT SEEN"
+
+
+def test_ia01_phase_2_counts_swifts_guesses_and_fails_one_from_the_follow_up_window() -> None:
+    guess = {"act": "command", "source": "similar", "family": ["timer.set"], "score": 0.8}
+    rows = [
+        {"source": "wake", "route": "local", "status": "done", "understood": guess, "confirmed": True},
+        {"source": "voice", "route": "local", "status": "done", "understood": guess, "confirmed": False},
+    ]
+    outcome, detail = _find(_results(rows, []), "intent-phase-2-b9b2d9-1")
+    assert outcome.value == "PASS" and detail.startswith("2 guess(es): 1 yes, 1 no")
+    assert _find(_results(rows, []), "intent-phase-2-b9b2d9-2")[0].value == "PASS"
+    followup = [{"source": "followup", "route": "local", "status": "done", "understood": guess}]
+    assert _find(_results(followup, []), "intent-phase-2-b9b2d9-2")[0].value == "FAIL"
+    assert _find(_results([], []), "intent-phase-2-b9b2d9-1")[0].value == "NOT SEEN"
+
+
+def test_ia01_phase_4_counts_guesses_from_a_misheard_word() -> None:
+    heard = {"act": "command", "source": "heard", "family": ["theme"], "score": 1.0}
+    rows = [{"source": "wake", "route": "local", "status": "done", "understood": heard, "confirmed": False}]
+    outcome, detail = _find(_results(rows, []), "intent-phase-4-81502b-1")
+    assert outcome.value == "PASS" and detail.startswith("1 guess(es) from a misheard word: 0 yes, 1 no")
+    assert _find(_results(rows, []), "intent-phase-2-b9b2d9-1")[0].value == "PASS"  # a guess like any other
+    assert _find(_results([], []), "intent-phase-4-81502b-1")[0].value == "NOT SEEN"

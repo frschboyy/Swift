@@ -43,15 +43,15 @@ deliberately narrow: an unmatched command still reaches Claude Code, just slower
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from typing import Literal
+from typing import Any, Literal
 
 from swift import memory
 from swift.executors.providers import AGENT_NAMES
 from swift.routing import fast, light
 from swift.routing.demand import estimate
-from swift.system import intents as system_intents
+from swift.system import understand as understanding  # a module: routing and system import each other
 
 RouteName = Literal["control", "local", "agent"]
 Demand = Literal["light", "standard"]
@@ -131,6 +131,14 @@ class Route:
     app: str | None = None
     # The agent name Swift was called by ("claude"), a key of AGENT_NAMES.
     addressed_as: str | None = None
+    # The local classifier's vote when it thinks a rule missed an agent request: (("route_hint", "local"),
+    # ("route_conf", 0.86)), for the run record (``ClassifierEstimate.route``; IA-01 phase 0). Never acted on.
+    hint: tuple[tuple[str, object], ...] = ()
+    # What the understanding step made of a system or agent request: (("understood", {"act", "source", "family"}),)
+    # for the run record (``understand.Understood.record``; IA-01 phase 1). Names only.
+    understood: tuple[tuple[str, object], ...] = ()
+    # Swift's guess at a command the grammar missed (``with_guess``; IA-01 phase 2): only ever a question.
+    guess: understanding.Guess | None = None
 
 
 def _agent_key(name: str) -> str:
@@ -214,8 +222,44 @@ def route(text: str, default_demand: Demand = "standard",
         rest = text[m.end():].strip()
         if not rest:
             return Route("local", text.strip(), action="identity", addressed_as=called)
-        return replace(_route(rest, default_demand, demand_fn), addressed_as=called)
-    return _route(text, default_demand, demand_fn)
+        return _understood(replace(_route(rest, default_demand, demand_fn), addressed_as=called))
+    return _understood(_route(text, default_demand, demand_fn))
+
+
+def _understood(found: Route) -> Route:
+    """An agent request carries what the understanding step made of it: a command the grammar missed is IA-01's
+    dead end, counted on the record (phase 1). The system lane's route already carries it."""
+    if found.route != "agent":
+        return found
+    return replace(found, understood=(("understood", understanding.understand(found.text, each_clause=True).record()),))
+
+
+def with_guess(found: Route, family_of: Callable[[str], tuple[str, float]] | None) -> Route:
+    """An agent request the grammar missed, with Swift's guess at it when there is one (``understand.propose``).
+    It stays an agent route: only ``guessed`` turns it into Swift's question, for a source that may have one. The
+    vote's bar here is the lower one (``GUESS_UNSURE_AT``); ``guessed`` holds the usual one unless speech
+    recognition was unsure of a word (P4-4)."""
+    if found.route != "agent":
+        return found
+    guess = understanding.propose(found.text, family_of, at=understanding.GUESS_UNSURE_AT)
+    return found if guess is None else replace(found, guess=guess)
+
+
+def guessed(found: Route, record: Mapping[str, Any]) -> Route:
+    """The system lane's guess question (``system_guess``) for a request the owner started (P2-4), else the agent.
+    ``record``: the request's run record. "Try again" re-runs a request as ``retry``; it may guess only as its first
+    try (``retry_of``) could, so a request heard in the follow-up window never gets one after a click (review F4).
+    Every guess comes from the router's ``with_guess``, a sound-alike's too (it needs no family vote, so it asks
+    while the model loads); a router without it (``demand_classifier.guesses`` off) guesses nothing. A vote under ``GUESS_AT`` asks only when the record says speech recognition was unsure of a
+    word in the request (``unclear``) and the guess reads the same without it (P4-4, ``unsure_ok``)."""
+    source = record.get("retry_of") if record.get("source") == "retry" else record.get("source")
+    if found.route != "agent" or not understanding.may_guess(source):
+        return found
+    guess = found.guess
+    if guess is None or (guess.score < understanding.GUESS_AT
+                         and not understanding.unsure_ok(found.text, record.get("unclear"), guess)):
+        return found
+    return Route("local", found.text, action="system_guess", guess=guess, understood=(("understood", guess.record()),))
 
 
 def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | None]) -> Route:
@@ -235,12 +279,12 @@ def _route(text: str, default_demand: Demand, demand_fn: Callable[[str], str | N
     if fast.answer(text) is not None:
         return Route("local", text.strip(), action="answer")
     # The system lane (ADR-016 §3): timers, reminders, volume, theme, lock, ... done by Swift.
-    if system_intents.parse(text) is not None:
-        return Route("local", text.strip(), action="system")
+    if (u := understanding.understand(text)).intents is not None:
+        return Route("local", text.strip(), action="system", understood=(("understood", u.record()),))
     # "How are you? Can you turn on airplane mode?": the greeting is no task, so the command is Swift's own,
     # with its own Yes/No question, not the agent's approval card (owner check, 2026-11-09 22:04).
-    if (rest := _after_pleasantries(text)) is not None and system_intents.parse(rest) is not None:
-        return Route("local", rest, action="system")
+    if (rest := _after_pleasantries(text)) is not None and (u := understanding.understand(rest)).intents is not None:
+        return Route("local", rest, action="system", understood=(("understood", u.record()),))
 
     if (opened := _open_request(norm)) is not None:
         return Route("local", text.strip(), action="open", target=opened[0], app=opened[1])

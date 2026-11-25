@@ -544,3 +544,29 @@ def test_help_mentions_what_swift_does_itself() -> None:
 
     for word in ("timers", "reminders", "volume", "dark mode", "Bluetooth", "undo that"):
         assert word in HELP_TEXT
+
+
+# One verb list, not one pattern per phrasing (2026-11-24: "set up a timer" was refused, "set a timer" worked).
+@pytest.mark.parametrize("text,name", [
+    ("set up a timer for 1 minute", "timer.set"), ("set up a 5 minute timer", "timer.set"),
+    ("can you set up a timer for 5 minutes", "timer.set"), ("put a timer on for 5 minutes", "timer.set"),
+    ("I need a timer for 5 minutes", "timer.set"), ("give me a timer for 5 minutes", "timer.set"),
+    ("set up a reminder to call sam at 5", "reminder.set"), ("set up an alarm for 7am", "alarm.set"),
+    ("shut off wifi", "radio"), ("kill the wifi", "radio"), ("I want the wifi off", "radio"),
+    ("power off bluetooth", "radio"), ("make it dark", "theme"),
+])
+def test_the_same_request_in_other_words_is_the_same_intent(text, name):
+    found = it.parse(text)
+    assert found and found[0].name == name
+
+
+@pytest.mark.parametrize("text", [
+    "how do I set up a timer for 5 minutes", "what does set up a timer mean", "set up a workspace",
+    "set up wifi", "I need the wifi", "stop wifi from dropping", "set up a timer and email sam",
+])
+def test_a_looser_verb_never_turns_a_question_or_another_request_into_an_action(text):
+    assert it.parse(text) is None
+
+
+def test_a_looser_off_phrasing_still_asks_first():
+    assert it.disruptive(it.parse("kill the wifi")[0])

@@ -13,6 +13,7 @@ from swift.system import intents as it
 from swift.system.control import FakeSystem, SystemUnavailable
 from swift.system.lane import SystemLane
 from swift.system.scheduler import Scheduler
+from swift.system.understand import understand
 from swift.workflows.system_tools import owner_intents
 
 NOW = datetime(2026, 11, 12, 10, 0, tzinfo=timezone.utc)
@@ -67,13 +68,13 @@ async def test_alarm_across_dst_rings_at_the_wall_clock_time() -> None:
 
 
 @pytest.mark.parametrize("text", ["bluetooth on?", "wifi on?", "dark mode on?"])
-@pytest.mark.xfail(strict=True, reason="HA-SYS-03: a question with the device and on/off is parsed as switching it")
 def test_a_question_is_not_a_switch(text: str) -> None:
-    found = it.parse(text)
+    # The bare grammar still reads "bluetooth on" as a switch (restated, same_request keep it, IA-01 C1-1); every
+    # path that acts calls understand(), which drops a change asked as a question (phase 1, C1-3).
+    found = understand(text).intents
     assert found is None or all(i.name.endswith(".get") for i in found)
 
 
-@pytest.mark.xfail(strict=True, reason="HA-SYS-03: 'bluetooth on?' switches Bluetooth on, no question asked")
 async def test_bluetooth_question_changes_nothing() -> None:
     l, dev, _ = lane()
     dev.radio_state["bluetooth"] = False
@@ -143,6 +144,5 @@ def test_lock_it_in_another_request_is_not_lock_the_pc() -> None:
     assert not any(i.name == "lock" for i in owner_intents("write a note and lock it"))
 
 
-@pytest.mark.xfail(strict=True, reason="HA-SYS-10: a retraction in the next sentence still leaves the lock asked for")
 def test_a_retracted_lock_is_not_asked_for() -> None:
     assert not any(i.name == "lock" for i in owner_intents("Lock the computer. No wait, don't."))

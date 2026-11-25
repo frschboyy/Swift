@@ -1,5 +1,42 @@
 # Swift findings register. One entry per finding from every audit, rechecked against the code on 2026-11-12.
 # Format and rules: tests/unit/test_findings_register.py. Sorted: open first, then by severity.
+- id: IA-01
+  title: A system action the owner plainly asked for, in words the grammar doesn't know or with one word misheard,
+    dead-ends on the agent path ("Swift didn't accept the request, so nothing was started").
+  source: docs/explorations/intent-architecture.md, 2026-11-24 (owner's "set up a timer for 1 minute")
+  module: src/swift/workflows/system_tools.py, src/swift/system/intents.py, src/swift/executors/claude_code.py
+  area: routing
+  severity: high
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: 'Root cause: the provenance check that keeps a worker from choosing a system action (owner_intents) is
+    the same narrow grammar as the lane (intents.parse). A request the grammar misses goes to the agent, whose
+    system_action is then refused with NOT_ASKED_PLAIN ("Not done: the owner didn''t ask for that"), or NOT_ASKED
+    for a radio off or volume, whose answer must stand in for one word; WORKFLOW_PROMPT tells the agent not to try
+    another way, so it says it wasn''t done. The owner''s sentence is the agent''s wording of that refusal: it is
+    not in src/. Reproduced with fakes before 7d83958 ("set up a timer for 1 minute") and at 7d83958 ("time me for
+    two minutes", "turn on dark mod", "go offline", "lock the computa"). eval/intent at 7d83958: 31 of 129 dead
+    ends (39 before). A compound with a system part that a workflow takes ("turn off wifi and send Sam an email")
+    dead-ends too: system_action is outside the email-draft grant. The refusal leaves no line in swift.log and the
+    run ends "done".'
+  test: tests/unit/test_intent_eval.py::test_a_timer_the_owner_asked_for_in_other_words_is_never_a_dead_end
+  note: 'Strict xfail. 7d83958 (widening the verb list) is a partial fix: 8 of 39. The proposed fix, Swift''s own
+    "Did you mean ...?" question from one understanding step, is in the exploration doc §5; it changes what a level 1
+    question may come from, so it needs a review by someone other than its author. Phase 0 (observability, a
+    safeguard, not a fix) is on this branch: each refusal leaves a reason code in tool_refusals and swift.log.
+    Independent review (2026-11-24): phase 0 approved, phases 1-4 approved with conditions, phase 5 blocked as written;
+    the conditions and the rule wording (R1-R6) are in the exploration doc §5.5-5.6. Phase 2 (branch
+    claude/intent-phase-2-b9b2d9, 2026-11-25; partial fix, the lane path only): Swift asks its guess for a plain
+    command the grammar misses (understand.propose, SystemLane.propose). eval/intent with the real model: dead
+    ends 31 to 17 of 159 rows, 14 guesses all right, 0 wrong. The agent path (the xfail) is unchanged: phase 5.
+    A product-rule change (R1, R2): needs a review by someone other than its author before merge. Phase 4 (branch
+    claude/intent-phase-4-81502b, 2026-11-25; partial fix, misheard slot words): sound-alikes ("wafer") moved out
+    of the grammar into the guess, so they ask and never count as the owner asking; a guessed "on" now asks too.
+    Speech-recognition dead ends 10 to 6 of 25 (all 19 to 15 with the model, 33 to 27 without). A product-rule
+    change (R4, R5): needs a review by someone other than its author before merge. Its review (2026-11-25) approved
+    it with conditions F1, F2, applied with F3 (the owner: guesses off means no guess, from a sound-alike either; this also
+    fixed the phase 2 gap where enabled with guesses off still guessed), F4 and F5 (no "waffle"), one commit each.'
 - id: QA-03
   title: With two Gmail compose windows open in one browser window, the fill may take To, Subject and Body from
     different ones, or write into the owner's own draft that has no subject yet.
@@ -821,15 +858,14 @@
   area: routing
   severity: medium
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
   evidence: fast.normalize strips '?' (routing/fast.py:96), then _RADIO_SWITCH form 4 '{radio} (back )?(on|off)'
     (intents.py:586) and _THEME form 4 (intents.py:414) match. Turning a radio on is not disruptive (intents.py:632-633),
     so lane.start runs it at once. 'is wifi on' correctly gives radio.get. 'wifi off?' asks first (disruptive),
     so only the 'on' side acts unasked.
   test: tests/unit/test_health_SYS.py::test_bluetooth_question_changes_nothing
-  note: Bluetooth on makes the PC discoverable, which system_tools.from_answer treats as needing care. The question
-    mark is lost before the grammar sees it; the lane would need the raw text or a flag from normalize.
+  note: "Bluetooth on makes the PC discoverable, which system_tools.from_answer treats as needing care. The question mark is lost before the grammar sees it; the lane would need the raw text or a flag from normalize. Safeguard, not root (IA-01 phase 1, intent-architecture branch): understand() drops a change asked as a question, so the router, the lane and the agent's provenance check no longer act on 'bluetooth on?'. The bare grammar still parses it (restated and same_request keep the bare grammar, review C1-1) and neither acts. Root unchanged: normalize drops the question mark. Owner check for the real PC still pending."
 - id: HA-SYS-05
   title: '''Undo that'' after an action with nothing to undo (next track, lock, a window, a reading) reverses an
     older change from up to 10 minutes before.'
@@ -893,8 +929,7 @@
     94-97) and finds lock; _same compares name and slots only (system_tools.py:114-115), and lock has none, so system_action('lock
     the computer') passes the scope check and runs as 'reversible' with no card (system_tools.py:153-162, 179).
   test: tests/unit/test_health_SYS.py::test_lock_it_in_another_request_is_not_lock_the_pc
-  note: The gate is shown open; the agent actually choosing to call it is not reproduced. Spoken directly to the
-    lane, 'Swift, lock it' locking is intended.
+  note: "The gate is shown open; the agent actually choosing to call it is not reproduced. Spoken directly to the lane, 'Swift, lock it' locking is intended. Left open by IA-01 phase 1 on purpose: the gate can't tell whether 'lock it' means the PC, so it still counts."
 - id: HA-HEAR-03
   title: After a bare "Hey Swift" that only the acoustic detector caught, the request sent to the agent keeps the
     misheard name and anything said before it.
@@ -1586,14 +1621,13 @@
   area: actions
   severity: low
   product_rule: false
-  status: open
+  status: partial
   confidence: confirmed
   evidence: system_tools._intents parses sentence by sentence (system_tools.py:94-97) and never looks at a following
     negation; _NOT is applied only to answers (system_tools.py:52). Plain negations ('don't turn off wifi', 'never
     turn off the bluetooth', "don't lock the computer and turn the volume down") are correctly not actions (probed).
   test: tests/unit/test_health_SYS.py::test_a_retracted_lock_is_not_asked_for
-  note: The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first
-    sentence.
+  note: "The lane itself is safe here (the whole utterance doesn't parse). Risk needs the agent to act on the first sentence. Safeguard (IA-01 phase 1, with review fixes): understand() drops the intents of clauses before a clause that is only a retraction ('no wait, don't', 'never mind', 'cancel that'); a request after the retraction is kept. Not caught: a retraction inside the same clause ('lock it never mind'; commas are gone after normalize), and a negated restatement in the next sentence ('Lock the computer. Actually don't lock it.' still gives lock). Owner check pending."
 - id: HA-SYS-11
   title: Timers are kept as wall-clock epoch times, so a clock correction or manual change makes a running timer
     fire early (marked missed) or late.
@@ -3938,3 +3972,51 @@
     port 1431, which another session''s vite held (now SWIFT_UI_PORT, SWIFT_TEST_EXE).'
   test: null
   note: Update live-ui-loop.md section 4 row 11, or restart the backend inside the step.
+- id: IA-02
+  title: Two owners of 'is it a question' and 'is it a retraction' for a system request - understand.py beside library.is_question,
+    the router's cancel words and dialogue's never mind.
+  source: independent review of IA-01 phase 1 (review-intent-phase-1.md F3), 2026-11-25
+  module: src/swift/system/understand.py, src/swift/workflows/library.py, src/swift/routing/rules.py, src/swift/dialogue.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: understand._ASKS differs from library._QUESTION; _RETRACT is its own list beside rules.py's cancel control
+    and dialogue's never mind. The design (5.3) said library.is_question moves into understand.py.
+  test: null
+  note: For IA-01 phase 2, which needs the gate as the one owner (P2-3). Move is_question into understand.py and have
+    library and session import it; build _RETRACT from the router's cancel words.
+- id: IA-03
+  title: restated_as counts a spoken question ('wifi off?') as saying the request again, and 'Cancel that. Set an alarm for 7 am.'
+    parsed as cancel in the lane before phase 1.
+  source: independent review of IA-01 phase 1 (F5), 2026-11-25
+  module: src/swift/restated.py, src/swift/system/intents.py
+  area: actions
+  severity: low
+  product_rule: true
+  status: open
+  confidence: suspected
+  evidence: restated.py compares bare grammar matches (kept on purpose, review C1-1). A question isn't the same request
+    said again, but approves level 1. Read from the code, not run through a session. The cancel case ran on 7583be8.
+  test: null
+  note: Apply only the question part of the gate in restated_as; that narrows approval but is a product-rule change and
+    needs its own review. Phase 1 now drops the cancel case in owner_intents and the lane (a retraction first, then a request).
+- id: IA-04
+  title: Swift's guess reads direction, on/off, media and level with its own word lists beside the grammar's.
+  source: independent review of IA-01 phase 2 (F6), 2026-11-25
+  module: src/swift/system/understand.py, src/swift/system/intents.py
+  area: routing
+  severity: low
+  product_rule: false
+  status: open
+  confidence: confirmed
+  evidence: In understand.py, _UP, _DOWN, _ON, _OFF, _MEDIA and _number sit beside the lists in intents.py
+    (_direction, _on, _OFF_VERBS, _MEDIA, _amount), so two owners decide which word means up or off. The reader
+    functions seconds_of, find_when and heard_as_wifi are shared. Not a safety issue, since a guess only asks and
+    its question shows the slot.
+  test: null
+  note: Export the word lists from intents.py and use them in the readers of the guess. Recorded from the same
+    review (F7, no change needed for merge). A guess question left in the stack resumes to the agent, because the
+    resume uses system.claims, which is grammar-only (phase 5 or later). Seven eval texts are word for word in
+    families.jsonl (radio-q02, vol-v03, vol-v07, vol-q01, theme-v01, lock-v01, lock-v02), and none is a guessed row.

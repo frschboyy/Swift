@@ -69,6 +69,7 @@ class Intent:
 
 _POLITE = re.compile(
     r"^(?:(?:can|could|would|will) you (?:please )?|i(?:'d| would) like you to |i want you to |i need you to"
+    r"|i(?:'d| would) like (?:to )?|i (?:need|want) (?:to )?|let'?s "
     r"|go ahead and |please |hey )+"
 )
 _HOURS = {
@@ -252,10 +253,11 @@ def say_duration(seconds: float) -> str:
 
 # ---- schedule: timers, alarms, reminders ----------------------------------------------------
 
-_SET = r"(?:set|start|make|create|begin|put on|add)"
+# "set up" and "start up" say the same as "set" and "start": one verb list, so a phrasing is not a new pattern.
+_SET = r"(?:set ?up|start ?up|set|start|make|create|begin|put on|put|add|give me|get me|get)"
 _LABEL = r"(?: (?:for|to|called|named|labelled|labeled|titled) (?P<label>[a-z0-9' ]{1,60}?))?"
 _TIMER_A = re.compile(rf"(?:{_SET} )?(?:an? |the |my )?(?P<d>{_DUR}) (?:count ?down )?timer{_LABEL}")
-_TIMER_B = re.compile(rf"(?:{_SET} )?(?:an? |the |my )?(?:count ?down )?timer (?:for|of|to) (?P<d>{_DUR}){_LABEL}")
+_TIMER_B = re.compile(rf"(?:{_SET} )?(?:an? |the |my )?(?:count ?down )?timer (?:on )?(?:for|of|to) (?P<d>{_DUR}){_LABEL}")
 _TIMER_C = re.compile(rf"(?:{_SET} )?(?:an? )?timer{_LABEL}")  # no length: needs asking
 _TIMER_LEFT = re.compile(
     r"(?:how (?:long|much time)(?: is)?(?: there)?(?: left| remaining)(?: on| for| in)?(?: the| my)?(?: (?P<label>[a-z0-9' ]+?))?(?: timer)?"
@@ -410,6 +412,7 @@ _MEDIA = [
 _THEME = [
     re.compile(r"(?:turn|switch|set|change|go|put|flip|enable|activate)(?: (?:on|to|into|it to))? (?:the )?(?:windows )?(?P<m>dark|light)(?: mode| theme)?"),
     re.compile(r"(?P<verb>turn|switch) (?P<onoff>on|off) (?:the )?(?:windows )?(?P<m>dark|light)(?: mode| theme)"),
+    re.compile(r"(?:make|set) (?:it|the screen|windows|everything) (?:to )?(?P<m>dark|light)(?: mode)?"),
     re.compile(r"(?P<verb>enable|disable) (?:the )?(?:windows )?(?P<m>dark|light)(?: mode| theme)"),
     re.compile(r"(?P<m>dark|light) (?:mode|theme) (?P<onoff>on|off)"),
     re.compile(r"(?:use|switch to) (?:the )?(?P<m>dark|light) (?:mode|theme)"),
@@ -578,10 +581,10 @@ _ONOFF = r"(?P<onoff>on|off)"
 # these went to the agent and got "I'm offline", while the offline list itself says "turn it back on").
 _AGAIN = r"(?: (?:back|again|now|please))*"
 _RADIO_SWITCH = [
-    re.compile(rf"(?:turn|switch|toggle|put|flip) {_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
-    re.compile(rf"(?:turn|switch|put|flip) (?:back )?{_ONOFF} {_RADIO}{_AGAIN}"),
+    re.compile(rf"(?:turn|switch|toggle|put|flip|shut|power|cut) {_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
+    re.compile(rf"(?:turn|switch|put|flip|shut|power|cut) (?:back )?{_ONOFF} {_RADIO}{_AGAIN}"),
     # Not "connect to Wi-Fi": that can mean joining a network, not switching the radio on.
-    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect|re-?enable) {_RADIO}{_AGAIN}"),
+    re.compile(rf"(?P<verb>enable|disable|activate|deactivate|disconnect|re-?enable|kill|stop) {_RADIO}{_AGAIN}"),
     re.compile(rf"{_RADIO} (?:back )?{_ONOFF}{_AGAIN}"),
 ]
 _RADIO_GET = re.compile(rf"(?:(?:is|are) {_RADIO} (?:on|off|enabled|working|switched on|turned on)"
@@ -601,7 +604,7 @@ _DND_SWITCH = [
     re.compile(rf"(?P<verb>enable|disable|activate|deactivate|start|stop) {_DND}"),
     re.compile(rf"{_DND} {_ONOFF}"),
 ]
-_OFF_VERBS = ("disable", "deactivate", "disconnect", "stop", "exit", "leave")
+_OFF_VERBS = ("disable", "deactivate", "disconnect", "stop", "exit", "leave", "kill")
 
 
 def _on(m: re.Match[str]) -> bool:
@@ -611,36 +614,13 @@ def _on(m: re.Match[str]) -> bool:
     return g.get("verb") not in _OFF_VERBS
 
 
-# How speech recognition has written "Wi-Fi" (owner checks 201 and 206, 2026-11-13: "wafer", "Wofo"), and
-# close spellings of those. Only these: a sound-alike rule also took "wave", "wife" and "we feel" (review of
-# 225ca9b), and a plain yes to "Turn off Wi-Fi?" is for a change the owner asked for. Add a word when a saved
-# clip shows it.
-HEARD_AS_WIFI = frozenset({"wafer", "wafers", "wofo", "woofo", "wofa", "waffle", "why fi", "wi fy", "wi fry"})
-
-
-def heard_as_wifi(words: str) -> bool:
-    """Whether ``words`` is one of the ways speech recognition has misheard "Wi-Fi" (``HEARD_AS_WIFI``)."""
-    return " ".join(words.split()) in HEARD_AS_WIFI
-
-
-# "Turn off the wafer": the radio slot, whatever was heard there, for ``heard_as_wifi``.
-_HEARD_OFF = [
-    re.compile(r"(?:turn|switch|put|flip) (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?) off(?: (?:now|please))*"),
-    re.compile(r"(?:turn|switch|put|flip) off (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?)(?: (?:now|please))*"),
-    re.compile(r"(?:disable|deactivate|disconnect) (?:the |my )?(?P<radio>[a-z]+(?: [a-z]+)?)"),
-]
-
-
+# No sound-alikes here ("wafer" for Wi-Fi): they are Swift's guess (understand.SOUNDS_LIKE), so they only ask and
+# never count as the owner asking (IA-01 phase 4, P4-1).
 def _radios(t: str) -> Intent | None:
     for pattern in _RADIO_SWITCH:
         if m := pattern.fullmatch(t):
             kind = "bluetooth" if "blue" in m.group("radio") else "wifi"
             return Intent("radio", {"kind": kind, "on": _on(m)})
-    for pattern in _HEARD_OFF:
-        # Only off: that always has Swift's own "Turn off Wi-Fi?", so a wrong guess costs a "no". A guessed
-        # "on" has no question and would act on a guess, so it stays unparsed.
-        if (m := pattern.fullmatch(t)) and heard_as_wifi(m.group("radio")):
-            return Intent("radio", {"kind": "wifi", "on": False})
     if m := _RADIO_GET.fullmatch(t):
         return Intent("radio.get", {"kind": "bluetooth" if "blue" in (m.group("radio") or m.group("radio2")) else "wifi"})
     for pattern in _AIRPLANE:
@@ -673,7 +653,7 @@ _RESTART = re.compile(r"\b(?:can|could|would|will) you (?:please )?")
 
 def _begun_again(text: str) -> str | None:
     """The request after the owner began it again, or None when ``text`` isn't one begun again."""
-    if _POLITE.match(fast.normalize(text)) is None:
+    if not polite(text):
         return None
     t = normalize(text)
     starts = list(_RESTART.finditer(t))
@@ -685,7 +665,34 @@ def _begun_again(text: str) -> str | None:
     return t[starts[-1].end():].strip() or None
 
 
-_SPLIT = re.compile(r"\s+(?:and then|and also|and|then|also|,)\s+|\s*,\s*(?:and |then )?")
+# Where one thing the owner asked for ends and the next begins: the one splitter for the lane's compounds and the
+# agent tool's provenance check (IA-01 phase 1). Commas and full stops are gone after ``normalize``, so words only.
+_AND = r"and then|and also|and|then|also"
+_ENDS = r"after that|while|before|after|once|so that|because|but first|first"
+_COMPOUND = re.compile(rf"\s+(?:{_AND})\s+")
+_CLAUSE = re.compile(rf"\b(?:{_AND}|{_ENDS})\b")
+_SENTENCE = re.compile(r"(?<=[.!?;])\s+")
+
+
+def sentences(text: str) -> list[str]:
+    """``text`` cut after each sentence end (speech recognition writes full stops; normalize drops them)."""
+    return _SENTENCE.split(text)
+
+
+def polite(text: str) -> bool:
+    """Whether ``text`` leads with a request lead ("can you", "please", "I want you to")."""
+    return _POLITE.match(fast.normalize(text)) is not None
+
+
+def clauses(text: str, loose: bool = False) -> list[str]:
+    """The clauses of ``text``, normalized. Strict (the lane's compounds): the whole utterance, split only where
+    "and", "then" or "also" join two requests. Loose (``system_action``'s check, where each clause is read alone):
+    sentence ends first, as speech recognition writes them ("Turn the volume down. Write a haiku."), then also
+    "before", "after", "because" ...; a part there may be something the owner asked for. Kept exactly as the two
+    old splitters (``test_understand.py`` compares them): merging them must accept nothing more (review C1-2)."""
+    if not loose:
+        return [p for p in _COMPOUND.split(normalize(text)) if p.strip()]
+    return [c for s in _SENTENCE.split(text) for c in _CLAUSE.split(normalize(s)) if c.strip()]
 
 
 def parse(text: str) -> list[Intent] | None:
@@ -694,8 +701,7 @@ def parse(text: str) -> list[Intent] | None:
         return [one]
     if (again := _begun_again(text)) is not None:
         return parse(again)
-    cleaned = normalize(text)
-    parts = [p for p in _SPLIT.split(cleaned) if p.strip()]
+    parts = clauses(text)
     if not 2 <= len(parts) <= 3:
         return None
     found = [parse_one(p) for p in parts]

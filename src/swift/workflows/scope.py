@@ -18,6 +18,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from loguru import logger
+
 from swift.connectors.base import Contact, StoredEvent
 from swift.workflows.artifacts import Artifact, ArtifactStore, Kind, Phase
 
@@ -99,6 +101,16 @@ class RunScope:
     ask_fn: Asker | None = None
     # The run record of the request it works for (``runs.py``): its journal entries name it.
     run: str = ""
+    # Where a tool's refusal is noted on the run's record (``note_refusal``); None: logged only.
+    on_refusal: Callable[[dict[str, Any]], None] | None = None
+
+    def refused(self, tool: str, reason: str, intents: tuple[str, ...] | list[str] = ()) -> None:
+        """A tool didn't do what it was asked, and why: a reason code and intent names, never words (IA-01: a refusal
+        the agent then explains in its own words left no trace, and the run ended "done")."""
+        entry = {"tool": tool, "code": reason, **({"intents": list(intents)} if intents else {})}
+        logger.info("tool refused", **entry)
+        if self.on_refusal is not None:
+            self.on_refusal(entry)
 
     def allows(self, tool: str) -> bool:
         # Asking the owner is never outside what a workflow may do: it does nothing by itself.
@@ -136,3 +148,8 @@ class RunScope:
         artifact = self.artifacts.put(id, kind, phase, title, data)
         await self.publish_fn(artifact)
         return artifact
+
+
+def note_refusal(record: dict[str, Any], entry: dict[str, Any]) -> None:
+    """``RunScope.on_refusal`` for a run record: its ``tool_refusals``."""
+    record.setdefault("tool_refusals", []).append(entry)

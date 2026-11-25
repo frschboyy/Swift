@@ -102,17 +102,26 @@ async def test_a_guessed_on_asks_turn_on() -> None:
 
 
 def _low(text: str) -> tuple[str, float]:
-    return ("timer", 0.4)  # under GUESS_AT, over GUESS_UNSURE_AT
+    """A family vote under GUESS_AT and over GUESS_UNSURE_AT."""
+    t = text.lower()
+    family = "media" if ("skip" in t or "pause" in t) else "radio" if "internet" in t else "timer"
+    return (family, 0.4)
 
 
-@pytest.mark.parametrize(("unclear", "asks"), [
-    (None, False), ([], False),
-    (["clock"], True),  # unsure of a word no slot is read from: the lower bar
-    (["ten"], False),  # unsure of the length the question would show: the usual bar
-    (["kettle"], False),  # not a word of this request
+@pytest.mark.parametrize(("text", "unclear", "asks"), [
+    ("give me ten minutes on the clock", None, False),
+    ("give me ten minutes on the clock", [], False),
+    ("give me ten minutes on the clock", ["clock"], True),  # unsure of a word no slot is read from: the lower bar
+    ("give me ten minutes on the clock", ["ten"], False),  # unsure of the length the question would show
+    ("give me ten minutes on the clock", ["kettle"], False),  # not a word of this request
+    # Phase 4 review F1: the unsure word is the slot value the question shows.
+    ("skip this one", ["skip"], False),
+    ("pause it now", ["pause"], False),
+    ("give me 2 hours on a timer", ["hours"], False),
+    ("kill the internet now", ["internet"], False),
 ])
-def test_an_unsure_word_lowers_the_bar_to_ask_only_off_the_slots(unclear: list[str] | None, asks: bool) -> None:
-    found = guessed(with_guess(route("give me ten minutes on the clock"), _low), {"source": "voice", "unclear": unclear})
+def test_an_unsure_word_lowers_the_bar_to_ask_only_off_the_slots(text: str, unclear: list[str] | None, asks: bool) -> None:
+    found = guessed(with_guess(route(text), _low), {"source": "voice", "unclear": unclear})
     assert (found.action == "system_guess") is asks
 
 

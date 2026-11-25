@@ -251,13 +251,13 @@ def guessed(found: Route, record: Mapping[str, Any]) -> Route:
     try (``retry_of``) could, so a request heard in the follow-up window never gets one after a click (review F4).
     Every guess comes from the router's ``with_guess``, a sound-alike's too (it needs no family vote, so it asks
     while the model loads); a router without it (``demand_classifier.guesses`` off) guesses nothing. A vote under ``GUESS_AT`` asks only when the record says speech recognition was unsure of a
-    word in the request (``unclear``) that no slot is read from (P4-4)."""
+    word in the request (``unclear``) and the guess reads the same without it (P4-4, ``unsure_ok``)."""
     source = record.get("retry_of") if record.get("source") == "retry" else record.get("source")
     if found.route != "agent" or not understanding.may_guess(source):
         return found
     guess = found.guess
     if guess is None or (guess.score < understanding.GUESS_AT
-                         and not understanding.unsure_ok(found.text, record.get("unclear"))):
+                         and not understanding.unsure_ok(found.text, record.get("unclear"), guess)):
         return found
     return Route("local", found.text, action="system_guess", guess=guess, understood=(("understood", guess.record()),))
 

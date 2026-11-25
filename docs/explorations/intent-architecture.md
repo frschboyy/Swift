@@ -323,7 +323,8 @@ parity 413/423, harmful 0. **Touches the provenance check: needs a review by som
   again instead of approving it (P2-2). `test_system_phase_a2.py`'s wafer tests were changed to say so.
 - P4-4: `with_guess` proposes at `GUESS_UNSURE_AT` (0.35); `rules.guessed` keeps a guess under `GUESS_AT` only
   when the record's `unclear` (the words below speech recognition's bar, already on the record before routing)
-  holds a word of the request that no slot is read from. Slots still come only from the readers. No session change.
+  holds a word of the request and the guess's reader reads the same intent with the unsure words left out
+  (review F1: an unsure word never decides a slot). Slots still come only from the readers. No session change.
 - P4-2 / R4: a yes to a guess is already in the run record (`understood`, `confirmed`, `intents`, the transcript).
   `spikes/routing/learn_demand.py --guesses` turns each into a candidate (heard words → family) that the owner
   keeps or rejects one by one; kept ones go to `guess_examples.jsonl` beside the demand examples and feed

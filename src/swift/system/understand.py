@@ -57,8 +57,8 @@ Misheard words (phase 4; review conditions P4-1 to P4-4):
 - A guessed "on" ("Turn on Wi-Fi?") is a deliberate widening: the grammar took only a misheard "off", because a
   guessed "on" had no question then. Every guess asks now.
 - ``GUESS_UNSURE_AT``: when speech recognition was unsure of a word in the request, a lower family vote is
-  enough to ask (``rules.guessed``, from the record's ``unclear``), as long as no unsure word is one a slot is
-  read from. It only lowers the bar to ask: slots still come only from the readers (P4-4).
+  enough to ask (``rules.guessed``, from the record's ``unclear``), as long as the guess's reader reads the same
+  intent with the unsure words left out (``unsure_ok``). It only lowers the bar to ask: slots still come only from the readers (P4-4).
 - A yes to a guess is in the run record (``understood``, ``confirmed``, the transcript), so the local interaction
   log holds the heard -> meant pair; ``swift.log`` gets names only. ``spikes/routing/learn_demand.py --guesses``
   shows each one to the owner, and only the ones kept become family examples (``classifier.GUESS_EXAMPLES``),
@@ -368,14 +368,15 @@ def heard_as(t: str) -> str | None:
     return fixed if fixed != t else None
 
 
-def unsure_ok(text: str, unsure: list[str] | None) -> bool:
-    """Whether a word speech recognition was unsure of lowers the bar to ask (``GUESS_UNSURE_AT``, P4-4): one of
-    them is in ``text``, and none is a word a slot is read from (a number, on/off, a direction, a device or
-    mode), so an unsure word never decides what the question shows."""
+def unsure_ok(text: str, unsure: list[str] | None, guess: Guess) -> bool:
+    """Whether the words speech recognition was unsure of lower the bar to ask ``guess`` (``GUESS_UNSURE_AT``,
+    P4-4): one of them is in ``text``, and the guess's reader reads the same intent with them left out, so no
+    unsure word decides anything the question shows (phase 4 review F1)."""
     words = {w for u in unsure or () for w in it.normalize(u).split()}
-    slots = _UP | _DOWN | _ON | _OFF | {"wifi", "bluetooth", "dark", "light", "night", "mute", "unmute"}
-    return bool(words & set(it.normalize(text).split())) and not any(
-        w in slots or w.isdigit() or w in _NUM.split() for w in words)
+    said = it.normalize(text).split()
+    rest = " ".join(w for w in said if w not in words)
+    reader = _READERS.get(guess.family)
+    return bool(words & set(said)) and reader is not None and reader(rest, set(rest.split())) == guess.intent
 
 
 def _heard_guess(t: str) -> Guess | None:

@@ -51,7 +51,8 @@ Misheard words (phase 4; review conditions P4-1 to P4-4):
 - ``SOUNDS_LIKE`` is the one owner of what speech recognition writes for Swift's own slot words ("wafer" for
   Wi-Fi). It is read only here, by ``propose``: a sound-alike makes a guess, so it only ever makes Swift ask, and
   it never counts as the owner asking (``understand`` and ``owner_intents`` keep the grammar, which has no
-  sound-alikes). It needs no family vote: the words themselves say what was meant. The transcript is never
+  sound-alikes). It needs no family vote: the words themselves say what was meant. It still comes only through
+  the router's ``with_guess``, so with guesses off there is none (the owner, 2026-11-25). The transcript is never
   rewritten; ``propose`` reads a copy with the sound-alikes spelled out.
 - A guessed "on" ("Turn on Wi-Fi?") is a deliberate widening: the grammar took only a misheard "off", because a
   guessed "on" had no question then. Every guess asks now.

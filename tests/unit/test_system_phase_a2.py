@@ -123,8 +123,16 @@ def test_another_word_is_never_read_as_a_misheard_wifi(heard: str) -> None:
     assert names(heard) is None and propose(heard, None) is None
 
 
+def _guessing(text: str):  # type: ignore[no-untyped-def]
+    """The router with Swift's guess on (``demand_classifier.guesses``), the model not loaded: sound-alikes only."""
+    from swift.routing.rules import route, with_guess
+
+    return with_guess(route(text), None)
+
+
 async def test_a_misheard_wifi_gets_swifts_own_question_and_a_plain_yes_does_it() -> None:
     session, rec, spy, records = await _session()
+    session.router = _guessing
     await ask("Turn off the wafer.", session)
     assert rec.last("ask")["question"] == "Turn off Wi-Fi?" and spy.calls == []  # never the agent
     assert session.system.control.radio_state["wifi"] is True  # type: ignore[union-attr]
@@ -135,6 +143,7 @@ async def test_a_misheard_wifi_gets_swifts_own_question_and_a_plain_yes_does_it(
 
 async def test_a_misheard_wifi_and_a_no_leaves_it_on() -> None:
     session, rec, _, _ = await _session()
+    session.router = _guessing
     await ask("Turn off the Wofo.", session)
     await ask("no", session)
     assert rec.last("result")["summary"] == "Okay, I've left it as it is."

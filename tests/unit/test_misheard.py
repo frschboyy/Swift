@@ -31,6 +31,17 @@ SAID = {"wifi": "turn off the {}", "bluetooth": "turn off the {}", "timer": "set
 ALIKES = [(meant, alike) for meant, seen in u.SOUNDS_LIKE.items() for alikes in seen.values() for alike in alikes]
 
 
+def _guessing(text: str):  # type: ignore[no-untyped-def]
+    """The router with Swift's guess on, the model not loaded (or missing): sound-alikes only."""
+    return with_guess(route(text), None)
+
+
+def test_with_guesses_off_a_sound_alike_guesses_nothing() -> None:
+    # The owner, 2026-11-25 (phase 4 review F3): off means off. The plain router is what guesses off gives, so
+    # "turn off the wafer" may dead-end again then.
+    assert guessed(route("turn off the wafer"), {"source": "voice"}).route == "agent"
+
+
 def test_every_slot_word_has_a_request_to_test() -> None:
     assert set(SAID) == set(u.SOUNDS_LIKE)
 
@@ -41,7 +52,7 @@ async def test_each_sound_alike_only_asks(meant: str, alike: str) -> None:
     guess = u.propose(said, None)
     assert guess is not None and guess.heard, said
     assert guess.intent == it.parse(SAID[meant].format(meant))[0]  # type: ignore[index]  # what the words as meant say
-    found = guessed(route(said), {"source": "voice"})
+    found = guessed(_guessing(said), {"source": "voice"})
     assert found.action == "system_guess" and dict(found.understood)["understood"]["source"] == "heard"
     system, control, sched = lane()
     out = await system.propose(guess.intent)
@@ -58,13 +69,14 @@ def test_a_sound_alike_never_counts_as_the_owner_asking(meant: str, alike: str) 
 
 @pytest.mark.parametrize("source", ["followup", "beside", "answer", "over_speech", None])
 def test_a_sound_alike_never_guesses_from_a_source_the_owner_didnt_start(source: str | None) -> None:
-    assert guessed(route("turn on the wafer"), {"source": source}).route == "agent"
+    assert guessed(_guessing("turn on the wafer"), {"source": source}).route == "agent"
 
 
 async def test_saying_the_misheard_words_again_asks_again() -> None:
     # The guessed-from words never approve their own guess (P2-2): before phase 4 "turn off the wafer" was a grammar
     # match, so saying it again over "Turn off Wi-Fi?" approved it. Now it asks again.
     session, rec, _spy, _records = await _session()
+    session.router = _guessing
     await ask("turn off the wafer", session)
     assert rec.last("ask")["question"] == "Turn off Wi-Fi?"
     q = session.dialogue.pending
@@ -79,6 +91,7 @@ async def test_saying_the_misheard_words_again_asks_again() -> None:
 async def test_a_guessed_on_asks_turn_on() -> None:
     # The deliberate widening (P4-1): a guessed "on" asks too.
     session, rec, _spy, _records = await _session()
+    session.router = _guessing
     session.system.control.radio_state["wifi"] = False  # type: ignore[union-attr]
     await ask("turn on the wafer", session)
     assert rec.last("ask")["question"] == "Turn on Wi-Fi?"
@@ -121,6 +134,7 @@ def _learn() -> object:
 
 async def _yes_to_a_guess() -> dict:
     session, _rec, _spy, records = await _session()
+    session.router = _guessing
     await ask("turn on the wafer", session)
     await ask("yes", session)
     return next(r for r in records if r.get("confirmed") is True)

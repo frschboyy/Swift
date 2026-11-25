@@ -313,8 +313,10 @@ parity 413/423, harmful 0. **Touches the provenance check: needs a review by som
   `understand.SOUNDS_LIKE`, per slot word (Wi-Fi, Bluetooth, timer, minute/minutes, dark mode), each marked
   `observed` (only "wafer" and "Wofo", owner checks 201 and 206) or `plausible` (kept few). `propose` reads a copy
   of the words with the sound-alikes spelled out and takes the grammar's own reading of it, one proposable intent
-  only; it needs no family vote, so a router without the classifier still asks (`rules.guessed`). The transcript
-  is never rewritten. The record's `understood.source` is `"heard"`.
+  only; it needs no family vote, so it asks while the model loads or without it. The transcript is never
+  rewritten. The record's `understood.source` is `"heard"`. **With `demand_classifier.guesses` off there is no
+  guess at all, a sound-alike's included** (the owner, 2026-11-25, review F3: off means off), so "turn off the
+  wafer" may dead-end again then.
 - **Behaviour changes, on purpose:** a guessed "on" asks ("Turn on the wafer" → "Turn on Wi-Fi?"): a deliberate
   widening, since every guess asks now. "Turn off the wafer" on the agent path is refused until the owner names
   Wi-Fi (`owner_intents` keeps the grammar), and saying "turn off the wafer" again over "Turn off Wi-Fi?" asks

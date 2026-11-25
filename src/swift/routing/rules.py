@@ -249,13 +249,13 @@ def guessed(found: Route, record: Mapping[str, Any]) -> Route:
     """The system lane's guess question (``system_guess``) for a request the owner started (P2-4), else the agent.
     ``record``: the request's run record. "Try again" re-runs a request as ``retry``; it may guess only as its first
     try (``retry_of``) could, so a request heard in the follow-up window never gets one after a click (review F4).
-    A sound-alike guesses with no family vote (``understand.SOUNDS_LIKE``), so a router without the classifier
-    still asks one. A vote under ``GUESS_AT`` asks only when the record says speech recognition was unsure of a
+    Every guess comes from the router's ``with_guess``, a sound-alike's too (it needs no family vote, so it asks
+    while the model loads); a router without it (``demand_classifier.guesses`` off) guesses nothing. A vote under ``GUESS_AT`` asks only when the record says speech recognition was unsure of a
     word in the request (``unclear``) that no slot is read from (P4-4)."""
     source = record.get("retry_of") if record.get("source") == "retry" else record.get("source")
     if found.route != "agent" or not understanding.may_guess(source):
         return found
-    guess = found.guess or understanding.propose(found.text, None)
+    guess = found.guess
     if guess is None or (guess.score < understanding.GUESS_AT
                          and not understanding.unsure_ok(found.text, record.get("unclear"))):
         return found

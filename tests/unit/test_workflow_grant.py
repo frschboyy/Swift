@@ -5,7 +5,6 @@ from __future__ import annotations
 from test_system_phase_a2 import _host_and_scope
 
 from swift.workflows.scope import Grant, with_system
-from swift.workflows.system_tools import system_action
 
 G = Grant("email-draft", frozenset({"draft_email", "find_contact"}), frozenset())
 
@@ -30,9 +29,45 @@ def test_text_a_worker_read_is_not_the_owners_words() -> None:
     assert with_system(G, "reply to Sam's email") is G
 
 
-async def test_the_widened_run_still_refuses_what_the_owner_did_not_name() -> None:
+def _granted(said: str):  # type: ignore[no-untyped-def]
+    host, scope, _, _, asked = _host_and_scope(said)
+    scope.grant = with_system(G, said)
+    host.scopes.append(scope)
+    return host, asked
+
+
+async def test_the_widened_grant_runs_what_was_named_and_refuses_the_rest_through_the_host() -> None:
     said = "mute the sound and draft an email to Sam"
-    assert with_system(G, said).tools >= {"system_action"}  # type: ignore[union-attr]
-    host, scope, _, _, _ = _host_and_scope(said)
-    result = await system_action(host, scope, {"request": "turn off the wifi"})
-    assert not result.ok
+    host, asked = _granted(said)
+    assert (await host.call("system_action", {"request": "mute the sound"})).ok
+    refused = await host.call("system_action", {"request": "turn off the wifi"})
+    assert not refused.ok and not asked  # not named: refused, and no card
+    other = await host.call("desktop_open", {"target": "notepad"})
+    assert not other.ok and "doesn't use desktop_open" in other.text  # another tool stays outside the workflow
+
+
+async def test_no_system_words_means_the_host_refuses_system_action() -> None:
+    host, _ = _granted("draft an email to Sam about turning off the wifi")
+    result = await host.call("system_action", {"request": "turn off the wifi"})
+    assert not result.ok and "doesn't use system_action" in result.text
+
+
+async def test_a_disruptive_named_intent_still_gets_its_card() -> None:
+    host, asked = _granted("turn off the wifi and draft an email to Sam")
+    await host.call("system_action", {"request": "turn off the wifi"})
+    assert asked
+
+
+def test_the_session_makes_the_grant_from_the_transcript_not_the_decision_text() -> None:
+    # _open_scope gets only the record: the decision's text (carried-over words, "undo that", a resumed playbook)
+    # never reaches it. Same workflow, two transcripts.
+    from test_playbooks import World
+
+    w = World()
+    for transcript, widened in (("email my lecturer saying hello", False), ("mute the sound and email my lecturer", True)):
+        match = w.session.library.match(transcript)
+        assert match is not None and match.package.name == "email-draft"
+        record: dict = {"transcript": transcript, "id": "r1"}
+        w.session._open_scope(record, match)
+        assert w.session._scope is not None and w.session._scope.grant is not None
+        assert ("system_action" in w.session._scope.grant.tools) is widened
